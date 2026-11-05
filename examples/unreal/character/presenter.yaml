@@ -1,0 +1,27 @@
+# A fit male presenter from a preset: V-taper body, short black hair with a little grey, light stubble, casual outfit.
+kind: character
+version: 1
+name: Trey
+asset: /Game/Characters/Trey/MH_Trey
+from: {preset: Jorge}
+body:
+  Height: 182
+  Across Shoulder: 46.5
+  Chest: 108
+  Waist: 74
+  Hip: 92
+  Neck: 38.5
+  Bicep: 35.5
+  Fat: -2.8
+  Muscularity: 1.6
+  Masculine/Feminine: -1.6
+skin: {u: 0.62, v: 0.48, roughness: 1.02, texture_resolution: 4k}
+eyes:
+  both: {iris: {pattern: Iris004, primary_color_u: 0.15, primary_color_v: 0.35}}
+grooms:
+  Hair: {item: WI_Hair_S_BuzzCut, melanin: 0.95, redness: 0.05, params: {Whiteness: 0.08}}
+  Beard: {item: WI_Beard_S_Stubble, melanin: 0.9}
+  Mustache: none
+outfit: {item: WI_Outfit_Casual}
+rig: full
+build: {name: Trey, pipeline: cinematic}

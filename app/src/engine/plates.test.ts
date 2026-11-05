@@ -1,6 +1,6 @@
 import { expect, spyOn, test } from 'bun:test';
 import * as THREE from 'three';
-import { LRU, Plate, plateIndex, type PlateKind } from './plates';
+import { LRU, Plate, plateFor, plateIndex, type PlateKind } from './plates';
 import { Track } from './track';
 
 // Expected values are hand-derived: film frame n is t = n / 30, a plate's file index is n - f0, and a track holds one
@@ -221,4 +221,14 @@ test('Track.at: holds the first and last samples outside the track, and rejects 
   expect(() => tr.at('nope', at(40))).toThrow('nope');
   expect(tr.f0).toBe(40);
   expect(tr.frames).toBe(4);
+});
+
+test('plateFor: ?plates swaps a shot\'s plate for a named variant, other shots keep theirs', () => {
+  expect(plateFor('standoff', '')).toBe('standoff');
+  expect(plateFor('standoff', '?export=1&film=rain-ferry')).toBe('standoff');
+  expect(plateFor('standoff', '?export=1&plates=standoff:standoff_vroid')).toBe('standoff_vroid');
+  expect(plateFor('freeze', '?plates=standoff:standoff_vroid,freeze:freeze2')).toBe('freeze2');
+  expect(plateFor('freeze', '?plates=standoff:standoff_vroid')).toBe('freeze');
+  expect(() => plateFor('standoff', '?plates=standoff')).toThrow('?plates takes');
+  expect(() => plateFor('standoff', '?plates=standoff:../x')).toThrow('?plates takes');
 });

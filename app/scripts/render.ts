@@ -15,6 +15,8 @@
 //            is renamed to --out, `<out>.progress` reads "FAILED: <reason>", and `<out>.partial` plays up to the failure.
 //   --proxies (all modes): a plate frame whose EXR is missing composites its 960x540 proxy (a draft, warned once);
 //            without it the missing EXR fails the export.
+//   --plates SHOT:PLATE[,...] (all modes): a PlateShot composites out/<film>/plates/PLATE/ instead of its own SHOT's,
+//            the film unchanged (a variant's plates: --plates standoff:standoff_vroid). Name the output with --out.
 //   --only ID (sheet, perf, video) with ONE scene id and neither --from nor --to: exactly the frames that scene owns,
 //            frame f being the scene's when f/fps falls in its window [start, end). The sheet's first and last stills
 //            are then its first and last frames, saved to out/<film>/sheets/sheet_<id>.png by default. With several ids, or --from/--to given, the window is as given.
@@ -41,7 +43,8 @@
 //            sent (frames as --from/--to count them: at --fps from 0). The export must fail: exit 1, "FAILED: the WebGL
 //            context was lost…" in <out>.progress, <out>.partial left, nothing at --out.
 //   --headed (all modes): show the browser.
-// Uses the Vite dev server at --url (default http://localhost:5173); starts a private one if unreachable.
+// Uses the Vite dev server at --url (default http://localhost:5173); starts a private one if unreachable, or always with
+// --fresh (a server already at that port may be another checkout's: two sessions on one host).
 import type { Page } from 'playwright-core';
 import { existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
@@ -82,12 +85,17 @@ async function reachable(url: string) {
 
 async function ensureServer(): Promise<{ url: string; stop: () => void }> {
   const url = opt('url', 'http://localhost:5173')!;
-  if (await reachable(url)) return { url, stop: () => {} };
+  if (!flag('fresh') && await reachable(url)) return { url, stop: () => {} };
   const port = 5300 + Math.floor(Math.random() * 500);
   // no live reload: a file saved mid-render must not reload the page
-  const proc = Bun.spawn(['bunx', 'vite', '--port', String(port), '--strictPort'], { cwd: APP, stdout: 'ignore', stderr: 'ignore', env: { ...process.env, FILM_NO_HMR: '1' } });
-  const u = `http://localhost:${port}`;
-  for (let i = 0; i < 100 && !(await reachable(u)); i++) await Bun.sleep(100);
+  // Vite under node where there is one (an old bun cannot run Vite 8), else bunx; on 127.0.0.1, where `localhost` may
+  // resolve to ::1 for the server and to 127.0.0.1 for fetch
+  const vite = Bun.which('node') ? ['node', path.join(APP, 'node_modules/vite/bin/vite.js')] : ['bunx', 'vite'];
+  const proc = Bun.spawn([...vite, '--host', '127.0.0.1', '--port', String(port), '--strictPort'], { cwd: APP, stdout: 'ignore', stderr: 'ignore', env: { ...process.env, FILM_NO_HMR: '1' } });
+  const u = `http://127.0.0.1:${port}`;
+  // a cold start on a small host takes a while (16 s on a fleet container)
+  for (let i = 0; i < 600 && !(await reachable(u)); i++) await Bun.sleep(100);
+  if (!(await reachable(u))) throw new Error(`the dev server did not come up at ${u} (${vite.join(' ')})`);
   return { url: u, stop: () => proc.kill() };
 }
 
@@ -104,7 +112,9 @@ async function openPage(url: string) {
     const only = opt('only'), module = opt('module');
     if (module && !/^[\w-]+$/.test(module)) throw new Error(`--module takes a scene file name (films/<film>/scenes/<name>.ts), got '${module}'`);
     const sel = (module ? `&module=${module}` : only ? `&only=${only}` : '') + (TRANSITION && !module ? `&transition=${TRANSITION}` : '');
-    await page.goto(`${url}/?export=1&film=${FILM}${sel}${SCALE !== 1 ? `&scale=${SCALE}` : ''}${flag('proxies') ? '&proxies=1' : ''}`);
+    const plates = opt('plates');
+    if (plates !== undefined && !/^[\w-]+:[\w-]+(,[\w-]+:[\w-]+)*$/.test(plates)) throw new Error(`--plates takes <shot>:<plate>[,...], got '${plates}'`);
+    await page.goto(`${url}/?export=1&film=${FILM}${sel}${SCALE !== 1 ? `&scale=${SCALE}` : ''}${flag('proxies') ? '&proxies=1' : ''}${plates ? `&plates=${plates}` : ''}`);
     await page.waitForFunction(() => (window as any).__film?.ready || (window as any).__film?.error, null, { timeout: 120000 });
     const err = await page.evaluate(() => (window as any).__film.error);
     if (err) throw new Error(`app failed to boot:\n${err}\n${logs.join('\n')}`);

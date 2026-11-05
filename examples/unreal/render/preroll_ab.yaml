@@ -1,0 +1,26 @@
+# Does the pre-roll give a mid-shot chunk the same cloth as a full-shot render? Render the shot twice, then compare.
+# Replace the sequence, the shot's camera label and the frames with your own (here: a cut on Cam_Shot15 that starts
+# at frame 1080; the chunk starts 56 frames in, as a resumed or split render would).
+#
+#   film-ue apply examples/unreal/render/preroll_ab.yaml
+#   film-ue op render.compare a=/srv/ue/renders/ab/full b=/srv/ue/renders/ab/chunk 'frames=[1136,1160]' \
+#       sheet=/srv/ue/renders/ab/worst.png
+#
+# Pass: SSIM >= 0.98 on every compared frame (docs/linux/engine.md P6 measured 0.994 mean for a full-shot render
+# against Windows; the cold mid-shot start that motivated the pre-roll scored 0.96 with the overshirt hanging open).
+kind: render
+version: 1
+name: ab_full
+sequence: /Game/Film/SEQ_Main
+out_dir: /srv/ue/renders/ab/full
+preset: final
+shots: [Cam_Shot15]
+---
+kind: render
+version: 1
+name: ab_chunk
+sequence: /Game/Film/SEQ_Main
+out_dir: /srv/ue/renders/ab/chunk
+preset: final
+frames: [1136, 1160]
+preroll: cut

@@ -1,0 +1,63 @@
+== maps
+    475304 Content\Studio\Studio.umap
+    336768 Content\Studio\Studio_v1.umap
+== Speech
+   3855524 Content\Speech\Perf_line1_conf.uasset
+   6318419 Content\Speech\Perf_reel_her.uasset
+   7897169 Content\Speech\Perf_reel_him.uasset
+    371968 Content\Speech\Perf_reel_L2.uasset
+    256201 Content\Speech\Perf_reel_L3a.uasset
+    434933 Content\Speech\Perf_reel_L4a.uasset
+    613858 Content\Speech\Perf_reel_L4b.uasset
+   5059701 Content\Speech\Anim\AS_line1_body.uasset
+   9274826 Content\Speech\Anim\AS_line1_bodyidle.uasset
+   3074812 Content\Speech\Anim\AS_line1_conf.uasset
+   5160533 Content\Speech\Anim\AS_line1_gaze.uasset
+   3834290 Content\Speech\Anim\AS_reel_her.uasset
+   4382250 Content\Speech\Anim\AS_reel_him.uasset
+    656094 Content\Speech\Anim\AS_reel_L2.uasset
+    576661 Content\Speech\Anim\AS_reel_L3a.uasset
+    696458 Content\Speech\Anim\AS_reel_L4a.uasset
+    826820 Content\Speech\Anim\AS_reel_L4b.uasset
+     76864 Content\Speech\Audio\L2.uasset
+     43937 Content\Speech\Audio\L3a.uasset
+     68573 Content\Speech\Audio\L4a.uasset
+     93740 Content\Speech\Audio\L4b.uasset
+    685108 Content\Speech\Audio\line1.uasset
+    818652 Content\Speech\Audio\stem_her.uasset
+    966846 Content\Speech\Audio\stem_him.uasset
+== Host (dirs + largest)
+Anim
+Host_Outfit
+Presenter_Outfit
+Presenter_Overshirt
+Unpacked
+ 268443258 Content\Host\Unpacked\Presenter\Face\Baked\T_Head_SRMF_VT.uasset
+ 268443240 Content\Host\Unpacked\Presenter\Body\Baked\T_Body_SRMF_VT.uasset
+ 268441977 Content\Host\Unpacked\Presenter\Face\Baked\T_Head_N_VT.uasset
+ 268441705 Content\Host\Unpacked\Presenter\Body\Baked\T_Body_N_VT.uasset
+ 150729988 Content\Host\Presenter_F.uasset
+ 150713056 Content\Host\Presenter_F_v1.uasset
+ 144283683 Content\Host\Host.uasset
+ 128576822 Content\Host\Host_Trey_v1.uasset
+ 128395042 Content\Host\Host_Trey.uasset
+ 119338074 Content\Host\Unpacked\Host\Face\SKM_Host_FaceMesh.uasset
+ 102591645 Content\Host\Unpacked\Host\Face\SKM_Host_Trey_FaceMesh.uasset
+ 102520897 Content\Host\Unpacked\Presenter\Face\SKM_Presenter_F_FaceMesh.uasset
+== Saved\Import
+her_outfit
+his_outfit
+host-studio
+overshirt
+reel
+    249842 Saved\Import\reel\L1.wav
+    173916 Saved\Import\reel\L2.wav
+    915884 Saved\Import\reel\L3.wav
+    120416 Saved\Import\reel\L3a.wav
+    377324 Saved\Import\reel\L3b.wav
+    200664 Saved\Import\reel\L4a.wav
+    282288 Saved\Import\reel\L4b.wav
+   2880044 Saved\Import\reel\stem_her.wav
+== EditorStartupMap / last level
+[EditorStartup]
+

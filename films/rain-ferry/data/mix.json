@@ -1,0 +1,79 @@
+{
+  "target_lufs": -16,
+  "true_peak": -1,
+  "dialogue": { "gain_db": 0, "room_db": -26 },
+  "music": {
+    "gain_db": -6,
+    "duck_db": 7,
+    "keys": [
+      [0, -30], [2.5, 0], [33, 0], [36, 4], [58.6, 4], [60.4, -60], [76.1, -60], [77.6, 0], [79.5, 8], [93.5, 8],
+      [96, 2], [111, 2], [113, 6], [117.6, 6], [119.6, -40]
+    ]
+  },
+  "beds": [
+    {
+      "sound": "rain_bed",
+      "from": 0,
+      "to": 100.2,
+      "gain_db": -8,
+      "duck_db": 3,
+      "keys": [
+        [0, -40], [1.8, 0], [68.1, 0], [68.7, -9], [73.05, -9], [73.1, 2], [75.15, 2], [75.2, -60], [76.1, -60],
+        [77.5, 0], [94.6, 0], [97.5, -6], [99.8, -40]
+      ],
+      "lowpass": [[68.1, 20000], [68.7, 700], [73.05, 700], [73.1, 20000]]
+    },
+    {
+      "sound": "water_lap",
+      "from": 94.6,
+      "to": 119.6,
+      "gain_db": -16,
+      "keys": [[94.6, -40], [96.5, 0], [117.5, 0], [119.6, -40]]
+    },
+    {
+      "sound": "morning",
+      "from": 98.0,
+      "to": 119.6,
+      "gain_db": -15,
+      "keys": [[98.0, -40], [101.5, 0], [116.5, 0], [119.6, -40]]
+    }
+  ],
+  "cues": [
+    { "sound": "thunder", "at": 3.55, "gain_db": -5, "pan": 0.25, "lowpass": 3500 },
+    { "sound": "crow_caw", "at": 8.15, "gain_db": -4, "pan": -0.3 },
+    { "sound": "wings", "at": 9.1, "gain_db": -5, "pan": -0.15 },
+    { "sound": "step_puddle", "at": 10.2, "gain_db": -6 },
+    { "sound": "steps_mud", "at": 12.7, "gain_db": -13 },
+    { "sound": "steps_mud", "at": 15.4, "gain_db": -12 },
+    { "sound": "synth:taiko", "at": 18.0, "gain_db": -7, "args": { "f0": 58, "decay": 1.8 }, "reverb_db": -14 },
+    { "sound": "wind_gust", "at": 23.0, "gain_db": -14, "pan": 0.4 },
+    { "sound": "steps_wood", "at": 27.5, "gain_db": -13, "pan": -0.2 },
+    { "sound": "steps_wood", "at": 29.9, "gain_db": -12, "pan": -0.1 },
+    { "sound": "wind_gust", "at": 37.5, "gain_db": -15, "pan": -0.4 },
+    { "sound": "pipe_tap", "at": 42.05, "gain_db": -8, "pan": 0.2 },
+    { "sound": "sword_draw", "at": 51.95, "gain_db": -3, "reverb_db": -16 },
+    { "sound": "pole_plant", "at": 57.2, "gain_db": -6, "reverb_db": -18 },
+    { "sound": "wind_gust", "at": 61.2, "gain_db": -12, "pan": 0.3 },
+    { "sound": "thunder", "at": 61.8, "gain_db": -6, "pan": 0.15, "lowpass": 6000 },
+    { "sound": "heartbeat", "at": 64.25, "gain_db": -5 },
+    { "sound": "heartbeat", "at": 66.25, "gain_db": -4 },
+    { "sound": "bell", "at": 68.2, "gain_db": -8, "reverb_db": -10 },
+    { "sound": "synth:ring", "at": 68.4, "gain_db": -26, "args": { "f": 2900, "dur": 4.6 } },
+    { "sound": "synth:riser", "at": 73.1, "gain_db": -14, "args": { "dur": 2.0 } },
+    { "sound": "step_puddle", "at": 73.35, "gain_db": -9, "pan": -0.1 },
+    { "sound": "step_puddle", "at": 73.85, "gain_db": -9, "pan": 0.1 },
+    { "sound": "step_puddle", "at": 74.35, "gain_db": -8 },
+    { "sound": "whoosh", "at": 74.95, "gain_db": -4 },
+    { "sound": "clash", "at": 75.1, "gain_db": -1, "reverb_db": -9 },
+    { "sound": "synth:taiko", "at": 75.1, "gain_db": -2, "args": { "f0": 48, "decay": 2.4, "crack": 1.4 } },
+    { "sound": "synth:subdrop", "at": 75.1, "gain_db": -4 },
+    { "sound": "blade_thunk", "at": 77.3, "gain_db": -3, "reverb_db": -16 },
+    { "sound": "kneel", "at": 83.8, "gain_db": -7 },
+    { "sound": "steps_wood", "at": 85.5, "gain_db": -16, "pan": 0.2 },
+    { "sound": "steps_wood", "at": 88.0, "gain_db": -17, "pan": 0.3 },
+    { "sound": "boat_creak", "at": 95.3, "gain_db": -10, "pan": 0.2 },
+    { "sound": "crow_caw", "at": 102.2, "gain_db": -18, "pan": 0.5, "lowpass": 4000, "reverb_db": -8 },
+    { "sound": "synth:taiko", "at": 114.85, "gain_db": -6, "args": { "f0": 52, "decay": 2.2 }, "reverb_db": -12 },
+    { "sound": "bell", "at": 114.85, "gain_db": -14, "reverb_db": -10 }
+  ]
+}

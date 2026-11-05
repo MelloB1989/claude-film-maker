@@ -1,0 +1,18 @@
+# The demo's names and paths (every stage file includes this). Change them here or with --set name=value.
+kind: vars
+vars:
+  root: /Game/_Demo
+  level: /Game/_Demo/L_Demo
+  mh: /Game/_Demo/MH
+  character: /Game/_Demo/MH/Demo_Host            # the MetaHuman Character asset (mh.from_preset)
+  preset: Trey                                   # a MetaHuman Creator preset (film-ue mh presets)
+  host: Host                                     # the built Blueprint is BP_Host; its actor label in the level
+  host_bp: /Game/_Demo/MH/Unpacked/Host/BP_Host  # where mh.build puts it (<folder>/Unpacked/<name>/BP_<name>): CHECK after stage 1
+  face_mesh: /Game/_Demo/MH/Unpacked/Host/Face/SKM_Demo_Host_FaceMesh   # the built face mesh: CHECK after stage 1
+  speech: /Game/_Demo/Speech
+  voice_wav: /srv/film/demo/demo_line.wav        # a 3-5 s spoken line ON THE BOX (film-ue push it there)
+  voice_sound: /Game/_Demo/Speech/Audio/demo_line
+  face_anim: /Game/_Demo/Speech/Anim/AS_demo_line
+  idle: /MetaHumanCharacter/Optional/Animation/TemplateAnimations/Technical_Loops/Idle/mhc_mh001_fmn_b_idle
+  seq: /Game/_Demo/SEQ_Demo
+  out: /srv/film/demo/out                        # renders, QA and stills on the box

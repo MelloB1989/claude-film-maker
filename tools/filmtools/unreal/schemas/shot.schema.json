@@ -1,0 +1,540 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "title": "shot",
+ "description": "A shot list shot into a level sequence: each shot's camera (framed by the solver, taken from the scene's coverage, or placed), its moves, lens and focus, and the camera cuts. Converges (shot.apply): the same spec again changes nothing.",
+ "type": "object",
+ "required": [
+  "kind",
+  "name",
+  "sequence"
+ ],
+ "additionalProperties": false,
+ "anyOf": [
+  {
+   "required": [
+    "shots"
+   ]
+  },
+  {
+   "required": [
+    "auto"
+   ]
+  }
+ ],
+ "properties": {
+  "kind": {
+   "const": "shot"
+  },
+  "version": {
+   "type": "integer",
+   "const": 1
+  },
+  "name": {
+   "type": "string",
+   "minLength": 1,
+   "description": "the scene's name"
+  },
+  "description": {
+   "type": "string"
+  },
+  "sequence": {
+   "type": "string",
+   "pattern": "^/",
+   "description": "the level sequence package path (made if missing): /Game/Films/<id>/Seq_<scene>"
+  },
+  "level": {
+   "type": "string",
+   "description": "the level it plays in (informational)"
+  },
+  "fps": {
+   "type": "number",
+   "description": "the sequence's frame rate (default 24)"
+  },
+  "start_frame": {
+   "type": "integer",
+   "description": "where the first shot starts when it has no start (default 0)"
+  },
+  "end_frame": {
+   "type": "integer",
+   "description": "where the last shot ends when it has no end"
+  },
+  "lines": {
+   "type": "array",
+   "description": "dialogue lines for times like 'L2.start-4f'",
+   "items": {
+    "type": "object",
+    "required": [
+     "id"
+    ],
+    "properties": {
+     "id": {
+      "type": "string"
+     },
+     "speaker": {
+      "type": "string",
+      "description": "a subject name"
+     },
+     "start_s": {
+      "type": "number"
+     },
+     "end_s": {
+      "type": "number"
+     },
+     "start_frame": {
+      "type": "integer"
+     },
+     "end_frame": {
+      "type": "integer"
+     },
+     "duration_s": {
+      "type": "number"
+     },
+     "text": {
+      "type": "string"
+     }
+    }
+   }
+  },
+  "timing": {
+   "type": "object",
+   "description": "WP12's audio timing document (kind audio) inlined: its lines and words give the marks"
+  },
+  "subjects": {
+   "type": "object",
+   "description": "who the shots frame: name -> {actor: label} (skeleton, else bounds) or {points: {landmark: [x,y,z]}, facing}",
+   "additionalProperties": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+     "actor": {
+      "type": "string"
+     },
+     "mode": {
+      "enum": [
+       "auto",
+       "bones",
+       "bounds"
+      ]
+     },
+     "facing": {
+      "type": "array",
+      "items": {
+       "type": "number"
+      },
+      "minItems": 3,
+      "maxItems": 3
+     },
+     "top_z": {
+      "type": "number",
+      "description": "the crown's height cm when hair or a hat raise it"
+     },
+     "points": {
+      "type": "object"
+     }
+    }
+   }
+  },
+  "defaults": {
+   "type": "object",
+   "additionalProperties": false,
+   "properties": {
+    "focal_mm": {
+     "type": "number"
+    },
+    "aperture": {
+     "type": "number",
+     "description": "f-stop"
+    },
+    "filmback": {
+     "type": [
+      "string",
+      "array"
+     ],
+     "description": "a preset name or [w, h] mm (default 16:9 Digital Film)"
+    },
+    "camera_prefix": {
+     "type": "string",
+     "description": "camera labels are prefix + shot id (default CAM_)"
+    },
+    "step": {
+     "type": "integer",
+     "description": "frames between baked move keys (default 2)"
+    },
+    "height": {
+     "type": [
+      "number",
+      "string",
+      "object"
+     ],
+     "description": "eye | high | low | slight high | slight low | overhead | worm (elevations seen from the eyes), degrees, shoulder | chest | hip | knee | ground (the lens at that landmark), or {z: cm}"
+    },
+    "side": {
+     "enum": [
+      "left",
+      "right"
+     ]
+    },
+    "noise": {
+     "type": [
+      "string",
+      "object",
+      "null"
+     ],
+     "description": "handheld noise: subtle | handheld | documentary | breathing | shake, or {preset, seed, scale, pos (cm), rot (deg), hz}"
+    },
+    "tail_s": {
+     "type": "number",
+     "description": "seconds the last shot holds after the last line (default 1)"
+    }
+   },
+   "description": "defaults for every shot: lens, filmback, camera label prefix, key step, height, side, noise, tail"
+  },
+  "coverage": {
+   "type": "object",
+   "additionalProperties": false,
+   "description": "how the scene's coverage is planned (for coverage: shots and auto)",
+   "properties": {
+    "side": {
+     "enum": [
+      "left",
+      "right"
+     ],
+     "description": "the side of the line from the first subject to the second, seen from above"
+    },
+    "focal_mm": {
+     "type": "number"
+    },
+    "wide_focal_mm": {
+     "type": "number"
+    },
+    "height": {
+     "type": [
+      "number",
+      "string",
+      "object"
+     ],
+     "description": "eye | high | low | slight high | slight low | overhead | worm (elevations seen from the eyes), degrees, shoulder | chest | hip | knee | ground (the lens at that landmark), or {z: cm}"
+    }
+   }
+  },
+  "auto": {
+   "type": "object",
+   "additionalProperties": false,
+   "description": "cut the dialogue: the master, then each line on its speaker's single, cutting lead_frames early",
+   "properties": {
+    "from_lines": {
+     "type": "boolean"
+    },
+    "lead_frames": {
+     "type": "integer"
+    },
+    "size": {
+     "type": "string",
+     "description": "shot size: ECU CU MCU MS COWBOY MWS WS EWS, or an alias (close-up, medium, wide, full, ...; cam.presets lists them)"
+    }
+   }
+  },
+  "shots": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "required": [
+     "id"
+    ],
+    "additionalProperties": false,
+    "oneOf": [
+     {
+      "required": [
+       "frame"
+      ]
+     },
+     {
+      "required": [
+       "place"
+      ]
+     },
+     {
+      "required": [
+       "coverage"
+      ]
+     }
+    ],
+    "properties": {
+     "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][\\w-]*$"
+     },
+     "start": {
+      "type": [
+       "integer",
+       "string"
+      ],
+      "description": "frames (int), '48f', '2.5s', or a mark: a line or shot id with .start/.end ('L2.start-6f', 'S1.end'), a word 'L1.w3.start'"
+     },
+     "end": {
+      "type": [
+       "integer",
+       "string"
+      ],
+      "description": "frames (int), '48f', '2.5s', or a mark: a line or shot id with .start/.end ('L2.start-6f', 'S1.end'), a word 'L1.w3.start'"
+     },
+     "duration": {
+      "type": [
+       "integer",
+       "string"
+      ],
+      "description": "frames (int), '48f', '2.5s', or a mark: a line or shot id with .start/.end ('L2.start-6f', 'S1.end'), a word 'L1.w3.start'"
+     },
+     "camera": {
+      "type": "string",
+      "description": "the camera label (default prefix + id); two shots may share one"
+     },
+     "frame": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "subjects"
+      ],
+      "description": "frame subjects by shot grammar: the solver places the camera (cam.frame)",
+      "properties": {
+       "subjects": {
+        "type": [
+         "string",
+         "array"
+        ],
+        "items": {
+         "type": "string"
+        },
+        "description": "subject names (shot) or actor labels (camera); several = a two-shot / group"
+       },
+       "size": {
+        "type": "string",
+        "description": "shot size: ECU CU MCU MS COWBOY MWS WS EWS, or an alias (close-up, medium, wide, full, ...; cam.presets lists them)"
+       },
+       "angle": {
+        "type": [
+         "number",
+         "string"
+        ],
+        "description": "degrees around from the first subject's facing toward its `side`, or front | 1/4 | 3/4 | profile | 3/4 back | back"
+       },
+       "side": {
+        "enum": [
+         "left",
+         "right"
+        ],
+        "description": "the subject's own left or right"
+       },
+       "height": {
+        "type": [
+         "number",
+         "string",
+         "object"
+        ],
+        "description": "eye | high | low | slight high | slight low | overhead | worm (elevations seen from the eyes), degrees, shoulder | chest | hip | knee | ground (the lens at that landmark), or {z: cm}"
+       },
+       "focal_mm": {
+        "type": [
+         "number",
+         "null"
+        ],
+        "description": "focal length mm; the distance is solved (null with distance_cm: the focal length is solved)"
+       },
+       "distance_cm": {
+        "type": "number",
+        "description": "horizontal distance eyes to lens, cm; with focal_mm null/absent the focal length is solved"
+       },
+       "place": {
+        "type": [
+         "number",
+         "string"
+        ],
+        "description": "where the eyes sit across the frame: auto | center | left third | right third | u 0..1"
+       },
+       "headroom": {
+        "type": "number",
+        "description": "v (0 top..1 bottom) of the head's top; default per size"
+       },
+       "dutch_deg": {
+        "type": "number",
+        "description": "roll, degrees"
+       },
+       "snap_focal": {
+        "type": "boolean",
+        "description": "round a solved focal length to a standard prime and re-solve the distance"
+       },
+       "lead": {
+        "type": "number",
+        "description": "the third's position for thirds placement (default 1/3)"
+       },
+       "margin": {
+        "type": "number",
+        "description": "side margin a group must fit inside (fraction of width, default 0.06)"
+       }
+      }
+     },
+     "place": {
+      "type": "object",
+      "required": [
+       "loc"
+      ],
+      "additionalProperties": false,
+      "properties": {
+       "loc": {
+        "type": "array",
+        "items": {
+         "type": "number"
+        },
+        "minItems": 3,
+        "maxItems": 3
+       },
+       "look_at": {
+        "type": "array",
+        "items": {
+         "type": "number"
+        },
+        "minItems": 3,
+        "maxItems": 3
+       },
+       "rot": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+         "pitch": {
+          "type": "number"
+         },
+         "yaw": {
+          "type": "number"
+         },
+         "roll": {
+          "type": "number"
+         }
+        }
+       },
+       "roll": {
+        "type": "number"
+       },
+       "focal_mm": {
+        "type": "number"
+       }
+      }
+     },
+     "coverage": {
+      "type": "string",
+      "description": "a coverage shot: master, two_shot, <subject>_MS/_MCU/_CU/_OTS"
+     },
+     "moves": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "required": [
+        "move"
+       ],
+       "description": "a camera move (docs/unreal/camera.md): dolly push_in pull_out truck pedestal crane orbit arc pan tilt roll zoom dolly_zoom whip rack follow hold, with its args (distance cm, fraction, degrees, rise cm, reach cm, swing deg, focal mm, to cm, radius cm) and frames | from/to, ease",
+       "properties": {
+        "move": {
+         "enum": [
+          "hold",
+          "follow",
+          "dolly",
+          "push_in",
+          "pull_out",
+          "truck",
+          "pedestal",
+          "boom_up",
+          "boom_down",
+          "crane",
+          "jib",
+          "boom",
+          "orbit",
+          "arc",
+          "pan",
+          "tilt",
+          "roll",
+          "zoom",
+          "dolly_zoom",
+          "vertigo",
+          "zolly",
+          "whip",
+          "rack"
+         ]
+        },
+        "frames": {
+         "type": "integer",
+         "description": "length in frames (default the whole shot when it is the only move, else 48)"
+        },
+        "from": {
+         "type": "integer"
+        },
+        "to": {
+         "type": [
+          "integer",
+          "number",
+          "array"
+         ]
+        },
+        "ease": {
+         "enum": [
+          "linear",
+          "in",
+          "out",
+          "in_out",
+          "sine",
+          "smooth",
+          "expo"
+         ]
+        }
+       }
+      }
+     },
+     "noise": {
+      "type": [
+       "string",
+       "object",
+       "null"
+      ],
+      "description": "handheld noise: subtle | handheld | documentary | breathing | shake, or {preset, seed, scale, pos (cm), rot (deg), hz}"
+     },
+     "focus": {
+      "description": "a subject name (follow-focus on its eyes), [x,y,z], {distance_cm}, or off/manual"
+     },
+     "aperture": {
+      "type": "number"
+     },
+     "step": {
+      "type": "integer"
+     },
+     "note": {
+      "type": "string"
+     }
+    }
+   },
+   "description": "the shots in order: each one frame (the solver), coverage (a coverage shot) or place (explicit), with times, moves, focus"
+  }
+ },
+ "$defs": {
+  "vec3": {
+   "type": "array",
+   "items": {
+    "type": "number"
+   },
+   "minItems": 3,
+   "maxItems": 3
+  },
+  "rot": {
+   "type": "object",
+   "additionalProperties": false,
+   "properties": {
+    "pitch": {
+     "type": "number"
+    },
+    "yaw": {
+     "type": "number"
+    },
+    "roll": {
+     "type": "number"
+    }
+   }
+  }
+ }
+}

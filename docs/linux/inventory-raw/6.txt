@@ -1,0 +1,101 @@
+== RigLogicEditor references
+Plugins\Animation\RigLogic\Source\RigLogicDeveloper\RigLogicDeveloper.Build.cs:37: PrivateIncludePathModuleNames.Add("RigLogicEditor");
+Plugins\Animation\RigLogic\Source\RigLogicDeveloper\RigLogicDeveloper.Build.cs:38: DynamicallyLoadedModuleNames.Add("RigLogicEditor");
+Plugins\Animation\RigLogic\Source\RigLogicEditor\RigLogicEditor.Build.cs:5: public class RigLogicEditor : ModuleRules
+Plugins\Animation\RigLogic\Source\RigLogicEditor\RigLogicEditor.Build.cs:7: public RigLogicEditor(ReadOnlyTargetRules Target) : base(Target)
+Plugins\Animation\RigLogic\RigLogic.uplugin:41: "Name": "RigLogicEditor",
+== MetaHuman.uplugin Speech2Face/AudioDriven
+			"Name": "MetaHumanSpeech2Face",
+			"Type": "Editor",
+			"LoadingPhase": "Default"
+		},
+		{
+== Speech2Face Build.cs
+// Copyright Epic Games, Inc. All Rights Reserved.
+
+using UnrealBuildTool;
+
+public class MetaHumanSpeech2Face : ModuleRules
+{
+	public MetaHumanSpeech2Face(ReadOnlyTargetRules Target) : base(Target)
+	{
+        PublicDependencyModuleNames.AddRange(new string[]
+		{
+            "Core",
+            "ControlRig"
+        });
+
+		PrivateDependencyModuleNames.AddRange(new string[]
+		{
+			"CoreUObject",
+			"Engine",
+            "Json",
+            "JsonUtilities",
+            "NNE",
+			"AudioPlatformConfiguration",
+			"Projects",
+			"Slate",
+			"SlateCore",
+			"MovieScene",
+			"MovieSceneTracks",
+			"LevelSequence",
+			"AssetRegistry",
+			"MetaHumanCore",
+			"SignalProcessing",
+			"MetaHumanCoreTech",
+			"SpeechAnimationSolver",
+		});
+
+		if (Target.bBuildEditor == true)
+		{
+			PrivateDependencyModuleNames.AddRange(new string[]
+			{
+				"ToolMenus",
+				"ContentBrowser",
+				"UnrealEd"
+			});
+		}
+	}
+}
+== uplugins naming Speech2Face/AudioDriven
+Plugins\MetaHuman\MetaHumanAnimator\MetaHuman.uplugin:109: "Name": "MetaHumanSpeech2Face",
+== NNERuntimeORT
+C:\Program Files\Epic Games\UE_5.8\Engine\Plugins\NNE\NNERuntimeORT\NNERuntimeORT.uplugin
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "NNERuntimeORT",
+	"Description": "ONNX Runtime backed runtime for the Neural Network Engine (NNE), accelerated by the CPU and DirectML execution providers.",
+	"Category": "ML",
+	"CreatedBy": "Epic Games, Inc.",
+	"CreatedByURL": "https://epicgames.com",
+	"DocsURL": "https://dev.epicgames.com/community/learning/courses/e7w/unreal-engine-neural-network-engine-nne",
+	"MarketplaceURL": "",
+	"SupportURL": "https://forums.unrealengine.com/t/course-neural-network-engine-nne/1162628",
+	"EnabledByDefault": false,
+	"CanContainContent": false,
+	"IsBetaVersion": true,
+	"IsExperimentalVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "NNERuntimeORT",
+			"Type": "RuntimeAndProgram",
+			"LoadingPhase": "PreDefault",
+			"PlatformAllowList": [ "Win64", "Linux", "LinuxArm64", "Mac" ]
+		}
+	]
+}
+ThirdParty dirs:
+Binaries\ThirdParty\Onnxruntime
+Binaries\ThirdParty\Onnxruntime\Linux
+Binaries\ThirdParty\Onnxruntime\Win64
+Source\ThirdParty\Onnxruntime
+Source\ThirdParty\Onnxruntime\Internal
+Build.cs files with Linux:
+Source\ThirdParty\Onnxruntime\NNEOnnxruntime.build.cs:24: SharedLibFileName = "onnxruntime.dll";
+Source\ThirdParty\Onnxruntime\NNEOnnxruntime.build.cs:30: else if (Target.Platform == UnrealTargetPlatform.Linux || Target.Platform == UnrealTargetPlatform.LinuxArm64)
+Source\ThirdParty\Onnxruntime\NNEOnnxruntime.build.cs:35: SharedLibFileName = "libonnxruntime.so.1.24";
+Source\ThirdParty\Onnxruntime\NNEOnnxruntime.build.cs:36: string SharedLibFileNameWithoutVersion = "libonnxruntime.so";
+

@@ -1,0 +1,8 @@
+# The temporary GPU box's watchdog (ue_watchdog.py): time to live, idle power-off, a stalled editor restarted.
+# Run every minute by ue-watchdog.timer; settings in /etc/film-ue/watchdog.json (film-ue box up / box extend).
+[Unit]
+Description=film-ue watchdog (ttl, idle, editor stall)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/local/lib/film-ue/ue_watchdog.py

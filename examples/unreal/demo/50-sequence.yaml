@@ -1,0 +1,41 @@
+# Stage 5 (WP8 + WP12): 7 s at 24 fps. The body idles throughout; the face speaks from 2 s (frame 48); the voice on
+# an audio track at the same frame.
+kind: include
+files: [vars.yaml]
+---
+kind: op
+version: 1
+order: 50
+name: sequence
+op: seq.new
+args: {path: "${seq}", start: 0, end: 168, fps: 24}
+---
+kind: op
+version: 1
+order: 55
+name: body-idle
+op: seq.anim
+args: {path: "${seq}", label: "${host}", component: Body, sections: [{anim: "${idle}", start: 0, end: 168}]}
+---
+kind: op
+version: 1
+order: 55
+name: face-line
+op: seq.anim
+args: {path: "${seq}", label: "${host}", component: Face, sections: [{anim: "${face_anim}", start: 48, blend_in: 6, blend_out: 6}]}
+---
+kind: op
+version: 1
+order: 55
+name: face-driven
+op: mh.drive_face
+args: {label: "${host}", component: Face}
+---
+kind: audio
+version: 1
+name: demo-audio
+sequence: "${seq}"
+tracks:
+  - name: VO
+    clips:
+      - {sound: "${voice_sound}", start_frame: 48}

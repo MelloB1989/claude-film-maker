@@ -1,0 +1,54 @@
+# A presenter's opening: two spoken lines to camera with a glance at the guest, a listening beat, then a walk to the
+# desk. Apply:  film-ue apply examples/unreal/performance/presenter_intro.yaml   (WAVs pushed to the box first)
+kind: performance
+version: 1
+name: presenter_intro
+sequence: /Game/_Examples/Perf/Seq_PresenterIntro
+actor: Presenter
+camera: CAM_A
+targets:
+  guest: "Guest:Face:FACIAL_L_Eye"      # her left eye: the presenter looks the guest in the eye
+  desk: [320, 140, 0]
+character:
+  lead: eyes                            # eyes jump first, the head follows (lead: head for a deliberate turn)
+  head: {gain: 1.1, rest_roll_deg: 1.5, micro_deg: 0.5}
+  energy: 1.0
+library:
+  idle:
+    - /MetaHumanCharacter/Optional/Animation/TemplateAnimations/Technical_Loops/Idle/mhc_mh001_fmn_b_idle
+    - /MetaHumanCharacter/Optional/Animation/UEFNAnimPreset/Locomotion/AS_MH_Neutral_Stand_Idle_Loop
+  walk: {anim: /MetaHumanCharacter/Optional/Animation/UEFNAnimPreset/Locomotion/AS_MH_Neutral_Walk_Loop_F, speed_cm_s: 145}
+face:
+  solver_head: soften
+  blink_mode: replace
+  mouth_mix: 0.5
+lines:
+  - id: l1
+    audio: /home/ue/Audio/presenter_intro_l1.wav
+    text: "Good evening, and welcome to the show."
+    mood: warm
+    gaze:
+      - {at_s: 0.0, target: camera}
+    expressions:
+      - {preset: smile, at_s: 1.6, duration_s: 1.5, intensity: 0.55, asym: 0.2}
+    nods:
+      - {at_s: 2.2, kind: nod, depth_deg: 3}
+  - id: l2
+    audio: /home/ue/Audio/presenter_intro_l2.wav
+    text: "Tonight my guest has crossed an ocean on a ferry made of rain."
+    mood: excited
+    emphasis: auto
+    gaze:
+      - {at_s: 0.0, target: camera}
+      - {at_s: 1.8, target: guest, scan: face}
+      - {at_s: 3.4, target: camera}
+  - id: listen
+    duration_s: 2.0
+    listen: true
+    mood: warm
+    gaze:
+      - {at_s: 0.0, target: guest, scan: face}
+    tilts:
+      - {at_s: 0.3, until_s: 1.8, roll_deg: 5}
+actions:
+  - {at_s: 12.0, walk_to: desk, speed_cm_s: 120, end_facing: camera}

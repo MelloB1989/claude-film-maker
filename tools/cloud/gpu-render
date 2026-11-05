@@ -1,0 +1,462 @@
+#!/usr/bin/env python3
+"""gpu-render: render a film's Blender plates on several EC2 GPU boxes (NVIDIA L40S) that stop themselves.
+
+    tools/cloud/gpu-render setup            once: S3 bucket, the boxes' IAM role, a no-inbound security group, Blender
+                                            and the VRM add-on in S3
+    tools/cloud/gpu-render image            once (and after a Blender change): build the boxes' machine image
+    tools/cloud/gpu-render render [--film F] [--only a,b | --all] [--gpus N] [--spot] [--max-hours H] [--wait] [--yes]
+    tools/cloud/gpu-render status [RUN]     the run's boxes and how many scenes are done
+    tools/cloud/gpu-render pull             copy every plate in S3 into out/<film>/plates (stamps included)
+    tools/cloud/gpu-render stop [RUN]       terminate the run's boxes now
+    tools/cloud/gpu-render clean            delete the plates and run files from S3 (once pulled)
+
+`render` pulls the plates already in S3, asks film-anime-render --dry-run which scenes are stale here, syncs the repo
+to S3 (only what changed), writes the run's queue (longest scene first) and starts --gpus boxes from the image. Each
+box (boot.sh) pulls the repo, takes scenes off the queue until it is empty (two at once), uploads plates as they land,
+then shuts down, which terminates it. Every box also shuts itself down after --max-hours, whatever it is doing, and
+`stop` terminates a run at once. Nothing runs between renders: idle, the cost is S3 (the repo, Blender, the plates of
+the last render) and the image's snapshot, a few dollars a month at most. The boxes take no inbound connections.
+
+Plates carry the same fingerprints as local ones (same code), so after `pull` the local tool sees them as up to date
+and `uv run film-anime-render --film F` here only makes the video.
+
+Settings: ~/.config/gpu-render.env (REGION, BUCKET, TYPES, AZS, BASE_AMI, BLENDER_URL, ADDONS); the image id and runs
+are kept in ~/.config/gpu-render.state.json.
+"""
+from __future__ import annotations
+
+import argparse
+import base64
+import json
+import re
+import subprocess
+import sys
+import tempfile
+import time
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+HERE = Path(__file__).resolve().parent
+CONF = Path.home() / ".config" / "gpu-render.env"
+STATE = Path.home() / ".config" / "gpu-render.state.json"
+
+DEFAULTS = {
+    "REGION": "ap-south-1",
+    "BUCKET": "",  # default: gpu-render-<account>-<region>
+    "TYPES": "g6e.xlarge,g6e.2xlarge",  # tried in order for each box (L40S; xlarge: 4 vCPU, the most GPU per dollar)
+    "AZS": "",  # default: every AZ of the region that offers the first type
+    # AWS's Ubuntu 22.04 image with NVIDIA's driver: the image step adds Blender, the add-ons and uv to it
+    "BASE_AMI_NAME": "Deep Learning Base OSS Nvidia Driver GPU AMI (Ubuntu 22.04)*",
+    "BLENDER_URL": "https://download.blender.org/release/Blender5.2/blender-5.2.2-linux-x64.tar.xz",
+    "ADDONS": "vrm",  # this Mac's Blender extensions/user_default add-ons to carry (comma-separated)
+}
+PRICES = {"g6e.xlarge": 2.235, "g6e.2xlarge": 2.693, "g6e.4xlarge": 3.608}  # on-demand $/h in ap-south-1 (Oct 2026)
+WORKERS = {"g6e.xlarge": 2, "g6e.2xlarge": 2, "g6e.4xlarge": 3}  # scenes rendered at once on a box
+ROLE = "gpu-render-box"
+SG_NAME = "gpu-render"
+EXCLUDES = ["out/*", "*/.venv/*", ".venv/*", "*/node_modules/*", ".git/*", "*__pycache__*", "*.DS_Store", "*.pyc"]
+
+
+# ----------------------------------------------------------------------------------------------------------- helpers
+
+def conf() -> dict:
+    c = dict(DEFAULTS)
+    if CONF.exists():
+        for line in CONF.read_text().splitlines():
+            m = re.match(r"\s*([A-Z_]+)\s*=\s*(.*?)\s*$", line)
+            if m and not line.lstrip().startswith("#"):
+                c[m[1]] = m[2].strip("\"'")
+    c["BUCKET"] = c["BUCKET"] or f"gpu-render-{account()}-{c['REGION']}"
+    return c
+
+
+def aws(*args, region: str | None = None, check: bool = True, raw: bool = False):
+    cmd = ["aws", *args] + (["--region", region] if region else []) + ([] if raw else ["--output", "json"])
+    r = subprocess.run(cmd, capture_output=True, text=True)
+    if check and r.returncode:
+        raise SystemExit(f"aws {' '.join(args[:2])} failed: {r.stderr.strip()[-600:]}")
+    if raw:
+        return r
+    return json.loads(r.stdout) if r.stdout.strip() else {}
+
+
+_ACCOUNT = None
+
+
+def account() -> str:
+    global _ACCOUNT
+    _ACCOUNT = _ACCOUNT or aws("sts", "get-caller-identity")["Account"]
+    return _ACCOUNT
+
+
+def state() -> dict:
+    return json.loads(STATE.read_text()) if STATE.exists() else {"runs": []}
+
+
+def save(s: dict) -> None:
+    STATE.parent.mkdir(parents=True, exist_ok=True)
+    STATE.write_text(json.dumps(s, indent=1))
+
+
+def run_of(name: str | None) -> dict:
+    runs = state()["runs"]
+    if not runs:
+        raise SystemExit("no runs yet")
+    for r in reversed(runs):
+        if name in (None, r["run"]):
+            return r
+    raise SystemExit(f"no run {name!r}")
+
+
+def exists(*args, region: str | None = None) -> bool:
+    return aws(*args, region=region, check=False, raw=True).returncode == 0
+
+
+# ------------------------------------------------------------------------------------------------------------- setup
+
+def cmd_setup(a) -> None:
+    c = conf()
+    region, bucket = c["REGION"], c["BUCKET"]
+    if not exists("s3api", "head-bucket", "--bucket", bucket):
+        args = ["s3api", "create-bucket", "--bucket", bucket]
+        if region != "us-east-1":
+            args += ["--create-bucket-configuration", f"LocationConstraint={region}"]
+        aws(*args, region=region)
+        aws("s3api", "put-public-access-block", "--bucket", bucket, "--public-access-block-configuration",
+            "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true", raw=True)
+        print(f"bucket s3://{bucket} (private)")
+    if not exists("iam", "get-role", "--role-name", ROLE):
+        trust = {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Principal": {"Service": "ec2.amazonaws.com"},
+                                                         "Action": "sts:AssumeRole"}]}
+        aws("iam", "create-role", "--role-name", ROLE, "--assume-role-policy-document", json.dumps(trust),
+            "--description", "gpu-render boxes: their S3 bucket only")
+        aws("iam", "create-instance-profile", "--instance-profile-name", ROLE)
+        aws("iam", "add-role-to-instance-profile", "--instance-profile-name", ROLE, "--role-name", ROLE, raw=True)
+        print(f"role and instance profile {ROLE}")
+    policy = {"Version": "2012-10-17", "Statement": [
+        {"Effect": "Allow", "Action": ["s3:GetObject", "s3:PutObject", "s3:ListBucket", "s3:GetBucketLocation"],
+         "Resource": [f"arn:aws:s3:::{bucket}", f"arn:aws:s3:::{bucket}/*"]}]}
+    aws("iam", "put-role-policy", "--role-name", ROLE, "--policy-name", "gpu-render", "--policy-document",
+        json.dumps(policy), raw=True)
+    vpc = aws("ec2", "describe-vpcs", "--filters", "Name=isDefault,Values=true", region=region)["Vpcs"][0]["VpcId"]
+    sgs = aws("ec2", "describe-security-groups", "--filters", f"Name=group-name,Values={SG_NAME}", f"Name=vpc-id,Values={vpc}",
+              region=region)["SecurityGroups"]
+    if not sgs:
+        aws("ec2", "create-security-group", "--group-name", SG_NAME, "--vpc-id", vpc,
+            "--description", "gpu-render boxes: no inbound, outbound only", region=region)
+        print(f"security group {SG_NAME} (no inbound)")
+    name = c["BLENDER_URL"].rsplit("/", 1)[1]
+    key = f"cache/blender/{name}"
+    if not exists("s3api", "head-object", "--bucket", bucket, "--key", key):
+        with tempfile.TemporaryDirectory() as d:
+            print(f"Blender {name} -> s3://{bucket}/{key}")
+            subprocess.run(["curl", "-sfL", "-o", f"{d}/{name}", c["BLENDER_URL"]], check=True)
+            aws("s3", "rm", "--recursive", f"s3://{bucket}/cache/blender/", raw=True, check=False)
+            aws("s3", "cp", "--only-show-errors", f"{d}/{name}", f"s3://{bucket}/{key}", raw=True)
+    ext = Path.home() / "Library/Application Support/Blender" / series(name) / "extensions/user_default"
+    for addon in filter(None, c["ADDONS"].split(",")):
+        if not (ext / addon).is_dir():
+            raise SystemExit(f"add-on {addon} not in {ext}: install it in this Mac's Blender first")
+        with tempfile.TemporaryDirectory() as d:
+            subprocess.run(["tar", "-czf", f"{d}/{addon}.tar.gz", "--exclude", "__pycache__", "-C", str(ext), addon], check=True)
+            aws("s3", "cp", "--only-show-errors", f"{d}/{addon}.tar.gz", f"s3://{bucket}/cache/addons/{addon}.tar.gz", raw=True)
+        print(f"add-on {addon} -> s3://{bucket}/cache/addons/")
+    sync_repo(c)
+    print("setup done; next: gpu-render image")
+
+
+def series(tarball: str) -> str:
+    m = re.search(r"blender-(\d+\.\d+)", tarball)
+    return m[1] if m else "5.2"
+
+
+def sync_repo(c: dict) -> None:
+    ex = [x for e in EXCLUDES for x in ("--exclude", e)]
+    aws("s3", "sync", "--only-show-errors", "--delete", str(ROOT), f"s3://{c['BUCKET']}/repo/", *ex, region=c["REGION"], raw=True)
+
+
+# ------------------------------------------------------------------------------------------------------------- image
+
+IMAGE_SCRIPT = r"""#!/bin/bash
+exec > /var/log/gpu-render-image.log 2>&1
+set -x
+export DEBIAN_FRONTEND=noninteractive AWS_DEFAULT_REGION={region}
+apt-get -o DPkg::Lock::Timeout=900 update -qq
+apt-get -o DPkg::Lock::Timeout=900 install -y -qq libxi6 libxkbcommon0 libsm6 libxxf86vm1 libxfixes3 libxrender1 \
+  libgl1 libegl1 unzip
+curl -s https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o /tmp/awscli.zip && unzip -q /tmp/awscli.zip -d /tmp \
+  && /tmp/aws/install --update
+aws s3 cp s3://{bucket}/cache/blender/{blender} - | tar -xJ -C /opt && mv /opt/blender-*-linux-x64 /opt/blender
+mkdir -p /opt/blender-user/extensions/user_default /root/.config/blender
+for t in $(aws s3 ls s3://{bucket}/cache/addons/ | awk '{{print $4}}'); do
+  aws s3 cp s3://{bucket}/cache/addons/$t - | tar -xz -C /opt/blender-user/extensions/user_default
+done
+ln -sfn /opt/blender-user /root/.config/blender/{series}
+curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/opt/uv UV_NO_MODIFY_PATH=1 sh
+aws s3 sync --quiet s3://{bucket}/repo/ /opt/warm/
+(cd /opt/warm/tools && UV_CACHE_DIR=/opt/uv-cache UV_PYTHON_INSTALL_DIR=/opt/uv-python /opt/uv/uv sync -q)
+rm -rf /opt/warm
+ls /usr/share/glvnd/egl_vendor.d/10_nvidia.json
+/opt/blender/blender --version | head -1 && echo IMAGE-READY
+aws s3 cp /var/log/gpu-render-image.log s3://{bucket}/image/build.log
+shutdown -h now
+"""
+
+
+def base_ami(c: dict) -> str:
+    imgs = aws("ec2", "describe-images", "--owners", "amazon", "--filters", f"Name=name,Values={c['BASE_AMI_NAME']}",
+               "Name=architecture,Values=x86_64", region=c["REGION"])["Images"]
+    if not imgs:
+        raise SystemExit(f"no base image named {c['BASE_AMI_NAME']!r} in {c['REGION']}")
+    return max(imgs, key=lambda i: i["CreationDate"])["ImageId"]
+
+
+def cmd_image(a) -> None:
+    """Build the boxes' image on a small CPU instance (no GPU needed to install software), then snapshot it."""
+    c = conf()
+    region, bucket = c["REGION"], c["BUCKET"]
+    blender = c["BLENDER_URL"].rsplit("/", 1)[1]
+    script = IMAGE_SCRIPT.format(region=region, bucket=bucket, blender=blender, series=series(blender))
+    base = base_ami(c)
+    sg = security_group(c)
+    print(f"building on t3.large from {base} (~10 min, ~$0.02) ...")
+    ids = launch(c, "t3.large", None, base, script, sg, on_demand=True, shutdown="stop", disk=75,
+                 tags={"Name": "gpu-render-image-builder"})
+    if not ids:
+        raise SystemExit("could not start the builder")
+    iid = ids[0]
+    try:
+        for _ in range(180):  # up to 30 min: the build ends by stopping the instance (EC2's own waiter gives up at 10)
+            st = aws("ec2", "describe-instances", "--instance-ids", iid, region=region)["Reservations"][0]["Instances"][0]
+            if st["State"]["Name"] in ("stopped", "terminated"):
+                break
+            time.sleep(10)
+        else:
+            raise SystemExit("the build took over 30 min: stopped waiting (the builder is terminated)")
+        log =aws("s3", "cp", f"s3://{bucket}/image/build.log", "-", region=region, raw=True, check=False).stdout
+        if "IMAGE-READY" not in log:
+            raise SystemExit("the build failed; its log:\n" + log[-2500:])
+        name = f"gpu-render-{time.strftime('%Y%m%d-%H%M')}"
+        ami = aws("ec2", "create-image", "--instance-id", iid, "--name", name, "--description",
+                  f"gpu-render box: {blender}, add-ons, uv", region=region)["ImageId"]
+        print(f"image {ami} ({name}) creating ...")
+        aws("ec2", "wait", "image-available", "--image-ids", ami, region=region, raw=True)
+    finally:
+        aws("ec2", "terminate-instances", "--instance-ids", iid, region=region, raw=True)
+    s = state()
+    old = s.get("image")
+    s["image"] = ami
+    save(s)
+    if old and old != ami:  # the old image and its snapshot cost storage: deregister them
+        snaps = [b["Ebs"]["SnapshotId"] for b in aws("ec2", "describe-images", "--image-ids", old, region=region)
+                 ["Images"][0].get("BlockDeviceMappings", []) if "Ebs" in b]
+        aws("ec2", "deregister-image", "--image-id", old, region=region, raw=True, check=False)
+        for sn in snaps:
+            aws("ec2", "delete-snapshot", "--snapshot-id", sn, region=region, raw=True, check=False)
+        print(f"old image {old} removed")
+    print(f"image ready: {ami}")
+
+
+# ------------------------------------------------------------------------------------------------------------ boxes
+
+def security_group(c: dict) -> str:
+    sgs = aws("ec2", "describe-security-groups", "--filters", f"Name=group-name,Values={SG_NAME}", region=c["REGION"])
+    if not sgs["SecurityGroups"]:
+        raise SystemExit("no security group: run gpu-render setup")
+    return sgs["SecurityGroups"][0]["GroupId"]
+
+
+def subnets(c: dict, itype: str) -> list[str]:
+    azs = [z for z in c["AZS"].split(",") if z] or [
+        o["Location"] for o in aws("ec2", "describe-instance-type-offerings", "--location-type", "availability-zone",
+                                   "--filters", f"Name=instance-type,Values={itype}", region=c["REGION"])["InstanceTypeOfferings"]]
+    nets = aws("ec2", "describe-subnets", "--filters", "Name=default-for-az,Values=true", region=c["REGION"])["Subnets"]
+    return [n["SubnetId"] for n in sorted(nets, key=lambda n: n["AvailabilityZone"]) if n["AvailabilityZone"] in azs]
+
+
+def launch(c: dict, itype: str, subnet: str | None, ami: str, user_data: str, sg: str, *, on_demand: bool,
+           shutdown: str = "terminate", disk: int = 100, count: int = 1, tags: dict | None = None) -> list[str]:
+    tags = {"Project": "gpu-render", **(tags or {})}
+    spec = ["ec2", "run-instances", "--image-id", ami, "--instance-type", itype, "--count", f"1:{count}",
+            "--security-group-ids", sg, "--iam-instance-profile", f"Name={ROLE}",
+            "--instance-initiated-shutdown-behavior", shutdown,
+            "--user-data", base64.b64encode(user_data.encode()).decode(),
+            "--block-device-mappings", json.dumps([{"DeviceName": "/dev/sda1", "Ebs": {"VolumeSize": disk, "VolumeType": "gp3",
+                                                                                        "DeleteOnTermination": True}}]),
+            "--metadata-options", "HttpTokens=required",
+            "--tag-specifications", json.dumps([{"ResourceType": "instance",
+                                                 "Tags": [{"Key": k, "Value": v} for k, v in tags.items()]}]),
+            "--query", "Instances[].InstanceId"]
+    if subnet:
+        spec += ["--subnet-id", subnet]
+    if not on_demand:
+        spec += ["--instance-market-options", json.dumps({"MarketType": "spot", "SpotOptions": {
+            "SpotInstanceType": "one-time", "InstanceInterruptionBehavior": "terminate"}})]
+    for attempt in range(3):  # a just-made instance profile takes a few seconds to be usable
+        r = aws(*spec, region=c["REGION"], check=False, raw=True)
+        if r.returncode == 0:
+            return json.loads(r.stdout)
+        if "Invalid IAM Instance Profile" not in r.stderr:
+            break
+        time.sleep(10)
+    err = re.search(r"\((\w+)\)", r.stderr)
+    print(f"    {itype} {subnet or ''}: {err[1] if err else r.stderr.strip()[-200:]}")
+    return []
+
+
+def stale(film: str) -> list[str]:
+    r = subprocess.run(["uv", "run", "film-anime-render", "--film", film, "--dry-run"], cwd=ROOT / "tools",
+                       capture_output=True, text=True)
+    if r.returncode:
+        raise SystemExit(f"film-anime-render --dry-run failed:\n{r.stderr[-800:]}")
+    return [m[1] for m in re.finditer(r"^\[film-anime-render\]\s+(\S+) <- \S+: render$", r.stdout + r.stderr, re.M)]
+
+
+def durations(film: str) -> dict:
+    t = json.loads((ROOT / "films" / film / "data" / "timeline.json").read_text())
+    return {s["id"]: s["end"] - s["start"] for s in t.get("scenes", t)}
+
+
+def cmd_render(a) -> None:
+    c = conf()
+    region, bucket = c["REGION"], c["BUCKET"]
+    ami = state().get("image")
+    if not ami:
+        raise SystemExit("no image yet: run gpu-render setup, then gpu-render image")
+    print("pulling plates already in S3 ...")
+    pull(c, a.film)
+    dur = durations(a.film)
+    scenes = list(dur) if a.all else (a.only.split(",") if a.only else stale(a.film))
+    if not scenes:
+        print("every plate is up to date: nothing to render")
+        return
+    gpus = max(1, min(a.gpus, len(scenes)))
+    types = [t for t in c["TYPES"].split(",") if t]
+    worst = max(PRICES.get(t, 3.0) for t in types)
+    rate = gpus * worst * (0.45 if a.spot else 1.0)
+    print(f"{len(scenes)} scenes on up to {gpus} L40S boxes ({'spot' if a.spot else 'on-demand'}): "
+          f"{', '.join(sorted(scenes, key=lambda s: -dur.get(s, 1)))}")
+    print(f"cost: about ${rate:.2f}/h while they run (often less); each box stops when the queue is empty, and in any "
+          f"case after {a.max_hours:g} h: at most ~${rate * a.max_hours:.2f}")
+    if not a.yes and input("start? [y/N] ").strip().lower() != "y":
+        print("not started")
+        return
+    print("syncing the repo to S3 ...")
+    sync_repo(c)
+    run = time.strftime("r%Y%m%d-%H%M%S")
+    queue = "\n".join(sorted(scenes, key=lambda s: -dur.get(s, 1))) + "\n"
+    with tempfile.NamedTemporaryFile("w", delete=False) as f:
+        f.write(queue)
+    aws("s3", "cp", "--only-show-errors", f.name, f"s3://{bucket}/runs/{run}/queue.txt", region=region, raw=True)
+    Path(f.name).unlink()
+    sg = security_group(c)
+    boot = (HERE / "boot.sh").read_text()
+    got = []
+    for t in types:
+        for net in subnets(c, t):
+            if len(got) >= gpus:
+                break
+            head = (f"#!/bin/bash\nBUCKET={bucket} REGION={region} FILM={a.film} RUN={run} WORKERS={WORKERS.get(t, 2)} "
+                    f"MAX_MIN={int(a.max_hours * 60)}\nexport BUCKET REGION FILM RUN WORKERS MAX_MIN\n")
+            ids = launch(c, t, net, ami, head + boot.split("\n", 1)[1], sg, on_demand=not a.spot, count=gpus - len(got),
+                         tags={"Name": f"gpu-render-{run}", "Run": run})
+            got += [(i, t) for i in ids]
+            if ids:
+                print(f"  started {len(ids)} x {t}: {' '.join(ids)}")
+    if not got:
+        print("no capacity for any of the types in any AZ right now: nothing started (nothing to pay). Try later, "
+              "or --spot, or other TYPES")
+        return
+    if len(got) < gpus:
+        print(f"only {len(got)} of {gpus} boxes started (capacity): they share the whole queue, it just takes longer")
+    s = state()
+    s["runs"].append({"run": run, "film": a.film, "region": region, "bucket": bucket, "scenes": len(scenes),
+                      "boxes": [{"id": i, "type": t} for i, t in got], "started": time.time(), "spot": a.spot})
+    save(s)
+    print(f"run {run}: `gpu-render status` to watch; the boxes stop by themselves")
+    if a.wait:
+        wait(run)
+        pull(c, a.film)
+
+
+def report(run: dict) -> bool:
+    region = run["region"]
+    ids = [b["id"] for b in run["boxes"]]
+    res = aws("ec2", "describe-instances", "--instance-ids", *ids, region=region)
+    live = 0
+    mins = (time.time() - run["started"]) / 60
+    for r in res["Reservations"]:
+        for i in r["Instances"]:
+            st = i["State"]["Name"]
+            live += st in ("pending", "running", "stopping", "shutting-down")
+            print(f"  {i['InstanceId']}  {i['InstanceType']:12} {st}")
+    done = aws("s3", "ls", f"s3://{run['bucket']}/runs/{run['run']}/done/", region=region, raw=True, check=False).stdout
+    claims = aws("s3", "ls", f"s3://{run['bucket']}/runs/{run['run']}/claims/", region=region, raw=True, check=False).stdout
+    nd, nc = len(done.splitlines()), len(claims.splitlines())
+    print(f"  run {run['run']}: {nd}/{run['scenes']} scenes done, {nc - nd} rendering; {mins:.0f} min since start; "
+          f"{live} box(es) up")
+    return live == 0
+
+
+def wait(name: str) -> None:
+    while not report(run_of(name)):
+        time.sleep(60)
+
+
+def pull(c: dict, film: str) -> None:
+    dest = ROOT / "out" / film / "plates"
+    dest.mkdir(parents=True, exist_ok=True)
+    # --exact-timestamps: a re-rendered file of the same size (every stamp, many frames) is still fetched
+    aws("s3", "sync", "--only-show-errors", "--exact-timestamps", f"s3://{c['BUCKET']}/plates/{film}/", f"{dest}/",
+        region=c["REGION"], raw=True)
+
+
+def cmd_status(a) -> None:
+    report(run_of(a.run))
+
+
+def cmd_pull(a) -> None:
+    pull(conf(), a.film)
+    print(f"pulled into out/{a.film}/plates")
+
+
+def cmd_stop(a) -> None:
+    run = run_of(a.run)
+    ids = [b["id"] for b in run["boxes"]]
+    aws("ec2", "terminate-instances", "--instance-ids", *ids, region=run["region"], raw=True)
+    print(f"terminating {' '.join(ids)}")
+
+
+def cmd_clean(a) -> None:
+    c = conf()
+    for prefix in ("plates/", "runs/"):
+        aws("s3", "rm", "--recursive", "--only-show-errors", f"s3://{c['BUCKET']}/{prefix}", region=c["REGION"], raw=True)
+    print("deleted the plates and run files from S3 (the repo, Blender and the image stay)")
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("setup")
+    sub.add_parser("image")
+    r = sub.add_parser("render")
+    r.add_argument("--film", default="rain-ferry")
+    g = r.add_mutually_exclusive_group()
+    g.add_argument("--only", help="these scene ids (default: the stale ones)")
+    g.add_argument("--all", action="store_true", help="every scene, stale or not")
+    r.add_argument("--gpus", type=int, default=4, help="boxes, one L40S each (default 4: the quota's 16 vCPU)")
+    r.add_argument("--spot", action="store_true", help="spot boxes: ~55%% cheaper, may be taken back mid-render")
+    r.add_argument("--max-hours", type=float, default=2.0, help="each box's hard time limit (default 2)")
+    r.add_argument("--wait", action="store_true", help="wait for the boxes, then pull the plates")
+    r.add_argument("--yes", action="store_true", help="start without asking")
+    for name in ("status", "stop"):
+        sub.add_parser(name).add_argument("run", nargs="?")
+    sub.add_parser("pull").add_argument("--film", default="rain-ferry")
+    sub.add_parser("clean")
+    a = ap.parse_args()
+    {"setup": cmd_setup, "image": cmd_image, "render": cmd_render, "status": cmd_status, "pull": cmd_pull,
+     "stop": cmd_stop, "clean": cmd_clean}[a.cmd](a)
+
+
+if __name__ == "__main__":
+    main()

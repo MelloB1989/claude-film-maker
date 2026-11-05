@@ -1,0 +1,114 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "title": "character",
+ "description": "A MetaHuman character (WP3): made from a preset, a copy or blank; shaped (body, face), skinned, eyes, eyelashes, teeth, makeup, grooms with colours, outfit; Epic's cloud rig and textures; built into a Blueprint; optionally garments of your own on a placed actor. Converged by the mh.* ops (mh.add, mh.body, mh.face, mh.skin, mh.eyes, mh.eyelashes, mh.teeth, mh.makeup, mh.groom, mh.add_item, mh.rig, mh.textures, mh.build, mh.dress); in the editor in one job by mh.apply. Guide: docs/unreal/metahuman.md.",
+ "type": "object",
+ "required": ["kind", "asset"],
+ "additionalProperties": false,
+ "$defs": {
+  "settings": {"type": "object", "description": "engine settings fields as nested JSON (CamelCase or snake_case names; enums by name, e.g. LongCurl; colours [r, g, b] linear 0..1). mh.settings_fields lists them with their values."},
+  "eye": {"type": "object", "description": "FMetaHumanCharacterEyeProperties: iris {pattern Iris001..Iris009, primary_color_u/v 0..1, secondary_color_u/v, color_blend, limbal_ring_size}, pupil {dilation, feather}, cornea {size}, sclera {tint, vascularity_intensity}"},
+  "item": {
+   "type": "object",
+   "additionalProperties": false,
+   "properties": {
+    "item": {"type": "string", "description": "a wardrobe item: asset name (WI_Hair_L_Straight) or path (mh.wardrobe lists them)"},
+    "melanin": {"type": "number", "minimum": 0, "maximum": 1, "description": "groom colour: 0 blond .. 1 black"},
+    "redness": {"type": "number", "minimum": 0, "maximum": 1, "description": "groom colour: 0 none .. 1 red"},
+    "params": {"type": "object", "description": "the item's instance parameters by name (mh.item_params lists them): Roughness, Whiteness, Lightness, DyeColor [r,g,b], bUseOmbre, OmbreU, ... for grooms; colours for garments"}
+   }
+  },
+  "slotItem": {"oneOf": [{"$ref": "#/$defs/item"}, {"const": "none"}, {"type": "null"}]}
+ },
+ "properties": {
+  "kind": {"const": "character"},
+  "version": {"type": "integer", "const": 1},
+  "name": {"type": "string", "description": "the character's name: the Blueprint is BP_<name> unless build.name says otherwise"},
+  "description": {"type": "string"},
+  "asset": {"type": "string", "pattern": "^/Game/", "description": "the MetaHumanCharacter asset's package path"},
+  "from": {
+   "type": "object", "additionalProperties": false, "maxProperties": 1,
+   "description": "where a missing character starts (ignored once it exists)",
+   "properties": {
+    "preset": {"type": "string", "description": "a preset name (mh.presets: Ada, Jorge, ...)"},
+    "source": {"type": "string", "pattern": "^/", "description": "another character asset to copy (a variant)"},
+    "blank": {"const": true, "description": "Creator's default template"}
+   }
+  },
+  "body": {
+   "type": "object",
+   "description": "the parametric body. Short form: {constraint: value} (cm; Fat, Muscularity, Masculine/Feminine unitless; null frees one). Long form: {measurements: {...}, from_character: <asset>, reset: bool}. mh.body_constraints lists names and ranges.",
+   "properties": {
+    "measurements": {"type": "object", "additionalProperties": {"type": ["number", "null"]}},
+    "from_character": {"type": "string", "description": "copy every active constraint of another character first"},
+    "reset": {"type": "boolean", "description": "free the constraints not named"}
+   },
+   "additionalProperties": {"type": ["number", "null"]}
+  },
+  "face": {
+   "type": "object", "additionalProperties": false,
+   "description": "the face (changing it on a rigged character removes the rig: the plan re-rigs)",
+   "properties": {
+    "blend": {"type": "object", "additionalProperties": {"type": "number", "minimum": 0}, "description": "{preset name or character path: weight}: a weighted mix of their face model coefficients (experimental)"},
+    "coefficients": {"type": "array", "items": {"type": "number"}, "description": "the face model's coefficients (mh.describe full=true / mh.export)"},
+    "landmarks": {"type": "object", "additionalProperties": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3}, "description": "{landmark index: [dx, dy, dz] cm} moves, applied once (mh.face_landmarks lists them)"}
+   }
+  },
+  "skin": {
+   "type": "object",
+   "description": "skin: u, v (tone 0..1), roughness (0.85..1.15), texture_resolution (2k|4k|8k for the cloud textures), and any FMetaHumanCharacterSkinSettings field (freckles {density, strength, saturation, tone_shift, mask None|Type1..3}, accents {scalp, forehead, nose, under_eye, cheeks, lips, chin, ears: {redness, saturation, lightness}}, skin {face_texture_index, body_texture_index, palm_lightness, fingernail_tint_color, ...}) directly or under settings. A skin change discards the cloud textures (the plan fetches them again).",
+   "properties": {
+    "u": {"type": "number", "minimum": 0, "maximum": 1},
+    "v": {"type": "number", "minimum": 0, "maximum": 1},
+    "roughness": {"type": "number", "minimum": 0.85, "maximum": 1.15},
+    "texture_resolution": {"enum": ["2k", "4k", "8k"]},
+    "settings": {"$ref": "#/$defs/settings"}
+   }
+  },
+  "eyes": {
+   "type": "object", "additionalProperties": false,
+   "properties": {"both": {"$ref": "#/$defs/eye"}, "left": {"$ref": "#/$defs/eye"}, "right": {"$ref": "#/$defs/eye"}},
+   "description": "eye settings for both eyes; left/right go over both"
+  },
+  "eyelashes": {"$ref": "#/$defs/settings", "description": "type None|ShortSparse|ShortFine|ShortThin|LongSlightCurl|LongCurl|LongThickCurl, melanin, redness, lightness, salt_and_pepper, roughness 0..1, dye_color, enable_grooms"},
+  "teeth": {"$ref": "#/$defs/settings", "description": "tooth_length, tooth_spacing, upper_shift, lower_shift, overbite, overjet (-1..1); worn_down, polycanine, receding_gums, narrowness, variation, plaque_amount (0..1); teeth_color, gum_color, plaque_color"},
+  "makeup": {"$ref": "#/$defs/settings", "description": "foundation {apply_foundation, color, intensity, concealer}, eyes {type None|ThinLiner|SoftSmokey|FullThinLiner|CatEye|PandaSmudge|DramaticSmudge|DoubleMod|ClassicBar, primary_color, opacity}, blush {type None|Angled|Apple|LowSweep|HighCurve, color, intensity}, lips {type None|Natural|Hollywood|Cupid, color, opacity}"},
+  "grooms": {
+   "type": "object", "additionalProperties": false,
+   "description": "per groom slot: an item with colour/params, or none",
+   "properties": {"Hair": {"$ref": "#/$defs/slotItem"}, "Eyebrows": {"$ref": "#/$defs/slotItem"},
+                  "Beard": {"$ref": "#/$defs/slotItem"}, "Mustache": {"$ref": "#/$defs/slotItem"},
+                  "Eyelashes": {"$ref": "#/$defs/slotItem"}, "Peachfuzz": {"$ref": "#/$defs/slotItem"}}
+  },
+  "outfit": {"$ref": "#/$defs/slotItem", "description": "the Creator outfit (Outfits slot), or none"},
+  "rig": {"enum": ["full", "joints", "none"], "default": "full", "description": "Epic's cloud auto-rig: full = joints + blend shapes (facial animation), joints, or none (no cloud, no build). Needs the Epic sign-in."},
+  "textures": {"type": "boolean", "description": "fetch the cloud high-resolution textures (default: when rigged; the build needs them)"},
+  "build": {
+   "oneOf": [{"const": false}, {
+    "type": "object", "additionalProperties": false,
+    "properties": {
+     "name": {"type": "string", "description": "BP_<name> and the unpack folder (default the spec's name)"},
+     "pipeline": {"enum": ["cinematic", "optimized", "uefn"]},
+     "quality": {"enum": ["low", "medium", "high", "cinematic"], "description": "LOD/detail level for optimized/uefn"},
+     "build_path": {"type": "string", "pattern": "^/Game/", "description": "where the built assets go (default <character folder>/Unpacked/<name>)"},
+     "common_path": {"type": "string", "pattern": "^/Game/"},
+     "animation_system": {"type": "string"},
+     "validate_wardrobe": {"type": "boolean"}
+    }}],
+   "description": "assemble into a Blueprint (default when rigged), or false"
+  },
+  "dress": {
+   "type": "object", "required": ["label", "garments"], "additionalProperties": false,
+   "description": "garments of your own on the placed actor of this character (place BP_<name> first)",
+   "properties": {
+    "label": {"type": "string", "description": "the placed MetaHuman actor's label"},
+    "garments": {"type": "object", "additionalProperties": {
+     "type": "object", "required": ["mesh"], "additionalProperties": false,
+     "properties": {"mesh": {"type": "string", "pattern": "^/", "description": "skeletal mesh on the MetaHuman skeleton, in cm (mh.import_garment)"},
+                    "materials": {"type": "object", "additionalProperties": {"type": "string"}, "description": "{slot name: material path}"}}}},
+    "hide_slots": {"type": "object", "additionalProperties": {"type": "array", "items": {"type": "string"}}, "description": "{component: [slot name substrings]} drawn with nothing"},
+    "body": {"type": "string", "default": "Body"}
+   }
+  }
+ }
+}

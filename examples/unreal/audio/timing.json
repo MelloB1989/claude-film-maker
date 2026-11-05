@@ -1,0 +1,10 @@
+{"kind": "timing", "version": 1, "name": "main", "fps": 24,
+ "lines": [
+  {"id": "L1", "speaker": "host", "wav": "L1.wav", "start_frame": 24, "end_frame": 72, "duration_s": 2.0,
+   "offset_s": 0.0, "volume_db": 0.0, "text": "Welcome in.",
+   "words": [{"w": "Welcome", "start_frame": 26, "end_frame": 40}, {"w": "in.", "start_frame": 42, "end_frame": 52}]},
+  {"id": "L2", "speaker": "guest", "wav": "L2.wav", "start_frame": 96, "end_frame": 132, "duration_s": 1.5,
+   "offset_s": 0.0, "volume_db": 0.0, "text": "Thanks for having me.",
+   "words": [{"w": "Thanks", "start_frame": 97, "end_frame": 105}, {"w": "for", "start_frame": 106, "end_frame": 110},
+             {"w": "having", "start_frame": 111, "end_frame": 119}, {"w": "me.", "start_frame": 120, "end_frame": 128}]}
+ ]}

@@ -70,6 +70,9 @@ def _area_weights(n_in: int, n_out: int) -> np.ndarray:
 def resample_area(img: np.ndarray, out_w: int, out_h: int) -> np.ndarray:
     """Area-average an (h, w, c) image to (out_h, out_w, c): each output pixel is the mean of the input it covers."""
     h, w, c = img.shape
+    if h % out_h == 0 and w % out_w == 0:  # a whole-number factor (the proxy's half): each output pixel a block's mean
+        fy, fx = h // out_h, w // out_w
+        return img.astype(np.float32).reshape(out_h, fy, out_w, fx, c).mean(axis=(1, 3))
     wy, wx = _area_weights(h, out_h), _area_weights(w, out_w)
     tmp = (wy @ img.astype(np.float32).reshape(h, w * c)).reshape(out_h, w, c)
     return np.einsum("ywc,xw->yxc", tmp, wx, optimize=True)

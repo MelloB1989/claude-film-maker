@@ -1,0 +1,12 @@
+# Stage 7 (WP10): one review of the whole cut: 2 stills per shot, exposure, framing of the host, floating and
+# overlapping props (floor and walls ignored). Always runs (a check, not a change): read its verdict and issues.
+kind: include
+files: [vars.yaml]
+---
+kind: op
+version: 1
+order: 95
+name: review
+op: qa.review
+args: {out_dir: "${out}/qa", sequence: "${seq}", per_shot: 2, subjects: ["${host}"], ignore: [Floor, WallBack, WallSide], title: demo}
+timeout: 1800

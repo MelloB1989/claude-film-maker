@@ -1,0 +1,243 @@
+"""Temporary boxes (filmtools.unreal.boxes) with a fake AWS: launch arguments (TTL tag, terminate on shutdown, spot,
+user-data with the watchdog and the backstop), the profile it makes, idempotent up, ls, extend, status, down."""
+from __future__ import annotations
+
+import base64
+import gzip
+import json
+import time
+
+import pytest
+
+from filmtools.unreal import boxes
+from filmtools.unreal import workstation as ws
+
+
+class FakeAWS:
+    def __init__(self):
+        self.calls = []
+        self.instances = {}
+
+    def __call__(self, *args, check=True):
+        self.calls.append(args)
+        svc, verb = args[0], args[1]
+        if (svc, verb) == ("ssm", "get-parameter"):
+            return {"Parameter": {"Value": "ami-ubuntu"}}
+        if (svc, verb) == ("ec2", "run-instances"):
+            iid = f"i-{len(self.instances):04d}"
+            tags = json.loads(args[args.index("--tag-specifications") + 1])[0]["Tags"]
+            self.instances[iid] = {"InstanceId": iid, "InstanceType": args[args.index("--instance-type") + 1],
+                                   "State": {"Name": "running"}, "Tags": tags,
+                                   **({"InstanceLifecycle": "spot"} if "--instance-market-options" in args else {})}
+            return {"Instances": [self.instances[iid]]}
+        if (svc, verb) == ("ec2", "describe-instances"):
+            flt = [a for a in args if a.startswith("Name=tag:")]
+            want = flt[0].split("Values=")[1] if flt else None
+            out = [i for i in self.instances.values() if i["State"]["Name"] in boxes.LIVE and (
+                want is None or any(t["Key"] == boxes.TAG and t["Value"] == want for t in i["Tags"]))]
+            return {"Reservations": [{"Instances": out}]}
+        if (svc, verb) == ("ssm", "describe-instance-information"):
+            return {"InstanceInformationList": [{"PingStatus": "Online"}]}
+        if (svc, verb) == ("ec2", "terminate-instances"):
+            self.instances[args[3]]["State"]["Name"] = "shutting-down"
+            return {}
+        return {}
+
+    def made(self, verb):
+        return [c for c in self.calls if c[1] == verb]
+
+
+@pytest.fixture
+def conf(tmp_path, monkeypatch):
+    monkeypatch.setattr(ws, "CONF_DIR", tmp_path)
+    monkeypatch.delenv("FILM_UE_BOX", raising=False)
+    return tmp_path
+
+
+def test_durations():
+    assert [boxes.parse_duration(x) for x in ("4h", "90m", "1h30m", "2d", "45", 30)] == \
+        [14400, 5400, 5400, 172800, 2700, 1800]
+    with pytest.raises(SystemExit, match="like 4h"):
+        boxes.parse_duration("soon")
+
+
+def test_up_launches_a_terminating_tagged_box_with_the_watchdog(conf, monkeypatch):
+    aws = FakeAWS()
+    monkeypatch.setenv("FILM_UE_BOX", "linux")
+    ws.save(os="linux", project_dir="/srv/ue/projects/Demo", bucket="b", epic_s3="s3://b/k", region="ap-south-1")
+    monkeypatch.delenv("FILM_UE_BOX")
+    r = boxes.up("gpu1", ttl="3h", idle="25m", spot=True, like="linux", aws=aws, sleep=lambda s: None, log=lambda m: None)
+    run = aws.made("run-instances")[0]
+    assert run[run.index("--image-id") + 1] == "ami-ubuntu" and "--instance-market-options" in run
+    assert run[run.index("--instance-initiated-shutdown-behavior") + 1] == "terminate"
+    tags = {t["Key"]: t["Value"] for t in json.loads(run[run.index("--tag-specifications") + 1])[0]["Tags"]}
+    assert tags["film-ue:box"] == "gpu1" and abs(int(tags["film-ue:ttl-until"]) - (time.time() + 3 * 3600)) < 5
+    ud = run[run.index("--user-data") + 1]
+    assert "systemctl enable --now ue-watchdog.timer" in ud and "--on-active=" in ud and "poweroff" in ud
+    blob = ud.split("echo ", 1)[1].split(" |", 1)[0]
+    assert b"def decide(" in gzip.decompress(base64.b64decode(blob))
+    cfg = json.loads(ud.split("watchdog.json <<'FMEOF'\n", 1)[1].split("\nFMEOF", 1)[0])
+    assert cfg["idle_min"] == 25 and cfg["token"] == "/srv/ue/projects/Demo/Saved/fmbridge.token"
+    prof = json.loads((conf / "film-ue.gpu1.json").read_text())
+    assert prof["instance"] == r["id"] and prof["temporary"] and prof["epic_s3"] == "s3://b/k" and prof["spot"]
+    assert prof["project_dir"] == "/srv/ue/projects/Demo" and "local_port" not in prof
+    # again: the same box, nothing launched
+    again = boxes.up("gpu1", aws=aws, log=lambda m: None)
+    assert again["id"] == r["id"] and len(aws.made("run-instances")) == 1
+
+
+def test_up_refuses_nonsense(conf):
+    with pytest.raises(SystemExit, match="ttl under 10 minutes"):
+        boxes.up("gpu1", ttl="5m", aws=FakeAWS())
+    with pytest.raises(SystemExit, match="box name"):
+        boxes.up("../x", aws=FakeAWS())
+    with pytest.raises(SystemExit, match="no profile 'nope'"):
+        boxes.up("gpu1", like="nope", aws=FakeAWS())
+
+
+def test_ls_extend_status_down(conf):
+    aws = FakeAWS()
+    boxes.up("gpu1", aws=aws, wait=False, log=lambda m: None)
+    rows = boxes.ls(aws=aws)
+    assert [(r["name"], r["state"], r["profile"]) for r in rows] == [("gpu1", "running", True)]
+    assert 230 <= rows[0]["ttl_left_min"] <= 240
+    ran = []
+    e = boxes.extend("gpu1", "2h", aws=aws, run=ran.append)
+    assert e["ttl_left_min"] == 120 and "film-ue-ttl" in ran[0] and str(e["ttl_until"]) in ran[0]
+    assert aws.made("create-tags")
+    st = boxes.status("gpu1", aws=aws, read=lambda p: b'{"last_decision": {"busy": ["gpu 80%"]}}')
+    assert st["watchdog"]["last_decision"]["busy"] == ["gpu 80%"]
+    d = boxes.down("gpu1", aws=aws, log=lambda m: None)
+    assert d["state"] == "shutting-down" and json.loads((conf / "film-ue.gpu1.json").read_text())["instance"] == ""
+    assert boxes.ls(aws=aws) == []
+    with pytest.raises(SystemExit, match="not running"):
+        boxes.extend("gpu1", "1h", aws=aws, run=ran.append)
+
+
+def test_down_never_terminates_a_permanent_workstation(conf, monkeypatch):
+    aws = FakeAWS()
+    monkeypatch.setenv("FILM_UE_BOX", "ws")
+    ws.save(os="windows", instance="i-perm")
+    monkeypatch.delenv("FILM_UE_BOX")
+    with pytest.raises(SystemExit, match="permanent workstation"):
+        boxes.down("ws", aws=aws)
+    assert not aws.made("terminate-instances")
+
+
+def test_user_data_fits_and_the_backstop_is_at_least_a_minute():
+    ud = boxes.user_data(int(time.time()) + 5, 20, 15)
+    assert len(ud.encode()) < 16000 and "--on-active=60s" in ud
+
+
+def test_save_ddc_on_exit_puts_the_ddc_save_in_the_watchdog(conf, monkeypatch):
+    aws = FakeAWS()
+    monkeypatch.setenv("FILM_UE_BOX", "linux")
+    ws.save(os="linux", project_dir="/srv/ue/projects/Demo", bucket="bkt", region="ap-south-1")
+    monkeypatch.delenv("FILM_UE_BOX")
+    boxes.up("gpu1", like="linux", save_ddc_on_exit=True, aws=aws, wait=False, log=lambda m: None)
+    run = aws.made("run-instances")[0]
+    ud = run[run.index("--user-data") + 1]
+    cfg = json.loads(ud.split("watchdog.json <<'FMEOF'\n", 1)[1].split("\nFMEOF", 1)[0])
+    assert len(cfg["on_exit"]) == 1 and "runuser -u ubuntu" in cfg["on_exit"][0]
+    assert "s3://bkt/ue-linux/ddc/5.8.4/zen-data" in cfg["on_exit"][0]
+    assert ws.conf()["os"] in ("windows", "linux")  # the temporary conf is gone
+    with pytest.raises(SystemExit, match="needs --like"):
+        boxes.up("gpu2", save_ddc_on_exit=True, aws=aws, wait=False, log=lambda m: None)
+
+
+class ImageAWS(FakeAWS):
+    def __init__(self):
+        super().__init__()
+        self.images = {}
+
+    def __call__(self, *args, check=True):
+        svc, verb = args[0], args[1]
+        if (svc, verb) == ("ec2", "create-image"):
+            self.calls.append(args)
+            ami = f"ami-{len(self.images):03d}"
+            tags = json.loads(args[args.index("--tag-specifications") + 1])[0]["Tags"]
+            self.images[ami] = {"ImageId": ami, "Name": args[args.index("--name") + 1], "State": "available",
+                                "CreationDate": f"2026-11-05T0{len(self.images)}:00:00Z", "Tags": tags,
+                                "BlockDeviceMappings": [{"Ebs": {"SnapshotId": f"snap-{ami}"}}]}
+            return {"ImageId": ami}
+        if (svc, verb) == ("ec2", "describe-images"):
+            self.calls.append(args)
+            return {"Images": list(self.images.values())}
+        if (svc, verb) == ("ec2", "deregister-image"):
+            self.calls.append(args)
+            self.images.pop(args[3])
+            return {}
+        return super().__call__(*args, check=check)
+
+
+def test_image_prepares_the_box_without_secrets_and_box_up_uses_the_latest(conf, monkeypatch):
+    aws = ImageAWS()
+    monkeypatch.setenv("FILM_UE_BOX", "linux")
+    ws.save(os="linux", project_dir="/srv/ue/projects/Demo", bucket="b", region="ap-south-1")
+    monkeypatch.delenv("FILM_UE_BOX")
+    boxes.up("gpu1", like="linux", aws=aws, wait=False, log=lambda m: None)
+    ran = []
+    r = boxes.image("gpu1", label="hs", aws=aws, run=lambda s: ran.append(s) or "prepared", log=lambda m: None)
+    s = ran[0]
+    assert "systemctl stop ue-editor" in s and ".local/share/.eos_sdk" in s and "fleet-vnc.pass" in s
+    assert "/srv/ue/projects/Demo/Saved/fmbridge.token" in s and "ttl_until=None" in s and "c = {}" in s
+    assert "cloud-init clean" in s and r["ami"] == "ami-000" and r["ami_name"].startswith("film-ue-hs-")
+    tags = {t["Key"]: t["Value"] for t in aws.images["ami-000"]["Tags"]}
+    assert tags["film-ue:image"] == "hs" and tags["film-ue:project"] == "Demo"
+    boxes.image("gpu1", label="hs", aws=aws, run=lambda s: "prepared", log=lambda m: None)
+    assert [i["ami"] for i in boxes.images(aws=aws)] == ["ami-001", "ami-000"]   # newest first
+    boxes.up("gpu2", like="linux", ami="latest", aws=aws, wait=False, log=lambda m: None)
+    run = aws.made("run-instances")[-1]
+    assert run[run.index("--image-id") + 1] == "ami-001"
+    out = boxes.image_rm("ami-000", aws=aws)
+    assert out["deleted_snapshots"] == ["snap-ami-000"] and aws.made("delete-snapshot")
+    with pytest.raises(SystemExit, match="not a film-ue image"):
+        boxes.image_rm("ami-zzz", aws=aws)
+
+
+def test_image_refuses_a_box_that_is_not_running_or_not_prepared(conf):
+    aws = ImageAWS()
+    with pytest.raises(SystemExit, match="not running"):
+        boxes.image("nope", aws=aws)
+    boxes.up("gpu1", aws=aws, wait=False, log=lambda m: None)
+    with pytest.raises(SystemExit, match="preparing the image failed"):
+        boxes.image("gpu1", aws=aws, run=lambda s: "error", log=lambda m: None)
+    assert not aws.made("create-image")
+    with pytest.raises(SystemExit, match="no film-ue image"):
+        boxes.latest_image("Demo", aws=aws)
+
+
+def test_the_prepared_image_holds_no_epic_sign_in_no_token_and_no_ttl(tmp_path):
+    """The real prepare script, run in bash against a fake home and project: the credential is gone afterwards."""
+    import os
+    import subprocess
+    home, proj, etc, state, root, stub = (tmp_path / n for n in ("home", "proj", "etc", "state", "root", "bin"))
+    cred = home / ".local/share/.eos_sdk/keychain/abc/persistent_auth/credential"
+    cred.parent.mkdir(parents=True)
+    cred.write_text("whole-account-credential")
+    (home / ".film-ue").mkdir()
+    (home / ".film-ue/ue-args-once").write_text("-AUTH_PASSWORD=x")
+    (proj / "Saved/Bridge/jobs").mkdir(parents=True)
+    (proj / "Saved/fmbridge.token").write_text("tok")
+    etc.mkdir()
+    (etc / "watchdog.json").write_text(json.dumps({"ttl_until": 123, "idle_min": 20, "on_exit": ["x"]}))
+    state.mkdir()
+    (state / "watchdog.json").write_text("{}")
+    root.mkdir()
+    (root / "fleet-vnc.pass").write_text("pw")
+    stub.mkdir()
+    for tool in ("systemctl", "cloud-init", "journalctl"):
+        (stub / tool).write_text("#!/bin/sh\nexit 0\n")
+        (stub / tool).chmod(0o755)
+    (stub / "getent").write_text(f"#!/bin/sh\necho 'ue:x:1000:1000::{home}:/bin/bash'\n")
+    (stub / "getent").chmod(0o755)
+    script = boxes.prepare_image_script(user="ue", project_dir=str(proj), etc=str(etc), state=str(state), root=str(root))
+    r = subprocess.run(["bash", "-c", script], capture_output=True, text=True,
+                       env={**os.environ, "PATH": f"{stub}:{os.environ['PATH']}"})
+    assert r.returncode == 0 and "prepared" in r.stdout, r.stderr
+    assert not (home / ".local/share/.eos_sdk").exists() and not cred.exists()   # the Epic sign-in is NOT in the image
+    assert not (home / ".film-ue/ue-args-once").exists() and not (root / "fleet-vnc.pass").exists()
+    assert not (proj / "Saved/fmbridge.token").exists() and not (proj / "Saved/Bridge/jobs").exists()
+    cfg = json.loads((etc / "watchdog.json").read_text())
+    assert cfg["ttl_until"] is None and cfg["on_exit"] == [] and cfg["idle_min"] == 20   # idle protection kept
+    assert not (state / "watchdog.json").exists()

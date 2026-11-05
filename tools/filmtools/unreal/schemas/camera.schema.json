@@ -1,0 +1,277 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "title": "camera",
+ "description": "A cine camera by label: placed (loc + rot/look_at) or framed by shot grammar (frame), with its filmback, lens, aperture and focus, optionally on a rail or crane. Converges (cam.add / cam.frame / cam.focus / cam.rig).",
+ "type": "object",
+ "required": [
+  "kind",
+  "name"
+ ],
+ "additionalProperties": false,
+ "properties": {
+  "kind": {
+   "const": "camera"
+  },
+  "version": {
+   "type": "integer",
+   "const": 1
+  },
+  "name": {
+   "type": "string",
+   "minLength": 1,
+   "description": "the camera's actor label"
+  },
+  "description": {
+   "type": "string"
+  },
+  "loc": {
+   "type": "array",
+   "items": {
+    "type": "number"
+   },
+   "minItems": 3,
+   "maxItems": 3
+  },
+  "rot": {
+   "type": "object",
+   "additionalProperties": false,
+   "properties": {
+    "pitch": {
+     "type": "number"
+    },
+    "yaw": {
+     "type": "number"
+    },
+    "roll": {
+     "type": "number"
+    }
+   }
+  },
+  "look_at": {
+   "type": [
+    "array",
+    "string"
+   ],
+   "description": "[x,y,z], an actor label, Label:Component:bone or eyes:Label"
+  },
+  "frame": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "subjects"
+   ],
+   "description": "frame subjects by shot grammar: the solver places the camera (cam.frame)",
+   "properties": {
+    "subjects": {
+     "type": [
+      "string",
+      "array"
+     ],
+     "items": {
+      "type": "string"
+     },
+     "description": "subject names (shot) or actor labels (camera); several = a two-shot / group"
+    },
+    "size": {
+     "type": "string",
+     "description": "shot size: ECU CU MCU MS COWBOY MWS WS EWS, or an alias (close-up, medium, wide, full, ...; cam.presets lists them)"
+    },
+    "angle": {
+     "type": [
+      "number",
+      "string"
+     ],
+     "description": "degrees around from the first subject's facing toward its `side`, or front | 1/4 | 3/4 | profile | 3/4 back | back"
+    },
+    "side": {
+     "enum": [
+      "left",
+      "right"
+     ],
+     "description": "the subject's own left or right"
+    },
+    "height": {
+     "type": [
+      "number",
+      "string",
+      "object"
+     ],
+     "description": "eye | high | low | slight high | slight low | overhead | worm (elevations seen from the eyes), degrees, shoulder | chest | hip | knee | ground (the lens at that landmark), or {z: cm}"
+    },
+    "focal_mm": {
+     "type": [
+      "number",
+      "null"
+     ],
+     "description": "focal length mm; the distance is solved (null with distance_cm: the focal length is solved)"
+    },
+    "distance_cm": {
+     "type": "number",
+     "description": "horizontal distance eyes to lens, cm; with focal_mm null/absent the focal length is solved"
+    },
+    "place": {
+     "type": [
+      "number",
+      "string"
+     ],
+     "description": "where the eyes sit across the frame: auto | center | left third | right third | u 0..1"
+    },
+    "headroom": {
+     "type": "number",
+     "description": "v (0 top..1 bottom) of the head's top; default per size"
+    },
+    "dutch_deg": {
+     "type": "number",
+     "description": "roll, degrees"
+    },
+    "snap_focal": {
+     "type": "boolean",
+     "description": "round a solved focal length to a standard prime and re-solve the distance"
+    },
+    "lead": {
+     "type": "number",
+     "description": "the third's position for thirds placement (default 1/3)"
+    },
+    "margin": {
+     "type": "number",
+     "description": "side margin a group must fit inside (fraction of width, default 0.06)"
+    }
+   }
+  },
+  "focal_mm": {
+   "type": "number"
+  },
+  "aperture": {
+   "type": "number",
+   "description": "f-stop"
+  },
+  "filmback": {
+   "type": "string",
+   "description": "a filmback preset (cam.presets): 16:9 Digital Film (default), 16:9 DSLR, Super 35mm, ..."
+  },
+  "sensor_mm": {
+   "type": "array",
+   "items": {
+    "type": "number"
+   },
+   "minItems": 2,
+   "maxItems": 2
+  },
+  "lens_preset": {
+   "type": "string",
+   "description": "an engine lens preset: 50mm Prime f/1.8, Universal Zoom, ..."
+  },
+  "focus": {
+   "type": "object",
+   "additionalProperties": false,
+   "properties": {
+    "mode": {
+     "enum": [
+      "manual",
+      "track",
+      "off"
+     ]
+    },
+    "distance_cm": {
+     "type": "number"
+    },
+    "target": {
+     "type": [
+      "string",
+      "array"
+     ],
+     "description": "an actor, eyes:Label, Label:Component:bone, or [x,y,z]"
+    },
+    "offset": {
+     "type": "array",
+     "items": {
+      "type": "number"
+     },
+     "minItems": 3,
+     "maxItems": 3
+    },
+    "smooth_speed": {
+     "type": "number"
+    }
+   }
+  },
+  "rig": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "kind"
+   ],
+   "properties": {
+    "kind": {
+     "enum": [
+      "rail",
+      "crane"
+     ]
+    },
+    "label": {
+     "type": "string",
+     "description": "default <name>_Rig"
+    },
+    "points": {
+     "type": "array",
+     "items": {
+      "type": "array",
+      "items": {
+       "type": "number"
+      },
+      "minItems": 3,
+      "maxItems": 3
+     }
+    },
+    "position": {
+     "type": "number"
+    },
+    "lock_orientation": {
+     "type": "boolean"
+    },
+    "loc": {
+     "type": "array",
+     "items": {
+      "type": "number"
+     },
+     "minItems": 3,
+     "maxItems": 3
+    },
+    "yaw_deg": {
+     "type": "number"
+    },
+    "arm_cm": {
+     "type": "number"
+    },
+    "pitch_deg": {
+     "type": "number"
+    }
+   }
+  }
+ },
+ "$defs": {
+  "vec3": {
+   "type": "array",
+   "items": {
+    "type": "number"
+   },
+   "minItems": 3,
+   "maxItems": 3
+  },
+  "rot": {
+   "type": "object",
+   "additionalProperties": false,
+   "properties": {
+    "pitch": {
+     "type": "number"
+    },
+    "yaw": {
+     "type": "number"
+    },
+    "roll": {
+     "type": "number"
+    }
+   }
+  }
+ }
+}

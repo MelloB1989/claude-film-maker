@@ -1,0 +1,17 @@
+# A medium close-up of the presenter from her 3/4 left at eye level on a 50 mm, focus tracking her eyes.
+kind: camera
+version: 1
+name: CAM_Presenter_MCU
+frame: {subjects: [Presenter], size: MCU, angle: 3/4, side: left, height: eye, focal_mm: 50}
+aperture: 2.8
+focus: {mode: track, target: "eyes:Presenter"}
+---
+# A wide on a rail, dollying along the set: drive it with cam.rig_move (position 0 -> 1).
+kind: camera
+version: 1
+name: CAM_Rail_Wide
+loc: [600, -300, 150]
+look_at: [0, 0, 120]
+focal_mm: 24
+aperture: 5.6
+rig: {kind: rail, points: [[600, -300, 150], [600, 300, 150]], position: 0}

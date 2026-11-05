@@ -98,7 +98,8 @@ uniform vec2 center;                  // iris: the circle's centre
 uniform vec3 edgeLight;               // wipe, iris: the edge line's light (glow level; 0 for none)
 uniform vec2 edgeNow;                 // wipe, iris: the edge's progress and light at the frame's own time (mid-shutter)
 uniform vec3 flashLight;              // flash: the flash's light
-uniform float seed; uniform float amount; // glitch
+uniform float seed; uniform float amount; // glitch (seed: ink too)
+uniform vec3 inkCol; uniform float inkScale; // ink: the rim's colour, the blots' size
 const vec2 FR = vec2(${W}.0, ${H}.0);
 
 vec3 fetch(sampler2D t, vec2 q) { return texture(t, vec2(q.x / FR.x, 1.0 - q.y / FR.y)).rgb; }
@@ -163,6 +164,17 @@ vec3 shade(vec2 p, vec4 s0, vec4 s1, vec4 s2) {
   bool useB = (s2.x > 0.5) != (on > 0.5 && h3 < 0.45 * g);
   vec2 qr = vec2(mod(q.x + split, FR.x), q.y), qbl = vec2(mod(q.x - split, FR.x), q.y);
   return useB ? vec3(fetch(B, qr).r, fetch(B, q).g, fetch(B, qbl).b) : vec3(fetch(A, qr).r, fetch(A, q).g, fetch(A, qbl).b);
+#elif defined(KIND_INK)
+  // a seeded field of blots over the frame (coarse fbm, feathered by a fine noise like ink in wet paper), thresholded by
+  // the progress: B shows where the field is under the threshold, which sweeps past both ends of the field's range, so
+  // the window opens on all A and closes on all B; a dark wet rim lies along the spreading edge, strongest mid-way
+  vec2 q = p / min(FR.x, FR.y) / inkScale;
+  float f = 0.5 + 0.5 * fbm(q * 2.2 + seed * 7.13, 5) + 0.05 * snoise(q * 23.0 + seed * 3.1);
+  float e = s2.y * 1.4 - 0.2, w = 0.03;
+  float m = 1.0 - smoothstep(e - w, e + w, f);
+  float rim = exp(-pow((f - e) / (1.8 * w), 2.0)) * (1.0 - 0.5 * abs(2.0 * s2.y - 1.0));
+  vec3 c = mix(gA, gB, m);
+  return mix(c, inkCol, 0.85 * rim * step(0.002, s2.y) * step(s2.y, 0.998));
 #else
   return ink;
 #endif
@@ -170,7 +182,7 @@ vec3 shade(vec2 p, vec4 s0, vec4 s1, vec4 s2) {
 
 void main() {
   vec2 p = vec2(vUv.x, 1.0 - vUv.y) * FR;
-#if defined(KIND_WIPE) || defined(KIND_IRIS) || defined(KIND_FLASH)
+#if defined(KIND_WIPE) || defined(KIND_IRIS) || defined(KIND_FLASH) || defined(KIND_INK)
   gA = fetch(A, p); gB = fetch(B, p);
 #endif
   vec3 sum = vec3(0.0);
@@ -207,6 +219,7 @@ void main() {
 function fxSlots(kind: TransitionKind, s: TransitionState): [number, number] {
   switch (kind) {
     case 'wipe': case 'iris': return [s.edge ?? 0, s.light ?? 0];
+    case 'ink': return [s.edge ?? 0, 0];
     case 'slide': return [s.dim ?? 0, s.shadow ?? 0];
     case 'flash': return [s.light ?? 0, 0];
     case 'glitch': return [s.glitch ?? 0, s.step ?? 0];
@@ -271,6 +284,7 @@ export class TransitionPass {
         ink: { value: new THREE.Vector3(...LIN.bg) }, dir: { value: new THREE.Vector2(1, 0) }, track: { value: new THREE.Vector2(0, 1) },
         soft: { value: 1 }, center: { value: new THREE.Vector2(W / 2, H / 2) }, edgeLight: { value: new THREE.Vector3() },
         flashLight: { value: new THREE.Vector3() }, seed: { value: 0 }, amount: { value: 1 }, edgeNow: { value: new THREE.Vector2() },
+        inkCol: { value: new THREE.Vector3() }, inkScale: { value: 1 },
       });
       this.fx.set(kind, pass);
     }
@@ -302,6 +316,8 @@ export class TransitionPass {
     (u.flashLight!.value as THREE.Vector3).set(...atLevel(lin(sp.color ?? 'fg'), FLASH_LEVEL));
     u.seed!.value = pairSeed(e.id);
     u.amount!.value = sp.amount ?? 1;
+    (u.inkCol!.value as THREE.Vector3).set(...lin(sp.color ?? 'bg'));
+    u.inkScale!.value = sp.scale ?? 1;
     pass.render(r, out);
   }
 

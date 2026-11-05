@@ -14,11 +14,13 @@ import { ROLES } from './palette';
  * - slide: B slides in over A along `dir` while A recedes (scales down, dims, drifts the same way more slowly);
  * - spin: a rotational whip about the centre, both pictures turning and scaling through the cut (edges mirrored);
  * - flash: A blows out into an exposure flash of `color` at the cut and B emerges from it;
- * - glitch: slice displacement and an RGB split around a hard switch at the cut, seeded by the pair.
+ * - glitch: slice displacement and an RGB split around a hard switch at the cut, seeded by the pair;
+ * - ink: B bleeds in through blots of ink that open and spread until they cover the frame, a dark wet rim of `color`
+ *   (default 'bg') along their edges; `scale` sizes the blots (default 1), the pair seeds where they fall.
  */
-export type TransitionKind = 'cut' | 'whip' | 'match' | 'zoom' | 'xfade' | 'dip' | 'wipe' | 'iris' | 'slide' | 'spin' | 'flash' | 'glitch';
+export type TransitionKind = 'cut' | 'whip' | 'match' | 'zoom' | 'xfade' | 'dip' | 'wipe' | 'iris' | 'slide' | 'spin' | 'flash' | 'glitch' | 'ink';
 /** The kinds TransitionPass draws with its effects program (three vec4 per tap). */
-export const FX_KINDS: readonly TransitionKind[] = ['wipe', 'iris', 'slide', 'spin', 'flash', 'glitch'];
+export const FX_KINDS: readonly TransitionKind[] = ['wipe', 'iris', 'slide', 'spin', 'flash', 'glitch', 'ink'];
 export const isFxKind = (k: TransitionKind) => FX_KINDS.includes(k);
 /** How a side renders inside the window: 'hold' clamps into its own window, 'run' into its handles. */
 export type SideMode = 'hold' | 'run';
@@ -46,7 +48,7 @@ export interface TransitionSpec {
   distance?: number;
   /** zoom, iris: logical px the camera pushes through / the circle grows from; default the frame's centre. */
   center?: [number, number];
-  /** zoom: A's scale at the cut (default 5). spin: both pictures' scale at the cut (default 1.3). */
+  /** zoom: A's scale at the cut (default 5). spin: both pictures' scale at the cut (default 1.3). ink: the blots' size (default 1). */
   scale?: number;
   /** zoom: B's scale at the cut (default 1.6), settling to 1. */
   bFrom?: number;
@@ -56,7 +58,7 @@ export interface TransitionSpec {
   edge?: 'accent' | 'accent2' | null;
   /** spin: degrees turned over the window (default 90; negative turns the other way). */
   angle?: number;
-  /** flash: the flash's colour, a palette role or #rrggbb (default 'fg'). */
+  /** flash: the flash's colour, a palette role or #rrggbb (default 'fg'). ink: the rim's ink (default 'bg'). */
   color?: string;
   /** glitch: strength (default 1): how far slices tear and how wide the RGB split runs. */
   amount?: number;
@@ -240,9 +242,10 @@ function validateFx(spec: TransitionSpec, bad: (why: string) => Error) {
     if (spec.angle !== undefined && !(finite(spec.angle) && spec.angle !== 0)) throw bad(`a spin's \`angle\` is a nonzero number of degrees (got ${spec.angle})`);
     if (spec.scale !== undefined && !(finite(spec.scale) && spec.scale > 0)) throw bad(`a spin's \`scale\` is positive (got ${spec.scale})`);
   }
-  if (k === 'flash' && spec.color !== undefined && !((ROLES as readonly string[]).includes(spec.color) || HEX_RE.test(spec.color))) {
-    throw bad(`a flash's \`color\` is a palette role or #rrggbb (got '${spec.color}')`);
+  if ((k === 'flash' || k === 'ink') && spec.color !== undefined && !((ROLES as readonly string[]).includes(spec.color) || HEX_RE.test(spec.color))) {
+    throw bad(`a ${k}'s \`color\` is a palette role or #rrggbb (got '${spec.color}')`);
   }
+  if (k === 'ink' && spec.scale !== undefined && !(finite(spec.scale) && spec.scale > 0)) throw bad(`an ink's \`scale\` is positive (got ${spec.scale})`);
   if (k === 'glitch' && spec.amount !== undefined && !(finite(spec.amount) && spec.amount > 0)) throw bad(`a glitch's \`amount\` is positive (got ${spec.amount})`);
 }
 
@@ -323,6 +326,13 @@ function stateOn(e: TransitionEntry, s: number, sideB: boolean): TransitionState
       st.light = sp.edge ? 4 * k * (1 - k) : 0;
       return st;
     }
+    case 'ink': {
+      // the blots open from nothing at the window's start and cover the frame at its end, fastest at the cut
+      const k = throughCut(e, s);
+      st.edge = k;
+      st.wB = k;
+      return st;
+    }
     case 'slide': {
       // B travels in along dir from off frame and lands at rest; A drifts a quarter as far, shrinks 8% and dims, and B's
       // leading edge casts a soft shadow on it (0 at both ends)
@@ -392,6 +402,8 @@ function moved(p: Xform, q: Xform): number {
 /** How far an effects kind's edge moves between two states, logical px (wipe: along dir; iris: its radius). */
 function edgeMoved(e: TransitionEntry, p: TransitionState, q: TransitionState): number {
   if (p.edge === undefined || q.edge === undefined) return 0;
+  // ink: its blots' edges run about half the frame's diagonal over the window
+  if (e.spec.kind === 'ink') return Math.abs(q.edge - p.edge) * 0.5 * Math.hypot(FW, FH);
   const span = e.spec.kind === 'wipe' ? (({ d0, d1 }) => d1 - d0)(wipeTrack(e.spec)) : (({ r0, r1 }) => r1 - r0)(irisTrack(e.spec));
   return Math.abs(q.edge - p.edge) * span;
 }
