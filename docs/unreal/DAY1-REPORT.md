@@ -156,3 +156,6 @@ fast-forwards to.
 | cam | stills through `view.still` at the camera's hfov (look.still used the viewport's 90°); rail nudge. Box: cam 50/2 (both stale baselines) | agent-11 d4134ab7 | |
 | handoff | agent-13's live table, the demo's contact sheets, HANDOFF | agent-13 a90ad397 | |
 | final run | agent-13's final full run (10/15 areas green, open: assets/Fab, render/MRQ, anim/pose, mh); box handed to agent-07 | agent-13 5c2b78b5 | |
+| render | lead's call: PIE is the route (process/cmdline noted without the MRQ editor library); cancel check waits for frames | agent-10 6577d81e | 1038 passed |
+| anim/pose | control rig track found by binding GUID `export_text` (str() carries the struct's address) | agent-01 e780b14d | 1039 passed |
+| mh | assemble before item parameters; preview keeps its actor; selftest wears an unworn groom | agent-04 d4b87b1c | 1039 passed |
