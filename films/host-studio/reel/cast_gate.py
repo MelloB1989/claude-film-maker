@@ -286,10 +286,19 @@ def frames(root: str, eng: str | None, out: str, mouths: dict | None = None) -> 
         s = next(x for x in SHOTS if x.id == sid)
         who = s.cast[0]
         on = {f for _, a, b in windows(who) for f in range(a, b)}
+        per = {int(k): v for k, v in ((mouths or {}).get(sid) or {}).get("per_frame", {}).items()}
+
+        def box_at(f):  # the lips' own box at the nearest projected frame, a quarter wider each side: a box over
+            if not per:  # the whole shot's extent takes in the head's moves (cast_op3: her S16 3.24 -> 1.48)
+                return box
+            b = per[min(per, key=lambda k: abs(k - f))]
+            mw, mh = (b[2] - b[0]) * 0.25 + 0.005, (b[3] - b[1]) * 0.25 + 0.005
+            return (b[0] - mw, b[1] - mh, b[2] + mw, b[3] + mh)
         d = {}
         for f in range(s.start + 1, s.end):
             if f in fr and f - 1 in fr:
-                d[f] = float(np.mean(np.abs(crop(f, box, "L") - crop(f - 1, box, "L"))))
+                bx = box_at(f)
+                d[f] = float(np.mean(np.abs(crop(f, bx, "L") - crop(f - 1, bx, "L"))))
         a_on = [v for f, v in d.items() if f in on]
         a_off = [v for f, v in d.items() if f not in on]
         if a_on and a_off:
