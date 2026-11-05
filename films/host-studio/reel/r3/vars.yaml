@@ -5,4 +5,4 @@ kind: vars
 vars:
   seq: /Game/Reel/SEQ_Reel
   level: /Game/Studio/Studio
-  out: /srv/ue/reel/r3          # renders on the box (film-ue pull to fetch); /srv/film was not writable on day 1
+  out: /srv/ue/reel/r3          # renders stay on the box (QA, sheets and the cut run there); /srv/film was not writable on day 1
