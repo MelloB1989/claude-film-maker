@@ -139,7 +139,9 @@ elif STAGE == "ingest":
     # Linux UE cannot decode the iPhone's H.264/AAC .mov itself (day 3: 'Video file format is unsupported ... Consider
     # enabling Third Party Encoder in Capture Manager settings'): point Capture Manager at the box's ffmpeg
     import shutil
-    ffmpeg = shutil.which("ffmpeg") or "/usr/bin/ffmpeg"
+    # the engine passes -fps_mode (ffmpeg >= 5.1); the box's apt ffmpeg is 4.4, so prefer the static build
+    ffmpeg = next((p for p in ("/srv/ue/tools/ffmpeg/bin/ffmpeg", shutil.which("ffmpeg")) if p and os.path.exists(p)),
+                  "/usr/bin/ffmpeg")
     st = unreal.get_default_object(unreal.CaptureManagerEditorSettings)
     R["settings_props"] = props(unreal.CaptureManagerEditorSettings, 3000)
     want = {"enable_third_party_encoder": True,  # live 5.8.4 field names (agent-07's ingest output, day 3)
