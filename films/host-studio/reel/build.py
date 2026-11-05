@@ -203,6 +203,40 @@ def marks() -> None:
         print("not in the level (no visibility keys):", ", ".join(missing))
 
 
+LOD0 = """
+import unreal
+done = {}
+for a in unreal.get_editor_subsystem(unreal.EditorActorSubsystem).get_all_level_actors():
+    lab = a.get_actor_label()
+    if lab not in LABELS:
+        continue
+    r = done.setdefault(lab, {})
+    def put(key, c, f):
+        try:
+            f(c)
+            r[f"{key} {c.get_name()}"] = "ok"
+        except Exception as e:
+            r[f"{key} {c.get_name()}"] = f"ERR {type(e).__name__}: {e}"[:160]
+    for c in a.get_components_by_class(unreal.LODSyncComponent) if hasattr(unreal, "LODSyncComponent") else []:
+        put("lodsync.forced_lod", c, lambda c: c.set_editor_property("forced_lod", 0))
+    for c in a.get_components_by_class(unreal.GroomComponent):
+        put("groom.set_forced_lod", c, lambda c: c.set_forced_lod(0))
+        put("groom.lod_forced_index", c, lambda c: c.set_editor_property("lod_forced_index", 0))
+    for c in a.get_components_by_class(unreal.SkeletalMeshComponent):
+        put("skel.forced_lod_model", c, lambda c: c.set_editor_property("forced_lod_model", 1))  # 0 auto, N = LOD N-1
+    a.modify()
+result = done
+"""
+
+
+def lod0() -> dict:
+    """Note 3 (round 3): her hair shortened at the shoulders at the end of S17's crane out (v2 45 s cut 0:39-0:40,
+    master f1416-1440): the groom dropped to a coarser LOD as she got smaller in frame. MRQ's game overrides pin
+    meshes to LOD 0, not grooms, so the presenters' LODSync, grooms and skeletal meshes are pinned to LOD 0 on the
+    placed actors (saved with the level, which the render saves before PIE). Says what took, per component."""
+    return run(f"LABELS = {HIM[:1] + HER[:1]!r}\n" + LOD0)
+
+
 def build() -> None:
     if not exists(["Host"]):
         raise SystemExit("no Host in the level: `film-ue op level.open path=/Game/Studio/Studio` first")
@@ -210,6 +244,7 @@ def build() -> None:
     rebind(HIM + HER + EMPTY_ROOM)
     cameras()
     marks()
+    print("lod0:", lod0())
     ok(client.op("seq.camera_cuts", path=SEQ, cuts=M.cuts()))
     got = ok(client.op("seq.cuts", path=SEQ))
     want = [[c, f, (M.cuts() + [[None, END]])[k + 1][1]] for k, (c, f) in enumerate(M.cuts())]
@@ -270,7 +305,11 @@ def main() -> None:
     ap.add_argument("--sheet", action="store_true", help="only remake the contact sheet from previs/cut (no bridge)")
     ap.add_argument("--only", default="", help="previs only these shots (S03,S04)")
     ap.add_argument("--no-build", action="store_true", help="previs the sequence as it is, without rebuilding")
+    ap.add_argument("--lod0", action="store_true", help="only pin the presenters' hair and bodies to LOD 0 (note 3)")
     a = ap.parse_args()
+    if a.lod0:
+        print("lod0:", lod0())
+        return
     if not a.sheet:
         state = snapshot(HIM + HER + EMPTY_ROOM)
         try:
