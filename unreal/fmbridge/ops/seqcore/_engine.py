@@ -190,11 +190,21 @@ def _component(a, name: str):
                     hint="level.describe lists an actor's components")
 
 
-def is_bound(seq, b) -> bool | None:
+def is_bound(seq, b, label: str = "") -> bool | None:
+    """Whether the binding finds its object (None: it could not be asked). With `label`, only when it finds exactly the
+    level's actor of that label: a possessable keeps its actor by object name (PersistentLevel.CineCameraActor_3), not
+    by label, so after its actor is deleted a new actor that takes the freed name (another script's camera) is found
+    instead, and its tracks drive that one (day-1 r3: Reel_V02 drove perf.py's Test_agent-10_S13)."""
     try:
-        return bool(seq.locate_bound_objects(b, world()))
+        objs = list(seq.locate_bound_objects(b, world()))
     except Exception:
         return None
+    if not label:
+        return bool(objs)
+    a = find_actor(label)
+    if a is None:  # no actor of that label (a binding named apart from its actor): only whether it finds anything
+        return bool(objs)
+    return len(objs) == 1 and objs[0] == a
 
 
 def is_spawnable(b) -> bool:
@@ -209,9 +219,10 @@ def bind(seq, label: str, spawn: dict | None = None, replace: bool = False) -> t
     {"class": "CineCameraActor" | "/Script/CinematicCamera.CineCameraActor"} or {"template": <level actor label>}."""
     have = bindings(seq).get((label, ""))
     if have is not None and not replace and bool(spawn) == is_spawnable(have):
-        if spawn or is_bound(seq, have) is not False:
+        if spawn or is_bound(seq, have, label) is not False:
             return have, False
-        a = actor(label)  # bound to an actor that is gone: point it at the level's actor, keeping its tracks
+        a = actor(label)  # bound to an actor that is gone, or to another one: point it at the level's actor of this
+        # label (replace, not add: it drops whatever else the binding found), keeping its tracks
         if LSE.get_current_level_sequence() != seq:
             LSE.open_level_sequence(seq)
         unreal.get_editor_subsystem(unreal.LevelSequenceEditorSubsystem).replace_binding_with_actors([a], have)
@@ -450,7 +461,7 @@ def describe(path: str, keys: bool = True) -> dict:
             spawn = is_spawnable(b)
             doc["bindings"].append({"name": label, "kind": "spawnable" if spawn else "possessable",
                                     "class": cls.get_name() if cls else None,
-                                    "bound": None if spawn else is_bound(seq, b)})
+                                    "bound": None if spawn else is_bound(seq, b, label)})
         for t in b.get_tracks():
             tr = read_track(seq, t, label, comp, names)
             if tr is None:

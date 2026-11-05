@@ -557,9 +557,13 @@ class _Owner:
 
 
 class BindingData:
-    def __init__(self, name, guid, obj_label="", comp="", parent=None, spawn_class=None):
+    def __init__(self, name, guid, obj_label="", comp="", parent=None, spawn_class=None, obj_name=""):
         self.name, self.guid, self.obj_label, self.comp, self.parent = name, guid, obj_label, comp, parent
         self.spawn_class = spawn_class
+        # A possessable keeps its actor by object name in the level (FLevelSequenceBindingReference: a soft path to
+        # PersistentLevel.<name>), not by label: when the actor is destroyed and a new actor of the same class takes
+        # the freed name (CineCameraActor_3), the binding finds that one. Empty = resolved by label (older tests).
+        self.obj_name = obj_name
         self.tracks: list = []
 
 
@@ -735,8 +739,13 @@ class LevelSequence(core.MovieSceneSequence, _Owner):
         if data.spawn_class:
             return None
         try:
-            a = core.FAKE.actor(data.obj_label)
+            if data.obj_name:
+                a = next((x for x in core.FAKE.world.actors() if x.get_name() == data.obj_name), None)
+            else:
+                a = core.FAKE.actor(data.obj_label)
         except Exception:
+            return None
+        if a is None:
             return None
         if data.comp:
             return next((c for c in a.get_components_by_class(core.ActorComponent) if c.get_name() == data.comp), None)
@@ -753,7 +762,8 @@ class LevelSequence(core.MovieSceneSequence, _Owner):
 
     def add_possessable(self, obj):
         if isinstance(obj, core.Actor):
-            d = BindingData(obj.get_actor_label(), Guid(), obj.get_actor_label())
+            d = BindingData(obj.get_actor_label(), Guid(), obj.get_actor_label(),
+                            obj_name=obj.get_name() if core.FAKE.bind_by_name else "")
         else:
             owner = obj.get_owner()
             label = owner.get_actor_label()
@@ -855,6 +865,8 @@ class LevelSequenceEditorSubsystem(core.Object):
         if LevelSequenceEditorBlueprintLibrary.current is not binding.seq:
             raise RuntimeError("replace_binding_with_actors needs the sequence open in Sequencer")
         binding.data.obj_label = actors[0].get_actor_label()
+        if binding.data.obj_name or core.FAKE.bind_by_name:
+            binding.data.obj_name = actors[0].get_name()
 
 
 class _XQuat:
