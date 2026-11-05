@@ -289,4 +289,30 @@ If something blocks the editor (a cloud wait, a fix in progress), agent-07 rende
     - The hair (c) is still open (0.237/0.219). Next: `hair_teal_ab.py --lights` (the lights + emissives, greenest first).
     - The cast_op3 likeness and the tee clip have not been judged by eye. That waits on cc-64d05f6e's review (face rule).
 16. Core bug: `film-ue sync epic save --dry-run` ignores --dry-run and saves (agent-07, 21:11 UTC). Fix it with a test.
+17. More bugs (agent-07):
+    - `build.cameras()` on its own leaves the camera-cut track on dead binding GUIDs. Re-make the cuts with seq.camera_cuts / M.cuts(), or make cameras() do that.
+    - `film-ue push` needs the editor up.
+    - An iris-crop hue tool for the likeness check: the cast_op4 iris (0.92/0.12) is unmeasured, and 0.08/0.95 renders light blue/grey.
+
+## Wrap, 05 Nov (21:18 UTC)
+
+- The box i-0f7a6ac044b75e922 was STOPPED with `film-ue down` at 21:18:09 UTC. There was no OS shutdown: its shutdown behaviour is `terminate`.
+- The TTLHours=9 tag (~22:27 UTC) is assumed to terminate it, so tomorrow's box restores from S3.
+- Private saves, all head-object aws:kms on the box, under `ue-linux/private/`:
+  - renders/r3 final_c 986, cal_A/B/C 26 each, cut 45;
+  - preview cast_op..cast_op4 614 each, with MP4s;
+  - logs 15;
+  - project/HostStudio 1416 (BP_Host_Op saved 21:10);
+  - ddc/5.8.4 48589;
+  - operator-face 8 objects (96 MB).
+- The Epic sign-in is in secrets/epic (aws:kms).
+- Delivered: the fixes preview `shoot/r3/preview/karma-r3-preview-960x540.mp4` (Trey).
+- Private: cast_op3/cast_op4 of the operator MetaHuman.
+- Not done:
+  - the finals and cuts;
+  - the hair (c) fix;
+  - his S13 lips, a weak face response (item 15);
+  - the watch seat under playback;
+  - the tee hem / waistband;
+  - verifying the iris colour.
 
