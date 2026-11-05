@@ -213,3 +213,17 @@ If something blocks the editor (a cloud wait, a fix in progress), agent-07 rende
     5. agent-09 QA/gate, agent-06's encode on the box, the upload on agent-10's go.
     6. WRAP step 4.
   - The V01/V02/S11 finals were rendered on stale cameras (camcheck_1900: V01 1.14x, V02/S11 differ). Re-render them tomorrow, with level.save + probe_cam --check first.
+
+## Tomorrow (round 3, day 2): the list
+
+1. Restore the box from private S3 (project + DDC), then agent-04 re-runs the ingest from the raw take (`private/operator-face/MySlate_3/`, ~1 min). The identity is already solved and Host_Op is already built.
+2. Flip him to the operator's MetaHuman:
+   - `host_swap.py` (r3-operator-mh, unmerged until then) + rebind, the outfit, K.channels, clip checks;
+   - measure, then agent-11's `framing.py --him`;
+   - hair/beard: a placeholder until the operator answers (`operator_mh.py` GROOMS, then STAGE='grooms' + mh.build).
+3. agent-01's face chain on both: calibrate (it failed on her tonight with old signs: find out why), naturalize her then him, turn_head, verify head_turns + both-eyes-shut.
+4. Her hair: hair_cover's COVERAGE winner in dress_her, then lod0. Gate (c) needs black end to end.
+5. Set finals: move V01, V02 and S11 out of final_c to final_c_<shot>_old, then re-render them at C after level.save + probe_cam --check, then camcheck 90/270/750/775. Good already: V03, V04, V05, S12, N01.
+6. The presenter gate on a cast preview. Then presenter finals S13-S18 at C, one per approved shot, with the camera rule.
+7. Cut: agent-06's cut.sh final --fill-from none. Keep step to private/renders/r3 (KMS + head-object). Then the private project/DDC save.
+8. Core backlog: B68 (overwrite never converges: the take field); render.encode's pattern for frames before 0. Narrow PRIVATE_EXCLUDES' `Unpacked/Host/*` (Trey's build, not face data) when Trey's BP needs syncing.
