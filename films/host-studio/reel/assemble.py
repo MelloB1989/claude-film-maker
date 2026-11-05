@@ -1,16 +1,18 @@
-"""Assembling the reel as its final frames arrive (task R6b), on the operator's Mac: bring a finished shot down from
-the workstation, check it, lay it out for a look, and cut a rolling preview of everything rendered so far.
+"""Assembling the reel as its frames arrive (round 3, ROUND3.md: the Linux box, 1080p, 16:9 only): bring a render
+pass down from the box, check it, lay it out for a look, and cut the reel from everything rendered so far.
 
-    FLEET_BRIDGE_NOLOCK=1 bash /tmp/fleet-bridge/run.sh REPO uv run --with pillow python \\
-        ../films/host-studio/reel/assemble.py pull S03 'D:\\renders\\reel\\S03'     # S3 only: never the bridge lock
-    cd REPO/tools && uv run --with pillow python ../films/host-studio/reel/assemble.py check [S03 ...]
-    ... assemble.py sheet S03               # sheets/S03.jpg: every 6th frame; sheets/S02-S03.jpg: the cut into it
-    ... assemble.py preview --mix MIX.wav --cues CUES.json   # preview_<n>.mp4 (1080p 16:9) and preview_<n>_9x16.mp4
-    ... assemble.py final --mix MIX.wav --mix45 MIX_45.wav --cues CUES.json   # every deliverable, 65 s and 45 s
+    cd tools && uv run --with pillow python ../films/host-studio/reel/assemble.py --pass preview pull   # the box's
+                                            /srv/ue/reel/r3/preview -> OUT/frames/preview (film-ue's bridge)
+    ... assemble.py --pass final check [S13 ...]     # per shot: frames present, size, luma of first/mid/last
+    ... assemble.py --pass final sheet S13           # sheets/S13.jpg: every 6th frame; sheets/N01-S13.jpg: the cut
+    ... assemble.py --pass preview preview --mix audio/mix/mix.wav [--cues CUES.json]   # preview_<pass>_<n>.mp4
+    ... assemble.py final --mix audio/mix/mix.wav --mix45 audio/mix/mix_45.wav [--cues CUES.json]   # 65 s and 45 s
 
-FRAMES (--frames-dir) is out/host-studio/reel/frames/ of the repo the output belongs in, one directory per shot (S01/
-...), numbered as cut.py reads them (the master's clock or the shot's own). n in preview_<n> is the number of whole
-shots in. Missing shots are slates, so the preview is always the reel's full 65 s with the mix and the title.
+A pass is one directory of frames as agent-05's r3 specs write them on the box (/srv/ue/reel/r3/<pass>/<master
+frame:04d>.png; the preview pass is 960x540 .jpg), in OUT/frames/<pass>/ here (--frames-dir for any other; per-shot
+directories, S13/..., work too; --frames-root for where the passes are). `final` cuts from the finals and fills every shot not yet final from the preview pass
+(--fill-from preview; none to require every final). n in preview_<pass>_<n> is the number of whole shots in. Missing
+shots are slates, so a cut is always the reel's full length with the mix, the title and the captions.
 """
 from __future__ import annotations
 
@@ -26,24 +28,62 @@ import cut  # noqa: E402
 from shots import SHOTS  # noqa: E402
 
 SHOT = {s.id: s for s in SHOTS}
-DEFAULT = Path("/Users/0mellob/Developer/code/claude-film-maker/out/host-studio/reel")
+DEFAULT = HERE.parents[2] / "out" / "host-studio" / "reel"
+BOX = "/srv/ue/reel/r3"  # r3/vars.yaml's ${out}: the passes on the box
+
+
+def pattern(frames: Path) -> str:
+    """cut.py's --pattern for a pass: .png, or .jpg when the pass has jpgs and no pngs (the preview)."""
+    has = lambda ext: next(frames.rglob(f"[0-9][0-9][0-9][0-9].{ext}"), None) is not None  # noqa: E731
+    return "{frame:04d}.jpg" if not has("png") and has("jpg") else "{frame:04d}.png"
 
 
 def frames_of(frames: Path, s) -> dict:
-    return cut.find_frames(frames, s.start, s.end)
+    return cut.find_frames(frames, s.start, s.end, pattern(frames)) if frames.is_dir() else {
+        f: None for f in range(s.start, s.end)}
 
 
 def whole(frames: Path) -> list:
-    return [s.id for s in SHOTS if (frames / s.id).is_dir() and all(frames_of(frames, s).values())]
+    return [s.id for s in SHOTS if all(frames_of(frames, s).values())]
 
 
-def pull(frames: Path, shot: str, remote: str) -> None:
+def some(frames: Path) -> list:
+    return [s.id for s in SHOTS if any(frames_of(frames, s).values())]
+
+
+def pull(frames: Path, remote: str) -> None:
     from filmtools.unreal import workstation as ws
-    d = frames / shot
-    shutil.rmtree(d, ignore_errors=True)  # a re-render replaces the shot whole: no old frame survives beside new ones
-    n = ws.pull_dir(remote, str(d))
-    print(f"{shot}: {n} files in {d}")
-    check(frames, [shot])
+    shutil.rmtree(frames, ignore_errors=True)  # a pass is replaced whole: no stale frame survives beside new ones
+    n = ws.pull_dir(remote, str(frames))
+    print(f"{n} files in {frames}")
+    check(frames, [])
+
+
+def merged(out: Path, passes: list) -> Path:
+    """One directory of links: each shot from the first pass that has it whole (the finals, then the preview), so a
+    cut can run before every final is in. Shots whole in none stay missing (slates). Every link is one extension."""
+    d = out / "frames" / "_cut"
+    shutil.rmtree(d, ignore_errors=True)
+    d.mkdir(parents=True)
+    used = {}
+    for s in SHOTS:
+        for p in passes:
+            got = frames_of(p, s)
+            if all(got.values()):
+                for f, path in got.items():
+                    (d / f"{f:04d}{Path(path).suffix.lower()}").symlink_to(Path(path).resolve())
+                used[s.id] = p.name
+                break
+    exts = {x.suffix for x in d.iterdir()}
+    if len(exts) > 1:  # a final .png beside a preview .jpg: ffmpeg reads one sequence of one format
+        conv = {x for x in d.iterdir() if x.suffix == ".jpg"}
+        from PIL import Image
+        for x in conv:
+            with Image.open(x) as im:
+                im.convert("RGB").save(x.with_suffix(".png"), compress_level=1)
+            x.unlink()
+    print("shots from:", json.dumps(used))
+    return d
 
 
 def luma(img) -> tuple[float, float, float]:
@@ -58,7 +98,7 @@ def check(frames: Path, shots: list) -> dict:
     """Per shot: frames present/missing, size, and the luma of its first, middle and last frame."""
     from PIL import Image
     out = {}
-    for sid in shots or [s.id for s in SHOTS if (frames / s.id).is_dir()]:
+    for sid in shots or some(frames):
         s = SHOT[sid]
         got = frames_of(frames, s)
         miss = [f for f, p in got.items() if p is None]
@@ -112,7 +152,7 @@ def sheet(frames: Path, out: Path, shot: str, every: int = 6, tile: int = 640) -
     i = [x.id for x in SHOTS].index(shot)
     if i:
         p = SHOTS[i - 1]
-        prev = {f: q for f, q in frames_of(frames, p).items() if q} if (frames / p.id).is_dir() else {}
+        prev = {f: q for f, q in frames_of(frames, p).items() if q}
         if prev:
             pf = sorted(prev)[-2:]
             grid([(f, prev[f]) for f in pf] + [(f, got[f]) for f in fs[:2]], 960, 2,
@@ -121,41 +161,56 @@ def sheet(frames: Path, out: Path, shot: str, every: int = 6, tile: int = 640) -
     return made
 
 
-def preview(frames: Path, out: Path, mix: Path, cues: Path | None, scale: float, source: str, hold: str) -> None:
-    """The reel so far: rendered shots and slates for the rest, the mix, title and captions; 1080p 16:9 and 9:16."""
+def preview(frames: Path, out: Path, mix: Path, mix45: Path | None, cues: Path | None, scale: float, source: str,
+            hold: str) -> None:
+    """The reel so far from one pass: rendered shots and slates for the rest, the mix, title and captions; the 65 s
+    and the 45 s, 1080p 16:9 with captions burned in."""
     n = len(whole(frames))
     work = out / "preview_work"
-    args = [str(frames), "--fill", "slate", "--only", "1080p,vertical", "--mix", str(mix), "--out", str(work),
-            "--scale", str(scale), "--source", source, "--hold-first", hold]
-    cut.main(args + (["--cues", str(cues)] if cues else []))
-    (work / "karma-reel-1080p-h264.mp4").replace(out / f"preview_{n}.mp4")
-    (work / cut.SOURCES[source]["rename"].get(v := "karma-reel-9x16-h264.mp4", v)).replace(out / f"preview_{n}_9x16.mp4")
-    (work / "cut.json").replace(out / f"preview_{n}.json")
-    print(out / f"preview_{n}.mp4", out / f"preview_{n}_9x16.mp4", f"({n} of {len(SHOTS)} shots: {', '.join(whole(frames))})")
+    tag = f"{frames.name}_{n}"
+    args = [str(frames), "--fill", "slate", "--only", "1080p", "--out", str(work), "--pattern", pattern(frames),
+            "--scale", str(scale), "--source", source, "--hold-first", hold] + (["--cues", str(cues)] if cues else [])
+    cut.main(args + ["--mix", str(mix)])
+    cut.main(args + ["--edl", "45s", "--mix", str(mix45 or mix)])
+    (work / "karma-reel-1080p-h264.mp4").replace(out / f"preview_{tag}.mp4")
+    (work / "karma-reel-45s-1080p-h264.mp4").replace(out / f"preview_{tag}_45s.mp4")
+    (work / "cut.json").replace(out / f"preview_{tag}.json")
+    print(out / f"preview_{tag}.mp4", out / f"preview_{tag}_45s.mp4",
+          f"({n} of {len(SHOTS)} shots: {', '.join(whole(frames))})")
 
 
-def final(frames: Path, out: Path, mix: Path, mix45: Path | None, cues: Path | None, source: str, hold: str) -> None:
-    """The deliverables into OUT: the 65 s reel (ProRes master, 4K H.264/HEVC, 1080p, 9:16, SRT/VTT, cut.json) and the
-    45 s cut (the same, karma-reel-45s-*: R5's mix made for it, or the full mix cut on its edits). From --source 1080p
-    frames: a 1080p master, no 4K, the 9:16 as karma-reel-9x16-preview-*. Every frame must be in: no slates."""
-    missing = [s.id for s in SHOTS if s.id not in whole(frames)]
+def final(frames: Path, out: Path, mix: Path, mix45: Path | None, cues: Path | None, source: str, hold: str,
+          fill_from: list) -> None:
+    """The deliverables into OUT: the 65 s reel (the textless ProRes master, 1080p with captions burned in, 1080p
+    clean, SRT/VTT, cut.json) and the 45 s cut (the same, karma-reel-45s-*: R5's mix made for it, or the full mix cut on
+    its edits). Shots not yet final come from the --fill-from passes (a rough cut, named so in cut.json's "shots");
+    with none, every final must be in."""
+    passes = [frames] + fill_from
+    missing = [s.id for s in SHOTS if not any(s.id in whole(p) for p in passes)]
     if missing:
         raise SystemExit(f"not every shot is in: {', '.join(missing)}")
-    c = (["--cues", str(cues)] if cues else []) + ["--source", source, "--hold-first", hold]
-    cut.main([str(frames), "--mix", str(mix), "--out", str(out), *c])
-    cut.main([str(frames), "--edl", "45s", "--mix", str(mix45 or mix), "--out", str(out), *c])
+    rough = [s.id for s in SHOTS if s.id not in whole(frames)]
+    src = merged(out, passes) if rough else frames
+    if rough:
+        print(f"ROUGH CUT: {', '.join(rough)} not final yet (from {', '.join(p.name for p in fill_from)})")
+    c = (["--cues", str(cues)] if cues else []) + ["--source", source, "--hold-first", hold, "--pattern", pattern(src)]
+    cut.main([str(src), "--mix", str(mix), "--out", str(out), *c])
+    cut.main([str(src), "--edl", "45s", "--mix", str(mix45 or mix), "--out", str(out), *c])
 
 
 def main(argv=None) -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0], formatter_class=argparse.RawTextHelpFormatter)
     ap.add_argument("--out", type=Path, default=DEFAULT, help="where the previews and sheets go")
-    ap.add_argument("--frames-dir", type=Path, help="the shots' frames (default OUT/frames)")
-    ap.add_argument("--source", choices=["2160p", "1080p"], default="2160p", help="the frames' resolution (cut.py)")
+    ap.add_argument("--pass", dest="pass_", default="final", help="the render pass: preview, final, cal_A, ...")
+    ap.add_argument("--frames-root", type=Path, help="where the passes are, one directory each (default OUT/frames; "
+                                                    "agent-07 copies them to .worktrees/agent-06/r3-frames)")
+    ap.add_argument("--frames-dir", type=Path, help="the pass's frames (default FRAMES_ROOT/<pass>)")
+    ap.add_argument("--source", choices=["2160p", "1080p"], default="1080p", help="the deliverables' resolution "
+                                                                                 "(cut.py; 1080p in round 3)")
     ap.add_argument("--hold-first", default="", help="cut.py's --hold-first: shots whose first frame is ghosted")
     sub = ap.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("pull")
-    p.add_argument("shot")
-    p.add_argument("remote")
+    p.add_argument("remote", nargs="?", help=f"the pass's directory on the box (default {BOX}/<pass>)")
     p = sub.add_parser("check")
     p.add_argument("shots", nargs="*")
     p = sub.add_parser("sheet")
@@ -163,24 +218,29 @@ def main(argv=None) -> None:
     p.add_argument("--every", type=int, default=6)
     p = sub.add_parser("preview")
     p.add_argument("--mix", type=Path, required=True)
+    p.add_argument("--mix45", type=Path, help="R5's mix for the 45 s cut (else the full mix, cut on its edits)")
     p.add_argument("--cues", type=Path)
     p.add_argument("--scale", type=float, default=1.0, help="cut.py's --scale (less for a quick look)")
     p = sub.add_parser("final")
     p.add_argument("--mix", type=Path, required=True)
     p.add_argument("--mix45", type=Path, help="R5's mix for the 45 s cut (else the full mix, cut on its edits)")
     p.add_argument("--cues", type=Path)
+    p.add_argument("--fill-from", default="preview", help="passes that stand in for shots not yet final, in order "
+                                                          "(comma-separated; none: every final must be in)")
     a = ap.parse_args(argv)
-    frames = a.frames_dir or a.out / "frames"
+    root = a.frames_root or a.out / "frames"
+    frames = a.frames_dir or root / a.pass_
     if a.cmd == "pull":
-        pull(frames, a.shot.upper(), a.remote)
+        pull(frames, a.remote or f"{BOX}/{a.pass_}")
     elif a.cmd == "check":
         check(frames, [x.upper() for x in a.shots])
     elif a.cmd == "sheet":
         sheet(frames, a.out, a.shot.upper(), a.every)
     elif a.cmd == "final":
-        final(frames, a.out, a.mix, a.mix45, a.cues, a.source, a.hold_first)
+        fill = [] if a.fill_from in ("", "none") else [root / x for x in a.fill_from.split(",")]
+        final(frames, a.out, a.mix, a.mix45, a.cues, a.source, a.hold_first, fill)
     else:
-        preview(frames, a.out, a.mix, a.cues, a.scale, a.source, a.hold_first)
+        preview(frames, a.out, a.mix, a.mix45, a.cues, a.scale, a.source, a.hold_first)
 
 
 if __name__ == "__main__":
