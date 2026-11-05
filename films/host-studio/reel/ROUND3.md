@@ -84,6 +84,11 @@ frames (`~/.config/Epic/CaptureManager/Media/HostStudio/`, outside the project) 
 at 17:00 to the normal prefix, which is fine. At the end, the final DDC and project go to `private/ddc/5.8.4/` and
 `private/project/HostStudio/`.
 
+Bucket check (agent-07, read-only, 17:2x UTC): the default encryption is SSE-S3 (AES256), not KMS, so every private
+upload passes `--sse aws:kms` itself (core `sync._sse`; the r3 README keep step). The bucket policy denies `GetObject`
+on `ue-linux/private/*` to everyone but the box role `ue-workstation`. It does not deny list, put or delete there,
+or unencrypted puts. Tightening it is a bucket-policy change for the operator; we changed nothing.
+
 The box ends at **22:30 UTC** (operator's extension). Finished work leaves the box only as the small things below.
 
 ## Bandwidth and cost: work on the box, bring down only small things
@@ -166,3 +171,4 @@ If something blocks the editor (a cloud wait, a fix in progress), agent-07 rende
   next; (a) S16 PASS on frames, S13 waits for the engine numbers; (d)/(e) FAIL: naturalize was not applied
   (calibrate failed on a dead HeadRoll: fixed in core 45e8146b).
 - Orchestrator rule: no bulk frame pulls to kali; QA, encodes and the cut run on the box; only sheets, crops and final MP4s come down.
+- Bucket check (agent-07): default SSE-S3, not KMS, so every private upload passes `--sse aws:kms`; only the box role can read private/. Reported to karmax.
