@@ -207,9 +207,9 @@ If something blocks the editor (a cloud wait, a fix in progress), agent-07 rende
 - **v2's Unreal assets on the box** (`/Game/Speech`, `/Game/Reel/Perf`): agent-07 checks. If they are missing,
   everything is re-solved (`speech.to_face` on Linux 5.8: proven by agent-07's check).
 - **4K**: only if the operator confirms.
-- **His hair, facial hair and brows (note 2)**: not known. Built with a PLACEHOLDER (short dark hair, stubble, medium
-  brows) that the operator should correct. The choices live in one place, `operator_mh.py` `GROOMS`, so a correction
-  is `STAGE='grooms'` plus one `mh.build` (about 95 s). Asked of the operator through the orchestrator.
+- **His hair, facial hair and brows (note 2)**: still a guess, now from the orchestrator's description against the
+  capture (straight swept-back black hair, full dark brows, thin mustache, no beard), not the operator's own answer.
+  A correction is one `STAGE='look'` run with HAIR/BROWS/MUSTACHE/BEARD, then `mh.build ... force=true` (about 82 s).
 
 ## Log
 
@@ -362,6 +362,36 @@ If something blocks the editor (a cloud wait, a fix in progress), agent-07 rende
     - `build.cameras()` on its own leaves the camera-cut track on dead binding GUIDs. Re-make the cuts with seq.camera_cuts / M.cuts(), or make cameras() do that.
     - `film-ue push` needs the editor up.
     - An iris-crop hue tool for the likeness check: the cast_op4 iris (0.92/0.12) is unmeasured, and 0.08/0.95 renders light blue/grey.
+
+## Handoff: note 2, the operator's MetaHuman (agent-04)
+
+Code: `films/host-studio/unreal/operator_mh.py` (stages; its header is the full record), `host_swap.py`
+(`HOST=trey|op`), `bodies.py` (`op`). Run a stage: `film-ue exec -c "STAGE='<s>'; <vars>;
+exec(open('<checkout>/films/host-studio/unreal/operator_mh.py').read())"`.
+
+Verified on the box (round 3):
+- ingest (ffmpeg >= 5.1 as Capture Manager's third-party encoder), identity (Epic's sequence: conform NONE),
+  `import_from_identity` SUCCESS, cloud rig + textures, `BP_Host_Op`; the swap (SEQ_Reel rebind ok, leader gap 0.0 cm,
+  lighting channels); heights eye 168.7, knee 49.4, top 181.7 cm (in agent-11's shots.py).
+- The end state (saved, private): hair `WI_Hair_S_SlickBack`, brows `WI_Eyebrows_M_Full`, mustache
+  `WI_Mustache_M_Stubble`, no beard, groom melanin 1.0 / redness 0.05 (by `groom.set` on the placed actor), skin u/v
+  0.62/0.58, iris u/v 0.92/0.12, chest 104, tee mid grey.
+
+NOT verified (judge in cast_op4, on private/ only):
+- iris brown? (0.08/0.95 rendered light blue/grey; 0.92/0.12 is a guess). Check an iris-crop hue; numbers only.
+- hair straight? (SlickBack was chosen as the closest straight swept-back stock groom).
+- tee hem patches gone? They are not slot holes (only the real shorts slot is hidden), so if they remain it is the
+  trousers' waistband (fitted to Trey's tee) through his tee: slim the band or lower it under the hem.
+- skin match: tone only, no capture texture in this route.
+
+Known limits: colours (instance parameters) cannot be set on the character, even after a build (`mh.build` does not
+build the editing instance's collection); colour grooms on the placed actor (`groom.set`) until the preview-collection
+path exists. A groom/skin/iris change = `STAGE='look'` -> `mh.textures` (a skin change) -> `mh.build ... force=true`
+-> `host_swap.py HOST='op'` -> `groom.set label=Host melanin=1.0 redness=0.05` -> `level.save`. The teeth pose is not done.
+
+Finals with him (if the operator picks Host_Op): the box restored from private/, then `STAGE='ingest'` only if re-tracking
+(frames are re-made from the raw take); `host_swap.py HOST='op'` (it is in the saved level already); agent-01's
+calibration on Host_Op; then the finals as for Trey, every frame of him to private/ only. With Trey: `HOST='trey'`.
 
 ## Wrap, 05 Nov (21:18 UTC)
 
