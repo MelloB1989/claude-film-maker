@@ -161,8 +161,8 @@ def run(t):
             ["FinalImage", True, True])
     t.check("EXR frames per pass", [len(glob.glob(os.path.join(aov, d, "*.exr"))) for d in dirs], [4, 4, 4])
 
-    # executors: a separate process after saving, and a command line with no editor. Both need the MRQ editor
-    # library for the queue manifest; on the day-1 box it was missing, which is one failed check, not the end of the run
+    # executors: a separate process after saving, and a command line with no editor. The command line takes MRQ's
+    # queue manifest, or (5.8 on Linux has no manifest writer in Python) the queue saved as an asset
     from ..errors import OpError
     try:
         proc = os.path.join(out, "process")
@@ -172,7 +172,12 @@ def run(t):
         t.metric("process_job_s", rep["seconds"], "s")
         man = t.op("render.manifest", spec={**spec, "out_dir": os.path.join(out, "cmd"), "name": "cmd", "frames": [0, 2],
                                             "executor": "cmdline"})
-        t.ok("manifest written", man["chunks"] and os.path.isfile(man["chunks"][0]["manifest"]), detail=str(man)[:500])
+        from fmbridge.ops.assets import EAL
+        m0 = man["chunks"][0]["manifest"] if man["chunks"] else ""
+        t.ok("manifest written (a .utxt or a saved queue asset)",
+             os.path.isfile(m0) or (m0.startswith("/Game/") and bool(EAL.does_asset_exist(
+                 m0.split(".")[0]))), detail=str(man)[:500])
+        t.metric("manifest_kind", "asset" if m0.startswith("/Game/") else "file")
         rep = yield from t.op("render.job", spec={**spec, "out_dir": os.path.join(out, "cmd"), "name": "cmd",
                                                   "frames": [0, 2], "executor": "cmdline"}, stall_s=600.0)
         t.check("command-line render (one process, no editor)", [rep["status"], rep["frames"]], ["ok", 2])
@@ -207,21 +212,26 @@ def run(t):
         t.check("path tracer renders on a big GPU", rep["status"], "ok")
         t.metric("pt_vram_peak_gb", rep.get("vram_peak_gb"), "GB")
 
-    # cancel, then resume
-    can = {**spec, "out_dir": os.path.join(out, "cancel"), "name": "cancel", "temporal": 4}
+    # cancel, then resume. Cancel once the job has frames on disk, not after a fixed wait: on an L4 the whole job
+    # (48 frames) rendered before a 40-tick wait ended, and a finished job rightly reports ok
+    can = {**spec, "out_dir": os.path.join(out, "cancel"), "name": "cancel", "temporal": 8}
     job = t.op("render.job", spec=can)
-    first = None
+    first, sent = None, None
     try:
-        for _ in range(40):
-            next(job)
-            yield 0.1
-        t.check("cancel", t.op("render.cancel")["changed"], True)
         while True:
             next(job)
-            yield
+            yield 0.05
+            if sent is None:
+                st = t.op("render.status")
+                if st.get("status") == "running" and (st.get("chunk_frames") or st.get("chunks_done")):
+                    sent = t.op("render.cancel")
     except StopIteration as e:
         first = e.value
+    t.ok("cancel sent while the job was rendering", bool(sent and sent["changed"]),
+         detail=str(sent) if sent else f"the job ended first: {(first or {}).get('status')}, "
+                                       f"{(first or {}).get('frames')} frames")
     t.check("cancelled job reports cancelled", (first or {}).get("status"), "cancelled")
+    t.ok("cancelled job stopped short", 0 < (first or {}).get("frames", 0) < 48, detail=str((first or {}).get("frames")))
     rep = yield from t.op("render.job", spec=can)
     t.check("re-run after cancel completes", rep["status"], "ok")
     st = t.op("render.status")

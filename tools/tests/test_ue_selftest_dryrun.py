@@ -222,12 +222,8 @@ def _setup_render(ue, fmb, monkeypatch, tmp_path):
                                 cuts=[["ST_render_CamA", 0, 24], ["ST_render_CamB", 24, 48]]) and root + "/SEQ_Render"),
         "level": "/Game/_Selftest/render/L_Render", "cams": ["ST_render_CamA", "ST_render_CamB"]})
 
-    def manifest(q, path):
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w") as f:
-            f.write("m")
-        return path
-    monkeypatch.setattr(fmb.render, "_write_manifest", manifest)
+    # the cmdline executor's queue goes through the fake's missing MRQ editor library (as on the box): a queue asset
+    ue.mrq.frames_per_tick = 4  # an L4 renders the draft frames this fast: the cancel step must not lose the race
     monkeypatch.setattr(fmb.render.subprocess, "Popen", _FakeProc)
     # the box as tested here has no ffmpeg (a dev machine may: the encode steps then skip the same way everywhere)
     which = fmb.render.shutil.which
