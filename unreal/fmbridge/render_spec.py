@@ -89,6 +89,7 @@ PASSES = {
 }
 EXECUTORS = ("pie", "process", "cmdline")
 AA_METHODS = ("none", "fxaa", "taa", "msaa", "tsr", "smaa")
+SHUTTER_TIMINGS = ("center", "open", "close")  # MRQ's camera setting: where a frame's temporal samples sit
 EXR_COMPRESSION = ("none", "rle", "zips", "zip", "piz", "pxr24", "b44", "b44a", "dwaa", "dwab")
 
 # Cost model (docs/linux/engine.md P3/P4/P5, UE 5.8.4, L4, Vulkan SM6): ~0.09 s per deferred sample at 1920x1080,
@@ -171,6 +172,11 @@ SCHEMA: dict = {
                                    "pre-rolled from that first frame (the sequence evaluated frame by frame, nothing "
                                    "rendered) so cloth and physics arrive in the state a full-shot render would have"},
         "aa_method": {"enum": list(AA_METHODS), "description": "override the project's anti-aliasing (default: the project's)"},
+        "shutter_timing": {"enum": list(SHUTTER_TIMINGS),
+                           "description": "where a frame's temporal samples (motion blur) sit: center (MRQ's default, "
+                                          "N-s/2..N+s/2), open (N..N+s) or close; open keeps a camera cut or a stepped "
+                                          "key on frame N out of the frame before it (a centred shutter blends the "
+                                          "previous shot's camera into a shot's first frame)"},
         "path_tracer": {"type": "boolean", "description": "render with the path tracer instead of deferred (Lumen)"},
         "quality": {"type": "boolean", "description": "apply the film-quality cvars (Lumen, VSM SMRT, hair MSAA, DOF, blur)"},
         "cvars": {"type": "object", "additionalProperties": {"type": "number"},
@@ -310,7 +316,7 @@ def resolve(spec: dict) -> dict:
     preset = spec.get("preset", "final")
     r = copy.deepcopy({k: v for k, v in PRESETS[preset].items() if k != "about"})
     r.update({"preset": preset, "path_tracer": r.get("path_tracer", False), "passes": r.get("passes", ["beauty"]),
-              "preroll": "cut", "aa_method": None, "executor": "pie", "save_dirty": True, "chunking": "shot",
+              "preroll": "cut", "aa_method": None, "shutter_timing": None, "executor": "pie", "save_dirty": True, "chunking": "shot",
               "resume": True, "overwrite": False, "zero_pad": 4, "boxes": 1, "cvars": {}, "level": "",
               "frames": None, "shots": None, "game_overrides": None})
     r.update(copy.deepcopy({k: v for k, v in spec.items() if k not in ("kind", "version")}))

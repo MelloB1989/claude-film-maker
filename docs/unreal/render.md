@@ -118,6 +118,7 @@ The schema is `tools/filmtools/unreal/schemas/render.schema.json` (`film-ue rend
 | `warmup_render`, `warmup_engine` | preset | frames rendered and discarded at a shot start (TSR history) / ticked without rendering when there is no pre-roll |
 | `preroll` | cut | `cut`: a chunk after its cut's first frame is pre-rolled from it; `none`: start cold |
 | `aa_method` | project's | none, fxaa, taa, msaa, tsr, smaa |
+| `shutter_timing` | MRQ's (center) | center, open, close: where a frame's temporal samples sit. `open` keeps a camera cut on frame N out of the frame before it: with a centred shutter a shot's first frame blends the previous shot's camera (round 3, S11 f720 / S12 f780) |
 | `path_tracer`, `quality` | preset | renderer; film-quality cvars (Lumen, VSM SMRT 16x16, hair MSAA 8, DOF/blur 4) |
 | `cvars` | {} | extra cvars, on top of `t.MaxFPS 0` and `r.HairStrands.SkyLighting 0` (always) |
 | `passes` | [beauty] | beauty, depth, motion_vectors, unlit, lighting_only, detail_lighting, reflections_only, object_id |
@@ -203,6 +204,7 @@ snake_case of the reflected name.
 | `IntPoint(x, y)` (FIntPoint.X/Y) | Engine/Source/Runtime/CoreUObject/Public/UObject/NoExportTypes.h:1009 | BlueprintType core struct: the type of output_resolution |
 | `MoviePipelineAntiAliasingSetting.spatial_sample_count, temporal_sample_count, override_anti_aliasing, anti_aliasing_method, render_warm_up_count, use_camera_cut_for_warm_up, engine_warm_up_count` | MoviePipelineAntiAliasingSetting.h:49-101 | camera-cut warm-up = the cut's frames before the range, evaluated per frame (MoviePipelineBlueprintLibrary.cpp:745, MoviePipeline.cpp:1235) |
 | `AntiAliasingMethod.AAM_NONE/FXAA/TEMPORAL_AA/MSAA/TSR/SMAA` | Engine/Source/Runtime/Engine/Public/SceneUtils.h:44 | |
+| `MoviePipelineCameraSetting.shutter_timing`, `MoviePipelineShutterTiming.FRAME_CENTER/FRAME_OPEN/FRAME_CLOSE` (EMoviePipelineShutterTiming) | MovieRenderPipelineCore/Public/MoviePipelineCameraSetting.h; the enum in MovieRenderPipelineCore/Public/MovieRenderPipelineDataTypes.h (headers as expected; line numbers not verified: the source box is gone) | **probed live on the box, UE 5.8.4 Linux (agent-07, 2026-11-05 17:33 UTC)**: the enum has exactly FRAME_CENTER, FRAME_CLOSE, FRAME_OPEN; `set_editor_property('shutter_timing', FRAME_OPEN)` on a MoviePipelineCameraSetting reads back FRAME_OPEN. Default FRAME_CENTER: a frame's temporal samples straddle it |
 | `MoviePipelineConsoleVariableSetting.add_or_update_console_variable(name, float)` | MovieRenderPipelineSettings/Public/MoviePipelineConsoleVariableSetting.h:103 | |
 | `MoviePipelineDeferredPassBase.additional_post_process_materials` (`MoviePipelinePostProcessPass.enabled, material, high_precision_output, use_lossless_compression`) | MovieRenderPipelineRenderPasses/Public/MoviePipelineDeferredPasses.h:19,156 | constructor seeds WorldDepth + MotionVectors disabled (Private/MoviePipelineDeferredPasses.cpp:55-66) |
 | `MoviePipelineDeferredPass_PathTracer / _Unlit / _LightingOnly / _DetailLighting / _ReflectionsOnly` | MoviePipelineDeferredPasses.h:327,236,281,258,304 | |
