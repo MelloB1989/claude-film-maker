@@ -1,11 +1,6 @@
-# Stage 2 (WP6 + generic): the level, and the set as one scene spec: a floor, two walls, a desk, a stool, the host.
+# Stage 2 (WP6 + generic): the set as one scene spec (the level itself comes with vars.yaml): a floor, two walls, a desk, a stool, the host.
 kind: include
 files: [vars.yaml]
----
-kind: level
-version: 1
-name: demo-level
-path: "${level}"
 ---
 kind: scene
 version: 1

@@ -97,7 +97,7 @@ def _box_content(ue, fmb, tmp_path, monkeypatch, docs_vars):
 
 def test_the_demo_converges_on_the_fake(fmb, ue, tmp_path, monkeypatch):
     import yaml
-    docs_vars = yaml.safe_load((DEMO / "vars.yaml").read_text())["vars"]
+    docs_vars = next(d for d in yaml.safe_load_all((DEMO / "vars.yaml").read_text()) if d.get("kind") == "vars")["vars"]
     sets = _box_content(ue, fmb, tmp_path, monkeypatch, docs_vars)
     sdk = Unreal(transport=FakeBridge(fmb))
     docs = spec.load(DEMO / "demo.yaml", sets)

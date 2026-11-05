@@ -16,3 +16,10 @@ vars:
   idle: /MetaHumanCharacter/Optional/Animation/TemplateAnimations/Technical_Loops/Idle/mhc_mh001_fmn_b_idle
   seq: /Game/_Demo/SEQ_Demo
   out: /srv/ue/demo/out                          # renders, QA and stills on the box (the editor writes there)
+---
+# every stage opens the demo level first (each stage file includes this one): a stage applied alone after the
+# editor moved to another level (a selftest, a restart) works on the right level (day 1)
+kind: level
+version: 1
+name: demo-level
+path: "${level}"
