@@ -99,6 +99,7 @@ def provision(engine_s3: str, version: str, project_src: str, project_name: str,
         log(step("project-copy", f"{WINDISK}/{project_src[4:].strip('/')}", project_dir, timeout=3600).strip())
     else:
         log(step("project", project_src, project_dir, timeout=3600).strip())
+    log(step("rhi", project_dir, timeout=120).strip())  # Vulkan SM6: the DDC in S3 is VULKAN_SM6
     epic_s3 = epic_s3 or ws.conf().get("epic_s3", "")
     log(step("service", engine, f"{project_dir}/{project_name}.uproject", level, epic_s3, timeout=600).strip())
     ws.save(project_dir=project_dir)

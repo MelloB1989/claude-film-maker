@@ -8,7 +8,7 @@ again continues where it stopped.
 Steps, in order:
   settings      the profile has what a box needs (os, instance or ssh, project dir)
   reach         a command runs on the box
-  editor        the editor service is up (Linux: started if it is not)
+  editor        the editor service is up (Linux: started if it is not; the project made to target Vulkan SM6)
   bridge        the bridge answers; installed (or updated to this checkout's protocol) if not
   shaders       no shader compiling (waits; the first open of a project takes ~20 min)
   doctor        film-ue doctor passes (the editor's own check: plugins, RHI, GPU, disk, broken ops)
@@ -81,7 +81,14 @@ def step_editor(opts, log) -> str:
             raise Stop("the editor is not running in the desktop session", "log in over DCV and start the editor",
                        needs_you=True)
         return f"editor pid {u.get('pid')}"
+    from . import linuxbox
+    linuxbox.upload_kit()
+    rhi = linuxbox.step("rhi", ws.conf()["project_dir"], timeout=120)
     u = editorsvc.unit()
+    if "rhi=set" in rhi and u["active"] in ("active", "activating"):
+        log("the project did not target Vulkan SM6 (now set in Config/DefaultEngine.ini): restarting the editor")
+        editorsvc.control("restart")
+        u = editorsvc.unit()
     if u["active"] != "active":
         log(f"the editor's unit is {u['active']} ({u['result']}): starting it")
         editorsvc.control("start")

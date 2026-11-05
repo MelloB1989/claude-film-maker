@@ -301,7 +301,7 @@ stands for your profile (`--box B`). The project dir is `P` (`film-ue profile sh
 
 | failing check (selftest / first-run step) | likely cause | exact fix |
 |---|---|---|
-| platform "Vulkan SM6 on Linux" (`VULKAN_SM5`) | the project sets no `TargetedRHIs` for Linux | add `[/Script/LinuxTargetPlatform.LinuxTargetSettings]` `-TargetedRHIs=SF_VULKAN_SM5` `+TargetedRHIs=SF_VULKAN_SM6` to P/Config/DefaultEngine.ini, `film-ue --box B editor restart`, then `sync project up` |
+| platform "Vulkan SM6 on Linux" (`VULKAN_SM5`) | the project sets no `TargetedRHIs` for Linux (provision and first-run now set it: setup.sh rhi) | `film-ue --box B first-run --from editor` (sets it, restarts the editor), or by hand: add `[/Script/LinuxTargetPlatform.LinuxTargetSettings]` `-TargetedRHIs=SF_VULKAN_SM5` `+TargetedRHIs=SF_VULKAN_SM6` to P/Config/DefaultEngine.ini, `film-ue --box B editor restart`, then `sync project up` |
 | platform "command-channel file round trip (in parts)" hash differs | an old transport.get (one command; SSM cuts output at 24,000 chars) | update tools/ (transport.get reads in parts, day 1) |
 | first-run `shaders`: AttributeError `AutomationBlueprintFunctionLibrary` | an old bridge (Python's name is `AutomationLibrary`) | update unreal/ and `film-ue --box B install` |
 | `film-ue install` crashes with `'NoneType' object has no attribute 'get'` (the new bridge is up anyway) | an old inbox.py wrote `null` | update unreal/ and install again |

@@ -20,6 +20,8 @@
 #   watchdog TTL_UNTIL IDLE_MIN STALL_MIN [PROJECT_DIR]
 #                                  the box's watchdog (ue_watchdog.py, every minute): power off past TTL_UNTIL (epoch,
 #                                  0 = none) or after IDLE_MIN idle minutes, restart an editor stalled STALL_MIN minutes
+#   rhi PROJECT_DIR                the project targets Vulkan SM6 on Linux (Config/DefaultEngine.ini): without it the
+#                                  editor runs VULKAN_SM5 and misses the SM6 DDC; prints rhi=set or rhi=ok
 #   plugin TGZ ENGINE PROJECT_DIR  build a C++ plugin (a .tgz of its folder: NAME/NAME.uplugin, Source/) against the
 #                                  restored engine and install it in PROJECT_DIR/Plugins (the editor loads it on its
 #                                  next start). The engine is marked installed while UBT runs, so only the plugin's
@@ -242,6 +244,19 @@ PY
     echo "watchdog: ttl_until=$ttl idle_min=$idle stall_min=$stall ($(systemctl is-active ue-watchdog.timer))"
 }
 
+step_rhi() {
+    local ini="${1:?rhi PROJECT_DIR}/Config/DefaultEngine.ini" sec="[/Script/LinuxTargetPlatform.LinuxTargetSettings]"
+    mkdir -p "$(dirname "$ini")" && touch "$ini"
+    if grep -qx '+TargetedRHIs=SF_VULKAN_SM6' "$ini"; then echo "rhi=ok"; return; fi
+    if grep -qxF "$sec" "$ini"; then  # the section is there (with SM5, or other settings): add ours under its header
+        sed -i "/^$(printf '%s' "$sec" | sed 's/[][\/.]/\\&/g')\$/a -TargetedRHIs=SF_VULKAN_SM5\n+TargetedRHIs=SF_VULKAN_SM6" "$ini"
+    else
+        printf '\n%s\n-TargetedRHIs=SF_VULKAN_SM5\n+TargetedRHIs=SF_VULKAN_SM6\n' "$sec" >> "$ini"
+    fi
+    chown "$UE_USER:$UE_USER" "$ini" 2>/dev/null || true
+    echo "rhi=set"
+}
+
 step_plugin() {
     local tgz="${1:?plugin TGZ ENGINE PROJECT_DIR}" engine="${2:?}" project="${3:?}" name w log
     w="${PLUGIN_BUILD_DIR:-/srv/ue/pluginbuild}"
@@ -276,6 +291,6 @@ step_check() {
     echo "ram_gb=$(free -g | awk '/Mem:/{print $2}') disk_free=$(df -h --output=avail /srv/ue 2>/dev/null | tail -1 | tr -d ' ')"
 }
 
-cmd="${1:?usage: setup.sh volume|driver|engine|project|windisk|project-copy|service|epic|mode|desktop|watchdog|plugin|check ...}"
+cmd="${1:?usage: setup.sh volume|driver|engine|project|windisk|project-copy|service|epic|mode|desktop|watchdog|rhi|plugin|check ...}"
 shift
 "step_$cmd" "$@"

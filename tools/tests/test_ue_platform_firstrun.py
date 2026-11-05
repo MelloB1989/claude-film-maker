@@ -74,7 +74,9 @@ def test_settings_step_names_what_is_missing(tmp_path, monkeypatch):
 
 
 def test_the_editor_step_starts_a_stopped_editor(box, monkeypatch):
-    from filmtools.unreal import editorsvc
+    from filmtools.unreal import editorsvc, linuxbox
+    monkeypatch.setattr(linuxbox, "upload_kit", lambda: "")
+    monkeypatch.setattr(linuxbox, "step", lambda *a, **k: "rhi=ok")
     state = {"active": "inactive"}
     monkeypatch.setattr(editorsvc, "unit", lambda: {"active": state["active"], "result": "success", "restarts": 0})
     monkeypatch.setattr(editorsvc, "control", lambda act, **kw: state.update(active="active"))
@@ -100,3 +102,16 @@ def test_epic_step_asks_for_the_sign_in_unless_told_to_run_it(box, monkeypatch):
     assert e.value.needs_you and "epic-login" in e.value.next_cmd
     monkeypatch.setattr(linuxbox, "epic_login", lambda log=print: "signed in")
     assert firstrun.step_epic({"epic": True}, lambda m: None) == "signed in"
+
+
+def test_the_editor_step_sets_sm6_and_restarts_a_running_editor_once(box, monkeypatch):
+    from filmtools.unreal import editorsvc, linuxbox
+    ws.save(project_dir="/srv/ue/projects/P")
+    monkeypatch.setattr(linuxbox, "upload_kit", lambda: "")
+    answers, steps, acts = ["rhi=set", "rhi=ok"], [], []
+    monkeypatch.setattr(linuxbox, "step", lambda *a, **k: steps.append(a) or answers.pop(0))
+    monkeypatch.setattr(editorsvc, "unit", lambda: {"active": "active", "result": "success", "restarts": 0})
+    monkeypatch.setattr(editorsvc, "control", lambda act, **kw: acts.append(act))
+    firstrun.step_editor({}, lambda m: None)
+    firstrun.step_editor({}, lambda m: None)
+    assert steps == [("rhi", "/srv/ue/projects/P")] * 2 and acts == ["restart"]

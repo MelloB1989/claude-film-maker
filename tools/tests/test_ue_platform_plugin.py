@@ -92,3 +92,25 @@ def test_build_plugin_sends_the_source_without_binaries(monkeypatch, name):
                          "/srv/ue/projects/P")
     with pytest.raises(SystemExit, match="no plugin Nope"):
         linuxbox.build_plugin("Nope")
+
+
+def test_rhi_targets_sm6_once_keeping_other_settings(tmp_path):
+    ini = tmp_path / "Config" / "DefaultEngine.ini"
+    ini.parent.mkdir()
+    ini.write_text("[/Script/Engine.RendererSettings]\nr.X=1\n\n[/Script/LinuxTargetPlatform.LinuxTargetSettings]\nFoo=1\n")
+    env = {**os.environ, "UE_USER": "me", "PATH": os.environ["PATH"]}
+
+    def run():
+        return subprocess.run(["bash", str(SETUP), "rhi", str(tmp_path)], env=env, capture_output=True, text=True)
+    assert run().stdout.strip() == "rhi=set" and run().stdout.strip() == "rhi=ok"
+    text = ini.read_text()
+    assert text.count("+TargetedRHIs=SF_VULKAN_SM6") == 1 and "Foo=1" in text and "r.X=1" in text
+    assert text.index("LinuxTargetSettings]") < text.index("+TargetedRHIs") < text.index("Foo=1")
+
+
+def test_rhi_adds_the_section_to_a_project_without_one(tmp_path):
+    env = {**os.environ, "UE_USER": "me"}
+    r = subprocess.run(["bash", str(SETUP), "rhi", str(tmp_path)], env=env, capture_output=True, text=True)
+    assert r.stdout.strip() == "rhi=set"
+    assert "[/Script/LinuxTargetPlatform.LinuxTargetSettings]\n-TargetedRHIs=SF_VULKAN_SM5\n+TargetedRHIs=SF_VULKAN_SM6" \
+        in (tmp_path / "Config" / "DefaultEngine.ini").read_text()
