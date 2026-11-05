@@ -224,8 +224,8 @@ def preview(frames: Path, out: Path, mix: Path, mix45: Path | None, cues: Path |
 
 
 def final(frames: Path, out: Path, mix: Path, mix45: Path | None, cues: Path | None, source: str, hold: str,
-          fill_from: list) -> None:
-    """The deliverables into OUT: the 65 s reel (the textless ProRes master, 1080p with captions burned in, 1080p
+          fill_from: list, cuts: tuple = ("65s", "45s")) -> None:
+    """The deliverables into OUT (--cuts picks 65s, 45s or both): the 65 s reel (the textless ProRes master, 1080p with captions burned in, 1080p
     clean, SRT/VTT, cut.json) and the 45 s cut (the same, karma-reel-45s-*: R5's mix made for it, or the full mix cut on
     its edits). Shots not yet final come from the --fill-from passes (a rough cut, named so in cut.json's "shots");
     with none, every final must be in."""
@@ -238,8 +238,10 @@ def final(frames: Path, out: Path, mix: Path, mix45: Path | None, cues: Path | N
     if rough:
         print(f"ROUGH CUT: {', '.join(rough)} not final yet (from {', '.join(p.name for p in fill_from)})")
     c = (["--cues", str(cues)] if cues else []) + ["--source", source, "--hold-first", hold, "--pattern", pattern(src)]
-    cut.main([str(src), "--mix", str(mix), "--out", str(out), *c])
-    cut.main([str(src), "--edl", "45s", "--mix", str(mix45 or mix), "--out", str(out), *c])
+    if "65s" in cuts:
+        cut.main([str(src), "--mix", str(mix), "--out", str(out), *c])
+    if "45s" in cuts:
+        cut.main([str(src), "--edl", "45s", "--mix", str(mix45 or mix), "--out", str(out), *c])
     contact(passes, out, "final" if not rough else "rough")
 
 
@@ -274,6 +276,7 @@ def main(argv=None) -> None:
     p.add_argument("--cues", type=Path)
     p.add_argument("--fill-from", default="preview", help="passes that stand in for shots not yet final, in order "
                                                           "(comma-separated; none: every final must be in)")
+    p.add_argument("--cuts", default="65s,45s", help="which cuts: 65s, 45s or 65s,45s (one run each, if time is short)")
     a = ap.parse_args(argv)
     root = a.frames_root or a.out / "frames"
     frames = a.frames_dir or root / a.pass_
@@ -285,7 +288,10 @@ def main(argv=None) -> None:
         sheet(frames, a.out, a.shot.upper(), a.every)
     elif a.cmd == "final":
         fill = [] if a.fill_from in ("", "none") else [root / x for x in a.fill_from.split(",")]
-        final(frames, a.out, a.mix, a.mix45, a.cues, a.source, a.hold_first, fill)
+        cuts = tuple(x.strip() for x in a.cuts.split(","))
+        if not cuts or set(cuts) - {"65s", "45s"}:
+            ap.error(f"--cuts: 65s, 45s or 65s,45s, not {a.cuts}")
+        final(frames, a.out, a.mix, a.mix45, a.cues, a.source, a.hold_first, fill, cuts)
     else:
         preview(frames, a.out, a.mix, a.mix45, a.cues, a.scale, a.source, a.hold_first, a.name)
 
