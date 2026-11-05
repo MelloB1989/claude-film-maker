@@ -19,6 +19,7 @@ login, no assets beyond the engine's basic shapes. Leaves nothing outside /Game/
 """
 from __future__ import annotations
 
+import inspect
 import math
 
 import unreal
@@ -65,7 +66,15 @@ def _bright(img, frac: float = 0.35):
 def _still(t, cam: str, name: str, height: int = H):
     """A still through `cam` (no guides) and what is bright in it."""
     p = t.path(f"{name}.png")
-    yield from t.op("look.still", camera_label=cam, path=p, width=W, height=height)
+    # the scene capture (view.still) renders at the camera's own FOV; look.still's viewport screenshot rendered at the
+    # viewport's 90 degrees on day 1 (markers ~3x too central, on both filmbacks)
+    from .. import ops
+    if "view.still" in ops._OPS:
+        r = t.op("view.still", out=p, camera=cam, width_px=W, height_px=height)
+    else:
+        r = t.op("look.still", camera_label=cam, path=p, width=W, height=height)
+    if inspect.isgenerator(r):
+        yield from r
     t.artifact(p)
     return _bright(png.read(p))
 
@@ -199,7 +208,10 @@ def run(t):
     y = t.op("cam.describe", label=rcam)["cameras"][0]["loc"][1]
     t.check("rail: Sequencer plays the rail position at mid-shot", round(pos, 3), 0.5, tol=0.05)
     t.note(f"rail: the camera after the scrub alone at y={y:.1f} (the mount moves on the rig's tick)")
-    ra.set_editor_property("current_position_on_rail", pos)  # PostEditChangeProperty -> UpdateRailComponents
+    # PostEditChangeProperty -> UpdateRailComponents. Re-setting the same value moved nothing on day 1 (an unchanged
+    # value is not notified), so nudge it away and back: two real changes.
+    ra.set_editor_property("current_position_on_rail", min(1.0, pos + 0.01) if pos < 0.99 else pos - 0.01)
+    ra.set_editor_property("current_position_on_rail", pos)
     yield
     y = t.op("cam.describe", label=rcam)["cameras"][0]["loc"][1]
     t.ok("rail: the camera is near the middle of the rail at mid-shot", abs(y) < 40, detail=f"y={y:.1f} pos={pos:.3f}")

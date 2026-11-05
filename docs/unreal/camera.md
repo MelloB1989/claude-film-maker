@@ -211,14 +211,17 @@ a fix (`shots[2].frame.size: unknown shot size 'huge'; one of ...`). A `camera` 
   `look.camera` uses 16:9 DSLR (36 mm), where a 50 mm frames like a 33 mm here (`camkit.lens.equivalent_focal`).
 - **The engine clamps focal length and aperture to the lens settings** (CineCameraComponent.cpp:528-529): `cam.*`
   widens the limits instead, so `focal_mm=1500` is 1500.
-- **Take stills at the filmback's aspect.** Measured on the box (day 1): `look.still` (the high-res screenshot) of a
-  Super 35mm (4:3) camera into 480x270 is the whole picture *stretched* to 16:9, not pillarboxed. `cam.still` picks
-  the height from the filmback when you leave it out. u, v are fractions of the *picture* (the filmback).
+- **Stills come from the scene capture, at the filmback's aspect.** `look.still` (the high-res screenshot) only
+  locks the level viewport to the camera (AutomationBlueprintFunctionLibrary.cpp:1241-1248): on the box it rendered
+  some runs at the viewport's own 90 degrees (markers ~3x too central) and others stretched a 4:3 back to 16:9.
+  `cam.still` and the selftest use `view.still` (a SceneCapture2D at the camera's horizontal FOV) and pick the
+  height from the filmback when you leave it out. u, v are fractions of the *picture* (the filmback).
 - **The engine stores the camera's numbers as C++ floats** (CineCameraSettings.h:21,244) and reads a rotation back
   from its quaternion (yaw 200 reads -160): compare with a tolerance and rotations by direction (`cam._same_rot`).
 - **A rail's mount moves only on the rig's tick or an edit** (UpdateRailComponents from Tick / PostEditChangeProperty,
   CameraRig_Rail.cpp:205-228). Sequencer writes `CurrentPositionOnRail` directly, so in the offscreen editor a scrub
-  alone may leave the camera at the rail's start: re-set the position (`set_editor_property`) before a still. Renders
+  alone leaves the camera at the rail's start (box, day 1): before a still, set the position to another value and
+  back (re-setting the same value moved nothing). Renders
   tick, so they are not affected.
 - **Coverage camera names carry the subject's label**: `{prefix}{label}_OTS` (`CAM_Host_OTS`); read them from
   `cam.coverage`'s `shots[].camera`.
@@ -297,7 +300,7 @@ pixel and playback checks).
 | `hfov/vfov <filmback> <f>mm = engine` | the camera kept an old filmback (struct copied, not written back) or a crop/squeeze preset is on | `film-ue op cam.describe label=ST_cam_Lens`: `filmback` must equal the preset; `_set_lens` in ops/cam.py writes `filmback` back with `set_editor_property`; if `CropSettings` is set, clear it (camkit.lens assumes no crop) |
 | `focal beyond the lens widens it, not clamped` | lens limits not widened before the focal/aperture write | ops/cam.py `_set_lens`: the `lens_settings` struct must be set (`c.set_editor_property("lens_settings", ls)`) before `current_focal_length` |
 | `marker k visible on <fb>` | still black: no light reached the sphere, or auto exposure blew it out | open `proj_*_k.png`; check `ST_cam_Sun` exists; else add `r.EyeAdaptation...` / a manual exposure post volume in selftest section 2 |
-| `marker k at (u, v) on <fb>` off by a constant on 16:9, OK in the middle | screenshot not the filmback's aspect (day 1: a non-16:9 back is stretched to the image) | the selftest takes each still at the filmback's aspect (`_still(height=)`); if it still fails, compare the bright blob in `proj_*` with (u, v) |
+| `marker k at (u, v) on <fb>` off by a constant on 16:9, OK in the middle | the still is not the camera's picture: a viewport screenshot at the viewport's FOV (~3x too central) or another aspect (stretched) | the selftest takes each still with `view.still` at the filmback's aspect (`_still`); check `view.still`'s `camera_info.fov` equals `cam.describe`'s `hfov_deg` |
 | `marker ...` off by a growing amount toward the edges | projection maths vs the engine's FOV (overscan, sensor offset) | `film-ue op cam.describe`: hfov vs `get_horizontal_field_of_view`; if they differ the FOV checks above fail too: fix `camkit.lens.project` |
 | `<size>: the figure's top on the predicted row` | the prediction is the cylinder's top *rim* (`_rim_top`: a close camera below it sees the near rim above the solver's axis point; day 1 CU 0.015 vs 0.05); else the bounds differ from its size, or the threshold catches the floor/sky | open `frame_<size>.png`; lower `_bright(frac)` or check the figure is the only bright thing; `film-ue op cam.subject target=ST_cam_Figure mode=bounds` |
 | `<size> solved` false | solver missed (error > 1e-3) | read the check's detail (warnings); try `focal_mm` 35/85; report the args: `camkit.framing.solve` with them in a unit test |

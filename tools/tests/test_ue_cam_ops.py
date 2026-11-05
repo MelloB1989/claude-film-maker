@@ -246,31 +246,31 @@ def _fake_png(path, w, h, shade=90):
 
 
 def test_still_draws_guides(ue, fmb, monkeypatch, tmp_path):
+    """cam.still renders through view.still's scene capture (the camera's FOV, no viewport): on day 1 look.still's
+    viewport screenshot came out at the viewport's 90 degrees. The height defaults to the filmback's aspect."""
     import fmbridge.ops.look as look
+    asked = []
 
-    def fake_still(camera_label, path, width=1920, height=1080, timeout=60.0):
+    def fake_view_still(out, camera="", width_px=1280, height_px=720, **kw):
         yield
-        _fake_png(path, width, height)
-        return {"path": path}
-    monkeypatch.setattr(look, "still", fake_still)
+        asked.append((camera, width_px, height_px))
+        _fake_png(out, width_px, height_px)
+        return {"path": out}
+    monkeypatch.setitem(fmb._OPS, "view.still", fake_view_still)
+    monkeypatch.setattr(look, "still", lambda *a, **k: pytest.fail("cam.still must not use the viewport screenshot"))
     person(ue, "Presenter")
     run_op("cam.frame", camera="CAM_A", subjects="Presenter", size="MCU", focal_mm=50)
     out = str(tmp_path / "a.png")
     r = run_op("cam.still", camera="CAM_A", out=out, width=320, height=180, subjects="Presenter")
-    assert r["width"] == 320 and r["raw"].endswith("_raw.png")
+    assert r["width"] == 320 and r["raw"].endswith("_raw.png") and asked == [("CAM_A", 320, 180)]
     from camkit import png
     img = png.read(out)
     assert any(img.get(107, y) != (90, 90, 90) for y in range(img.h))  # the left third's guide
     assert img.get(5, 5) != (90, 90, 90)  # the lens label
-    # day 1: a 16:9 still of a Super 35 back is the picture stretched to fill it, so by default the still takes the
-    # filmback's aspect
-    asked = []
-    monkeypatch.setattr(look, "still", lambda camera_label, path, width, height, **kw: (
-        asked.append((width, height)), (yield from fake_still(camera_label, path, width, height)))[1])
+    # a 16:9 still of a Super 35 back is not its picture, so by default the still takes the filmback's aspect
     run_op("cam.set", label="CAM_A", filmback="Super 35mm")
     r = run_op("cam.still", camera="CAM_A", out=str(tmp_path / "b.png"), width=320, subjects="Presenter")
-    assert asked == [(320, 240)] and r["height"] == 240
-
+    assert asked[-1] == ("CAM_A", 320, 240) and r["height"] == 240
 
 def test_sheet_through_the_cut(ue, fmb, seqrec, monkeypatch, tmp_path):
     person(ue, "A", (0, -90), turn=90)
