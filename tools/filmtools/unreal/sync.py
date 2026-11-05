@@ -38,7 +38,7 @@ PROJECT_INCLUDES = ("Plugins/*/Binaries/Linux/*",)
 # Face-derived assets of a real person (the operator's MetaHuman, round 3): they stay on the box and Epic's cloud and
 # are never synced up. Applied last, so no include can bring them back; a `private_paths` list in the box settings adds more.
 PRIVATE_EXCLUDES = ("Content/Host/OperatorCapture/*", "Content/Host/Host_Op*", "Content/Host/Unpacked/Host/*",
-                    "Content/Host/Unpacked/Host_Op*", "*/OperatorCapture/*")
+                    "Content/Host/Unpacked/Host_Op*", "*/OperatorCapture/*", "Capture/operator-face/*")
 ZEN = "$HOME/.config/Epic/UnrealEngine/Common/Zen/Data"
 
 

@@ -94,7 +94,8 @@ def test_a_real_persons_face_assets_never_sync(box):
     after every include, so nothing brings them back; --delete never touches an excluded path on the box."""
     for direction, kw in (("up", {}), ("down", {"delete": True})):
         s = sync.project_script(direction, **kw)
-        for x in ("'Content/Host/OperatorCapture/*'", "'Content/Host/Host_Op*'", "'Content/Host/Unpacked/Host/*'"):
+        for x in ("'Content/Host/OperatorCapture/*'", "'Content/Host/Host_Op*'", "'Content/Host/Unpacked/Host/*'",
+                  "'Capture/operator-face/*'"):
             assert f"--exclude {x}" in s
             assert s.index(f"--exclude {x}") > s.index("--include 'Plugins/*/Binaries/Linux/*'")
     ws.save(private_paths=["Content/People/*"])
