@@ -26,8 +26,8 @@ def comps():
     return {c.get_name(): c for c in L.actor(WHO).get_components_by_class(unreal.SkeletalMeshComponent)}
 
 
-def garments():
-    return sorted(n for n in comps() if n not in ("Body", "Face"))
+def garments():  # not the stale TRASH_* a Blueprint re-instance leaves (op <-> trey swap): save, reopen, re-swap first
+    return sorted(n for n in comps() if n not in ("Body", "Face") and not n.startswith("TRASH_"))
 
 
 def apply():
@@ -40,7 +40,7 @@ def apply():
 def check():
     bad = {}
     for n, c in comps().items():
-        if n in ("Body", "Face"):
+        if n not in garments():
             continue
         lead = c.get_editor_property("leader_pose_component")
         if lead is None or lead.get_name() != "Body":
@@ -48,6 +48,10 @@ def check():
     return bad
 
 
+trash = sorted(n for n in comps() if n.startswith("TRASH_"))
+if trash:
+    raise RuntimeError(f"dress_him: {WHO} has stale components {trash}: save and reopen the level (or respawn), then "
+                       "run host_swap.py again before dressing him")
 if not garments():
     raise RuntimeError(f"dress_him: {WHO} has no garments (only {sorted(comps())}): run host_swap.py first")
 passes = []
