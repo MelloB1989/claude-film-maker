@@ -24,13 +24,21 @@ only small things come down (sheets, crops, the final MP4s). No bulk frame pulls
 ## Keeping them: box -> S3 before the box ends (22:30 UTC)
 
 The presenter shots show the operator's MetaHuman, so every round-3 frame is kept only under the private prefix,
-written from the box (its role; SSE-KMS), never to kali:
+written from the box (its role), never to kali. Each upload is KMS-encrypted in the command itself, whatever the
+bucket's default (as core's `sync._sse` does for private uploads): `--sse aws:kms`, plus `--sse-kms-key-id` with the
+key in the box setting `kms_key` when it is set (else the account's aws/s3 key):
 
-    aws s3 sync /srv/ue/reel/r3/final s3://rf-render-788655295054-aps1/ue-linux/private/renders/r3/final/
-    aws s3 sync /srv/ue/reel/r3/cal_A s3://rf-render-788655295054-aps1/ue-linux/private/renders/r3/cal_A/   # and cal_B
+    KMS="--sse aws:kms"   # + " --sse-kms-key-id <the box setting kms_key>" when that setting is set
+    for d in final cal_A cal_B; do
+      aws s3 sync /srv/ue/reel/r3/$d s3://rf-render-788655295054-aps1/ue-linux/private/renders/r3/$d/ $KMS
+    done
 
-agent-07 runs it once the last final is in (and again after any re-render); the previews are not kept. The `_render/`
-reports go with the frames (they hold the settings and the timings).
+Each job's report is inside its own out_dir (`final/_render/`, `cal_A/_render/`, ...: render.job writes
+`<out_dir>/_render/<name>.report.json`), so the reports (settings, timings) go with their frames; there is no
+`r3/_render/` of its own. The previews are not kept.
+
+agent-07 runs it once the last final is in (and again after any re-render), and only after karmax and agent-10 have
+agent-07's report on the bucket and its policy (the default encryption is not verified yet).
 
 ## Settings (and why)
 
