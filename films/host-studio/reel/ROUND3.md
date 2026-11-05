@@ -59,9 +59,10 @@ next item before the current one ends.
    from code: studio `build.py`, reel `build.py`, `rig.py` (the OutsideNight card and the downlights: `light.py`
    needs them), `light.py --seq`, `vo.py cues --from <project>/Saved/Import/reel`,
    then REEL_PERF.md's 'Re-placing after a studio rebuild' runbook (her garments' leader pose with
-   `restore_leader.py`, `perf.py drive_faces`, `perf.py place`), then `props/her_outfit_ue/her_hair.py` LAST (each
-   of those re-creates her components and drops her hair's material: teal hair): without them the presenters stand
-   unperformed, then render agent-05's `r3/10-preview.yaml`. agent-09 checks the preview.
+   `restore_leader.py`, `perf.py drive_faces`, `perf.py place`), then `props/her_outfit_ue/dress_her.py` LAST:
+   it sets her garments' leader (Body), her hair's materials and the hoops' and watch's seats in one pass, reads them
+   back and raises unless all hold (each earlier step re-creates her components and undoes them: bind-pose garments,
+   teal hair). Without it the presenters stand unperformed or undressed, then render agent-05's `r3/10-preview.yaml`. agent-09 checks the preview.
 2. **The operator's capture** (agent-04, run by agent-07): pull `MySlate_3` on the box (the box role only) and run
    identity from the footage. While the cloud solve runs, the editor is free for item 3.
 3. **AA calibration** (agent-05): `r3/20-calibrate.yaml` (24 frames of S17, A/B). Pick the settings for the finals.
@@ -110,3 +111,6 @@ If something blocks the editor (a cloud wait, a fix in progress), agent-07 rende
   final waits. The report marks V01 'incomplete' with all frames on disk: a core counting bug (agent-05).
 - Host and Presenter are fresh after the rebuild: no TRASH_* components. Him placed; she is placed by agent-01's steps.
 - Set-shot finals (without V04) start after the AA calibration.
+- Bind pose in preview 1's S17/S18 (operator): that preview ran before restore_leader; `dress_her.py` (agent-02) is now
+  the checked last step. The watch sits 3.6 cm above the wrist, dial on the back of the wrist. The collar is still
+  in Blender on the box. To prove it: a cast preview (S13, S15-S18) after the runbook, checked by agent-09.
