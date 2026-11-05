@@ -29,7 +29,8 @@ def _vec(v) -> list:
 
 
 def _box(lo, hi):
-    return unreal.Box(min=unreal.Vector(*lo), max=unreal.Vector(*hi), is_valid=True)
+    # FBox's Python constructor takes (min, max) and marks the box valid; is_valid= is refused live (day 1)
+    return unreal.Box(unreal.Vector(*lo), unreal.Vector(*hi))
 
 
 def _guid_str(g) -> str:

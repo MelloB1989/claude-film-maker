@@ -27,8 +27,10 @@ def install(fake):
     fake.wp = state
 
     class Box:
-        def __init__(self, min=None, max=None, is_valid=True):  # noqa: A002 (the engine's names)
-            self.min, self.max, self.is_valid = min, max, is_valid
+        """FBox as Python sees it: at most (min, max), and the box comes out valid. The engine refuses a third
+        argument (is_valid=: \"call() takes at most 2 arguments (3 given)\", day 1)."""
+        def __init__(self, min=None, max=None):  # noqa: A002 (the engine's names)
+            self.min, self.max, self.is_valid = min, max, min is not None and max is not None
 
     fake.Box = Box
 
@@ -62,10 +64,10 @@ def install(fake):
         def get_editor_world_bounds():
             ds = state["descs"]
             if not ds:
-                return Box(fake.Vector(), fake.Vector(), False)
+                return Box()  # what the engine returns for no bounds: is_valid False
             lo = [min(d["bounds"][0][i] for d in ds) for i in range(3)]
             hi = [max(d["bounds"][1][i] for d in ds) for i in range(3)]
-            return Box(fake.Vector(*lo), fake.Vector(*hi), True)
+            return Box(fake.Vector(*lo), fake.Vector(*hi))
 
         get_runtime_world_bounds = get_editor_world_bounds
 
