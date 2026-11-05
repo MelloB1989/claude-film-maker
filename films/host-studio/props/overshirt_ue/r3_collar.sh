@@ -12,7 +12,9 @@ WORK=${WORK:-$PROJ/Saved/r3_collar}
 EXP=$PROJ/Saved/Export
 PROPS=$REPO/films/host-studio/props
 mkdir -p "$WORK/src" "$WORK/out" "$PROJ/Saved/Import/overshirt"
-body=$(ls "$EXP"/overshirt/*.fbx | grep -i body | grep -v -i -E 'top|tee|shirt|trouser' | head -1)
+body=$(for f in "$EXP"/overshirt/*.fbx; do basename "$f"; done | grep -i body | grep -v -i -E 'top|tee|shirt|trouser' \
+    | head -1)  # the name only: the folder (overshirt) would match 'shirt'
+[ -z "$body" ] || body=$EXP/overshirt/$body
 [ -n "$body" ] || { echo "no body FBX in $EXP/overshirt: run export_body.py first" >&2; exit 2; }
 cp "$body" "$WORK/src/body.fbx"
 cp "$EXP/overshirt2/face.fbx" "$EXP/overshirt2/idle.fbx" "$WORK/src/"
