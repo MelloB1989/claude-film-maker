@@ -202,14 +202,16 @@ Only once all of these hold:
 - karmax and agent-10 have the report.
 
 ```bash
-film-ue status                      # the instance and its state (running)
-film-ue down                        # closes the tunnel, then EC2 stop-instances on the box in the settings
-film-ue status                      # stopping/stopped; again after a minute until stopped
+film-ue status                         # the instance and its state (running)
+film-ue sh 'sudo shutdown -h now'      # cc-64d05f6e's instruction: the box powers itself off (an EC2 stop: the disk survives)
+film-ue status                         # stopping/stopped; again after a minute until stopped
 ```
 
-- `film-ue down` stops the instance. It does not terminate it: the disk, with the frames on it, survives, private.
-- Over the `ssh` transport, `film-ue down` does nothing (it only returns the state). Then the operator, or karmax,
-  must power the box off by hand. Ask at once, with the instance id from `film-ue status`.
+- An OS shutdown on this box stops the instance. It does not terminate it, so the disk, with the frames on it,
+  survives and stays private.
+- `film-ue down` (EC2 stop-instances) is the fallback only if the shutdown does not take. Over the `ssh` transport it
+  does nothing, so in that case ask karmax at once, with the instance id from `film-ue status`.
+- The box's own scheduled poweroff at 22:30 UTC is the backstop, not the plan.
 - Report the final state (`stopped`) to karmax and agent-10.
 
 ## 5. kali cleanup (after 22:10; kali only)
