@@ -17,8 +17,9 @@ Windows renders is reused.
 
 Frames: `/srv/ue/reel/r3/<preview/<build>|final|cal_A|cal_B>/<master frame:04d>.png` (S13 is 0960..1079; the
 sequence's 12-frame handles are -0012..-0001 and 1560..1571, so a full pass is 1584 frames), a report per
-job in `_render/<name>.report.json` (time per frame, VRAM peak, missing frames), and the sequence's WAV. frames stay on the box: QA, contact sheets, crops, encodes and the cut run there (ffmpeg/python on the
-box); only small things come down (sheets, crops, the final MP4s). No bulk frame pulls to kali (home line, AWS egress).
+job in `_render/<name>.report.json` (time per frame, VRAM peak, missing frames), and the sequence's WAV.
+The frames stay on the box: QA, contact sheets, crops, encodes and the cut run there (ffmpeg/python on the box);
+only small things come down (sheets, crops, the final MP4s). No bulk frame pulls to kali (home line, AWS egress).
 
 ## Settings (and why)
 
