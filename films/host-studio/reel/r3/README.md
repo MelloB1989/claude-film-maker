@@ -5,6 +5,48 @@ The 13 shots of `/Game/Reel/SEQ_Reel` (shots.py), 1560 frames at 24 fps, **16:9 
 4K unless the operator asks: then `preset: 4k`, the same files). Everything is rendered on Linux; nothing from v2's
 Windows renders is reused.
 
+## HANDOFF, end of night 1 (05 Nov, 03:10 IST): the renders. Read with ROUND3.md "STATE AT END OF NIGHT 1"
+
+The box is terminated, and `/srv/ue/reel/r3` went with it. What was kept is under
+`s3://rf-render-788655295054-aps1/ue-linux/private/renders/r3/` (KMS; agent-10 verified the saves).
+
+**Verified (agent-07's final_check/camcheck JSON on the box):**
+- Settings: C = no AA, 4x8, `shutter_timing: open` (the cut double exposure is gone), light.py constant hold steps
+  (V03 f479 is lit whole), and full-res SSS.
+- Time: 2.49 s/frame on S17 (both presenters) and ~1.65 s/frame on the set shots, with a 15.9 GB VRAM peak.
+- final_c: V03, V04, V05, S12 and N01 pass both checks.
+
+**Not good or not verified:**
+- final_c V01 was rendered on a stale camera (scale 1.14). V02 and S11 are inconclusive (low ncc). All three need a
+  re-render; the overnight camfix never ran.
+- No presenter final (S13-S18) has been rendered with these settings.
+- The likeness in cast_op4 is not render-side, and nobody has seen it: is the iris brown, is the hair straight, is the
+  tee hem fixed? (ROUND3.md: agent-04 and the operator.) The render settings are the same for either presenter.
+
+**Next, once ROUND3.md steps 1-5 are done** (restore, the operator's pick, the fixes, `build.py --cameras`, the gate):
+1. Render everything into a FRESH folder, `final_d`. Do not reuse final_c: the cameras are rebuilt, and resume would
+   keep its stale frames. All 13 shots at C take ~70 min. Before each batch, run `level.save` and `probe_cam --check`
+   on the batch's shots.
+
+       film-ue apply films/host-studio/reel/r3/30-final.yaml --set final=final_d --set batch=set \
+         --set 'shots=["Reel_V01","Reel_V02","Reel_V03","Reel_V04","Reel_V05","Reel_S11","Reel_S12","Reel_N01"]'
+       film-ue apply films/host-studio/reel/r3/30-final.yaml --set final=final_d --set batch=cast \
+         --set 'shots=["Reel_S13","Reel_S15","Reel_S16","Reel_S17","Reel_S18"]'   # or one shot per batch
+
+2. Checks on the box: `FINAL=final_d final_check.py`, then `camcheck.py` (see below). Re-render a failing shot into a
+   fresh folder (`final_e`), or move its frames aside first.
+3. The cuts (agent-06), on the box:
+   - `R3_FINAL=final_d R3_CUT=/srv/ue/reel/r3/cut/final cut.sh final --fill-from none --cuts 65s`, then `--cuts 45s`.
+   - 65 s is all 13 shots (1560 frames). 45 s drops V04 and N01. Both are 1080p 16:9.
+4. Keep (dry-run first):
+   - `film-ue sync dir up --local /srv/ue/reel/r3/final_d --s3 $P/final_d/`
+   - the cuts to `$P/cuts/`.
+   - If Host_Op is the presenter, nothing goes to kali or shoot/.
+   - If Trey passes, the finals show no operator face, but the box's `face_data` makes film-ue refuse `shoot/`. Do not
+     work around it: ask karmax/agent-10 for the route (the Trey preview reached shoot/r3/preview/ by theirs).
+
+Still open in core: BACKLOG B68 (`overwrite: true` never converges). Until it is fixed, use a fresh folder per take.
+
 ## Order (the GPU never idles: queue the next step before one ends)
 
 | # | What | File | Frames | When |

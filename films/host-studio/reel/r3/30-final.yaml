@@ -17,6 +17,7 @@ vars:
   # V04 waits for agent-09's fix of the sun-to-zero brightness step at f530: then --set batch=V04 --set 'shots=["Reel_V04"]'
   shots: [Reel_V01, Reel_V02, Reel_V03, Reel_V05, Reel_S11, Reel_S12, Reel_N01]
   overwrite: false
+  final: final_c   # the folder under ${out}: a fresh one per take (--set final=final_d), since overwrite never converges
   aa: none
   spatial: 4
 ---
@@ -25,7 +26,7 @@ version: 1
 name: "r3_final_${batch}"
 sequence: "${seq}"
 level: "${level}"
-out_dir: "${out}/final_c"
+out_dir: "${out}/${final}"
 preset: final
 shots: ${shots}
 chunking: shot
