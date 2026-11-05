@@ -348,7 +348,22 @@ stands for your profile (`--box B`). The project dir is `P` (`film-ue profile sh
   image.
 - The Day-1 triage table (§7b).
 
-Nothing in `boxes`, `sync` or `editorsvc` has run against AWS: the operator's rule for the night.
+**Day 1 (2026-11-05, g6.4xlarge L4, i-0f7a… from kali over SSM):** `provision` ran as written: driver 580-server
+loaded without a reboot (580.178.04), engine restored in 273 s, project 3.7 GB, Epic sign-in restored; DDC restored
+(zen 1.7 GB, engine 1.7 GB, project 0.7 GB) in parallel. `first-run` then: editor up 13:43 UTC, bridge installed,
+shaders 23 s (warm DDC), doctor OK, epic OK, selftest platform 48/48 after these fixes (branch
+fleet/agent-07/day1-platform):
+
+- `editor.wait_compile` used `unreal.AutomationBlueprintFunctionLibrary`; Python's name is `AutomationLibrary`.
+- The file inbox wrote `null` (the registry's `_run` returns the bare value), so `install` over a live bridge crashed
+  after it had worked.
+- `transport.get` came back cut over SSM (24,000-character output cap): now in 15 KB parts.
+- The project ran VULKAN_SM5 (no TargetedRHIs): `setup.sh rhi`, called by provision and first-run, sets SM6.
+- FabScript: a plain Build.sh wanted a 5982-action engine rebuild; `film-ue plugin-build` builds the plugin alone in
+  ~20 s, and the editor loads it.
+
+Not exercised on day 1: `box up/down/image` (the orchestrator made the box), the watchdog (the fleet's own watched
+this box), spot.
 
 **Run first on the next GPU box:** `film-ue --box NAME first-run` does the list below for you and stops with the
 next command. In detail:
@@ -370,7 +385,7 @@ next command. In detail:
 - `set_editor_property` by C++ name on the performance settings CDO (the source says yes; watch the log for "could
   not stop background throttling");
 - Windows: `transport.put` in parts and `editorsvc` crashes through PowerShell are tested only as strings;
-- `sync status` against a real bucket;
+- `sync status` against a real bucket (`sync ddc restore` and `sync ddc save` did run on day 1);
 - spot interruption (the profile then finds nothing; `box ls` shows it).
 
 **CLI:** done by WP11. cli.py no longer has `provision`, `editor`, `epic-login` or `desktop`; `cli_platform` serves
