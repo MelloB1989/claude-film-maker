@@ -211,8 +211,17 @@ a fix (`shots[2].frame.size: unknown shot size 'huge'; one of ...`). A `camera` 
   `look.camera` uses 16:9 DSLR (36 mm), where a 50 mm frames like a 33 mm here (`camkit.lens.equivalent_focal`).
 - **The engine clamps focal length and aperture to the lens settings** (CineCameraComponent.cpp:528-529): `cam.*`
   widens the limits instead, so `focal_mm=1500` is 1500.
-- **A cine camera constrains its aspect ratio to the filmback**: a 4:3 back rendered into 16:9 is pillarboxed.
-  u, v are fractions of the *picture* (the filmback), not the image file.
+- **Take stills at the filmback's aspect.** Measured on the box (day 1): `look.still` (the high-res screenshot) of a
+  Super 35mm (4:3) camera into 480x270 is the whole picture *stretched* to 16:9, not pillarboxed. `cam.still` picks
+  the height from the filmback when you leave it out. u, v are fractions of the *picture* (the filmback).
+- **The engine stores the camera's numbers as C++ floats** (CineCameraSettings.h:21,244) and reads a rotation back
+  from its quaternion (yaw 200 reads -160): compare with a tolerance and rotations by direction (`cam._same_rot`).
+- **A rail's mount moves only on the rig's tick or an edit** (UpdateRailComponents from Tick / PostEditChangeProperty,
+  CameraRig_Rail.cpp:205-228). Sequencer writes `CurrentPositionOnRail` directly, so in the offscreen editor a scrub
+  alone may leave the camera at the rail's start: re-set the position (`set_editor_property`) before a still. Renders
+  tick, so they are not affected.
+- **Coverage camera names carry the subject's label**: `{prefix}{label}_OTS` (`CAM_Host_OTS`); read them from
+  `cam.coverage`'s `shots[].camera`.
 - **Left and right**: a subject's `side` is its own; the scene's side of the line is seen from above along the
   line from the first subject to the second. In Unreal's left-handed frame `checks.side_of_line` is negative on
   the left. Shot lists and coverage pick each single's side for you when you leave it out; `shot.line_180` fails a
@@ -249,6 +258,9 @@ Python names are the snake_case of the reflected names.
 | `CameraFocusMethod.MANUAL/TRACKING/DISABLE` | CineCameraSettings.h:191 | yes |
 | `CameraRig_Rail.current_position_on_rail`, `lock_orientation_to_rail`, `get_rail_spline_component` | CameraRig_Rail.h:32,36,57 | yes |
 | rigs mount on their mount component (GetDefaultAttachComponent) | CameraRig_Rail.cpp:198; CameraRig_Crane.cpp:201 | yes |
+| C++ float storage: `FCameraFilmbackSettings::SensorWidth`, `FCameraFocusSettings::ManualFocusDistance` | CineCameraSettings.h:21,244 (box engine source, day 1) | yes |
+| `CameraRig_Rail::UpdateRailComponents` (not a UFUNCTION) runs from PostEditChangeProperty, PostEditUndo, PostEditMove, Tick | CameraRig_Rail.h:61; .cpp:162,205-228 (box engine source, day 1) | yes |
+| `AutomationLibrary.take_high_res_screenshot` with a camera locks the level viewport to it (SetActorLock), no aspect handling | AutomationBlueprintFunctionLibrary.cpp:1223,1241-1248 (box engine source) | yes; the stretch of a non-16:9 back: measured, not traced |
 | `CameraRig_Crane.crane_pitch`, `crane_yaw`, `crane_arm_length` | CameraRig_Crane.h:32,36,40 | yes |
 | `SplineComponent.set_spline_points(points, SplineCoordinateSpace.WORLD, True)` | Runtime/Engine/Classes/Components/SplineComponent.h:556 (enum :39) | yes |
 | `Actor.attach_to_actor` (K2_AttachToActor, ScriptName AttachToActor), `AttachmentRule` | GameFramework/Actor.h:2041; Engine/EngineTypes.h:62 | yes |
@@ -285,14 +297,17 @@ pixel and playback checks).
 | `hfov/vfov <filmback> <f>mm = engine` | the camera kept an old filmback (struct copied, not written back) or a crop/squeeze preset is on | `film-ue op cam.describe label=ST_cam_Lens`: `filmback` must equal the preset; `_set_lens` in ops/cam.py writes `filmback` back with `set_editor_property`; if `CropSettings` is set, clear it (camkit.lens assumes no crop) |
 | `focal beyond the lens widens it, not clamped` | lens limits not widened before the focal/aperture write | ops/cam.py `_set_lens`: the `lens_settings` struct must be set (`c.set_editor_property("lens_settings", ls)`) before `current_focal_length` |
 | `marker k visible on <fb>` | still black: no light reached the sphere, or auto exposure blew it out | open `proj_*_k.png`; check `ST_cam_Sun` exists; else add `r.EyeAdaptation...` / a manual exposure post volume in selftest section 2 |
-| `marker k at (u, v) on <fb>` off by a constant on 16:9, OK in the middle | screenshot not the filmback's aspect (letterbox/pillarbox handling) | compare the bright blob in `proj_*` with (u, v); fix the mapping in selftest/cam.py section 2 (`ar_img`/`ar_fb`), not camkit.lens |
+| `marker k at (u, v) on <fb>` off by a constant on 16:9, OK in the middle | screenshot not the filmback's aspect (day 1: a non-16:9 back is stretched to the image) | the selftest takes each still at the filmback's aspect (`_still(height=)`); if it still fails, compare the bright blob in `proj_*` with (u, v) |
 | `marker ...` off by a growing amount toward the edges | projection maths vs the engine's FOV (overscan, sensor offset) | `film-ue op cam.describe`: hfov vs `get_horizontal_field_of_view`; if they differ the FOV checks above fail too: fix `camkit.lens.project` |
-| `<size>: the figure's top on the predicted row` | the cylinder's bounds differ from its size, or the threshold catches the floor/sky | open `frame_<size>.png`; lower `_bright(frac)` or check the figure is the only bright thing; `film-ue op cam.subject target=ST_cam_Figure mode=bounds` |
+| `<size>: the figure's top on the predicted row` | the prediction is the cylinder's top *rim* (`_rim_top`: a close camera below it sees the near rim above the solver's axis point; day 1 CU 0.015 vs 0.05); else the bounds differ from its size, or the threshold catches the floor/sky | open `frame_<size>.png`; lower `_bright(frac)` or check the figure is the only bright thing; `film-ue op cam.subject target=ST_cam_Figure mode=bounds` |
 | `<size> solved` false | solver missed (error > 1e-3) | read the check's detail (warnings); try `focal_mm` 35/85; report the args: `camkit.framing.solve` with them in a unit test |
 | `cam.shoot: words in, words out` | words differ (angle band / height preset) | detail shows the sentence; compare with `camkit.words.describe` rules (ANGLE_NAMES, PRESET_ELEV) |
 | `cam.move keyed` / `push-in: Sequencer plays the baked key at 48` | keys not written (seq.apply refused) or the camera is not bound in the sequence | `film-ue op seq.describe path=/Game/_Selftest/cam/ST_cam_Seq`: a transform track on `ST_cam_Move`; if missing see `move.write`; if present raise scrub ticks in selftest (`for _ in range(3)`) |
-| `rail: the camera is near the middle of the rail` | camera not attached to the rail mount, or `CurrentPositionOnRail` not keyed | `cam.describe` → `attached_to` must be `ST_cam_Rail`; `seq.describe`: a float track `CurrentPositionOnRail` on the rail binding |
+| `rail: Sequencer plays the rail position at mid-shot` | `CurrentPositionOnRail` not keyed or not bound | `seq.describe`: a float track `CurrentPositionOnRail` on the rail binding |
+| `rail: the camera is near the middle of the rail` (the position check passes) | camera not attached to the rail mount (the mount moves on the edit the selftest makes) | `cam.describe` → `attached_to` must be `ST_cam_Rail`; `seq.describe`: a float track `CurrentPositionOnRail` on the rail binding |
 | `coverage stays on one side of the line` | a cut check failed for stand-ins without bones (facing from bounds = actor forward) | `film-ue op cam.coverage subjects=... create=false`: read `issues`; give the stand-ins the right yaw |
+| `cam.frame <size> converges` / `cam.coverage converges` / `cam.shoot reads its own words back` | a value read back differs from the one written (float32, rotator wrap) | `cam.describe` twice; compare in `_set_lens`/`_set_focus`/`_place` with a tolerance (fixed day 1) |
+| `coverage names its cameras by the subjects' labels` | cam.coverage's naming changed | read `shots[].camera`; the selftest must use those names |
 | `shot.apply converges` / `a dropped shot's camera is removed` | metadata tags not stored (EditorAssetSubsystem path) | `film-ue op shot.describe sequence=...`: `spec_hash` must be set; else check `EAL.set_metadata_tag` in ops/shot.py |
 | `shot.describe reads the edit back` | camera cut bindings not resolved (seq.cuts) | `film-ue op seq.cuts path=...`; rebind with `seq.rebind` |
 | `shot.check: no crossed line` | a single's side picked from a wrong facing | `film-ue op cam.subject target=ST_cam_A`: `facing` should point at B; else pass `side` explicitly in the spec |
