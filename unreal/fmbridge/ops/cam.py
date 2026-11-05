@@ -857,10 +857,12 @@ def rig_move(*, rig_label: str, sequence: str, keys: list) -> dict:
 # --- pictures ---------------------------------------------------------------------------------------------------
 
 @op("cam.still", mutates=False, idempotent=True, tags=["camera", "qa", "gpu"])
-def still(*, camera: str, out: str, width: int = 960, height: int = 540, guides: bool = True, subjects: list | None = None):
+def still(*, camera: str, out: str, width: int = 960, height: int | None = None, guides: bool = True,
+          subjects: list | None = None):
     """A still through a camera with the operator's guides drawn on it: thirds, action/title safe, centre, and each
     subject's landmarks where the lens math puts them (green crosses), so a mismatch between solver and render shows.
-    A multi-tick job. Keep it small (960x540): the overlay is drawn in pure Python.
+    A multi-tick job. Keep it small (960 wide): the overlay is drawn in pure Python. height: default the camera's
+    filmback aspect; another aspect stretches the picture to fill the image (seen on day 1), it is not letterboxed.
 
     Returns: {"path", "width", "height", "raw": the still without guides}.
     Example: film-ue op cam.still camera=CAM_A out=/tmp/cam_a.png subjects=Presenter
@@ -869,6 +871,8 @@ def still(*, camera: str, out: str, width: int = 960, height: int = 540, guides:
     raw = out[:-4] + "_raw.png" if out.lower().endswith(".png") else out + "_raw.png"
     cam = read(camera)
     subs = _subjects(subjects)
+    if height is None:
+        height = max(2, round(width / lens.aspect(cam["filmback"])))
     yield from look_still(camera, raw, width, height)
     yield
     img = png.read(raw)

@@ -3512,7 +3512,7 @@
    "file": "unreal/fmbridge/ops/cam.py",
    "line": 859,
    "summary": "A still through a camera with the operator's guides drawn on it: thirds, action/title safe, centre, and each",
-   "doc": "A still through a camera with the operator's guides drawn on it: thirds, action/title safe, centre, and each\nsubject's landmarks where the lens math puts them (green crosses), so a mismatch between solver and render shows.\nA multi-tick job. Keep it small (960x540): the overlay is drawn in pure Python.\n\nReturns: {\"path\", \"width\", \"height\", \"raw\": the still without guides}.\nExample: film-ue op cam.still camera=CAM_A out=/tmp/cam_a.png subjects=Presenter",
+   "doc": "A still through a camera with the operator's guides drawn on it: thirds, action/title safe, centre, and each\nsubject's landmarks where the lens math puts them (green crosses), so a mismatch between solver and render shows.\nA multi-tick job. Keep it small (960 wide): the overlay is drawn in pure Python. height: default the camera's\nfilmback aspect; another aspect stretches the picture to fill the image (seen on day 1), it is not letterboxed.\n\nReturns: {\"path\", \"width\", \"height\", \"raw\": the still without guides}.\nExample: film-ue op cam.still camera=CAM_A out=/tmp/cam_a.png subjects=Presenter",
    "params": [
     {
      "name": "camera",
@@ -3538,9 +3538,9 @@
     {
      "name": "height",
      "kind": "keyword",
-     "type": "int",
+     "type": "int | None",
      "required": false,
-     "default": 540
+     "default": null
     },
     {
      "name": "guides",

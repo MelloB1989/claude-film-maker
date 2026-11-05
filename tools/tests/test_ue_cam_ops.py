@@ -255,6 +255,14 @@ def test_still_draws_guides(ue, fmb, monkeypatch, tmp_path):
     img = png.read(out)
     assert any(img.get(107, y) != (90, 90, 90) for y in range(img.h))  # the left third's guide
     assert img.get(5, 5) != (90, 90, 90)  # the lens label
+    # day 1: a 16:9 still of a Super 35 back is the picture stretched to fill it, so by default the still takes the
+    # filmback's aspect
+    asked = []
+    monkeypatch.setattr(look, "still", lambda camera_label, path, width, height, **kw: (
+        asked.append((width, height)), (yield from fake_still(camera_label, path, width, height)))[1])
+    run_op("cam.set", label="CAM_A", filmback="Super 35mm")
+    r = run_op("cam.still", camera="CAM_A", out=str(tmp_path / "b.png"), width=320, subjects="Presenter")
+    assert asked == [(320, 240)] and r["height"] == 240
 
 
 def test_sheet_through_the_cut(ue, fmb, seqrec, monkeypatch, tmp_path):
