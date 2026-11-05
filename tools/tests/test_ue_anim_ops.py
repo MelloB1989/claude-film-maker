@@ -420,3 +420,18 @@ def test_curves_listed_in_lower_case_are_the_face_curves(ue, fmb):
     assert list(got) == ["CTRL_expressions_eyeBlinkL"] and max(got["CTRL_expressions_eyeBlinkL"][1]) == 1.0
     chk = run_op("anim.check", anim="/Game/A/AS_loop")
     assert "blink_rate" not in chk["failed"] and "expression_range" not in chk["failed"], chk["failed"]
+
+
+def test_perf_face_turns_the_head_on_the_curve_that_turns_it(ue, fmb):
+    """On the reel's MetaHumans HeadRoll turns the head and HeadYaw nods (REEL_PERF.md): with those signs, a gaze
+    shift to the side must move HeadRoll, not HeadYaw."""
+    t = [i / 30 for i in range(121)]
+    ue.anim("/Game/A/AS_src", length_s=4.0, curves={"CTRL_expressions_jawOpen": (t, [0.0] * len(t))})
+    signs = {"yaw": -1.0, "pitch": -1.0, "roll": 1.0, "measured": True,
+             "curves": {"yaw": "HeadRoll", "pitch": "HeadYaw", "roll": "HeadPitch"}}
+    run_op("perf.face", anim="/Game/A/AS_src", out="/Game/A/AS_out", signs=signs, seed=1,
+           gaze=[{"t": 0.0, "yaw": 0.0, "scan": "lens"}, {"t": 1.0, "yaw": 30.0, "head": 0.7}])
+    c = run_op("anim.read_curves", anim="/Game/A/AS_out", names=["HeadYaw", "HeadRoll"])
+    span = {n: max(v) - min(v) for n, (_, v) in c.items()}
+    assert span["HeadRoll"] > 15.0 and span["HeadYaw"] < 6.0, span
+    assert min(c["HeadRoll"][1]) < -15.0  # yaw + (their left) is - on HeadRoll here

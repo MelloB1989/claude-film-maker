@@ -27,7 +27,7 @@ from ..perfkit import expressions as X
 from ..perfkit import face as FACE
 from ..perfkit import head as HD
 from ..perfkit import spec as SP
-from ..perfkit.rig import HEAD, HeadSigns
+from ..perfkit.rig import HEAD, HeadSigns, head_axes
 
 LSE = unreal.LevelSequenceEditorBlueprintLibrary
 
@@ -235,12 +235,14 @@ def _unit(v):
 @op("perf.calibrate", mutates=True, idempotent=True, tags=["slow"])
 def calibrate(*, label: str, face_component: str = "Face", scratch: str = "/Game/_Perf/Calibrate",
               degrees: float = 10.0):
-    """Measure, on the real rig, which way HeadYaw/HeadPitch/HeadRoll turn the head and how far eyeLook* turns the
+    """Measure, on the real rig, which of HeadYaw/HeadPitch/HeadRoll turns, nods and tilts the head (the names need not
+    say: on the reel's MetaHumans HeadYaw nods), which way, and how far eyeLook* turns the
     eyes, and save it for this face skeleton (Saved/fmbridge/perf/signs_<skeleton>.json): perf.face and perf.apply
     then use it. Plays a scratch animation on the actor's face in a scratch sequence and samples the eye bones.
     Run once per face skeleton (the face must be driven by Sequencer: mh.drive_face). A multi-tick job, ~20 s.
 
-    Returns: {"signs": {"yaw", "pitch", "roll", "eye_deg", "eye_flip", "measured"}, "file", "raw": {...}}.
+    Returns: {"signs": {"yaw", "pitch", "roll", "eye_deg", "eye_flip", "measured", "curves": {axis: curve}}, "file",
+    "raw": {...}}.
     Example: film-ue op perf.calibrate label=Presenter
     """
     import math
@@ -284,27 +286,24 @@ def calibrate(*, label: str, face_component: str = "Face", scratch: str = "/Game
         _write(a, {**heads, **curves})
         EAL.save_asset(anim_path)
 
-    signs = {}
-    for name, key in (("HeadYaw", "yaw"), ("HeadPitch", "pitch"), ("HeadRoll", "roll")):
+    resp = {}  # curve -> {"yaw": sideways cm, "pitch": up cm, "roll": eye height difference cm}
+    for name in ("HeadYaw", "HeadPitch", "HeadRoll"):
         apply({name: ([0.0, 2.0], [degrees, degrees])})
         m = yield from _await_change(measure, frame, "FACIAL_L_Eye", last["bones"]["FACIAL_L_Eye"][0])
         last = m
         l1, r1 = m["bones"]["FACIAL_L_Eye"][0], m["bones"]["FACIAL_R_Eye"][0]
         d = _sub(_mid(l1[:3], r1[:3]), mid0)
-        if key == "yaw":
-            v = _dot(d, left)
-        elif key == "pitch":
-            v = _dot(d, up)
-        else:  # top of the head to the character's left: the right eye rises against the left
-            v = (r1[2] - l1[2]) - (eR[2] - eL[2])
-        raw[name] = round(v, 4)
-        if abs(v) < 0.05:  # 10 degrees of head turn moves the eyes over a centimetre
+        # the top of the head to the character's left raises the right eye against the left
+        resp[name] = {"yaw": _dot(d, left), "pitch": _dot(d, up), "roll": (r1[2] - l1[2]) - (eR[2] - eL[2])}
+        raw[name] = {k: round(v, 4) for k, v in resp[name].items()}
+        if max(abs(v) for v in resp[name].values()) < 0.05:  # 10 degrees of head turn moves the eyes over a cm
             apply({})
-            raise OpError(f"{name}={degrees} did not move {label}'s head ({v:.4f} cm at the eyes): the face rig is "
-                          "not turning the head from the head curves", code="failed", details={"raw": raw},
+            raise OpError(f"{name}={degrees} did not move {label}'s head (under 0.05 cm at the eyes: {raw[name]}): the "
+                          "face rig is not turning the head from the head curves", code="failed", details={"raw": raw},
                           hint="drive the face from Sequencer with mh.drive_face, and check its Anim Blueprint reads "
                                "HeadYaw/HeadPitch/HeadRoll with HeadControlSwitch=1")
-        signs[key] = 1.0 if v > 0 else -1.0
+    curves = head_axes(resp)
+    signs = {k: 1.0 if resp[c][k] > 0 else -1.0 for k, c in curves.items()}
     apply({})
     yield from _await_change(measure, frame, "FACIAL_L_Eye", last["bones"]["FACIAL_L_Eye"][0])
     rest2 = yield from measure([frame])
@@ -327,7 +326,8 @@ def calibrate(*, label: str, face_component: str = "Face", scratch: str = "/Game
             flip_votes.append(_dot(_sub(gaze_new, gaze_old), left) < 0)
         raw[f"eyeLook{d}L"] = round(ang, 3)
     apply({})
-    result = HeadSigns(signs["yaw"], signs["pitch"], signs["roll"], eye_deg, True, bool(flip_votes and flip_votes[0]))
+    result = HeadSigns(signs["yaw"], signs["pitch"], signs["roll"], eye_deg, True, bool(flip_votes and flip_votes[0]),
+                       curves)
     path = _signs_file(skel)
     with open(path, "w") as f:
         json.dump(result.to_json(), f, indent=1)

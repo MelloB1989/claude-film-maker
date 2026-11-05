@@ -11929,8 +11929,8 @@
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
    "line": 235,
-   "summary": "Measure, on the real rig, which way HeadYaw/HeadPitch/HeadRoll turn the head and how far eyeLook* turns the",
-   "doc": "Measure, on the real rig, which way HeadYaw/HeadPitch/HeadRoll turn the head and how far eyeLook* turns the\neyes, and save it for this face skeleton (Saved/fmbridge/perf/signs_<skeleton>.json): perf.face and perf.apply\nthen use it. Plays a scratch animation on the actor's face in a scratch sequence and samples the eye bones.\nRun once per face skeleton (the face must be driven by Sequencer: mh.drive_face). A multi-tick job, ~20 s.\n\nReturns: {\"signs\": {\"yaw\", \"pitch\", \"roll\", \"eye_deg\", \"eye_flip\", \"measured\"}, \"file\", \"raw\": {...}}.\nExample: film-ue op perf.calibrate label=Presenter",
+   "summary": "Measure, on the real rig, which of HeadYaw/HeadPitch/HeadRoll turns, nods and tilts the head (the names need not",
+   "doc": "Measure, on the real rig, which of HeadYaw/HeadPitch/HeadRoll turns, nods and tilts the head (the names need not\nsay: on the reel's MetaHumans HeadYaw nods), which way, and how far eyeLook* turns the\neyes, and save it for this face skeleton (Saved/fmbridge/perf/signs_<skeleton>.json): perf.face and perf.apply\nthen use it. Plays a scratch animation on the actor's face in a scratch sequence and samples the eye bones.\nRun once per face skeleton (the face must be driven by Sequencer: mh.drive_face). A multi-tick job, ~20 s.\n\nReturns: {\"signs\": {\"yaw\", \"pitch\", \"roll\", \"eye_deg\", \"eye_flip\", \"measured\", \"curves\": {axis: curve}}, \"file\",\n\"raw\": {...}}.\nExample: film-ue op perf.calibrate label=Presenter",
    "params": [
     {
      "name": "label",

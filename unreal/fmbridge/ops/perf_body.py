@@ -226,9 +226,10 @@ def body_life(*, out: str, body_mesh: str, length_s: float, state: str = "rest",
     head_yaw = None
     if face_anim:
         fa = _anim(face_anim)
-        if AL.does_curve_exist(fa, "HeadYaw", unreal.RawCurveTrackTypes.RCT_FLOAT):
-            ht, hv = _keys(fa, "HeadYaw")
-            sg = signs_for(_skeleton_path(fa)).yaw
+        hs = signs_for(_skeleton_path(fa))
+        if AL.does_curve_exist(fa, hs.curves["yaw"], unreal.RawCurveTrackTypes.RCT_FLOAT):
+            ht, hv = _keys(fa, hs.curves["yaw"])  # the curve that turns the head (HeadRoll on the reel's rigs)
+            sg = hs.yaw
             head_yaw = (lambda t: sg * C.at(ht, hv, t))
     anim_new(path=out, skeleton=body_mesh, length_s=length_s, fps=30, replace=True)
     a = load(out)
