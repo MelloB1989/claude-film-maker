@@ -132,6 +132,10 @@ def test_assemble_fills_shots_not_yet_final_from_the_preview(tmp_path):
     for f in range(s13.start, s13.end):
         Image.new("RGB", (32, 18)).save(fin / "S13" / f"{f:04d}.png")
     assert assemble.pattern(prev) == "{frame:04d}.jpg" and assemble.pattern(fin) == "{frame:04d}.png"
+    mrq = tmp_path / "mrq"
+    mrq.mkdir()
+    Image.new("RGB", (16, 9)).save(mrq / "0000.jpeg", "JPEG")  # MRQ writes its jpg output as .jpeg
+    assert assemble.pattern(mrq) == "{frame:04d}.jpeg"
     assert assemble.whole(fin) == ["S13"] and len(assemble.whole(prev)) == len(SHOTS)
     d = assemble.merged(tmp_path / "out", [fin, prev])
     assert {p.suffix for p in d.iterdir()} == {".png"} and len(list(d.iterdir())) == cut.TOTAL
