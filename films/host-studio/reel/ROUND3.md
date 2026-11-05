@@ -79,7 +79,8 @@ From the operator, 22:30 IST: once the operator's MetaHuman exists, the project 
 `s3://rf-render-788655295054-aps1/ue-linux/private/` (SSE-KMS; only the box's role can read it), and only from the box.
 The core enforces this (main): when the box setting `face_data` is set, `film-ue sync project up` and `sync ddc
 save` refuse any destination outside `.../private/`. Without it, the project sync always leaves out the face assets
-(`Content/Host/OperatorCapture`, `Host_Op*`, `Unpacked/Host*`, `Capture/operator-face`). The pre-face DDC was saved
+(`Content/Host/OperatorCapture`, `Host_Op*`, `Unpacked/Host*`, `Capture/operator-face`). Capture Manager's converted
+frames (`~/.config/Epic/CaptureManager/Media/HostStudio/`, outside the project) are in no sync at all; keep it so. The pre-face DDC was saved
 at 17:00 to the normal prefix, which is fine. At the end, the final DDC and project go to `private/ddc/5.8.4/` and
 `private/project/HostStudio/`.
 
