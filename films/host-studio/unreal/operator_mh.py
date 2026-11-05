@@ -233,5 +233,25 @@ elif STAGE == "character":
     K.save(CHARACTER)
     R["character"] = CHARACTER
 
+elif STAGE == "measure":
+    # for the cameras (agent-11): his eye, head-top and knee heights (cm above his mark's floor) on the placed actor
+    from fmbridge.ops._util import actor
+    a = actor(globals().get("LABEL", "Host"))
+    floor = a.get_actor_location().z
+    comps = {c.get_name(): c for c in a.get_components_by_class(unreal.SkeletalMeshComponent)}
+    R["components"] = sorted(comps)
+
+    def z(bone):
+        for c in comps.values():
+            if c.does_socket_exist(bone):
+                return round(c.get_socket_location(bone).z - floor, 1)
+        return None
+    eyes = [v for v in (z("FACIAL_L_Eye"), z("FACIAL_R_Eye")) if v is not None]
+    R["eye_cm"] = round(sum(eyes) / len(eyes), 1) if eyes else None
+    R["knee_cm"] = z("calf_l")
+    face = comps.get("Face") or next(iter(comps.values()))
+    t("top_cm", lambda: round(face.bounds.origin.z + face.bounds.box_extent.z - floor, 1))
+    R["head_bone_cm"] = z("head")
+
 R["done"] = True
 result = R
