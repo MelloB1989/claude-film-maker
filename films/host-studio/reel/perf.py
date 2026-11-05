@@ -12,6 +12,7 @@ and body made one skeleton, the eyes locked on each shot's lens or on the partne
     cd tools && uv run python ../films/host-studio/reel/perf.py check --who her      # anim.check, solve vs face
     cd tools && uv run python ../films/host-studio/reel/perf.py calibrate_body --who her  # once per body skeleton
     cd tools && uv run python ../films/host-studio/reel/perf.py life --who her       # body life -> AS_reel_<who>_life
+    cd tools && uv run python ../films/host-studio/reel/perf.py verify               # agent-09's gate: lip-sync, check
     cd tools && uv run python ../films/host-studio/reel/perf.py stage           # Test_ sequences, cameras, marks
     cd tools && uv run python ../films/host-studio/reel/perf.py sync|gaze|stills [--who him]
     cd tools && uv run python ../films/host-studio/reel/perf.py place --seq /Game/Reel/SEQ_Reel   # for R7
@@ -374,7 +375,36 @@ def events(who: str) -> dict:
                       {"t0": s(1212), "t1": s(1380), "mood": "confident", "intensity": 0.7},
                       {"t0": s(1380), "t1": s(END), "mood": "warm", "intensity": 0.7}],
         }
-    raise SystemExit("his round-3 events come with the new character (agent-04): ROUND3.md step 6")
+    # him (the current presenter until agent-04's character replaces him; the beats are the same)
+    return {
+        # S13: a silhouette, head and eyes down; his eyes come up to the lens as the key ramps (f988-1002)
+        # (perfkit starts the head at its share of start_gaze: -30 puts it ~15 deg down, as v2's silhouette)
+        "start_gaze": [0.0, -30.0],
+        "gaze": [{"t": 0.0, "yaw": 0.0, "pitch": -26.0, "scan": "still", "head": 0.1},
+                 {"t": s(988), "yaw": 0.0, "pitch": 0.0, "scan": "lens", "head": 1.0},
+                 # after L2 "Ask her what's next." (ends ~f1120): over his right shoulder to her. She is ~130 deg
+                 # from his front: the head takes ~65, the eyes ~20, the rest is out of view anyway
+                 {"t": s(1128), "yaw": -85.0, "pitch": -5.0, "dist_cm": 125.0, "scan": "face", "head": 0.76},
+                 # back to the front while he is off screen in S16
+                 {"t": s(1290), "yaw": 0.0, "pitch": 0.0, "scan": "lens", "head": 1.0},
+                 # S17: a glance to her as she says "comes around", then the lens
+                 {"t": s(1378), "yaw": -57.0, "pitch": -3.0, "dist_cm": 125.0, "scan": "face", "head": 0.58},
+                 {"t": s(1404), "yaw": 0.0, "pitch": 0.0, "scan": "lens", "head": 1.0}],
+        "expressions": [
+            # after L1 "Took you long enough.": a one-sided smirk (his right side), let go as L2 comes
+            {"preset": "smirk", "t": s(1056), "until": s(1094), "intensity": 0.5, "asym": -0.6},
+            # the hand-off: a small smile as he turns to her
+            {"preset": "smile_soft", "t": s(1126), "until": s(1196), "intensity": 0.45, "asym": 0.1},
+            # a warm smile to the lens after "...to karma.", alive in the hold through S18
+            {"preset": "smile", "t": s(1404), "until": s(END), "intensity": 0.5, "asym": -0.15}],
+        "nods": [{"t": s(1424), "kind": "nod", "depth_deg": 3.0}],
+        # he speaks ~a fifth of his 25 s and makes six big gaze shifts (each may bring a blink): the talking rate
+        # all through came out at 41/min (anim.check: 8..35)
+        "blink_state": "listen",
+        "moods": [{"t0": 0.0, "t1": s(1070), "mood": "confident", "intensity": 0.7},
+                  {"t0": s(1070), "t1": s(1340), "mood": "playful", "intensity": 0.6},
+                  {"t0": s(1340), "t1": s(END), "mood": "warm", "intensity": 0.7}],
+    }
 
 
 def naturalize(who: str, plot: bool = True) -> dict:
@@ -397,6 +427,40 @@ def calibrate(who: str) -> dict:
 def check(who: str) -> dict:
     """anim.check on the solve (v2's base) and on the round-3 face: the before/after numbers."""
     return {k: ok(client.op("anim.check", anim=f"{ANIM}/AS_reel_{who}_{k}")) for k in ("solve", "face")}
+
+
+MOUTH = ("CTRL_expressions_jawOpen", "CTRL_expressions_mouthLipsTogetherUL", "CTRL_expressions_mouthFunnelUL",
+         "CTRL_expressions_mouthCornerPullL", "CTRL_expressions_mouthUpperLipRaiseL")
+
+
+def verify(who: str) -> dict:
+    """The numbers for agent-09's presenter gate (ROUND3), on the face that is placed (final_face): (a) per line, how
+    much the jaw moves while it is spoken (std, range) and in the silences around it; (d) anim.check on it (blinks,
+    head, gaze). A spoken line with a jaw range under 0.08 has no lip-sync."""
+    face = final_face(who)
+    got = ok(client.op("anim.read_curves", anim=face, names=list(MOUTH)))
+    t, jaw = got.get("CTRL_expressions_jawOpen", [[], []])
+    sec = lambda f: (f - START[who]) / FPS  # noqa: E731
+    def span(a, b):
+        v = [y for x, y in zip(t, jaw) if a <= x <= b]
+        if len(v) < 2:
+            return {"n": len(v)}
+        m = sum(v) / len(v)
+        return {"n": len(v), "range": round(max(v) - min(v), 3), "std": round((sum((y - m) ** 2 for y in v) / len(v)) ** .5, 3)}
+    lines, silent = {}, []
+    mine = sorted(((k, c) for k, c in cues().items() if c["who"] == who), key=lambda kc: kc[1]["voice_frame"])
+    for k, c in mine:
+        end = c.get("end_frame") or c.get("slot_end")
+        lines[k] = {"frames": [c["voice_frame"], end], **span(sec(c["voice_frame"]), sec(end))}
+        lines[k]["lip_sync"] = lines[k].get("range", 0) >= 0.08
+    edges = [START[who]] + [x for _, c in mine for x in (c["voice_frame"] - 6, (c.get("end_frame") or c["slot_end"]) + 12)] + [END]
+    for a, b in zip(edges[::2], edges[1::2]):
+        if b - a > 24:
+            silent.append({"frames": [a, b], **span(sec(a), sec(b))})
+    chk = ok(client.op("anim.check", anim=face))
+    return {"face": face, "curves": sorted(got), "lines": lines, "silences": silent,
+            "all_lines_lip_sync": all(x["lip_sync"] for x in lines.values()),
+            "check": {"pass": chk.get("pass"), "failed": chk.get("failed")}}
 
 
 def calibrate_body(who: str) -> dict:
@@ -812,7 +876,7 @@ def cleanup() -> dict:
 # are hidden until their first shot; the pre-roll covers the handles and a render's warm-up) to POST_ROLL after END,
 # phased so the idle is where the baked body starts and ends, cross-faded over BLEND frames.
 PRE_ROLL, POST_ROLL, BLEND = 240, 48, 6
-USE_LIFE = {"him": False, "her": True}  # round 3: `life` made AS_reel_<who>_life (his comes with the new character)
+USE_LIFE = {"him": True, "her": True}  # round 3: `life` makes AS_reel_<who>_life (place skips it until then)
 
 
 def drive_faces() -> list:
@@ -857,7 +921,7 @@ def place(path: str) -> list:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("cmd", choices=["push", "solve", "compose", "stage", "signs", "sync", "gaze", "stills", "cleanup", "drive_faces", "restage",
-                                       "place", "arm_axes", "gesture", "calibrate", "naturalize", "check", "calibrate_body", "life"])
+                                       "place", "arm_axes", "gesture", "calibrate", "naturalize", "check", "calibrate_body", "life", "verify"])
     ap.add_argument("--who", default="him,her")
     ap.add_argument("--seq", default="/Game/Reel/SEQ_Reel", help="place: the sequence")
     ap.add_argument("--frames", help="stills: master frames, comma-separated")
@@ -874,7 +938,7 @@ def main() -> None:
         for w in a.who.split(","):
             print(w, json.dumps(compose(w)))
     elif a.cmd in ("stage", "restage", "signs", "sync", "gaze", "stills", "arm_axes", "gesture", "calibrate", "naturalize",
-                   "check", "calibrate_body", "life"):
+                   "check", "calibrate_body", "life", "verify"):
         for w in a.who.split(","):
             if a.cmd == "gaze":
                 r = gaze(w, a.start_at, a.stop_at)
