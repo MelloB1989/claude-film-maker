@@ -9426,7 +9426,7 @@
    "verb": "assign",
    "module": "fmbridge.ops.mat",
    "file": "unreal/fmbridge/ops/mat.py",
-   "line": 665,
+   "line": 672,
    "summary": "Set a material on a mesh ASSET's slot (every actor showing the mesh changes). For one actor only use",
    "doc": "Set a material on a mesh ASSET's slot (every actor showing the mesh changes). For one actor only use\nlevel.material.\n\nArgs: mesh: /Game/... StaticMesh or SkeletalMesh. material: /Game/... material or instance. slot: index or slot\n      name.\nReturns: {\"mesh\", \"slot\", \"slot_name\", \"material\", \"changed\"}.\nExample: film-ue op mat.assign mesh=/Game/Props/SM_Chair material=/Game/Mats/MI_Oak slot=0",
    "params": [
@@ -9466,7 +9466,7 @@
    "verb": "check",
    "module": "fmbridge.ops.mat",
    "file": "unreal/fmbridge/ops/mat.py",
-   "line": 528,
+   "line": 535,
    "summary": "Does a material render as meant: it compiles (else the engine draws its checker), and every texture it uses",
    "doc": "Does a material render as meant: it compiles (else the engine draws its checker), and every texture it uses\nhas the compression its sampler needs (a normal map TC_NORMALMAP, a data map TC_MASKS and linear, a colour map\nsRGB and neither).\n\nArgs: path: /Game/... of a Material or instance.\nReturns: {\"pass\", \"issues\": [{\"code\": material.not_compiling | material.texture_kind, \"severity\", \"message\",\n         \"fix\", \"subject\", \"value\", \"expected\"}], \"metrics\": {\"num_samplers\", ..., \"textures_checked\"}}.\nExample: film-ue op mat.check path=/Game/Mats/MI_Rock",
    "params": [
@@ -9493,7 +9493,7 @@
    "verb": "describe",
    "module": "fmbridge.ops.mat",
    "file": "unreal/fmbridge/ops/mat.py",
-   "line": 492,
+   "line": 499,
    "summary": "A material or instance as JSON: class, parent chain, library master (if any), blend/shading, every parameter",
    "doc": "A material or instance as JSON: class, parent chain, library master (if any), blend/shading, every parameter\nwith its current value, compile statistics, and which actors in the open level draw it.\n\nArgs: path: /Game/... of a Material or MaterialInstance.\nReturns: {\"path\", \"class\", \"chain\": [paths], \"master\", \"blend\", \"shading\", \"two_sided\", \"params\": {name:\n         {\"kind\", \"value\"}}, \"stats\", \"users\": [labels], \"fingerprint\": the spec hash it was built from (mat.graph,\n         mat.master) or null}.\nExample: film-ue op mat.describe path=/Game/Mats/MI_RedPaint",
    "params": [
@@ -9519,7 +9519,7 @@
    "verb": "graph",
    "module": "fmbridge.ops.mat",
    "file": "unreal/fmbridge/ops/mat.py",
-   "line": 280,
+   "line": 287,
    "summary": "Build a Material from a node-graph spec (material by spec); re-running the same spec changes nothing.",
    "doc": "Build a Material from a node-graph spec (material by spec); re-running the same spec changes nothing.\n\nspec: {\"blend\": opaque|masked|translucent|additive|modulate, \"shading\": default_lit|unlit|subsurface|\nsubsurface_profile|two_sided_foliage|cloth|clear_coat|thin_translucent|hair|eye, \"two_sided\": bool,\n\"domain\": surface|deferred_decal|post_process|light_function|ui, \"translucency_lighting\": surface_per_pixel|...,\n\"usage\": [skeletal_mesh, instanced, nanite, groom, morph_targets, ...], \"opacity_mask_clip\": 0.333,\n\"nodes\": {id: {\"type\": Scalar|Vector|Texture|Switch|Const|Multiply|Add|Lerp|OneMinus|Power|TexCoord|Fresnel|\nVertexColor|Function|... or any MaterialExpression class, \"in\": {pin: \"node\" | \"node.R\" | number | [r,g,b]},\nother keys: editor properties (name, default, texture, sampler: color|normal|masks|linear_color|grayscale)}},\n\"outputs\": {BaseColor|Metallic|Specular|Roughness|EmissiveColor|Opacity|OpacityMask|Normal|SubsurfaceColor|\nAmbientOcclusion|Refraction|WorldPositionOffset|CustomData0|...: source}}.\nThe spec is checked before anything is touched (unknown node/pin/source -> bad_args with near names). A\nmaterial drawn in the open level is not rebuilt (conflict) unless force.\nArgs: path: /Game/... of the Material. spec: as above. rebuild: even if unchanged. save: save the asset.\nReturns: {\"path\", \"changed\", \"fingerprint\", \"nodes\", \"stats\": {\"num_samplers\", \"num_pixel_shader_instructions\"}}.\nExample: film-ue op mat.graph path=/Game/Mats/M_Stripes 'spec={\"nodes\": {\"c\": {\"type\": \"Vector\", \"name\": \"Col\",\n         \"default\": [1, 0, 0, 1]}}, \"outputs\": {\"BaseColor\": \"c\"}}'",
    "params": [
@@ -9573,7 +9573,7 @@
    "verb": "instance",
    "module": "fmbridge.ops.mat",
    "file": "unreal/fmbridge/ops/mat.py",
-   "line": 429,
+   "line": 436,
    "summary": "Make or update a material instance: its parent, and parameters from a dict; only what differs is written.",
    "doc": "Make or update a material instance: its parent, and parameters from a dict; only what differs is written.\n\nArgs: path: /Game/... of the instance. master: a library master by name (mat.masters: opaque, glass, emissive,\n      ...; built on demand) or parent: any material/instance path. params: {name: value}: a number (scalar), a\n      list [r, g, b(, a)] linear (vector), a /Game texture path (texture), true/false (static switch). Names are\n      checked against the parent's parameters. force: reparent even if the open level draws it (unsafe).\nReturns: {\"path\", \"parent\", \"changed\", \"updated\": [what was written]}.\nExample: film-ue op mat.instance path=/Game/Mats/MI_RedPaint master=opaque\n         'params={\"Tint\": [0.6, 0.05, 0.04], \"Roughness\": 0.35}'",
    "params": [
@@ -9634,7 +9634,7 @@
    "verb": "master",
    "module": "fmbridge.ops.mat",
    "file": "unreal/fmbridge/ops/mat.py",
-   "line": 263,
+   "line": 270,
    "summary": "Build (or keep) one library master material in /Game/FM/Lib, with its default textures.",
    "doc": "Build (or keep) one library master material in /Game/FM/Lib, with its default textures.\n\nA master already built from the same spec is left alone (changed false). One built from an older spec is\nrebuilt in place, but only when nothing in the open level draws it (recompiling a drawn material can crash the\neditor): otherwise it fails with code conflict, unless force.\nArgs: name: a master from mat.masters (opaque, opaque_orm, masked, masked_orm, foliage, glass, emissive, screen,\n      cloth, skin, unlit, decal). rebuild: rebuild even if current. force: skip the drawn-by check.\nReturns: {\"path\", \"changed\", \"fingerprint\", \"nodes\", \"stats\"}.\nExample: film-ue op mat.master name=opaque_orm",
    "params": [
@@ -9674,7 +9674,7 @@
    "verb": "masters",
    "module": "fmbridge.ops.mat",
    "file": "unreal/fmbridge/ops/mat.py",
-   "line": 237,
+   "line": 244,
    "summary": "The library's master materials: what each is for, its path, whether it is built and current, and its",
    "doc": "The library's master materials: what each is for, its path, whether it is built and current, and its\nparameters with what they do.\n\nArgs: name: one master (else all).\nReturns: {master: {\"path\", \"description\", \"built\": bool, \"current\": bool, \"params\": {name: {\"kind\",\n         \"default\", \"doc\"}}}}.\nExample: film-ue op mat.masters name=glass",
    "params": [
@@ -9700,7 +9700,7 @@
    "verb": "pbr",
    "module": "fmbridge.ops.mat",
    "file": "unreal/fmbridge/ops/mat.py",
-   "line": 581,
+   "line": 588,
    "summary": "A PBR material instance from a texture set: imports the files (or takes textures already in the project),",
    "doc": "A PBR material instance from a texture set: imports the files (or takes textures already in the project),\nsets each texture's sRGB/compression by its role, picks the master (opaque, opaque_orm for a packed ORM map,\nmasked/foliage for cut-outs) and wires every map in.\n\nArgs: path: /Game/... of the instance. maps: {role: texture path or file}: roles base_color, normal, orm,\n      roughness, metallic, ao, opacity, translucency, emissive, gloss (inverted into roughness is not\n      supported: convert it first). files: files on the box (a texture set; roles from their names, e.g.\n      T_Rock_BaseColor.png, T_Rock_Normal.png, T_Rock_ORM.png). folder: a folder on the box holding one set.\n      texture_dest: where textures are imported (default: the instance's folder + /Textures). cutout: use the\n      masked master (opacity map, or base colour alpha). foliage: the foliage master. params: other master\n      parameters (Tint, Tiling, NormalStrength, ...).\nReturns: {\"path\", \"master\", \"maps\": {role: texture path}, \"changed\", \"imported\": [paths], \"ignored\": [files]}.\nExample: film-ue op mat.pbr path=/Game/Mats/MI_Rock folder=/data/megascans/rock_4k",
    "params": [
@@ -9783,7 +9783,7 @@
    "verb": "preset",
    "module": "fmbridge.ops.mat",
    "file": "unreal/fmbridge/ops/mat.py",
-   "line": 455,
+   "line": 462,
    "summary": "A ready-made material: an instance of a library master with a named look (chrome, gold, glass_clear, water,",
    "doc": "A ready-made material: an instance of a library master with a named look (chrome, gold, glass_clear, water,\nplastic_gloss, rubber, emissive_panel, screen, ...), adjusted by a few plain arguments.\n\nArgs: path: /Game/... of the instance. name: a preset (mat.presets lists them with their master and values).\n      color: linear [r, g, b] (Tint, or Color for emitters). roughness, metallic, opacity: 0..1. nits:\n      emitted luminance in cd/m2 for emissive/screen presets. params: any other master parameters.\nReturns: mat.instance's result plus {\"preset\", \"master\"}.\nExample: film-ue op mat.preset path=/Game/Mats/MI_Panel name=emissive_panel nits=400 'color=[1, 0.9, 0.8]'",
    "params": [
@@ -9865,7 +9865,7 @@
    "verb": "presets",
    "module": "fmbridge.ops.mat",
    "file": "unreal/fmbridge/ops/mat.py",
-   "line": 481,
+   "line": 488,
    "summary": "The named looks mat.preset makes: {name: {\"master\", \"params\"}}.",
    "doc": "The named looks mat.preset makes: {name: {\"master\", \"params\"}}.\n\nExample: film-ue op mat.presets",
    "params": [],
@@ -17723,7 +17723,7 @@
    "verb": "describe",
    "module": "fmbridge.ops.wp",
    "file": "unreal/fmbridge/ops/wp.py",
-   "line": 115,
+   "line": 116,
    "summary": "The open level's partition: whether it is partitioned, its editor and runtime bounds, how many actors it has",
    "doc": "The open level's partition: whether it is partitioned, its editor and runtime bounds, how many actors it has\nand how many are loaded in the editor now, per runtime grid (data layers: level.layers).\n\nReturns: {\"partitioned\", \"editor_bounds\": {\"min\", \"max\", \"size_m\"}, \"runtime_bounds\", \"actors\", \"loaded\",\n\"spatially_loaded\", \"always_loaded\", \"editor_only\", \"grids\": {grid: count}, \"loaded_by_ops\": count}.\nExample: film-ue op wp.describe",
    "params": [],
@@ -17739,7 +17739,7 @@
    "verb": "find",
    "module": "fmbridge.ops.wp",
    "file": "unreal/fmbridge/ops/wp.py",
-   "line": 134,
+   "line": 135,
    "summary": "Actors of the partitioned level, loaded or not (from their descriptors on disk): filter by label substring,",
    "doc": "Actors of the partitioned level, loaded or not (from their descriptors on disk): filter by label substring,\nclass name, a box [[x, y, z], [x, y, z]] in cm, or loaded state.\n\nReturns: {\"partitioned\", \"count\", \"actors\": [{\"label\", \"guid\", \"class\", \"bounds\", \"grid\", \"spatial\",\n\"editor_only\", \"data_layers\", \"loaded\"}]} (the first `limit`).\nExample: film-ue op wp.find contains=Tree loaded=false limit=20",
    "params": [
@@ -17791,7 +17791,7 @@
    "verb": "load",
    "module": "fmbridge.ops.wp",
    "file": "unreal/fmbridge/ops/wp.py",
-   "line": 231,
+   "line": 232,
    "summary": "Load part of a World Partition level into the editor: the actors whose bounds meet a box (cm), what a camera",
    "doc": "Load part of a World Partition level into the editor: the actors whose bounds meet a box (cm), what a camera\nsees out to far_cm (its frustum, padded by pad_cm), what a sequence's cameras see through a shot (`sequence` with\n`frames` [start, end) sampled `every` frames, through the camera cuts), a sphere around a point, named actors, or\neverything. Waits (multi-tick) until they are in the editor world. `pin` also pins them.\n\nReturns: {\"partitioned\", \"changed\", \"requested\", \"newly_loaded\", \"already_loaded\", \"missing\": [labels that did\nnot appear], \"box\", \"cameras\" (with sequence)}.\nExample: film-ue op wp.load camera=Cam_A far_cm=8000",
    "params": [
@@ -17899,7 +17899,7 @@
    "verb": "unload",
    "module": "fmbridge.ops.wp",
    "file": "unreal/fmbridge/ops/wp.py",
-   "line": 269,
+   "line": 270,
    "summary": "Unload actors that wp.load loaded (by label, by box, or all of them). Actors loaded by the editor's own regions",
    "doc": "Unload actors that wp.load loaded (by label, by box, or all of them). Actors loaded by the editor's own regions\n(or always loaded) stay: the library unloads only its own loads.\n\nReturns: {\"partitioned\", \"changed\", \"unloaded\", \"kept\": [labels not loaded by wp.load]}.\nExample: film-ue op wp.unload all=true",
    "params": [
