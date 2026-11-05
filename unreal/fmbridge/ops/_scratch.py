@@ -64,14 +64,24 @@ def leave(previous: str, folder: str) -> str:
     return current_level()
 
 
-def fresh_level(path: str) -> None:
-    """A new empty level at `path`, opened; whatever was there is deleted first (never an overwrite dialog)."""
-    if current_level() == path:
+def fresh_level(path: str) -> str:
+    """A new empty level at `path` (or, when an old one there cannot be deleted, at `path`_<n> beside it), opened;
+    never an overwrite dialog. Returns the level's path. Day 1: a level left by an earlier run (its cleanup refused
+    before the garbage collection fix) could not be deleted after an editor restart, and new_level refused the path."""
+    folder = path.rsplit("/", 1)[0]
+    if current_level().startswith(folder):
         _open_blank()
     if _eal().does_asset_exist(path):
-        _eal().delete_asset(path)
+        delete_dir(folder)  # the whole scratch folder, after a garbage collection
+    if _eal().does_asset_exist(path):
+        for n in range(1, 100):
+            alt = f"{path}_{n}"
+            if not _eal().does_asset_exist(alt):
+                path = alt
+                break
     if not _les().new_level(path):
-        raise RuntimeError(f"could not create the scratch level {path}")
+        raise RuntimeError(f"could not create the scratch level {path} (film-ue op selftest.cleanup; film-ue log)")
+    return path
 
 
 def _destroy_prefixed(prefix: str) -> int:
@@ -109,7 +119,7 @@ def scratch(folder: str, level: bool = True, keep: bool = False, prefix: str = "
     s = Scratch(folder, f"{folder}/L_{name}" if level else current_level(), prefix or f"ST_{name}_", current_level(),
                 keep)
     if level:
-        fresh_level(s.level)
+        s.level = fresh_level(s.level)
     try:
         yield s
     finally:

@@ -347,7 +347,7 @@ def run(area: str, out_dir: str, keep: bool = False, baseline: str = "auto"):
     timeout = float(getattr(mod, "TIMEOUT", DEFAULT_TIMEOUT))
     try:
         if getattr(mod, "NEEDS_LEVEL", True):
-            _scratch.fresh_level(t.level)
+            t.level = _scratch.fresh_level(t.level)
             yield  # let the new level settle for a tick
         res = mod.run(t)
         if inspect.isgenerator(res):
