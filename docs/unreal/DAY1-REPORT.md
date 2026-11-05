@@ -47,3 +47,18 @@ Live table (newest result per area; times are wall clock on the box):
   (day1-dx 1641cf31) and by shot.plan checking its cameras (agent-11).
 - 14:40 UTC preview render: 168 JPEG frames in /srv/ue/demo/out/render; the job reported 0 (looked for .jpg): fixed.
 - 14:50 UTC env OK 56/0 with agent-08's branch.
+
+## The demo, seen
+
+The cut as a contact sheet (2 stills per shot: WS, MCU with a push-in, CU), first pass:
+
+![demo, first pass](img/day1-demo-sheet-1.jpg)
+
+What the numbers missed and the eye caught: skin through the shirt (frames 119, 120) and the collar off the chest
+(167): the face, played by Sequencer, did not follow the body; and the hair/beard read orange-white in the CU.
+After day1-demo d6c24fa9 (anim.bake_follow, r.HairStrands.SkyLighting 0, penetration in the review):
+
+![demo, second pass](img/day1-demo-sheet-2.jpg)
+
+The shirt holds in 119 and 120; at 167 the collar still slips (the face's own neck motion at the end of the line:
+open), and the CU's warm hair is the 4300 K rim light (a look choice, not a bug).
