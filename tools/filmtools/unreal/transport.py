@@ -70,6 +70,7 @@ class Transport:
         return f"runuser -u {shlex.quote(self.conf.get('user') or 'ubuntu')} -- bash -c {shlex.quote(script)}"
 
     PART = 60_000  # base64 characters per command: SSM caps a command near 100 KB
+    GET_PART = 15_000  # bytes per command on the way back (20,000 base64 characters: SSM keeps 24,000 of an output)
 
     def put(self, path: str, data: bytes) -> None:
         """A file onto the box through the command channel. Above ~45 KB it goes in parts (each one command) that the
@@ -100,17 +101,32 @@ class Transport:
                      f"Remove-Item {_ps(tmp)}")
 
     def get(self, path: str) -> bytes | None:
-        """A small file from the box, or None when it is not there."""
+        """A file from the box, or None when it is not there. In parts of GET_PART bytes, one command each: SSM keeps
+        only the first 24,000 characters of a command's output (day 1: a 150 KB file came back cut)."""
+        n = self.GET_PART
         if self.linux:
             q = shlex.quote(path)
-            out = self.run(f"if [ -f {q} ]; then echo FMFILE; base64 -w0 {q}; echo; fi")
+            out = self.run(f"if [ -f {q} ]; then echo FMFILE $(stat -c %s {q}); head -c {n} {q} | base64 -w0; echo; fi")
         else:
-            out = self.run(f"if (Test-Path {_ps(path)}) {{ 'FMFILE'; [Convert]::ToBase64String([IO.File]::ReadAllBytes({_ps(path)})) }}")
+            out = self.run(f"if (Test-Path {_ps(path)}) {{ $b = [IO.File]::ReadAllBytes({_ps(path)}); "
+                           f"'FMFILE ' + $b.Length; [Convert]::ToBase64String($b, 0, [Math]::Min({n}, $b.Length)) }}")
         lines = [x.strip() for x in out.splitlines()]
-        if "FMFILE" not in lines:
+        head = next((i for i, x in enumerate(lines) if x.startswith("FMFILE")), None)
+        if head is None:
             return None
-        i = lines.index("FMFILE")
-        return base64.b64decode(lines[i + 1]) if i + 1 < len(lines) else b""
+        size = int(lines[head].split()[1]) if len(lines[head].split()) > 1 else 0
+        chunks = [base64.b64decode(lines[head + 1]) if head + 1 < len(lines) else b""]
+        for off in range(n, size, n):
+            if self.linux:
+                out = self.run(f"tail -c +{off + 1} {q} | head -c {n} | base64 -w0; echo")
+            else:
+                out = self.run(f"$b = [IO.File]::ReadAllBytes({_ps(path)}); "
+                               f"[Convert]::ToBase64String($b, {off}, [Math]::Min({n}, $b.Length - {off}))")
+            chunks.append(base64.b64decode(next((x.strip() for x in reversed(out.splitlines()) if x.strip()), "")))
+        data = b"".join(chunks)
+        if len(data) != size:
+            raise SystemExit(f"get {path}: {len(data)} of {size} bytes came back")
+        return data
 
     def exists(self, path: str) -> bool:
         if self.linux:
@@ -232,6 +248,7 @@ class SSM(Transport):
 
 class SSH(Transport):
     kind = "ssh"
+    GET_PART = 64 * 2**20  # no output cap over ssh: one command
 
     def __init__(self, conf: dict, runner=None):
         super().__init__(conf)

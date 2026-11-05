@@ -3,6 +3,7 @@ box's own shell, with fakes in place of AWS and ssh."""
 from __future__ import annotations
 
 import base64
+import os
 import subprocess
 
 import pytest
@@ -48,7 +49,7 @@ def test_ssm_windows_runs_powershell_and_quotes_paths():
 @pytest.mark.parametrize("os_", ["linux", "windows"])
 def test_get_reads_a_file_back_or_none(os_):
     data = b"\x00binary\xff"
-    ssm, _ = ssm_fake({"there": f"noise\nFMFILE\n{base64.b64encode(data).decode()}\n"})
+    ssm, _ = ssm_fake({"there": f"noise\nFMFILE {len(data)}\n{base64.b64encode(data).decode()}\n"})
     box = t.SSM({"os": os_}, ssm=ssm)
     assert box.get("/x/there") == data
     assert box.get("/x/missing") is None
@@ -183,3 +184,37 @@ def test_a_big_file_goes_in_parts_on_windows():
     assert len(scripts) == 6 and all(len(x) < 90_000 for x in scripts)
     parts = [x.split("-Value '", 1)[1].rsplit("'", 1)[0] for x in scripts[1:-1]]
     assert base64.b64decode("".join(parts)) == data and "Remove-Item" in scripts[-1]
+
+
+def test_a_big_file_comes_back_in_parts_each_output_under_the_ssm_cap_linux(tmp_path):
+    """Day 1: SSM keeps 24,000 characters of a command's output, so a 150 KB get came back cut. Real bash here."""
+    outs = []
+
+    class BashBox(t.Transport):
+        def run(self, script, timeout=600, root=False):
+            out = subprocess.run(["bash", "-c", script], capture_output=True, text=True, check=True).stdout
+            outs.append(len(out))
+            return out
+
+    data = os.urandom(150_000)
+    (tmp_path / "big.bin").write_bytes(data)
+    assert BashBox({"os": "linux"}).get(str(tmp_path / "big.bin")) == data
+    assert len(outs) == 10 and max(outs) < 24_000
+    (tmp_path / "empty.bin").write_bytes(b"")
+    assert BashBox({"os": "linux"}).get(str(tmp_path / "empty.bin")) == b""
+    assert BashBox({"os": "linux"}).get(str(tmp_path / "none.bin")) is None
+
+
+def test_a_big_file_comes_back_in_parts_on_windows():
+    data = bytes(range(256)) * 120  # 30,720 bytes: three parts
+    sent = []
+
+    class PsBox(t.Transport):
+        def run(self, script, timeout=600, root=False):
+            sent.append(script)
+            if "Test-Path" in script:
+                return f"FMFILE {len(data)}\n{base64.b64encode(data[:15_000]).decode()}\n"
+            off = int(script.split("ToBase64String($b, ")[1].split(",")[0])
+            return base64.b64encode(data[off:off + 15_000]).decode() + "\n"
+
+    assert PsBox({"os": "windows"}).get(r"C:\p\big.bin") == data and len(sent) == 3
