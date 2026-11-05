@@ -29,6 +29,39 @@ LEVEL = "/Game/Studio/Studio"
 PROJECT = r"C:\UEProjects\HostStudio"
 CVARS = {"r.HairStrands.SkyLighting": 0}
 PREROLL = 4
+CAST = ("Host", "Presenter")
+# Note 3 (round 3): her hair shortened at the shoulders at the end of S17's crane out (v2 45 s cut 0:39-0:40, master
+# f1416-1440): the groom dropped to a coarser LOD as she got smaller in frame. MRQ's lod_zero pins meshes, not grooms,
+# so every presenter's LODSync, grooms and skeletal meshes are pinned to LOD 0 before each job (on the placed actors:
+# PIE duplicates the editor world, so the render world has them). Each step is tried; the result says what took.
+PIN_LOD0 = """
+import unreal
+done = {}
+for a in unreal.get_editor_subsystem(unreal.EditorActorSubsystem).get_all_level_actors():
+    lab = a.get_actor_label()
+    if lab not in LABELS:
+        continue
+    r = done.setdefault(lab, [])
+    for c in a.get_components_by_class(unreal.LODSyncComponent) if hasattr(unreal, "LODSyncComponent") else []:
+        try:
+            c.set_editor_property("forced_lod", 0)
+            r.append(f"lodsync {c.get_name()}")
+        except Exception as e:
+            r.append(f"lodsync {c.get_name()} ERR {e}")
+    for c in a.get_components_by_class(unreal.GroomComponent):
+        try:
+            c.set_forced_lod(0)
+            r.append(f"groom {c.get_name()}")
+        except Exception as e:
+            r.append(f"groom {c.get_name()} ERR {e}")
+    for c in a.get_components_by_class(unreal.SkeletalMeshComponent):
+        try:
+            c.set_forced_lod(1)  # SkinnedMeshComponent: 0 = auto, N = LOD N-1
+            r.append(f"skel {c.get_name()}")
+        except Exception as e:
+            r.append(f"skel {c.get_name()} ERR {e}")
+result = done
+"""
 
 
 def ok(res: dict):
@@ -48,6 +81,7 @@ def render(sid: str, res: int, samples: int, frames: int = 0, at: int = 0) -> di
     out = remote(sid, res) + (f"_t{at}" if at else "")  # a mid-shot test keeps the shot's own dir
     ok(client.exec_code(f"import shutil\nshutil.rmtree({out!r}, ignore_errors=True)\nresult = True"))  # no stale frames
     ok(client.op("seq.close"))
+    pinned = ok(client.exec_code(f"LABELS = {CAST!r}\n" + PIN_LOD0))
     t0 = time.time()
     ok(client.op("render.mrq", sequence=SEQ, level=LEVEL, out_dir=out, width=res * 16 // 9, height=res,
                  start=first - PREROLL,
@@ -59,7 +93,7 @@ def render(sid: str, res: int, samples: int, frames: int = 0, at: int = 0) -> di
         time.sleep(10)
     dt = time.time() - t0
     return {"shot": sid, "dir": out, "frames": p["frames"], "expected": end - first + PREROLL, "first": first,
-            "last": end - 1, "s": round(dt), "s_per_frame": round(dt / max(1, p["frames"]), 1)}
+            "last": end - 1, "s": round(dt), "s_per_frame": round(dt / max(1, p["frames"]), 1), "lod0": pinned}
 
 
 def main() -> None:
