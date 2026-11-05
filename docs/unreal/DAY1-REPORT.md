@@ -53,3 +53,5 @@ fast-forwards to.
 | env | display capture RTF_RGBA8_SRGB (/255), sky light without channels: env 38/6 -> 56/0 on the box | agent-08 68bbed7c | 1035 passed |
 | seq | the fake resets a bounded section's range like the engine; a seq selftest check | agent-06 d94b05af | 1035 passed |
 | cam | convergence on the engine (float32 focus, rotations by axes), stills at the filmback aspect, shot.plan lists missing cameras, coverage names | agent-11 c83bf93e | 1035 passed |
+| batch 6 | env test for the captures_rebuild route (agent-08 4e84b747); a scratch level saves the open level first: an unattended editor discards unsaved changes on a level switch (agent-13 1641cf31); stills default to sRGB, qa overlaps/floating skip cameras and lights: qa 32/0 (agent-09 809765c1) | agent-08, agent-13, agent-09 | 1037 passed |
+| demo | every demo stage opens the demo level (the level doc moved into vars.yaml) | agent-13 411048b0 | |
