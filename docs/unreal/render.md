@@ -192,6 +192,8 @@ snake_case of the reflected name.
 
 | API (Python) | source | notes |
 |---|---|---|
+| `unreal.load_module('MovieRenderPipelineEditor')` | Engine/Plugins/Experimental/PythonScriptPlugin/Source/PythonScriptPlugin/Private/PyCore.cpp:2071 | day 1: loads the module and generates its Python types when `MoviePipelineEditorBlueprintLibrary` is missing |
+| `MoviePipelineEditorBlueprintLibrary.save_queue_to_manifest_file` | MovieRenderPipelineEditor/Public/MoviePipelineEditorBlueprintLibrary.h:41 | the new-process executor's queue manifest |
 | `MoviePipelineQueueSubsystem.get_queue / render_queue_with_executor / is_rendering / get_active_executor` | MovieRenderPipelineEditor/Public/MoviePipelineQueueSubsystem.h:27,52,67,93 | editor subsystem; render_queue_with_executor returns the executor |
 | `MoviePipelineQueue.allocate_new_job / delete_all_jobs` | MovieRenderPipelineCore/Public/MoviePipelineQueue.h:804,818 | |
 | `MoviePipelineExecutorJob.sequence` (set_editor_property: PostEditChangeProperty calls the SetSequence BlueprintSetter, which Python cannot call; MoviePipelineQueue.cpp:185, PyGenUtil.cpp:1620), `map / job_name` (full object paths /Game/A/B.B, for the {sequence_name}/{level_name} tokens), `get_configuration`, `set_config_mode(MoviePipelineConfigMode.PRESET)` | MoviePipelineQueue.h:692,696,688,529,548 | 5.8 jobs have Preset/Graph/Basic modes; we use Preset (legacy settings) |

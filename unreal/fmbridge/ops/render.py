@@ -359,8 +359,26 @@ def _editor_binary() -> str:
     return os.path.join(eng, "Binaries", "Linux", "UnrealEditor")
 
 
+def _editor_library():
+    """MoviePipelineEditorBlueprintLibrary (MovieRenderPipelineEditor/Public/MoviePipelineEditorBlueprintLibrary.h:41):
+    on the day-1 box it was not in `unreal` (editor.api_names) although the class exists: its editor module had not
+    been loaded when Python generated its types. Load the module and look again; an actionable error otherwise."""
+    lib = getattr(unreal, "MoviePipelineEditorBlueprintLibrary", None)
+    if lib is None:
+        try:
+            unreal.load_module("MovieRenderPipelineEditor")
+        except Exception:
+            pass
+        lib = getattr(unreal, "MoviePipelineEditorBlueprintLibrary", None)
+    if lib is None:
+        raise OpError("MoviePipelineEditorBlueprintLibrary is not available in this editor (the new-process executor "
+                      "needs it to write the queue manifest)", code="unsupported",
+                      hint="enable the Movie Render Queue plugin's editor module, or render with executor='pie'")
+    return lib
+
+
 def _write_manifest(q, path: str) -> str:
-    res = unreal.MoviePipelineEditorBlueprintLibrary.save_queue_to_manifest_file(q)
+    res = _editor_library().save_queue_to_manifest_file(q)
     src = res[1] if isinstance(res, tuple) else res
     if not src or not os.path.isfile(str(src)):
         raise OpError("MRQ wrote no queue manifest", code="engine", hint="see film-ue log (LogMovieRenderPipeline)")
