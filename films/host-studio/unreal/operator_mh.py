@@ -216,6 +216,38 @@ elif STAGE == "identity":
     EAL.save_loaded_asset(ident)
     R["identity"] = IDENTITY
 
+elif STAGE == "diag":
+    # read-only: why tracking gave no contours (day 3: conform DEPTH_INPUT, contours false on every frame)
+    ident = EAL.load_asset(IDENTITY)
+    face = ident.get_or_create_part_of_class(unreal.MetaHumanIdentityFace)
+    pose = face.find_pose_by_type(unreal.IdentityPoseType.NEUTRAL)
+    for k in ("camera", "capture_data_config", "default_tracker", "fit_eyes", "pose_transform"):
+        t("pose." + k, lambda k=k: str(pose.get_editor_property(k)))
+    pfs = pose.get_editor_property("promoted_frames")
+    R["n_promoted"] = len(pfs)
+    if pfs:
+        pf = pfs[0]
+        tr = pf.get_editor_property("contour_tracker")
+        R["tracker"] = str(tr)
+        if tr is not None:
+            R["tracker_members"] = [n for n in dir(tr) if not n.startswith("_") and "editor_propert" not in n][:80]
+            R["tracker_props"] = props(type(tr), 2500)
+            for n in dir(tr):
+                if any(w in n.lower() for w in ("load", "can_process", "valid", "ready")) and not n.startswith("_"):
+                    t("tracker." + n + ".__doc__", lambda n=n: (getattr(tr, n).__doc__ or "")[:500])
+        t("pf.contour_data", lambda: props(type(pf.get_editor_property("contour_data")), 1500))
+        t("pf.can_track", lambda: pf.can_track())
+        t("pf.frame_number", lambda: pf.get_editor_property("frame_number"))
+        t("pf.depth_diag", lambda: str(pf.get_editor_property("depth_map_diagnostics")))
+    fcd = footage()
+    t("calib", lambda: [str(c) for c in fcd.get_editor_property("camera_calibrations")])
+    t("calib_props", lambda: props(unreal.CameraCalibration, 1500))
+    t("metadata", lambda: str(fcd.get_editor_property("metadata"))[:800])
+    t("depth_first", lambda: frames(fcd.get_editor_property("depth_sequences")[0])[:2])
+    t("image_first", lambda: [os.path.basename(x) for x in frames(fcd.get_editor_property("image_sequences")[0])[:2]])
+    t("start_doc", lambda: (unreal.MetaHumanIdentity.start_frame_tracking_pipeline.__doc__ or "")[:600])
+    t("pose_members", lambda: [n for n in dir(pose) if not n.startswith("_")])
+
 elif STAGE == "character":
     # the character: blank, its face fitted to the identity's conformed mesh (metric scale, eyes), then his body
     # (bodies.py "op": 180 cm, fit) by the parametric constraints. The cloud rig/textures/build follow (bodies.py).
