@@ -51,9 +51,21 @@ for d, want in zip(descs, GROUPS):
     for f, v in want.items():
         d.set_editor_property(f, v)
 c.set_editor_property("groom_groups_desc", descs)
-result = [{f: d.get_editor_property(f) for f in want} for d, want in zip(c.get_editor_property("groom_groups_desc"),
-                                                                          GROUPS)]
+# a groom property change re-creates its render state; put her MI_K_HerHair* back on every slot (dress_her: a
+# re-created component loses its materials, which renders the preset's teal-green) and say what each slot has
+c = next(g for g in a.get_components_by_class(unreal.GroomComponent) if g.get_name() == "Hair")
+for i, p in enumerate(HAIR):
+    c.set_material(i, unreal.load_asset(p))
+MEL = unreal.MaterialEditingLibrary
+mats = []
+for i in range(c.get_num_materials()):
+    m = c.get_material(i)
+    mats.append([m.get_path_name() if m else None, MEL.get_material_instance_scalar_parameter_value(m, "hairMelanin")
+                 if isinstance(m, unreal.MaterialInstance) else None])
+result = {"groups": [{f: d.get_editor_property(f) for f in want}
+                     for d, want in zip(c.get_editor_property("groom_groups_desc"), GROUPS)], "materials": mats}
 """
+HAIR = [f"/Game/Studio/Materials/MI_K_HerHair{s}" for s in ("", "_Cards", "_Helmet")]
 
 
 def ok(res):
@@ -74,6 +86,16 @@ def groups_for(v: dict, orig: list) -> list:
     return out
 
 
+def put(groups: list) -> dict:
+    """Set the groups, then pin the presenters back to LOD 0 (build.py --lod0 on): a groom property change re-creates
+    the component, which drops its forced LOD as well as its materials (cast4's S16: long blue-black strands at f1200,
+    shorter green hair, the cards, from f1217), so an unpinned A/B would compare the cards, not the strands."""
+    import build
+    r = ok(client.exec_code(f"GROUPS = {groups!r}\nHAIR = {HAIR!r}\n" + PUT))
+    r["lod0"] = build.lod0(True)
+    return r
+
+
 def render(tag: str, run: str) -> None:
     """One variant's render; a non-zero exit from film-ue apply is only a failure if its frames did not land."""
     from filmtools.unreal.cli import main as cli
@@ -88,24 +110,40 @@ def render(tag: str, run: str) -> None:
         sys.argv = argv
 
 
+def wait_frames(root: Path, want=range(1240, 1244), limit: float = 1200.0) -> None:
+    """The render can land after film-ue apply gives up: in the 18:23 and 002736 runs apply returned in seconds
+    ('the render never started') and S16's 4 frames appeared under the variant's dir later. Wait until all of them
+    are there and their sizes hold, so the next variant's groom change never lands mid-render."""
+    import time
+    t0, sizes = time.time(), None
+    while time.time() - t0 < limit:
+        fr = qa_review.frames(str(root))
+        if all(f in fr for f in want):
+            now = [fr[f].stat().st_size for f in want]
+            if now == sizes:
+                return
+            sizes = now
+        time.sleep(15)
+    raise SystemExit(f"{root}: frames {list(want)} not all there after {limit:.0f} s")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", required=True, help="on the box: the renders' parent dir (the spec's out) and the sheet")
     a = ap.parse_args()
     import time
-    run = time.strftime("%H%M%S")
+    run = time.strftime("t%H%M%S")  # a letter first: --set run=002736 would read as the number 2736 (another dir)
     out = Path(a.out) / run
     orig = ok(client.exec_code(SNAP))
     rep = {"original": orig, "variants": {}}
     try:
         for v in VARIANTS:
-            ok(client.exec_code(f"GROUPS = {groups_for(v, orig)!r}\n" + PUT))
+            r = put(groups_for(v, orig))
             render(v["name"], run)
-            if 1241 not in qa_review.frames(str(out / v["name"])):
-                raise SystemExit(f"{v['name']}: no frame 1241 under {out / v['name']}")
-            rep["variants"][v["name"]] = {"groups": groups_for(v, orig)}
+            wait_frames(out / v["name"])
+            rep["variants"][v["name"]] = {"groups": groups_for(v, orig), "put": r}
     finally:
-        rep["restored"] = ok(client.exec_code(f"GROUPS = {orig!r}\n" + PUT))
+        rep["restored"] = put(orig)
     cells = []
     for v in VARIANTS:
         p = qa_review.crop(str(out / v["name"]), str(out / f"_{v['name']}.jpg"), [1241], ENDS_BOX, 640)
