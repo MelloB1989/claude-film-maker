@@ -347,12 +347,19 @@ def _ext(r: dict) -> str:
                         next(o["kind"] for o in r["outputs"] if o["kind"] in IMAGE_KINDS))
 
 
+def frame_number(frame: int, pad: int) -> str:
+    """A frame number as MRQ writes it: zero-padded digits after the sign (-0012, not Python's -012), so a
+    sequence's handles before frame 0 are found on disk."""
+    f = int(frame)
+    return ("-" if f < 0 else "") + f"{abs(f):0{pad}d}"
+
+
 def frame_path(r: dict, frame: int, pass_name: str = "beauty", ext: str | None = None) -> str:
     """Where MRQ writes `frame` of a pass (the beauty pass is FinalImage in {render_pass})."""
     ext = FILE_EXT.get(ext, ext) if ext else _ext(r)
     rp = PASSES[pass_name][1] if pass_name == "beauty" else (
         PASSES[pass_name][1].rsplit(".", 1)[-1] if PASSES[pass_name][0] == "ppm" else pass_name)
-    name = r["file_name"].replace("{render_pass}", rp).replace("{frame_number}", f"{int(frame):0{r['zero_pad']}d}")
+    name = r["file_name"].replace("{render_pass}", rp).replace("{frame_number}", frame_number(frame, r["zero_pad"]))
     return os.path.join(r["out_dir"], *name.split("/")) + "." + ext
 
 
@@ -799,5 +806,5 @@ def estimate(spec: dict, frames: int, state: dict | None = None) -> float:
 
 __all__ = ["SPEC_VERSION", "PRESETS", "QUALITY_CVARS", "BASE_CVARS", "PASSES", "OUTPUT_KINDS", "SCHEMA", "SpecError",
            "validate", "resolve", "plan", "runs", "split_boxes", "vram_check", "parse_nvidia_smi", "frame_times", "cmdline",
-           "encode_args", "concat_args", "mux_audio_args", "missing_frames", "frame_path", "frames_on_disk",
+           "encode_args", "concat_args", "mux_audio_args", "missing_frames", "frame_number", "frame_path", "frames_on_disk",
            "chunk_seconds", "sample_seconds", "estimate", "preset_table", "image_ok", "assemble_wav", "parse_signalstats", "frame_qa", "compare_args", "parse_ffmpeg_stats", "ab_summary"]
