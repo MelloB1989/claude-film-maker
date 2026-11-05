@@ -5,20 +5,45 @@
   lens settings as CineCameraComponent.cpp:528-529 does.
 - Skeletons: core's bone table (`fake.pose(actor, {bone: [x, y, z]})`).
 - CameraRig_Rail (a spline you can set points on) and CameraRig_Crane.
+- The camera's float UPROPERTYs (filmback, lens limits, focus distance, focal length, aperture) are 32-bit floats in
+  the engine (CineCameraSettings.h, CineCameraComponent.h), so a value read back is the float32 nearest the one
+  written, never the Python double: compare with a tolerance (day 1: exact compares reported every re-run changed).
+- A camera's actor rotation reads back from its transform (USceneComponent::GetComponentRotation, from the quat),
+  so yaw -180 reads 180, and so on: compare rotations by direction, not by the numbers written.
 """
+import math
+import struct
+
 from . import core
 
 
-class CameraFilmbackSettings(core.Object):
-    pass
+def f32(v) -> float:
+    """The float32 nearest `v`, as a C++ float UPROPERTY stores it."""
+    return struct.unpack("<f", struct.pack("<f", float(v)))[0]
 
 
-class CameraLensSettings(core.Object):
-    pass
+class _F32(core.Object):
+    """A struct (or component) whose FLOATS properties are C++ floats."""
+    FLOATS: tuple = ()
+
+    def __init__(self, name=None, outer=None, **props):
+        super().__init__(name, outer, **{k: f32(v) if k in self.FLOATS else v for k, v in props.items()})
+
+    def set_editor_property(self, name, value, notify_mode=None):
+        super().set_editor_property(name, f32(value) if name in self.FLOATS else value, notify_mode)
 
 
-class CameraFocusSettings(core.Object):
-    pass
+class CameraFilmbackSettings(_F32):
+    FLOATS = ("sensor_width", "sensor_height", "sensor_horizontal_offset", "sensor_vertical_offset")
+
+
+class CameraLensSettings(_F32):
+    FLOATS = ("min_focal_length", "max_focal_length", "min_f_stop", "max_f_stop", "minimum_focus_distance",
+              "squeeze_factor")
+
+
+class CameraFocusSettings(_F32):
+    FLOATS = ("manual_focus_distance", "focus_smoothing_interp_speed", "focus_offset")
 
 
 class CameraTrackingFocusSettings(core.Object):
@@ -26,6 +51,8 @@ class CameraTrackingFocusSettings(core.Object):
 
 
 class CineCameraComponent(core.CineCameraComponent):
+    FLOATS = ("current_focal_length", "current_aperture")
+
     def __init__(self, name=None, outer=None, **props):
         super().__init__(name, outer, **props)
         p = self._props
@@ -38,7 +65,7 @@ class CineCameraComponent(core.CineCameraComponent):
             tracking_focus_settings=CameraTrackingFocusSettings(actor_to_track=None,
                                                                 relative_offset=core.Vector(0, 0, 0))))
         p.setdefault("current_focal_length", 35.0)
-        p.setdefault("current_aperture", 2.8)
+        p.setdefault("current_aperture", f32(2.8))
 
     def set_editor_property(self, name, value, notify_mode=None):
         ls = self._props.get("lens_settings")
@@ -46,7 +73,7 @@ class CineCameraComponent(core.CineCameraComponent):
             value = min(max(float(value), ls._props["min_focal_length"]), ls._props["max_focal_length"])
         if name == "current_aperture" and ls is not None:
             value = min(max(float(value), ls._props["min_f_stop"]), ls._props["max_f_stop"])
-        super().set_editor_property(name, value, notify_mode)
+        super().set_editor_property(name, f32(value) if name in self.FLOATS else value, notify_mode)
 
     def get_horizontal_field_of_view(self):
         """CineCameraComponent.cpp:286-301 with no crop, squeeze 1, no overscan."""
@@ -74,6 +101,19 @@ class CineCameraActor(core.CameraActor):
 
     def get_cine_camera_component(self):
         return self._props["camera_component"]
+
+    def get_actor_rotation(self):
+        """The rotation as the engine reads it back: from the transform's axes (FMatrix::Rotator), not as written."""
+        x, y, z = self._xf.rotation._axes()
+        pitch = math.degrees(math.atan2(x.z, math.hypot(x.x, x.y)))
+        yaw = math.degrees(math.atan2(x.y, x.x))
+        # roll: the up axis against the one of (pitch, yaw, 0)
+        sy, cy = math.sin(math.radians(yaw)), math.cos(math.radians(yaw))
+        sp, cp = math.sin(math.radians(pitch)), math.cos(math.radians(pitch))
+        y0 = core.Vector(-sy, cy, 0.0)
+        z0 = core.Vector(-sp * cy, -sp * sy, cp)
+        roll = math.degrees(math.atan2(z.x * y0.x + z.y * y0.y + z.z * y0.z, z.x * z0.x + z.y * z0.y + z.z * z0.z))
+        return core.Rotator(roll=roll, pitch=pitch, yaw=yaw)
 
 
 class SplineComponent(core.SceneComponent):

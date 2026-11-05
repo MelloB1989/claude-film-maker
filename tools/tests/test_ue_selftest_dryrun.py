@@ -30,6 +30,7 @@ FAKE_ONLY = {
             "WS: the figure's top on the predicted row", "WS: the feet on the predicted row",
             "MCU: the figure's top on the predicted row", "CU: the figure's top on the predicted row",
             "push-in: Sequencer plays the baked key at 48",  # the fake's Sequencer does not evaluate keys
+            "rail: Sequencer plays the rail position at mid-shot",
             "rail: the camera is near the middle of the rail at mid-shot"},
     "env": {"one stop more exposure brightens the image", "env.check fails an underexposed card with a fix",
             "noir_bw has no colour cast", "env.autoexpose lands near the card's EV100"},  # a flat grey card
@@ -52,7 +53,9 @@ COVERAGE = {
 REQUIRED = {
     "cam": {"focal beyond the lens widens it, not clamped", "cam.add converges", "a missing camera is not_found",
             "a bad size is bad_args", "WS solved", "MCU solved", "cam.frame MCU converges", "cam.project agrees: MCU",
+            "cam.frame WS converges", "cam.frame CU converges", "cam.shoot reads its own words back without moving",
             "coverage stays on one side of the line", "cam.coverage converges", "shot.plan cuts",
+            "coverage names its cameras by the subjects' labels", "still coverage_master", "still coverage_A_OTS",
             "shot.apply converges", "shot.describe reads the edit back", "a dropped shot's camera is removed",
             "contact sheet: 3 stills per shot"},
     "foliage": {"scatter placed what it planned", "nothing dropped on flat ground", "the instances are in the level",

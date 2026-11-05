@@ -69,13 +69,21 @@ def plan(*, spec: dict) -> dict:
 
     Args: spec: a kind "shot" spec (docs/unreal/camera.md; schema tools/filmtools/unreal/schemas/shot.schema.json).
     Returns: {"sequence", "range", "cuts", "shots": [...], "issues": [...], "coverage", "spec_hash",
-    "up_to_date": whether the sequence already holds this exact spec}.
+    "up_to_date": whether the sequence already holds this exact spec and every camera it needs is in the level,
+    "missing_cameras": the ones that are not (a level reloaded unsaved drops them while the sequence keeps its tag)}.
     Example: film-ue op shot.plan spec=@films/demo/shots/scene1.yaml
     """
     p = _plan(spec)
     h = _spec_hash(spec)
     cur = _stored(spec["sequence"])
-    return {**_summary(p), "spec_hash": h, "up_to_date": cur.get("hash") == h}
+    missing = _missing(p)
+    return {**_summary(p), "spec_hash": h, "up_to_date": cur.get("hash") == h and not missing,
+            "missing_cameras": missing}
+
+
+def _missing(p: dict) -> list:
+    """The plan's cameras that are not in the level."""
+    return [c for c in p["cameras"] if cam._find(c) is None]
 
 
 def _stored(path: str) -> dict:
@@ -102,7 +110,7 @@ def apply(*, spec: dict, force: bool = False) -> dict:
     path = spec["sequence"]
     before = _stored(path)
     cams_now = list(p["cameras"])
-    if not force and before.get("hash") == h and all(cam._find(c) is not None for c in cams_now):
+    if not force and before.get("hash") == h and not _missing(p):
         return {**_summary(p), "spec_hash": h, "changed": False, "cameras": {}, "removed": []}
     call("seq.new", path=path, start=p["range"][0], end=p["range"][1], fps=int(round(p["fps"])))
     done = {}
