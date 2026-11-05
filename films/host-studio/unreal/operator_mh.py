@@ -197,11 +197,10 @@ elif STAGE == "identity":
     deps = frames(fcd.get_editor_property("depth_sequences")[0])
     R["n_images"], R["n_depth"] = len(imgs), len(deps)
     ident.set_blocking_processing(True)
-    have = {int(f.get_editor_property("frame_number")) for f in pose.get_editor_property("promoted_frames")}
+    for old in list(pose.get_editor_property("promoted_frames")):  # a rerun starts clean (day 3: empty frames)
+        pose.remove_promoted_frame(old)
     R["tracked"] = {}
     for name, n in FRAMES.items():
-        if n in have:
-            continue
         pf, idx = pose.add_new_promoted_frame()
         pf.set_editor_property("frame_number", n)
         pf.set_editor_property("frame_name", name)
@@ -211,10 +210,22 @@ elif STAGE == "identity":
         ident.start_frame_tracking_pipeline(cols, w, h, deps[dn], pose, pf, False)
         R["tracked"][name] = {"frame": n, "depth_frame": dn, "size": [w, h],
                               "contours": pf.frame_contours_contain_active_data()}
-    t("conform", lambda: str(face.conform(unreal.ConformType.SOLVE)))
-    t("is_conformed", lambda: face.get_editor_property("is_conformed"))
+    # the tracking results reach the frames on the game thread after this exec returns (day 3: contours false right
+    # after, so conform failed DEPTH_INPUT): solve in the next exec (STAGE='solve')
     EAL.save_loaded_asset(ident)
     R["identity"] = IDENTITY
+
+elif STAGE == "solve":
+    ident = EAL.load_asset(IDENTITY)
+    face = ident.get_or_create_part_of_class(unreal.MetaHumanIdentityFace)
+    pose = face.find_pose_by_type(unreal.IdentityPoseType.NEUTRAL)
+    t("processing", lambda: ident.is_frame_tracking_pipeline_processing())
+    R["contours"] = {str(f.get_editor_property("frame_name")): f.frame_contours_contain_active_data()
+                     for f in pose.get_editor_property("promoted_frames")}
+    if any(R["contours"].values()) and not R.get("processing") is True:
+        t("conform", lambda: str(face.conform(unreal.ConformType.SOLVE)))
+        t("is_conformed", lambda: face.get_editor_property("is_conformed"))
+        EAL.save_loaded_asset(ident)
 
 elif STAGE == "diag":
     # read-only: why tracking gave no contours (day 3: conform DEPTH_INPUT, contours false on every frame)
