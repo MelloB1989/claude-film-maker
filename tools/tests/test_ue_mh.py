@@ -281,3 +281,15 @@ def test_groom_colour_before_any_build_assembles_once(mh):
     brow = run_op("mh.wardrobe", kind="Eyebrows")[0]
     r = run_op("mh.groom", character=ch, slot="Eyebrows", item=brow, params={"Whiteness": 0.3})
     assert r["params"]["Whiteness"] == pytest.approx(0.3)
+
+
+def test_preview_converges_when_the_level_does_not_list_it(mh, monkeypatch):
+    """Day 1: the second mh.preview with the same label spawned another actor, because live the spawned preview is
+    not among EditorActorSubsystem.get_all_level_actors. mh.preview keeps the actor it spawned."""
+    from fmbridge.ops import _util
+    run_op("mh.add", path=P, preset="Ada")
+    assert run_op("mh.preview", path=P, label="Prev", loc=[0, -300, 0])["changed"] is True
+    monkeypatch.setattr(_util, "actors", lambda: [])
+    spawns = len([c for c in mh.calls if "spawn_meta_human_actor" in c[0]])
+    assert run_op("mh.preview", path=P, label="Prev", loc=[0, -200, 0])["changed"] is False
+    assert len([c for c in mh.calls if "spawn_meta_human_actor" in c[0]]) == spawns
