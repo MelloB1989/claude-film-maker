@@ -9,13 +9,19 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from filmtools.unreal import client
+from filmtools.unreal import client, workstation as ws
+
+
+def _j(*parts: str) -> str:
+    """A path on the box in its own style (Linux or Windows)."""
+    from filmtools.unreal.boxpaths import BoxPaths
+    return BoxPaths.current().join(*parts)
 
 from stills import IDLE, SHOW, ok
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / "out" / "host-studio" / "bodycheck"
-REMOTE = r"C:\UEProjects\HostStudio\Saved\BodyCheck"
+REMOTE = ws.project("Saved", "BodyCheck")
 VERT = [13.365, 23.76]
 VIEWS = {  # name: (location, look-at, focal mm, width, height) for a presenter at the origin facing +X
     "full": ([330, 0, 95], [0, 0, 92], 35.0, 1080, 1920),
@@ -54,7 +60,7 @@ def main() -> None:
             ok(client.op("seq.close"))
             ok(client.op("seq.shot", path=seq, actor_label=WHO[who], anims={"Body": IDLE}, camera=f"BodyCheck_{name}",
                          seconds=2.0))
-            remote = rf"{REMOTE}\{who}_{name}.png"
+            remote = _j(REMOTE, f"{who}_{name}.png")
             ok(client.op("seq.still", path=seq, frame=24, camera=f"BodyCheck_{name}", out=remote, width=w, height=h))
             local = OUT / f"{who}_{name}{'_' + a.tag if a.tag else ''}.png"
             client.pull(remote, str(local))

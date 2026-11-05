@@ -339,7 +339,13 @@ def _lin(keys):
 
 
 def apply(seq: str, only: set | None = None) -> list:
-    from filmtools.unreal import client
+    from filmtools.unreal import client, workstation as ws
+
+
+def _j(*parts: str) -> str:
+    """A path on the box in its own style (Linux or Windows)."""
+    from filmtools.unreal.boxpaths import BoxPaths
+    return BoxPaths.current().join(*parts)
     # a studio rebuild (or rig.py) respawns the lights, and a binding left on the dead actor keys nothing: the S12
     # downlights never popped in MRQ although their keys were right. Point every light's binding at the live actor first.
     labels = sorted({t.label for t in tracks() if t.kind != "collection" and (not only or t.label in only)})
@@ -416,7 +422,7 @@ TEST_CAMS = {  # label: (loc, look-at, focal, aperture); the S02 wide and the S1
     f"Test_{TEST}_Wide": ([255, -35, 150], [WALL, 15, 140], 28.0, 5.6),
     f"Test_{TEST}_Sign": ([-95, 15, 170], [WALL + 4, 25, 228], 40.0, 4.0),
 }
-REMOTE = r"C:\UEProjects\HostStudio\Saved\Previs\reel_light"
+REMOTE = ws.project("Saved", "Previs", "reel_light")
 DEL_SEQ = """import unreal
 LSE = unreal.LevelSequenceEditorBlueprintLibrary
 if LSE.get_current_level_sequence():
@@ -441,7 +447,7 @@ def test(states: list, out: Path, keep: bool = False, width: int = 1920) -> list
             made.append(label)
         apply(TEST_SEQ)
         # a throwaway still first: the first evaluation after opening the sequence can miss the material tracks
-        warm = rf"{REMOTE}\warmup.png"
+        warm = _j(REMOTE, "warmup.png")
         ok(client.op("seq.still", path=TEST_SEQ, frame=STATES[states[0]][1], camera=f"Test_{TEST}_Wide", out=warm,
                      width=640, height=360, settle=40))
         shots = []
@@ -450,7 +456,7 @@ def test(states: list, out: Path, keep: bool = False, width: int = 1920) -> list
             cams = [f"Test_{TEST}_Wide"] + ([f"Test_{TEST}_Sign"] if s in ("BLUE", "IGNITION", "NIGHT") else [])
             for cam in cams:
                 name = f"{s.replace('+', '_').replace('-', '_')}_{cam.rsplit('_', 1)[1]}_f{f}.png"
-                remote = rf"{REMOTE}\{name}"
+                remote = _j(REMOTE, name)
                 ok(client.op("seq.still", path=TEST_SEQ, frame=f, camera=cam, out=remote, width=width,
                              height=width * 9 // 16, settle=40))
                 client.pull(remote, str(out / name))

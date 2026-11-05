@@ -31,11 +31,17 @@ import argparse
 import json
 from pathlib import Path
 
-from filmtools.unreal import client
+from filmtools.unreal import client, workstation as ws
+
+
+def _j(*parts: str) -> str:
+    """A path on the box in its own style (Linux or Windows)."""
+    from filmtools.unreal.boxpaths import BoxPaths
+    return BoxPaths.current().join(*parts)
 
 HERE = Path(__file__).resolve().parent
 SEQ = "/Game/Reel/SEQ_Reel"
-REMOTE = r"C:\UEProjects\HostStudio\Saved\Previs\halo_check"
+REMOTE = ws.project("Saved", "Previs", "halo_check")
 
 # a scalar parameter's value on a MIC (MaterialEditingLibrary) or a MID (the one Sequencer makes): neither reader
 # takes the other
@@ -250,7 +256,7 @@ def isolate(camera: str, frames: list, out: Path) -> None:
         return res["result"]
 
     def still(f, tag):
-        remote = rf"{REMOTE}\{camera}_f{f}_{tag}.png"
+        remote = _j(REMOTE, f"{camera}_f{f}_{tag}.png")
         r = client.op("seq.still", path=SEQ, frame=f, camera=camera, out=remote, width=1280, height=720, settle=40)
         if not r.get("ok"):
             raise SystemExit(r.get("stdout", "") + r.get("error", ""))
@@ -323,7 +329,7 @@ def mpc_probe(camera: str, frames: list, out: Path) -> None:
         print(json.dumps(res["result"], indent=1, default=str))
 
     def still(f, tag):
-        remote = rf"{REMOTE}\{camera}_f{f}_{tag}.png"
+        remote = _j(REMOTE, f"{camera}_f{f}_{tag}.png")
         r = client.op("seq.still", path=SEQ, frame=f, camera=camera, out=remote, width=1280, height=720, settle=40)
         if not r.get("ok"):
             raise SystemExit(r.get("stdout", "") + r.get("error", ""))
@@ -376,12 +382,12 @@ def main() -> None:
     frames = [int(x) for x in a.frames.split(",")]
     # a throwaway still first: the first evaluation after opening the sequence can miss the material tracks
     for f in [frames[0], *frames]:
-        remote = rf"{REMOTE}\{a.camera}_f{f}.png"
+        remote = _j(REMOTE, f"{a.camera}_f{f}.png")
         r = client.op("seq.still", path=SEQ, frame=f, camera=a.camera, out=remote, width=1280, height=720, settle=40)
         if not r.get("ok"):
             raise SystemExit(r.get("stdout", "") + r.get("error", ""))
     for f in frames:
-        print(client.pull(rf"{REMOTE}\{a.camera}_f{f}.png", str(a.out / f"{a.camera}_f{f}.png")))
+        print(client.pull(_j(REMOTE, f"{a.camera}_f{f}.png"), str(a.out / f"{a.camera}_f{f}.png")))
 
 
 if __name__ == "__main__":

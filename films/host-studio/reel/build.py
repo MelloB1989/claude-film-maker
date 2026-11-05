@@ -18,7 +18,13 @@ import argparse
 import sys
 from pathlib import Path
 
-from filmtools.unreal import client
+from filmtools.unreal import client, workstation as ws
+
+
+def _j(*parts: str) -> str:
+    """A path on the box in its own style (Linux or Windows)."""
+    from filmtools.unreal.boxpaths import BoxPaths
+    return BoxPaths.current().join(*parts)
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
@@ -31,7 +37,7 @@ HIM, HER = ["Host"], ["Presenter", "HerEarL", "HerEarR", "HerWatch"]  # her hoop
 EMPTY_ROOM = ["Stool"]  # studio.py: for the empty-room shots, hidden when the presenters are in frame
 FOCUS = "FocusSettings.ManualFocusDistance"
 OUT = HERE / "previs" / "cut"
-REMOTE = r"C:\UEProjects\HostStudio\Saved\Previs\reel_cut"
+REMOTE = _j(ws.project("Saved", "Previs", "reel_cut"))
 
 
 def ok(res: dict):
@@ -228,7 +234,7 @@ def previs(every: int, width: int, only: set | None = None) -> None:
         if only and s.id not in only:
             continue
         frames = sorted(set(range(s.start, s.end, every)) | {s.end - 1})
-        remote = rf"{REMOTE}\{s.id}"
+        remote = _j(REMOTE, s.id)
         # each shot's own camera: every frame here is inside its cut (seq.cuts checked it in build())
         got = ok(client.op("seq.stills", path=SEQ, frames=frames, camera=f"Reel_{s.id}", out_dir=remote,
                            width=width, height=width * 9 // 16))
