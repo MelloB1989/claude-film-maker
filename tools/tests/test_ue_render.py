@@ -150,7 +150,7 @@ def test_frames_renders_only_what_is_asked_and_reuses(stage):
     ue = stage["ue"]
     res = run_op("render.frames", sequence=SEQ, level=LEVEL, frames=[3, 4, 12, 20], out_dir=stage["out"])
     assert sorted(res["frames"]) == [3, 4, 12, 20] and res["cameras"] == {3: "CamA", 4: "CamA", 12: "CamB", 20: "CamC"}
-    assert all(p.endswith(".jpg") for p in res["frames"].values()) and (res["width"], res["height"]) == (960, 540)
+    assert all(p.endswith(".jpeg") for p in res["frames"].values()) and (res["width"], res["height"]) == (960, 540)
     starts = [(j["settings"]["MoviePipelineOutputSetting"].get_editor_property("custom_start_frame"),
                j["settings"]["MoviePipelineOutputSetting"].get_editor_property("custom_end_frame")) for j in ue.mrq.jobs]
     assert starts == [(3, 5), (12, 13), (20, 21)]
