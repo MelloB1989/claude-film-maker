@@ -314,6 +314,88 @@ def hair(paths: list, out: str) -> dict:
     return res
 
 
+# Gate c by hue, as the eye sees it (cc-64d05f6e, night1: teal_g's rgb ratio over boxes that may hold the overshirt
+# did not say what the eye says): CIELAB a*/b* of the hair's own pixels (L* under HUE_L_MAX: the strands are near
+# black, the olive overshirt and her skin are lighter), per region. a* < 0 is green, b* < 0 is blue: teal is both.
+HUE_REGIONS = {"crown": HAIR_ROOTS, "ends_screen_left": HAIR_ENDS[0], "ends_screen_right": HAIR_ENDS[1]}
+HUE_L_MAX = 30.0
+HUE_A_MIN = -2.0      # an end's a* at least this (no green)
+HUE_C_OVER = 3.0      # an end's chroma at most this over the crown's
+
+
+def lab(rgb):
+    """sRGB 0-255 (..., 3) -> CIELAB (..., 3), D65."""
+    import numpy as np
+    c = rgb / 255.0
+    c = np.where(c <= 0.04045, c / 12.92, ((c + 0.055) / 1.055) ** 2.4)
+    xyz = c @ np.array([[0.4124, 0.2126, 0.0193], [0.3576, 0.7152, 0.1192], [0.1805, 0.0722, 0.9505]])
+    xyz = xyz / np.array([0.95047, 1.0, 1.08883])
+    f = np.where(xyz > 216 / 24389, np.cbrt(xyz), (24389 / 27 * xyz + 16) / 116)
+    return np.stack([116 * f[..., 1] - 16, 500 * (f[..., 0] - f[..., 1]), 200 * (f[..., 1] - f[..., 2])], -1)
+
+
+def hue_of(im, box) -> dict | None:
+    import numpy as np
+    w, h = im.size
+    c = np.asarray(im.crop((round(box[0] * w), round(box[1] * h), round(box[2] * w), round(box[3] * h))), np.float32)
+    v = lab(c).reshape(-1, 3)
+    v = v[(v[:, 0] > 2.0) & (v[:, 0] < HUE_L_MAX)]
+    if len(v) < 30:
+        return None
+    a, b = float(np.median(v[:, 1])), float(np.median(v[:, 2]))
+    return {"L": round(float(np.median(v[:, 0])), 1), "a": round(a, 2), "b": round(b, 2),
+            "C": round((a * a + b * b) ** 0.5, 2), "green_px": round(float(np.mean(v[:, 1] < -4.0)), 3),
+            "n": int(len(v))}
+
+
+def hue(paths: list, out: str, frames_: list | None = None, regions: dict | None = None) -> dict:
+    """Per image (frames of a shot, by master frame, or A/B stills): the hair regions' Lab, the ends against the
+    crown, pass/fail, and one sheet of the regions at full size (only the sheet and the numbers leave the box)."""
+    from PIL import Image, ImageDraw
+    from qa_review import frames as find
+    regions = regions or HUE_REGIONS
+    files = []
+    for p in paths:
+        q = Path(p)
+        if q.is_dir() and frames_:
+            fr = find(str(q))
+            files += [(f"f{f}", fr[f]) for f in frames_ if f in fr]
+        elif q.is_dir():
+            files += [(x.stem, x) for x in sorted(q.glob("*.png")) + sorted(q.glob("*.jp*g"))]
+        else:
+            files.append((q.stem, q))
+    o = Path(out)
+    o.mkdir(parents=True, exist_ok=True)
+    res, rows = {}, []
+    for name, f in files:
+        im = Image.open(f).convert("RGB")
+        r = {k: hue_of(im, b) for k, b in regions.items()}
+        crown = r.get("crown")
+        ends = {k: v for k, v in r.items() if k.startswith("ends") and v}
+        r["pass"] = bool(crown and ends and all(v["a"] >= HUE_A_MIN and v["C"] - crown["C"] <= HUE_C_OVER
+                                                for v in ends.values()))
+        res[name] = r
+        w, h = im.size
+        cells = []
+        for k, b in regions.items():
+            c = im.crop((round(b[0] * w), round(b[1] * h), round(b[2] * w), round(b[3] * h)))
+            c = c.resize((240, max(1, round(240 * c.height / max(1, c.width)))))
+            v = r.get(k)
+            ImageDraw.Draw(c).text((4, 4), f"{name} {k}" + (f" a{v['a']} b{v['b']}" if v else ""), fill=(255, 255, 0))
+            cells.append(c)
+        rows.append(cells)
+    if rows:
+        cw, ch = 244, max(c.height for row in rows for c in row) + 4
+        sheet = Image.new("RGB", (cw * max(len(r) for r in rows), ch * len(rows)), (24, 24, 24))
+        for i, row in enumerate(rows):
+            for j, c in enumerate(row):
+                sheet.paste(c, (j * cw, i * ch))
+        sheet.save(o / "hue_sheet.jpg", quality=90)
+    rep = {"regions": regions, "L_max": HUE_L_MAX, "a_min": HUE_A_MIN, "C_over_crown": HUE_C_OVER, "images": res}
+    (o / "hue.json").write_text(json.dumps(rep, indent=1))
+    return res
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -327,9 +409,19 @@ def main() -> None:
     h = sub.add_parser("hair")
     h.add_argument("paths", nargs="+")
     h.add_argument("--out", required=True)
+    u = sub.add_parser("hue", help="gate c by Lab hue: hair-only regions, the ends against the crown")
+    u.add_argument("paths", nargs="+", help="frame dirs (with --frames) or stills")
+    u.add_argument("--out", required=True)
+    u.add_argument("--frames", default="", help="master frames, e.g. 1236,1300")
+    u.add_argument("--region", action="append", default=[],
+                   help="name=x0,y0,x1,y1 (fractions; crown and ends_* names), replaces the default regions")
     a = ap.parse_args()
-    r = (engine(a.out, a.stills) if a.cmd == "engine" else hair(a.paths, a.out) if a.cmd == "hair"
-         else frames(a.root, a.engine or None, a.out))
+    if a.cmd == "hue":
+        reg = {k: tuple(float(x) for x in v.split(",")) for k, v in (s.split("=", 1) for s in a.region)} or None
+        r = hue(a.paths, a.out, [int(x) for x in a.frames.split(",")] if a.frames else None, reg)
+    else:
+        r = (engine(a.out, a.stills) if a.cmd == "engine" else hair(a.paths, a.out) if a.cmd == "hair"
+             else frames(a.root, a.engine or None, a.out))
     print(json.dumps(r, indent=1, default=str))
 
 
