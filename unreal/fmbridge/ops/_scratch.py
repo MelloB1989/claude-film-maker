@@ -64,11 +64,25 @@ def leave(previous: str, folder: str) -> str:
     return current_level()
 
 
+def save_open_level() -> str:
+    """Save the open level when it is a real, saved one (not untitled, not scratch): switching levels discards unsaved
+    changes without asking in an unattended editor (day 1: the demo's cameras vanished when a selftest ran between
+    two demo stages). Returns what was saved ('' when nothing)."""
+    cur = current_level()
+    if not cur.startswith("/Game/") or (cur + "/").startswith(ROOTS) or not _eal().does_asset_exist(cur):
+        return ""
+    try:
+        return cur if _les().save_current_level() else ""
+    except Exception:
+        return ""
+
+
 def fresh_level(path: str) -> str:
     """A new empty level at `path` (or, when an old one there cannot be deleted, at `path`_<n> beside it), opened;
     never an overwrite dialog. Returns the level's path. Day 1: a level left by an earlier run (its cleanup refused
     before the garbage collection fix) could not be deleted after an editor restart, and new_level refused the path."""
     folder = path.rsplit("/", 1)[0]
+    save_open_level()
     if current_level().startswith(folder):
         _open_blank()
     if _eal().does_asset_exist(path):
