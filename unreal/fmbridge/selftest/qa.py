@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import os
 from ..ops.assets import EAL  # EditorAssetLibrary, or the EditorAssetSubsystem when its plugin is off
-from ..ops.view import STILL_FORMAT  # the capture target view.still uses unless told otherwise
+from ..ops.view import STILL_FORMAT, STILL_FORMATS  # the capture target view.still uses unless told otherwise
 
 REQUIRES = ["gpu"]
 AREAS = ["qa", "view", "groom"]
@@ -71,7 +71,7 @@ def run(t):
         t.note(f"viewport still unavailable here: {e}")
     if vp and os.path.isfile(vp["path"]):
         best, scores = None, {}
-        for fmt in ("RTF_RGBA8", "RTF_RGBA8_SRGB"):
+        for fmt in sorted(STILL_FORMATS, key=lambda f: f != STILL_FORMAT):  # the default first: a tie keeps it
             c = yield from t.op("view.still", out=f"{out}/wide_{fmt}.png", camera=P + "Wide", width_px=960,
                                 height_px=540, rt_format=fmt)
             cmp_ = t.op("qa.compare", image=c["path"], reference=vp["path"], min_ssim=0.5)
