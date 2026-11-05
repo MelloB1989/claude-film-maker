@@ -142,3 +142,12 @@ to make alone (no answer from the lead within 10 minutes), tagged with their WP.
   reflection plugin (`unreal/plugins/FabScript`), optional, needed for unreal-engine packs. A listing id -> signed
   URL needs Fab's web page: `fab_shim.py` (headless Chromium), experimental.
 - **WP2: redirectors are fixed by resaving referencers** (AssetTools.FixupReferencers has no UFUNCTION).
+- **Day 1: renders go through the in-editor PIE executor only** (agent-10, lead). On the 5.8.4 Linux box the MRQ
+  editor library (`MoviePipelineEditorBlueprintLibrary`) never appears in Python, even after
+  `load_module('MovieRenderPipelineEditor')`, and the new-process and command-line executors need it for the queue
+  manifest. PIE rendered the demo's 168 frames and every render selftest check, so it is the route: `render.job`
+  keeps refusing `executor: process|cmdline` with `unsupported` (and a hint to use pie) when the library is missing,
+  and the render selftest notes that instead of failing it. Revisit if a film needs renders that survive an
+  editor crash (the reason for a separate process): then build the module into the project, as FabScript is.
+- **Day 1: the render selftest cancels once frames are landing** (it waited a fixed 40 ticks; on an L4 the draft
+  job finished first, so the cancel came after the last frame and the job rightly said ok).

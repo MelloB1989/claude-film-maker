@@ -382,3 +382,23 @@ def test_spec_body_life_layers_an_additive_or_notes_why_not(ue, fmb, monkeypatch
     run_op("perf.compose", spec=spec)
     body = next(kw for n, kw in calls if n == "seq.anim" and kw["component"] == "Body")
     assert body["sections"][-1]["anim"] == "/Game/Perf/demo/AS_demo_face_life"
+
+
+def test_rig_keys_makes_the_track_and_finds_it_by_binding(ue, fmb, monkeypatch):
+    """Day-1 (pose): the track was made but never found again, because the binding ids were compared with str(),
+    which carries each struct wrapper's address. The fake's proxies now hand out a new Guid wrapper per read."""
+    ue.spawn("SkeletalMeshActor", "Host")
+    ue.pose("Host", {"head": [0, 0, 160]})
+    ue.add_asset("/Game/T/Seq", "LevelSequence")
+    CR = ue.ControlRigSequencerLibrary
+    CR.classes["MetaHuman_ControlRig_C"] = {"CTRL_neck": "head"}
+    monkeypatch.setattr(ue.EditorAssetLibrary, "load_blueprint_class",
+                        staticmethod(lambda p: type("MetaHuman_ControlRig_C", (), {})), raising=False)
+    r = run_op("anim.rig_keys", sequence="/Game/T/Seq", label="Host", keys={},
+               rig_class="/MetaHumanCharacter/Common/MetaHuman_ControlRig")
+    assert r["controls"] == 0 and len(CR.rigs) == 1
+    r = run_op("anim.rig_controls", sequence="/Game/T/Seq", label="Host")
+    assert r["controls"] == ["CTRL_neck"]
+    run_op("anim.rig_keys", sequence="/Game/T/Seq", label="Host", keys={},
+           rig_class="/MetaHumanCharacter/Common/MetaHuman_ControlRig")
+    assert len(CR.rigs) == 1  # found again, not made twice

@@ -110,6 +110,19 @@ def build(character: str, name: str = "", cinematic: bool = True, *, bp_name: st
     return {"bp": bp, "changed": True, "seconds": seconds}
 
 
+_PREVIEWS = {}  # label -> the preview actor mh.preview spawned (live it is not listed by get_all_level_actors)
+
+
+def _live(a):
+    """`a` if it is still a live actor in the editor world, else None."""
+    if a is None:
+        return None
+    try:
+        return a if a.get_world() is not None and not a.is_actor_being_destroyed() else None
+    except Exception:  # destroyed: the Python wrapper's UObject is gone
+        return None
+
+
 @op("mh.preview", mutates=True, idempotent=True, tags=["metahuman"])
 def preview(*, path: str, label: str = "", loc: list = (0, 0, 0), yaw_deg: float = 0.0,
             transient: bool = True) -> dict:
@@ -127,12 +140,15 @@ def preview(*, path: str, label: str = "", loc: list = (0, 0, 0), yaw_deg: float
     label = label or f"MHPreview_{path.rsplit('/', 1)[1]}"
     try:
         a = actor(label)
-        changed = False
     except ValueError:
+        a = _live(_PREVIEWS.get(label))  # day 1: the spawned preview is not among the level actors live
+    changed = a is None
+    if changed:
         a = K.sub().spawn_meta_human_actor(c, bool(transient))
         if a is None:
             raise OpError(f"could not spawn a preview of {path}", code="engine", hint="see LogMetaHumanCharacterEditor")
         a.set_actor_label(label)
+        _PREVIEWS[label] = a
         changed = True
     a.set_actor_location_and_rotation(unreal.Vector(*[float(x) for x in loc]),
                                       unreal.Rotator(roll=0.0, pitch=0.0, yaw=float(yaw_deg)), False, False)

@@ -907,19 +907,25 @@ def _world():
     return unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world()
 
 
+def _guid(g) -> str:
+    """A Guid as text, comparable across calls. str() of an engine struct is "<Struct 'Guid' (0x<address>) {...}>",
+    and every get_editor_property returns a new wrapper at a new address, so str() never matched (day-1: pose)."""
+    return g.export_text()
+
+
 def _rig_on(seq, label: str, component: str = ""):
     """The (proxy, control rig, track) on `label`'s binding (or its component's) in `seq`, or None."""
     rigs = unreal.ControlRigSequencerLibrary.get_control_rigs(seq) or []
     try:  # the binding itself: display names collide when two characters each have a "Face"
         from .seq import _comp_binding
-        want = str(_comp_binding(seq, label, component, create=False).get_editor_property("binding_id"))
+        want = _guid(_comp_binding(seq, label, component, create=False).get_editor_property("binding_id"))
     except Exception:
         want = None
     ids = False
     if want:
         for p in rigs:
             try:
-                got = str(p.get_editor_property("proxy").get_editor_property("binding_id"))
+                got = _guid(p.get_editor_property("proxy").get_editor_property("binding_id"))
             except Exception:
                 continue
             ids = True
