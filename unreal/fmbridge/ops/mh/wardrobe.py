@@ -88,16 +88,40 @@ def _selected(inst) -> dict:
     return out
 
 
-def _params(inst, sel) -> list:
-    try:
-        path = sel.get_selected_item_path()
-    except AttributeError:  # the ScriptMethod's static form
-        path = unreal.MetaHumanPipelineSlotSelectionBlueprintLibrary.get_selected_item_path(sel)
+_ASSEMBLED = {}  # instance path -> the selection it was last assembled for
+
+
+def _assemble(inst) -> bool:
+    """Assemble the instance, once per selection: live (UE 5.8.4, day 1) no item has instance parameters until it
+    is assembled (get_instance_parameter_item_paths() == []), so a groom's Melanin cannot be read or set before.
+    False when it was already assembled for this selection (an item that has no parameters stays without)."""
+    sig = tuple(sorted((s, _key_name(x.get_editor_property("selected_item"))) for s, x in _selected(inst).items()))
+    if _ASSEMBLED.get(inst.get_path_name()) == sig and inst.is_assembled():
+        return False
+    inst.assemble()
+    _ASSEMBLED[inst.get_path_name()] = sig
+    return True
+
+
+def _read_params(inst, path) -> list:
     try:
         got = inst.get_instance_parameters(path)  # ScriptMethod "GetInstanceParameters"
     except AttributeError:
         got = unreal.MetaHumanCharacterInstanceBlueprintLibrary.get_instance_parameters_for_item(inst, path)
     return list(got or [])
+
+
+def _params(inst, sel) -> list:
+    """The selected item's instance parameters, assembling the instance first when they are not there yet."""
+    try:
+        path = sel.get_selected_item_path()
+    except AttributeError:  # the ScriptMethod's static form
+        path = unreal.MetaHumanPipelineSlotSelectionBlueprintLibrary.get_selected_item_path(sel)
+    got = _read_params(inst, path)
+    if not got and not _is_null(sel.get_editor_property("selected_item")):
+        if _assemble(inst):
+            got = _read_params(inst, path)
+    return got
 
 
 def _param_value(p):
