@@ -115,7 +115,7 @@ def main() -> None:
     ap.add_argument("--out", required=True, help="on the box: the renders' parent dir (the spec's out) and the sheet")
     a = ap.parse_args()
     import time
-    run = time.strftime("%H%M%S")
+    run = time.strftime("t%H%M%S")  # a letter first: --set run=002736 would read as the number 2736 (another dir)
     out = Path(a.out) / run
     orig = ok(client.exec_code(SNAP))
     rep = {"original": orig, "variants": {}}
