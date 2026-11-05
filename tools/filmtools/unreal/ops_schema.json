@@ -16860,7 +16860,7 @@
    "verb": "apply",
    "module": "fmbridge.ops.shot",
    "file": "unreal/fmbridge/ops/shot.py",
-   "line": 90,
+   "line": 98,
    "summary": "Shoot a shot list into its sequence: make or move each shot's camera (framed by the solver, the coverage or an",
    "doc": "Shoot a shot list into its sequence: make or move each shot's camera (framed by the solver, the coverage or an\nexplicit placement), key its moves, focal length and focus, and replace the sequence's camera cuts. Converges:\nthe same spec again changes nothing (force=True rewrites anyway); cameras the previous spec made that this one\ndrops are removed. A multi-tick job: the keys and cuts go in one batched seq.apply when WP8's core is there.\n\nReturns: shot.plan's result plus {\"changed\", \"cameras\": {label: {\"created\", \"keys\"}}, \"removed\", \"write\"}.\nExample: film-ue op shot.apply spec=@films/demo/shots/scene1.yaml",
    "params": [
@@ -16894,7 +16894,7 @@
    "verb": "check",
    "module": "fmbridge.ops.shot",
    "file": "unreal/fmbridge/ops/shot.py",
-   "line": 162,
+   "line": 170,
    "summary": "Check a sequence's edit numerically: every shot's frame (cam.check: QA's framing plus focus, safe areas,",
    "doc": "Check a sequence's edit numerically: every shot's frame (cam.check: QA's framing plus focus, safe areas,\ndutch) at its start (or \"middle\"), and every cut (180-degree line, 30-degree rule). Scrubs the sequence: a\nmulti-tick job.\n\nReturns: {\"pass\", \"issues\", \"shots\": [{\"camera\", \"start\", \"end\", \"size\"}]}.\nExample: film-ue op shot.check sequence=/Game/Films/demo/Seq_Scene1 'subjects=[\"Host\",\"Guest\"]'",
    "params": [
@@ -16936,7 +16936,7 @@
    "verb": "describe",
    "module": "fmbridge.ops.shot",
    "file": "unreal/fmbridge/ops/shot.py",
-   "line": 131,
+   "line": 139,
    "summary": "The edit of a sequence as it stands: each cut's camera and frames with the camera's lens and pose now (its",
    "doc": "The edit of a sequence as it stands: each cut's camera and frames with the camera's lens and pose now (its\nfirst key's pose is what the cut opens on when scrubbed), the size it gives on `subjects`, and the stored spec\nhash.\n\nExample: film-ue op shot.describe sequence=/Game/Films/demo/Seq_Scene1 subjects=Presenter",
    "params": [
@@ -16972,7 +16972,7 @@
    "file": "unreal/fmbridge/ops/shot.py",
    "line": 65,
    "summary": "Resolve a shot list against the level without changing anything: each shot's camera, frames, size, lens,",
-   "doc": "Resolve a shot list against the level without changing anything: each shot's camera, frames, size, lens,\nkeys, the cuts, and every framing/cut issue. The dry run of shot.apply.\n\nArgs: spec: a kind \"shot\" spec (docs/unreal/camera.md; schema tools/filmtools/unreal/schemas/shot.schema.json).\nReturns: {\"sequence\", \"range\", \"cuts\", \"shots\": [...], \"issues\": [...], \"coverage\", \"spec_hash\",\n\"up_to_date\": whether the sequence already holds this exact spec}.\nExample: film-ue op shot.plan spec=@films/demo/shots/scene1.yaml",
+   "doc": "Resolve a shot list against the level without changing anything: each shot's camera, frames, size, lens,\nkeys, the cuts, and every framing/cut issue. The dry run of shot.apply.\n\nArgs: spec: a kind \"shot\" spec (docs/unreal/camera.md; schema tools/filmtools/unreal/schemas/shot.schema.json).\nReturns: {\"sequence\", \"range\", \"cuts\", \"shots\": [...], \"issues\": [...], \"coverage\", \"spec_hash\",\n\"up_to_date\": whether the sequence already holds this exact spec and every camera it needs is in the level,\n\"missing_cameras\": the ones that are not (a level reloaded unsaved drops them while the sequence keeps its tag)}.\nExample: film-ue op shot.plan spec=@films/demo/shots/scene1.yaml",
    "params": [
     {
      "name": "spec",
@@ -16997,7 +16997,7 @@
    "verb": "sheet",
    "module": "fmbridge.ops.shot",
    "file": "unreal/fmbridge/ops/shot.py",
-   "line": 193,
+   "line": 201,
    "summary": "A previz contact sheet of a sequence's edit: per shot 1 (its middle) or 3 (start, middle, end) stills",
    "doc": "A previz contact sheet of a sequence's edit: per shot 1 (its middle) or 3 (start, middle, end) stills\nthrough the cut's camera, with thirds and safe-frame guides and a label (shot, camera, frame, focal), in one PNG.\nA multi-tick job: about 2 s per still plus the drawing.\n\nReturns: {\"path\": the sheet, \"width\", \"height\", \"stills\": [[frame, camera, path]]}.\nExample: film-ue op shot.sheet sequence=/Game/Films/demo/Seq_Scene1 out_dir=/tmp/sheet per_shot=3",
    "params": [

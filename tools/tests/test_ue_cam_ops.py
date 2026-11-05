@@ -206,6 +206,13 @@ def test_shot_apply_converges(ue, fmb, seqrec):
     again = run_op("shot.apply", spec=SPEC)
     assert again["changed"] is False and len(seqrec) == n
     assert run_op("shot.plan", spec=SPEC)["up_to_date"]
+    # day 1: the level reloaded unsaved drops the cameras while the sequence keeps its hash tag
+    run_op("level.delete", labels=["CAM_S1"])
+    stale = run_op("shot.plan", spec=SPEC)
+    assert not stale["up_to_date"] and stale["missing_cameras"] == ["CAM_S1"]
+    from filmtools.unreal.cam_kind import plan_shot
+    assert "CAM_S1" in plan_shot(SPEC, stale)[0]["why"]
+    assert run_op("shot.apply", spec=SPEC)["changed"] and ue.actor("CAM_S1") is not None
     # drop S3: its camera goes
     spec2 = {**SPEC, "shots": SPEC["shots"][:2]}
     r2 = run_op("shot.apply", spec=spec2)
