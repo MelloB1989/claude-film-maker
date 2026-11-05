@@ -610,8 +610,8 @@ def rebind(path: str, labels: list | None = None) -> dict:
             if labels is not None:
                 out[name] = "missing"
             continue
-        if E.is_bound(seq, b) is False:  # bound to an actor that is gone: re-point it, its tracks kept
-            E.bind(seq, name)
+        if E.is_bound(seq, b, name) is False:  # bound to an actor that is gone, or to another actor that took its
+            E.bind(seq, name)                  # object name: re-point it at the actor of this label, its tracks kept
         out[name] = "ok"
     EAL.save_asset(path)
     if LSE.get_current_level_sequence():

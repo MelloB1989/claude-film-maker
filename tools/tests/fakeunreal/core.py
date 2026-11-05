@@ -1394,6 +1394,7 @@ class FakeUnreal(types.ModuleType):
         self.root = root or tempfile.mkdtemp(prefix="fakeunreal-")
         self.engine_version = "5.8.4-0+++UE5+Release-5.8 (fake)"
         self.calls: list = []
+        self.bind_by_name = False  # ext_seq: possessables resolve by the actor's object name, as the engine does (opt-in)
         self.returns: dict = {}
         self.world = World("FakeLevel")
         self.levels = {"/Game/Maps/FakeLevel": self.world}
