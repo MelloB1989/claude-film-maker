@@ -128,6 +128,19 @@ agent-01's branch lands, mh when agent-04's lands (merge them into the box check
 demo (`film-ue apply ../examples/unreal/demo/demo.yaml`) and look at a fresh contact sheet.
 
 
+## Close-out (agent-10, wrap-up for the karma shoot)
+
+Testing stopped on the operator's word: the box goes to the karma shoot (round 3 of the reel, on Linux). Main is the
+shoot's base; everything below is merged through the gate (dx gen, the ue suite, dx docs).
+
+Green on the engine: platform, dx, layout, wp, audio, foliage, env, seq, cam, qa; the demo applies, converges and
+renders (PIE). Merged for the shoot, last box reruns by agent-07: mh (assemble with its on_assembled delegate),
+pose (waits for the rig to bind), render (the scratch level counts as saved when its .umap is on disk).
+
+Deferred to BACKLOG (no more box time): Fab library 403 (B64, branch ready), pose IK reach (B65), qa capture format
+(B66, B63), new-process/command-line executors (B67; PIE is the route, DECISIONS), plus B60-B62 from cam. anim's
+head/face curves: whatever agent-01 lands before the shoot is merged; otherwise it is the shoot's first check.
+
 ## Merged (agent-10)
 
 Every day-1 fix goes through the gate (dx gen, the ue suite, dx docs) onto `fleet/agent-10/day1`, which main
@@ -163,3 +176,4 @@ fast-forwards to.
 | render | render.job accepts a level whose .umap is on disk (the scratch level was refused as unsaved); the selftest checks its level saved | agent-10 8987647f | 1043 passed |
 | mh | assemble() with an on_assembled delegate, waited across ticks; selftest import order | agent-04 5db98c50, abb746ec | |
 | pose | pose.apply waits for the rig to bind and the bones to follow before measuring | agent-01 3429580d | |
+| mh | the on_assembled callable takes one argument (live) | agent-04 2b4f560e | |

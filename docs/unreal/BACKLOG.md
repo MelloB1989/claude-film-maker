@@ -77,3 +77,7 @@ Status: `open`, `claimed <agent>`, `review`, `merged <sha>`.
 | B61 | A rail's mount does not follow Sequencer in an editor scrub (shot.sheet / seq.still of rail shots): a scrub helper that evaluates the rail's position, as cam's selftest does by nudging it | WP10 | S | open (from agent-11, day 1) |
 | B62 | Check in the 5.8.4 headers (source box down on day 1): float storage of camera fields other than SensorWidth/ManualFocusDistance, rotation read-back, notify on an unchanged value | WP7 | S | open (from agent-11, day 1) |
 | B63 | `captures_rebuild`'s recapture route: nothing proves on the engine that it updates the captures; whether `view.capture` defaults to RTF_RGBA8_SRGB too | WP5/WP10 | S | open (from agent-08, day 1) |
+| B64 | Fab library 403 (deferred at the day-1 wrap-up, no box time): `fleet/agent-02/day1-fab` @1dc2a83d sends the engine's User-Agent (Python's default got 403; www.fab.com stays the host): merge and prove live with the operator's Epic sign-in | WP2 | S | open (branch ready, agent-02) |
+| B65 | pose IK reach on the engine (deferred at the wrap-up) | WP4 | M | open (agent-01) |
+| B66 | qa capture format: whether view.capture defaults to RTF_RGBA8_SRGB like env's display capture (see B63) | WP10 | S | open (agent-09) |
+| B67 | New-process and command-line executors: prove a real render (cmdline writes its queue as an asset now; the new-process executor still needs the MRQ editor library); PIE is the route meanwhile (DECISIONS, day 1) | WP9 | M | open (agent-05) |

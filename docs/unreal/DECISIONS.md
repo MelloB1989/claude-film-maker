@@ -151,3 +151,6 @@ to make alone (no answer from the lead within 10 minutes), tagged with their WP.
   editor crash (the reason for a separate process): then build the module into the project, as FabScript is.
 - **Day 1: the render selftest cancels once frames are landing** (it waited a fixed 40 ticks; on an L4 the draft
   job finished first, so the cancel came after the last frame and the job rightly said ok).
+- **Day 1, later: the command-line executor can write its queue without the editor library** (agent-05: the queue is
+  saved as an asset under /Game/_FilmRender/Queues and passed by `-MoviePipelineConfig`; agent-07 probed the asset
+  calls live, but no real command-line render ran). PIE stays the route; cmdline is kept as code, unproven (BACKLOG).
