@@ -203,11 +203,13 @@ Only once all of these hold:
 
 ```bash
 film-ue status                         # the instance and its state (running)
+# first, read-only, from kali (AWS_PROFILE=nani, ap-south-1): it must say "stop"; if it says "terminate", use film-ue down instead
+aws ec2 describe-instance-attribute --instance-id <id from film-ue status> --attribute instanceInitiatedShutdownBehavior
 film-ue sh 'sudo shutdown -h now'      # cc-64d05f6e's instruction: the box powers itself off (an EC2 stop: the disk survives)
 film-ue status                         # stopping/stopped; again after a minute until stopped
 ```
 
-- An OS shutdown on this box stops the instance. It does not terminate it, so the disk, with the frames on it,
+- With the shutdown behaviour `stop` (checked above), an OS shutdown on this box stops the instance. It does not terminate it, so the disk, with the frames on it,
   survives and stays private.
 - `film-ue down` (EC2 stop-instances) is the fallback only if the shutdown does not take. Over the `ssh` transport it
   does nothing, so in that case ask karmax at once, with the instance id from `film-ue status`.
