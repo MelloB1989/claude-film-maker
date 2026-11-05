@@ -15,6 +15,11 @@ from fmbridge.ops import level as L
 GARMENTS = ("Top", "Trousers", "Overshirt")
 HAIR = [f"/Game/Studio/Materials/MI_K_HerHair{s}" for s in ("", "_Cards", "_Helmet")]
 WATCH_BONE, WATCH_UP_ARM = "lowerarm_twist_01_l", 3.6
+# Her hair's strand coverage (round 3, gate c), reel/hair_cover_ab.py's winner on S16: {GroomGroupsDesc field: value}
+# for every group of her Hair groom, absolute (this runs after every re-place). Empty leaves the groom's own. Set FIRST
+# in apply(): a groom_groups_desc change re-creates the component, which drops its materials and its forced LOD 0
+# (run reel/build.py --lod0 on after this script, as before every presenter render).
+COVERAGE = {}
 rule, keep = unreal.AttachmentRule.KEEP_WORLD, unreal.DetachmentRule.KEEP_WORLD
 
 
@@ -32,7 +37,21 @@ def hair_mats():
     return mats
 
 
+def coverage_off(hair) -> dict:
+    return {i: {f: d.get_editor_property(f) for f in COVERAGE} for i, d in
+            enumerate(hair.get_editor_property("groom_groups_desc"))
+            if any(abs(float(d.get_editor_property(f)) - float(v)) > 1e-4 for f, v in COVERAGE.items()
+                   if not f.endswith("_override"))}
+
+
 def apply():
+    sk, hair = comps()
+    if hair is not None and COVERAGE and coverage_off(hair):
+        descs = list(hair.get_editor_property("groom_groups_desc"))
+        for d in descs:
+            for f, v in COVERAGE.items():
+                d.set_editor_property(f, v)
+        hair.set_editor_property("groom_groups_desc", descs)
     sk, hair = comps()
     for i, m in enumerate(hair_mats()):
         if hair is not None:
@@ -81,6 +100,8 @@ def check():
         got = [hair.get_material(i).get_path_name() if hair.get_material(i) else "" for i in range(3)]
         if not all(g.startswith(p) for g, p in zip(got, HAIR)):
             bad["Hair"] = got
+        if COVERAGE and coverage_off(hair):
+            bad["Hair_coverage"] = coverage_off(hair)
     for lab, comp, bone in (("HerEarL", sk["Face"], "FACIAL_L_Ear4"), ("HerEarR", sk["Face"], "FACIAL_R_Ear4"),
                             ("HerWatch", body_, WATCH_BONE)):
         rc = L.actor(lab).root_component
