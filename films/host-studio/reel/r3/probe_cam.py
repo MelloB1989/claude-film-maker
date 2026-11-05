@@ -34,10 +34,9 @@ for t in seq.get_tracks():
         for s in t.get_sections():
             try:
                 b = s.get_camera_binding_id()
-                who = [o.get_actor_label() for o in seq.locate_bound_objects(b, unreal.get_editor_subsystem(
-                    unreal.UnrealEditorSubsystem).get_editor_world()) if hasattr(o, "get_actor_label")] \
-                    if hasattr(seq, "locate_bound_objects") else []
-                cuts.append([s.get_start_frame(), s.get_end_frame(), who or b.export_text()])
+                g = b.get_editor_property("guid").export_text()  # the cut's binding, matched to the sequence's by guid
+                who = [str(x.get_display_name()) for x in seq.get_bindings() if x.get_id().export_text() == g]
+                cuts.append([s.get_start_frame(), s.get_end_frame(), who or g])
             except Exception as e:
                 cuts.append([s.get_start_frame(), s.get_end_frame(), "?: " + str(e)[:120]])
 out["cuts"] = cuts
