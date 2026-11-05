@@ -11,6 +11,41 @@ import copy
 from . import core
 
 
+class Curves(dict):
+    """An animation's curves keyed like FNames: lookups ignore case and a name keeps the spelling it was first made
+    with (5.8's MetaHuman face loops list ctrl_expressions_eyeblinkl, not CTRL_expressions_eyeBlinkL: day 1)."""
+
+    def __init__(self, items=()):
+        super().__init__()
+        for k, v in dict(items).items():
+            self[k] = v
+
+    def _k(self, k):
+        low = str(k).lower()
+        return next((e for e in dict.keys(self) if e.lower() == low), str(k))
+
+    def __getitem__(self, k):
+        return dict.__getitem__(self, self._k(k))
+
+    def __setitem__(self, k, v):
+        dict.__setitem__(self, self._k(k), v)
+
+    def __delitem__(self, k):
+        dict.__delitem__(self, self._k(k))
+
+    def __contains__(self, k):
+        return dict.__contains__(self, self._k(k))
+
+    def get(self, k, default=None):
+        return dict.get(self, self._k(k), default)
+
+    def pop(self, k, *default):
+        return dict.pop(self, self._k(k), *default)
+
+    def setdefault(self, k, default=None):
+        return dict.setdefault(self, self._k(k), default)
+
+
 class Skeleton(core.Object):
     pass
 
@@ -94,7 +129,7 @@ class AnimSequence(core.AnimSequence):
         data = props.pop("__data", None)
         super().__init__(name, outer, **props)
         object.__setattr__(self, "_data", copy.deepcopy(data) if data else
-                           {"curves": {}, "fps": 30.0, "frames": 30, "bones": set(), "brackets": 0, "writes": 0})
+                           {"curves": Curves(), "fps": 30.0, "frames": 30, "bones": set(), "brackets": 0, "writes": 0})
         self._props["__data"] = self._data  # so a duplicate (type(src)(name, **src._props)) copies it
         self._props.setdefault("additive_anim_type", "AAT_NONE")
         self._props.setdefault("ref_pose_type", "ABPT_REF_POSE")
@@ -240,10 +275,10 @@ class MetaHumanPerformanceExportUtils(core.Object):
         import math
         t = [i / 30 for i in range(int(dur * 30) + 1)]
         a = f.put_asset(path, AnimSequence(p["asset_name"]))
-        a._data.update({"fps": 30.0, "frames": max(1, int(round(dur * 30))), "curves": {
+        a._data.update({"fps": 30.0, "frames": max(1, int(round(dur * 30))), "curves": Curves({
             "CTRL_expressions_jawOpen": (t, [abs(math.sin(x * 8)) * 0.5 for x in t]),
             "HeadYaw": (t, [3 * math.sin(x) for x in t]), "HeadPitch": (t, [0.0] * len(t)),
-            "HeadRoll": (t, [0.0] * len(t)), "CTRL_expressions_eyeBlinkL": ([0, 1, 1.1, 1.3, dur], [0, 0, 1, 0, 0])}})
+            "HeadRoll": (t, [0.0] * len(t)), "CTRL_expressions_eyeBlinkL": ([0, 1, 1.1, 1.3, dur], [0, 0, 1, 0, 0])})})
         tgt = p.get("target_skeleton_or_skeletal_mesh")
         if tgt is not None:
             a._props["skeleton"] = tgt.get_skeleton() if isinstance(tgt, SkeletalMesh) else tgt
@@ -324,7 +359,7 @@ def install(fake):
         """An AnimSequence at `path` with curves {name: (times, values)} on a skeleton (made if missing)."""
         a = fake.put_asset(path, AnimSequence(path.rsplit("/", 1)[-1]))
         a._data.update({"fps": float(fps), "frames": int(round(length_s * fps)),
-                        "curves": {k: (list(t), list(v)) for k, (t, v) in (curves or {}).items()}, "bones": set(bones)})
+                        "curves": Curves({k: (list(t), list(v)) for k, (t, v) in (curves or {}).items()}), "bones": set(bones)})
         if skeleton:
             sk = fake.assets.get(skeleton) or fake.put_asset(skeleton, Skeleton(skeleton.rsplit("/", 1)[-1]))
             a._props["skeleton"] = sk
