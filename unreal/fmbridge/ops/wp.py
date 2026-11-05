@@ -29,7 +29,8 @@ def _vec(v) -> list:
 
 
 def _box(lo, hi):
-    # FBox's Python constructor takes (min, max) and marks the box valid; is_valid= is refused live (day 1)
+    # FBox has a native make (MakeBox(Min, Max), NoExportTypes.h:1559): its Python constructor takes exactly min and
+    # max and returns a valid box; an is_valid argument is refused live ("call() takes at most 2 arguments")
     return unreal.Box(unreal.Vector(*lo), unreal.Vector(*hi))
 
 
