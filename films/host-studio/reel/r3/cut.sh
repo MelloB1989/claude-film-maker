@@ -12,7 +12,7 @@
 # Reads the passes where the r3 specs write them (R3_FRAMES, default /srv/ue/reel/r3/<pass>), the mixes from the
 # repo (audio/mix), the captions' word times from vo.py's cues.json (out/host-studio/reel/vo/cues.json) when it is
 # there, and writes to R3_CUT (default /srv/ue/reel/r3/cut): preview_<pass>_<n>.mp4 / _45s.mp4, or the deliverables
-# (karma-reel[-45s]-1080p-*.mp4/.mov, .srt/.vtt, cut.json). No ffmpeg on the box: a static one (BtbN n8.1, sha256
+# (karma-reel[-45s]-1080p-*.mp4/.mov, .srt/.vtt, cut.json). No ffmpeg 6+ on the box: a static one (BtbN n8.1, sha256
 # checked) goes to R3_TOOLS (default /srv/ue/tools/ffmpeg). Python through uv, as everything under tools/.
 set -euo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -25,7 +25,10 @@ CUES=${R3_CUES:-$ROOT/out/host-studio/reel/vo/cues.json}
 PREVIEW=${R3_PREVIEW:-preview}   # the preview pass under R3_FRAMES: preview/<build> when each rebuild has its own
 [ -d "$HOME/.local/bin" ] && export PATH="$HOME/.local/bin:$PATH"   # uv's default install
 
-if ! command -v ffmpeg >/dev/null || ! command -v ffprobe >/dev/null; then
+# cut.py's filter graph (overlay format=yuv444p10, ...) wants ffmpeg 6 or newer: an older system one (the box has 4.4)
+# is passed over for the static build, tested end to end with cut.py
+major=$(ffmpeg -version 2>/dev/null | sed -n 's/^ffmpeg version n\{0,1\}\([0-9]*\).*/\1/p' | head -1)
+if ! command -v ffprobe >/dev/null || [ -z "$major" ] || [ "$major" -lt 6 ]; then
   if [ ! -x "$TOOLS/bin/ffmpeg" ]; then
     F=ffmpeg-n8.1-latest-linux64-gpl-8.1
     U=https://github.com/BtbN/FFmpeg-Builds/releases/download/latest
