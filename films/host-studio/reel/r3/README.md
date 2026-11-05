@@ -36,24 +36,28 @@ state, lost at the 18:27 re-open from disk. So, before any `30-final.yaml` apply
   1.00 +-0.02 and shift under 1%. A low ncc (under ~0.5) means the fit did not lock (a dark frame): check another
   frame of the shot.
 
-## Keeping them: box -> S3 before the box ends (22:30 UTC)
+## Keeping them: box -> S3 before the box ends (the face rule)
 
-The presenter shots show the operator's MetaHuman, so every round-3 frame is kept only under the private prefix,
-written from the box (its role), never to kali. Each upload is KMS-encrypted in the command itself, whatever the
-bucket's default (as core's `sync._sse` does for private uploads): `--sse aws:kms`, plus `--sse-kms-key-id` with the
-key in the box setting `kms_key` when it is set (else the account's aws/s3 key):
+The operator's rule (karmax, final): **everything that shows the operator's MetaHuman (Host_Op: S13-S18, both full
+cuts, any still) lives only under `s3://rf-render-788655295054-aps1/ue-linux/private/`, KMS-encrypted, written by the
+box's role. None of it goes to `shoot/` or is pulled to kali.** Uploads use film-ue (core `sync dir`, fleet/agent-05/
+sync-dir), never a raw `aws s3 cp`: with the box setting `face_data` set, it refuses any destination outside
+`.../private/` and adds `--sse aws:kms` (with `kms_key` when set) itself. Run on the box, from the box tree's tools/:
 
-    KMS="--sse aws:kms"   # + " --sse-kms-key-id <the box setting kms_key>" when that setting is set
-    for d in final_c cal_A cal_B cal_C; do
-      aws s3 sync /srv/ue/reel/r3/$d s3://rf-render-788655295054-aps1/ue-linux/private/renders/r3/$d/ $KMS
-    done
+    P=s3://rf-render-788655295054-aps1/ue-linux/private/renders/r3
+    film-ue sync dir up --local /srv/ue/reel/r3/final_c --s3 $P/final_c/     # frames + _render reports
+    film-ue sync dir up --local /srv/ue/reel/r3/cal_C   --s3 $P/cal_C/       # (cal_A, cal_B the same)
+    # the cuts with him (agent-06's 65 s and 45 s): --s3 $P/cuts/
 
-Each job's report is inside its own out_dir (`final_c/_render/`, `cal_A/_render/`, ...: render.job writes
-`<out_dir>/_render/<name>.report.json`), so the reports (settings, timings) go with their frames; there is no
-`r3/_render/` of its own. The previews are not kept.
+`--dry-run` prints the exact command first. Each job's report is inside its out_dir (`final_c/_render/`), so it goes
+with its frames.
+
+To kali's disk (not /tmp), through agent-07/agent-10, only what shows no operator face: no-face MP4s (set shots, her
+work), the stock-MetaHuman preview and frames-free copies of the reports (`_render/*.report.json`). The superseded
+`final/` (TSR), the previews and the `*_old` folders are not kept.
 
 agent-07 runs it once the last final is in (and again after any re-render), and only after karmax and agent-10 have
-agent-07's report on the bucket and its policy (the default encryption is not verified yet).
+agent-07's report on the bucket and its policy.
 
 ## Settings (and why)
 
