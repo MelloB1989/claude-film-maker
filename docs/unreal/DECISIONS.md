@@ -46,7 +46,8 @@ to make alone (no answer from the lead within 10 minutes), tagged with their WP.
   and on the client (`film-qa`, loaded standalone so `unreal` is never needed), and is unit-tested both ways.
 - **WP10: viewport-free stills default to a SceneCapture2D** (one transient `FMQA_Capture` actor, removed after each
   op), not MRQ: ~1 s and no level save. `view.still mode=mrq` goes through WP9's `render.frames` (preset draft, PNG,
-  a private folder per still) for a final look. The capture target is RGBA8; the selftest measures RGBA8_SRGB too.
+  a private folder per still) for a final look. The capture target is RGBA8_SRGB (day 1 on the box: closer to the
+  viewport than RGBA8); the selftest measures both.
 - **WP10/WP7 split (agreed with agent-11, confirmed by the lead):** WP7 owns the lens (`camkit.lens`) and the grammar
   between shots (180-degree line, 30-degree rule, DoF, safe areas); WP10 owns per-frame subject framing
   (`fmbridge.qa.framing.check`: size, headroom, joint/feet/limb cuts, look room) and the review that gathers both.

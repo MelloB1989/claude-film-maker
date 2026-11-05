@@ -122,6 +122,9 @@ def remove_rig() -> bool:
 
 
 STILL_FORMATS = ("RTF_RGBA8", "RTF_RGBA8_SRGB")  # ExportRenderTarget writes PNG only for 8-bit targets (EXR for float)
+# The final-colour capture's default target. Day 1 on the box (selftest qa, capture_gamma) RGBA8_SRGB matched the
+# viewport closer than RGBA8 (SSIM 0.60 vs 0.54, mean shift -30 vs -35), and env's grey card agreed.
+STILL_FORMAT = "RTF_RGBA8_SRGB"
 RT_FORMATS = ("RTF_R8", "RTF_RG8", "RTF_RGBA8", "RTF_RGBA8_SRGB", "RTF_R16F", "RTF_RG16F", "RTF_RGBA16F", "RTF_R32F",
               "RTF_RG32F", "RTF_RGBA32F", "RTF_RGB10A2")  # ETextureRenderTargetFormat, TextureRenderTarget2D.h:23-43
 
@@ -174,7 +177,7 @@ def capture(cam: dict, width: int, height: int, source: str = "final", show_only
     before the final one."""
     if source not in SOURCES:
         raise OpError(f"source {source!r}: one of {sorted(SOURCES)}", code="bad_args")
-    fmt = fmt or ("RTF_RGBA8" if source == "final" else "RTF_RGBA32F" if source == "depth" else "RTF_RGBA16F")
+    fmt = fmt or (STILL_FORMAT if source == "final" else "RTF_RGBA32F" if source == "depth" else "RTF_RGBA16F")
     rt = _rt(int(width), int(height), fmt)
     rig = _rig()
     rig.set_actor_location_and_rotation(unreal.Vector(*cam["loc"]), unreal.Rotator(**cam["rot"]), False, True)
@@ -298,8 +301,8 @@ def still(*, out: str, camera: str = "", sequence: str = "", frame: int | None =
     through render.frames: the final look, slower; needs sequence+frame and `level`), "viewport" (look.still's
     high-res screenshot). warmup: captures before the kept one (temporal AA, Lumen). settle_ticks: editor ticks after
     a scrub. hide: actor labels left out. guides: overlay guides drawn on a copy saved as <out>.guides.png
-    ("thirds", "safe", ...). rt_format: capture mode's render target format (advanced; RTF_RGBA8, the default, or
-    RTF_RGBA8_SRGB, any case: a float target would export EXR, so it is refused; the selftest compares the two).
+    ("thirds", "safe", ...). rt_format: capture mode's render target format (advanced; RTF_RGBA8_SRGB, the default,
+    or RTF_RGBA8, any case: a float target would export EXR, so it is refused; the selftest compares the two).
     Returns: {"path", "width", "height", "camera", "mode", "frame", "camera_info": {loc, rot, fov, aspect},
     "guides_path"?}. A multi-tick job.
     Example: film-ue op view.still out=/tmp/qa/a.png camera=CamA width_px=960 height_px=540
