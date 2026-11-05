@@ -417,7 +417,7 @@ and merged into ue-helpers in chunks; nothing has run in a real editor yet (no b
    selftest's thumbnail luma.
 6. **`fab.login` on Linux offscreen**: does `OpenInNewTab` create the CEF tab (or its error tab) and trigger the
    persist login? `fab.library`'s account id from the JWT `sub` is an assumption; the endpoint is private.
-   **Day 1 (deferred to BACKLOG by the operator, box time went to the shoot):** sign-in works (device code;
+   **Day 1 (fixed; the follow-ups are deferred, box time went to the shoot):** sign-in works (device code;
    the EOS credential restored from S3), but "the Fab library answers" got HTTP 403. A read-only probe in the live
    editor (agent-07; script: `fab_library_probe.py`, agent-02's worktrees dir in the shared code) found:
    - `https://www.fab.com/e/accounts/<sub>/ue/library` with Python's default User-Agent: **403**, Cloudflare's
@@ -432,8 +432,8 @@ and merged into ue-helpers in chunks; nothing has run in a real editor yet (no b
      a download URL: the signed URL only comes from the web page (`fab_shim.py`); `FabDownloader` sets no headers.
    Fix on `fleet/agent-02/day1-fab` (1dc2a83d): `fab.library` sends the engine UA (`_user_agent`), quotes the cursor,
    takes the host from FabSettings' environment (`_base_url`, Prod -> www); `fab.add` downloads with the same UA;
-   `fab.status` reports `host`; the fake models the edge (403 for Python's UA, 404 on the apex). **Not yet run on
-   the box**: first thing next box session, `film-ue selftest assets` and check "the Fab library answers".
+   `fab.status` reports `host`; the fake models the edge (403 for Python's UA, 404 on the apex). **Verified on the
+   box** with 1dc2a83d: `film-ue selftest assets` OK 64/0, "the Fab library answers" passes (agent-07's run 154617).
 7. **FabScript** compiled on day 1 with `film-ue plugin-build FabScript` (20 s) and loads in the Linux editor (log: InternalLoadLibrary FabScript). `fab.add` of a pack through it: see DAY1-REPORT.
 8. **EditorScriptingUtilities**: done. `ops/assets.py` `EAL` falls back to the EditorAssetSubsystem when the plugin
    is off, every module of the bridge now imports it (577192b), and a test fails on any new direct
