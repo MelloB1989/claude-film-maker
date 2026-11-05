@@ -310,6 +310,7 @@ notes of the same night (same source, same lines).
 
 | API (Python) | source | used by | notes |
 |---|---|---|---|
+| `SystemLibrary.get_game_name` | Engine/Source/Runtime/Engine/Classes/Kismet/KismetSystemLibrary.h (`GetGameName`; line not re-checked: source box down on day 1) | fab.library User-Agent | proven live: assets 64/0 on the box |
 | `AssetImportTask` fields filename, destination_path, destination_name, replace_existing, automated, save, options, factory, imported_object_paths, get_objects() | Engine/Source/Editor/UnrealEd/Public/AssetImportTask.h:36-93 | assets_import | `result` deprecated 5.1; setting `factory` bypasses Interchange (Developer/AssetTools/Private/AssetTools.cpp:3567) |
 | `AssetTools.import_asset_tasks` | Engine/Source/Developer/AssetTools/Public/IAssetTools.h:542 | assets_import, mat | non-modal progress only |
 | `InterchangeGenericAssetsPipeline` + `common_meshes_properties`, `common_skeletal_meshes_and_animations_properties`, `mesh_pipeline`, `animation_pipeline`, `material_pipeline` (`.texture_pipeline`), `import_offset_uniform_scale` | Engine/Plugins/Interchange/Runtime/Source/Pipelines/Public/InterchangeGenericAssetsPipeline.h:57-109 | assets_import | sub-pipelines are default subobjects |

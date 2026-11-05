@@ -5480,7 +5480,7 @@
    "verb": "add",
    "module": "fmbridge.ops.fab",
    "file": "unreal/fmbridge/ops/fab.py",
-   "line": 316,
+   "line": 372,
    "summary": "Add a Fab asset to the project from its signed download URL (what the Fab page hands the plugin's",
    "doc": "Add a Fab asset to the project from its signed download URL (what the Fab page hands the plugin's\nAddToProject; tools/filmtools/unreal/fab_shim.py gets it for a listing without a window): download (no auth:\nthe URL is signed), unzip into the plugin's cache, import as fab.import does. With the FabScript project plugin\ninstalled (unreal/plugins/FabScript) and metadata given, Epic's own AddToProject runs instead, for every format\n(including unreal-engine packs).\n\nMulti-tick: downloads in the background and yields until done.\nArgs: url: the signed download URL. metadata: {\"AssetId\", \"AssetName\", \"AssetType\" (gltf|fbx|unreal-engine|...),\n      \"ListingType\", \"AssetNamespace\", \"DistributionPointBaseUrls\", \"IsQuixel\"} as the page gives it.\n      dest: content folder. replace: import again over an earlier import.\nReturns: fab.import's result plus {\"download\": file on the box, \"route\": \"python\"|\"native\"}.\nExample: film-ue op fab.add url=<signed url> 'metadata={\"AssetId\": \"abc\", \"AssetName\": \"Rock\", \"IsQuixel\": true}'",
    "params": [
@@ -5530,7 +5530,7 @@
    "verb": "import",
    "module": "fmbridge.ops.fab",
    "file": "unreal/fmbridge/ops/fab.py",
-   "line": 258,
+   "line": 314,
    "summary": "Import a Fab or Megascans download that is on the box (a zip, or a folder): Fab-plugin format (one .gltf +",
    "doc": "Import a Fab or Megascans download that is on the box (a zip, or a folder): Fab-plugin format (one .gltf +\n.json) the way the plugin does it (Interchange with InterchangeMegascansPipeline, per type: 3D Nanite, plants,\nsurfaces, decals), any other glTF/FBX/OBJ/USD with the generic importer, loose textures as a PBR material.\n\nArgs: path: zip or folder on the box (e.g. /tmp/FabLibrary/<AssetId>/x.zip). dest: content folder (default\n      /Game/Fab/Megascans/<Type>/<Name>_<id>/<Tier> like the plugin, or /Game/Fab/<Name>). kind: force the\n      Megascans type (3D, Plants, Surfaces, Decals, Imperfections). replace: re-import over what is there (else\n      an imported asset is kept: changed false).\nReturns: {\"format\", \"dest\", \"imported\": [paths], \"material\": path|None, \"changed\", \"meta\"}.\nExample: film-ue op fab.import path=/data/fab/rock_4k.zip",
    "params": [
@@ -5579,9 +5579,9 @@
    "verb": "library",
    "module": "fmbridge.ops.fab",
    "file": "unreal/fmbridge/ops/fab.py",
-   "line": 154,
+   "line": 206,
    "summary": "The signed-in account's Fab library (what it owns), from the endpoint the plugin's My Folder uses",
-   "doc": "The signed-in account's Fab library (what it owns), from the endpoint the plugin's My Folder uses\n(GET <fab>/e/accounts/<account>/ue/library, FabMyFolderIntegration.cpp): title, asset id, listing type, the\npage url, and a thumbnail url.\n\nArgs: query: keep items whose title/description contain these words. limit: at most this many. account_id: the\n      Epic account (default: from the token).\nReturns: {\"items\": [{\"title\", \"asset_id\", \"asset_namespace\", \"listing_type\", \"url\", \"image\", \"source\"}],\n         \"count\", \"next_cursor\"}.\nExample: film-ue op fab.library query=chair",
+   "doc": "The signed-in account's Fab library (what it owns), from the endpoint the plugin's My Folder uses\n(GET <fab>/e/accounts/<account>/ue/library with the same token and headers, FabMyFolderIntegration.cpp): title, asset id, listing type, the\npage url, and a thumbnail url.\n\nArgs: query: keep items whose title/description contain these words. limit: at most this many. account_id: the\n      Epic account (default: from the token).\nReturns: {\"items\": [{\"title\", \"asset_id\", \"asset_namespace\", \"listing_type\", \"url\", \"image\", \"source\"}],\n         \"count\", \"next_cursor\"}.\nExample: film-ue op fab.library query=chair",
    "params": [
     {
      "name": "query",
@@ -5621,7 +5621,7 @@
    "verb": "login",
    "module": "fmbridge.ops.fab",
    "file": "unreal/fmbridge/ops/fab.py",
-   "line": 102,
+   "line": 107,
    "summary": "Sign Fab in: by default with the saved sign-in (opening a Fab tab is what makes the plugin try it, and then",
    "doc": "Sign Fab in: by default with the saved sign-in (opening a Fab tab is what makes the plugin try it, and then\nthe editor's -AUTH_TYPE=exchangecode -AUTH_PASSWORD=<code> if that fails); with portal, start the device-code\nsign-in (Fab.Login): its code and URL are in the editor log for a person to approve once.\n\nMulti-tick: waits up to timeout_s for the sign-in. Already signed in: changes nothing.\nArgs: portal: device-code sign-in instead of the saved one. timeout_s: how long to wait.\nReturns: {\"signed_in\", \"changed\", \"method\", \"waited_s\", \"hint\"}.\nExample: film-ue op fab.login",
    "params": [
@@ -5655,9 +5655,9 @@
    "verb": "status",
    "module": "fmbridge.ops.fab",
    "file": "unreal/fmbridge/ops/fab.py",
-   "line": 75,
+   "line": 79,
    "summary": "Is Fab usable from code here: plugin loaded, signed in, a saved sign-in on disk, the pack installer library",
-   "doc": "Is Fab usable from code here: plugin loaded, signed in, a saved sign-in on disk, the pack installer library\n(Linux needs ThirdParty/libBuildPatchInstallerLib.so for unreal-engine-format packs), the download cache.\n\nReturns: {\"plugin\", \"signed_in\", \"saved_sign_ins\": int, \"pack_installer\": bool, \"cache_dir\", \"platform\",\n         \"next\": what to do}. No token is returned.\nExample: film-ue op fab.status",
+   "doc": "Is Fab usable from code here: plugin loaded, signed in, a saved sign-in on disk, the pack installer library\n(Linux needs ThirdParty/libBuildPatchInstallerLib.so for unreal-engine-format packs), the download cache.\n\nReturns: {\"plugin\", \"signed_in\", \"saved_sign_ins\": int, \"pack_installer\": bool, \"cache_dir\", \"platform\",\n         \"host\": the Fab host the plugin uses, \"next\": what to do}. No token is returned.\nExample: film-ue op fab.status",
    "params": [],
    "returns": "dict",
    "multi_tick": false,
@@ -12886,7 +12886,7 @@
    "file": "unreal/fmbridge/ops/pose.py",
    "line": 172,
    "summary": "Pose a character at a frame of a sequence: key its Control Rig so each effector reaches the pose's goal, solved",
-   "doc": "Pose a character at a frame of a sequence: key its Control Rig so each effector reaches the pose's goal, solved\nclosed-loop on what the engine evaluates, then report the remaining error per effector.\n\nArgs: label: the character (its body's skeletal mesh; `component` names it, else the one with a pelvis).\npose: a library name (pose.library) or {effector: {\"anchor\", \"offset\": [fwd, right, up]} | \"keep\" | [x,y,z]}.\nparams: {\"drop_cm\": 45} for sit. rig_class: the body's Control Rig Blueprint, to make the rig track if missing.\ncontrols: {effector: control name} overrides for the pattern match. tolerance_cm, iterations: the solve.\nGoals are relative to the character's REST pose, captured the first time a pose is applied in this sequence\n(stored on it); `reset_rest` captures it again (after the character moved).\nA multi-tick job. Re-running converges (the controls are re-solved to the same goals).\nReturns: {\"pass\", \"errors_cm\": {effector: cm}, \"controls\": {effector: control}, \"iterations\",\n\"trace_cm\" (the largest error before each iteration), \"ik_switched\" (FK/IK switches keyed to IK: one key, so\nthe limb stays in IK for the whole sequence), \"goals\",\n\"issues\", \"changed\"}.\nExample: film-ue op pose.apply label=Host sequence=/Game/Seq/S010 frame=48 pose=hands_on_hips",
+   "doc": "Pose a character at a frame of a sequence: key its Control Rig so each effector reaches the pose's goal, solved\nclosed-loop on what the engine evaluates, then report the remaining error per effector.\n\nArgs: label: the character (its body's skeletal mesh; `component` names it, else the one with a pelvis).\npose: a library name (pose.library) or {effector: {\"anchor\", \"offset\": [fwd, right, up]} | \"keep\" | [x,y,z]}.\nparams: {\"drop_cm\": 45} for sit. rig_class: the body's Control Rig Blueprint, to make the rig track if missing.\ncontrols: {effector: control name} overrides for the pattern match. tolerance_cm, iterations: the solve.\nGoals are relative to the character's REST pose, captured the first time a pose is applied in this sequence\n(stored on it); `reset_rest` captures it again (after the character moved).\nA multi-tick job. Re-running converges (the controls are re-solved to the same goals).\nReturns: {\"pass\", \"errors_cm\": {effector: cm}, \"controls\": {effector: control}, \"iterations\",\n\"trace_cm\" (the largest error before each iteration), \"goals\",\n\"issues\", \"changed\"}.\nExample: film-ue op pose.apply label=Host sequence=/Game/Seq/S010 frame=48 pose=hands_on_hips",
    "params": [
     {
      "name": "label",
@@ -12981,7 +12981,7 @@
    "verb": "check",
    "module": "fmbridge.ops.pose",
    "file": "unreal/fmbridge/ops/pose.py",
-   "line": 256,
+   "line": 243,
    "summary": "Is the character in the pose at that frame? Scrub there and measure each effector against the pose's goals.",
    "doc": "Is the character in the pose at that frame? Scrub there and measure each effector against the pose's goals.\nGoals are anchored on the rest pose pose.apply stored on the sequence, else on the bones now (a held pose then\nchecks against itself); `rest` ({bone: [x, y, z]}) overrides both. A multi-tick job.\n\nReturns: {\"pass\", \"issues\", \"metrics\": {\"errors_cm\"}}.\nExample: film-ue op pose.check label=Host sequence=/Game/Seq/S010 frame=60 pose=hands_on_hips",
    "params": [

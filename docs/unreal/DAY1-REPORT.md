@@ -137,9 +137,12 @@ Green on the engine: platform, dx, layout, wp, audio, foliage, env, seq, cam, qa
 renders (PIE). Merged for the shoot, last box reruns by agent-07: mh (assemble with its on_assembled delegate),
 pose (waits for the rig to bind), render (the scratch level counts as saved when its .umap is on disk).
 
-Deferred to BACKLOG (no more box time): Fab library 403 (B64, branch ready), pose IK reach (B65), qa capture format
+Deferred to BACKLOG (no more box time): pose IK reach (B65), qa capture format
 (B66, B63), new-process/command-line executors (B67; PIE is the route, DECISIONS), plus B60-B62 from cam. anim's
-head/face curves: whatever agent-01 lands before the shoot is merged; otherwise it is the shoot's first check.
+face curves are read case-insensitively now (5.8 lists ctrl_expressions_* in lower case: agent-01 bcdeddfd, merged,
+not rerun on the box). Fab came back in time: assets 64/0 with agent-02's User-Agent fix (B64, merged). Not rerun on
+the box: the render level check (8987647f) and mh's hair parameters (still empty on the last run, agent-04). Known: the
+render selftest leaves L_render open when it errors; re-open the shoot's level before stills.
 
 ## Merged (agent-10)
 
@@ -177,3 +180,7 @@ fast-forwards to.
 | mh | assemble() with an on_assembled delegate, waited across ticks; selftest import order | agent-04 5db98c50, abb746ec | |
 | pose | pose.apply waits for the rig to bind and the bones to follow before measuring | agent-01 3429580d | |
 | mh | the on_assembled callable takes one argument (live) | agent-04 2b4f560e | |
+
+| assets | Fab library: the engine's User-Agent (Python's default got 403): assets 64/0 on the box | agent-02 6bf70aab | |
+| qa | qa.md HANDOFF; B63 narrowed | agent-09 aa1d2831 | |
+| anim | curve names case-insensitive (5.8 face loops list ctrl_expressions_* in lower case) | agent-01 bcdeddfd | |
