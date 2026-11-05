@@ -162,7 +162,7 @@ def run(t):
     t.check("EXR frames per pass", [len(glob.glob(os.path.join(aov, d, "*.exr"))) for d in dirs], [4, 4, 4])
 
     # executors: a separate process after saving, and a command line with no editor. Both need the MRQ editor
-    # library for the queue manifest; on the day-1 box it was missing, which is one failed check, not the end of the run
+    # library for the queue manifest; on the day-1 box it was missing: a note, not a failure (DECISIONS, day 1)
     from ..errors import OpError
     try:
         proc = os.path.join(out, "process")
@@ -182,7 +182,9 @@ def run(t):
     except OpError as e:
         if e.code != "unsupported":
             raise
-        t.ok("new-process / command-line executors available", False, detail=e.message)
+        # DECISIONS (day 1): the in-editor PIE executor is the supported render route; without the MRQ editor library
+        # the other two are unsupported by decision, noted here rather than failed
+        t.note(f"new-process / command-line executors unsupported in this editor (PIE is the route): {e.message}")
 
     # encode
     if shutil.which("ffmpeg"):
@@ -208,13 +210,17 @@ def run(t):
         t.metric("pt_vram_peak_gb", rep.get("vram_peak_gb"), "GB")
 
     # cancel, then resume
-    can = {**spec, "out_dir": os.path.join(out, "cancel"), "name": "cancel", "temporal": 4}
+    # Day 1 on an L4: the 48 draft frames finished inside the fixed 40 ticks, so the cancel landed after the last frame
+    # and the job honestly reported ok. Make the job slow (temporal 16) and cancel once frames are landing.
+    can = {**spec, "out_dir": os.path.join(out, "cancel"), "name": "cancel", "temporal": 16}
     job = t.op("render.job", spec=can)
     first = None
     try:
-        for _ in range(40):
+        for _ in range(3000):
             next(job)
-            yield 0.1
+            yield 0.05
+            if (t.op("render.status").get("chunk_frames") or 0) >= 2:
+                break
         t.check("cancel", t.op("render.cancel")["changed"], True)
         while True:
             next(job)
