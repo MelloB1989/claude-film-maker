@@ -31,12 +31,18 @@ from shots import EYES_HER, EYES_HIM, FPS, FULL_FRAME, MARK_HER, MARK_HIM, SHOTS
 from vo import OUT as VO, SR  # noqa: E402
 
 from filmtools.unreal import client, workstation as ws  # noqa: E402
+
+
+def _j(*parts: str) -> str:
+    """A path on the box in its own style (Linux or Windows)."""
+    from filmtools.unreal.boxpaths import BoxPaths
+    return BoxPaths.current().join(*parts)
 from filmtools.wav import read_wav, write_wav  # noqa: E402
 
 ROOT = HERE.parents[2]
 OUT = ROOT / "out" / "host-studio" / "reel" / "perf"
-PROJECT = r"C:\UEProjects\HostStudio"
-IMPORT = rf"{PROJECT}\Saved\Import\reel"
+PROJECT = ws.project()
+IMPORT = _j(PROJECT, "Saved", "Import", "reel")
 SPEECH = "/Game/Speech"
 ANIM = "/Game/Reel/Perf"
 ME = "agent-10"
@@ -105,13 +111,13 @@ def stems() -> list[Path]:
 def push() -> list:
     out = []
     for p in stems() + [VO / f"{k}.wav" for k in cues()]:
-        out.append(client.push(str(p), rf"{IMPORT}\{p.name}"))
+        out.append(client.push(str(p), _j(IMPORT, p.name)))
     return out
 
 
 def solve(key: str) -> dict:
     s = SOLVES[key]
-    return ok(client.op("speech.to_face", wav=rf"{IMPORT}\{s['wav']}.wav", name=anim_name(key),
+    return ok(client.op("speech.to_face", wav=_j(IMPORT, f"{s['wav']}.wav"), name=anim_name(key),
                         face_mesh=FACE_MESH[s["who"]], mood=s["mood"], intensity=s["intensity"], timeout=1800))
 
 
@@ -668,7 +674,7 @@ def gesture(who: str) -> dict:
 # ---------------------------------------------------------------------------------------------------- looking at it
 
 STILLS = {"him": [975, 1030, 1070, 1110, 1170, 1360, 1394, 1430], "her": [1110, 1165, 1240, 1290, 1394, 1430]}
-REMOTE_STILLS = rf"{PROJECT}\Saved\Reel\perf"
+REMOTE_STILLS = _j(PROJECT, "Saved", "Reel", "perf")
 
 
 def light(who: str) -> None:
@@ -685,9 +691,9 @@ def stills(who: str, frames: list | None = None) -> list:
     got = []
     for f in frames or STILLS[who]:
         name = f"{who}_f{f}.png"
-        ok(client.op("seq.still", path=test_seq(who), frame=f - START[who], camera="", out=rf"{REMOTE_STILLS}\{name}",
+        ok(client.op("seq.still", path=test_seq(who), frame=f - START[who], camera="", out=_j(REMOTE_STILLS, name),
                      width=1280, height=720, timeout=600))
-        got.append(client.pull(rf"{REMOTE_STILLS}\{name}", str(OUT / "stills" / name)))
+        got.append(client.pull(_j(REMOTE_STILLS, name), str(OUT / "stills" / name)))
     return got
 
 

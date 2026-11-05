@@ -18,7 +18,13 @@ import sys
 import time
 from pathlib import Path
 
-from filmtools.unreal import client
+from filmtools.unreal import client, workstation as ws
+
+
+def _j(*parts: str) -> str:
+    """A path on the box in its own style (Linux or Windows)."""
+    from filmtools.unreal.boxpaths import BoxPaths
+    return BoxPaths.current().join(*parts)
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
@@ -26,7 +32,7 @@ from shots import SHOTS  # noqa: E402
 
 SEQ = "/Game/Reel/SEQ_Reel"
 LEVEL = "/Game/Studio/Studio"
-PROJECT = r"C:\UEProjects\HostStudio"
+PROJECT = ws.project()
 CVARS = {"r.HairStrands.SkyLighting": 0}
 PREROLL = 4
 
@@ -38,7 +44,7 @@ def ok(res: dict):
 
 
 def remote(sid: str, res: int) -> str:
-    return rf"{PROJECT}\Saved\MovieRenders\reel_{res}p\{sid}"
+    return _j(PROJECT, "Saved", "MovieRenders", f"reel_{res}p", sid)
 
 
 def render(sid: str, res: int, samples: int, frames: int = 0, at: int = 0) -> dict:

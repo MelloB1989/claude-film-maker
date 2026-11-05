@@ -17,7 +17,13 @@ from filmtools.unreal import client, workstation as ws
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 OUT = ROOT / "out" / "host-studio"
-REMOTE = r"C:\UEProjects\HostStudio\Saved\Import\host-studio"
+REMOTE = ws.project("Saved", "Import", "host-studio")
+
+
+def _j(*parts: str) -> str:
+    """A path on the box in its own style (Linux or Windows)."""
+    from filmtools.unreal.boxpaths import BoxPaths
+    return BoxPaths.current().join(*parts)
 
 
 def _ok(res: dict):
@@ -58,8 +64,8 @@ def push_import(files: list, dest: str, sub: str) -> list:
     stage.mkdir(parents=True)
     for p in files:
         shutil.copy2(p, stage / p.name)
-    ws.push_dir(str(stage), f"{REMOTE}\\{sub}")
-    return _ok(client.op("assets.import", files=[f"{REMOTE}\\{sub}\\{p.name}" for p in files], dest=dest))
+    ws.push_dir(str(stage), _j(REMOTE, sub))
+    return _ok(client.op("assets.import", files=[_j(REMOTE, sub, p.name) for p in files], dest=dest))
 
 
 def textures() -> list:
@@ -84,13 +90,13 @@ def props(only: list | None = None) -> dict:
     stage.mkdir(parents=True)
     for p in fbx + sorted(src.glob("*.json")):
         shutil.copy2(p, stage / p.name)
-    ws.push_dir(str(stage), f"{REMOTE}\\props")
-    return {p.stem: _ok(client.op("assets.import", files=[f"{REMOTE}\\props\\{p.name}"], dest=f"/Game/Studio/Props/{p.stem}"))
+    ws.push_dir(str(stage), _j(REMOTE, "props"))
+    return {p.stem: _ok(client.op("assets.import", files=[_j(REMOTE, "props", p.name)], dest=f"/Game/Studio/Props/{p.stem}"))
             for p in fbx}
 
 
 def still(frame: int, name: str, sequence: str = "/Game/Studio/SEQ_Line2") -> Path:
-    remote = rf"C:\UEProjects\HostStudio\Saved\Stills\{name}.png"
+    remote = ws.project("Saved", "Stills", f"{name}.png")
     _ok(client.op("seq.still", path=sequence, frame=frame, camera="HostCam", out=remote))
     local = OUT / "stills" / f"{name}.png"
     client.pull(remote, str(local))

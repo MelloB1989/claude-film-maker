@@ -15,14 +15,21 @@ import json
 import sys
 from pathlib import Path
 
-from filmtools.unreal import client
+from filmtools.unreal import client, workstation as ws
+
+
+def _j(*parts: str) -> str:
+    """A path on the box in its own style (Linux or Windows)."""
+    from filmtools.unreal.boxpaths import BoxPaths
+    return BoxPaths.current().join(*parts)
+
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 from shots import EYES_HER, EYES_HIM, FULL_FRAME, MARK_HER, MARK_HIM, SHOTS  # noqa: E402
 
 OUT = HERE / "previs"
-REMOTE = r"C:\UEProjects\HostStudio\Saved\Previs\reel"
+REMOTE = ws.project("Saved", "Previs", "reel")
 ANIMS = "/MetaHumanCharacter/Optional/Animation"
 IDLE = f"{ANIMS}/TemplateAnimations/Technical_Loops/Idle/mhc_mh001_fmn_b_idle"
 SEQ = "/Game/Reel/Previs/SEQ_Previs_agent11"  # scratch, deleted after each run
@@ -127,7 +134,7 @@ def main() -> None:
             ok(client.op("seq.close"))
             drop_seq()  # never create over an existing asset: the overwrite prompt is modal and freezes the editor
             ok(client.op("seq.shot", path=SEQ_, actor_label="Host", anims={"Body": IDLE}, camera=label, seconds=1.0))
-            remote = rf"{REMOTE}\{s.id}_{0 if u is None else round(u * 100)}.png"
+            remote = _j(REMOTE, f"{s.id}_{0 if u is None else round(u * 100)}.png")
             ok(client.op("seq.still", path=SEQ_, frame=12, camera=label, out=remote, width=a.width,
                          height=a.width * 9 // 16))
             dst = OUT / f"{s.id}.png" if u is None else OUT / "v2" / f"{s.id}_{round(u * 100):03d}.png"
