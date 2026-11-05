@@ -86,6 +86,10 @@ def run(t):
     hair = [x for x in t.op("mh.wardrobe", kind="Hair")]
     t.ok("hair grooms in the wardrobe", bool(hair), detail=str(hair[:3]))
     if hair:
+        # a groom the character does not wear yet: a preset wears one of these (Zuri wears hair[0], CoilBuzzCut)
+        worn = (t.op("mh.palette", character=ch)["selected"].get("Hair") or {}).get("item", "")
+        core = lambda n: n.rsplit("/", 1)[-1].lower().removeprefix("wi_").removesuffix("_binding")
+        hair = [h for h in hair if core(h) != core(worn)] + [h for h in hair if core(h) == core(worn)]
         r = t.op("mh.groom", character=ch, slot="Hair", item=hair[0], melanin=0.95, redness=0.05)
         t.ok("hair worn", r["changed"], detail=str(r))
         t.check("hair colour set", [r["params"]["Melanin"], r["params"]["Redness"]], [0.95, 0.05], tol=1e-3)
