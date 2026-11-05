@@ -10,6 +10,75 @@ Branches:
 - Core fixes go to `main` through my gate: a branch off main, sent to me.
 - Only agent-07 drives the editor. Everyone else sends agent-07 a branch and the command to run.
 
+## STATE AT END OF NIGHT 1 (05 Nov, 21:40 UTC / 03:10 IST): read this first
+
+**Box:** i-0f7a6ac044b75e922 was stopped at 21:18 UTC and is now TERMINATED (cc-64d05f6e, 03:05 IST), after every save was verified. Tomorrow's box restores from S3: the project, the DDC and the Epic sign-in. Nothing ran after that.
+
+**Delivered to the operator:** the fixes preview, Trey + her, 65 s, 960x540, with audio, agent-09 SIGNED.
+- `s3://rf-render-788655295054-aps1/ue-linux/shoot/r3/preview/karma-r3-preview-960x540.mp4`
+- Fixed in it:
+  - lips on both;
+  - her watch on the back of the left wrist;
+  - the collar;
+  - the garments follow both bodies;
+  - head turns (her +26/+28 deg, him -53/-21 deg);
+  - no both-eyes-shut;
+  - the hair pop at 0:39-0:40.
+- **Not fixed:** her hair ends read GREEN/TEAL in S16 (screen-left ends 24% green pixels).
+
+**Operator MetaHuman (Host_Op) as him:** built, swapped in, measured (eye 168.7, knee 49.4, top 181.7 cm), cameras re-framed.
+- Four cast previews of S13-S18, under `private/renders/r3/preview/` only (KMS). The latest is `cast_op4/_mp4/karma-r3-cast-op4-960x540.mp4`.
+- cast_op4 look:
+  - SlickBack hair, full brows, a stubble mustache, no beard;
+  - skin u/v 0.62/0.58;
+  - iris u/v 0.92/0.12;
+  - tee chest 104, with only the shorts slot hidden.
+- **Unverified (nobody has seen cast_op4; the face rule keeps it off kali):**
+  - Is the iris brown? (0.08/0.95 rendered light blue/grey.)
+  - Is the hair straight?
+  - Is the tee-hem patch gone? If not, it is the trousers' waistband: agent-04 slims or lowers it.
+- Gate NOT signed:
+  - His S13 lips are weak: the same curves give less mouth on his face rig (agent-09, item 15).
+  - Her watch is 8.2 cm off under playback. The fix is merged, not run (47c8b61b).
+  - Her green hair is still open.
+
+**Saved, all head-object aws:kms, under `ue-linux/private/`:**
+- renders/r3: final_c 986, cal_A/B/C, cut, cast_op1-4;
+- project/HostStudio 1416 objects (Host_Op saved 21:10);
+- ddc/5.8.4 48589;
+- operator-face (the capture, for re-ingest);
+- logs;
+- secrets/epic.
+
+**Not done:** the 1080p finals and the 65 s + 45 s cuts. V01/V02/S11 in final_c are stale; re-render them.
+
+**Next session, in order:**
+1. Restore the box from S3 (project, DDC, Epic). Pull film/host-studio (3700417f or newer). It carries main a9107015.
+2. The operator reviews cast_op4 and picks Host_Op or Trey for the finals.
+3. The fixes, each verified on the box:
+   - her green hair (item 15: the lights/emissives list, then the A/B);
+   - the watch: seq_dress, then the post-scrub check, which must read 3.6 cm;
+   - with Host_Op: his lips (the face rig), the iris hue crop, the tee waistband.
+4. Respawn + re-dress, then save -> open -> lod0 (no TRASH_) -> save. Then `build.py --cameras` -> `probe_cam --check` on all 13 shots.
+5. A cast preview through agent-09's gate.
+6. 1080p finals of every shot at pick C into a fresh dir:
+   - ~1560 frames at 2.6 s/frame is ~70 min;
+   - set shots first.
+7. agent-06's cuts on the box:
+   - `R3_FINAL=<dir> R3_CUT=/srv/ue/reel/r3/cut/final films/host-studio/reel/r3/cut.sh final --fill-from none --cuts 65s`
+   - then the same with `--cuts 45s`.
+   - Anything with Host_Op goes ONLY to private/ via `film-ue sync dir up`.
+   - Only no-face shots go to shoot/r3/final/.
+8. Wrap per r3/WRAP.md:
+   - The shutdown behaviour is TERMINATE: power off only with `film-ue down`.
+   - Keep idle-guard's keepalive running during the syncs.
+
+**Kali:**
+- 8 QA images from the crashed 19:00 swap attempt are quarantined at `/home/nikhil/.karmax/quarantine/face-r3` (mode 700). They wait on the operator's decision.
+- Nothing is deleted. Cleanup is the operator's, in the morning.
+
+The full list with owners is in "Tomorrow" below, items 1-17.
+
 ## The operator's notes, and what we do about each
 
 | # | note | what changes | owner |
