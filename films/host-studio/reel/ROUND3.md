@@ -191,3 +191,8 @@ If something blocks the editor (a cloud wait, a fix in progress), agent-07 rende
   - (d)/(e) PASS: both eyes shut on 1 frame (f1291, him off screen), which goes to 0 with agent-01's staggered rerun.
   - (c) FAIL at full size: green patches in her ends over the olive overshirt. It is coverage (thin tips), not colour, so a strand coverage A/B follows (hair_cover_ab).
 - Head turns: core fe5d335f (agent-01) writes the turn on the neck/head bones on 5.8, and verify measures it. Rerun queued as chain13, then the cast4 preview and the gate.
+- final_c set re-render finished at 18:23 (pick C, shutter open); the check and rough cut run on the box CPU.
+- Operator MetaHuman (note 2): the ingest is OK. Identity failed conform DEPTH_INPUT (no contours tracked on the promoted frames), so Host stays Trey this cycle and agent-04 is diagnosing. Cutoff: if Host_Op is not built by ~20:15 UTC, round 3 ships with Trey (the swap, re-dress, measure, calibrate, preview and gate need ~1.5 h).
+- chain13b on Trey (bcdda51c): calibrate/naturalize her then him, head turns on the bones, runbook, verify, then cast4 + the gate.
+- hair_cover_ab hit B68 (overwrite never converges); it reruns with an out_dir per variant.
+- WRAP.md (agent-13): the last hour on the box, 21:30-22:30 UTC.
