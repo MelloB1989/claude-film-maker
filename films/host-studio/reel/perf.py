@@ -827,11 +827,18 @@ def place(path: str) -> list:
     out = []
     lengths = ok(client.exec_code("import unreal\nresult = {p: unreal.load_asset(p).get_editor_property("
                                   "'sequence_length') for p in %r}" % [idle_for(w) for w in ("him", "her")]))
+    lives = [f"{ANIM}/AS_reel_{w}_life" for w in ("him", "her")]
+    have = ok(client.exec_code("import unreal\nresult = {p: unreal.EditorAssetLibrary.does_asset_exist(p) for p in %r}"
+                               % lives))
     for who in ("him", "her"):
         s0, s1 = START[who], END
         idle, L = idle_for(who), lengths[idle_for(who)]
         phase = lambda f: ((f - s0) / FPS) % L  # noqa: E731  the idle's time at master frame f (0 at START)
         body = f"{ANIM}/AS_reel_{who}_body" + ("_g" if USE_GESTURE[who] else "")
+        use_life = USE_LIFE[who] and have.get(f"{ANIM}/AS_reel_{who}_life", False)
+        if USE_LIFE[who] and not use_life:  # placed without it until `life` has made it (round 3)
+            print(f"warning: {ANIM}/AS_reel_{who}_life is missing: {LABEL[who]}'s body placed without the life layer "
+                  f"(perf.py calibrate_body + life --who {who})", file=sys.stderr)
         out.append(ok(client.op("seq.anim", path=path, label=LABEL[who], component="Face",
                                 sections=[{"anim": final_face(who), "start": s0, "end": s1 + POST_ROLL,
                                            "loop": False}])))
@@ -843,7 +850,7 @@ def place(path: str) -> list:
              "blend_in": BLEND},
             # round 3: the body life additive over all of it, on its own row
             *([{"anim": f"{ANIM}/AS_reel_{who}_life", "start": s0, "end": s1 + POST_ROLL, "loop": False,
-                "blend_in": BLEND, "row": 2}] if USE_LIFE[who] else [])])))
+                "blend_in": BLEND, "row": 2}] if use_life else [])])))
     return out
 
 
