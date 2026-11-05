@@ -12,6 +12,7 @@ import random
 import unreal
 
 from . import op
+from ._scrub import set_frame
 from .assets import EAL, free, load
 
 AL = unreal.AnimationLibrary
@@ -196,9 +197,9 @@ def gaze_lock(sequence: str, actor_label: str, anim: str, out: str, camera: str 
     from .seq import _comp_binding, sample, set_anim
     if not camera and target is None:
         raise ValueError("gaze_lock needs a camera or a target")
-    if out != anim:
+    if out != anim:  # in place: no copy (duplicating an asset onto itself fails)
         free(out)
-    EAL.duplicate_asset(anim, out)
+        EAL.duplicate_asset(anim, out)
     a = load(out)
     length = float(AL.get_sequence_length(a))
     orig = {(s, d): _keys(a, f"CTRL_expressions_eyeLook{d}{s}") for s in EYES for d in LOOK}
@@ -372,10 +373,10 @@ def bake_pose(sequence: str, actor_label: str, source: str, target: str, anim: s
     frames = list(range(seq.get_playback_start(), seq.get_playback_end()))
     space = unreal.RelativeTransformSpace.RTS_PARENT_BONE_SPACE
     pos, rot, scl = ({b: [] for b in bones} for _ in range(3))
-    LSE.set_current_time(frames[0] + 1)
+    set_frame(frames[0] + 1)
     yield
     for f in frames:
-        LSE.set_current_time(f)
+        set_frame(f)
         for _ in range(ticks):
             yield
         for b in bones:
@@ -384,32 +385,42 @@ def bake_pose(sequence: str, actor_label: str, source: str, target: str, anim: s
             pos[b].append([p.x, p.y, p.z])
             rot[b].append(_q(t))
             scl[b].append([sc.x, sc.y, sc.z])
-    n_keys = AL.get_num_keys(a)
+    n_keys = model_keys(a)
     length = float(AL.get_sequence_length(a))
     span = (len(frames) - 1) / fps  # the seconds the samples cover
     tracks = {str(n) for n in AL.get_animation_track_names(a)}
     ctrl = a.get_editor_property("controller")
-    ctrl.open_bracket("fmbridge bake_pose", True)
-    for b in bones:
-        P, R, S = [], [], []
-        for k in range(n_keys):
-            t = k * length / max(1, n_keys - 1)
-            if t > span:  # past the shot: the animation's own pose
-                own = AL.get_bone_pose_for_frame(a, b, k, False) if b in tracks else unreal.Transform()
-                P.append(own.translation)
-                R.append(own.rotation)
-                S.append(own.scale3d)
-                continue
-            x = min(t * fps, len(frames) - 1.0001)
-            i, u = int(x), x - int(x)
-            P.append(unreal.Vector(*[p0 + (p1 - p0) * u for p0, p1 in zip(pos[b][i], pos[b][i + 1])]))
-            q = _nlerp(rot[b][i], rot[b][i + 1], u)
-            R.append(unreal.Quat(q[0], q[1], q[2], q[3]))
-            S.append(unreal.Vector(*[s0 + (s1 - s0) * u for s0, s1 in zip(scl[b][i], scl[b][i + 1])]))
+    own_poses = {}
+
+    def own(b, t):  # the animation's own local pose of `b` at t (AnimPose: get_bone_pose_for_frame is deprecated)
         if b not in tracks:
-            ctrl.add_bone_curve(b)
-        ctrl.set_bone_track_keys(b, P, R, S)
-    ctrl.close_bracket(True)
+            return unreal.Transform()
+        if t not in own_poses:
+            own_poses[t] = unreal.AnimPoseExtensions.get_anim_pose_at_time(a, t, unreal.AnimPoseEvaluationOptions())
+        return unreal.AnimPoseExtensions.get_bone_pose(own_poses[t], b, unreal.AnimPoseSpaces.LOCAL)
+    ctrl.open_bracket("fmbridge bake_pose", True)
+    try:
+        for b in bones:
+            P, R, S = [], [], []
+            for k in range(n_keys):
+                t = k * length / max(1, n_keys - 1)
+                if t > span:  # past the shot: the animation's own pose
+                    o = own(b, t)
+                    P.append(o.translation)
+                    R.append(o.rotation)
+                    S.append(o.scale3d)
+                    continue
+                x = min(t * fps, len(frames) - 1.0001)
+                i, u = int(x), x - int(x)
+                P.append(unreal.Vector(*[p0 + (p1 - p0) * u for p0, p1 in zip(pos[b][i], pos[b][i + 1])]))
+                q = _nlerp(rot[b][i], rot[b][i + 1], u)
+                R.append(unreal.Quat(q[0], q[1], q[2], q[3]))
+                S.append(unreal.Vector(*[s0 + (s1 - s0) * u for s0, s1 in zip(scl[b][i], scl[b][i + 1])]))
+            if b not in tracks:
+                ctrl.add_bone_curve(b)
+            ctrl.set_bone_track_keys(b, P, R, S)
+    finally:
+        ctrl.close_bracket(True)
     EAL.save_asset(out)
     set_anim(sequence, target, out, label=actor_label)
     return {"anim": out, "bones": len(bones), "keys": n_keys, "frames": len(frames)}
@@ -641,13 +652,48 @@ def new(*, path: str, skeleton: str, length_s: float, fps: int = 30, replace: bo
     ctrl = a.get_editor_property("controller")
     ctrl.open_bracket("fmbridge anim.new", False)
     try:
-        ctrl.set_frame_rate(unreal.FrameRate(int(fps), 1), False)
+        _set_rate(a, ctrl, int(fps))
         ctrl.set_number_of_frames(unreal.FrameNumber(n), False)
     finally:
         ctrl.close_bracket(False)
+    got = model_rate(a)
+    if got and abs(got - int(fps)) > 1e-6:
+        raise OpError(f"{path} stayed at {got:g} fps (asked {int(fps)})", code="engine",
+                      hint="the engine refused the frame rate: see the editor log (film-ue log)")
     EAL.save_asset(path)
     return {"path": path, "changed": created or before != int(AL.get_num_frames(a)), "created": created,
             "frames": int(AL.get_num_frames(a)), "length_s": float(AL.get_sequence_length(a))}
+
+
+def model_keys(a) -> int:
+    """The animation's own key count (its data model): what set_bone_track_keys wants. AnimationLibrary.get_num_keys
+    counts at the platform's target sampling rate instead (AnimSequenceBase.cpp:761)."""
+    try:
+        return int(a.get_editor_property("data_model_interface").get_number_of_keys())  # IAnimationDataModel.h:174
+    except Exception:
+        return int(AL.get_num_keys(a))
+
+
+def model_rate(a) -> float:
+    """The animation's own frame rate (its data model), or 0.0 when the model cannot be read."""
+    try:
+        r = a.get_editor_property("data_model_interface").get_frame_rate()  # IAnimationDataModel.h:180
+        return r.numerator / r.denominator
+    except Exception:
+        return 0.0
+
+
+def _set_rate(a, ctrl, fps: int) -> None:
+    """Set a (bracketed) animation to `fps`. The controller takes only a multiple or a factor of the current rate
+    (AnimDataController.cpp SetFrameRate): 30 -> 24 goes through 120. One second of frames first, so every step
+    converts to whole frames."""
+    cur = int(round(model_rate(a) or 30.0))
+    if cur == fps:
+        return
+    ctrl.set_number_of_frames(unreal.FrameNumber(cur), False)
+    if fps % cur and cur % fps:
+        ctrl.set_frame_rate(unreal.FrameRate(cur * fps // math.gcd(cur, fps), 1), False)
+    ctrl.set_frame_rate(unreal.FrameRate(fps, 1), False)
 
 
 def read_all(a, names=None) -> dict:
@@ -740,21 +786,28 @@ def additive(*, anim: str, out: str, base: str = "first_frame", space: str = "lo
     if not EAL.duplicate_asset(_pkg(anim), out):
         raise OpError(f"could not duplicate {anim} to {out}", code="engine")
     a = load(out)
-    AL.set_additive_animation_type(a, unreal.AdditiveAnimationType.AAT_LOCAL_SPACE_BASE if space == "local"
-                                   else unreal.AdditiveAnimationType.AAT_ROTATION_OFFSET_MESH_SPACE)
+    T = unreal.AdditiveBasePoseType
     if base == "first_frame":
-        AL.set_additive_base_pose_type(a, unreal.AdditiveBasePoseType.ABPT_LOCAL_ANIM_FRAME)
-        a.set_editor_property("ref_frame_index", int(frame))
+        set_additive(a, space, T.ABPT_LOCAL_ANIM_FRAME, frame=int(frame))
     elif base == "ref_pose":
-        AL.set_additive_base_pose_type(a, unreal.AdditiveBasePoseType.ABPT_REF_POSE)
+        set_additive(a, space, T.ABPT_REF_POSE)
     else:
-        b = _anim(base)
-        AL.set_additive_base_pose_type(a, unreal.AdditiveBasePoseType.ABPT_ANIM_FRAME)
-        a.set_editor_property("ref_pose_seq", b)
-        a.set_editor_property("ref_frame_index", int(frame))
+        set_additive(a, space, T.ABPT_ANIM_FRAME, frame=int(frame), seq=_anim(base))
     EAL.save_asset(out)
     return {"out": out, "changed": True, "type": str(a.get_editor_property("additive_anim_type")),
             "base": str(a.get_editor_property("ref_pose_type"))}
+
+
+def set_additive(a, space: str, base_type, frame: int = 0, seq=None) -> None:
+    """Make `a` additive. Through set_editor_property, whose PostEditChange recompresses the animation as additive
+    (AnimationLibrary.set_additive_* only write the fields: the asset would keep playing as a full pose). The base
+    first, the type last, so the final recompression sees all of it."""
+    if seq is not None:
+        a.set_editor_property("ref_pose_seq", seq)
+    a.set_editor_property("ref_frame_index", int(frame))
+    a.set_editor_property("ref_pose_type", base_type)
+    a.set_editor_property("additive_anim_type", unreal.AdditiveAnimationType.AAT_LOCAL_SPACE_BASE if space == "local"
+                          else unreal.AdditiveAnimationType.AAT_ROTATION_OFFSET_MESH_SPACE)
 
 
 # --- retargeting: IK Rigs and an IK Retargeter made by code, then a batch retarget -----------------------------------
@@ -856,11 +909,28 @@ def _world():
 
 def _rig_on(seq, label: str, component: str = ""):
     """The (proxy, control rig, track) on `label`'s binding (or its component's) in `seq`, or None."""
+    rigs = unreal.ControlRigSequencerLibrary.get_control_rigs(seq) or []
+    try:  # the binding itself: display names collide when two characters each have a "Face"
+        from .seq import _comp_binding
+        want = str(_comp_binding(seq, label, component, create=False).get_editor_property("binding_id"))
+    except Exception:
+        want = None
+    ids = False
+    if want:
+        for p in rigs:
+            try:
+                got = str(p.get_editor_property("proxy").get_editor_property("binding_id"))
+            except Exception:
+                continue
+            ids = True
+            if got == want:
+                return p
+    if ids:  # the bindings are known and none is this one: a name match could be another character's
+        return None
     names = {label, component} - {""}
-    for p in unreal.ControlRigSequencerLibrary.get_control_rigs(seq) or []:
+    for p in rigs:
         try:
-            b = p.get_editor_property("proxy")
-            nm = str(b.get_display_name())
+            nm = str(p.get_editor_property("proxy").get_display_name())
         except Exception:
             nm = ""
         if nm in names:
@@ -885,6 +955,19 @@ def rig_controls(*, sequence: str, label: str, component: str = "") -> dict:
     return {"rig": rig.get_class().get_name(), "controls": [str(k.get_editor_property("name")) for k in keys]}
 
 
+def _same(got: list, want: list, tol: float = 1e-3, period: float = 0.0) -> bool:
+    """Read-back values match what was keyed (angles modulo `period`)."""
+    if len(got) != len(want):
+        return False
+    for g, w in zip(got, want):
+        d = abs(float(g) - float(w))
+        if period:
+            d = min(d % period, period - d % period)
+        if d > tol * max(1.0, abs(float(w))):
+            return False
+    return True
+
+
 @op("anim.rig_keys", mutates=True, idempotent=True)
 def rig_keys(*, sequence: str, label: str, keys: dict, component: str = "", rig_class: str = "",
              layered: bool = False) -> dict:
@@ -901,6 +984,11 @@ def rig_keys(*, sequence: str, label: str, keys: dict, component: str = "", rig_
     OpError, not_found = _err()
     seq = load(sequence)
     CR = unreal.ControlRigSequencerLibrary
+    LSE = unreal.LevelSequenceEditorBlueprintLibrary
+    if LSE.get_current_level_sequence() != seq:
+        # the set_local_control_rig_* calls only set the control's value; Sequencer's Control Rig track editor is
+        # what turns that into a key, and it listens only while the sequence is open (ControlRigParameterTrackEditor)
+        LSE.open_level_sequence(seq)
     p = _rig_on(seq, label, component)
     if p is None:
         if not rig_class:
@@ -925,16 +1013,24 @@ def rig_keys(*, sequence: str, label: str, keys: dict, component: str = "", rig_
         from ..errors import closest
         raise OpError(f"no controls {missing[:5]} on {rig.get_class().get_name()}", code="not_found",
                       candidates=closest(missing[0], have), hint="anim.rig_controls lists them")
-    n = 0
+    n, unkeyed = 0, []
     for control, ks in keys.items():
         frames = [unreal.FrameNumber(int(k[0])) for k in ks]
         vals = [k[1] for k in ks]
         if all(isinstance(v, (int, float)) for v in vals):
             CR.set_local_control_rig_floats(seq, rig, control, frames, [float(v) for v in vals])
+            got = CR.get_local_control_rig_floats(seq, rig, control, frames)
+            if not _same(list(got or []), [float(v) for v in vals]):
+                unkeyed.append(control)
         elif all(isinstance(v, dict) and set(v) <= {"pitch", "yaw", "roll"} for v in vals):
             CR.set_local_control_rig_rotators(seq, rig, control, frames,
                                               [unreal.Rotator(roll=v.get("roll", 0.0), pitch=v.get("pitch", 0.0),
                                                               yaw=v.get("yaw", 0.0)) for v in vals])
+            got = CR.get_local_control_rig_rotators(seq, rig, control, frames)
+            if not _same([x for r in got or [] for x in (r.pitch, r.yaw, r.roll)],
+                         [x for v in vals for x in (v.get("pitch", 0.0), v.get("yaw", 0.0), v.get("roll", 0.0))],
+                         period=360.0):
+                unkeyed.append(control)
         elif all(isinstance(v, dict) for v in vals):
             ets = []
             for v in vals:
@@ -944,8 +1040,16 @@ def rig_keys(*, sequence: str, label: str, keys: dict, component: str = "", rig_
                                                                          yaw=r.get("yaw", 0.0)),
                                                  scale=unreal.Vector(1.0, 1.0, 1.0)))
             CR.set_local_control_rig_euler_transforms(seq, rig, control, frames, ets)
+            got = CR.get_local_control_rig_euler_transforms(seq, rig, control, frames)
+            if not _same([x for e in got or [] for x in (e.location.x, e.location.y, e.location.z)],
+                         [x for e in ets for x in (e.location.x, e.location.y, e.location.z)]):
+                unkeyed.append(control)
         else:
             raise OpError(f"control {control}: values must all be numbers, rotators or transforms", code="bad_args")
         n += len(ks)
+    if unkeyed:
+        raise OpError(f"the keys on {unkeyed[:5]} did not land (Sequencer reads back other values)", code="engine",
+                      hint="the sequence must be open in Sequencer with the rig bound (it is open now: run it again); "
+                           "check the control is not driven by another track")
     EAL.save_asset(sequence)
     return {"changed": True, "controls": len(keys), "keys": n, "rig": rig.get_class().get_name()}

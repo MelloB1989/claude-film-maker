@@ -303,9 +303,9 @@ reflected names; an out-parameter comes back as the return value.
 | `unreal.AnimationLibrary.get_num_frames` | `GetNumFrames` | Engine/Source/Editor/AnimationBlueprintLibrary/Public/AnimationBlueprintLibrary.h:73 | yes |
 | `unreal.AnimationLibrary.get_animation_track_names` | `GetAnimationTrackNames` | Engine/Source/Editor/AnimationBlueprintLibrary/Public/AnimationBlueprintLibrary.h:81 | yes |
 | `unreal.AnimationLibrary.is_root_motion_enabled` | `IsRootMotionEnabled` | Engine/Source/Editor/AnimationBlueprintLibrary/Public/AnimationBlueprintLibrary.h:176 | yes |
-| `unreal.AnimationLibrary.set_additive_animation_type` | `SetAdditiveAnimationType` | Engine/Source/Editor/AnimationBlueprintLibrary/Public/AnimationBlueprintLibrary.h:152 | yes |
-| `unreal.AnimationLibrary.set_additive_base_pose_type` | `SetAdditiveBasePoseType` | Engine/Source/Editor/AnimationBlueprintLibrary/Public/AnimationBlueprintLibrary.h:160 | yes |
-| `unreal.AnimationLibrary.get_bone_pose_for_frame` | `GetBonePoseForFrame` | Engine/Source/Editor/AnimationBlueprintLibrary/Public/AnimationBlueprintLibrary.h:562 | yes |
+| `unreal.AnimationLibrary.set_additive_animation_type` (NOT used: writes the field without PostEditChange, so no additive recompression; anim.set_additive sets the properties) | `SetAdditiveAnimationType` | Engine/Source/Editor/AnimationBlueprintLibrary/Public/AnimationBlueprintLibrary.h:152 | yes |
+| `unreal.AnimationLibrary.set_additive_base_pose_type` (NOT used, as above) | `SetAdditiveBasePoseType` | Engine/Source/Editor/AnimationBlueprintLibrary/Public/AnimationBlueprintLibrary.h:160 | yes |
+| `unreal.AnimationLibrary.get_bone_pose_for_frame` (NOT used: deprecated 5.2; AnimPoseExtensions instead) | `GetBonePoseForFrame` | Engine/Source/Editor/AnimationBlueprintLibrary/Public/AnimationBlueprintLibrary.h:562 | yes |
 | `anim.controller.open_bracket` | `OpenBracket` | Engine/Source/Runtime/Engine/Classes/Animation/AnimData/IAnimationDataController.h:109 | yes |
 | `anim.controller.close_bracket` | `CloseBracket` | Engine/Source/Runtime/Engine/Classes/Animation/AnimData/IAnimationDataController.h:117 | yes |
 | `anim.controller.set_number_of_frames` | `SetNumberOfFrames` | Engine/Source/Runtime/Engine/Classes/Animation/AnimData/IAnimationDataController.h:127 | yes |
@@ -353,6 +353,17 @@ reflected names; an out-parameter comes back as the return value.
 | `ControlRigSequencerLibrary.set_local_control_rig_floats` | `SetLocalControlRigFloats` | Engine/Plugins/Animation/ControlRig/Source/ControlRigEditor/Public/ControlRigSequencerEditorLibrary.h:650 | yes |
 | `ControlRigSequencerLibrary.set_local_control_rig_rotators` | `SetLocalControlRigRotators` | Engine/Plugins/Animation/ControlRig/Source/ControlRigEditor/Public/ControlRigSequencerEditorLibrary.h:917 | yes |
 | `ControlRigSequencerLibrary.set_local_control_rig_euler_transforms` | `SetLocalControlRigEulerTransforms` | Engine/Plugins/Animation/ControlRig/Source/ControlRigEditor/Public/ControlRigSequencerEditorLibrary.h:1024 | yes |
+| `ControlRigSequencerLibrary.get_local_control_rig_floats` | `GetLocalControlRigFloats` (evaluates the open Sequencer; rig_keys reads back with it) | Engine/Plugins/Animation/ControlRig/Source/ControlRigEditor/Public/ControlRigSequencerEditorLibrary.h:623 | yes |
+| `ControlRigSequencerLibrary.get_local_control_rig_rotators` | `GetLocalControlRigRotators` | Engine/Plugins/Animation/ControlRig/Source/ControlRigEditor/Public/ControlRigSequencerEditorLibrary.h:890 | yes |
+| `ControlRigSequencerLibrary.get_local_control_rig_euler_transforms` | `GetLocalControlRigEulerTransforms` | Engine/Plugins/Animation/ControlRig/Source/ControlRigEditor/Public/ControlRigSequencerEditorLibrary.h:997 | yes |
+| (set_local_control_rig_* keys only while the sequence is open) | `SetLocalControlRigFloats` sets the value with `EControlRigSetKey::Always`; the key is written by the Sequencer track editor's handler | Engine/Plugins/Animation/ControlRig/Source/ControlRigEditor/Private/ControlRigSequencerEditorLibrary.cpp (SetLocalControlRigFloats) | yes |
+| `MovieSceneBindingProxy.binding_id` | `FMovieSceneBindingProxy::BindingID` (BlueprintReadOnly) | Engine/Source/Runtime/MovieScene/Public/MovieSceneBindingProxy.h:53 | yes |
+| `AnimSequence.data_model_interface` | `DataModelInterface` (BlueprintReadOnly) | Engine/Source/Runtime/Engine/Classes/Animation/AnimSequenceBase.h:291 | yes |
+| `data_model_interface.get_number_of_keys() / get_frame_rate()` | `IAnimationDataModel::GetNumberOfKeys` / `GetFrameRate` (UFUNCTION); AnimationLibrary.get_num_keys counts at the platform sampling rate instead (AnimSequenceBase.cpp:761) | Engine/Source/Runtime/Engine/Classes/Animation/AnimData/IAnimationDataModel.h:174 / :180 | yes |
+| (set_frame_rate takes only a multiple or a factor of the current rate) | `UAnimDataController::SetFrameRate`: `IsMultipleOf || IsFactorOf || !bPopulated`, else an error and no change | Engine/Source/Developer/AnimationDataController/Private/AnimDataController.cpp (SetFrameRate) | yes |
+| `unreal.AnimPoseExtensions.get_anim_pose_at_time(anim, t, unreal.AnimPoseEvaluationOptions())` | `UAnimPoseExtensions::GetAnimPoseAtTime` (out param returned); `FAnimPoseEvaluationOptions` | Engine/Source/Editor/AnimationBlueprintLibrary/Public/AnimPose.h:288, :158, :52 | yes |
+| `unreal.AnimPoseExtensions.get_bone_pose(pose, bone, unreal.AnimPoseSpaces.LOCAL)` | `GetBonePose`, `EAnimPoseSpaces` | Engine/Source/Editor/AnimationBlueprintLibrary/Public/AnimPose.h:193, :32 | yes |
+| `MetaHumanPerformance.generate_blinks` (no `enable_head_movement` on the performance: head motion is the export setting) | `bGenerateBlinks` | Engine/Plugins/MetaHuman/MetaHumanAnimator/Source/MetaHumanPerformance/Public/MetaHumanPerformance.h:373 | yes |
 | `EulerTransform` | `EulerTransform` | Engine/Source/Runtime/AnimationCore/Public/EulerTransform.h:31 | yes |
 | `SkelAnimParams` | `SkelAnimParams` | Engine/Source/Runtime/MovieSceneTracks/Public/Sections/MovieSceneSkeletalAnimationSection.h:20 | yes |
 | `AdditiveInSequencer` | `AdditiveInSequencer` | Engine/Source/Runtime/AnimGraphRuntime/Private/AnimSequencerInstanceProxy.cpp:176 | yes |
@@ -393,13 +404,13 @@ Tests: `tools/tests/test_ue_anim_perfkit.py` (49, pure), `test_ue_anim_ops.py` (
 | status `skipped` "no MetaHuman optional content" | the MetaHuman plugin's optional content is not in the project | enable the MetaHuman plugin content (or add the MetaHumanCharacter plugin's Content); `film-ue op assets.list path=/MetaHumanCharacter/Optional/Animation` must list files |
 | `find.walk` / `find.happy_face` empty | the asset registry has not scanned the plugin yet, or `get_tag_value` returns another shape | `film-ue op anim.find query=walk path=/MetaHumanCharacter`; if `total` is 0 the scan is missing (open the editor once / wait); if `skeleton` is null fix `_tag`/`_object_path` in ops/anim.py |
 | `describe.face_curves` low | the loop's curves are not named `CTRL_expressions_*` in this plugin version | `film-ue op anim.describe anim=<FACE_LOOP> curves=true` and compare with perfkit/rig.py `RAW` |
-| `new.frames` (got 1) | `set_number_of_frames` did not take after `AnimSequenceFactory` (it initialises 1 frame) | ops/anim.py `new`: call `ctrl.set_frame_rate` then `set_number_of_frames` outside the bracket, or `resize_number_of_frames` |
+| `new.frames` (got 1) | `set_number_of_frames` did not take after `AnimSequenceFactory` (it initialises 1 frame) | ops/anim.py `new`: call `ctrl.set_frame_rate` then `set_number_of_frames` outside the bracket, or `resize_number_of_frames`. A rate the engine refused now raises (`stayed at N fps`): `_set_rate` steps through a common multiple |
 | `read.round_trip` / `write.curves` (no keys written) | `AnimationCurveIdentifier().set_curve_identifier()` did not write back into the struct | ops/anim.py `_curve_id`: use the deprecated `unreal.AnimationCurveIdentifierExtensions.get_curve_identifier(anim.get_skeleton(), name, FLOAT)` (worked on the reel; logs a warning per curve) |
 | `audio.emphasis` | the WAV write path (Saved/Selftest/anim) is not writable | check the editor log; any writable path works |
 | `face.mouth_untouched` | perf.face changed a mouthLips curve (a preset touched it) | read `plan.expressions` in the perf.face result; mouth presets are scaled by `mouth_mix`, not removed |
 | `face.alive` fails `head_linear` / `frozen_head` | the source loop has no head curves, or the rig signs are unknown | run `perf.calibrate` (below), then `film-ue op perf.check anim=<out>`; `perf.plot` shows the head strip |
 | `check.catches_robot` | the metrics' thresholds do not suit this engine's key sampling | perfkit/metrics.py `head_linear` (30 Hz resample) and `frozen_head`; adjust the threshold, keep the tests green |
-| `additive.type` | `set_additive_animation_type` takes the enum differently | ops/anim.py `additive`: set `a.set_editor_property("additive_anim_type", ...)` directly |
+| `additive.type` | `set_additive_animation_type` takes the enum differently | already set through properties (`anim.set_additive`); if still wrong, check `ref_pose_type`/`ref_frame_index` in `anim.describe` |
 | `error.*` | an OpError lost its hint/candidates | the op named in the check; its `raise` must pass `hint=` |
 | `calibrate.measured` "did not move" | the face mesh on a bare SkeletalMeshActor does not turn the head from HeadYaw/Pitch/Roll | run `film-ue op perf.calibrate label=<a built MetaHuman>` after `mh.drive_face`; if the head still does not move, the face AnimBP ignores the head curves: keep `solver_head=keep` and turn the body (`anim.head_to_body`) |
 | `calibrate.eye_gains` out of 5..60 | the eye bone's gaze axis was misread (not the axis along the face) | read `raw` in the result; set `signs.eye_deg` by hand in Saved/fmbridge/perf/signs_<skeleton>.json |
@@ -442,7 +453,10 @@ State (fleet/agent-01/ue-anim; merged into ue-helpers by the lead up to B55; thi
   4. `anim.new`: AnimSequenceFactory + `set_number_of_frames` on a fresh model (FactoryCreateNew initialises it with
      one frame: AnimSequenceFactory.cpp:78-79).
   5. `anim.retarget`: the auto-generated chains on a Mixamo skeleton; the progress window under -unattended.
-  6. `anim.rig_keys`: `ControlRigSequencerBindingProxy.proxy.get_display_name()` matching the actor/component.
+  6. `anim.rig_keys`: the rig track is matched by `proxy.binding_id` (display name only when ids are unreadable);
+     it opens the sequence and reads every key back, raising `the keys on [...] did not land` if Sequencer's track
+     editor did not key them (agent-02's audit: set_local_control_rig_* only set the value). If that fires on a
+     freshly opened sequence, a tick between open and keying is the next thing to try.
   7. `_curve_id`: `AnimationCurveIdentifier().set_curve_identifier(...)` relies on a ref-self script method writing
      back into the struct; if curves stop being written (selftest `read.round_trip` fails), fall back to the
      deprecated `get_curve_identifier(skeleton, ...)` (it worked on the reel, with a warning per curve).
@@ -451,6 +465,12 @@ State (fleet/agent-01/ue-anim; merged into ue-helpers by the lead up to B55; thi
   axis calibration assumes the feet (ball_l/r ahead of foot_l/r) give "forward", and that one local axis per bone
   dominates each of flex/side/twist. Check `raw` in its result if a body bends the wrong way.
 - Read "Day-1 triage" above first when a selftest check fails.
+- agent-02's B57 audit fixes (proven on the fake only): anim.new reaches 24/25/48/50 fps via a common multiple
+  (set_frame_rate takes only a multiple or a factor); additive flags through set_editor_property (PostEditChange
+  recompresses; AnimationLibrary.set_additive_* do not); bake_pose and body_life count keys on the data model, read
+  the anim's own pose with AnimPoseExtensions, scrub with _scrub.set_frame; gaze_lock in place (out == anim);
+  speech.to_face sets bGenerateBlinks directly and restores the shared export settings' dialog flag. Not done:
+  gaze_lock/the section offset with a time-warp play rate (to_fixed_play_rate) is still assumed constant.
 - Not done / next: procedural additive gestures (author bone-offset additives by code: needs bone axis calibration
   like the head's); `perf.solve_a2f` (Audio2Face route, design above). B31 (pose library) went to agent-11 as
   pose.* calling anim.rig_keys.

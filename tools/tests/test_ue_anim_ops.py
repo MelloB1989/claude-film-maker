@@ -97,6 +97,68 @@ def test_anim_new_converges(ue):
     assert ue.dialogs == []
 
 
+def test_anim_new_reaches_rates_that_are_not_a_multiple_of_30(ue):
+    # the controller takes only a multiple or a factor of the current rate: 30 -> 24 goes through 120
+    ue.skeletal_mesh("/Game/MH/Face/FaceMesh", FACE_SKEL)
+    for fps, frames in ((24, 48), (25, 50), (60, 120)):
+        r = run_op("anim.new", path=f"/Game/P/AS_{fps}", skeleton=FACE_SKEL, length_s=2.0, fps=fps, replace=True)
+        a = ue.assets[f"/Game/P/AS_{fps}"]
+        assert a._data["fps"] == fps and r["frames"] == frames and r["length_s"] == pytest.approx(2.0)
+    assert not [c for c in ue.calls if c[0] == "AnimationDataController.error"]
+
+
+def test_additive_goes_through_properties_not_the_library_setters(ue, monkeypatch):
+    # AnimationLibrary.set_additive_* skip PostEditChange: the asset would never be recompressed as additive
+    def refuse(*a):
+        raise AssertionError("AnimationLibrary.set_additive_* used")
+    monkeypatch.setattr(ue.AnimationLibrary, "set_additive_animation_type", staticmethod(refuse))
+    monkeypatch.setattr(ue.AnimationLibrary, "set_additive_base_pose_type", staticmethod(refuse))
+    talk(ue)
+    ue.anim("/Game/S/AS_base", length_s=1.0, skeleton=FACE_SKEL)
+    run_op("anim.additive", anim="/Game/S/AS_talk", out="/Game/S/AS_talk_add", base="/Game/S/AS_base", frame=3)
+    a = ue.assets["/Game/S/AS_talk_add"]
+    assert "ABPT_ANIM_FRAME" in str(a._props["ref_pose_type"]) and a._props["ref_frame_index"] == 3
+    assert a._props["ref_pose_seq"] is ue.assets["/Game/S/AS_base"]
+
+
+def _keyable_rig(ue, monkeypatch, listening=True):
+    """A rig whose set_local_control_rig_* key only while its sequence is open (Sequencer's track editor keys)."""
+    ue.spawn("SkeletalMeshActor", "Host")
+    ue.pose("Host", {"head": [0, 0, 160]})
+    seq = ue.add_asset("/Game/T/Seq", "LevelSequence")
+    rig = ue.rig("Host", {"CTRL_brow": "head", "CTRL_neck": "head"})
+    keys = {}
+    LSE = ue.LevelSequenceEditorBlueprintLibrary
+    CR = ue.ControlRigSequencerLibrary
+
+    def setter(s, r, control, frames, values, *a):
+        if listening and LSE.get_current_level_sequence() is s:
+            keys[control] = dict(zip([f.value for f in frames], values))
+
+    def getter(s, r, control, frames, *a):
+        return [keys.get(control, {}).get(f.value, 0.0) for f in frames]
+    for kind in ("floats", "rotators", "euler_transforms"):
+        monkeypatch.setattr(CR, f"set_local_control_rig_{kind}", staticmethod(setter), raising=False)
+        monkeypatch.setattr(CR, f"get_local_control_rig_{kind}", staticmethod(getter), raising=False)
+    LSE.current = None
+    return seq, keys
+
+
+def test_rig_keys_opens_the_sequence_and_checks_the_keys_landed(ue, fmb, monkeypatch):
+    seq, keys = _keyable_rig(ue, monkeypatch)
+    r = run_op("anim.rig_keys", sequence="/Game/T/Seq", label="Host", keys={"CTRL_brow": [[0, 0], [12, 0.6], [30, 0]]})
+    assert r["keys"] == 3 and keys["CTRL_brow"] == {0: 0.0, 12: 0.6, 30: 0.0}
+    assert ue.LevelSequenceEditorBlueprintLibrary.get_current_level_sequence() is seq
+
+
+def test_rig_keys_that_do_not_land_are_an_error(ue, fmb, monkeypatch):
+    _keyable_rig(ue, monkeypatch, listening=False)
+    from fmbridge.errors import OpError
+    with pytest.raises(OpError) as e:
+        run_op("anim.rig_keys", sequence="/Game/T/Seq", label="Host", keys={"CTRL_brow": [[0, 0], [12, 0.6]]})
+    assert e.value.code == "engine" and "CTRL_brow" in str(e.value)
+
+
 def test_anim_find_ranks_metahuman_templates(ue):
     for p in ("/MetaHumanCharacter/Optional/Animation/UEFNAnimPreset/Locomotion/AS_MH_Neutral_Walk_Loop_F",
               "/MetaHumanCharacter/Optional/Animation/UEFNAnimPreset/Locomotion/AS_MH_Neutral_Run_Loop_F",
