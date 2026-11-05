@@ -572,8 +572,12 @@ if unreal.EditorAssetLibrary.does_asset_exist(HER_BP):
             ride(f"HerEar{side}").attach_to_component(face, bone, rule, rule, rule, False)
     a, b = body_.get_socket_location("lowerarm_twist_02_l"), body_.get_socket_location("hand_l")
     fwd = (b - a).normal()
-    out = body_.get_socket_location("wrist_outer_l") - body_.get_socket_location("wrist_inner_l")
-    up = (out - fwd * out.dot(fwd)).normal()  # the back of the wrist, square to the forearm
+    # the screen faces the back of the wrist: forearm x the knuckle line (pinky -> index, the thumb side) in UE's
+    # axes, on the left arm. Round 2 used wrist_outer - wrist_inner, which is that knuckle line: the screen faced the
+    # thumb side of the forearm and the loop's narrow (4.2 cm) axis lay across the wrist's width
+    across = body_.get_socket_location("index_metacarpal_l") - body_.get_socket_location("pinky_metacarpal_l")
+    across = (across - fwd * across.dot(fwd)).normal()
+    up = fwd.cross(across).normal()
     at = b - fwd * 3.6  # just above the wrist bone
     if prop("HerWatch", "smartwatch", (at.x, at.y, at.z)):
         w = ride("HerWatch")
