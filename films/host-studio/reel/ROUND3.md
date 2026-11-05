@@ -1,0 +1,87 @@
+# karma reel: round 3 (the Linux shoot)
+
+Director and integrator: agent-10. Round 3 re-shoots the whole reel on the Linux GPU box
+(i-0f7a6ac044b75e922, project HostStudio, level `/Game/Studio/Studio`). It uses v2's shot table (`shots.py`, PLAN.md
+§4) and the core helpers on `main` (2bf01e0c, day-1 tested). Nothing from the Windows v2 renders is mixed in.
+
+Branches:
+- Film code goes on `film/host-studio`. Each owner works on `fleet/<agent>/r3-<topic>` off it and sends me the sha,
+  and I merge.
+- Core fixes go to `main` through my gate: a branch off main, sent to me.
+- Only agent-07 drives the editor. Everyone else sends agent-07 a branch and the command to run.
+
+## The operator's notes, and what we do about each
+
+| # | note | what changes | owner |
+|---|---|---|---|
+| 1 | Faces and movement read robotic: head, eyes, blinks, brows, smiles, micro-motion, sway, gestures (**top priority**) | every presenter shot's face and body go through perfkit: `perf.face` (softened solver head, micro-motion, overshoot-and-settle turns, saccades with blinks, irregular asymmetric blinks, brow flashes and smiles on stressed words), v2's smoothstep holds become gaze and expression events, a body life layer (breath, weight shift, sway) over the idle, and 1-2 gestures if they read. Judged on `anim.check` numbers plus before/after stills | agent-01 |
+| 2 | He is replaced by a MetaHuman that resembles the operator | capture (`MySlate_3`, private: pulled on the box only) -> identity -> character -> rig/textures/build -> body at the operator's height and build -> outfit re-fit (charcoal trousers, grey tee). The actor keeps the label **`Host`**, so build/light/perf code is unchanged. Eye height and standing height go to agent-11 | agent-04 |
+| 3a | Her watch must sit flat on the back of her LEFT wrist | re-seat the watch's socket/offset on her left hand: dial on the back of the wrist, strap flat | agent-02 |
+| 3b | Her overshirt collar clips into her neck/hair | reshape the collar so it rolls naturally with clearance (Blender headless **on the GPU box only**), re-import, check every angle of S15/S16/S17 | agent-02 |
+| 3c | Her hair shortens at the shoulders at 0:39-0:40 of the v2 cut | find the pop (groom LOD switch, sim reset at the cut, or binding) and make it stable for whole shots; prove it on the frames around the cut | agent-09 |
+| 4 | 16:9 only, 1080p first, all on Linux, every shot rendered from its first frame | no 9:16 outputs (`vcrop` unused). 1080p PNG, preset final, one MRQ job per shot from its first frame (cloth pre-roll), resumable. 4K only if the operator asks | agent-05 (plan), agent-07 (runs) |
+
+Cameras (agent-11): his shots S13 and S15 follow his eye height (`EYES_HIM`, `shots.lifted`). `framing.py` checks
+every presenter shot: cut above the knee, the whole head in frame, his head under the sign. Heights come from agent-04.
+
+QA (agent-09): stills and a contact sheet for every rendered shot (framing, clipping, the watch, the collar, the hair)
+before I approve a final.
+
+The cut (agent-06): 65 s and 45 s, 16:9, with captions from `LINES`/cues.json and loudness to spec, built with the
+reel's assembly tooling (`cut.py`, `assemble.py`, `mix.py`, `mix45.py`). The 45 s cut keeps v2's splices: N01 and
+V04 are dropped.
+
+## Shots: what changes per shot
+
+| shot | time | cast | round 3 changes | final needs |
+|---|---|---|---|---|
+| V01 shelves | 0:00-0:07.12 | none | re-render on Linux | studio build |
+| V02 credenza | 0:07.12-0:15 | none | re-render | studio build |
+| V03 window + olive | 0:15-0:20 | none | re-render | studio build |
+| V04 slats + sign | 0:20-0:25 | none | re-render (not in the 45 s cut) | studio build |
+| V05 the room | 0:25-0:30 | none | re-render | studio build |
+| S11 sign lights | 0:30-0:32.12 | none | re-render (the halo, letter by letter) | studio build |
+| S12 studio on | 0:32.12-0:35 | none | re-render | studio build |
+| N01 shelves at night | 0:35-0:40 | none | re-render (not in the 45 s cut); hair-pop window: confirm nobody is in it | studio build |
+| S13 him | 0:40-0:45 | him | new him; perfkit face (head down -> up to the lens, L1, smirk); camera at his eye height | 2, 1, cameras |
+| S15 hand-off | 0:45-0:50 | him, her | new him; perfkit face/body; his head turns to her; her L3a; collar, watch, hair | 2, 1, 3a-c, cameras |
+| S16 her line | 0:50-0:55 | her | perfkit face (L3b, head tilt on "yourself"); watch and collar in frame | 1, 3a-c |
+| S17 together | 0:55-1:00 | him, her | both: the glance on "comes around", then both to the lens; cut above the knee | 2, 1, 3a-c, cameras |
+| S18 title | 1:00-1:05 | him, her | a natural idle with life (not frozen); the practicals dim | 2, 1, 3a-c |
+
+## Order of work (the box is never idle)
+
+The editor is the bottleneck: renders and character work both need it. Long set-shot renders fill the box while the
+character and performance work happens offline or in Epic's cloud. agent-07 keeps this queue and always starts the
+next item before the current one ends.
+
+1. **Rebuild on Linux** (agent-07): bring the box checkout to `film/host-studio`, rebuild the studio and SEQ_Reel
+   from code (`build.py`, `light.py`), then render agent-05's `r3/10-preview.yaml`. agent-09 checks the preview.
+2. **The operator's capture** (agent-04, run by agent-07): pull `MySlate_3` on the box (the box role only) and run
+   identity from the footage. While the cloud solve runs, the editor is free for item 3.
+3. **AA calibration** (agent-05): `r3/20-calibrate.yaml` (24 frames of S17, A/B). Pick the settings for the finals.
+4. **Set-shot finals**: V01-V05, S11, S12, N01 (`r3/30-final.yaml`), one shot per job, about 1150 frames. These
+   fill the box while items 5-7 are prepared. Each finished shot goes to agent-09 for QA.
+5. **Her fixes** (agent-02 watch and collar; agent-09 hair), then **her performance** (agent-01, S16 first).
+   Stills to me, then the S16 final.
+6. **His character** (agent-04): character -> body -> outfit -> build. Then agent-11 sets `EYES_HIM`/`TOP_HIM`,
+   agent-07 re-runs `build.py cameras()`, and agent-01 does his performance (S13).
+7. **Presenter finals**, each after I approve its stills, in this order: S16, S13, S15, S17, S18.
+8. **The cut** (agent-06): the 65 s and 45 s cuts as finals arrive (preview frames stand in until then), then
+   captions and the mix. My final review, then the deliverables.
+
+If something blocks the editor (a cloud wait, a fix in progress), agent-07 renders the next set shot.
+
+## Open inputs
+
+- **VO**: round 3 keeps v2's lines and selects (`vo_selects.json`: him Tarun, her Tripti). The built WAVs and
+  cues.json (`out/host-studio/reel/vo/`) were made on the v2 workstation. If neither the box nor S3 has them,
+  `vo.py takes` re-makes the same takes (same seed and settings) with the ElevenLabs key from `fleetctl secret`, then
+  `vo.py build`. Who holds the key: asked of the orchestrator.
+- **v2's Unreal assets on the box** (`/Game/Speech`, `/Game/Reel/Perf`): agent-07 checks. If they are missing,
+  everything is re-solved (`speech.to_face` on Linux 5.8: proven by agent-07's check).
+- **4K**: only if the operator confirms.
+
+## Log
+
+(newest last: what was run, the result, and what is next)
