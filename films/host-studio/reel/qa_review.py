@@ -1,6 +1,7 @@
 """Round 3 QA of rendered reel frames (agent-09): contact sheets per shot, frame-to-frame pops, before/after pairs.
 Runs anywhere with Pillow and numpy on frames pulled from the box (`film-ue pull-dir`); frames are found recursively
-and numbered by the master frame at the end of their name (S13 = 0960..1079, any extension MRQ wrote).
+and numbered by the master frame at the end of their name (S13 = 0960..1079, any extension MRQ wrote; -0004..-0001,
+the pre-roll before frame 0, are skipped).
 
     python reel/qa_review.py sheets FRAMES --out DIR [--per 8] [--width 320]     a sheet per shot + reel.jpg
     python reel/qa_review.py pops FRAMES [--shots S17] [--box 0.5,0,1,1] [--k 4]  jumps between frames, per shot
@@ -35,9 +36,9 @@ def frames(root: str) -> dict:
     """{master frame: path} under root (the last run of 4+ digits in the file name is the frame)."""
     out = {}
     for p in Path(root).rglob("*"):
-        m = re.search(r"(\d{4,})(?!.*\d)", p.stem)
-        if p.suffix.lower() in EXTS and m:
-            out[int(m.group(1))] = p
+        m = re.search(r"(-?)(\d{4,})(?!.*\d)", p.stem)
+        if p.suffix.lower() in EXTS and m and not m.group(1):  # -0001: a pre-roll frame before the sequence's 0
+            out[int(m.group(2))] = p
     return out
 
 
