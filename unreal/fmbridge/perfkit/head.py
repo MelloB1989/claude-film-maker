@@ -180,12 +180,13 @@ def naturalize(times: list, values: list, cutoff_hz: float = 2.0, gain: float = 
 
 
 def to_rig(head: dict, signs: HeadSigns | None = None, tol_deg: float = 0.02, switch: bool = True) -> dict:
-    """The composed head as the face rig's curves {"HeadYaw": (times, values), ...} in the rig's signs, keys reduced
+    """The composed head as the face rig's curves {"HeadYaw": (times, values), ...} in the rig's signs and curve
+    assignment (signs.curves: which curve turns, nods, tilts), keys reduced
     to `tol_deg`; with `switch` HeadControlSwitch = 1 across (so the face rig turns the head)."""
     s = signs or HeadSigns()
     t = head["times"]
     out = {}
-    for name, key, sign in (("HeadYaw", "yaw", s.yaw), ("HeadPitch", "pitch", s.pitch), ("HeadRoll", "roll", s.roll)):
+    for name, key, sign in s.axes():
         out[name] = C.reduce(t, [sign * v for v in head[key]], tol_deg)
     if switch:
         out["HeadControlSwitch"] = ([t[0], t[-1]], [1.0, 1.0])
@@ -196,7 +197,7 @@ def from_rig(curves: dict, signs: HeadSigns | None = None) -> dict:
     """The inverse of to_rig for reading a solver's head: {"yaw": (t, v), ...} in the character's frame."""
     s = signs or HeadSigns()
     out = {}
-    for name, key, sign in (("HeadYaw", "yaw", s.yaw), ("HeadPitch", "pitch", s.pitch), ("HeadRoll", "roll", s.roll)):
+    for name, key, sign in s.axes():
         if name in curves:
             t, v = curves[name]
             out[key] = (list(t), [sign * x for x in v])

@@ -628,3 +628,31 @@ def test_blinks_never_tick_like_a_metronome():
         if len(ts) >= 4:
             assert B._cv(ts) >= 0.25, (seed, ts)
         assert all(b - a >= 0.0 for a, b in zip(ts, ts[1:]))
+
+
+# the reel's MetaHumans (REEL_PERF.md, measured on the head bone): HeadYaw nods (+ down), HeadRoll turns (+ towards
+# world -Y, the character's right), HeadPitch tilts ear to shoulder. Responses at the eyes, cm, for +10 on each curve.
+REEL_RESP = {"HeadYaw": {"yaw": 0.02, "pitch": -1.6, "roll": 0.01},
+             "HeadRoll": {"yaw": -1.7, "pitch": 0.05, "roll": 0.03},
+             "HeadPitch": {"yaw": 1.5, "pitch": -0.1, "roll": 0.9}}
+
+
+def test_head_axes_follow_what_each_curve_does_not_its_name():
+    assert R.head_axes(REEL_RESP) == {"yaw": "HeadRoll", "pitch": "HeadYaw", "roll": "HeadPitch"}
+    plain = {"HeadYaw": {"yaw": 1.7, "pitch": 0.0, "roll": 0.0}, "HeadPitch": {"yaw": 0.0, "pitch": 1.6, "roll": 0.0},
+             "HeadRoll": {"yaw": -1.4, "pitch": 0.0, "roll": 1.0}}
+    assert R.head_axes(plain) == {"yaw": "HeadYaw", "pitch": "HeadPitch", "roll": "HeadRoll"}
+
+
+def test_head_curves_follow_the_measured_assignment():
+    s = R.HeadSigns(yaw=-1.0, pitch=-1.0, roll=1.0, curves={"yaw": "HeadRoll", "pitch": "HeadYaw", "roll": "HeadPitch"})
+    t = [0.0, 1.0, 2.0]
+    head = {"times": t, "yaw": [0.0, 30.0, 0.0], "pitch": [0.0, -5.0, 0.0], "roll": [0.0, 0.0, 0.0]}
+    rig = H.to_rig(head, s, tol_deg=0.0)
+    assert max(rig["HeadRoll"][1]) == 0.0 and min(rig["HeadRoll"][1]) == -30.0  # the turn is on HeadRoll
+    assert max(rig["HeadYaw"][1]) == 5.0  # looking down 5 deg: + down on HeadYaw
+    back = H.from_rig(rig, s)
+    assert back["yaw"][1][1] == 30.0 and back["pitch"][1][1] == -5.0
+    assert R.HeadSigns.from_json(s.to_json()).curves == s.curves
+    with pytest.raises(ValueError):
+        R.HeadSigns(curves={"yaw": "HeadYaw", "pitch": "HeadYaw", "roll": "HeadRoll"})
