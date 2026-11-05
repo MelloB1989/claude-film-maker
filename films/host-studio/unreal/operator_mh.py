@@ -33,6 +33,11 @@ logged. Only Epic's cloud (rig, textures) sees the face, through the MetaHuman s
 #   clip checks -> save -> STAGE='measure' -> agent-11's heights -> agent-01's calibration on Host_Op.
 #   The state (OperatorCapture/**, Host_Op*, Unpacked/Host_Op/**, the CaptureManager Media frames) is saved under
 #   ue-linux/private/ only.
+# CORRECTION (round 3 overnight): mh.build does NOT build the editing instance's collection, so groom/garment colours
+#   (instance parameters) cannot be set on the character even after a (forced) build: 'assembly failed (collection not
+#   built)'. Tonight's workaround: colour on the placed actor, groom.set label=Host melanin=0.9 redness=0.1 (per
+#   instance, saved with the level). Lead for the real fix: the editor's preview collection
+#   (MetaHumanCharacterEditorSubsystem.get_preview_collection / assemble_for_preview), which the Creator UI colours.
 # Not viable: the no-depth route (the Creator's ConformTargetParams wants a target head mesh + 2D curves from a known
 #   camera, i.e. a head mesh built from the depth by hand). Untested: the teeth pose (needs the solved identity).
 import json
