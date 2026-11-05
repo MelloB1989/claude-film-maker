@@ -218,6 +218,9 @@ for a in unreal.get_editor_subsystem(unreal.EditorActorSubsystem).get_all_level_
         continue
     r = done.setdefault(lab, {})
     def put(key, c, f):
+        if c.get_name().startswith("TRASH_"):  # a blueprint re-instance (op -> trey swap) left the actor stale ones
+            r[f"{key} {c.get_name()}"] = "ERR stale TRASH_ component: save and reopen the level, then pin again"
+            return
         try:
             f(c)
             r[f"{key} {c.get_name()}"] = "ok"
