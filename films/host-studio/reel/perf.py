@@ -927,7 +927,10 @@ def cleanup() -> dict:
 # are hidden until their first shot; the pre-roll covers the handles and a render's warm-up) to POST_ROLL after END,
 # phased so the idle is where the baked body starts and ends, cross-faded over BLEND frames.
 PRE_ROLL, POST_ROLL, BLEND = 240, 48, 6
-USE_LIFE = {"him": True, "her": True}  # round 3: `life` makes AS_reel_<who>_life (place skips it until then)
+# OFF: placed as an additive over the body AFTER sync, the life moves the body (pelvis shift, spine, torso follow)
+# while the face (the head and neck geometry) plays its own baked pose: a seam at the neck and collar. It must be in
+# the body before sync bakes the face from it (round 3, agent-01: being changed).
+USE_LIFE = {"him": False, "her": False}
 
 
 def drive_faces() -> list:
