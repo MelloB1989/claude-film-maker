@@ -940,7 +940,10 @@ def _captures(cam, width: int, height: int, which=("scene", "display")):
         cc.set_editor_property("capture_every_frame", False)
         cc.set_editor_property("capture_on_movement", False)
         cc.set_editor_property("always_persist_rendering_state", True)
-        for src, fmt, key in (("SCS_SCENE_COLOR_HDR", "RTF_RGBA16F", "scene"), ("SCS_FINAL_COLOR_LDR", "RTF_RGBA8", "display")):
+        # the display target is sRGB (day 1): an RTF_RGBA8 one stores the final colour linear, so a grey card read
+        # 0.23 (0.52 encoded); qa's capture_gamma selftest found RTF_RGBA8_SRGB matches the viewport too
+        for src, fmt, key in (("SCS_SCENE_COLOR_HDR", "RTF_RGBA16F", "scene"),
+                              ("SCS_FINAL_COLOR_LDR", "RTF_RGBA8_SRGB", "display")):
             if key not in which:
                 continue
             rt = RL.create_render_target2d(w, int(width), int(height), getattr(unreal.TextureRenderTargetFormat, fmt))
@@ -949,7 +952,7 @@ def _captures(cam, width: int, height: int, which=("scene", "display")):
             for _ in range(3):  # temporal history and streaming settle across a few captures
                 cc.capture_scene()
                 yield
-            # bNormalize False: raw HDR values (True clamps to 0-1: KismetRenderingLibrary.cpp:328). The RGBA8 target
+            # bNormalize False: raw HDR values (True clamps to 0-1: KismetRenderingLibrary.cpp:328). The 8-bit target
             # reads back as 0..255 whatever bNormalize says (day 1: a grey card's mean read 58-123; view.read_pixels
             # says the same), so display values are divided by 255 here. A bool + out-param UFUNCTION returns the
             # array (None on failure).
