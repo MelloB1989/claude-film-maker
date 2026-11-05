@@ -24,6 +24,17 @@ name: face-line
 op: seq.anim
 args: {path: "${seq}", label: "${host}", component: Face, sections: [{anim: "${face_anim}", start: 48, blend_in: 6, blend_out: 6}]}
 ---
+# the face, played by Sequencer, stops following the body: its neck and chest stay put while the body moves and the
+# chest pokes through the shirt (day 1's contact sheet, frames 119-167). Bake the body's pose into the face's
+# animation so face and body are one skeleton (anim.bake_follow, unreal/README.md trap).
+kind: op
+version: 1
+order: 56
+name: face-follows-body
+op: anim.bake_follow
+args: {sequence: "${seq}", actor_label: "${host}", anim: "${face_anim}", out: "${face_anim}_follow"}
+timeout: 1800
+---
 kind: op
 version: 1
 order: 55

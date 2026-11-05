@@ -24,7 +24,10 @@ STANDING = {  # a 170 cm adult at the origin, facing +X: the bones the framing s
     "ball_l": [12, -10, 2], "ball_r": [12, 10, 2], "FACIAL_L_Eye": [8, -3, 165], "FACIAL_R_Eye": [8, 3, 165]}
 
 # (kind, name) -> why it cannot converge on the fake (empty when everything converges)
-KNOWN: dict = {}
+KNOWN: dict = {  # what cannot converge ON THE FAKE, with why (the box runs it)
+    ("op", "face-follows-body"): "anim.bake_follow scrubs the sequence and reads real bone poses; the fake has no "
+                                  "evaluated skeleton (passes on the box)",
+}
 
 
 def _box_content(ue, fmb, tmp_path, monkeypatch, docs_vars):
