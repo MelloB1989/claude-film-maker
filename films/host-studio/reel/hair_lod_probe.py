@@ -59,10 +59,14 @@ if acts:
                                                             "custom_lod_mapping")})
     # day 1 of round 3: build.py --lod0 found LODSync/skeletal components named TRASH_* (left by a Blueprint
     # recompile): which components are live (registered, attached to the actor's root) and which are stale?
-    out["components"] = [{"name": c.get_name(), "class": c.get_class().get_name(), "registered": _try(c.is_registered),
+    # is_registered is not exposed to Python (5.8); is_active/attach parent/visibility are, so each is read guarded
+    out["components"] = [{"name": c.get_name(), "class": c.get_class().get_name(),
+                          "active": _try(lambda: c.is_active()),
                           "attach": _try(lambda: c.get_attach_parent().get_name() if c.get_attach_parent() else None),
-                          "visible": _try(c.is_visible) if hasattr(c, "is_visible") else None}
+                          "visible": _try(lambda: c.is_visible()),
+                          "outer": _try(lambda: c.get_outer().get_name())}
                          for c in a.get_components_by_class(unreal.ActorComponent)]
+    out["root"] = _try(lambda: a.get_editor_property("root_component").get_name())
     out["class"] = a.get_class().get_path_name()
     for c in a.get_components_by_class(unreal.SkeletalMeshComponent):
         out["skel"].append({"name": c.get_name(), "forced_lod_model": _prop(c, "forced_lod_model"),
