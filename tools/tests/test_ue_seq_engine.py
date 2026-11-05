@@ -188,6 +188,17 @@ def test_eval_channels_and_transforms(level):
     assert hero[0][:3] == [0.0, 0.0, 0.0] and abs(hero[0][4] - 170.0) < 1e-6
 
 
+def test_a_look_at_does_not_follow_the_sequencer_pose(level):
+    """seq.eval opens the sequence and Sequencer leaves Hero posed at frame 96; CamB's look_at Hero aims where the
+    spec puts Hero at that key's frame, not at the posed level actor, so the plan stays empty (day 1 on the box)."""
+    s = spec()
+    s["bindings"]["CamB"] = {"transform": {"keys": [{"frame": 0, "loc": [300, 0, 160], "look_at": "Hero"}]}}
+    run_op("seq.apply", spec=s)
+    run_op("seq.eval", path=SEQ, frames=[0, 96], labels=["Hero"])
+    assert level.actor("Hero").get_actor_location().x == 100.0  # posed, as the open Sequencer leaves it
+    assert [st["why"] for st in run_op("seq.plan", spec=s)["steps"]] == []
+
+
 def test_check_flags_gaps_and_unbound(level):
     run_op("seq.apply", spec=spec(camera_cuts=[["CamA", 0, 100], ["CamB", 120]]))
     level.world.remove(level.actor("CamB"))
