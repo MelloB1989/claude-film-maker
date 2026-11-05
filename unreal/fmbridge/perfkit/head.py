@@ -202,3 +202,26 @@ def from_rig(curves: dict, signs: HeadSigns | None = None) -> dict:
             t, v = curves[name]
             out[key] = (list(t), [sign * x for x in v])
     return out
+
+
+# A head turn carried by the neck as well as the head (a real neck turns along its length).
+NECK_SHARE = {"neck_01": 0.3, "neck_02": 0.3, "head": 0.4}
+
+
+def axis_quat(axis: str, deg: float) -> list:
+    """A quaternion [x, y, z, w] for `deg` about the local axis "x", "y" or "z"."""
+    h = math.radians(deg) / 2
+    q = [0.0, 0.0, 0.0, math.cos(h)]
+    q["xyz".index(axis)] = math.sin(h)
+    return q
+
+
+def turn_bones(own: dict, yaw_deg: list, axes: dict, shares: dict | None = None) -> dict:
+    """The neck and head bones' local rotations with a head turn added: `own` {bone: [q per key]} as the animation
+    has them, `yaw_deg` the turn per key (the character's frame: + = their left), `axes` {bone: [axis, sign]} the
+    local axis that turns each bone left (perf.calibrate: yaw_bone), each bone taking its NECK_SHARE.
+    -> {bone: [q per key]}."""
+    from .bodylife import qmul
+    sh = shares or NECK_SHARE
+    return {b: [qmul(q, axis_quat(axes[b][0], axes[b][1] * sh[b] * y)) for q, y in zip(qs, yaw_deg)]
+            for b, qs in own.items() if b in sh and b in axes}

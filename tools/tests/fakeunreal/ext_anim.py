@@ -104,7 +104,27 @@ class _Controller:
 
     def set_bone_track_keys(self, bone, pos, rot, scl, should_transact=True):
         self.anim._data["bones"].add(str(bone))
+        self.anim._data.setdefault("tracks", {})[str(bone)] = (
+            [[p.x, p.y, p.z] for p in pos], [[q.x, q.y, q.z, q.w] for q in rot], [[c.x, c.y, c.z] for c in scl])
         return True
+
+
+class AnimPoseExtensions(core.Object):
+    """A bone's local pose at a time from the animation's own keys (the nearest key; identity without a track)."""
+    @staticmethod
+    def get_anim_pose_at_time(anim, time, options=None):
+        return (anim, float(time))
+
+    @staticmethod
+    def get_bone_pose(pose, bone, space=None):
+        anim, t = pose
+        tr = anim._data.get("tracks", {}).get(str(bone))
+        if not tr:
+            return core.Transform(rotation=core.Quat())
+        n = len(tr[1])
+        length = float(AnimationLibrary.get_sequence_length(anim))
+        i = min(n - 1, max(0, int(round(t / length * (n - 1))) if length > 0 else 0))
+        return core.Transform(location=core.Vector(*tr[0][i]), rotation=core.Quat(*tr[1][i]), scale=core.Vector(*tr[2][i]))
 
 
 class _Model:
@@ -297,7 +317,7 @@ class TopLevelAssetPath:
 def install(fake):
     for cls in (Skeleton, SkeletalMesh, AnimSequence, AnimationLibrary, AnimationCurveIdentifierExtensions,
                 RichCurveKey, AnimSequenceFactory, ARFilter, TopLevelAssetPath, AnimationCurveIdentifier, MetaHumanPerformance,
-                MetaHumanPerformanceFactoryNew, MetaHumanPerformanceExportUtils):
+                MetaHumanPerformanceFactoryNew, MetaHumanPerformanceExportUtils, AnimPoseExtensions):
         if hasattr(fake, "_classes"):
             fake._classes[cls.__name__] = cls
         setattr(fake, cls.__name__, cls)
