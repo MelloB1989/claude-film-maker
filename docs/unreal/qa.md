@@ -335,7 +335,7 @@ Most rows are the HANDOFF's unproven list: a failure there is new knowledge, so 
 
 ## HANDOFF
 
-Where WP10 stopped (2026-11-05 night, agent-09; updated for B59):
+Where WP10 stopped (2026-11-05 night, agent-09; updated for B59 and day 1 on the GPU box):
 
 - Done: the pure core (`unreal/fmbridge/qa/`, 60+ unit tests incl. numpy-vs-pure agreement), all `view.*`/`qa.*` ops
   with fake-engine tests (`tools/tests/fakeunreal/ext_qa.py` renders bounds boxes + depth layers), the selftest, the
@@ -355,8 +355,17 @@ Where WP10 stopped (2026-11-05 night, agent-09; updated for B59):
   the fake (dx.md §5). It found a spliced duplicate in `selftest/qa.py` (fixed) and audio's wrong `t.check` calls.
 - B57 fixes (merged): `view.still rt_format` any case, 8-bit only (a float target exports EXR); `qa.floating` traces
   on `_util.visibility_channel()` (ECC_VISIBILITY live).
-- Day-1: the table above, row per check. Run `film-ue selftest qa` first with `--baseline auto` (creates them), and a
-  second time to see the noise floor before trusting `baseline` failures.
+- Day-1 (2026-11-05, UE 5.8.4 Linux, offscreen L4; DAY1-REPORT.md): qa went 26/6 -> 30/2 -> **32/0**. Fixed on the
+  box: the capture component's ShowOnlyActors/HiddenActors are EditInstanceOnly (Python refuses them), so view.capture
+  uses Clear*/ShowOnlyActorComponents/HideActorComponents (agent-13 f9bbd4fd); render targets are cached per world
+  (a level change collected them, agent-13 72a80945); the capture gamma is decided: **RTF_RGBA8_SRGB** is the
+  default (`view.STILL_FORMAT`; SSIM to the viewport 0.67 vs 0.59 for RGBA8), env's own captures went sRGB too
+  (agent-08); `qa.floating`/`qa.overlaps` leave out cameras and lights by default (a cine camera's bounds take in its
+  editor mesh proxy: the demo's qa.review flagged them, agent-09 809765c1).
+- Still open after day 1: baselines stored before stills went sRGB fail once (anim, env: `film-ue selftest <area>
+  --baseline update` on the next box run); MIN_SSIM was not tuned (no two-run noise floor yet); the rest of the
+  "unproven" list above passed implicitly with qa 32/0 but was not measured one by one (Lumen warm-up count,
+  read_render_target_raw speed). Per the operator's wrap-up, no further box time for qa on day 1.
 - Not done / ideas: occlusion of a subject by another actor in frame (a line trace camera→bone; WP7 started one in
   camkit), checker-texture (failed material) detection in stills, per-frame penetration across a whole shot
   (`qa.review checks=["penetration"]` does it per sampled frame; a dense scan would be a separate op), WP7's

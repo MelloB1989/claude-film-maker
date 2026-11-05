@@ -81,3 +81,4 @@ Status: `open`, `claimed <agent>`, `review`, `merged <sha>`.
 | B65 | pose IK reach on the engine (deferred at the wrap-up) | WP4 | M | open (agent-01) |
 | B66 | qa capture format: whether view.capture defaults to RTF_RGBA8_SRGB like env's display capture (see B63) | WP10 | S | open (agent-09) |
 | B67 | New-process and command-line executors: prove a real render (cmdline writes its queue as an asset now; the new-process executor still needs the MRQ editor library); PIE is the route meanwhile (DECISIONS, day 1) | WP9 | M | open (agent-05) |
+| B63 | `captures_rebuild`'s recapture route: nothing proves on the engine that it updates the captures; whether `view.capture` defaults to RTF_RGBA8_SRGB too (yes: `view.STILL_FORMAT`, agent-09 809765c1) | WP5/WP10 | S | open: the recapture route only (from agent-08, day 1) |
