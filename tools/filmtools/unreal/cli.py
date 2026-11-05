@@ -220,7 +220,7 @@ def _after_box(argv: list) -> list:
 
 
 SETTINGS = ("instance", "region", "os", "project_dir", "key", "bucket", "user", "service", "local_port", "transport",
-            "ssh", "ssh_key", "bridge", "epic_s3", "project_s3", "ddc_s3", "face_data")
+            "ssh", "ssh_key", "bridge", "epic_s3", "project_s3", "ddc_s3", "face_data", "kms_key")
 
 
 def build_parser():

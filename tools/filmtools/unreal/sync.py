@@ -81,6 +81,15 @@ def _guard(up: bool, s3: str, what: str) -> None:
                          "private/...")
 
 
+def _sse(up: bool, s3: str) -> str:
+    """An upload to a private prefix is encrypted with KMS in the command itself, whatever the bucket's default: the
+    key from the box setting kms_key, else the account's aws/s3 key."""
+    if not (up and is_private(s3)):
+        return ""
+    key = ws.conf().get("kms_key")
+    return " --sse aws:kms" + (f" --sse-kms-key-id {shlex.quote(key)}" if key else "")
+
+
 def _excl(s3: str = "") -> str:
     priv = [] if s3 and is_private(s3) else private_paths()  # a private destination may hold them; nothing else may
     return " ".join([f"--exclude {shlex.quote(x)}" for x in PROJECT_EXCLUDES] +
@@ -98,7 +107,7 @@ def project_script(direction: str, delete: bool = False) -> str:
     d = " --delete" if delete else ""
     src, dst = (pd, s3) if direction == "up" else (s3, pd)
     return (f"mkdir -p {pd}\n"
-            f"aws s3 sync --only-show-errors --no-progress --region {region}{d} {_excl(project_s3())} {src} {dst}\n"
+            f"aws s3 sync --only-show-errors --no-progress --region {region}{d}{_sse(direction == "up", project_s3())} {_excl(project_s3())} {src} {dst}\n"
             f"echo synced={direction}\n")
 
 
@@ -115,8 +124,8 @@ def ddc_script(direction: str, version: str = "") -> str:
     for local, remote in pairs:
         q_local = f'"{local}"'  # $HOME expands on the box
         if direction == "save":
-            lines.append(f"[ -d {q_local} ] && aws s3 sync --only-show-errors --no-progress --region {region} "
-                         f"{q_local} {shlex.quote(remote)} || echo skipped={local}")
+            lines.append(f"[ -d {q_local} ] && aws s3 sync --only-show-errors --no-progress --region {region}"
+                         f"{_sse(True, s3)} {q_local} {shlex.quote(remote)} || echo skipped={local}")
         else:
             lines.append(f"mkdir -p {q_local} && aws s3 sync --only-show-errors --no-progress --region {region} "
                          f"{shlex.quote(remote)} {q_local}")
