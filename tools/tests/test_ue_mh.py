@@ -293,3 +293,20 @@ def test_preview_converges_when_the_level_does_not_list_it(mh, monkeypatch):
     spawns = len([c for c in mh.calls if "spawn_meta_human_actor" in c[0]])
     assert run_op("mh.preview", path=P, label="Prev", loc=[0, -200, 0])["changed"] is False
     assert len([c for c in mh.calls if "spawn_meta_human_actor" in c[0]]) == spawns
+
+
+def test_groom_colour_waits_for_an_assembly_that_takes_ticks(mh, monkeypatch):
+    """Live, assemble(on_assembled) takes a MetaHumanCharacterAssembled delegate and may finish ticks later: mh.groom
+    returns a generator that waits for it, then sets the colour."""
+    from fakeunreal.ext_mh import MetaHumanInstance
+    monkeypatch.setattr(MetaHumanInstance, "ASYNC_POLLS", 3)
+    ops = __import__("fakeunreal").core.load_fmbridge()
+    run_op("mh.add", path=P, preset="Ada")
+    hair = run_op("mh.wardrobe", kind="Hair")[0]
+    res = ops.call("mh.groom", character=P, slot="Hair", item=hair, melanin=0.9)
+    import inspect
+    assert inspect.isgenerator(res)
+    r, ticks = drive(res)
+    assert r["params"]["Melanin"] == pytest.approx(0.9)
+    again = ops.call("mh.groom", character=P, slot="Hair", item=hair, melanin=0.9)
+    assert isinstance(again, dict) and again["changed"] is False  # assembled for this selection: no wait

@@ -9937,7 +9937,7 @@
    "verb": "add_item",
    "module": "fmbridge.ops.mh.wardrobe",
    "file": "unreal/fmbridge/ops/mh/wardrobe.py",
-   "line": 222,
+   "line": 277,
    "summary": "Wear a wardrobe item: put it (a groom or garment from mh.wardrobe) in its slot of the character's collection",
    "doc": "Wear a wardrobe item: put it (a groom or garment from mh.wardrobe) in its slot of the character's collection\nand select it there, replacing what the slot held; optionally set its parameters.\n\nArgs: character: the character. item: a wardrobe item path or asset name (WI_Hair_S_BuzzCut). slot: Hair,\nEyebrows, Beard, Mustache, Eyelashes, Peachfuzz, Outfits (guessed from the item's path when empty). params: the\nitem's instance parameters (mh.item_params lists them), e.g. {\"Melanin\": 0.9, \"Redness\": 0.1}.\nReturns: {\"slot\", \"item\", \"display\", \"changed\", \"params\"}. Rebuild (mh.build) to see it on the Blueprint.\nExample: film-ue op mh.add_item character=/Game/Characters/Ava/MH_Ava item=WI_Hair_L_Straight 'params={\"Melanin\": 1.0}'",
    "params": [
@@ -10335,7 +10335,7 @@
    "verb": "clear_slot",
    "module": "fmbridge.ops.mh.wardrobe",
    "file": "unreal/fmbridge/ops/mh/wardrobe.py",
-   "line": 257,
+   "line": 316,
    "summary": "Wear nothing in a slot (e.g. no Beard).",
    "doc": "Wear nothing in a slot (e.g. no Beard).\n\nReturns: {\"slot\", \"changed\"}.\nExample: film-ue op mh.clear_slot character=/Game/Characters/Ava/MH_Ava slot=Beard",
    "params": [
@@ -11012,7 +11012,7 @@
    "verb": "groom",
    "module": "fmbridge.ops.mh.wardrobe",
    "file": "unreal/fmbridge/ops/mh/wardrobe.py",
-   "line": 336,
+   "line": 406,
    "summary": "A groom in one call: wear `item` in `slot` (or keep what is worn, or wear nothing with item=\"none\") and set its",
    "doc": "A groom in one call: wear `item` in `slot` (or keep what is worn, or wear nothing with item=\"none\") and set its\ncolour (melanin: 0 blond .. 1 black; redness 0..1) and any other groom parameter.\n\nArgs: slot: Hair|Eyebrows|Beard|Mustache|Eyelashes|Peachfuzz. item: a groom wardrobe item (mh.wardrobe kind=Hair),\n\"\" to keep, \"none\" to clear. Returns: {\"slot\", \"item\", \"changed\", \"params\"}.\nExample: film-ue op mh.groom character=/Game/Characters/Ava/MH_Ava slot=Hair item=WI_Hair_L_Straight melanin=1.0 redness=0.05",
    "params": [
@@ -11127,7 +11127,7 @@
    "verb": "item_params",
    "module": "fmbridge.ops.mh.wardrobe",
    "file": "unreal/fmbridge/ops/mh/wardrobe.py",
-   "line": 304,
+   "line": 364,
    "summary": "The instance parameters of the item worn in a slot, with their values: for a groom Melanin, Redness,",
    "doc": "The instance parameters of the item worn in a slot, with their values: for a groom Melanin, Redness,\nRoughness, Whiteness, Lightness, DyeColor, bUseOmbre/OmbreU/OmbreV/..., bUseRegions/..., bUseHighlights/...\n(MetaHumanDefaultGroomPipeline); for a garment its material colours.\n\nReturns: {\"slot\", \"item\", \"params\": {name: value}}.\nExample: film-ue op mh.item_params character=/Game/Characters/Ava/MH_Ava slot=Hair",
    "params": [
@@ -11158,7 +11158,7 @@
    "verb": "item_set",
    "module": "fmbridge.ops.mh.wardrobe",
    "file": "unreal/fmbridge/ops/mh/wardrobe.py",
-   "line": 321,
+   "line": 387,
    "summary": "Set instance parameters of the item worn in a slot: hair colour by melanin/redness (0..1), dye colour, ombre,",
    "doc": "Set instance parameters of the item worn in a slot: hair colour by melanin/redness (0..1), dye colour, ombre,\nhighlights; a garment's colours. Only differing values are written.\n\nReturns: {\"slot\", \"changed\", \"params\"}.\nExample: film-ue op mh.item_set character=/Game/Characters/Ava/MH_Ava slot=Hair 'params={\"Melanin\": 1.0, \"Redness\": 0.05}'",
    "params": [
@@ -11351,7 +11351,7 @@
    "verb": "palette",
    "module": "fmbridge.ops.mh.wardrobe",
    "file": "unreal/fmbridge/ops/mh/wardrobe.py",
-   "line": 185,
+   "line": 240,
    "summary": "What the character wears now: its collection's slots, every item in its palette and the selection per slot",
    "doc": "What the character wears now: its collection's slots, every item in its palette and the selection per slot\nwith the selected items' parameters.\n\nReturns: {\"slots\": [...], \"items\": [...], \"selected\": {slot: {\"item\", \"params\"} or null}}.\nExample: film-ue op mh.palette character=/Game/Characters/Ava/MH_Ava",
    "params": [
@@ -11793,7 +11793,7 @@
    "verb": "wardrobe",
    "module": "fmbridge.ops.mh.wardrobe",
    "file": "unreal/fmbridge/ops/mh/wardrobe.py",
-   "line": 27,
+   "line": 30,
    "summary": "Wardrobe items (grooms and clothing) the engine ships: kind Hair, Beards, Eyebrows, Eyelashes, Mustaches,",
    "doc": "Wardrobe items (grooms and clothing) the engine ships: kind Hair, Beards, Eyebrows, Eyelashes, Mustaches,\nPeachfuzz, Clothing, or empty for all.\n\nReturns: item asset paths for mh.add_item / mh.groom.\nExample: film-ue op mh.wardrobe kind=Hair",
    "params": [
