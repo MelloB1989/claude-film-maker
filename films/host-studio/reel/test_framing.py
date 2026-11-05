@@ -56,3 +56,14 @@ def test_projection_centre_and_edges():
     assert F.project((0, 0, 0), 0.0, 0.0, 36.0, (100, 0, 0))[:2] == pytest.approx((0.0, 0.0))
     assert F.project((0, 0, 0), 0.0, 0.0, 36.0, (100, 50, 0))[0] == pytest.approx(1.0)
     assert F.project((0, 0, 0), 0.0, 0.0, 36.0, (100, 0, 100 * 10.125 / 36))[1] == pytest.approx(1.0)
+
+
+def test_set_him_rewrites_only_his_numbers(tmp_path):
+    src = Path(S.__file__).read_text()
+    p = tmp_path / "shots.py"
+    p.write_text(src)
+    F.set_him(168.34, 180.06, 51.24, p)
+    out = p.read_text()
+    assert "EYES_HIM, EYES_HER = 168.3, 158.0" in out and "TOP_HIM, TOP_HER = 180.1, 168.0" in out
+    assert "KNEE_HIM, KNEE_HER = 51.2, TOP_HER * 0.28" in out
+    assert len(out.splitlines()) == len(src.splitlines())
