@@ -4,6 +4,7 @@ each, measured, the selects trimmed and placed on the master's frames.
     cd tools && uv run python ../films/host-studio/reel/vo.py takes [--only L1,L3] [--takes 3] [--voice ID]
     cd tools && uv run python ../films/host-studio/reel/vo.py measure [--only L1] [--align]
     cd tools && uv run python ../films/host-studio/reel/vo.py build          # selects -> line WAVs, stems, cues.json
+    cd tools && uv run python ../films/host-studio/reel/vo.py cues [--wavs D] # cues.json again from the line WAVs alone
 
 The key comes from $ELEVENLABS_API_KEY (fleet: `fleetctl secret exec ELEVENLABS_API_KEY=elevenlabs -- ...`). Takes are
 idempotent (an existing WAV + JSON is never paid for twice) and land in out/host-studio/reel/vo/takes/<line>/
@@ -255,14 +256,42 @@ def build() -> dict:
     return cues
 
 
+CUES_V2 = Path(__file__).with_name("cues_v2.json")
+
+
+def rebuild_cues(wavs: Path | None = None) -> dict:
+    """cues.json again without the takes (round 3: only the line WAVs survived the move to the Linux box). Exact for
+    what the frames need: `build` trims each take to 50 ms before its voice, so every line WAV starts 1.2 frames
+    before its line's start frame (measured on the WAV in `wavs` when it is there, as build would). `end_frame`
+    needs the WAV (else null). The words are lost with the takes' alignments: `words` is empty and `words_lost` says
+    so (perf.py's word() falls back to its frames; the captions need `vo.py takes` + `build` again)."""
+    cues = {}
+    for line in LINES:
+        lead, end_frame = 0.05, None
+        w = (wavs / f"{line.id}.wav") if wavs else None
+        if w and w.exists():
+            y, _ = read_wav(w)
+            lead = speech_span(y)[0]
+            end_frame = round(line.start - lead * FPS + len(y) / SR * FPS, 2)
+        cues[line.id] = {"who": line.who, "text": line.text, "take": json.loads(SELECTS.read_text())["selects"][line.id],
+                         "wav": f"{line.id}.wav", "file_frame": round(line.start - lead * FPS, 2),
+                         "voice_frame": line.start, "end_frame": end_frame, "slot_end": line.end, "mood": line.mood,
+                         "intensity": line.intensity, "words": [], "words_lost": True}
+    doc = {"fps": FPS, "sr": SR, "frames": TOTAL, "rebuilt": "vo.py cues (no takes)", "lines": cues}
+    OUT.mkdir(parents=True, exist_ok=True)
+    (OUT / "cues.json").write_text(json.dumps(doc, indent=1))
+    return doc
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("cmd", choices=["takes", "measure", "build"])
+    ap.add_argument("cmd", choices=["takes", "measure", "build", "cues"])
     ap.add_argument("--only", help="comma-separated line ids")
     ap.add_argument("--takes", type=int, default=3)
     ap.add_argument("--voice", help="a CANDIDATES name or voice id instead of the line's presenter voice")
     ap.add_argument("--speed", type=float)
     ap.add_argument("--align", action="store_true", help="measure: also run the forced aligner (1 credit a take)")
+    ap.add_argument("--wavs", type=Path, help="cues: a folder with the line WAVs (L1.wav ...) to measure")
     a = ap.parse_args()
     only = set(a.only.split(",")) if a.only else None
     if a.cmd == "takes":
@@ -275,6 +304,9 @@ def main() -> None:
                 align(client, p)
             print(json.dumps(measure(p), default=float))
         sheet(paths, OUT / "takes.png")
+    elif a.cmd == "cues":
+        doc = rebuild_cues(a.wavs)
+        print(json.dumps({k: [c["file_frame"], c["end_frame"]] for k, c in doc["lines"].items()}))
     else:
         build()
 
