@@ -78,8 +78,7 @@ SECTION_FIELDS = {
                "material": "a volumetric cloud material path (default: the engine's simple clouds)"},
     "sky_light": {"mode": "realtime|captured|cubemap", "intensity": "scale", "cubemap": "a TextureCube path",
                   "cubemap_angle_deg": "rotation of the cubemap", "lower_hemisphere_black": "bool",
-                  "lower_hemisphere_color": "[r,g,b] linear", "channels": "lighting channels",
-                  "cast_shadows": "bool"},
+                  "lower_hemisphere_color": "[r,g,b] linear", "cast_shadows": "bool"},
     "hdri": {"cubemap": "a TextureCube path (an .hdr imported as a long-lat cubemap)", "intensity": "sky light scale",
              "rotation_deg": "yaw of the image", "backdrop": "also show it as a backdrop (HDRIBackdrop plugin)",
              "size_cm": "backdrop size"},
@@ -355,7 +354,8 @@ def norm_sky_light(v: dict, atmosphere: bool, hdri: dict = None) -> dict:
     if "lower_hemisphere_color" in v:
         out["lower_hemisphere_color"] = [float(c) for c in v["lower_hemisphere_color"]]
     if "channels" in v:
-        out["channels"] = sorted(int(c) for c in v["channels"])
+        raise SpecError("sky_light.channels", "a sky light has no lighting channels (USkyLightComponent is a "
+                        "ULightComponentBase)", hint="it lights every channel; give the other lights channels")
     if "cast_shadows" in v:
         out["cast_shadows"] = bool(v["cast_shadows"])
     return out
