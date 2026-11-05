@@ -359,10 +359,13 @@ def _editor_binary() -> str:
     return os.path.join(eng, "Binaries", "Linux", "UnrealEditor")
 
 
+QUEUE_DIR = "/Game/_FilmRender/Queues"  # the cmdline executor's saved queues when MRQ's manifest writer is missing
+
+
 def _editor_library():
-    """MoviePipelineEditorBlueprintLibrary (MovieRenderPipelineEditor/Public/MoviePipelineEditorBlueprintLibrary.h:41):
-    on the day-1 box it was not in `unreal` (editor.api_names) although the class exists: its editor module had not
-    been loaded when Python generated its types. Load the module and look again; an actionable error otherwise."""
+    """MoviePipelineEditorBlueprintLibrary (MovieRenderPipelineEditor/Public/MoviePipelineEditorBlueprintLibrary.h:41),
+    or None: on the day-1 box (5.8.4 Linux) it is never in `unreal` (editor.api_names), and loading its module
+    (unreal.load_module('MovieRenderPipelineEditor')) does not bring it."""
     lib = getattr(unreal, "MoviePipelineEditorBlueprintLibrary", None)
     if lib is None:
         try:
@@ -370,21 +373,57 @@ def _editor_library():
         except Exception:
             pass
         lib = getattr(unreal, "MoviePipelineEditorBlueprintLibrary", None)
-    if lib is None:
-        raise OpError("MoviePipelineEditorBlueprintLibrary is not available in this editor (the new-process executor "
-                      "needs it to write the queue manifest)", code="unsupported",
-                      hint="enable the Movie Render Queue plugin's editor module, or render with executor='pie'")
     return lib
 
 
+def _save_queue_asset(q, name: str) -> str:
+    """Save the queue as an asset under QUEUE_DIR (replacing one of the same name); returns its object path, which
+    -MoviePipelineConfig takes as well as a manifest (MovieRenderPipelineCommandLine.cpp: a .utxt file or an asset)."""
+    pkg = f"{QUEUE_DIR}/{name}"
+    if EAL.does_asset_exist(pkg):
+        EAL.delete_asset(pkg)
+    at = unreal.AssetToolsHelpers.get_asset_tools()
+    a = None
+    try:
+        a = at.duplicate_asset(name, QUEUE_DIR, q)
+    except Exception:
+        a = None
+    if a is None:  # a transient source may be refused: a new queue asset, then copy the jobs in
+        try:
+            a = at.create_asset(name, QUEUE_DIR, unreal.MoviePipelineQueue, None)
+            if a is not None:
+                a.copy_from(q)
+        except Exception as e:
+            raise OpError(f"could not save the render queue as {pkg}: {e}", code="engine",
+                          hint="render with executor='process' (a separate process from the editor)")
+    if a is None or not EAL.save_loaded_asset(a, False):
+        raise OpError(f"could not save the render queue as {pkg}", code="engine",
+                      hint="see film-ue log; or render with executor='process'")
+    return a.get_path_name()
+
+
 def _write_manifest(q, path: str) -> str:
-    res = _editor_library().save_queue_to_manifest_file(q)
+    """What -MoviePipelineConfig gets for the queue: MRQ's queue manifest copied to `path` (a .utxt), or, when this
+    editor has no manifest writer, the queue saved as an asset (its /Game object path)."""
+    lib = _editor_library()
+    if lib is None:
+        stem = os.path.splitext(os.path.basename(path))[0]
+        return _save_queue_asset(q, "".join(ch if ch.isalnum() or ch == "_" else "_" for ch in stem))
+    res = lib.save_queue_to_manifest_file(q)
     src = res[1] if isinstance(res, tuple) else res
     if not src or not os.path.isfile(str(src)):
         raise OpError("MRQ wrote no queue manifest", code="engine", hint="see film-ue log (LogMovieRenderPipeline)")
     os.makedirs(os.path.dirname(path), exist_ok=True)
     shutil.copyfile(str(src), path)
     return path
+
+
+def _drop_queue_asset(manifest: str) -> None:
+    if manifest.startswith(QUEUE_DIR + "/"):
+        try:
+            EAL.delete_asset(manifest.split(".")[0])
+        except Exception:
+            pass
 
 
 def _sample(rec: dict, r: dict, chunk: dict, seen: dict) -> None:
@@ -495,6 +534,8 @@ def _run_chunk(r: dict, chunk: dict, level: str, stall_s: float):
     rec.update(ft)
     if r["executor"] != "cmdline":
         _RUN.pop("executor", None)
+    else:
+        _drop_queue_asset(rec.get("manifest", ""))
     _RUN.pop("proc", None)
     return rec
 
@@ -800,7 +841,9 @@ def manifest(*, spec: dict) -> dict:
     """Write, per chunk of a spec, an MRQ queue manifest and the command line that renders it in a process with no
     editor (one process per job: survives editor restarts; run it on this box or another with the same project).
 
-    Returns: {"changed": True, "chunks": [{"id", "start", "end", "manifest", "argv"}], "exit_codes"}.
+    Returns: {"changed": True, "chunks": [{"id", "start", "end", "manifest", "argv"}], "exit_codes"}. `manifest` is
+    the .utxt under <out_dir>/_render, or, in an editor without MRQ's manifest writer (5.8 on Linux), the queue saved
+    as an asset under /Game/_FilmRender/Queues (its object path): the command line takes either.
     Example: film-ue op render.manifest 'spec={"sequence": "/Game/Reel/SEQ_Reel", "out_dir": "/srv/r/reel", "executor": "cmdline"}'
     """
     r = _resolve(spec)

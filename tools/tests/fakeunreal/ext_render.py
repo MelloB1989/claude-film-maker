@@ -10,6 +10,10 @@ the WAV output writes one WAV per job. Tests steer it with `fake.mrq`:
     fake.mrq.hang = True           # the queue is accepted, MRQ says it renders, nothing is written (a modal)
     fake.mrq.frames_per_tick = 4
     fake.mrq.jobs                  # every job started: {"config": {...}, "executor": name, "map", "sequence"}
+
+As on the day-1 box (5.8.4 Linux), `unreal` has no MoviePipelineEditorBlueprintLibrary (its editor module never gets
+Python types): the cmdline executor saves its queue as an asset instead (AssetTools.duplicate_asset of the queue).
+`fake.absent.discard("MoviePipelineEditorBlueprintLibrary")` brings it back for a test.
 """
 from __future__ import annotations
 
@@ -140,6 +144,9 @@ def install(fake):
         def get_jobs(self):
             return list(self.jobs)
 
+        def copy_from(self, other):
+            self.jobs[:] = list(other.jobs)
+
     class Delegate:
         def __init__(self):
             self.fns = []
@@ -209,6 +216,21 @@ def install(fake):
             return exe
 
     fake.MoviePipelineQueueSubsystem = QueueSubsystem
+    fake.absent.add("MoviePipelineEditorBlueprintLibrary")
+
+    tools_cls = fake.AssetTools
+
+    def duplicate_asset(self, asset_name, package_path, original_object):
+        path = f"{package_path.rstrip('/')}/{asset_name}"
+        if path in fake.assets:
+            fake.dialogs.append(("overwrite", path))
+            return None
+        dup = type(original_object)(asset_name)
+        if isinstance(original_object, Queue):
+            dup.copy_from(original_object)
+        return fake.put_asset(path, dup)
+
+    tools_cls.duplicate_asset = duplicate_asset
     fake.get_default_object(fake.MoviePipelineInProcessExecutorSettings).set_editor_property(
         "additional_command_line_arguments", "")
 

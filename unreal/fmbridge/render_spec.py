@@ -555,8 +555,9 @@ def frame_times(mtimes: dict) -> dict:
 def cmdline(editor: str, uproject: str, manifest: str, *, offscreen: bool = True, vulkan: bool | None = None,
             log: str = "", extra: list | None = None) -> list:
     """argv of a command-line MRQ render of a saved queue manifest (MovieRenderPipelineCommandLine.cpp, option 1 with
-    a queue): `editor` is UnrealEditor-Cmd(.exe), the manifest a .utxt written by render.manifest. The process loads
-    everything from disk, renders, and exits with 0 on success (1 critical, 2 no asset, 3 no config)."""
+    a queue): `editor` is UnrealEditor-Cmd(.exe), the manifest a .utxt written by render.manifest or a saved queue
+    asset's object path. The process loads everything from disk, renders, and exits with 0 on success (1 critical,
+    2 no asset, 3 no config)."""
     argv = [editor, uproject, "MoviePipelineEntryMap", "-game", f"-MoviePipelineConfig={manifest}", "-windowed",
             "-ResX=1280", "-ResY=720", "-Unattended", "-NoSplash", "-NoLoadingScreen", "-NoTextureStreaming",
             "-deterministicaudio", "-audiomixer", "-stdout", "-FullStdOutLogOutput", "-log"]

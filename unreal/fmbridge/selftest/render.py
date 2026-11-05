@@ -161,8 +161,9 @@ def run(t):
             ["FinalImage", True, True])
     t.check("EXR frames per pass", [len(glob.glob(os.path.join(aov, d, "*.exr"))) for d in dirs], [4, 4, 4])
 
-    # executors: a separate process after saving, and a command line with no editor. Both need the MRQ editor
-    # library for the queue manifest; on the day-1 box it was missing: a note, not a failure (DECISIONS, day 1)
+    # executors: a separate process after saving, and a command line with no editor. The command line takes MRQ's
+    # queue manifest, or (5.8 on Linux has no manifest writer in Python) the queue saved as an asset. PIE stays the
+    # supported route (DECISIONS, day 1): an executor that is unsupported in this editor is a note, not a failure
     from ..errors import OpError
     try:
         proc = os.path.join(out, "process")
@@ -172,7 +173,12 @@ def run(t):
         t.metric("process_job_s", rep["seconds"], "s")
         man = t.op("render.manifest", spec={**spec, "out_dir": os.path.join(out, "cmd"), "name": "cmd", "frames": [0, 2],
                                             "executor": "cmdline"})
-        t.ok("manifest written", man["chunks"] and os.path.isfile(man["chunks"][0]["manifest"]), detail=str(man)[:500])
+        from ..ops.assets import EAL
+        m0 = man["chunks"][0]["manifest"] if man["chunks"] else ""
+        t.ok("manifest written (a .utxt or a saved queue asset)",
+             os.path.isfile(m0) or (m0.startswith("/Game/") and bool(EAL.does_asset_exist(
+                 m0.split(".")[0]))), detail=str(man)[:500])
+        t.metric("manifest_kind", "asset" if m0.startswith("/Game/") else "file")
         rep = yield from t.op("render.job", spec={**spec, "out_dir": os.path.join(out, "cmd"), "name": "cmd",
                                                   "frames": [0, 2], "executor": "cmdline"}, stall_s=600.0)
         t.check("command-line render (one process, no editor)", [rep["status"], rep["frames"]], ["ok", 2])
