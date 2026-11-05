@@ -1,48 +1,63 @@
-"""Put her hoops and watch back on her bones (HerEarL/R through the lobes on FACIAL_*_Ear4, HerWatch on the left wrist on
-lowerarm_twist_02_l), placed exactly as studio.py places them but from where her sockets are now, then attached so they
-ride the bones. Run with film-ue exec on the open level (no studio rebuild); reports each one's distance from its
-bone afterwards."""
+"""Put her hoops and watch back on her bones on the open level (no studio rebuild), as studio.py's
+seat_her_accessories() does at the end of a build: HerEarL/R through the lobes on FACIAL_*_Ear4, HerWatch flat on the
+back of her left wrist (band round the forearm, dial out) on lowerarm_twist_01_l. Run it LAST, after anything that
+changes her components (import_overshirt.py, restore_leader.py, mh.cloth_inflate): those re-create her components and
+leave what rode them at its bone with no offset. Run with film-ue exec; reports how the watch sits, then saves nothing
+(L.save_level() when it reads ok)."""
 import unreal
 
 from fmbridge.ops import level as L
 
+WATCH_BONE = "lowerarm_twist_01_l"
+WATCH_UP_ARM = 3.6
+
 her = L.actor("Presenter")
 comps = {c.get_name(): c for c in her.get_components_by_class(unreal.SkeletalMeshComponent)}
 face, body_ = comps["Face"], comps["Body"]
-rule = unreal.AttachmentRule.KEEP_WORLD
-keep = unreal.DetachmentRule.KEEP_WORLD
-out = {"mobility": {}}
-for lab in ("HerEarL", "HerEarR", "HerWatch"):  # a Static root cannot ride a moving bone
-    rc = L.actor(lab).root_component
-    out["mobility"][lab] = str(rc.mobility)
-    rc.set_mobility(unreal.ComponentMobility.MOVABLE)
-for side, bone in (("L", "FACIAL_L_Ear4"), ("R", "FACIAL_R_Ear4")):
-    lab = f"HerEar{side}"
+rule, keep = unreal.AttachmentRule.KEEP_WORLD, unreal.DetachmentRule.KEEP_WORLD
+out = {}
+
+
+def ride(lab):  # a Static root cannot ride a moving bone
     a = L.actor(lab)
+    a.root_component.set_mobility(unreal.ComponentMobility.MOVABLE)
     a.detach_from_actor(keep, keep, keep)
+    return a
+
+
+for side, bone in (("L", "FACIAL_L_Ear4"), ("R", "FACIAL_R_Ear4")):
+    a = ride(f"HerEar{side}")
     p = face.get_socket_location(bone)
     inward = 0.25 if side == "L" else -0.25  # through the lobe, not on its surface (as studio.py)
     a.set_actor_location(unreal.Vector(p.x - 0.1, p.y + inward, p.z + 0.15), False, False)
-    out[lab + "_ok"] = a.attach_to_component(face, bone, rule, rule, rule, False)
-w = L.actor("HerWatch")
-w.detach_from_actor(keep, keep, keep)
-a_, b_ = body_.get_socket_location("lowerarm_twist_02_l"), body_.get_socket_location("hand_l")
-fwd = (b_ - a_).normal()
-across = body_.get_socket_location("index_metacarpal_l") - body_.get_socket_location("pinky_metacarpal_l")
+    a.attach_to_component(face, bone, rule, rule, rule, False)
+    out[f"HerEar{side}"] = round((a.get_actor_location() - p).length(), 2)
+
+w = ride("HerWatch")
+P = body_.get_socket_location
+hand = P("hand_l")
+fwd = (hand - P("lowerarm_l")).normal()
+across = P("index_metacarpal_l") - P("pinky_metacarpal_l")
 across = (across - fwd * across.dot(fwd)).normal()
-up = fwd.cross(across).normal()  # the back of the wrist (as studio.py; not wrist_outer - wrist_inner: the side)
-at = b_ - fwd * 3.6
-w.set_actor_location(at, False, False)
-out["HerWatch_ok"] = w.attach_to_component(body_, "lowerarm_twist_02_l", rule, rule, rule, False)
-w.set_actor_rotation(unreal.MathLibrary.make_rot_from_yz(fwd, up), False)  # once attached, as studio.py
-out["HerWatch_axes"] = {"y.forearm": round(w.get_actor_right_vector().dot(fwd), 2),
-                        "z.back_of_wrist": round(w.get_actor_up_vector().dot(up), 2),
-                        "z.thumb_side": round(w.get_actor_up_vector().dot(across), 2)}
-for lab, comp, bone in (("HerEarL", face, "FACIAL_L_Ear4"), ("HerEarR", face, "FACIAL_R_Ear4"),
-                        ("HerWatch", body_, "lowerarm_twist_02_l")):
-    a = L.actor(lab)
-    rc = a.root_component
-    out[lab] = {"dist": round((a.get_actor_location() - comp.get_socket_location(bone)).length(), 2),
-                "parent": rc.get_attach_parent().get_name() if rc.get_attach_parent() else None,
-                "socket": str(rc.get_attach_socket_name())}
+back = fwd.cross(across).normal()  # the back of the wrist (left arm, UE axes)
+at = hand - fwd * WATCH_UP_ARM
+rot = unreal.MathLibrary.make_rot_from_yz(fwd, back)
+w.set_actor_location_and_rotation(at, rot, False, False)
+w.attach_to_component(body_, WATCH_BONE, rule, rule, rule, False)
+w.set_actor_location_and_rotation(at, rot, False, False)
+sm = w.static_mesh_component.static_mesh if hasattr(w, "static_mesh_component") else None
+bb = sm.get_bounding_box() if sm else None
+out["HerWatch"] = {"from_hand_cm": round((w.get_actor_location() - hand).length(), 2),
+                   "band_along_forearm": round(w.get_actor_right_vector().dot(fwd), 3),
+                   "dial_to_back_of_wrist": round(w.get_actor_up_vector().dot(back), 3),
+                   "socket": str(w.root_component.get_attach_socket_name()),
+                   "rel_loc": [round(v, 2) for v in (w.root_component.relative_location.x,
+                                                     w.root_component.relative_location.y,
+                                                     w.root_component.relative_location.z)],
+                   # the mesh's own extents (cm): the loop is widest along X, the band narrowest along Y (the forearm)
+                   "mesh_extent": [round(bb.max.x - bb.min.x, 2), round(bb.max.y - bb.min.y, 2),
+                                   round(bb.max.z - bb.min.z, 2)] if bb else None}
+h = out["HerWatch"]
+h["ok"] = abs(h["from_hand_cm"] - WATCH_UP_ARM) < 0.5 and h["band_along_forearm"] > 0.98 and \
+    h["dial_to_back_of_wrist"] > 0.98
 result = out
