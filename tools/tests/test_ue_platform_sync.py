@@ -117,4 +117,9 @@ def test_once_face_data_is_on_the_box_uploads_go_private_only(box):
     ws.save(project_s3="s3://bkt/ue-linux/private/project/HostStudio", ddc_s3="s3://bkt/ue-linux/private/ddc/5.8.4")
     up = sync.project_script("up")
     assert "s3://bkt/ue-linux/private/project/HostStudio" in up and "OperatorCapture" not in up
-    assert "s3://bkt/ue-linux/private/ddc/5.8.4/zen-data" in sync.ddc_script("save")
+    assert "--sse aws:kms" in up and "--sse-kms-key-id" not in up  # encrypted in the command, whatever the bucket says
+    save = sync.ddc_script("save")
+    assert "s3://bkt/ue-linux/private/ddc/5.8.4/zen-data" in save and save.count("--sse aws:kms") == 3
+    assert "--sse" not in sync.ddc_script("restore") and "--sse" not in sync.project_script("down")
+    ws.save(kms_key="alias/ue-private")
+    assert "--sse aws:kms --sse-kms-key-id alias/ue-private" in sync.project_script("up")
