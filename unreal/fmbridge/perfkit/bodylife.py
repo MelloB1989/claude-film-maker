@@ -124,3 +124,23 @@ def qmul(a: list, b: list) -> list:
             aw * by - ax * bz + ay * bw + az * bx,
             aw * bz + ax * by - ay * bx + az * bw,
             aw * bw - ax * bx - ay * by - az * bz]
+
+
+def pick_axes(bone: str, scores: dict, floor: float = 0.05) -> dict:
+    """{"flex"|"side"|"twist": [axis, sign]} for a bone from the measured body motion per local axis
+    {axis: {"flex", "side", "twist"}} (cm): each component takes the remaining axis that moves it most. A clavicle has
+    no twist to measure (turning it about its own length does not move the arm, and body life never twists it: day-1
+    box, clavicle_l x {0, 0, 0}): it gets the axis left over. Raises ValueError when an axis moves nothing."""
+    left_axes = set("xyz")
+    pick = {}
+    for comp in ("flex", "side", "twist"):
+        ax = max(sorted(left_axes), key=lambda x: abs(scores[x][comp]))
+        v = scores[ax][comp]
+        if abs(v) < floor:
+            if comp == "twist" and bone.startswith("clavicle"):
+                pick[comp] = [ax, 1.0]
+                continue
+            raise ValueError(f"{bone}: no local axis moves the body ({comp})")
+        pick[comp] = [ax, 1.0 if v > 0 else -1.0]
+        left_axes.discard(ax)
+    return pick

@@ -162,16 +162,11 @@ def calibrate_body(*, label: str, component: str = "Body", scratch: str = "/Game
             # restore this bone before the next axis
             _write_tracks(a, pose_with(b), n_keys)
         raw[b] = {ax: {k: round(v, 3) for k, v in s.items()} for ax, s in scores.items()}
-        left_axes = set("xyz")
-        pick = {}
-        for comp_name in ("flex", "side", "twist"):
-            ax = max(left_axes, key=lambda x: abs(scores[x][comp_name]))
-            v = scores[ax][comp_name]
-            if abs(v) < 0.05:
-                raise OpError(f"{b}: no local axis moves the body ({comp_name}): {raw[b]}", code="failed",
-                              hint="is the body driven by Sequencer (its own anim instance)? see perf.calibrate_body")
-            pick[comp_name] = [ax, 1.0 if v > 0 else -1.0]
-            left_axes.discard(ax)
+        try:
+            pick = BL.pick_axes(b, scores)
+        except ValueError as e:
+            raise OpError(f"{e}: {raw[b]}", code="failed",
+                          hint="is the body driven by Sequencer (its own anim instance)? see perf.calibrate_body") from None
         axes[b] = pick
     shift_axis = None
     if "pelvis" in bones:

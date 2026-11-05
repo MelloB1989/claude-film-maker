@@ -216,7 +216,7 @@
    "verb": "body_life",
    "module": "fmbridge.ops.perf_body",
    "file": "unreal/fmbridge/ops/perf_body.py",
-   "line": 199,
+   "line": 194,
    "summary": "An additive animation of body life for a body skeleton: breathing (spine extension and clavicle lift on each",
    "doc": "An additive animation of body life for a body skeleton: breathing (spine extension and clavicle lift on each\ninhale, at a rate by `state`: calm, rest, listen, talk, focus, nervous), slow weight shifts (`shift_cm` of pelvis,\nthe spine bending back over the feet) and, with `face_anim`, the torso following the head's turns (`follow` of\nits yaw, a beat later). Layer it over any idle: seq.anim with replace=false, or a spec's character.body_life.\nNeeds perf.calibrate_body for this skeleton.\n\nArgs: out: the additive animation's path (re-made). body_mesh: the body SkeletalMesh. length_s: seconds.\nface_anim: a face animation whose HeadYaw the torso follows. Others: amplitudes in degrees / cm.\nReturns: {\"out\", \"changed\", \"breaths_per_min\", \"shifts\", \"bones\"}.\nExample: film-ue op anim.body_life out=/Game/Perf/AS_life body_mesh=/Game/MetaHumans/Ada/Body/m_med_nrw_body length_s=12 state=talk",
    "params": [
