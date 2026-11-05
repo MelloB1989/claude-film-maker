@@ -2526,7 +2526,7 @@
    "verb": "add",
    "module": "fmbridge.ops.cam",
    "file": "unreal/fmbridge/ops/cam.py",
-   "line": 299,
+   "line": 313,
    "summary": "Make or converge a cine camera named `label`: place it, aim it, set its lens and focus.",
    "doc": "Make or converge a cine camera named `label`: place it, aim it, set its lens and focus.\n\nArgs: label: actor label. loc: [x, y, z] cm. rot_: {\"pitch\", \"yaw\", \"roll\"} deg, or look_at: a point [x, y, z],\nan actor label or \"Label:Component:bone\" (overrides rot_). focal_mm. aperture: f-stop. sensor_mm: [w, h] mm, or\nfilmback: a preset name (\"16:9 Digital Film\", the engine default; \"16:9 DSLR\" is full frame). lens_preset:\n\"50mm Prime f/1.8\" etc. (sets the lens limits). focus_cm: manual focus distance; focus_on: a point/actor/bone\nto focus on now (manual focus at its distance; for a moving subject key it with cam.move focus_on, or use\ncam.focus mode=track).\nA new camera gets the engine's default filmback and focal 35 mm unless given.\nReturns: cam.describe's dict plus \"changed\", \"created\".\nExample: film-ue op cam.add label=CAM_A 'loc=[400,0,160]' look_at=Presenter focal_mm=50 aperture=2.8",
    "params": [
@@ -2622,7 +2622,7 @@
    "verb": "check",
    "module": "fmbridge.ops.cam",
    "file": "unreal/fmbridge/ops/cam.py",
-   "line": 571,
+   "line": 585,
    "summary": "Numeric checks of a camera's frame on its subjects: QA's per-frame framing (headroom, cut-offs, feet, size, look",
    "doc": "Numeric checks of a camera's frame on its subjects: QA's per-frame framing (headroom, cut-offs, feet, size, look\nroom; when fmbridge.qa is installed) plus the camera's own: focus, safe areas, an accidental dutch, a subject\nblocked by `others`.\n\nReturns: {\"pass\", \"issues\": [{\"code\", \"severity\", \"message\", \"fix\", ...}], \"metrics\": {\"size\", \"focus_cm\",\n\"hfov_deg\"}}.\nExample: film-ue op cam.check camera=CAM_A subjects=Presenter size=MCU",
    "params": [
@@ -2670,7 +2670,7 @@
    "verb": "check_cut",
    "module": "fmbridge.ops.cam",
    "file": "unreal/fmbridge/ops/cam.py",
-   "line": 622,
+   "line": 636,
    "summary": "Would a cut from camera A to camera B work: the 180-degree line between the first two subjects, the",
    "doc": "Would a cut from camera A to camera B work: the 180-degree line between the first two subjects, the\n30-degree rule and the size step on the first.\n\nExample: film-ue op cam.check_cut camera_a=CAM_A camera_b=CAM_B 'subjects=[\"Host\",\"Guest\"]'",
    "params": [
@@ -2725,7 +2725,7 @@
    "verb": "coverage",
    "module": "fmbridge.ops.cam",
    "file": "unreal/fmbridge/ops/cam.py",
-   "line": 635,
+   "line": 649,
    "summary": "The coverage of a scene, all on one side of the line: for one subject a WS/MS/MCU/CU from 3/4 and a profile;",
    "doc": "The coverage of a scene, all on one side of the line: for one subject a WS/MS/MCU/CU from 3/4 and a profile;\nfor two or more a master, a two-shot, each one's MS/MCU/CU single and an over-the-shoulder. Makes a camera per\nshot ({prefix}{name}) unless create=False.\n\nArgs: side: left|right of the line from the first subject to the second, seen from above.\nReturns: {\"line\", \"side\", \"shots\": [{\"name\", \"camera\", \"kind\", \"size\", \"focal\", \"distance\", \"loc\", \"rot\",\n\"warnings\"}], \"issues\"}.\nExample: film-ue op cam.coverage 'subjects=[\"Host\",\"Guest\"]' side=left",
    "params": [
@@ -2814,7 +2814,7 @@
    "verb": "describe",
    "module": "fmbridge.ops.cam",
    "file": "unreal/fmbridge/ops/cam.py",
-   "line": 430,
+   "line": 444,
    "summary": "Every cine camera in the level (or one): location, rotation, focal, aperture, filmback, focus, fields of view,",
    "doc": "Every cine camera in the level (or one): location, rotation, focal, aperture, filmback, focus, fields of view,\nthe rig it hangs on; with `subjects`, also each camera's shot in words (\"MCU of Host from 3/4 left (41 deg), eye\nlevel, 50 mm f/2.8, right third\"), which cam.shoot reads back.\n\nExample: film-ue op cam.describe label=CAM_A subjects=Host",
    "params": [
@@ -2847,7 +2847,7 @@
    "verb": "focus",
    "module": "fmbridge.ops.cam",
    "file": "unreal/fmbridge/ops/cam.py",
-   "line": 390,
+   "line": 404,
    "summary": "Set a camera's focus: mode \"manual\" (distance_cm, or the distance to `target` now), \"track\" (follow an actor,",
    "doc": "Set a camera's focus: mode \"manual\" (distance_cm, or the distance to `target` now), \"track\" (follow an actor,\nthe engine's tracking focus: `target` an actor label, or \"eyes:Label\" for its eyes at the current pose, or\n\"Label:Component:bone\"), or \"off\" (no depth of field).\n\nArgs: offset: cm in the tracked actor's own frame, added to the target. smooth_speed: >0 smooths focus changes.\nExample: film-ue op cam.focus label=CAM_A mode=track target=eyes:Presenter",
    "params": [
@@ -2912,7 +2912,7 @@
    "verb": "frame",
    "module": "fmbridge.ops.cam",
    "file": "unreal/fmbridge/ops/cam.py",
-   "line": 508,
+   "line": 522,
    "summary": "Frame subjects with a camera by shot grammar: \"MCU of Presenter from 3/4 left, eye level, 50 mm\".",
    "doc": "Frame subjects with a camera by shot grammar: \"MCU of Presenter from 3/4 left, eye level, 50 mm\".\n\nArgs: camera: label (made if missing). subjects: an actor label or a list (a two-shot, a group).\nsize: ECU CU MCU MS COWBOY MWS WS EWS (aliases: close-up, medium, wide, full...). angle: degrees or front, 3/4,\nprofile, 3/4 back, back: around from the first subject's facing toward its own `side` (left|right).\nheight: eye, high, low, slight high, slight low, overhead, worm, degrees, shoulder/chest/hip/knee/ground, or\n{\"z\": cm}. focal_mm (distance solved) or distance_cm with focal_mm=None (focal solved; snap_focal rounds to a\nprime). place: auto (thirds with lead room off-axis, centre when frontal), center, left third, right third, or\nu 0..1. headroom: v of the head's top (default per size). dutch_deg: roll. focus: focus on the first subject's\neyes. apply: False only plans (nothing changes).\nReturns: {\"camera\": cam.describe dict, \"solve\": {distance, focal, error, predicted u/v of every landmark,\ndof, warnings}, \"changed\"}.\nExample: film-ue op cam.frame camera=CAM_A subjects=Presenter size=MCU angle=3/4 side=left focal_mm=50",
    "params": [
@@ -3050,7 +3050,7 @@
    "verb": "move",
    "module": "fmbridge.ops.cam",
    "file": "unreal/fmbridge/ops/cam.py",
-   "line": 730,
+   "line": 744,
    "summary": "Key camera moves into a sequence: dolly, push_in, pull_out, truck, pedestal, crane, orbit/arc, pan, tilt,",
    "doc": "Key camera moves into a sequence: dolly, push_in, pull_out, truck, pedestal, crane, orbit/arc, pan, tilt,\nroll, zoom, dolly_zoom, whip, rack, follow, hold; eased, one after another from the camera's current pose, with\noptional handheld noise. Replaces the camera's transform (and focal/focus) tracks in that sequence.\n\nArgs: moves_: [{\"move\": kind, \"frames\": n | \"from\"/\"to\", \"ease\": in_out|in|out|linear|sine|smooth|expo, ...}]\n(cam.presets lists kinds; docs/unreal/camera.md their arguments). aim: what the camera keeps framed (a point, an\nactor label, \"Label:Component:bone\", \"eyes:Label\"). focus_on: the same, baked as a follow-focus. noise: \"subtle\"\n| \"handheld\" | \"documentary\" | \"breathing\" | \"shake\" or {\"preset\", \"seed\", \"scale\", \"pos\", \"rot\", \"hz\"}.\nstep: frames between baked keys. end_frame: hold the last pose to there.\nA multi-tick job (the keys go in one batched seq.apply when WP8's core is there).\nReturns: {\"keys\": {\"transform\", \"focal\", \"focus\"}, \"segments\", \"first\", \"last\", \"write\", \"changed\": true}.\nExample: film-ue op cam.move camera=CAM_A sequence=/Game/Seq/S1 'moves_=[{\"move\":\"push_in\",\"fraction\":0.2,\"frames\":72}]' aim=eyes:Presenter",
    "params": [
@@ -3140,7 +3140,7 @@
    "verb": "point",
    "module": "fmbridge.ops.cam",
    "file": "unreal/fmbridge/ops/cam.py",
-   "line": 355,
+   "line": 369,
    "summary": "Where a target is now, in world cm: a point, an actor label (its location; with `offset` in its own frame),",
    "doc": "Where a target is now, in world cm: a point, an actor label (its location; with `offset` in its own frame),\n\"Label:Component:bone\", \"eyes:Label\" (between its eyes), or a camera's label (its lens).\n\nExample: film-ue op cam.point target=eyes:Presenter",
    "params": [
@@ -3173,7 +3173,7 @@
    "verb": "presets",
    "module": "fmbridge.ops.cam",
    "file": "unreal/fmbridge/ops/cam.py",
-   "line": 269,
+   "line": 283,
    "summary": "The filmback and lens presets (the engine's own, from BaseEngine.ini) and the shot sizes, angles and heights",
    "doc": "The filmback and lens presets (the engine's own, from BaseEngine.ini) and the shot sizes, angles and heights\nthe framing solver knows.\n\nReturns: {\"filmbacks\": {name: [w_mm, h_mm]}, \"lenses\": {name: {...}}, \"default_filmback\", \"sizes\": {key: desc},\n\"angles\", \"heights\", \"moves\", \"noise\"}.\nExample: film-ue op cam.presets",
    "params": [],
@@ -3191,7 +3191,7 @@
    "verb": "project",
    "module": "fmbridge.ops.cam",
    "file": "unreal/fmbridge/ops/cam.py",
-   "line": 551,
+   "line": 565,
    "summary": "Where things land in a camera's frame: u, v (0..1 from the top left; outside = out of frame) and depth (cm),",
    "doc": "Where things land in a camera's frame: u, v (0..1 from the top left; outside = out of frame) and depth (cm),\nfor named points ({\"name\": [x, y, z] | label | \"Label:Component:bone\"}) and every landmark of `subjects`.\n\nExample: film-ue op cam.project camera=CAM_A subjects=Presenter",
    "params": [
@@ -3232,7 +3232,7 @@
    "verb": "remove",
    "module": "fmbridge.ops.cam",
    "file": "unreal/fmbridge/ops/cam.py",
-   "line": 476,
+   "line": 490,
    "summary": "Delete cine cameras (and rigs) by label or by label prefix; missing ones are skipped.",
    "doc": "Delete cine cameras (and rigs) by label or by label prefix; missing ones are skipped.\n\nExample: film-ue op cam.remove prefix=CAM_",
    "params": [
@@ -3265,7 +3265,7 @@
    "verb": "rig",
    "module": "fmbridge.ops.cam",
    "file": "unreal/fmbridge/ops/cam.py",
-   "line": 769,
+   "line": 783,
    "summary": "A camera rail or crane (the engine's CameraRig_Rail / CameraRig_Crane), with `camera` mounted on it.",
    "doc": "A camera rail or crane (the engine's CameraRig_Rail / CameraRig_Crane), with `camera` mounted on it.\n\nrail: `points` [[x, y, z], ...] world cm along the track (2+); `position` 0..1 along it; lock_orientation turns\nthe camera with the rail. crane: at `loc`, turned `yaw_deg`, arm `arm_cm` long, raised `pitch_deg`. Drive either\nover time with cam.rig_move.\nExample: film-ue op cam.rig label=Rail_A kind=rail 'points=[[300,-200,150],[300,200,150]]' camera=CAM_A",
    "params": [
@@ -3354,7 +3354,7 @@
    "verb": "rig_move",
    "module": "fmbridge.ops.cam",
    "file": "unreal/fmbridge/ops/cam.py",
-   "line": 820,
+   "line": 834,
    "summary": "Animate a rig in a sequence: a rail's position along it (0..1), a crane's pitch, yaw and arm.",
    "doc": "Animate a rig in a sequence: a rail's position along it (0..1), a crane's pitch, yaw and arm.\n\nArgs: keys: [[frame, {\"position\": 0..1} | {\"pitch_deg\", \"yaw_deg\", \"arm_cm\"}], ...] (auto-eased).\nExample: film-ue op cam.rig_move rig_label=Rail_A sequence=/Game/Seq/S1 'keys=[[0,{\"position\":0}],[96,{\"position\":1}]]'",
    "params": [
@@ -3395,7 +3395,7 @@
    "verb": "set",
    "module": "fmbridge.ops.cam",
    "file": "unreal/fmbridge/ops/cam.py",
-   "line": 365,
+   "line": 379,
    "summary": "Change an existing camera's lens: focal length (or the horizontal field of view it gives), aperture,",
    "doc": "Change an existing camera's lens: focal length (or the horizontal field of view it gives), aperture,\nfilmback, lens limits, near clip plane.\n\nExample: film-ue op cam.set label=CAM_A focal_mm=85 aperture=1.8",
    "params": [
@@ -3470,7 +3470,7 @@
    "verb": "shoot",
    "module": "fmbridge.ops.cam",
    "file": "unreal/fmbridge/ops/cam.py",
-   "line": 446,
+   "line": 460,
    "summary": "Frame a camera from a sentence of shot grammar: \"medium close-up of Host from 30 deg left at eye level, 50mm\",",
    "doc": "Frame a camera from a sentence of shot grammar: \"medium close-up of Host from 30 deg left at eye level, 50mm\",\n\"two-shot of Host and Guest, low angle, 35mm\", \"CU of Guest from 3/4 right, 2 m away\" (the focal length solved).\nThe subjects are the level's actor labels found in the text. Words it does not understand are returned in\n`unparsed` (nothing is guessed); the vocabulary is in docs/unreal/camera.md.\n\nReturns: cam.frame's result plus {\"parsed\": the arguments it read, \"words\": the camera described back}.\nExample: film-ue op cam.shoot camera=CAM_A text='MCU of Host from 3/4 left, eye level, 50mm'",
    "params": [
@@ -3510,7 +3510,7 @@
    "verb": "still",
    "module": "fmbridge.ops.cam",
    "file": "unreal/fmbridge/ops/cam.py",
-   "line": 845,
+   "line": 859,
    "summary": "A still through a camera with the operator's guides drawn on it: thirds, action/title safe, centre, and each",
    "doc": "A still through a camera with the operator's guides drawn on it: thirds, action/title safe, centre, and each\nsubject's landmarks where the lens math puts them (green crosses), so a mismatch between solver and render shows.\nA multi-tick job. Keep it small (960x540): the overlay is drawn in pure Python.\n\nReturns: {\"path\", \"width\", \"height\", \"raw\": the still without guides}.\nExample: film-ue op cam.still camera=CAM_A out=/tmp/cam_a.png subjects=Presenter",
    "params": [
@@ -3573,7 +3573,7 @@
    "verb": "subject",
    "module": "fmbridge.ops.cam",
    "file": "unreal/fmbridge/ops/cam.py",
-   "line": 494,
+   "line": 508,
    "summary": "What the framing solver sees of an actor: its landmarks (head_top, eyes, nose, mouth, chin, neck, shoulders,",
    "doc": "What the framing solver sees of an actor: its landmarks (head_top, eyes, nose, mouth, chin, neck, shoulders,\nchest, waist, hips, knees, ankles, feet) in world cm, its facing and height, and whether they came from its\nskeleton or its bounds.\n\nArgs: target: actor label. mode: auto (bones, else bounds) | bones | bounds. facing: [x, y, z] override.\ntop_z: the crown's height when hair or a hat makes it higher than the default (eyes + 11.5 cm).\nExample: film-ue op cam.subject target=Presenter",
    "params": [

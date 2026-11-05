@@ -56,7 +56,7 @@ def test_add_converges_and_widens_lens(ue, fmb):
     assert len([a for a in ue.world.actors() if a.get_actor_label() == "CAM_A"]) == 1
     # beyond the Universal Zoom's limits: the lens is widened instead of the engine clamping the value
     wide = run_op("cam.set", label="CAM_A", focal_mm=2000, aperture=0.95)
-    assert wide["focal"] == 2000 and wide["aperture"] == 0.95 and wide["lens"]["max_focal_mm"] == 2000
+    assert wide["focal"] == 2000 and wide["aperture"] == pytest.approx(0.95) and wide["lens"]["max_focal_mm"] == 2000
     hf = run_op("cam.set", label="CAM_A", hfov_deg=40, filmback="16:9 DSLR")
     assert hf["hfov_deg"] == pytest.approx(40, abs=1e-3) and hf["filmback"] == [36.0, 20.25]
     assert ue.dialogs == []
@@ -85,6 +85,20 @@ def test_subject_from_bones_and_bounds(ue, fmb):
     ue.spawn("StaticMeshActor", "Lamp", location=ue.Vector(100, 0, 50), extent=(10, 10, 50))
     lamp = run_op("cam.subject", target="Lamp")
     assert lamp["from"] == "bounds" and lamp["height"] == pytest.approx(100)
+
+
+def test_rereading_the_engine_converges(ue, fmb):
+    """Day 1 on the box: every re-run of cam.frame / cam.coverage / cam.shoot said changed. The engine stores the focus
+    distance as a C++ float and reads a rotation back from its quaternion (yaw 200 reads -160): the fake does too."""
+    r = run_op("cam.add", label="CAM_R", loc=[400, 0, 160], rot_={"pitch": -3.3, "yaw": 200.0, "roll": 0},
+               focus_cm=412.345678)
+    assert r["rot"]["yaw"] == pytest.approx(-160) and r["focus"] != 412.345678  # what the engine gives back
+    again = run_op("cam.add", label="CAM_R", loc=[400, 0, 160], rot_={"pitch": -3.3, "yaw": 200.0, "roll": 0},
+                   focus_cm=412.345678)
+    assert not again["changed"]
+    moved = run_op("cam.add", label="CAM_R", rot_={"pitch": -3.3, "yaw": 179.9, "roll": 0}, focus_cm=412.5)
+    assert moved["changed"] and moved["rot"]["yaw"] == pytest.approx(179.9)
+    assert run_op("cam.focus", label="CAM_R", distance_cm=500)["changed"]
 
 
 def test_frame_mcu_three_quarter(ue, fmb):
