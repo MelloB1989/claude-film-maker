@@ -31,6 +31,7 @@ NIGHT = MOOD == "night"
 # clear the old studio (its floor and walls too: the room is a prop now)
 L.delete([a[0] for a in L.actors() if a[0] not in KEEP])
 
+# >>> host swap
 # who plays him (round 3): "trey" (the round-2 MetaHuman, the fallback) or "op" (the operator's MetaHuman, bodies.py
 # "op"); either way the actor is labelled "Host" on the same mark, so the lights, cameras and performance find it
 HOST = globals().get("HOST", os.environ.get("HOST_BODY", "trey"))
@@ -45,6 +46,7 @@ if _h is None or not _h.get_class().get_path_name().startswith(HOST_BP + "."):
     if unreal.EditorAssetLibrary.does_asset_exist("/Game/Reel/SEQ_Reel"):
         from fmbridge.ops import seq as _seq
         print("SEQ_Reel Host binding:", _seq.rebind("/Game/Reel/SEQ_Reel", ["Host"]))
+# <<< host swap
 
 
 # ------------------------------------------------------------------------------------------------- materials
