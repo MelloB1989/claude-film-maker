@@ -11,13 +11,14 @@ files: [vars.yaml]
 kind: vars
 vars:
   tag: after
+  run: manual   # --set run=<id>: a new directory renders afresh (no overwrite: with it, apply never converges)
 ---
 kind: render
 version: 1
 name: "r3_hairpop_${tag}"
 sequence: "${seq}"
 level: "${level}"
-out_dir: "${out}/hairpop_${tag}"
+out_dir: "${out}/hairpop/${run}/${tag}"
 preset: final
 shots: [Reel_S17]
 frames: [1400, 1440]
@@ -25,5 +26,4 @@ chunking: shot
 preroll: cut
 aa_method: tsr          # as 30-final.yaml (follow it if the calibration picks otherwise)
 spatial: 1
-overwrite: true
 cvars: {"r.SSS.Quality": 1, "r.SSS.HalfRes": 0}

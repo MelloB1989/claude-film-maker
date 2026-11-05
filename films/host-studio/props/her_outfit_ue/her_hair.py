@@ -13,6 +13,10 @@ import unreal
 GROOMS = "/Game/Host/Unpacked/Presenter/Grooms"
 FOLDER = "/Game/Studio/Materials"  # studio.py's M
 SCALARS = {"hairMelanin": 1.0, "hairRedness": 0.05}
+# Coverage (round 3, gate c): the ends read green where they lie over the olive overshirt, the shirt showing through
+# the thin tips. reel/hair_cover_ab.py picks these on S16 at final quality; None leaves the groom's own value.
+TIP_SCALE = None   # GroomGroupsDesc hair_tip_scale, every group of her Hair groom
+HAIR_WIDTH = None  # cm, absolute (a multiplier would compound: this runs after every re-place)
 EAL, MEL = unreal.EditorAssetLibrary, unreal.MaterialEditingLibrary
 
 hair = next((c for a in unreal.get_editor_subsystem(unreal.EditorActorSubsystem).get_all_level_actors()
@@ -45,4 +49,16 @@ if missing:
 bad = {i: r for i, r in out.items() if not (r["now"] or "").startswith(r["set"])}
 if bad:
     raise RuntimeError(f"her_hair: the groom did not keep the instances: {bad}")
+if TIP_SCALE is not None or HAIR_WIDTH is not None:
+    descs = list(hair.get_editor_property("groom_groups_desc"))
+    for d in descs:
+        if TIP_SCALE is not None:
+            d.set_editor_property("hair_tip_scale", float(TIP_SCALE))
+            d.set_editor_property("hair_tip_scale_override", True)
+        if HAIR_WIDTH is not None:
+            d.set_editor_property("hair_width", float(HAIR_WIDTH))
+            d.set_editor_property("hair_width_override", True)
+    hair.set_editor_property("groom_groups_desc", descs)
+    out["coverage"] = [{f: d.get_editor_property(f) for f in ("hair_tip_scale", "hair_width")}
+                       for d in hair.get_editor_property("groom_groups_desc")]
 result = out
