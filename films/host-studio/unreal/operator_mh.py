@@ -247,6 +247,11 @@ elif STAGE == "diag":
     t("image_first", lambda: [os.path.basename(x) for x in frames(fcd.get_editor_property("image_sequences")[0])[:2]])
     t("start_doc", lambda: (unreal.MetaHumanIdentity.start_frame_tracking_pipeline.__doc__ or "")[:600])
     t("pose_members", lambda: [n for n in dir(pose) if not n.startswith("_")])
+    # the fallback without footage tracking: the 5.8 Creator fits a face from landmarks tracked on an image
+    sub = unreal.get_editor_subsystem(unreal.MetaHumanCharacterEditorSubsystem)
+    for n in ("track_face_landmarks_from_image", "translate_face_landmarks", "commit_target_mesh_keypoints",
+              "fit_state_to_target_vertices", "align_to_target_meshes", "get_face_landmarks"):
+        t("sub." + n, lambda n=n: (getattr(sub, n).__doc__ or "")[:900])
 
 elif STAGE == "character":
     # the character: blank, its face fitted to the identity's conformed mesh (metric scale, eyes), then his body
