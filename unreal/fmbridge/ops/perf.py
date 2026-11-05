@@ -27,7 +27,7 @@ from ..perfkit import expressions as X
 from ..perfkit import face as FACE
 from ..perfkit import head as HD
 from ..perfkit import spec as SP
-from ..perfkit.rig import HEAD, HeadSigns, head_axes
+from ..perfkit.rig import HEAD, LIVE_CM, HeadSigns, head_axes
 
 LSE = unreal.LevelSequenceEditorBlueprintLibrary
 
@@ -296,14 +296,16 @@ def calibrate(*, label: str, face_component: str = "Face", scratch: str = "/Game
         # the top of the head to the character's left raises the right eye against the left
         resp[name] = {"yaw": _dot(d, left), "pitch": _dot(d, up), "roll": (r1[2] - l1[2]) - (eR[2] - eL[2])}
         raw[name] = {k: round(v, 4) for k, v in resp[name].items()}
-        if max(abs(v) for v in resp[name].values()) < 0.05:  # 10 degrees of head turn moves the eyes over a cm
-            apply({})
-            raise OpError(f"{name}={degrees} did not move {label}'s head (under 0.05 cm at the eyes: {raw[name]}): the "
-                          "face rig is not turning the head from the head curves", code="failed", details={"raw": raw},
-                          hint="drive the face from Sequencer with mh.drive_face, and check its Anim Blueprint reads "
-                               "HeadYaw/HeadPitch/HeadRoll with HeadControlSwitch=1")
-    curves = head_axes(resp)
-    signs = {k: 1.0 if resp[c][k] > 0 else -1.0 for k, c in curves.items()}
+    try:
+        curves = head_axes(resp)
+    except ValueError as e:
+        apply({})
+        raise OpError(f"{label}'s head curves: {e} (cm at the eyes for {degrees} each: {raw})", code="failed",
+                      details={"raw": raw},
+                      hint="drive the face from Sequencer with mh.drive_face, and check its Anim Blueprint reads "
+                           "HeadYaw/HeadPitch/HeadRoll with HeadControlSwitch=1") from None
+    dead = [c for c in resp if max(abs(v) for v in resp[c].values()) < LIVE_CM]
+    signs = {k: (1.0 if resp[c][k] > 0 else -1.0) if c not in dead else 1.0 for k, c in curves.items()}
     apply({})
     yield from _await_change(measure, frame, "FACIAL_L_Eye", last["bones"]["FACIAL_L_Eye"][0])
     rest2 = yield from measure([frame])
@@ -333,7 +335,7 @@ def calibrate(*, label: str, face_component: str = "Face", scratch: str = "/Game
         json.dump(result.to_json(), f, indent=1)
     if LSE.get_current_level_sequence():
         LSE.close_level_sequence()
-    return {"signs": result.to_json(), "file": path, "skeleton": skel, "raw": raw, "changed": True}
+    return {"signs": result.to_json(), "file": path, "skeleton": skel, "raw": raw, "dead_curves": dead, "changed": True}
 
 
 # --- the PERFORMANCE spec ----------------------------------------------------------------------------------------

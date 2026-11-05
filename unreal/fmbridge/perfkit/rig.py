@@ -164,12 +164,39 @@ class HeadSigns:
                    d.get("eye_flip", False), d.get("curves"))
 
 
+LIVE_CM = 0.05  # 10 degrees of head turn moves the eyes over a centimetre: under this a curve does nothing
+
+
 def head_axes(resp: dict) -> dict:
     """{axis: curve} from each head curve's measured response {curve: {"yaw", "pitch", "roll"}} (cm at the eyes). A tilt
     (roll) is the one curve that changes the eyes' height difference; it also moves them sideways, so sideways motion
-    alone cannot name the turn. Of the other two, the one that moves the eyes up or down more nods (pitch)."""
-    roll = max(resp, key=lambda c: abs(resp[c]["roll"]))
-    rest = [c for c in resp if c != roll]
-    pitch = max(rest, key=lambda c: abs(resp[c]["pitch"]))
-    yaw = next(c for c in rest if c != pitch)
-    return {"yaw": yaw, "pitch": pitch, "roll": roll}
+    alone cannot name the turn. Of the other two, the one that moves the eyes up or down more nods (pitch).
+
+    A curve that moves nothing (round 3, the box: HeadRoll on her 5.8 face) gets the axis left over, so writing it is
+    harmless; the live ones are named by what they do. Raises ValueError when fewer than two curves move, or when two
+    live curves do the same thing."""
+    live = [c for c in resp if max(abs(v) for v in resp[c].values()) >= LIVE_CM]
+    dead = [c for c in resp if c not in live]
+    if len(live) < 2:
+        raise ValueError(f"only {live} of the head curves move the head")
+    if not dead:
+        roll = max(resp, key=lambda c: abs(resp[c]["roll"]))
+        rest = [c for c in resp if c != roll]
+        pitch = max(rest, key=lambda c: abs(resp[c]["pitch"]))
+        yaw = next(c for c in rest if c != pitch)
+        return {"yaw": yaw, "pitch": pitch, "roll": roll}
+
+    def kind(c):
+        r = {k: abs(v) for k, v in resp[c].items()}
+        if r["roll"] >= 0.3 * max(r["yaw"], r["pitch"]):  # turns and nods leave the eyes level
+            return "roll"
+        return "pitch" if r["pitch"] > r["yaw"] else "yaw"
+    out = {}
+    for c in live:
+        k = kind(c)
+        if k in out:
+            raise ValueError(f"{out[k]} and {c} both {k} the head: {resp}")
+        out[k] = c
+    for k, c in zip([k for k in ("roll", "pitch", "yaw") if k not in out], dead):
+        out[k] = c
+    return {k: out[k] for k in ("yaw", "pitch", "roll")}
