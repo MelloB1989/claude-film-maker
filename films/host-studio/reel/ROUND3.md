@@ -240,6 +240,12 @@ If something blocks the editor (a cloud wait, a fix in progress), agent-07 rende
   - The working end is 22:10 UTC: agent-07 powers off by hand after the head-object check. The box's own 22:30 UTC poweroff is the backstop.
 - chain28 verify: the head turns are in (her 26.1/28.3 deg, him -53.1/-21.1 deg) and lip sync passes on both. Her tilt on "yourself" is lost (HeadPitch dead).
 
+- **FIXES PREVIEW DELIVERED (20:11 UTC):**
+  - Key: `s3://rf-render-788655295054-aps1/ue-linux/shoot/r3/preview/karma-r3-preview-960x540.mp4`. 19.4 MB, 65.000 s, 960x540 with audio.
+  - agent-09's gate is SIGNED: (a)(b)(d)(e) pass, head turns in. In (c) the pop is fixed and the green tint is OPEN.
+  - Open for the finals: her S16 neckline under-layer edge, the S15 blend jumps and the his LOD0 pin.
+  - The key was told to cc-64d05f6e.
+
 ## Tomorrow (round 3, day 2): the list
 
 1. Restore the box from private S3 (project + DDC), then agent-04 re-runs the ingest from the raw take (`private/operator-face/MySlate_3/`, ~1 min). The identity is already solved and Host_Op is already built.
