@@ -94,7 +94,7 @@ def calibrate_body(*, label: str, component: str = "Body", scratch: str = "/Game
     "file", "raw"}.
     Example: film-ue op perf.calibrate_body label=Presenter
     """
-    from .anim import _await_change, _skeleton_path, new as anim_new
+    from .anim import _await_change, _skeleton_path, model_keys, new as anim_new
     from .seq import component_of, sample
     bones = list(bones or BONES)
     comp = component_of(label, component)
@@ -128,7 +128,7 @@ def calibrate_body(*, label: str, component: str = "Body", scratch: str = "/Game
     fwd = _unit([fwd[0], fwd[1], 0.0])
     left = _unit(_cross(fwd, up))  # Unreal is left-handed: up x fwd is the character's right
     a = load(anim_path)
-    n_keys = AL.get_num_keys(a)
+    n_keys = model_keys(a)
     last = rest
 
     def pose_with(bone, axis=None, shift=None):
@@ -211,7 +211,7 @@ def body_life(*, out: str, body_mesh: str, length_s: float, state: str = "rest",
     Returns: {"out", "changed", "breaths_per_min", "shifts", "bones"}.
     Example: film-ue op anim.body_life out=/Game/Perf/AS_life body_mesh=/Game/MetaHumans/Ada/Body/m_med_nrw_body length_s=12 state=talk
     """
-    from .anim import _anim, _keys, _skeleton_path, new as anim_new
+    from .anim import _anim, _keys, _skeleton_path, model_keys, new as anim_new, set_additive
     from .perf import signs_for
     from ..perfkit import curves as C
     if not EAL.does_asset_exist(body_mesh.split(".")[0]):
@@ -232,7 +232,7 @@ def body_life(*, out: str, body_mesh: str, length_s: float, state: str = "rest",
             head_yaw = (lambda t: sg * C.at(ht, hv, t))
     anim_new(path=out, skeleton=body_mesh, length_s=length_s, fps=30, replace=True)
     a = load(out)
-    n_keys = AL.get_num_keys(a)
+    n_keys = model_keys(a)
     life = BL.plan(0.0, length_s, state=state, breath_deg=breath_deg, clavicle_deg=clavicle_deg, shift_cm=shift_cm,
                    follow=follow, head_yaw=head_yaw, seed=seed)
     # the first frame is the rest pose (the additive's base): every offset relative to its value there
@@ -257,9 +257,7 @@ def body_life(*, out: str, body_mesh: str, length_s: float, state: str = "rest",
             keys.append((pos, q, r["s"]))
         tracks[b] = keys
     _write_tracks(a, tracks, n_keys)
-    AL.set_additive_animation_type(a, unreal.AdditiveAnimationType.AAT_LOCAL_SPACE_BASE)
-    AL.set_additive_base_pose_type(a, unreal.AdditiveBasePoseType.ABPT_LOCAL_ANIM_FRAME)
-    a.set_editor_property("ref_frame_index", 0)
+    set_additive(a, "local", unreal.AdditiveBasePoseType.ABPT_LOCAL_ANIM_FRAME, frame=0)
     EAL.save_asset(out)
     return {"out": out, "changed": True, "breaths_per_min": life["breaths_per_min"], "shifts": life["shifts"],
             "bones": sorted(tracks)}

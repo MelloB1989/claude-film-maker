@@ -52,7 +52,13 @@ class _Controller:
         self.anim._data["curves"].clear()
 
     def set_frame_rate(self, rate, should_transact=True):
-        self.anim._data["fps"] = rate.numerator / rate.denominator
+        # the engine takes only a multiple or a factor of the current rate (AnimDataController.cpp SetFrameRate)
+        new, cur = rate.numerator / rate.denominator, self.anim._data["fps"]
+        if (new / cur) % 1 and (cur / new) % 1:
+            core._fake().calls.append(("AnimationDataController.error", ("NonCompatibleFrameRateError", new, cur), {}))
+            return
+        self.anim._data["frames"] = int(round(self.anim._data["frames"] * new / cur))
+        self.anim._data["fps"] = new
 
     def set_number_of_frames(self, n, should_transact=True):
         self.anim._data["frames"] = int(n.value if hasattr(n, "value") else n)
@@ -64,6 +70,20 @@ class _Controller:
     def set_bone_track_keys(self, bone, pos, rot, scl, should_transact=True):
         self.anim._data["bones"].add(str(bone))
         return True
+
+
+class _Model:
+    """IAnimationDataModel: the animation's own rate and key count."""
+
+    def __init__(self, anim):
+        self.anim = anim
+
+    def get_number_of_keys(self):
+        return self.anim._data["frames"] + 1
+
+    def get_frame_rate(self):
+        fps = self.anim._data["fps"]
+        return core.FrameRate(int(fps), 1)
 
 
 class AnimSequence(core.AnimSequence):
@@ -79,6 +99,7 @@ class AnimSequence(core.AnimSequence):
         self._props.setdefault("additive_anim_type", "AAT_NONE")
         self._props.setdefault("ref_pose_type", "ABPT_REF_POSE")
         self._props["controller"] = _Controller(self)  # a duplicate gets its own
+        self._props["data_model_interface"] = _Model(self)
 
     def get_skeleton(self):
         return self._props.get("skeleton")
