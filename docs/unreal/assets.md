@@ -417,7 +417,7 @@ and merged into ue-helpers in chunks; nothing has run in a real editor yet (no b
    selftest's thumbnail luma.
 6. **`fab.login` on Linux offscreen**: does `OpenInNewTab` create the CEF tab (or its error tab) and trigger the
    persist login? `fab.library`'s account id from the JWT `sub` is an assumption; the endpoint is private.
-7. **FabScript** has not been compiled.
+7. **FabScript** compiled on day 1 with `film-ue plugin-build FabScript` (20 s) and loads in the Linux editor (log: InternalLoadLibrary FabScript). `fab.add` of a pack through it: see DAY1-REPORT.
 8. **EditorScriptingUtilities**: done. `ops/assets.py` `EAL` falls back to the EditorAssetSubsystem when the plugin
    is off, every module of the bridge now imports it (577192b), and a test fails on any new direct
    `unreal.EditorAssetLibrary`. editor.doctor (B11) can treat the plugin as optional.
