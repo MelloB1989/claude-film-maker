@@ -36,4 +36,4 @@ version: 1
 order: 40
 name: exposure
 op: look.post
-args: {settings: {auto_exposure_method: AEM_MANUAL, auto_exposure_bias: 10.0}, label: Demo_Post}
+args: {settings: {auto_exposure_method: AutoExposureMethod.AEM_MANUAL, auto_exposure_bias: 10.0}, label: Demo_Post}

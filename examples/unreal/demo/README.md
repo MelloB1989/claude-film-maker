@@ -29,7 +29,7 @@ film-ue --box demo first-run --epic --voice path/to/demo_line.wav
 It checks and fixes, in order: the settings, reaching the box, the editor service, the bridge (installed from this
 checkout), the shader compile, `film-ue doctor`, the Epic sign-in (`--epic`: it prints a code for
 epicgames.com/activate), `film-ue selftest platform dx`, and puts the voice line (any 3-5 s spoken WAV) at
-`/srv/film/demo/demo_line.wav`. On a failure it stops with the exact next command; run it again to continue
+`/srv/ue/demo/demo_line.wav`. On a failure it stops with the exact next command; run it again to continue
 (`film-ue --box demo first-run --status` shows where it is; docs/unreal/platform.md). Expected at the end: every step
 done and "next, film-ue apply examples/unreal/demo/10-character.yaml".
 
@@ -83,9 +83,9 @@ Expected on the first full apply (in this order):
 Check, without a UI:
 ```bash
 film-ue seq cuts --path /Game/_Demo/SEQ_Demo                   # [["CAM_Demo_S1", 0, 48], ["CAM_Demo_S2", 48, 120], [..., 120, 168]]
-film-ue view stills --sequence /Game/_Demo/SEQ_Demo --out-dir /srv/film/demo/out/stills --per-shot 2
-film-ue pull /srv/film/demo/out/stills/sheet.png /tmp/demo-sheet.png     # the cut in one picture: LOOK at it
-film-ue pull /srv/film/demo/out/qa/review.png /tmp/demo-review.png
+film-ue view stills --sequence /Game/_Demo/SEQ_Demo --out-dir /srv/ue/demo/out/stills --per-shot 2
+film-ue pull /srv/ue/demo/out/stills/sheet.png /tmp/demo-sheet.png     # the cut in one picture: LOOK at it
+film-ue pull /srv/ue/demo/out/qa/review.png /tmp/demo-review.png
 film-ue qa framing --subjects '["Host"]' --sequence /Game/_Demo/SEQ_Demo --frame 80 --camera CAM_Demo_S2 --json
 ```
 What good looks like: the WS shows the host full length at the desk; S2 a medium close-up from the left 3/4 pushing
@@ -103,15 +103,15 @@ apply again (it converges).
 film-ue plan ../examples/unreal/demo/80-render.yaml
 film-ue apply ../examples/unreal/demo/80-render.yaml                     # preview: fast, for a look
 film-ue apply ../examples/unreal/demo/80-render.yaml --set preset=final  # the final (~0.7 s/frame at 1080p)
-film-ue render progress --out-dir /srv/film/demo/out/render --expected 168   # frames so far, while it runs
+film-ue render progress --out-dir /srv/ue/demo/out/render --expected 168   # frames so far, while it runs
 ```
-Expected: 168 PNGs in `/srv/film/demo/out/render`; a second apply with the same preset changes nothing.
+Expected: 168 PNGs in `/srv/ue/demo/out/render`; a second apply with the same preset changes nothing.
 Path tracing (`pathtrace`) runs out of memory on the 24 GB L4: do not use it on that box.
 
 ## 9. Deliver (WP12)
 
 ```bash
-film-ue pull-dir /srv/film/demo/out/render ../out/demo/render
+film-ue pull-dir /srv/ue/demo/out/render ../out/demo/render
 film-post plan ../examples/unreal/demo/90-delivery.yaml
 film-post apply ../examples/unreal/demo/90-delivery.yaml                  # ../out/demo/web.mp4
 ```
