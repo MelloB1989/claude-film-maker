@@ -61,12 +61,14 @@ def _make(rnd, t, cause, partial_p=0.12, speed=1.0):
 
 def plan(t0: float, t1: float, state: str | dict = "talk", gaze_events: list = (), phrase_ends: list = (),
          emphasis: list = (), seed: int = 0, double_p: float = 0.1, partial_p: float = 0.12,
-         gaze_threshold_deg: float = 20.0, refractory_s: float = 0.7, rate_per_min: float | None = None) -> list:
+         gaze_threshold_deg: float = 20.0, refractory_s: float = 0.7, rate_per_min: float | None = None,
+         avoid: list = ()) -> list:
     """Blinks between t0 and t1. `state` names a rate (RATE_PER_MIN: rest, talk, focus, nervous, calm, listen) or a
     list of {"t0", "t1", "state"} spans; `gaze_events` are gaze.GazePlan.events (a blink goes with most shifts over
     `gaze_threshold_deg`, certain past 35 deg); `phrase_ends` [t] attract a blink 0.05-0.3 s after (60%);
     `emphasis` [t] or [(t, k)] attract one now and then (15%). Spontaneous blinks fill the rest with log-normal
-    intervals; no two blinks closer than `refractory_s`."""
+    intervals; no two blinks closer than `refractory_s`; none inside an `avoid` span [(t0, t1)] (another face's
+    blinks)."""
     rnd = random.Random(seed)
     spans = state if isinstance(state, list) else [{"t0": t0, "t1": t1, "state": state}]
 
@@ -112,7 +114,32 @@ def plan(t0: float, t1: float, state: str | dict = "talk", gaze_events: list = (
                 out.append(_make(rnd, b.end() + rnd.uniform(0.02, 0.08), "double", partial_p))
         t += gap
     out.sort(key=lambda b: b.t)
-    return _irregular(out, rnd, t0, t1, refractory_s)
+    return _clear(_irregular(out, rnd, t0, t1, refractory_s), avoid, t0, t1, refractory_s)
+
+
+def _clear(out: list, avoid: list, t0: float, t1: float, refractory_s: float, pad: float = 0.08) -> list:
+    """No blink inside an `avoid` span [(a, b) s] (another face's blinks: two people blinking on the same frame reads
+    as a glitch in a two-shot, round 3): each one that falls in one moves by up to 0.9 s, keeping the refractory
+    spacing, or is dropped. Reseeding could not do it (8 seeds left 4 clashes on the box)."""
+    if not avoid:
+        return out
+    spans = [(float(a) - pad, float(b) + pad) for a, b in avoid]
+    hit = lambda s0, s1: any(s0 < b and a < s1 for a, b in spans)  # noqa: E731
+    kept = []
+    for b in sorted(out, key=lambda x: x.t):
+        d = b.end() - b.t
+        if not hit(b.t, b.t + d):
+            kept.append(b)
+            continue
+        for off in (0.25, -0.25, 0.45, -0.45, 0.65, -0.65, 0.9, -0.9):
+            t = b.t + off
+            if t0 <= t and t + d <= t1 and not hit(t, t + d) and all(abs(t - k.t) >= refractory_s * 0.7 for k in kept
+                                                                      if k.cause != "double" and b.cause != "double"):
+                b.t = t
+                kept.append(b)
+                break
+    kept.sort(key=lambda x: x.t)
+    return kept
 
 
 def _cv(ts: list) -> float:

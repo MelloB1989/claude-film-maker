@@ -108,7 +108,7 @@ def face(*, anim: str, out: str = "", wav: str = "", gaze: list | None = None, s
          mood: str = "", moods: list | None = None, expressions: list | None = None, emphasis=None,
          layers: list | None = None, solver_head: str = "soften", blink_mode: str = "replace", blink_state: str = "talk",
          energy: float = 1.0, mouth_mix: float = 0.5, brow_chance: float = 0.55, signs: dict | None = None,
-         seed: int = 0, plot: str = "") -> dict:
+         seed: int = 0, plot: str = "", avoid_blinks: list | None = None) -> dict:
     """Make a face animation (a speech solve, or any MetaHuman face animation) read as alive: write a copy whose head
     turns follow the gaze (eyes lead, the head eases with overshoot and settles), with nods and brow flashes on the
     stressed words, irregular asymmetric blinks (with big gaze shifts and at phrase ends), fixational eye darts, a
@@ -129,6 +129,8 @@ def face(*, anim: str, out: str = "", wav: str = "", gaze: list | None = None, s
       blink_mode: replace|keep|max. blink_state: talk|listen|rest|focus|nervous|calm. energy: >1 brisker head.
       mouth_mix: smile strength on a talking mouth (0..1). signs: rig signs (default perf.calibrate's, else guesses).
       plot: a PNG path on the box: the result's curves drawn as strips (perf.plot) to look at.
+      avoid_blinks: [[t0, t1], ...] spans (s, this animation's time) with no blink: another face's blinks in the
+      same shot (two people blinking on the same frame reads as a glitch).
     Returns: {"out", "changed", "plan": {shifts, nods, blinks, expressions, ...}, "report": naturalness checks,
     "curves": n, "plot"?: {"path", "width", "height"}}.
     Example: film-ue op perf.face anim=/Game/Speech/Anim/AS_line1 wav=/home/ue/Audio/line1.wav mood=warm 'gaze=[{"t":0,"yaw":0,"scan":"lens"},{"t":2.5,"yaw":25,"pitch":-5}]'
@@ -155,7 +157,7 @@ def face(*, anim: str, out: str = "", wav: str = "", gaze: list | None = None, s
                        phrase_ends=ends, speech=speech, layers=layers or FACE.LAYERS, solver_head=solver_head,
                        blink_mode=blink_mode, blink_state=blink_state,
                        signs=signs_for(_skeleton_path(a), signs), energy=energy, mouth_mix=mouth_mix,
-                       brow_chance=brow_chance, seed=seed)
+                       brow_chance=brow_chance, seed=seed, avoid_blinks=[tuple(x) for x in (avoid_blinks or [])])
     except ValueError as e:
         raise OpError(str(e), code="bad_args", hint="perf.vocab lists presets, moods, nods and layers") from None
     if out != anim.split(".")[0]:
