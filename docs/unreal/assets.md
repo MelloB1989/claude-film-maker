@@ -368,9 +368,40 @@ loose-texture `fab.import`, and `fab.login`/`fab.library` when there is a sign-i
 DDC dominate). Needs: GPU. Not run there: `assets.save_all`, `fab.add` (needs a signed URL). On the fake engine it
 runs end to end with every check passing (`tests/test_ue_assets_selftest.py`).
 
+## 8b. Day-1 triage (`film-ue selftest assets` on the GPU box)
+
+Read the report's failed checks top down: the first one usually explains the rest. "log" = `film-ue log` (grep the
+category named).
+
+| failing check (or error) | likely cause | exact fix |
+|---|---|---|
+| status error at `assets.import ... made nothing` / "the OBJ import made no StaticMesh" | Interchange OBJ translator off, or the task's pipeline override rejected | log `LogInterchange`; try `film-ue assets import --files <obj> --dest /Game/_T --detail` by hand; if the override is the problem, `assets_import.import_any` without `options` (plain task) to compare |
+| `OpError unsupported: InterchangeMeshCollision has no CONVEX18_DOP` (or ForceMeshType / CombineStaticMeshesBehavior / ScriptCollisionShapeType / MegascanImportType) | enum member spelt differently by the Python layer | the error lists `candidates`: pin the right name in `COLLISION` / `_enum(...)` calls in ops/assets_import.py (`python: dir(unreal.InterchangeMeshCollision)`) |
+| "the OBJ chair is 50x48x90 cm" fails with x100 or x0.01 | OBJ read in metres (or the translator's unit conversion) | note the factor; set `scale` default for `.obj` in `import_any`, or pass `--scale` in recipes; update the check |
+| "glTF metres became cm (0.3 m cube)" fails | glTF unit/axis conversion differs (Y-up) | compare `size_cm`; if axes are swapped only, relax the check to sorted sizes; if x100, the translator does not convert: scale 100 for .gltf/.glb |
+| "a box has 12 triangles" fails | the OBJ quads triangulated differently or the mesh still compiling when counted | if counts are 0, add `yield 1.0` before `assets.describe` in the selftest; otherwise accept the engine's count |
+| "re-import with replace=false keeps it" fails | `AssetImportData` registry tag JSON shape differs (`already_imported` reads `RelativeFilename`) | `python: unreal.AssetRegistryHelpers.get_asset_registry().get_asset_by_object_path(...)` / `ad.get_tag_value("AssetImportData")`: adjust `assets_catalog._source` to the real keys |
+| "the catalog lists the chair without loading" / find hits empty | tags missing (mesh saved while compiling) or registry not rescanned | `film-ue assets catalog --folder <scratch> --refresh true --load true`; if that works, make the selftest pass `load=True` |
+| "Nanite on, 3 LODs" fails | `set_lods` returns -1 for a 12-tri box / Nanite settings struct name | log `LogStaticMesh`; test on a denser mesh (`/Engine/BasicShapes/Sphere` duplicate) before changing code |
+| "re-import picked up the wider source" fails | `InterchangeManager.reimport_asset` returned None (cannot reimport an OBJ) | fallback in `assets_import.reimport`: `import_any(files=[src], dest=<folder>, replace=True, name=<asset>)` |
+| "the normal map is linear TC_NORMALMAP" fails | Interchange's own normal-map detection overrode, or the setting did not save | `film-ue assets texture --path <T> --role normal` again and `assets describe`; if it reverts, set before save in `import_textures` (already) and check `EAL.save_asset` returned True |
+| "master <name> compiles" fails for some masters | a pin/output name differs in 5.8 (connect returned False → OpError names the link) or Substrate compile error | the OpError message names `src.out -> dst.pin`; `MEL.get_material_expression_input_names(node)` shows the real pins; fix the spec in ops/_matlib.py |
+| "the PBR material passes mat.check" fails with `material.texture_kind` | a texture's compression did not take (Interchange set TC_Default after us) | `film-ue assets texture --path <T> --role <role>`; then `mat check` again |
+| "parameters read back" fails | MI setter wrote but `get_material_instance_*` reads the parent default (needs `update_material_instance` first) | already called once at the end; if needed call it before reading back in `converge_instance` |
+| "a graph material compiles" fails | Fresnel/Lerp pin names | as for masters |
+| "4 thumbnails" / "the thumbnail is not black" fails | view.turntable error, or the temporary light too dim/bright | log; raise/lower `c.set_intensity(...)` in `assets_catalog.thumbnail` (8·r²/100 cd is a guess); or place it among the set's lights (`loc=`) |
+| "the chair uses the PBR material" (refs) fails | registry not updated until the mesh is saved | `mat.assign` saves the mesh; add `ar.scan_paths_synchronous([folder], True)` in `assets.referencers` if still stale |
+| "no redirector left" fails | resaved referencer still lists the redirector until rescan | in `fix_redirectors_in`, rescan the folder before `referencers(r)`; worst case run `ResavePackages -FixupRedirects` commandlet |
+| "removing a used material is refused" fails | referencers empty (same rescan issue) | as above |
+| "fab.import of loose textures makes a material" fails | mat.pbr path; see the PBR rows | — |
+| "fab.login with the saved sign-in" fails | `OpenInNewTab` does not create a tab offscreen, so the persist login never runs | `film-ue fab login --portal true` (device code, operator approves once) or start the editor with `-AUTH_TYPE=exchangecode -AUTH_PASSWORD=<code>` (`film-ue epic-login --fab`); if still nothing, build FabScript (section 6) and use `unreal.FabScript.open_fab_tab()` |
+| "the Fab library answers" fails with `engine` | private endpoint changed, or account id from the JWT `sub` wrong | pass `--account-id`; check the plugin's own My Folder in the log (`Fab.TEDS.MyFolderIntegration`) |
+| FabScript does not build | header paths / module deps | `JsonObjectConverter.h` is in JsonUtilities (Build.cs has it); `UnrealType.h` for `FindFProperty`; nothing else depends on FabScript: skip it and `fab.add` uses the Python route |
+| `fab.add` of an `unreal-engine` pack → unsupported | no FabScript or no Linux BPS library | build FabScript and copy `libBuildPatchInstallerLib.so` from Epic's binary Fab plugin into `Engine/Plugins/Fab/ThirdParty/` |
+
 ## 9. HANDOFF
 
-State (2026-11-05, agent-02): everything above is written, unit-tested against the fake (tests/test_ue_assets_*.py)
+State (2026-11-05, agent-02; last push of the night): everything above is written, unit-tested against the fake (tests/test_ue_assets_*.py)
 and merged into ue-helpers in chunks; nothing has run in a real editor yet (no box tonight). First thing tomorrow:
 `film-ue selftest assets` on the GPU box, then fix by its report. Most likely to need a fix, in order:
 
