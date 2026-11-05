@@ -103,3 +103,27 @@ SSH_ASKPASS, never print it):
 - Reports for owners: fleet/agent-13/day1-reports (JSON per area). Fix branches: fleet/agent-13/day1-{view,seq,dx,wp,
   mat,render,demo}, merged by agent-10.
 
+## Final full run (15:05 UTC, `film-ue selftest` all, plan order, kali reports/202355-all)
+
+| area | result | notes |
+|---|---|---|
+| platform | OK 48/0 | |
+| dx | OK 32/0 | |
+| assets | 62/1 | fab.login: needs an operator Epic sign-in for Fab |
+| layout | OK 36/0 | |
+| mh | ERROR after 25/0 | melanin on an un-assembled groom (agent-04 fixing the op) |
+| anim | 20/7 | 5 real (head curves, face.alive, face_curves, clavicle twist: agent-01) + 2 baselines (stills went sRGB) |
+| seq | OK 45/0 | |
+| cam | OK 52/0 | |
+| render | 25/2 | MRQ editor library unavailable (executors); cancel reports ok: needs an owner |
+| qa | OK 32/0 | |
+| audio | OK 17/0 | |
+| env | 54/2 | only 2 baselines (stored before the stills went sRGB): `film-ue selftest env --baseline update` once |
+| foliage | OK 22/0 | |
+| pose | ERROR 0/0 | rig_keys: no control rig track (agent-01) |
+| wp | OK 17/0 | |
+
+Next (agent-07 has the slot from here): `film-ue selftest env anim --baseline update` once; rerun anim + pose when
+agent-01's branch lands, mh when agent-04's lands (merge them into the box checkout, `film-ue install`); re-apply the
+demo (`film-ue apply ../examples/unreal/demo/demo.yaml`) and look at a fresh contact sheet.
+
