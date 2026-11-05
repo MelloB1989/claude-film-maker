@@ -557,28 +557,12 @@ if unreal.EditorAssetLibrary.does_asset_exist(HER_BP):
         her_part(part).set_editor_property("lighting_channels", her_part("Body").get_editor_property("lighting_channels"))
     # <<< outfit
     # small gold hoops through the lobes, a black smartwatch on the left wrist, riding her bones
-    comps = {c.get_name(): c for c in her.get_components_by_class(unreal.SkeletalMeshComponent)}
-    face, body_ = comps["Face"], comps["Body"]
-    rule = unreal.AttachmentRule.KEEP_WORLD
-
-    def ride(lab):  # a prop spawns Static, and a Static root silently refuses to attach to a moving bone
-        L.actor(lab).root_component.set_mobility(unreal.ComponentMobility.MOVABLE)
-        return L.actor(lab)
-
-    for side, bone in (("L", "FACIAL_L_Ear4"), ("R", "FACIAL_R_Ear4")):
-        p = face.get_socket_location(bone)
-        inward = 0.25 if side == "L" else -0.25  # through the lobe, not on its surface
-        if prop(f"HerEar{side}", "hoop_earring", (p.x - 0.1, p.y + inward, p.z + 0.15)):
-            ride(f"HerEar{side}").attach_to_component(face, bone, rule, rule, rule, False)
-    a, b = body_.get_socket_location("lowerarm_twist_02_l"), body_.get_socket_location("hand_l")
-    fwd = (b - a).normal()
-    out = body_.get_socket_location("wrist_outer_l") - body_.get_socket_location("wrist_inner_l")
-    up = (out - fwd * out.dot(fwd)).normal()  # the back of the wrist, square to the forearm
-    at = b - fwd * 3.6  # just above the wrist bone
-    if prop("HerWatch", "smartwatch", (at.x, at.y, at.z)):
-        w = ride("HerWatch")
-        w.attach_to_component(body_, "lowerarm_twist_02_l", rule, rule, rule, False)
-        w.set_actor_rotation(unreal.MathLibrary.make_rot_from_yz(fwd, up), False)  # once attached (it kept the bone's)
+    # spawned here, seated on her bones by seat_her_accessories() at the very end (finish): anything that changes one
+    # of her components re-creates them, and what rode the old ones was left at its bone with no offset (round 2's
+    # watch: on lowerarm_twist_02_l's origin, mid-forearm, its band across the arm)
+    for side in ("L", "R"):
+        prop(f"HerEar{side}", "hoop_earring", (0.0, 0.0, 0.0))
+    prop("HerWatch", "smartwatch", (0.0, 0.0, 0.0))
     # her hair: sleek black, even root to tip. The preset's hair (melanin 0.8, redness 0.25) read with green lengths in
     # the warm day shots, from no parameter of the material and no light (reel hair tests a-h); full melanin hides it.
     # A child of each preset instance (strands, cards, helmet) so the rest of the preset's look carries over.
@@ -666,6 +650,65 @@ for name, (loc, at, focal, ap, fb) in CAMS.items():
     K.camera(name, loc, at, focal=focal, aperture=ap, filmback=fb, pilot=False)
 
 
+WATCH_BONE = "lowerarm_twist_01_l"  # the forearm bone nearest the wrist (8 cm from hand_l; twist_02 is 17 cm)
+WATCH_UP_ARM = 3.6  # cm from hand_l up the forearm: the dial just above the wrist bone
+
+
+def seat_her_accessories():
+    """Her hoops through her lobes and her watch flat on the back of her left wrist, attached so they ride her bones.
+    Run last (after anything that changes her components); checks the watch and says what it found."""
+    try:
+        her = L.actor("Presenter")
+    except ValueError:
+        return None
+    comps = {c.get_name(): c for c in her.get_components_by_class(unreal.SkeletalMeshComponent)}
+    face, body_ = comps["Face"], comps["Body"]
+    rule, keep = unreal.AttachmentRule.KEEP_WORLD, unreal.DetachmentRule.KEEP_WORLD
+    out = {}
+
+    def ride(lab):  # a prop spawns Static, and a Static root silently refuses to attach to a moving bone
+        try:
+            a = L.actor(lab)
+        except ValueError:
+            return None
+        a.root_component.set_mobility(unreal.ComponentMobility.MOVABLE)
+        a.detach_from_actor(keep, keep, keep)
+        return a
+
+    for side, bone in (("L", "FACIAL_L_Ear4"), ("R", "FACIAL_R_Ear4")):
+        a = ride(f"HerEar{side}")
+        if a:
+            p = face.get_socket_location(bone)
+            inward = 0.25 if side == "L" else -0.25  # through the lobe, not on its surface
+            a.set_actor_location(unreal.Vector(p.x - 0.1, p.y + inward, p.z + 0.15), False, False)
+            a.attach_to_component(face, bone, rule, rule, rule, False)
+    w = ride("HerWatch")
+    if w:
+        P = body_.get_socket_location
+        hand = P("hand_l")
+        fwd = (hand - P("lowerarm_l")).normal()
+        # the back of the wrist: forearm x the knuckle line (pinky -> index) in UE's axes, on the left arm. Checked on
+        # the box (probe_wrist.py): it agrees with the fingers' curl once their splay is taken out
+        across = P("index_metacarpal_l") - P("pinky_metacarpal_l")
+        across = (across - fwd * across.dot(fwd)).normal()
+        back = fwd.cross(across).normal()
+        at = hand - fwd * WATCH_UP_ARM
+        rot = unreal.MathLibrary.make_rot_from_yz(fwd, back)  # the watch: band round +Y (the forearm), dial +Z
+        w.set_actor_location_and_rotation(at, rot, False, False)
+        w.attach_to_component(body_, WATCH_BONE, rule, rule, rule, False)
+        w.set_actor_location_and_rotation(at, rot, False, False)  # again, attached: an attach may keep the bone's
+        got = {"from_hand_cm": round((w.get_actor_location() - hand).length(), 2),
+               "band_along_forearm": round(w.get_actor_right_vector().dot(fwd), 3),
+               "dial_to_back_of_wrist": round(w.get_actor_up_vector().dot(back), 3),
+               "socket": str(w.root_component.get_attach_socket_name())}
+        got["ok"] = abs(got["from_hand_cm"] - WATCH_UP_ARM) < 0.5 and got["band_along_forearm"] > 0.98 and \
+            got["dial_to_back_of_wrist"] > 0.98
+        if not got["ok"]:
+            unreal.log_error(f"studio: HerWatch is not seated on her left wrist: {got}")
+        out["HerWatch"] = got
+    return out
+
+
 def finish():
     """The last steps run across editor ticks: the shirts are pushed out a few mm so skin under the tight tee stops
     poking through, and mh.cloth_inflate only swaps a garment's material once its shaders have compiled and a few
@@ -677,8 +720,9 @@ def finish():
         except ValueError:
             continue
         inflated[lab] = yield from mh.cloth_inflate(lab, cm=cm, which="Shirt")  # over the shorts, not with them
+    seated = seat_her_accessories()  # last: the inflate swaps her garments' materials (re-creating her components)
     L.save_level()
-    return {"actors": len(L.actors()), "undressed": UNDRESSED, "inflated": inflated}
+    return {"actors": len(L.actors()), "undressed": UNDRESSED, "inflated": inflated, "her_accessories": seated}
 
 
 result = finish()

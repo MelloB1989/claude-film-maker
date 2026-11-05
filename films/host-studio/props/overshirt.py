@@ -64,6 +64,12 @@ SMOOTH_K = 3.0                 # the underarm's smooth union
 SLEEVE_END = 5.0               # the sleeve's (rolled) end: this far down the forearm from the elbow
 NECK_R = {"back": 6.0, "side": 6.9, "front": 8.0}   # neckline: horizontal radius round the neck's axis
 FRONT_GAP = ((141.0, 5.0), (125.0, 6.5), (110.0, 7.5), (94.0, 8.5))  # (z, half-gap between the open fronts)
+# the collar (round 3: round 2's stood 2.5-3.2 cm almost upright, 0.45 cm off her neck at rest, and clipped her neck
+# and hair as she turned her head). A lower stand that leans out and rolls over, kept well clear of the neck in every
+# head pose. stand/stand_back: stand height (cm) and the extra at the centre back; lean: how far the stand tips out
+# from the neck's axis (0 upright, 1 = 45 degrees); clear: least gap to her neck (cm); fall/point: the fall's depth
+# from the fold and the extra at the collar points
+COLLAR = dict(stand=1.9, stand_back=0.4, lean=0.55, clear=1.2, fall=4.3, point=3.0)
 
 
 def parse_args():
@@ -790,7 +796,17 @@ def arrays_object(name, X_cm, faces, mats=(), mat_idx=None):
     return ob
 
 
-def snapshot(path, objs_colors, views=(("front", (0, 1, 0)), ("side", (-1, 0, 0)), ("back", (0, -1, 0)),
+def snapshot(*a, **kw):
+    """A render of the garment (Workbench); on a box with no OpenGL the build goes on without it, and says so."""
+    if "--no-render" in sys.argv:
+        return
+    try:
+        _snapshot(*a, **kw)
+    except Exception as e:  # noqa: BLE001 (renders are a check, not the product)
+        log(f"snapshot {os.path.basename(a[0])} skipped: {type(e).__name__}: {e}")
+
+
+def _snapshot(path, objs_colors, views=(("front", (0, 1, 0)), ("side", (-1, 0, 0)), ("back", (0, -1, 0)),
                                          ("q", (0.6, 1, -0.25))), centre=(0, 0, 1.12), dist=3.2, ortho=1.15,
              res=(900, 1100)):
     """Quick workbench renders of the listed objects (object colour), for checking the fit."""
@@ -1139,7 +1155,38 @@ POSES = {  # name: [(bone, world axis, degrees)]; her left is +X, her front -Y
     "fwd60": [("upperarm_l", (1, 0, 0), 60), ("upperarm_r", (1, 0, 0), 60)],
     "back60": [("upperarm_l", (1, 0, 0), -45), ("upperarm_r", (1, 0, 0), -45)],
     "elbow60": [("lowerarm_l", (1, 0, 0), 60), ("lowerarm_r", (1, 0, 0), 60)],
+    # round 3's livelier heads (perfkit: turns with overshoot, the tilt on "yourself", the head down -> up): the neck
+    # into the collar
+    "turnL35": [("neck_01", (0, 0, 1), 15), ("neck_02", (0, 0, 1), 10), ("head", (0, 0, 1), 10)],
+    "turnR35": [("neck_01", (0, 0, 1), -15), ("neck_02", (0, 0, 1), -10), ("head", (0, 0, 1), -10)],
+    "tiltL15": [("neck_01", (0, 1, 0), 8), ("head", (0, 1, 0), 7)],
+    "tiltR15": [("neck_01", (0, 1, 0), -8), ("head", (0, 1, 0), -7)],
+    "down25": [("neck_01", (1, 0, 0), 12), ("neck_02", (1, 0, 0), 8), ("head", (1, 0, 0), 5)],
+    "up20": [("neck_01", (1, 0, 0), -10), ("neck_02", (1, 0, 0), -6), ("head", (1, 0, 0), -4)],
+    "turnL30_down15": [("neck_01", (0, 0, 1), 13), ("head", (0, 0, 1), 17), ("neck_02", (1, 0, 0), 15)],
 }
+
+
+def collar_clearance(her, ob):
+    """The collar's least gap to her neck (the face mesh) in the current pose, cm: min and 5th percentile over the
+    collar's vertices (negative = inside her neck)."""
+    if her.face_ob is None or "pieces" not in ob.keys():
+        return None
+    span = next(((a0, a1) for name, a0, a1 in json.loads(ob["pieces"]) if name == "collar"), None)
+    if span is None:
+        return None
+    X, T = eval_points(her.face_ob)
+    bvh = BVHTree.FromPolygons([Vector(p) for p in X], [tuple(map(int, t)) for t in T])
+    G, _ = eval_points(ob)
+    d = []
+    for p in G[span[0]:span[1]]:
+        loc, nor, _, dist = bvh.find_nearest(Vector(p), 8.0)
+        if loc is not None:
+            d.append(dist if (Vector(p) - loc).dot(nor) >= 0 else -dist)
+    if not d:
+        return None
+    d = np.array(d)
+    return {"min": round(float(d.min()), 2), "p5": round(float(np.percentile(d, 5)), 2)}
 
 
 def pose_tests(her, ob, args, colours):
@@ -1148,17 +1195,25 @@ def pose_tests(her, ob, args, colours):
         for m in o.modifiers:
             if m.type == "ARMATURE":
                 m.object = arm
+    face_arm = her.face_ob.parent if her.face_ob is not None and her.face_ob.parent is not None and \
+        her.face_ob.parent.type == "ARMATURE" else None
     res = {}
     for name, moves in POSES.items():
         reset_pose(arm)
+        if face_arm is not None:
+            reset_pose(face_arm)
         for bone, ax, deg in moves:
             pose_bone_world(arm, bone, ax, deg)
-        res[name] = clip_check(her, ob)
-        log(f"pose {name}: {res[name][0]} verts inside her, deepest {res[name][1]:.2f} cm")
+            if face_arm is not None and bone in face_arm.pose.bones:  # her neck and head are on the face's skeleton
+                pose_bone_world(face_arm, bone, ax, deg)
+        res[name] = (*clip_check(her, ob), collar_clearance(her, ob))
+        log(f"pose {name}: {res[name][0]} verts inside her, deepest {res[name][1]:.2f} cm, collar gap {res[name][2]}")
         snapshot(os.path.join(args.out, f"overshirt_pose_{name}"), {ob: (0.33, 0.38, 0.22), **colours},
                  views=(("front", (0, 1, 0)), ("q", (0.6, 1, -0.25))), centre=(0, 0, 1.15), ortho=1.25,
                  res=(800, 900))
     reset_pose(arm)
+    if face_arm is not None:
+        reset_pose(face_arm)
     return res
 
 
@@ -1200,8 +1255,8 @@ def idle_test(her, ob, args, colours, samples=10):
         for t in targets:
             retarget(src, t)
         bpy.context.view_layer.update()
-        res[f] = clip_check(her, ob)
-        log(f"idle frame {f}: {res[f][0]} verts inside her, deepest {res[f][1]:.2f} cm")
+        res[f] = (*clip_check(her, ob), collar_clearance(her, ob))
+        log(f"idle frame {f}: {res[f][0]} verts inside her, deepest {res[f][1]:.2f} cm, collar gap {res[f][2]}")
         if f in shots:
             snapshot(os.path.join(args.out, f"overshirt_idle_{f}"), {ob: (0.33, 0.38, 0.22), **colours},
                      views=(("front", (0, 1, 0)), ("q", (0.6, 1, -0.25)), ("side", (-1, 0, 0))),
@@ -1699,9 +1754,10 @@ def collar(X, F, R, pattern, surf_bvh, neck_bvh):
     back = np.exp(-((u - 0.5) / 0.28) ** 2)
     end = np.minimum(u, 1 - u) * length                      # cm from the nearer collar end
     flap_len = REVERS["top_w"] + 0.5                          # the neckline's turned-back part at each end
-    hs = (2.5 + 0.7 * back) * (0.6 + 0.4 * smoothstep(flap_len - 1.0, flap_len + 2.5, end))  # stand height
+    hs = (COLLAR["stand"] + COLLAR["stand_back"] * back) * \
+        (0.6 + 0.4 * smoothstep(flap_len - 1.0, flap_len + 2.5, end))  # stand height
     point = (1 - smoothstep(0.0, 9.0, end)) ** 1.5           # 1 at the collar points
-    wf = 4.1 + 3.3 * point                                   # the fall, measured from the fold
+    wf = COLLAR["fall"] + COLLAR["point"] * point             # the fall, measured from the fold
     th = 0.16
     rows = []
     NS, NF = 7, 16
@@ -1709,22 +1765,22 @@ def collar(X, F, R, pattern, surf_bvh, neck_bvh):
         p = P[i]
         o = p - a - up * ((p - a) @ up)
         o /= np.linalg.norm(o)
-        upi = up - 0.22 * o
+        upi = up - COLLAR["lean"] * o
         upi /= np.linalg.norm(upi)
         col = []
         base = p - upi * 0.35 - o * 0.1
         for j in range(NS):
             q = base + upi * (hs[i] + 0.35) * j / (NS - 1)
             col.append(q)
+        # keep clear of the neck: the worst point of the stand sets how far it all moves out (the sewn edge least)
+        need = 0.0
+        for c in col[1:]:
+            loc, nor, _, dist = neck_bvh.find_nearest(Vector(c))
+            if loc is not None:
+                need = max(need, COLLAR["clear"] - (c - np.array(loc[:])) @ o)
+        if need > 0:
+            col = [c + o * need * (k / (NS - 1)) ** 0.5 for k, c in enumerate(col)]
         top = col[-1]
-        # keep clear of the neck
-        loc, nor, _, dist = neck_bvh.find_nearest(Vector(top))
-        if loc is not None:
-            gap = (top - np.array(loc[:])) @ o
-            if gap < 0.45:
-                shift = o * (0.45 - gap)
-                col = [c + shift * (k / (NS - 1)) ** 0.5 for k, c in enumerate(col)]
-                top = col[-1]
         # the fold: half a turn outward
         for k in range(1, 4):
             ang = math.pi * k / 4
@@ -1805,8 +1861,8 @@ def relax_collar(G, NS, surf_bvh, neck_bvh, a, up, th, iters=40):
                     continue
                 sp, sn = np.array(loc[:]), np.array(nor[:])
                 h = (G[i, j] - sp) @ sn
-                if h < 0.45:
-                    G[i, j] = G[i, j] + sn * (0.45 - h)
+                if h < COLLAR["clear"] * j / (fall0 - 1):  # the sewn edge stays; the stand's top is fully clear
+                    G[i, j] = G[i, j] + sn * (COLLAR["clear"] * j / (fall0 - 1) - h)
     return G
 
 
