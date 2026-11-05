@@ -56,7 +56,7 @@ for f in FRAMES:
             "hfov": round(c.get_horizontal_field_of_view(), 2) if hasattr(c, "get_horizontal_field_of_view") else None,
             "vfov": round(c.get_vertical_field_of_view(), 2) if hasattr(c, "get_vertical_field_of_view") else None,
             "constrain": c.get_editor_property("constrain_aspect_ratio"),
-            "focus": round(c.get_editor_property("current_focus_distance"), 1)}
+            "focus": round(c.get_editor_property("focus_settings").get_editor_property("manual_focus_distance"), 1)}  # the keyed value (current_focus_distance only updates on tick)
     out["frames"][f] = row
 result = out
 """
