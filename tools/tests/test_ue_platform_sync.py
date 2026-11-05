@@ -123,3 +123,28 @@ def test_once_face_data_is_on_the_box_uploads_go_private_only(box):
     assert "--sse" not in sync.ddc_script("restore") and "--sse" not in sync.project_script("down")
     ws.save(kms_key="alias/ue-private")
     assert "--sse aws:kms --sse-kms-key-id alias/ue-private" in sync.project_script("up")
+
+
+def test_a_render_folder_syncs_under_the_same_face_data_rule(box):
+    """Round 3: the finals and their reports go box -> S3 with film-ue (never a raw aws s3 cp to a private path):
+    with face data on the box only under .../private/, KMS in the command there."""
+    ran, _ = box
+    up = sync.dir_script("up", "/srv/ue/reel/r3/final_c", "s3://bkt/ue-linux/shoot/r3/final/")
+    assert "/srv/ue/reel/r3/final_c s3://bkt/ue-linux/shoot/r3/final/" in up and "--sse" not in up
+    ws.save(face_data="yes")
+    with pytest.raises(SystemExit, match="private"):
+        sync.dir_script("up", "/srv/ue/reel/r3/final_c", "s3://bkt/ue-linux/shoot/r3/final/")
+    priv = "s3://bkt/ue-linux/private/renders/r3/final_c/"
+    up = sync.dir_script("up", "/srv/ue/reel/r3/final_c", priv)
+    assert "--sse aws:kms" in up and up.rstrip().endswith("echo synced=up")
+    ws.save(kms_key="alias/ue-private")
+    assert "--sse aws:kms --sse-kms-key-id alias/ue-private" in sync.dir_script("up", "/srv/x", priv)
+    down = sync.dir_script("down", "/srv/ue/pulled", priv)
+    assert down.startswith("mkdir -p /srv/ue/pulled") and "--sse" not in down  # downloads unaffected
+    res = sync.sync_dir("up", "/srv/ue/reel/r3/final_c", priv)
+    assert res["ok"] and "aws s3 sync" in ran[-1]
+    assert sync.sync_dir("up", "/srv/x", priv, dry_run=True)["dry_run"]
+    with pytest.raises(SystemExit, match="up .* or down"):
+        sync.dir_script("save", "/srv/x", priv)
+    with pytest.raises(SystemExit, match="--local"):
+        sync.dir_script("up", "", priv)

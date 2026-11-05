@@ -84,15 +84,17 @@ def register(sub) -> None:
         ps.add_parser("rm").add_argument("name")
     p = _add(sub, "sync", help="project / DDC / Epic sign-in / engine between the box and S3")
     if p:
-        p.add_argument("what", choices=("project", "ddc", "epic", "engine", "status"))
+        p.add_argument("what", choices=("project", "ddc", "epic", "engine", "dir", "status"))
         p.add_argument("direction", nargs="?", default="", help="project: up|down; ddc: save|restore; epic: "
-                                                                 "save|restore|status; engine: restore")
+                                                                 "save|restore|status; engine: restore; dir: up|down")
         p.add_argument("--delete", action="store_true")
         p.add_argument("--allow-dirty", action="store_true")
         p.add_argument("--stop-editor", action="store_true")
         p.add_argument("--dry-run", action="store_true")
         p.add_argument("--version", default="")
         p.add_argument("--engine-s3", default="")
+        p.add_argument("--local", default="", help="dir: the folder on the box")
+        p.add_argument("--s3", default="", help="dir: s3://BUCKET/prefix/")
     p = _add(sub, "epic-login", help="sign the box's editor in to Epic (device code or exchange code)")
     if p:
         p.add_argument("--fab", action="store_true", help="Fab's own sign-in")
@@ -191,6 +193,8 @@ def dispatch(a) -> bool:
             if d != "restore" or not a.engine_s3 or not a.version:
                 raise SystemExit("film-ue sync engine restore --engine-s3 S3 --version V")
             _out(sync.engine(a.engine_s3, a.version))
+        elif w == "dir":
+            _out(sync.sync_dir(d, a.local, a.s3, delete=a.delete, dry_run=a.dry_run))
         else:
             _out(sync.status())
     elif cmd == "epic-login":
