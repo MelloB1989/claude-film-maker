@@ -1,18 +1,20 @@
 """Her hair's green ends (round 3, gate c): at full size the ends read green only where they lie over the olive
 overshirt (cast3 S16 f1240/1280/1302): the strands thin to their tips and the shirt shows through, so no hair
 material parameter changed it (hair_teal_ab.py). This renders S16 f1240-1243 at the finals' quality once per strand
-coverage variant on her Hair groom (thicker tips, wider strands), puts the groom back exactly as it was, and makes
-one sheet of full-size crops of the ends. Run on the box, from tools/ (the bridge and the frames are local):
+coverage variant on her Hair groom (thicker tips, wider strands) and puts the groom back exactly as it was. It is a
+film-ue client: run it where film-ue runs, from tools/ (frames are checked on the box through the workstation shell):
 
-    uv run --with pillow --with numpy python ../films/host-studio/reel/hair_cover_ab.py --out /srv/ue/reel/r3/hair_cover
+    uv run python ../films/host-studio/reel/hair_cover_ab.py --out /srv/ue/reel/r3/hair_cover
 
-Each run renders into <out>/<HHMMSS>/<variant>; only <out>/<HHMMSS>/hair_cover.jpg and hair_cover.json need to
-leave the box.
+Each run renders into <out>/t<HHMMSS>/<variant> on the box and writes hair_cover_t<HHMMSS>.json here; it prints the
+qa_review crop commands that make the ends' crops ON THE BOX (one per variant, f1241): only those jpgs leave it.
 """
 from __future__ import annotations
 
 import argparse
 import json
+import re
+import shlex
 import sys
 from pathlib import Path
 
@@ -20,7 +22,6 @@ from filmtools.unreal import client
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-import qa_review  # noqa: E402
 
 SPEC = HERE / "r3" / "45-hair-cover.yaml"
 VARIANTS = [  # GroomGroupsDesc fields on her Hair groom, every group
@@ -110,57 +111,61 @@ def render(tag: str, run: str) -> None:
         sys.argv = argv
 
 
-def wait_frames(root: Path, want=range(1240, 1244), limit: float = 1200.0) -> None:
+def box_sizes(root: str) -> dict:
+    """{master frame: bytes} of the PNGs under root ON THE BOX: this script is a film-ue client (it runs where film-ue
+    runs, kali), so a local os.path check never sees the box's frames (t003359: all 4 there, the wait timed out)."""
+    from filmtools.unreal import workstation
+    out = workstation.sh(f"find {shlex.quote(root)} -maxdepth 1 -name '*.png' -printf '%f %s\\n' 2>/dev/null; true", 60)
+    sizes = {}
+    for line in out.splitlines():
+        m = re.search(r"(\d{4,})\.png (\d+)$", line.strip())
+        if m:
+            sizes[int(m.group(1))] = int(m.group(2))
+    return sizes
+
+
+def wait_frames(root: str, want=range(1240, 1244), limit: float = 1200.0) -> None:
     """The render can land after film-ue apply gives up: in the 18:23 and 002736 runs apply returned in seconds
     ('the render never started') and S16's 4 frames appeared under the variant's dir later. Wait until all of them
-    are there and their sizes hold, so the next variant's groom change never lands mid-render."""
+    are there on the box and their sizes hold, so the next variant's groom change never lands mid-render."""
     import time
     t0, sizes = time.time(), None
     while time.time() - t0 < limit:
-        fr = qa_review.frames(str(root))
+        fr = box_sizes(root)
         if all(f in fr for f in want):
-            now = [fr[f].stat().st_size for f in want]
+            now = [fr[f] for f in want]
             if now == sizes:
                 return
             sizes = now
         time.sleep(15)
-    raise SystemExit(f"{root}: frames {list(want)} not all there after {limit:.0f} s")
+    raise SystemExit(f"{root} (on the box): frames {list(want)} not all there after {limit:.0f} s")
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--out", required=True, help="on the box: the renders' parent dir (the spec's out) and the sheet")
+    ap.add_argument("--out", required=True, help="on the box: the renders' parent dir (the spec's out)")
+    ap.add_argument("--json", default="", help="here: the report (default hair_cover_<run>.json)")
     a = ap.parse_args()
     import time
     run = time.strftime("t%H%M%S")  # a letter first: --set run=002736 would read as the number 2736 (another dir)
-    out = Path(a.out) / run
+    out = f"{a.out.rstrip('/')}/{run}"  # a path on the box
     orig = ok(client.exec_code(SNAP))
     rep = {"original": orig, "variants": {}}
     try:
         for v in VARIANTS:
             r = put(groups_for(v, orig))
             render(v["name"], run)
-            wait_frames(out / v["name"])
+            wait_frames(f"{out}/{v['name']}")
             rep["variants"][v["name"]] = {"groups": groups_for(v, orig), "put": r}
     finally:
         rep["restored"] = put(orig)
-    cells = []
-    for v in VARIANTS:
-        p = qa_review.crop(str(out / v["name"]), str(out / f"_{v['name']}.jpg"), [1241], ENDS_BOX, 640)
-        cells.append((v["name"], p))
-    from PIL import Image, ImageDraw
-    ims = []
-    for name, p in cells:
-        im = Image.open(p).convert("RGB")
-        ImageDraw.Draw(im).text((8, 22), name, fill=(255, 255, 0))
-        ims.append(im)
-    w, h = ims[0].size
-    sheet = Image.new("RGB", (2 * w + 12, 2 * h + 12), (24, 24, 24))
-    for k, im in enumerate(ims):
-        sheet.paste(im, (4 + (k % 2) * (w + 4), 4 + (k // 2) * (h + 4)))
-    sheet.save(out / "hair_cover.jpg", quality=90)
-    (out / "hair_cover.json").write_text(json.dumps(rep, indent=1, default=str))
-    print(json.dumps({"sheet": str(out / "hair_cover.jpg"), "restored": rep["restored"]}, default=str))
+    (Path(a.json) if a.json else Path(f"hair_cover_{run}.json")).write_text(json.dumps(rep, indent=1, default=str))
+    # the sheet is made on the box (the frames never leave it): one crop per variant at f1241
+    q = "../films/host-studio/reel/qa_review.py"
+    cmds = [f"uv run --with pillow --with numpy python {q} crop {out}/{v['name']} --out {out}/_{v['name']}.jpg "
+            f"--frames 1241 --box {','.join(map(str, ENDS_BOX))}" for v in VARIANTS]
+    print(json.dumps({"run": run, "out_on_box": out, "restored": rep["restored"], "box_crops": cmds}, indent=1,
+                     default=str))
 
 
 if __name__ == "__main__":
