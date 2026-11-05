@@ -327,6 +327,27 @@ elif STAGE == "grooms":
             except Exception as e:  # not_ready before the first build: run again after it
                 R.setdefault("colours", {})[slot] = "later: " + str(e)[:120]
 
+elif STAGE == "look":
+    # his look (round 3 review against the capture): grooms (beard off unless BEARD is set), skin tone, dark iris; then
+    # the cloud textures again (a skin change discards them) and the build. Values overridable per run by globals.
+    from fmbridge.ops import call
+    hair = globals().get("HAIR", GROOMS["Hair"][0])
+    brows = globals().get("BROWS", GROOMS["Eyebrows"][0])
+    must = globals().get("MUSTACHE", "")
+    beard = globals().get("BEARD", "none")
+    for slot, item in (("Hair", hair), ("Eyebrows", brows), ("Mustache", must or "none"), ("Beard", beard)):
+        r = call("mh.groom", character=CHARACTER, slot=slot, item=item)
+        R.setdefault("grooms", {})[slot] = (r.get("item"), r.get("changed")) if isinstance(r, dict) else "assembling"
+    su, sv = globals().get("SKIN_UV", (0.62, 0.58))
+    R["skin"] = plain({k: v for k, v in call("mh.skin", character=CHARACTER, u=su, v=sv).items()
+                       if k in ("changed", "u", "v")})
+    iu, iv = globals().get("IRIS_UV", (0.08, 0.95))
+    R["eyes"] = plain(call("mh.eyes", path=CHARACTER, both={"iris": {"primary_color_u": iu, "primary_color_v": iv,
+                                                                       "secondary_color_u": iu,
+                                                                       "secondary_color_v": iv}}).get("changed"))
+    R["next"] = ("film-ue op mh.textures character=" + CHARACTER + " (multi-tick), then mh.build character=" + CHARACTER
+                 + " name=Host_Op force=true, then host_swap.py HOST='op', groom.set label=Host melanin=1.0 redness=0.05")
+
 elif STAGE == "character":
     # the character: blank, its face fitted to the identity's conformed mesh (metric scale, eyes), then his body
     # (bodies.py "op": 180 cm, fit) by the parametric constraints. The cloud rig/textures/build follow (bodies.py).
