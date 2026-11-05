@@ -222,6 +222,7 @@ snake_case of the reflected name.
 | `EditorAssetLibrary.does_asset_exist` | Engine/Plugins/Editor/EditorScriptingUtilities/.../EditorAssetLibrary.h:70 | |
 | `EditorLoadingAndSavingUtils.get_dirty_map_packages / get_dirty_content_packages / save_dirty_packages(maps, content)` | Engine/Source/Editor/UnrealEd/Public/FileHelpers.h:136,144,108 | no prompt |
 | `Paths.engine_dir / get_project_file_path / convert_relative_path_to_full` | Engine/Source/Runtime/Engine/Classes/Kismet/BlueprintPathsLibrary.h:41,391 | |
+| `Paths.project_content_dir` (render.job: a saved level's .umap on disk) | Engine/Source/Runtime/Engine/Classes/Kismet/BlueprintPathsLibrary.h (`ProjectContentDir`, beside `ProjectSavedDir` :173; line not re-checked: the source box was down on day 1) | |
 | `PrimitiveComponent.set_simulate_physics`, `SceneComponent.set_mobility` (selftest) | Engine/Source/Runtime/Engine/Classes/Components/PrimitiveComponent.h:1661, SceneComponent.h:1296 | |
 | ProRes / DNx / MP4 outputs: not used | Engine/Plugins/Media/AppleProResMedia/AppleProResMedia.uplugin:20 (Win64, Mac), AvidDNxMedia.uplugin:19 (Win64); MovieRenderPipelineMP4Encoder/Private has only Windows/ | hence ffmpeg |
 

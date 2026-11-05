@@ -315,11 +315,23 @@ def _new_job(r: dict, chunk: dict, level: str):
     return q, job
 
 
+def _umap_on_disk(level: str) -> bool:
+    """A /Game/ level's .umap on disk. Day 1: a scratch level just saved with save_current_level was not yet in the
+    asset registry (does_asset_exist said no) although its file was written."""
+    if not level.startswith("/Game/"):
+        return False
+    try:
+        content = unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_content_dir())
+    except Exception:
+        return False
+    return os.path.isfile(os.path.join(content, level[len("/Game/"):] + ".umap"))
+
+
 def _check_level(r: dict) -> str:
     """The map to render: the spec's, else the open one; it must exist on disk (MRQ refuses an unsaved map, and
     offscreen it says nothing)."""
     level = _pkg(r["level"]) if r["level"] else _editor_level()
-    if not level or not EAL.does_asset_exist(level):
+    if not level or not (EAL.does_asset_exist(level) or _umap_on_disk(level)):
         raise OpError(f"level {level or '(none open)'!r} is not saved on disk: MRQ renders only a saved map",
                       code="conflict", hint="save it first with level.save, or pass level=/Game/... of a saved map")
     return level

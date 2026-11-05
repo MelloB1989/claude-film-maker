@@ -65,7 +65,8 @@ def _build(t, root: str, prefix: str) -> dict:
     seq = root + "/SEQ_Render"
     t.op("seq.new", path=seq, start=0, end=48, fps=24, replace=True)
     t.op("seq.camera_cuts", path=seq, cuts=[[cam_a, 0], [cam_b, 24]])
-    t.op("level.save")
+    # MRQ renders only a saved map (day 1: render.job refused the scratch level as unsaved)
+    t.check("scratch level saved", bool(t.op("level.save")), True)
     level = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world().get_path_name().split(".")[0]
     return {"seq": seq, "level": level, "cams": [cam_a, cam_b]}
 
