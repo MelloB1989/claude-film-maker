@@ -522,7 +522,10 @@ if unreal.EditorAssetLibrary.does_asset_exist(HIS_TROUSERS):
 
     if his_garment() is not None:
         for i, slot_ in enumerate(his_garment().get_material_slot_names()):  # the shorts: four slots, one name
-            if "short" in str(slot_).lower():
+            low_ = str(slot_).lower()
+            # only the shorts: on another build the outfit's slot names may also cover the tee (round 3: dark patches
+            # at Host_Op's tee hem); a slot naming the top too is left alone
+            if "short" in low_ and not any(w in low_ for w in ("shirt", "tee", "top", "torso", "upper")):
                 his_garment().set_material(i, unreal.load_asset(his_hidden))
     else:
         print("his outfit: no default garment on Host (no tee): wear one (mh.add_item ... slot=Outfits) and rebuild")
