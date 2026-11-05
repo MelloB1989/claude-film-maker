@@ -54,9 +54,17 @@ agent-07's report on the bucket and its policy (the default encryption is not ve
 - PIE executor (DECISIONS, day 1). MRQ's game overrides force cinematic scalability and LOD 0 for meshes; the hair
   pop at 0:39-0:40 of v2 is agent-09's (groom LOD/sim/binding): if it needs a render cvar, it goes in `cvars` here.
 
-## Time
+## Time (measured: calibration, 17:04 UTC, 24 frames of S17, both presenters)
 
-The core's cost model says ~14 min for the set shots and ~8 min for the presenter shots, but it is calibrated on
-simple scenes: MetaHumans with strand hair and Lumen at film quality were 8-15 s a frame at 4K on Windows (PLAN.md
-section 5), so expect roughly 2-4 s a frame at 1080p, i.e. ~1-2 h for all 1560 frames. Step 2's reports replace the
-guess; I post the measured numbers.
+| | AA | samples | s/frame | VRAM peak | RSS peak | fine-detail shimmer | sharpness (Laplacian var) |
+|---|---|---|---|---|---|---|---|
+| **A (picked)** | TSR | 1 x 8 | **0.68** | 11.6 GB | 6.4 GB | 0.00428 | 0.00022 |
+| B | none | 2 x 8 | 1.24 | 10.9 GB | 7.7 GB | 0.00494 (+15%) | 0.00049 |
+
+A and B differ by 34 dB PSNR (median). **A for the finals** (the `30-final.yaml` default): B is crisper in the
+beard but shimmers more frame to frame, draws hard white lines along the shelf fronts that A does not, and costs
+1.8x. A full pass (1584 frames) is ~18 min of frames + ~12 s per shot: the finals are cheap, so a changed shot is
+simply re-rendered. Sheet: `/srv/ue/reel/r3/cal_AB_crops.jpg` (A over B, frame 1344).
+
+A's first run (16:47) crashed at PIE start (a SIGSEGV in Python's GC inside UE's CollectGarbage after a burst of
+bridge probes), not from the settings: start renders from a fresh or quiet editor.
