@@ -275,3 +275,7 @@ If something blocks the editor (a cloud wait, a fix in progress), agent-07 rende
 11. TRASH_ components after the outfit blocks (Host and Trey): do a respawn + re-dress, so that lod0 and drive_faces hit the live components. agent-09 won't sign finals with TRASH_ in lod0.
 12. The first run of agent-01's `perf.py place --cleanup` (ME from REEL_PERF_ME), then level.list for Test_. Pull main a9107015 (seq rebind exact, agent-11) into the box tree.
 13. The 1080p finals of every shot (fresh dir) with whichever presenter passes, then agent-06's 65 s + 45 s cuts. Anything with Host_Op goes to private/ only.
+14. **The box's shutdown behaviour is `terminate`** (checked 20:59 UTC, 05 Nov). Any OS shutdown, the idle-guard.sh poweroff or an OS-level TTL deletes the instance.
+    - Tonight it is powered off with `film-ue down` (EC2 stop).
+    - Before the box is restarted and left alone, the operator or karmax decides: flip the attribute to `stop`, or keep the guard aware of it. Changing it is a cloud-resource change, so it is theirs, not ours.
+
