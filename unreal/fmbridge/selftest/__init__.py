@@ -374,8 +374,10 @@ def run(area: str, out_dir: str, keep: bool = False, baseline: str = "auto"):
         try:
             report["level_after"] = _scratch.leave(previous, t.scratch)
             if not keep and _eal().does_directory_exist(t.scratch):
-                _eal().delete_directory(t.scratch)
-                report["cleaned"] = t.scratch
+                if _scratch.delete_dir(t.scratch):
+                    report["cleaned"] = t.scratch
+                else:
+                    report["notes"].append(f"could not delete {t.scratch} (still referenced): selftest.cleanup later")
         except Exception:
             report["errors"].append({"where": "cleanup", "error": traceback.format_exc()[-1500:]})
     return _finish(report, out_dir, t0)
