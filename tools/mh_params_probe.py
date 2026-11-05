@@ -1,7 +1,9 @@
 # film-ue exec tools/mh_params_probe.py   -- read-only: why mh.item_params is empty on a real groom. Set CH to the selftest character (or leave "" for the last MH under /Game)
 CH = ""
 import unreal, traceback
-from fmbridge.ops.mh import _core as K, wardrobe as W
+import importlib
+from fmbridge.ops.mh import _core as K
+W = importlib.import_module("fmbridge.ops.mh.wardrobe")  # the package exports the mh.wardrobe op as `wardrobe`, shadowing the module
 R = {}
 def t(k, f):
     try: R[k] = K.plain(f()) if hasattr(K, "plain") else str(f())
