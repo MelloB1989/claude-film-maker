@@ -3,8 +3,10 @@ with numbers. Two halves:
 
   engine (agent-07 runs it on the box, after the re-place runbook, before the cast preview renders):
     cd tools && uv run python ../films/host-studio/reel/cast_gate.py engine --out /tmp/cast_gate.json
-  frames (agent-09, on the rendered cast preview, pulled):
-    python reel/cast_gate.py frames FRAMES_DIR --engine cast_gate.json --out DIR
+  frames (on the GPU box, next to the frames: only DIR comes down):
+    uv run --with pillow --with numpy python reel/cast_gate.py frames FRAMES_DIR --engine cast_gate.json --out DIR
+  hair (gate c on S16-framed stills, e.g. hair_teal_ab.py's A/B; on the box):
+    uv run --with pillow --with numpy python reel/cast_gate.py hair STILLS_DIR --out DIR
 
 Checks:
   a. lips: each speaker's face animation moves the jaw on their lines and is still between them (jawOpen per frame
@@ -264,6 +266,50 @@ def frames(root: str, eng: str | None, out: str) -> dict:
     return res
 
 
+def hair(paths: list, out: str) -> dict:
+    """Gate c on stills framed as S16 (hair_teal_ab.py's A/B): the ends' teal over the roots per still, and one sheet
+    of them, labelled, so only the sheet and the numbers leave the box."""
+    import numpy as np
+    from PIL import Image, ImageDraw
+    files = []
+    for p in paths:
+        q = Path(p)
+        files += sorted(q.glob("*.png")) + sorted(q.glob("*.jp*g")) if q.is_dir() else [q]
+    o = Path(out)
+    o.mkdir(parents=True, exist_ok=True)
+
+    def chroma(im, box):
+        w, h = im.size
+        c = np.asarray(im.crop((round(box[0] * w), round(box[1] * h), round(box[2] * w), round(box[3] * h))),
+                       np.float32)
+        lum = c.sum(axis=2)
+        m = (lum > 24) & (lum < 240)
+        if m.sum() < 30:
+            return None
+        r, g, b = (c[..., i][m].sum() for i in range(3))
+        return (g - r) / (r + g + b), (b - r) / (r + g + b)
+
+    res, cells = {}, []
+    for f in files:
+        im = Image.open(f).convert("RGB")
+        root = chroma(im, HAIR_ROOTS)
+        ends = [e for e in (chroma(im, b) for b in HAIR_ENDS) if e]
+        if root and ends:
+            g = sum(e[0] for e in ends) / len(ends) - root[0]
+            res[f.stem] = {"teal_g": round(float(g), 4), "pass": bool(g <= TEAL_MAX)}
+        cell = im.resize((480, 270))
+        ImageDraw.Draw(cell).text((6, 6), f"{f.stem} {res.get(f.stem, {}).get('teal_g')}", fill=(255, 255, 0))
+        cells.append(cell)
+    if cells:
+        cols = 3
+        sheet = Image.new("RGB", (cols * 484, ((len(cells) + cols - 1) // cols) * 274), (24, 24, 24))
+        for k, c in enumerate(cells):
+            sheet.paste(c, ((k % cols) * 484, (k // cols) * 274))
+        sheet.save(o / "hair_sheet.jpg", quality=88)
+    (o / "hair.json").write_text(json.dumps(res, indent=1))
+    return res
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -273,8 +319,12 @@ def main() -> None:
     f.add_argument("root")
     f.add_argument("--engine", default="")
     f.add_argument("--out", required=True)
+    h = sub.add_parser("hair")
+    h.add_argument("paths", nargs="+")
+    h.add_argument("--out", required=True)
     a = ap.parse_args()
-    r = engine(a.out) if a.cmd == "engine" else frames(a.root, a.engine or None, a.out)
+    r = (engine(a.out) if a.cmd == "engine" else hair(a.paths, a.out) if a.cmd == "hair"
+         else frames(a.root, a.engine or None, a.out))
     print(json.dumps(r, indent=1, default=str))
 
 
