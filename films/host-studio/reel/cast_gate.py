@@ -264,6 +264,21 @@ def frames(root: str, eng: str | None, out: str) -> dict:
     worst = max(vals, key=lambda v: v["teal_g"], default=None)
     res["hair"]["S16"] = {"pass": worst is not None and worst["teal_g"] <= TEAL_MAX, "worst": worst, "n": len(vals),
                           "threshold": TEAL_MAX}
+    # the hue measure (Lab on the hair's own pixels) on the same frames: gate c's number
+    from PIL import Image
+    hv = {}
+    for f in range(s16.start, s16.end, 8):
+        if f in fr:
+            im = Image.open(fr[f]).convert("RGB")
+            r = {k: hue_of(im, b) for k, b in HUE_REGIONS.items()}
+            crown, ends = r["crown"], [v for k, v in r.items() if k.startswith("ends") and v]
+            r["pass"] = bool(crown and ends and all(v["a"] >= HUE_A_MIN and v["C"] - crown["C"] <= HUE_C_OVER
+                                                    for v in ends))
+            hv[f] = r
+    res["hair"]["S16_hue"] = {"pass": bool(hv) and all(v["pass"] for v in hv.values()),
+                              "failed": [f for f, v in hv.items() if not v["pass"]],
+                              "worst_a": min((v["a"] for r in hv.values() for k, v in r.items()
+                                              if k.startswith("ends") and v), default=None), "frames": hv}
     if eng:
         res["engine"] = json.loads(Path(eng).read_text()).get("summary")
     (o / "cast_gate_frames.json").write_text(json.dumps(res, indent=1))
