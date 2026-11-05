@@ -63,7 +63,7 @@ def test_wait_compile_ticks_until_the_workers_are_gone_then_finishes(fmb, ue, mo
     except StopIteration as stop:
         res = stop.value
     assert res["workers_max"] == 3 and res["finished"] is True
-    assert ue.called("AutomationBlueprintFunctionLibrary.finish_loading_before_screenshot")
+    assert ue.called("AutomationLibrary.finish_loading_before_screenshot")
     assert any("3 shader workers" in s.get("message", "") for s in steps)
 
 

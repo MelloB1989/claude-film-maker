@@ -178,7 +178,8 @@ def wait_compile(*, timeout_s: float = 3600, settle_s: float = 6, finish: bool =
         yield {"message": f"{n} shader workers", "wait": 2.0}
         n = _workers()
     if finish:
-        unreal.AutomationBlueprintFunctionLibrary.finish_loading_before_screenshot()
+        # UAutomationBlueprintFunctionLibrary's ScriptName is AutomationLibrary (the C++ name is not in `unreal`)
+        unreal.AutomationLibrary.finish_loading_before_screenshot()
     return {"waited_s": round(time.time() - t0, 1), "workers_max": seen_max, "finished": bool(finish)}
 
 
