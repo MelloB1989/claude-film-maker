@@ -112,3 +112,20 @@ def test_sit_reapplied_converges(ue, host):
     again = run_op("pose.apply", label="Host", sequence="/Game/T/Seq", frame=10, pose="sit")
     assert again["iterations"] == 0 and _bones(ue)["pelvis"] == pytest.approx([-5, 0, 50], abs=1.0)
     assert run_op("pose.check", label="Host", sequence="/Game/T/Seq", frame=10, pose="sit")["pass"]
+
+
+def test_apply_waits_for_a_new_rig_to_bind_and_the_bones_to_follow(ue, fmb, monkeypatch):
+    """Day-1 (box): the first apply made the rig track, then keyed the rig before Sequencer had bound it (no anim
+    instance, controls read the origin, writes landed nowhere) and read the bones before they followed the keys:
+    every effector stayed where it was. The fake's new rigs bind BIND_LAG ticks late and bones follow LAG ticks late."""
+    ue.spawn("SkeletalMeshActor", "Host")
+    ue.pose("Host", {k: list(v) for k, v in BONES.items()})
+    ue.add_asset("/Game/T/Seq", "LevelSequence")
+    ue.ControlRigSequencerLibrary.classes["MetaHuman_ControlRig_C"] = CONTROLS
+    monkeypatch.setattr(ue.EditorAssetLibrary, "load_blueprint_class",
+                        staticmethod(lambda p: type("MetaHuman_ControlRig_C", (), {})), raising=False)
+    r = run_op("pose.apply", label="Host", sequence="/Game/T/Seq", frame=20, pose="hands_on_hips",
+               rig_class="/MetaHumanCharacter/Common/MetaHuman_ControlRig", iterations=10)
+    assert r["pass"] and max(r["errors_cm"].values()) <= 1.0, r["trace_cm"]
+    again = run_op("pose.apply", label="Host", sequence="/Game/T/Seq", frame=20, pose="hands_on_hips")
+    assert again["iterations"] == 0

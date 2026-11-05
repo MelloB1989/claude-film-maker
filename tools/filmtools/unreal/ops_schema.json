@@ -12891,9 +12891,9 @@
    "verb": "apply",
    "module": "fmbridge.ops.pose",
    "file": "unreal/fmbridge/ops/pose.py",
-   "line": 140,
+   "line": 172,
    "summary": "Pose a character at a frame of a sequence: key its Control Rig so each effector reaches the pose's goal, solved",
-   "doc": "Pose a character at a frame of a sequence: key its Control Rig so each effector reaches the pose's goal, solved\nclosed-loop on what the engine evaluates, then report the remaining error per effector.\n\nArgs: label: the character (its body's skeletal mesh; `component` names it, else the one with a pelvis).\npose: a library name (pose.library) or {effector: {\"anchor\", \"offset\": [fwd, right, up]} | \"keep\" | [x,y,z]}.\nparams: {\"drop_cm\": 45} for sit. rig_class: the body's Control Rig Blueprint, to make the rig track if missing.\ncontrols: {effector: control name} overrides for the pattern match. tolerance_cm, iterations: the solve.\nGoals are relative to the character's REST pose, captured the first time a pose is applied in this sequence\n(stored on it); `reset_rest` captures it again (after the character moved).\nA multi-tick job. Re-running converges (the controls are re-solved to the same goals).\nReturns: {\"pass\", \"errors_cm\": {effector: cm}, \"controls\": {effector: control}, \"iterations\", \"goals\",\n\"issues\", \"changed\"}.\nExample: film-ue op pose.apply label=Host sequence=/Game/Seq/S010 frame=48 pose=hands_on_hips",
+   "doc": "Pose a character at a frame of a sequence: key its Control Rig so each effector reaches the pose's goal, solved\nclosed-loop on what the engine evaluates, then report the remaining error per effector.\n\nArgs: label: the character (its body's skeletal mesh; `component` names it, else the one with a pelvis).\npose: a library name (pose.library) or {effector: {\"anchor\", \"offset\": [fwd, right, up]} | \"keep\" | [x,y,z]}.\nparams: {\"drop_cm\": 45} for sit. rig_class: the body's Control Rig Blueprint, to make the rig track if missing.\ncontrols: {effector: control name} overrides for the pattern match. tolerance_cm, iterations: the solve.\nGoals are relative to the character's REST pose, captured the first time a pose is applied in this sequence\n(stored on it); `reset_rest` captures it again (after the character moved).\nA multi-tick job. Re-running converges (the controls are re-solved to the same goals).\nReturns: {\"pass\", \"errors_cm\": {effector: cm}, \"controls\": {effector: control}, \"iterations\",\n\"trace_cm\" (the largest error before each iteration), \"goals\",\n\"issues\", \"changed\"}.\nExample: film-ue op pose.apply label=Host sequence=/Game/Seq/S010 frame=48 pose=hands_on_hips",
    "params": [
     {
      "name": "label",
@@ -12988,7 +12988,7 @@
    "verb": "check",
    "module": "fmbridge.ops.pose",
    "file": "unreal/fmbridge/ops/pose.py",
-   "line": 200,
+   "line": 243,
    "summary": "Is the character in the pose at that frame? Scrub there and measure each effector against the pose's goals.",
    "doc": "Is the character in the pose at that frame? Scrub there and measure each effector against the pose's goals.\nGoals are anchored on the rest pose pose.apply stored on the sequence, else on the bones now (a held pose then\nchecks against itself); `rest` ({bone: [x, y, z]}) overrides both. A multi-tick job.\n\nReturns: {\"pass\", \"issues\", \"metrics\": {\"errors_cm\"}}.\nExample: film-ue op pose.check label=Host sequence=/Game/Seq/S010 frame=60 pose=hands_on_hips",
    "params": [
@@ -13064,7 +13064,7 @@
    "verb": "library",
    "module": "fmbridge.ops.pose",
    "file": "unreal/fmbridge/ops/pose.py",
-   "line": 126,
+   "line": 158,
    "summary": "The named poses: what each looks like and which effectors it sets (hand_l/r, foot_l/r, pelvis, chest, head),",
    "doc": "The named poses: what each looks like and which effectors it sets (hand_l/r, foot_l/r, pelvis, chest, head),\nwith the goal table (anchor + [forward, right, up] cm in the body's frame) for one `pose`.\n\nExample: film-ue op pose.library pose=hands_on_hips",
    "params": [
