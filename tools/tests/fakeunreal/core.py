@@ -635,6 +635,9 @@ class Actor(Object):
     def get_path_name(self) -> str:
         return f"{_fake().world.get_path_name()}:PersistentLevel.{self._name}"
 
+    def is_actor_being_destroyed(self) -> bool:
+        return False
+
     def get_actor_label(self) -> str:
         return self._label
 

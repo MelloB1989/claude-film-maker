@@ -241,6 +241,7 @@ class MetaHumanInstance(core.Object):
         super().__init__(name, outer, **props)
         object.__setattr__(self, "_sel", {})       # slot -> key name
         object.__setattr__(self, "_params", {})    # key name -> {param: value}
+        object.__setattr__(self, "_assembled", False)  # live: no item has instance parameters until assembled
 
     def get_slot_selection_data(self):
         return [SlotSelectionData(selection=SlotSelection(slot_name=s, selected_item=PaletteKey(name=k)))
@@ -249,9 +250,24 @@ class MetaHumanInstance(core.Object):
     def set_single_slot_selection(self, slot_name, item_key):
         core._fake().calls.append(("MetaHumanInstance.set_single_slot_selection", (slot_name, item_key), {}))
         self._sel[str(slot_name)] = item_key.to_asset_name_string() if item_key is not None else ""
+        object.__setattr__(self, "_assembled", False)  # a new selection needs a new assembly for its parameters
+
+    def is_assembled(self):
+        return self._assembled
+
+    def assemble(self, *args):
+        core._fake().calls.append(("MetaHumanInstance.assemble", args, {}))
+        object.__setattr__(self, "_assembled", True)
+
+    def get_instance_parameter_item_paths(self):
+        if not self._assembled:
+            return []
+        return [ItemPath(item=PaletteKey(name=k)) for k in self._sel.values() if k and k in self._params]
 
     def get_instance_parameters(self, item_path):
         key = item_path.item.to_asset_name_string() if item_path.item is not None else ""
+        if not self._assembled:  # day 1, UE 5.8.4: get_instance_parameter_item_paths() == [] before assembly
+            return []
         bag = self._params.setdefault(key, {})
         out = []
         for n, v in bag.items():
