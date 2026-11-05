@@ -12,6 +12,7 @@ and body made one skeleton, the eyes locked on each shot's lens or on the partne
     cd tools && uv run python ../films/host-studio/reel/perf.py check --who her      # anim.check, solve vs face
     cd tools && uv run python ../films/host-studio/reel/perf.py calibrate_body --who her  # once per body skeleton
     cd tools && uv run python ../films/host-studio/reel/perf.py life --who her       # body life -> AS_reel_<who>_life
+    cd tools && uv run python ../films/host-studio/reel/perf.py verify               # agent-09's gate: lip-sync, check
     cd tools && uv run python ../films/host-studio/reel/perf.py stage           # Test_ sequences, cameras, marks
     cd tools && uv run python ../films/host-studio/reel/perf.py sync|gaze|stills [--who him]
     cd tools && uv run python ../films/host-studio/reel/perf.py place --seq /Game/Reel/SEQ_Reel   # for R7
@@ -426,6 +427,40 @@ def calibrate(who: str) -> dict:
 def check(who: str) -> dict:
     """anim.check on the solve (v2's base) and on the round-3 face: the before/after numbers."""
     return {k: ok(client.op("anim.check", anim=f"{ANIM}/AS_reel_{who}_{k}")) for k in ("solve", "face")}
+
+
+MOUTH = ("CTRL_expressions_jawOpen", "CTRL_expressions_mouthLipsTogetherUL", "CTRL_expressions_mouthFunnelUL",
+         "CTRL_expressions_mouthCornerPullL", "CTRL_expressions_mouthUpperLipRaiseL")
+
+
+def verify(who: str) -> dict:
+    """The numbers for agent-09's presenter gate (ROUND3), on the face that is placed (final_face): (a) per line, how
+    much the jaw moves while it is spoken (std, range) and in the silences around it; (d) anim.check on it (blinks,
+    head, gaze). A spoken line with a jaw range under 0.08 has no lip-sync."""
+    face = final_face(who)
+    got = ok(client.op("anim.read_curves", anim=face, names=list(MOUTH)))
+    t, jaw = got.get("CTRL_expressions_jawOpen", [[], []])
+    sec = lambda f: (f - START[who]) / FPS  # noqa: E731
+    def span(a, b):
+        v = [y for x, y in zip(t, jaw) if a <= x <= b]
+        if len(v) < 2:
+            return {"n": len(v)}
+        m = sum(v) / len(v)
+        return {"n": len(v), "range": round(max(v) - min(v), 3), "std": round((sum((y - m) ** 2 for y in v) / len(v)) ** .5, 3)}
+    lines, silent = {}, []
+    mine = sorted(((k, c) for k, c in cues().items() if c["who"] == who), key=lambda kc: kc[1]["voice_frame"])
+    for k, c in mine:
+        end = c.get("end_frame") or c.get("slot_end")
+        lines[k] = {"frames": [c["voice_frame"], end], **span(sec(c["voice_frame"]), sec(end))}
+        lines[k]["lip_sync"] = lines[k].get("range", 0) >= 0.08
+    edges = [START[who]] + [x for _, c in mine for x in (c["voice_frame"] - 6, (c.get("end_frame") or c["slot_end"]) + 12)] + [END]
+    for a, b in zip(edges[::2], edges[1::2]):
+        if b - a > 24:
+            silent.append({"frames": [a, b], **span(sec(a), sec(b))})
+    chk = ok(client.op("anim.check", anim=face))
+    return {"face": face, "curves": sorted(got), "lines": lines, "silences": silent,
+            "all_lines_lip_sync": all(x["lip_sync"] for x in lines.values()),
+            "check": {"pass": chk.get("pass"), "failed": chk.get("failed")}}
 
 
 def calibrate_body(who: str) -> dict:
@@ -886,7 +921,7 @@ def place(path: str) -> list:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("cmd", choices=["push", "solve", "compose", "stage", "signs", "sync", "gaze", "stills", "cleanup", "drive_faces", "restage",
-                                       "place", "arm_axes", "gesture", "calibrate", "naturalize", "check", "calibrate_body", "life"])
+                                       "place", "arm_axes", "gesture", "calibrate", "naturalize", "check", "calibrate_body", "life", "verify"])
     ap.add_argument("--who", default="him,her")
     ap.add_argument("--seq", default="/Game/Reel/SEQ_Reel", help="place: the sequence")
     ap.add_argument("--frames", help="stills: master frames, comma-separated")
@@ -903,7 +938,7 @@ def main() -> None:
         for w in a.who.split(","):
             print(w, json.dumps(compose(w)))
     elif a.cmd in ("stage", "restage", "signs", "sync", "gaze", "stills", "arm_axes", "gesture", "calibrate", "naturalize",
-                   "check", "calibrate_body", "life"):
+                   "check", "calibrate_body", "life", "verify"):
         for w in a.who.split(","):
             if a.cmd == "gaze":
                 r = gaze(w, a.start_at, a.stop_at)
