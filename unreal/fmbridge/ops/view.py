@@ -138,12 +138,27 @@ def _format(fmt: str, allowed=None) -> str:
     return name
 
 
+def _alive(o) -> bool:
+    """A cached engine object still usable: render targets are created in the open level's world, so a level change
+    (every selftest makes a scratch level) collects them and the Python wrapper is left pointing at nothing (day 1:
+    'ObjectInstance is null', 'Cannot nativize TextureRenderTarget2D')."""
+    try:
+        return o is not None and bool(unreal.SystemLibrary.is_valid(o)) and o.get_name() != ""
+    except Exception:
+        return False
+
+
 def _rt(w: int, h: int, fmt: str):
     fmt = _format(fmt)
-    key = (w, h, fmt)
+    world = _world()
+    key = (w, h, fmt, world.get_path_name() if world else "")
     rt = _RTS.get(key)
+    if not _alive(rt):
+        rt = None
+        for k in [k for k, v in _RTS.items() if not _alive(v)]:
+            del _RTS[k]
     if rt is None:
-        rt = unreal.RenderingLibrary.create_render_target2d(_world(), w, h, getattr(unreal.TextureRenderTargetFormat, fmt),
+        rt = unreal.RenderingLibrary.create_render_target2d(world, w, h, getattr(unreal.TextureRenderTargetFormat, fmt),
                                                            unreal.LinearColor(r=0, g=0, b=0, a=1), False, False)
         if not rt:
             raise OpError(f"could not create a {w}x{h} {fmt} render target", code="engine")
