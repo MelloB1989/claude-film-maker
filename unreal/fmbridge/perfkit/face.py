@@ -52,7 +52,8 @@ def build(t0: float, t1: float, *, base: dict | None = None, shifts: list = (), 
           expressions: list = (), emphasis: list = (), phrase_ends: list = (), speech=None,
           layers=LAYERS, solver_head: str = "soften", blink_mode: str = "replace", blink_state="talk",
           signs: HeadSigns | None = None, energy: float = 1.0, mouth_mix: float = 0.5, brow_chance: float = 0.55,
-          beat_every: int = 1, seed: int = 0, rate: float = 60.0, tol: float = 0.003) -> dict:
+          beat_every: int = 1, seed: int = 0, rate: float = 60.0, tol: float = 0.003,
+          avoid_blinks: list = ()) -> dict:
     """Compose a face performance from t0 to t1 (s). See the module docstring; arguments:
 
     base: the animation's own curves (a speech solve). shifts: gaze shifts [{"t", "yaw", "pitch", "dist_cm", "scan",
@@ -103,7 +104,7 @@ def build(t0: float, t1: float, *, base: dict | None = None, shifts: list = (), 
         ey = None
     blink_list = []
     if "blinks" in layers:
-        blink_list = B.plan(t0, t1, blink_state, plan.events, phrase_ends, emphasis, seed=seed)
+        blink_list = B.plan(t0, t1, blink_state, plan.events, phrase_ends, emphasis, seed=seed, avoid=avoid_blinks)
         ours = B.to_curves(blink_list, t0, t1)
         out.update(B.merge({k: base[k] for k in BLINKS if k in base}, ours, blink_mode))
     events = []

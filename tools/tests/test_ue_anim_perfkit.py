@@ -681,3 +681,14 @@ def test_head_axes_with_a_dead_curve():
         R.head_axes(dict(resp, HeadPitch={"yaw": 0.0, "pitch": 0.0, "roll": 0.0}))
     with pytest.raises(ValueError):  # two curves that both nod
         R.head_axes(dict(resp, HeadPitch={"yaw": 0.1, "pitch": 1.4, "roll": 0.0}))
+
+
+def test_blinks_keep_out_of_the_other_faces_blinks():
+    """Round 3 (box): her face and his blinked on the same frames; reseeding his plan 8 times left 4 clashes. The
+    planner now moves (or drops) any blink inside an `avoid` span."""
+    ends = [0.7, 1.7, 2.7, 3.7, 6.0, 9.5]
+    hers = [(b.t, b.end()) for b in B.plan(0.0, 20.0, "talk", phrase_ends=ends, seed=17)]
+    for seed in range(20):
+        his = B.plan(0.0, 20.0, "listen", phrase_ends=ends, seed=seed, avoid=hers)
+        assert his and not any(a.t < h1 + 0.08 and h0 - 0.08 < a.end() for a in his for h0, h1 in hers), seed
+        assert len(his) >= len(B.plan(0.0, 20.0, "listen", phrase_ends=ends, seed=seed)) - 3  # mostly moved, not dropped

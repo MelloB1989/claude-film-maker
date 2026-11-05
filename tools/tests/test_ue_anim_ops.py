@@ -457,3 +457,24 @@ def test_perf_face_turns_the_head_on_the_bones_when_no_curve_turns_it(ue, fmb):
     neck = min(deg(q, "x") for q in tracks["neck_01"][1])
     turn = r["turned_by_bones"]["max_deg"]
     assert abs(head - 0.4 * turn) < 1.0 and abs(neck + 0.3 * turn) < 1.0, (head, neck, turn)
+
+
+def test_turn_head_puts_the_planned_turn_on_the_body_when_the_face_follows_it(ue, fmb):
+    """Round 3 (box): the 5.8 MetaHuman face takes its neck from the body (its own neck tracks moved the eyes 0 cm), so
+    perf.calibrate finds the turn axes on the Body (turn_on "Body"): perf.face leaves the turn pending and
+    perf.turn_head writes it on the body animation's neck and head."""
+    import math
+    t = [i / 30 for i in range(121)]
+    ue.anim("/Game/A/AS_src", length_s=4.0, curves={"CTRL_expressions_jawOpen": (t, [0.0] * len(t))})
+    ue.anim("/Game/A/AS_body", length_s=4.0)
+    signs = {"yaw": 1.0, "pitch": -1.0, "roll": -1.0, "measured": True,
+             "curves": {"yaw": "HeadRoll", "pitch": "HeadYaw", "roll": "HeadPitch"}, "dead": ["HeadRoll"],
+             "yaw_bone": {"neck_01": ["z", 1.0], "neck_02": ["z", 1.0], "head": ["z", 1.0]}, "turn_on": "Body"}
+    r = run_op("perf.face", anim="/Game/A/AS_src", out="/Game/A/AS_face", signs=signs, seed=1,
+               gaze=[{"t": 0.0, "yaw": 0.0, "scan": "lens"}, {"t": 1.0, "yaw": 30.0, "head": 0.8}])
+    assert r["turned_by_bones"]["pending"] and "tracks" not in ue.assets["/Game/A/AS_face"]._data
+    b = run_op("perf.turn_head", anim="/Game/A/AS_body", face_anim="/Game/A/AS_face", signs=signs)
+    assert b["changed"] and b["max_deg"] > 18.0
+    q = ue.assets["/Game/A/AS_body"]._data["tracks"]["head"][1]
+    head = max(math.degrees(2 * math.atan2(x[2], x[3])) for x in q)
+    assert abs(head - 0.4 * b["max_deg"]) < 1.0
