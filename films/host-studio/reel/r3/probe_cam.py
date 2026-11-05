@@ -32,8 +32,14 @@ cuts = []
 for t in seq.get_tracks():
     if t.get_class().get_name() == "MovieSceneCameraCutTrack":
         for s in t.get_sections():
-            b = s.get_camera_binding_id()
-            cuts.append([s.get_start_frame(), s.get_end_frame(), str(seq.get_binding_display_name(b) if hasattr(seq, "get_binding_display_name") else b)])
+            try:
+                b = s.get_camera_binding_id()
+                who = [o.get_actor_label() for o in seq.locate_bound_objects(b, unreal.get_editor_subsystem(
+                    unreal.UnrealEditorSubsystem).get_editor_world()) if hasattr(o, "get_actor_label")] \
+                    if hasattr(seq, "locate_bound_objects") else []
+                cuts.append([s.get_start_frame(), s.get_end_frame(), who or b.export_text()])
+            except Exception as e:
+                cuts.append([s.get_start_frame(), s.get_end_frame(), "?: " + str(e)[:120]])
 out["cuts"] = cuts
 for f in FRAMES:
     LSE.set_current_time(f)
@@ -48,7 +54,8 @@ for f in FRAMES:
             "rot": [round(r.pitch, 2), round(r.yaw, 2), round(r.roll, 2)],
             "focal": round(c.get_editor_property("current_focal_length"), 2),
             "filmback": [fb.sensor_width, fb.sensor_height],
-            "hfov": round(c.get_horizontal_field_of_view(), 2), "vfov": round(c.get_vertical_field_of_view(), 2),
+            "hfov": round(c.get_horizontal_field_of_view(), 2) if hasattr(c, "get_horizontal_field_of_view") else None,
+            "vfov": round(c.get_vertical_field_of_view(), 2) if hasattr(c, "get_vertical_field_of_view") else None,
             "constrain": c.get_editor_property("constrain_aspect_ratio"),
             "focus": round(c.get_editor_property("current_focus_distance"), 1)}
     out["frames"][f] = row
