@@ -38,6 +38,12 @@ logged. Only Epic's cloud (rig, textures) sees the face, through the MetaHuman s
 #   built)'. Tonight's workaround: colour on the placed actor, groom.set label=Host melanin=0.9 redness=0.1 (per
 #   instance, saved with the level). Lead for the real fix: the editor's preview collection
 #   (MetaHumanCharacterEditorSubsystem.get_preview_collection / assemble_for_preview), which the Creator UI colours.
+# ROUND 3 END STATE (saved, synced to private 21:09 UTC): Host_Op wears HAIR WI_Hair_S_SlickBack, BROWS
+#   WI_Eyebrows_M_Full, MUSTACHE WI_Mustache_M_Stubble, no beard (groom.set melanin 1.0 redness 0.05 on the placed actor),
+#   SKIN_UV (0.62, 0.58), IRIS_UV (0.92, 0.12), chest 104. Iris palette so far: (0.08, 0.95) renders light blue/grey;
+#   (0.92, 0.12) unverified (check an iris crop's hue on the box). Tee hem patches: NOT slot holes (the tee's slots are
+#   M_DG_bodyShapeF_Shirt kept + M_DG_bodyShapeF_Short hidden), so if they persist it is the trousers' waistband (fitted
+#   to Trey's tee) through Host_Op's tee: slim the trousers' waist band or lower it under the hem tomorrow.
 # Not viable: the no-depth route (the Creator's ConformTargetParams wants a target head mesh + 2D curves from a known
 #   camera, i.e. a head mesh built from the depth by hand). Untested: the teeth pose (needs the solved identity).
 import json
