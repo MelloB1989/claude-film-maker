@@ -1,0 +1,14 @@
+# Whole reel, fast (960x540, 1 sample, JPG, seconds per shot): after every rebuild of SEQ_Reel, before any final.
+# agent-09 reviews it (framing, clipping, the hair pop, the watch); agent-06 can rough the cut from it.
+kind: include
+files: [vars.yaml]
+---
+kind: render
+version: 1
+name: r3_preview
+sequence: "${seq}"
+level: "${level}"
+out_dir: "${out}/preview"
+preset: preview
+chunking: shot           # one MRQ job per camera cut, each from its own first frame (cloth pre-roll rule)
+overwrite: true          # the scene changes between rebuilds: never keep a stale preview frame

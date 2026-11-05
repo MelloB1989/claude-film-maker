@@ -1,0 +1,26 @@
+# Calibration before the finals (PLAN.md section 5: "calibrate first"): 24 frames of S17 (both presenters, strand hair,
+# a two-shot: the slowest kind) at final settings, A/B on anti-aliasing:
+#   A (aa=project TSR, 8 temporal):  film-ue apply .../20-calibrate.yaml
+#   B (no AA, 2 spatial x 8 temporal = 16 samples, MRQ's own accumulation):
+#     film-ue apply .../20-calibrate.yaml --set cal=B --set aa=none --set spatial=2
+# then: film-ue op render.compare a=${out}/cal_A b=${out}/cal_B sheet=${out}/cal_AB.png, and look at hair edges,
+# eyelashes and the watch face. Each report (_render/cal_*.report.json) gives s_per_frame and vram_peak_gb: the
+# finals' time is 1560 x s_per_frame (+ ~12 s per shot).
+kind: include
+files: [vars.yaml]
+---
+kind: vars
+vars: {cal: A, aa: tsr, spatial: 1}
+---
+kind: render
+version: 1
+name: "cal_${cal}"
+sequence: "${seq}"
+level: "${level}"
+out_dir: "${out}/cal_${cal}"
+preset: final
+frames: [1332, 1356]     # mid-S17: pre-rolled from its cut at 1320 (cloth settles as in the full shot)
+aa_method: "${aa}"
+spatial: ${spatial}
+overwrite: true
+cvars: {"r.SSS.Quality": 1, "r.SSS.HalfRes": 0}   # full-res skin subsurface: the faces are the point of round 3

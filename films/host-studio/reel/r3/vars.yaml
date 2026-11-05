@@ -1,0 +1,8 @@
+# Round 3 (Linux GPU box, UE 5.8.4): the reel's render settings, one place. agent-07 runs these:
+#   film-ue apply films/host-studio/reel/r3/<file>.yaml [--set shots=...]
+# Frames land on the box under ${out}/<pass>/<frame:04d>.png, numbered by the master sequence's frame (S13 = 0960..).
+kind: vars
+vars:
+  seq: /Game/Reel/SEQ_Reel
+  level: /Game/Studio/Studio
+  out: /srv/ue/reel/r3          # renders on the box (film-ue pull to fetch); /srv/film was not writable on day 1
