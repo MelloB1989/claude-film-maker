@@ -1,0 +1,522 @@
+{
+ "area": "mh",
+ "ok": false,
+ "status": "error",
+ "passed": 36,
+ "failed": 2,
+ "checks": [
+  {
+   "name": "presets ship with the engine (Creator core data)",
+   "ok": true,
+   "ms": 908,
+   "detail": "['Zuri', 'Walter', 'Bo', 'Celeste', 'Bruce', 'Kelvin']"
+  },
+  {
+   "name": "mh.add from a preset",
+   "ok": true,
+   "ms": 3194,
+   "detail": "{'path': '/Game/_Selftest/mh/MH_ST_mh_A', 'changed': True, 'from': '/MetaHumanCharacter/Optional/Presets/Zuri'}"
+  },
+  {
+   "name": "mh.add converges",
+   "ok": true,
+   "ms": 3195,
+   "got": false,
+   "want": false
+  },
+  {
+   "name": "a wrong preset suggests the right one",
+   "ok": true,
+   "ms": 3208,
+   "got": {
+    "code": "not_found",
+    "hint": "list them with mh.presets",
+    "candidates": [
+     "Zuri"
+    ]
+   },
+   "want": {
+    "code": "not_found",
+    "hint": "<some>"
+   },
+   "detail": "no MetaHuman preset 'Zurx'"
+  },
+  {
+   "name": "a blank character",
+   "ok": true,
+   "ms": 6019,
+   "got": "blank",
+   "want": "blank"
+  },
+  {
+   "name": "body constraints listed with ranges",
+   "ok": true,
+   "ms": 6227,
+   "detail": "['Height', 'Chest', 'Bust Span', 'Underbust', 'Waist', 'Rise', 'Inseam', 'Hip', 'High Hip', 'Neck Base', 'Neck', 'Thigh']"
+  },
+  {
+   "name": "body measurements set",
+   "ok": true,
+   "ms": 7478,
+   "got": [
+    172.0,
+    66.0
+   ],
+   "want": [
+    172,
+    66
+   ]
+  },
+  {
+   "name": "mh.body converges",
+   "ok": true,
+   "ms": 8290,
+   "got": false,
+   "want": false
+  },
+  {
+   "name": "the solver holds the targets",
+   "ok": true,
+   "ms": 8494,
+   "got": [
+    172.0,
+    66.0
+   ],
+   "want": [
+    172,
+    66
+   ]
+  },
+  {
+   "name": "an unknown constraint suggests",
+   "ok": true,
+   "ms": 8697,
+   "got": {
+    "code": "bad_args",
+    "hint": "mh.body_constraints lists them: Height, Chest, Bust Span, Underbust, Waist, Rise, Inseam, Hip, High Hip, Neck Base, Neck, Thigh, Knee, Calf, Front Interscye Length, Upper Arm Length, Lower Arm Length, Bicep, Elbow, Wrist, Neck to Waist, Across Shoulder, Shoulder Height, Shoulder to Apex, Neck Length, Forearm, Hand Circumference, Fat, Masculine/Feminine, Muscularity",
+    "candidates": [
+     "Wrist",
+     "Waist",
+     "Fat"
+    ]
+   },
+   "want": {
+    "code": "bad_args",
+    "hint": "<some>"
+   },
+   "detail": "no body constraint 'Wiast'"
+  },
+  {
+   "name": "face blend of two presets changes the face",
+   "ok": true,
+   "ms": 8941,
+   "detail": "{'changed': True, 'coefficients': 1397, 'max_delta': 2.259068, 'unrigged': False}"
+  },
+  {
+   "name": "the same blend again changes nothing",
+   "ok": true,
+   "ms": 8942,
+   "got": false,
+   "want": false
+  },
+  {
+   "name": "face landmarks listed",
+   "ok": true,
+   "ms": 8943,
+   "detail": "79"
+  },
+  {
+   "name": "a landmark delta applies once, not twice",
+   "ok": true,
+   "ms": 9176,
+   "detail": "[-4.84, 8.817, 165.876] -> [-4.841, 8.817, 165.888]"
+  },
+  {
+   "name": "skin tone",
+   "ok": true,
+   "ms": 9888,
+   "got": [
+    0.62,
+    0.44
+   ],
+   "want": [
+    0.62,
+    0.44
+   ]
+  },
+  {
+   "name": "freckle mask by name",
+   "ok": true,
+   "ms": 9888,
+   "got": "TYPE1",
+   "want": "TYPE1"
+  },
+  {
+   "name": "mh.skin converges (no needless commit: it would drop the cloud textures)",
+   "ok": true,
+   "ms": 9892,
+   "got": false,
+   "want": false
+  },
+  {
+   "name": "a misspelt skin field suggests",
+   "ok": true,
+   "ms": 9893,
+   "got": {
+    "code": "bad_args",
+    "hint": "fields: accents, desired_texture_sources_resolutions, enable_texture_overrides, freckles, skin, texture_material_overrides, texture_overrides",
+    "candidates": [
+     "freckles"
+    ]
+   },
+   "want": {
+    "code": "bad_args",
+    "hint": "<some>"
+   },
+   "detail": "skin_settings.freckels is not a field"
+  },
+  {
+   "name": "iris pattern",
+   "ok": true,
+   "ms": 10085,
+   "got": "IRIS003",
+   "want": "IRIS003"
+  },
+  {
+   "name": "eyelashes",
+   "ok": true,
+   "ms": 10980,
+   "got": [
+    "LONG_CURL",
+    0.85
+   ],
+   "want": [
+    "LONG_CURL",
+    0.85
+   ]
+  },
+  {
+   "name": "teeth",
+   "ok": true,
+   "ms": 11266,
+   "got": 0.2,
+   "want": 0.2
+  },
+  {
+   "name": "lip makeup",
+   "ok": true,
+   "ms": 11548,
+   "got": "NATURAL",
+   "want": "NATURAL"
+  },
+  {
+   "name": "a wrong enum lists the valid ones",
+   "ok": true,
+   "ms": 11549,
+   "got": {
+    "code": "bad_args",
+    "hint": "one of: CUPID, HOLLYWOOD, NATURAL, NONE",
+    "candidates": [
+     "CUPID",
+     "HOLLYWOOD",
+     "NATURAL",
+     "NONE"
+    ]
+   },
+   "want": {
+    "code": "bad_args",
+    "hint": "<some>"
+   },
+   "detail": "'Glossy' is not a MetaHumanCharacterLipsMakeupType"
+  },
+  {
+   "name": "settings fields readable",
+   "ok": true,
+   "ms": 11549
+  },
+  {
+   "name": "hair grooms in the wardrobe",
+   "ok": true,
+   "ms": 11580,
+   "detail": "['/MetaHumanCharacter/Optional/Grooms/Bindings/Hair/WI_Hair_S_CoilBuzzCut', '/MetaHumanCharacter/Optional/Grooms/Bindings/Hair/WI_Hair_S_BobLayered', '/MetaHumanCharacter/Optional/Grooms/Bindings/Hair/WI_Hair_L_StraightBangs']"
+  },
+  {
+   "name": "hair worn",
+   "ok": false,
+   "ms": 11580,
+   "detail": "{'slot': 'Hair', 'item': 'WI_Hair_S_CoilBuzzCut', 'changed': False, 'display': 'Hair_S_CoilBuzzCut_Binding'}"
+  },
+  {
+   "name": "the same groom again changes nothing (no second palette entry)",
+   "ok": true,
+   "ms": 11581,
+   "got": false,
+   "want": false
+  },
+  {
+   "name": "palette lists slots",
+   "ok": true,
+   "ms": 11582,
+   "detail": "['Hair', 'Eyebrows', 'Beard', 'Mustache', 'Eyelashes', 'Peachfuzz', 'Outfits', 'Top Garment', 'Bottom Garment', 'SkeletalMesh', 'Character']"
+  },
+  {
+   "name": "describe: body",
+   "ok": true,
+   "ms": 11994,
+   "got": 172.0,
+   "want": 172
+  },
+  {
+   "name": "export is a character spec",
+   "ok": true,
+   "ms": 12404,
+   "got": "character",
+   "want": "character"
+  },
+  {
+   "name": "a variant copy",
+   "ok": true,
+   "ms": 15692
+  },
+  {
+   "name": "the variant keeps the body",
+   "ok": true,
+   "ms": 16106,
+   "got": 172.0,
+   "want": 172
+  },
+  {
+   "name": "can_build explains what is missing",
+   "ok": true,
+   "ms": 16106,
+   "detail": "{'can_build': False, 'why': 'the character is not rigged', 'hint': 'run mh.rig (needs the Epic sign-in)'}"
+  },
+  {
+   "name": "preview converges on its label",
+   "ok": false,
+   "ms": 16134,
+   "got": true,
+   "want": false
+  },
+  {
+   "name": "still preview_face",
+   "ok": true,
+   "ms": 16634,
+   "detail": "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141921/stills/mh_preview_face.png"
+  },
+  {
+   "name": "baseline preview_face",
+   "ok": true,
+   "ms": 17521,
+   "detail": "created"
+  },
+  {
+   "name": "mh.apply makes the character",
+   "ok": true,
+   "ms": 51105
+  },
+  {
+   "name": "mh.apply again changes nothing",
+   "ok": true,
+   "ms": 51105,
+   "detail": "[]"
+  }
+ ],
+ "ops_covered": [
+  "mh.add",
+  "mh.apply",
+  "mh.body",
+  "mh.body_constraints",
+  "mh.can_build",
+  "mh.clear_slot",
+  "mh.describe",
+  "mh.duplicate",
+  "mh.export",
+  "mh.eyelashes",
+  "mh.eyes",
+  "mh.face",
+  "mh.face_landmarks",
+  "mh.groom",
+  "mh.item_params",
+  "mh.makeup",
+  "mh.palette",
+  "mh.presets",
+  "mh.preview",
+  "mh.settings_fields",
+  "mh.skin",
+  "mh.teeth",
+  "mh.variants",
+  "mh.wardrobe"
+ ],
+ "ops_missed": [
+  "mh.add_item",
+  "mh.attach",
+  "mh.auth_status",
+  "mh.body_mesh",
+  "mh.build",
+  "mh.clip_check",
+  "mh.cloth_inflate",
+  "mh.components",
+  "mh.dress",
+  "mh.drive_face",
+  "mh.find",
+  "mh.from_preset",
+  "mh.garment",
+  "mh.import_garment",
+  "mh.item_set",
+  "mh.leader",
+  "mh.leader_check",
+  "mh.login",
+  "mh.remove",
+  "mh.rig",
+  "mh.textures"
+ ],
+ "stills": [
+  "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141921/stills/mh_preview_face.png"
+ ],
+ "artifacts": [
+  "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141921/mh_export.json"
+ ],
+ "notes": [
+  "preview actor ST_mh_Preview"
+ ],
+ "metrics": {
+  "op_ms": {
+   "mh.presets": [
+    7
+   ],
+   "mh.add": [
+    2285,
+    0,
+    0,
+    2811
+   ],
+   "mh.body_constraints": [
+    208,
+    203
+   ],
+   "mh.body": [
+    1250,
+    405,
+    407
+   ],
+   "mh.face": [
+    243,
+    0,
+    0,
+    231,
+    0
+   ],
+   "mh.face_landmarks": [
+    0,
+    0
+   ],
+   "mh.skin": [
+    712,
+    2,
+    1
+   ],
+   "mh.eyes": [
+    192
+   ],
+   "mh.eyelashes": [
+    894
+   ],
+   "mh.teeth": [
+    285
+   ],
+   "mh.makeup": [
+    281
+   ],
+   "mh.settings_fields": [
+    0
+   ],
+   "mh.wardrobe": [
+    30
+   ],
+   "mh.groom": [
+    0,
+    0,
+    0
+   ],
+   "mh.item_params": [
+    0
+   ],
+   "mh.clear_slot": [
+    0
+   ],
+   "mh.palette": [
+    0
+   ],
+   "mh.describe": [
+    411,
+    413
+   ],
+   "mh.export": [
+    410
+   ],
+   "mh.duplicate": [
+    3286
+   ],
+   "mh.can_build": [
+    0
+   ],
+   "mh.preview": [
+    10,
+    9,
+    8
+   ],
+   "look.camera": [
+    63
+   ],
+   "view.still": [
+    436
+   ],
+   "mh.apply": [
+    32747,
+    836
+   ]
+  },
+  "landmark0_dz_cm": {
+   "value": 0.012,
+   "unit": "cm"
+  }
+ },
+ "errors": [
+  {
+   "where": "run",
+   "error": "Traceback (most recent call last):\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/selftest/__init__.py\", line 361, in run\n    yield next(gen)\n          ^^^^^^^^^\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/selftest/mh.py\", line 138, in run\n    r = yield from t.op(\"mh.variants\", cast=cast, make=True, preview=True, spacing_cm=90)\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/selftest/__init__.py\", line 158, in _timed\n    res = yield from gen\n          ^^^^^^^^^^^^^^\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/ops/mh/cast.py\", line 44, in variants\n    r = yield from r\n        ^^^^^^^^^^^^\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/ops/mh/spec.py\", line 108, in apply\n    res = call(name, **args)\n          ^^^^^^^^^^^^^^^^^^\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/ops/__init__.py\", line 60, in call\n    res = fn(**args)\n          ^^^^^^^^^^\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/ops/mh/wardrobe.py\", line 334, in groom\n    r = item_set(character=character, slot=slot, params=p, save=save) if p else {\"changed\": False}\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/ops/mh/wardrobe.py\", line 306, in item_set\n    r = _apply_params(_inst(_coll(c)), slot, params)\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/ops/mh/wardrobe.py\", line 261, in _apply_params\n    raise OpError(f\"the item in {slot} has no parameter {name!r}\", code=\"bad_args\",\nfmbridge.errors.OpError: the item in Eyebrows has no parameter 'Whiteness' (mh.item_params lists them: )\n"
+  }
+ ],
+ "extra": null,
+ "box": {
+  "platform": "linux",
+  "python": "3.11.8",
+  "engine": "5.8.4-0+UE5",
+  "command_line": "-RenderOffscreen -unattended -nosplash -NoLiveCoding -log -stdout -FullStdOutLogOutput",
+  "capabilities": {
+   "gpu": true,
+   "display": false,
+   "linux": true,
+   "windows": false,
+   "epic_login": true,
+   "mh_cloud": true
+  }
+ },
+ "doc": "WP3 MetaHuman creation, end to end on the box. Part 1 (no cloud): presets, a character from a preset and a blank one,\nbody measurements (constraint copies, range warnings, idempotent), face blend of two presets and a landmark move\n(applied once), skin/freckles/texture resolution, eyes, eyelashes, teeth, makeup, the hair groom with melanin and\nredness and its instance parameters, slots, describe/export, a variant copy, actionable errors, the live preview actor\nand a still of it, mh.apply on a spec twice (second run changes nothing), a cast of 4 extras (mh.variants: distinct, same seed same\ncast, previews in a row, a contact sheet through view.sheet). Part 2 (only with the Epic sign-in, else\nnoted and skipped): the cloud rig (multi-tick, ~30 s) and its up-to-date skip, the textures (~20 s), the cinematic\nbuild (~3 min on an L4, the editor blocks), the built Blueprint placed, a garment of its own dressed on it with leader\npose (checked on the bones), a prop riding a bone, the clipping check, stills. Takes ~2 min without the cloud, ~6 min\nwith it. Needs: the MetaHuman Creator core data (presets); GPU for the stills; the Epic sign-in for part 2\n(film-ue epic-login once per box).",
+ "baselines": [
+  {
+   "name": "preview_face",
+   "status": "created",
+   "ssim": null,
+   "stops_shift": null,
+   "diff": null
+  }
+ ],
+ "level_after": "/Game/_Scratch/_Blank/L_Blank",
+ "ms": 77871,
+ "report": "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141921/mh.json",
+ "local_stills": [
+  "/tmp/fleet-agent-13-ue/reports/mhkeep/stills/mh_preview_face.png"
+ ]
+}

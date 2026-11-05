@@ -1,0 +1,58 @@
+{
+ "area": "pose",
+ "ok": false,
+ "status": "error",
+ "passed": 0,
+ "failed": 0,
+ "checks": [],
+ "ops_covered": [
+  "pose.apply"
+ ],
+ "ops_missed": [
+  "pose.check",
+  "pose.library"
+ ],
+ "stills": [],
+ "artifacts": [],
+ "notes": [
+  "rig /MetaHumanCharacter/Common/MetaHuman_ControlRig, mesh /Game/Host/Unpacked/Host/Body/SKM_Host_BodyMesh"
+ ],
+ "metrics": {
+  "op_ms": {
+   "seq.new": [
+    6
+   ],
+   "cam.add": [
+    45
+   ]
+  }
+ },
+ "errors": [
+  {
+   "where": "run",
+   "error": "Traceback (most recent call last):\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/selftest/__init__.py\", line 361, in run\n    yield next(gen)\n          ^^^^^^^^^\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/selftest/pose.py\", line 76, in run\n    r = yield from t.op(\"pose.apply\", label=who, sequence=seq, frame=frame, pose=pose, params=params,\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/selftest/__init__.py\", line 158, in _timed\n    res = yield from gen\n          ^^^^^^^^^^^^^^\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/ops/pose.py\", line 162, in apply\n    seq, rig, names = _rig(sequence, label, component, rig_class)\n                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/ops/pose.py\", line 83, in _rig\n    call(\"anim.rig_keys\", sequence=sequence, label=label, keys={}, component=component, rig_class=rig_class)\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/ops/__init__.py\", line 60, in call\n    res = fn(**args)\n          ^^^^^^^^^^\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/ops/anim.py\", line 1008, in rig_keys\n    raise OpError(\"the engine made no control rig track\", code=\"engine\")\nfmbridge.errors.OpError: the engine made no control rig track\n"
+  }
+ ],
+ "extra": null,
+ "box": {
+  "platform": "linux",
+  "python": "3.11.8",
+  "engine": "5.8.4-0+UE5",
+  "command_line": "-RenderOffscreen -unattended -nosplash -NoLiveCoding -log -stdout -FullStdOutLogOutput",
+  "capabilities": {
+   "gpu": true,
+   "display": false,
+   "linux": true,
+   "windows": false,
+   "epic_login": true,
+   "mh_cloud": true
+  }
+ },
+ "doc": "B31's acceptance test: named poses on a real body rig, measured.",
+ "baselines": [],
+ "level_after": "/Game/_Scratch/_Blank/L_Blank",
+ "cleaned": "/Game/_Selftest/pose",
+ "ms": 4793,
+ "report": "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141045/pose.json",
+ "local_stills": []
+}

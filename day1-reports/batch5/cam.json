@@ -1,0 +1,567 @@
+{
+ "area": "cam",
+ "ok": false,
+ "status": "error",
+ "passed": 32,
+ "failed": 9,
+ "checks": [
+  {
+   "name": "hfov 16:9 Digital Film 35mm = engine",
+   "ok": true,
+   "ms": 157,
+   "got": 37.4974,
+   "want": 37.49735641479492
+  },
+  {
+   "name": "vfov 16:9 Digital Film 35mm = engine",
+   "ok": true,
+   "ms": 157,
+   "got": 21.6186,
+   "want": 21.61861228942871
+  },
+  {
+   "name": "hfov 16:9 DSLR 50mm = engine",
+   "ok": true,
+   "ms": 158,
+   "got": 39.5978,
+   "want": 39.59775161743164
+  },
+  {
+   "name": "vfov 16:9 DSLR 50mm = engine",
+   "ok": true,
+   "ms": 158,
+   "got": 22.8952,
+   "want": 22.895191192626953
+  },
+  {
+   "name": "hfov Super 35mm 85mm = engine",
+   "ok": true,
+   "ms": 160,
+   "got": 16.6592,
+   "want": 16.6591854095459
+  },
+  {
+   "name": "vfov Super 35mm 85mm = engine",
+   "ok": true,
+   "ms": 160,
+   "got": 12.528,
+   "want": 12.5279541015625
+  },
+  {
+   "name": "hfov Super 16mm 12mm = engine",
+   "ok": true,
+   "ms": 161,
+   "got": 55.0991,
+   "want": 55.09909439086914
+  },
+  {
+   "name": "vfov Super 16mm 12mm = engine",
+   "ok": true,
+   "ms": 161,
+   "got": 35.0557,
+   "want": 35.05570602416992
+  },
+  {
+   "name": "focal beyond the lens widens it, not clamped",
+   "ok": true,
+   "ms": 163,
+   "got": [
+    1500.0,
+    0.949999988079071
+   ],
+   "want": [
+    1500,
+    0.95
+   ]
+  },
+  {
+   "name": "cam.add converges",
+   "ok": true,
+   "ms": 163,
+   "got": false,
+   "want": false
+  },
+  {
+   "name": "a missing camera is not_found",
+   "ok": true,
+   "ms": 164,
+   "got": {
+    "code": "not_found",
+    "hint": "make one with cam.add, list them with cam.describe",
+    "candidates": [
+     "ST_cam_Lens"
+    ]
+   },
+   "want": {
+    "code": "not_found",
+    "hint": "<some>"
+   },
+   "detail": "no cine camera 'ST_cam_Nope'"
+  },
+  {
+   "name": "a bad size is bad_args",
+   "ok": true,
+   "ms": 164,
+   "got": {
+    "code": "bad_args",
+    "hint": "cam.presets lists sizes, angles and heights",
+    "candidates": []
+   },
+   "want": {
+    "code": "bad_args",
+    "hint": "<some>"
+   },
+   "detail": "unknown shot size 'giant'; one of ECU, CU, MCU, MS, COWBOY, MWS, WS, EWS (aliases: AMERICAN, BCU, CHOKER, CLOSE, CLOSEUP, ELS, FS, FULL, LONG, LS, MCS, MEDIUM, MEDIUMWIDE, MFS, MLS, WIDE, XCU, XWS)"
+  },
+  {
+   "name": "marker 0 at (u, v) on 16:9 Digital Film",
+   "ok": true,
+   "ms": 842,
+   "got": [
+    0.5,
+    0.499
+   ],
+   "want": [
+    0.5,
+    0.5
+   ]
+  },
+  {
+   "name": "marker 1 at (u, v) on 16:9 Digital Film",
+   "ok": true,
+   "ms": 1623,
+   "got": [
+    0.25,
+    0.299
+   ],
+   "want": [
+    0.25,
+    0.3
+   ]
+  },
+  {
+   "name": "marker 2 at (u, v) on 16:9 Digital Film",
+   "ok": true,
+   "ms": 2418,
+   "got": [
+    0.72,
+    0.658
+   ],
+   "want": [
+    0.72,
+    0.66
+   ]
+  },
+  {
+   "name": "marker 0 at (u, v) on Super 35mm",
+   "ok": true,
+   "ms": 3200,
+   "got": [
+    0.499,
+    0.499
+   ],
+   "want": [
+    0.5,
+    0.5
+   ]
+  },
+  {
+   "name": "marker 1 at (u, v) on Super 35mm",
+   "ok": false,
+   "ms": 3961,
+   "got": [
+    0.166,
+    0.299
+   ],
+   "want": [
+    0.25,
+    0.3
+   ]
+  },
+  {
+   "name": "marker 2 at (u, v) on Super 35mm",
+   "ok": false,
+   "ms": 4732,
+   "got": [
+    0.794,
+    0.659
+   ],
+   "want": [
+    0.72,
+    0.66
+   ]
+  },
+  {
+   "name": "WS solved",
+   "ok": true,
+   "ms": 4760,
+   "detail": "[]"
+  },
+  {
+   "name": "WS: the figure's top on the predicted row",
+   "ok": true,
+   "ms": 5531,
+   "got": 0.1,
+   "want": 0.1
+  },
+  {
+   "name": "WS: the feet on the predicted row",
+   "ok": true,
+   "ms": 5531,
+   "got": 0.926,
+   "want": 0.92
+  },
+  {
+   "name": "cam.frame WS converges",
+   "ok": false,
+   "ms": 5534,
+   "got": true,
+   "want": false
+  },
+  {
+   "name": "MCU solved",
+   "ok": true,
+   "ms": 5550,
+   "detail": "[]"
+  },
+  {
+   "name": "MCU: the figure's top on the predicted row",
+   "ok": true,
+   "ms": 6297,
+   "got": 0.056,
+   "want": 0.07
+  },
+  {
+   "name": "MCU: the figure runs off the bottom edge",
+   "ok": true,
+   "ms": 6297,
+   "detail": "{'u': 0.764083889273956, 'v': 0.5322764311125658, 'top': 0.05555555555555555, 'bottom': 1.0, 'left': 0.6895833333333333, 'right': 0.8375, 'pixels': 17313}"
+  },
+  {
+   "name": "cam.frame MCU converges",
+   "ok": false,
+   "ms": 6300,
+   "got": true,
+   "want": false
+  },
+  {
+   "name": "CU solved",
+   "ok": true,
+   "ms": 6316,
+   "detail": "[]"
+  },
+  {
+   "name": "CU: the figure's top on the predicted row",
+   "ok": false,
+   "ms": 7095,
+   "got": 0.015,
+   "want": 0.05
+  },
+  {
+   "name": "CU: the figure runs off the bottom edge",
+   "ok": true,
+   "ms": 7095,
+   "detail": "{'u': 0.8133380433673795, 'v': 0.5149093874104395, 'top': 0.014814814814814815, 'bottom': 1.0, 'left': 0.70625, 'right': 0.91875, 'pixels': 26141}"
+  },
+  {
+   "name": "cam.frame CU converges",
+   "ok": false,
+   "ms": 7098,
+   "got": true,
+   "want": false
+  },
+  {
+   "name": "cam.project agrees: MCU",
+   "ok": true,
+   "ms": 8102,
+   "got": "MCU",
+   "want": "MCU"
+  },
+  {
+   "name": "cam.point of an actor",
+   "ok": true,
+   "ms": 8102,
+   "got": [
+    0.0,
+    0.0,
+    87.5
+   ],
+   "want": [
+    0,
+    0,
+    87.5
+   ]
+  },
+  {
+   "name": "cam.shoot: words in, words out",
+   "ok": true,
+   "ms": 8120,
+   "detail": "MS of ST_cam_Figure from 3/4 right (40 deg), high angle, 35 mm f/2.8, left third"
+  },
+  {
+   "name": "cam.shoot reads its own words back without moving",
+   "ok": false,
+   "ms": 8122,
+   "got": true,
+   "want": false
+  },
+  {
+   "name": "cam.move keyed",
+   "ok": true,
+   "ms": 8171,
+   "detail": "{'transform': 14, 'focal': 0, 'focus': 14}"
+  },
+  {
+   "name": "push-in: Sequencer plays the baked key at 48",
+   "ok": true,
+   "ms": 8303,
+   "got": [
+    309.27899169921875,
+    -112.56800079345703,
+    163.625
+   ],
+   "want": [
+    309.279,
+    -112.568,
+    163.625
+   ]
+  },
+  {
+   "name": "rail: the camera is near the middle of the rail at mid-shot",
+   "ok": false,
+   "ms": 8957,
+   "detail": "y=-200.0"
+  },
+  {
+   "name": "coverage stays on one side of the line",
+   "ok": true,
+   "ms": 9058,
+   "got": [],
+   "want": []
+  },
+  {
+   "name": "cam.coverage converges",
+   "ok": false,
+   "ms": 9087,
+   "got": true,
+   "want": false
+  },
+  {
+   "name": "still coverage_master",
+   "ok": true,
+   "ms": 9731,
+   "detail": "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141316/stills/cam_coverage_master.png"
+  },
+  {
+   "name": "baseline coverage_master",
+   "ok": true,
+   "ms": 10278,
+   "got": 0.9986,
+   "want": 0.95,
+   "detail": "match"
+  }
+ ],
+ "ops_covered": [
+  "cam.add",
+  "cam.check",
+  "cam.coverage",
+  "cam.describe",
+  "cam.frame",
+  "cam.move",
+  "cam.point",
+  "cam.project",
+  "cam.remove",
+  "cam.rig",
+  "cam.rig_move",
+  "cam.set",
+  "cam.shoot",
+  "cam.still"
+ ],
+ "ops_missed": [
+  "cam.check_cut",
+  "cam.focus",
+  "cam.presets",
+  "cam.subject",
+  "shot.apply",
+  "shot.check",
+  "shot.describe",
+  "shot.plan",
+  "shot.sheet"
+ ],
+ "stills": [
+  "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141316/stills/cam_coverage_master.png"
+ ],
+ "artifacts": [
+  "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141316/proj_169_Digital_Film_0.png",
+  "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141316/proj_169_Digital_Film_1.png",
+  "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141316/proj_169_Digital_Film_2.png",
+  "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141316/proj_Super_35mm_0.png",
+  "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141316/proj_Super_35mm_1.png",
+  "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141316/proj_Super_35mm_2.png",
+  "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141316/frame_WS.png",
+  "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141316/frame_MCU.png",
+  "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141316/frame_CU.png",
+  "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141316/frame_MCU_guides.png"
+ ],
+ "notes": [
+  "cam.check WS: ",
+  "cam.check MCU: warn framing.cut",
+  "cam.check CU: warn framing.cut",
+  "cam.shoot parsed {'size': 'MS', 'angle': 40.0, 'side': 'right', 'height': 'high', 'focal_mm': 35.0, 'subjects': ['ST_cam_Figure'], 'unparsed': []}"
+ ],
+ "metrics": {
+  "op_ms": {
+   "level.spawn": [
+    5,
+    4,
+    7,
+    7,
+    4,
+    7,
+    7,
+    4,
+    5,
+    4
+   ],
+   "cam.add": [
+    11,
+    0,
+    0,
+    5,
+    18,
+    18
+   ],
+   "cam.set": [
+    0,
+    1,
+    1,
+    1,
+    1
+   ],
+   "cam.remove": [
+    3
+   ],
+   "look.still": [
+    564,
+    675,
+    688,
+    678,
+    681,
+    689,
+    666,
+    640,
+    668
+   ],
+   "level.delete": [
+    6,
+    6,
+    2
+   ],
+   "cam.frame": [
+    16,
+    1,
+    1,
+    15,
+    1,
+    1,
+    15,
+    1,
+    1,
+    6
+   ],
+   "cam.check": [
+    0,
+    0,
+    0
+   ],
+   "cam.still": [
+    1002
+   ],
+   "cam.project": [
+    0
+   ],
+   "cam.point": [
+    0
+   ],
+   "cam.shoot": [
+    18,
+    1
+   ],
+   "cam.describe": [
+    0,
+    0,
+    0
+   ],
+   "seq.new": [
+    14
+   ],
+   "cam.move": [
+    27
+   ],
+   "cam.rig": [
+    9
+   ],
+   "cam.rig_move": [
+    125
+   ],
+   "cam.coverage": [
+    73,
+    14,
+    14
+   ],
+   "view.still": [
+    643
+   ]
+  },
+  "projection_error_max_16:9 Digital Film": {
+   "value": 0.0023,
+   "unit": "frame"
+  },
+  "projection_error_max_Super 35mm": {
+   "value": 0.0839,
+   "unit": "frame"
+  },
+  "coverage_shots": {
+   "value": 10,
+   "unit": ""
+  }
+ },
+ "errors": [
+  {
+   "where": "run",
+   "error": "Traceback (most recent call last):\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/selftest/__init__.py\", line 361, in run\n    yield next(gen)\n          ^^^^^^^^^\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/selftest/cam.py\", line 199, in run\n    yield from t.still(\"coverage_A_OTS\", camera=P + \"Cov_A_OTS\", width=W, height=H)\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/selftest/__init__.py\", line 236, in still\n    res = yield from res\n          ^^^^^^^^^^^^^^\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/selftest/__init__.py\", line 158, in _timed\n    res = yield from gen\n          ^^^^^^^^^^^^^^\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/ops/view.py\", line 319, in still\n    cam = camera_info(camera, loc, look_at, fov_deg, aspect)\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/ops/view.py\", line 75, in camera_info\n    a = find_actor(camera)\n        ^^^^^^^^^^^^^^^^^^\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/ops/view.py\", line 48, in find_actor\n    raise not_found(\"actor\", label, [a.get_actor_label() for a in actors], hint=\"list them with level.actors\")\nfmbridge.errors.NotFoundError: no actor 'ST_cam_Cov_A_OTS'; did you mean 'ST_cam_Cov_ST_cam_B_OTS', 'ST_cam_Cov_ST_cam_A_OTS', 'ST_cam_Cov_two_shot'? (list them with level.actors)\n"
+  }
+ ],
+ "extra": null,
+ "box": {
+  "platform": "linux",
+  "python": "3.11.8",
+  "engine": "5.8.4-0+UE5",
+  "command_line": "-RenderOffscreen -unattended -nosplash -NoLiveCoding -log -stdout -FullStdOutLogOutput",
+  "capabilities": {
+   "gpu": true,
+   "display": false,
+   "linux": true,
+   "windows": false,
+   "epic_login": true,
+   "mh_cloud": true
+  }
+ },
+ "doc": "WP7's acceptance test: cameras and shooting, measured on real renders.",
+ "baselines": [
+  {
+   "name": "coverage_master",
+   "status": "match",
+   "ssim": 0.9986,
+   "stops_shift": 0.13,
+   "diff": null
+  }
+ ],
+ "level_after": "/Game/_Scratch/_Blank/L_Blank",
+ "cleaned": "/Game/_Selftest/cam",
+ "ms": 12345,
+ "report": "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141316/cam.json",
+ "local_stills": [
+  "/tmp/fleet-agent-13-ue/reports/194257-assets/stills/cam_coverage_master.png"
+ ]
+}

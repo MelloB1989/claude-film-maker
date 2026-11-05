@@ -1,0 +1,758 @@
+{
+ "area": "assets",
+ "ok": false,
+ "status": "done",
+ "passed": 62,
+ "failed": 1,
+ "checks": [
+  {
+   "name": "OBJ import made a static mesh",
+   "ok": true,
+   "ms": 758,
+   "detail": "['/Game/_Selftest/assets/Props/st_chair']"
+  },
+  {
+   "name": "the OBJ chair is 50x48x90 cm (OBJ units read as cm)",
+   "ok": true,
+   "ms": 759,
+   "got": [
+    50.0,
+    48.0,
+    90.0
+   ],
+   "want": [
+    50,
+    48,
+    90
+   ]
+  },
+  {
+   "name": "a box has 12 triangles",
+   "ok": true,
+   "ms": 759,
+   "detail": "[12]"
+  },
+  {
+   "name": "re-import with replace=false keeps it",
+   "ok": true,
+   "ms": 766,
+   "got": false,
+   "want": false
+  },
+  {
+   "name": "glTF metres became cm (0.3 m cube)",
+   "ok": true,
+   "ms": 1564,
+   "got": [
+    30.0,
+    30.0,
+    30.0
+   ],
+   "want": [
+    30,
+    30,
+    30
+   ]
+  },
+  {
+   "name": "a missing file says push it",
+   "ok": true,
+   "ms": 1564,
+   "got": {
+    "code": "not_found",
+    "hint": "push it first (client.push)",
+    "candidates": []
+   },
+   "want": {
+    "code": "not_found",
+    "hint": "<some>"
+   },
+   "detail": "no file /nope/x.fbx on the box"
+  },
+  {
+   "name": "the catalog lists the chair without loading",
+   "ok": true,
+   "ms": 1572,
+   "detail": "[{'path': '/Game/_Selftest/assets/Props/st_chair', 'name': 'st_chair', 'class': 'StaticMesh', 'folder': '/Game/_Selftest/assets/Props', 'size_cm': [50.0, 48.0, 90.0], 'triangles': 12, 'vertices': 20, 'lods': 1, 'nanite': True, 'materials': 1, 'collision_prims': 1, 'source': '../../../../Saved/SelfTest/20261105-141316/src/st_chair.obj'}, {'path': '/Game/_Selftest/assets/Gltf/st_cube', 'name': 'st_cube', 'class': 'StaticMesh', 'folder': '/Game/_Selftest/assets/Gltf', 'size_cm': [30.0, 30.0, 30.0], 'triangles': 12, 'vertices': 24, 'lods': 1, 'nanite': True, 'materials': 1, 'collision_prims': 0, 'source': '../../../../Saved/SelfTest/20261105-141316/src/st_cube.gltf'}]"
+  },
+  {
+   "name": "assets.find 'chair 90 cm tall' finds it first",
+   "ok": true,
+   "ms": 1579,
+   "got": "/Game/_Selftest/assets/Props/st_chair",
+   "want": "/Game/_Selftest/assets/Props/st_chair"
+  },
+  {
+   "name": "and says no scaling is needed",
+   "ok": true,
+   "ms": 1579,
+   "got": 1.0,
+   "want": 1.0
+  },
+  {
+   "name": "Nanite on, 3 LODs",
+   "ok": true,
+   "ms": 1680,
+   "got": [
+    true,
+    3
+   ],
+   "want": [
+    true,
+    3
+   ]
+  },
+  {
+   "name": "assets.mesh converges",
+   "ok": true,
+   "ms": 1680,
+   "got": false,
+   "want": false
+  },
+  {
+   "name": "re-import picked up the wider source",
+   "ok": true,
+   "ms": 1721,
+   "got": 60.0,
+   "want": 60
+  },
+  {
+   "name": "texture roles from names",
+   "ok": true,
+   "ms": 1896,
+   "got": {
+    "T_ST_Rock_BaseColor.png": "base_color",
+    "T_ST_Rock_Normal.png": "normal",
+    "T_ST_Rock_ORM.png": "orm"
+   },
+   "want": {
+    "T_ST_Rock_BaseColor.png": "base_color",
+    "T_ST_Rock_Normal.png": "normal",
+    "T_ST_Rock_ORM.png": "orm"
+   }
+  },
+  {
+   "name": "the normal map is linear TC_NORMALMAP",
+   "ok": true,
+   "ms": 1897,
+   "got": [
+    false,
+    "TC_NORMALMAP"
+   ],
+   "want": [
+    false,
+    "TC_NORMALMAP"
+   ]
+  },
+  {
+   "name": "assets.texture converges",
+   "ok": true,
+   "ms": 1897,
+   "got": false,
+   "want": false
+  },
+  {
+   "name": "master cloth compiles",
+   "ok": true,
+   "ms": 5485,
+   "detail": "{'num_vertex_shader_instructions': 692, 'num_pixel_shader_instructions': 260, 'num_samplers': 0, 'num_vertex_texture_samples': 3, 'num_pixel_texture_samples': 5, 'num_virtual_texture_samples': 0, 'num_uv_scalars': 2, 'num_interpolator_scalars': 0}"
+  },
+  {
+   "name": "master decal compiles",
+   "ok": true,
+   "ms": 8172,
+   "detail": "{'num_vertex_shader_instructions': 507, 'num_pixel_shader_instructions': 382, 'num_samplers': 0, 'num_vertex_texture_samples': 3, 'num_pixel_texture_samples': 3, 'num_virtual_texture_samples': 0, 'num_uv_scalars': 2, 'num_interpolator_scalars': 0}"
+  },
+  {
+   "name": "master emissive compiles",
+   "ok": true,
+   "ms": 12194,
+   "detail": "{'num_vertex_shader_instructions': 357, 'num_pixel_shader_instructions': 42, 'num_samplers': 0, 'num_vertex_texture_samples': 3, 'num_pixel_texture_samples': 1, 'num_virtual_texture_samples': 0, 'num_uv_scalars': 2, 'num_interpolator_scalars': 0}"
+  },
+  {
+   "name": "master foliage compiles",
+   "ok": true,
+   "ms": 25934,
+   "detail": "{'num_vertex_shader_instructions': 357, 'num_pixel_shader_instructions': 282, 'num_samplers': 0, 'num_vertex_texture_samples': 3, 'num_pixel_texture_samples': 7, 'num_virtual_texture_samples': 0, 'num_uv_scalars': 2, 'num_interpolator_scalars': 0}"
+  },
+  {
+   "name": "master glass compiles",
+   "ok": true,
+   "ms": 31996,
+   "detail": "{'num_vertex_shader_instructions': 661, 'num_pixel_shader_instructions': 3027, 'num_samplers': 0, 'num_vertex_texture_samples': 0, 'num_pixel_texture_samples': 3, 'num_virtual_texture_samples': 0, 'num_uv_scalars': 0, 'num_interpolator_scalars': 0}"
+  },
+  {
+   "name": "master masked compiles",
+   "ok": true,
+   "ms": 45591,
+   "detail": "{'num_vertex_shader_instructions': 357, 'num_pixel_shader_instructions': 262, 'num_samplers': 0, 'num_vertex_texture_samples': 3, 'num_pixel_texture_samples': 6, 'num_virtual_texture_samples': 0, 'num_uv_scalars': 2, 'num_interpolator_scalars': 0}"
+  },
+  {
+   "name": "master masked_orm compiles",
+   "ok": true,
+   "ms": 59004,
+   "detail": "{'num_vertex_shader_instructions': 357, 'num_pixel_shader_instructions': 250, 'num_samplers': 0, 'num_vertex_texture_samples': 3, 'num_pixel_texture_samples': 4, 'num_virtual_texture_samples': 0, 'num_uv_scalars': 2, 'num_interpolator_scalars': 0}"
+  },
+  {
+   "name": "master opaque compiles",
+   "ok": true,
+   "ms": 63393,
+   "detail": "{'num_vertex_shader_instructions': 357, 'num_pixel_shader_instructions': 251, 'num_samplers': 0, 'num_vertex_texture_samples': 3, 'num_pixel_texture_samples': 5, 'num_virtual_texture_samples': 0, 'num_uv_scalars': 2, 'num_interpolator_scalars': 0}"
+  },
+  {
+   "name": "master opaque_orm compiles",
+   "ok": true,
+   "ms": 67640,
+   "detail": "{'num_vertex_shader_instructions': 357, 'num_pixel_shader_instructions': 239, 'num_samplers': 0, 'num_vertex_texture_samples': 3, 'num_pixel_texture_samples': 3, 'num_virtual_texture_samples': 0, 'num_uv_scalars': 2, 'num_interpolator_scalars': 0}"
+  },
+  {
+   "name": "master screen compiles",
+   "ok": true,
+   "ms": 71123,
+   "detail": "{'num_vertex_shader_instructions': 357, 'num_pixel_shader_instructions': 205, 'num_samplers': 0, 'num_vertex_texture_samples': 3, 'num_pixel_texture_samples': 1, 'num_virtual_texture_samples': 0, 'num_uv_scalars': 2, 'num_interpolator_scalars': 0}"
+  },
+  {
+   "name": "master skin compiles",
+   "ok": true,
+   "ms": 73727,
+   "detail": "{'num_vertex_shader_instructions': 380, 'num_pixel_shader_instructions': 253, 'num_samplers': 0, 'num_vertex_texture_samples': 3, 'num_pixel_texture_samples': 4, 'num_virtual_texture_samples': 0, 'num_uv_scalars': 2, 'num_interpolator_scalars': 0}"
+  },
+  {
+   "name": "master unlit compiles",
+   "ok": true,
+   "ms": 75908,
+   "detail": "{'num_vertex_shader_instructions': 200, 'num_pixel_shader_instructions': 40, 'num_samplers': 0, 'num_vertex_texture_samples': 3, 'num_pixel_texture_samples': 1, 'num_virtual_texture_samples': 0, 'num_uv_scalars': 2, 'num_interpolator_scalars': 0}"
+  },
+  {
+   "name": "mat.master converges",
+   "ok": true,
+   "ms": 75909,
+   "got": false,
+   "want": false
+  },
+  {
+   "name": "mat.pbr picks the ORM master",
+   "ok": true,
+   "ms": 75969,
+   "got": "opaque_orm",
+   "want": "opaque_orm"
+  },
+  {
+   "name": "the PBR material passes mat.check",
+   "ok": true,
+   "ms": 75970
+  },
+  {
+   "name": "preset chrome passes mat.check",
+   "ok": true,
+   "ms": 76018
+  },
+  {
+   "name": "preset glass_clear passes mat.check",
+   "ok": true,
+   "ms": 76070
+  },
+  {
+   "name": "preset emissive_panel passes mat.check",
+   "ok": true,
+   "ms": 76113
+  },
+  {
+   "name": "preset velvet passes mat.check",
+   "ok": true,
+   "ms": 76159
+  },
+  {
+   "name": "preset leaf passes mat.check",
+   "ok": true,
+   "ms": 76202
+  },
+  {
+   "name": "mat.instance converges",
+   "ok": true,
+   "ms": 76243,
+   "got": false,
+   "want": false
+  },
+  {
+   "name": "parameters read back",
+   "ok": true,
+   "ms": 76243,
+   "got": 0.35,
+   "want": 0.35
+  },
+  {
+   "name": "a misspelt parameter names the right one",
+   "ok": true,
+   "ms": 76244,
+   "got": {
+    "code": "bad_args",
+    "hint": "mat.describe path=/Game/FM/Lib/M_Lib_Opaque lists them",
+    "candidates": [
+     "Roughness",
+     "RoughnessMap"
+    ]
+   },
+   "want": {
+    "code": "bad_args",
+    "hint": "<some>"
+   },
+   "detail": "/Game/FM/Lib/M_Lib_Opaque has no parameter 'Rougness'"
+  },
+  {
+   "name": "a graph material compiles",
+   "ok": true,
+   "ms": 77850,
+   "detail": "{'num_vertex_shader_instructions': 189, 'num_pixel_shader_instructions': 215, 'num_samplers': 0, 'num_vertex_texture_samples': 0, 'num_pixel_texture_samples': 3, 'num_virtual_texture_samples': 0, 'num_uv_scalars': 0, 'num_interpolator_scalars': 0}"
+  },
+  {
+   "name": "mat.graph converges",
+   "ok": true,
+   "ms": 77851,
+   "got": false,
+   "want": false
+  },
+  {
+   "name": "a bad graph pin is named",
+   "ok": true,
+   "ms": 77851,
+   "got": {
+    "code": "bad_args",
+    "hint": "film-ue ops mat.graph shows the spec format",
+    "candidates": []
+   },
+   "want": {
+    "code": "bad_args",
+    "hint": "<some>"
+   },
+   "detail": "material spec: node 'a' (Multiply) has no input 'C' (it has 'A', 'B')"
+  },
+  {
+   "name": "material on the mesh's slot 0",
+   "ok": true,
+   "ms": 78079
+  },
+  {
+   "name": "4 thumbnails",
+   "ok": true,
+   "ms": 80272,
+   "got": 4,
+   "want": 4
+  },
+  {
+   "name": "duplicate",
+   "ok": true,
+   "ms": 80277
+  },
+  {
+   "name": "rename moves it",
+   "ok": true,
+   "ms": 80664
+  },
+  {
+   "name": "assets.rename converges",
+   "ok": true,
+   "ms": 80665,
+   "got": false,
+   "want": false
+  },
+  {
+   "name": "find by tag",
+   "ok": true,
+   "ms": 80685,
+   "got": [
+    "/Game/_Selftest/assets/Props/st_chair"
+   ],
+   "want": [
+    "/Game/_Selftest/assets/Props/st_chair"
+   ]
+  },
+  {
+   "name": "the chair uses the PBR material",
+   "ok": true,
+   "ms": 80685,
+   "detail": "{'path': '/Game/_Selftest/assets/Mats/MI_ST_Rock', 'referencers': ['/Game/_Selftest/assets/Moved/SM_ST_Chair2', '/Game/_Selftest/assets/Props/st_chair'], 'dependencies': ['/Game/FM/Lib/M_Lib_OpaqueOrm', '/Game/_Selftest/assets/Tex/T_ST_Rock_BaseColor', '/Game/_Selftest/assets/Tex/T_ST_Rock_Normal', '/Game/_Selftest/assets/Tex/T_ST_Rock_ORM'], 'level_actors': []}"
+  },
+  {
+   "name": "removing a used material is refused",
+   "ok": true,
+   "ms": 80686,
+   "got": {
+    "code": "conflict",
+    "hint": "repoint or remove the users first (assets.refs), or force=true",
+    "candidates": []
+   },
+   "want": {
+    "code": "conflict",
+    "hint": "<some>"
+   },
+   "detail": "1 asset(s) are still used: /Game/_Selftest/assets/Mats/MI_ST_Rock by /Game/_Selftest/assets/Moved/SM_ST_Chair2, /Game/_Selftest/assets/Props/st_chair"
+  },
+  {
+   "name": "moved a used material",
+   "ok": true,
+   "ms": 81019
+  },
+  {
+   "name": "no redirector left",
+   "ok": true,
+   "ms": 81025,
+   "got": [],
+   "want": []
+  },
+  {
+   "name": "the audit finds no broken material",
+   "ok": true,
+   "ms": 81034,
+   "detail": "[{'code': 'asset.unused', 'severity': 'info', 'subject': '/Game/_Selftest/assets/Mats/M_ST_Rim', 'message': 'nothing references /Game/_Selftest/assets/Mats/M_ST_Rim (Material)', 'fix': 'film-ue op assets.remove \\'paths=[\"/Game/_Selftest/assets/Mats/M_ST_Rim\"]\\' if it is not needed'}, {'code': 'asset.unused', 'severity': 'info', 'subject': '/Game/_Selftest/assets/Mats/MI_ST_Red', 'message': 'nothing references /Game/_Selftest/assets/Mats/MI_ST_Red (MaterialInstanceConstant)', 'fix': 'film-ue op assets.remove \\'paths=[\"/Game/_Selftest/assets/Mats/MI_ST_Red\"]\\' if it is not needed'}, {'code': 'asset.unused', 'severity': 'info', 'subject': '/Game/_Selftest/assets/Mats/MI_ST_leaf', 'message': 'nothing references /Game/_Selftest/assets/Mats/MI_ST_leaf (MaterialInstanceConstant)', 'fix': 'film-ue op assets.remove \\'paths=[\"/Game/_Selftest/assets/Mats/MI_ST_leaf\"]\\' if it is not needed'}, {'code': 'asset.unused', 'severity': 'info', 'subject': '/Game/_Selftest/assets/Mats/MI_ST_velvet', 'message': 'nothing references /Game/_Selftest/assets/Mats/MI_ST_velvet (MaterialInstanceConstant)', 'fix': 'film-ue op assets.remove \\'paths=[\"/Game/_Selftest/assets/Mats/MI_ST_velvet\"]\\' if it is not needed'}, {'code': 'asset.unused', 'severity': 'info', 'subject': '/Game/_Selftest/assets/Mats/MI_ST_emissive_panel', 'message': 'nothing references /Game/_Selftest/assets/Mats/MI_ST_emissive_panel (MaterialInstanceConstant)', 'fix': 'film-ue op assets.remove \\'paths=[\"/Game/_Selftest/assets/Mats/MI_ST_emissive_panel\"]\\' if it is not needed'}]"
+  },
+  {
+   "name": "remove",
+   "ok": true,
+   "ms": 82141,
+   "got": [
+    "/Game/_Selftest/assets/Moved/SM_ST_Chair2"
+   ],
+   "want": [
+    "/Game/_Selftest/assets/Moved/SM_ST_Chair2"
+   ]
+  },
+  {
+   "name": "assets.remove of nothing is fine",
+   "ok": true,
+   "ms": 82142,
+   "got": false,
+   "want": false
+  },
+  {
+   "name": "assets.list sees the chair",
+   "ok": true,
+   "ms": 82240,
+   "detail": "[['StaticMesh', '/Game/_Selftest/assets/Props/st_chair'], ['StaticMesh', '/Game/_Selftest/assets/Gltf/st_cube']]"
+  },
+  {
+   "name": "assets.move",
+   "ok": true,
+   "ms": 82845,
+   "detail": "{'moved': {'/Game/_Selftest/assets/Gltf/st_cube': '/Game/_Selftest/assets/Moved/st_cube'}, 'changed': True}"
+  },
+  {
+   "name": "assets.props reads a texture's settings",
+   "ok": true,
+   "ms": 82845
+  },
+  {
+   "name": "assets.set_props converges",
+   "ok": true,
+   "ms": 82859,
+   "got": false,
+   "want": false
+  },
+  {
+   "name": "assets.delete",
+   "ok": true,
+   "ms": 82859
+  },
+  {
+   "name": "mat.masters lists 12",
+   "ok": true,
+   "ms": 82861
+  },
+  {
+   "name": "mat.presets",
+   "ok": true,
+   "ms": 82861
+  },
+  {
+   "name": "fab.import of loose textures makes a material",
+   "ok": true,
+   "ms": 83149,
+   "detail": "{'format': 'textures', 'dest': '/Game/_Selftest/assets/Fab/Planks', 'imported': ['/Game/_Selftest/assets/Fab/Planks/MI_planks'], 'material': '/Game/_Selftest/assets/Fab/Planks/MI_planks', 'changed': True, 'meta': {}}"
+  },
+  {
+   "name": "fab.login with the saved sign-in",
+   "ok": false,
+   "ms": 113292,
+   "detail": "{'signed_in': False, 'changed': False, 'method': 'persist', 'waited_s': 30.1, 'hint': 'no saved sign-in worked: fab.login portal=true once, or restart the editor with -AUTH_TYPE=exchangecode -AUTH_PASSWORD=<code> (film-ue epic-login --fab)'}"
+  }
+ ],
+ "ops_covered": [
+  "assets.audit",
+  "assets.catalog",
+  "assets.delete",
+  "assets.describe",
+  "assets.duplicate",
+  "assets.find",
+  "assets.fix_redirectors",
+  "assets.folder",
+  "assets.import",
+  "assets.import_textures",
+  "assets.list",
+  "assets.mesh",
+  "assets.move",
+  "assets.props",
+  "assets.refs",
+  "assets.reimport",
+  "assets.remove",
+  "assets.rename",
+  "assets.save",
+  "assets.set_props",
+  "assets.tag",
+  "assets.texture",
+  "assets.thumbnail",
+  "fab.import",
+  "fab.login",
+  "fab.status",
+  "mat.assign",
+  "mat.check",
+  "mat.describe",
+  "mat.graph",
+  "mat.instance",
+  "mat.master",
+  "mat.masters",
+  "mat.pbr",
+  "mat.preset",
+  "mat.presets"
+ ],
+ "ops_missed": [
+  "assets.save_all",
+  "fab.add",
+  "fab.library"
+ ],
+ "stills": [],
+ "artifacts": [
+  "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141316/thumbs/view_035.png",
+  "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141316/thumbs/view_125.png",
+  "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141316/thumbs/view_215.png",
+  "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141316/thumbs/view_305.png",
+  "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141316/thumbs/sheet.png"
+ ],
+ "notes": [
+  "qa.image on the thumbnail: qa.image: missing a required argument: 'image' (film-ue ops qa.image shows what it takes)",
+  "assets.save_all (saves every dirty package of the editor) and fab.add (needs a signed URL from fab_shim.py) are not run here",
+  "fab.add needs a signed URL from fab_shim.py (Playwright) and is not run here",
+  "could not delete /Game/_Selftest/assets (still referenced): selftest.cleanup later"
+ ],
+ "metrics": {
+  "op_ms": {
+   "assets.import": [
+    155,
+    6,
+    797
+   ],
+   "assets.describe": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "assets.catalog": [
+    7
+   ],
+   "assets.find": [
+    6,
+    8
+   ],
+   "assets.mesh": [
+    100,
+    0,
+    0
+   ],
+   "assets.reimport": [
+    40
+   ],
+   "assets.import_textures": [
+    174
+   ],
+   "assets.texture": [
+    0,
+    0
+   ],
+   "mat.master": [
+    3588,
+    2686,
+    4021,
+    13740,
+    6061,
+    13594,
+    13412,
+    4388,
+    4247,
+    3483,
+    2603,
+    2180,
+    0,
+    0
+   ],
+   "mat.pbr": [
+    60
+   ],
+   "mat.check": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    1
+   ],
+   "mat.preset": [
+    47,
+    51,
+    42,
+    45,
+    41
+   ],
+   "mat.instance": [
+    39,
+    0
+   ],
+   "mat.describe": [
+    0
+   ],
+   "mat.graph": [
+    1606,
+    0,
+    0
+   ],
+   "mat.assign": [
+    228
+   ],
+   "assets.thumbnail": [
+    2192
+   ],
+   "assets.duplicate": [
+    4
+   ],
+   "assets.rename": [
+    387,
+    0,
+    0,
+    333
+   ],
+   "assets.tag": [
+    11
+   ],
+   "assets.refs": [
+    0
+   ],
+   "assets.fix_redirectors": [
+    6
+   ],
+   "assets.audit": [
+    9
+   ],
+   "assets.remove": [
+    1106,
+    0,
+    0
+   ],
+   "assets.folder": [
+    0
+   ],
+   "assets.save": [
+    90
+   ],
+   "assets.list": [
+    7
+   ],
+   "assets.move": [
+    604
+   ],
+   "assets.props": [
+    0
+   ],
+   "assets.set_props": [
+    13,
+    0
+   ],
+   "assets.delete": [
+    0
+   ],
+   "mat.masters": [
+    1
+   ],
+   "mat.presets": [
+    0
+   ],
+   "fab.status": [
+    0
+   ],
+   "fab.import": [
+    287
+   ],
+   "fab.login": [
+    30142
+   ]
+  },
+  "obj_size_cm": {
+   "value": [
+    50.0,
+    48.0,
+    90.0
+   ],
+   "unit": "cm"
+  },
+  "redirectors_fixed": {
+   "value": 0,
+   "unit": ""
+  },
+  "audit": {
+   "value": {
+    "assets": 15,
+    "unused": 10,
+    "redirectors": 0,
+    "broken": 0
+   },
+   "unit": ""
+  },
+  "fab": {
+   "value": {
+    "plugin": true,
+    "signed_in": false,
+    "saved_sign_ins": 1,
+    "pack_installer": true
+   },
+   "unit": ""
+  }
+ },
+ "errors": [],
+ "extra": {
+  "chair": "/Game/_Selftest/assets/Props/st_chair",
+  "masters": [
+   "cloth",
+   "decal",
+   "emissive",
+   "foliage",
+   "glass",
+   "masked",
+   "masked_orm",
+   "opaque",
+   "opaque_orm",
+   "screen",
+   "skin",
+   "unlit"
+  ]
+ },
+ "box": {
+  "platform": "linux",
+  "python": "3.11.8",
+  "engine": "5.8.4-0+UE5",
+  "command_line": "-RenderOffscreen -unattended -nosplash -NoLiveCoding -log -stdout -FullStdOutLogOutput",
+  "capabilities": {
+   "gpu": true,
+   "display": false,
+   "linux": true,
+   "windows": false,
+   "epic_login": true,
+   "mh_cloud": true
+  }
+ },
+ "doc": "WP2 assets, materials and Fab on a real editor. It writes its own source files on the box (an OBJ box the size of\na chair, a glTF cube, three PNG maps of a texture set), then: imports them (Interchange, no dialog), reads them back\n(assets.describe, the registry catalog, assets.find \"chair 90 cm tall\"), sets mesh build settings (Nanite, LODs,\ncollision), textures by role, re-imports a changed file; builds all 12 library masters and checks each compiles and\nthat every texture matches its sampler; PBR from the set, presets, a graph material, instances that converge;\nassigns a material to a mesh slot; renames, moves, duplicates, tags, follows references, fixes a redirector,\naudits, removes; takes thumbnails; and checks Fab's state (the library only when signed in; fab.add needs a signed\nURL and is not run). Takes ~3 min (12 master compiles on a cold DDC, 2 stills). Needs: GPU (stills, shader\nstatistics); Fab sign-in optional.",
+ "baselines": [],
+ "level_after": "/Game/_Scratch/_Blank/L_Blank",
+ "ms": 118551,
+ "report": "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141316/assets.json",
+ "local_stills": []
+}

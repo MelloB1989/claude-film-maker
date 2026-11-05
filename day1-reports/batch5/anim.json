@@ -1,0 +1,1232 @@
+{
+ "area": "anim",
+ "ok": false,
+ "status": "done",
+ "passed": 22,
+ "failed": 5,
+ "checks": [
+  {
+   "name": "find.walk",
+   "ok": true,
+   "ms": 156,
+   "detail": "[{'path': '/MetaHumanCharacter/Optional/Animation/UEFNAnimPreset/Locomotion/AS_MH_Neutral_Walk_Loop_F', 'score': 9.0, 'kind': 'body', 'category': 'locomotion', 'emotion': None, 'gait': 'walk', 'phase': 'loop', 'direction': 'forward', 'tags': ['body', 'locomotion', 'walk', 'loop', 'forward'], 'length_s': 4.0, 'skeleton': '/MetaHumanCharacter/Female/Medium/NormalWeight/Body/metahuman_base_skel'}, {'path': '/MetaHumanCharacter/Optional/Animation/UEFNAnimPreset/Locomotion/AS_MH_Neutral_Run_Loop_F', 'score': 5.0, 'kind': 'body', 'category': 'locomotion', 'emotion': None, 'gait': 'run', 'phase': 'loop', 'direction': 'forward', 'tags': ['body', 'locomotion', 'run', 'loop', 'forward'], 'length_s': 2.5, 'skeleton': '/MetaHumanCharacter/Female/Medium/NormalWeight/Body/metahuman_base_skel'}, {'path': '/MetaHumanCharacter/Optional/Animation/UEFNAnimPreset/Locomotion/AS_MH_Neutral_Walk_Loop_B', 'score': 5.0, 'kind': 'body', 'category': 'locomotion', 'emotion': None, 'gait': 'walk', 'phase': 'loop', 'direction': 'backward', 'tags': ['body', 'locomotion', 'walk', 'loop', 'backward'], 'length_s': 4.033333, 'skeleton': '/MetaHumanCharacter/Female/Medium/NormalWeight/Body/metahuman_base_skel'}]"
+  },
+  {
+   "name": "find.happy_face",
+   "ok": true,
+   "ms": 158,
+   "detail": "[{'path': '/MetaHumanCharacter/Optional/Animation/TemplateAnimations/Expression_Loops/HappyA/mhc_mh002_fmn_f_facialloop_happy_f_s001', 'score': 7.0, 'kind': 'face', 'category': 'expression_loop', 'emotion': 'happy', 'gait': None, 'phase': None, 'direction': None, 'tags': ['face', 'expression_loop', 'happy'], 'length_s': 10.566667, 'skeleton': '/MetaHumanCharacter/Face/Face_Archetype_Skeleton'}, {'path': '/MetaHumanCharacter/Optional/Animation/TemplateAnimations/Expression_Loops/HappyB/ue_mh002_fmn_f_facialloop_happy_m_s001', 'score': 7.0, 'kind': 'face', 'category': 'expression_loop', 'emotion': 'happy', 'gait': None, 'phase': None, 'direction': None, 'tags': ['face', 'expression_loop', 'happy'], 'length_s': 10.0, 'skeleton': '/MetaHumanCharacter/Face/Face_Archetype_Skeleton'}, {'path': '/MetaHumanCharacter/Optional/Animation/TemplateAnimations/Facial_Poses/Happy/mhc_mh002_fmn_f_gpf_happy_s001', 'score': 5.0, 'kind': 'face', 'category': 'facial_pose', 'emotion': 'happy', 'gait': None, 'phase': None, 'direction': None, 'tags': ['face', 'facial_pose', 'happy'], 'length_s': 0.016667, 'skeleton': '/MetaHumanCharacter/Face/Face_Archetype_Skeleton'}]"
+  },
+  {
+   "name": "describe.face_curves",
+   "ok": false,
+   "ms": 159,
+   "detail": "{'path': '/MetaHumanCharacter/Optional/Animation/TemplateAnimations/Expression_Loops/HappyA/mhc_mh002_fmn_f_facialloop_happy_f_s001', 'length_s': 10.5667, 'frames': 634, 'fps': 60.0, 'skeleton': '/MetaHumanCharacter/Face/Face_Archetype_Skeleton', 'curve_count': 135, 'head_curves': [], 'face_curves': 0, 'bone_tracks': 875, 'additive': {'type': '<AdditiveAnimationType.AAT_NONE: 0>', 'base': '<AdditiveBasePoseType.ABPT_NONE: 0>'}, 'root_motion': False, 'perf': {}}"
+  },
+  {
+   "name": "describe.length",
+   "ok": true,
+   "ms": 159,
+   "detail": "{'path': '/MetaHumanCharacter/Optional/Animation/TemplateAnimations/Expression_Loops/HappyA/mhc_mh002_fmn_f_facialloop_happy_f_s001', 'length_s': 10.5667, 'frames': 634, 'fps': 60.0, 'skeleton': '/MetaHumanCharacter/Face/Face_Archetype_Skeleton', 'curve_count': 135, 'head_curves': [], 'face_curves': 0, 'bone_tracks': 875, 'additive': {'type': '<AdditiveAnimationType.AAT_NONE: 0>', 'base': '<AdditiveBasePoseType.ABPT_NONE: 0>'}, 'root_motion': False, 'perf': {}}"
+  },
+  {
+   "name": "new.frames",
+   "ok": true,
+   "ms": 223,
+   "got": 60,
+   "want": 60
+  },
+  {
+   "name": "new.converges",
+   "ok": true,
+   "ms": 225,
+   "got": false,
+   "want": false
+  },
+  {
+   "name": "write.curves",
+   "ok": true,
+   "ms": 240,
+   "got": 30,
+   "want": 30
+  },
+  {
+   "name": "read.round_trip",
+   "ok": true,
+   "ms": 241,
+   "got": {
+    "ctrl_expressions_browlaterall": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.0,
+      0.05000000074505806,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_browlateralr": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.10000000149011612,
+      0.05000000074505806,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_browraiseinl": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.20000000298023224,
+      0.05000000074505806,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_browraiseinr": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.30000001192092896,
+      0.05000000074505806,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_browraiseouterl": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.4000000059604645,
+      0.05000000074505806,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_browraiseouterr": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.5,
+      0.05000000074505806,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_eyeblinkl": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.6000000238418579,
+      0.05000000074505806,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_eyeblinkr": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.0,
+      0.05000000074505806,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_eyecheekraisel": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.10000000149011612,
+      0.05000000074505806,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_eyecheekraiser": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.20000000298023224,
+      0.05000000074505806,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_eyelookdownl": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.30000001192092896,
+      0.05000000074505806,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_eyelookdownr": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.4000000059604645,
+      0.05000000074505806,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_eyelookleftl": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.5,
+      0.05000000074505806,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_eyelookleftr": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.6000000238418579,
+      0.05000000074505806,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_eyelookrightl": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.0,
+      0.05000000074505806,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_eyelookrightr": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.10000000149011612,
+      0.05000000074505806,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_eyelookupl": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.20000000298023224,
+      0.05000000074505806,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_eyelookupr": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.30000001192092896,
+      0.05000000074505806,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_eyepupilnarrowl": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.4000000059604645,
+      0.05000000074505806,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_eyepupilnarrowr": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.5,
+      0.05000000074505806,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_eyepupilwidel": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.6000000238418579,
+      0.05000000074505806,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_eyepupilwider": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.0,
+      0.05000000074505806,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_eyesquintinnerl": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.10000000149011612,
+      0.05000000074505806,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_eyesquintinnerr": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.20000000298023224,
+      0.05000000074505806,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_eyewidenl": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.30000001192092896,
+      0.05000000074505806,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_eyewidenr": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.4000000059604645,
+      0.05000000074505806,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_jawback": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.5,
+      0.05000000074505806,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_jawchincompressl": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.6000000238418579,
+      0.05000000074505806,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_jawchincompressr": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.0,
+      0.05000000074505806,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_jawchinraisedl": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.10000000149011612,
+      0.05000000074505806,
+      0.0
+     ]
+    ]
+   },
+   "want": {
+    "ctrl_expressions_browlaterall": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.0,
+      0.05,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_browlateralr": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.1,
+      0.05,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_browraiseinl": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.2,
+      0.05,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_browraiseinr": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.30000000000000004,
+      0.05,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_browraiseouterl": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.4,
+      0.05,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_browraiseouterr": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.5,
+      0.05,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_eyeblinkl": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.6000000000000001,
+      0.05,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_eyeblinkr": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.0,
+      0.05,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_eyecheekraisel": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.1,
+      0.05,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_eyecheekraiser": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.2,
+      0.05,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_eyelookdownl": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.30000000000000004,
+      0.05,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_eyelookdownr": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.4,
+      0.05,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_eyelookleftl": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.5,
+      0.05,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_eyelookleftr": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.6000000000000001,
+      0.05,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_eyelookrightl": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.0,
+      0.05,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_eyelookrightr": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.1,
+      0.05,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_eyelookupl": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.2,
+      0.05,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_eyelookupr": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.30000000000000004,
+      0.05,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_eyepupilnarrowl": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.4,
+      0.05,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_eyepupilnarrowr": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.5,
+      0.05,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_eyepupilwidel": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.6000000000000001,
+      0.05,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_eyepupilwider": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.0,
+      0.05,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_eyesquintinnerl": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.1,
+      0.05,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_eyesquintinnerr": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.2,
+      0.05,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_eyewidenl": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.30000000000000004,
+      0.05,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_eyewidenr": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.4,
+      0.05,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_jawback": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.5,
+      0.05,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_jawchincompressl": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.6000000000000001,
+      0.05,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_jawchincompressr": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.0,
+      0.05,
+      0.0
+     ]
+    ],
+    "ctrl_expressions_jawchinraisedl": [
+     [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+     ],
+     [
+      0.0,
+      0.1,
+      0.05,
+      0.0
+     ]
+    ]
+   }
+  },
+  {
+   "name": "write.add",
+   "ok": true,
+   "ms": 260,
+   "got": [
+    0.20000000298023224,
+    0.20000000298023224
+   ],
+   "want": [
+    0.2,
+    0.2
+   ]
+  },
+  {
+   "name": "audio.emphasis",
+   "ok": true,
+   "ms": 292,
+   "detail": "[[0.34, 0.9], [1.34, 1.0], [2.34, 1.0], [3.34, 1.0]]"
+  },
+  {
+   "name": "face.mouth_untouched",
+   "ok": true,
+   "ms": 970,
+   "detail": "['ctrl_expressions_mouthlipspressl', 'ctrl_expressions_mouthlipspressr', 'ctrl_expressions_mouthlipspulldl', 'ctrl_expressions_mouthlipspulldr', 'ctrl_expressions_mouthlipspullul']"
+  },
+  {
+   "name": "face.alive",
+   "ok": false,
+   "ms": 995,
+   "detail": "['blink_rate', 'expression_range']"
+  },
+  {
+   "name": "check.catches_robot",
+   "ok": true,
+   "ms": 1057,
+   "detail": "['frozen_head', 'head_linear', 'blink_rate', 'expression_range']"
+  },
+  {
+   "name": "additive.type",
+   "ok": true,
+   "ms": 1212,
+   "detail": "{'out': '/Game/_Selftest/anim/AS_ST_anim_idle_add', 'changed': True, 'type': '<AdditiveAnimationType.AAT_LOCAL_SPACE_BASE: 1>', 'base': '<AdditiveBasePoseType.ABPT_LOCAL_ANIM_FRAME: 4>'}"
+  },
+  {
+   "name": "error.missing_anim",
+   "ok": true,
+   "ms": 1219,
+   "got": {
+    "code": "not_found",
+    "hint": "search with anim.find query='...'",
+    "candidates": []
+   },
+   "want": {
+    "code": "not_found",
+    "hint": "<some>"
+   },
+   "detail": "no animation '/MetaHumanCharacter/Optional/Animation/TemplateAnimations/Expression_Loops/HappyA/mhc_mh002_fmn_f_facialloop_happy_f_s001x'"
+  },
+  {
+   "name": "error.bad_preset",
+   "ok": true,
+   "ms": 1263,
+   "got": {
+    "code": "bad_args",
+    "hint": "perf.vocab lists presets, moods, nods and layers",
+    "candidates": []
+   },
+   "want": {
+    "code": "bad_args",
+    "hint": "<some>"
+   },
+   "detail": "no expression 'smiel'; did you mean smile, smirk? (presets: angry, brow_flash, brow_raise, concern, contempt, disgust, fear, grin, lip_press, pout, sad, skeptical, smile, smile_soft, smirk, squint, surprise, thinking, wince)"
+  },
+  {
+   "name": "error.bad_spec",
+   "ok": true,
+   "ms": 1265,
+   "got": {
+    "code": "bad_args",
+    "hint": "the schema: tools/filmtools/unreal/schemas/performance.schema.json",
+    "candidates": []
+   },
+   "want": {
+    "code": "bad_args",
+    "hint": "<some>"
+   },
+   "detail": "bad performance spec: lines[a]: needs audio, face_anim or duration_s; lines[a].mood: unknown mood 'grumpy' (moods: angry, bored, calm, concerned, confident, confused, disgusted, excited, fearful, happy, joy, neutral, playful, sad, skeptical, surprised, thoughtful, warm)"
+  },
+  {
+   "name": "calibrate.measured",
+   "ok": false,
+   "ms": 31732,
+   "detail": "HeadYaw=10.0 did not move ST_anim_Face's head (0.0000 cm at the eyes): the face rig is not turning the head from the head curves (drive the face from Sequencer with mh.drive_face, and check its Anim Blueprint reads HeadYaw/HeadPitch/HeadRoll with HeadControlSwitch=1)"
+  },
+  {
+   "name": "apply.converged",
+   "ok": true,
+   "ms": 32215,
+   "detail": "{'rounds': 1, 'ran': [{'op': 'perf.compose', 'why': 'compose the face animation and key the sequence', 'result': {'face_anim': '/Game/_Selftest/anim/AS_ST_anim_perf_face', 'fingerprint': '5c9b7d4da7793f40', 'frames': 310, 'notes': []}}]}"
+  },
+  {
+   "name": "apply.idempotent",
+   "ok": true,
+   "ms": 32215
+  },
+  {
+   "name": "describe.face_section",
+   "ok": true,
+   "ms": 32216,
+   "detail": "{'sequence': '/Game/_Selftest/anim/LS_ST_anim_perf', 'label': 'ST_anim_Face', 'face': [{'anim': '/Game/_Selftest/anim/AS_ST_anim_perf_face', 'start': 0, 'end': 310, 'row': 0, 'perf': {'spec': 'ST_anim_perf', 'fingerprint': '5c9b7d4da7793f40', 'made_by': 'perf.compose'}}], 'body': None, 'transform_keys': 0}"
+  },
+  {
+   "name": "head.turns_to_target",
+   "ok": false,
+   "ms": 32862,
+   "detail": "head axis turned 0.0 deg between frames 6 and 60"
+  },
+  {
+   "name": "still rest",
+   "ok": true,
+   "ms": 33217,
+   "detail": "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141316/stills/anim_rest.png"
+  },
+  {
+   "name": "baseline rest",
+   "ok": true,
+   "ms": 33767,
+   "got": 1.0,
+   "want": 0.95,
+   "detail": "match"
+  },
+  {
+   "name": "still turned",
+   "ok": true,
+   "ms": 34114,
+   "detail": "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141316/stills/anim_turned.png"
+  },
+  {
+   "name": "baseline turned",
+   "ok": true,
+   "ms": 34665,
+   "got": 1.0,
+   "want": 0.95,
+   "detail": "match"
+  },
+  {
+   "name": "body.calibrated",
+   "ok": false,
+   "ms": 37914,
+   "detail": "clavicle_l: no local axis moves the body (twist): {'x': {'flex': 0.0, 'side': 0.0, 'twist': 0.0}, 'y': {'flex': 0.011, 'side': -2.27, 'twist': -0.502}, 'z': {'flex': 2.32, 'side': 0.026, 'twist': -0.149}} (is the body driven by Sequencer (its own anim instance)? see perf.calibrate_body)"
+  }
+ ],
+ "ops_covered": [
+  "anim.additive",
+  "anim.check",
+  "anim.describe",
+  "anim.find",
+  "anim.new",
+  "anim.read_curves",
+  "anim.write_curves",
+  "perf.analyze_audio",
+  "perf.apply",
+  "perf.calibrate",
+  "perf.calibrate_body",
+  "perf.describe",
+  "perf.face",
+  "perf.plan"
+ ],
+ "ops_missed": [
+  "anim.bake_follow",
+  "anim.bake_pose",
+  "anim.body_life",
+  "anim.curve",
+  "anim.curves",
+  "anim.gaze_lock",
+  "anim.head_to_body",
+  "anim.retarget",
+  "anim.rig_controls",
+  "anim.rig_keys",
+  "anim.scale_curves",
+  "anim.set_curve",
+  "perf.check",
+  "perf.compose",
+  "perf.gestures",
+  "perf.head_curves",
+  "perf.idle",
+  "perf.lock_eyes",
+  "perf.plot",
+  "perf.solve",
+  "perf.state",
+  "perf.turn_to",
+  "perf.vocab",
+  "perf.walk_to"
+ ],
+ "stills": [
+  "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141316/stills/anim_rest.png",
+  "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141316/stills/anim_turned.png"
+ ],
+ "artifacts": [],
+ "notes": [],
+ "metrics": {
+  "op_ms": {
+   "anim.find": [
+    5,
+    1
+   ],
+   "anim.describe": [
+    0,
+    0,
+    0
+   ],
+   "anim.new": [
+    63,
+    1,
+    0,
+    50
+   ],
+   "anim.write_curves": [
+    14,
+    18,
+    7
+   ],
+   "anim.read_curves": [
+    0,
+    0,
+    22,
+    20
+   ],
+   "perf.analyze_audio": [
+    3
+   ],
+   "perf.face": [
+    440
+   ],
+   "anim.check": [
+    24,
+    4
+   ],
+   "anim.additive": [
+    154
+   ],
+   "level.spawn": [
+    6,
+    13,
+    55
+   ],
+   "level.move": [
+    0
+   ],
+   "perf.apply": [
+    482,
+    0
+   ],
+   "perf.describe": [
+    0
+   ],
+   "seq.sample": [
+    645
+   ],
+   "seq.scrub": [
+    0,
+    0
+   ],
+   "view.still": [
+    354,
+    345
+   ],
+   "seq.close": [
+    16
+   ]
+  },
+  "face_loop_s": {
+   "value": 10.5667,
+   "unit": "s"
+  },
+  "blinks_per_min": {
+   "value": 45.4258677812081,
+   "unit": "1/min"
+  },
+  "head_turn_deg": {
+   "value": 0.0,
+   "unit": "deg"
+  }
+ },
+ "errors": [],
+ "extra": {
+  "face_loop": "/MetaHumanCharacter/Optional/Animation/TemplateAnimations/Expression_Loops/HappyA/mhc_mh002_fmn_f_facialloop_happy_f_s001",
+  "face_mesh": "/MetaHumanCharacter/Face/SKM_Face",
+  "component": "SkeletalMeshComponent0",
+  "body": null
+ },
+ "box": {
+  "platform": "linux",
+  "python": "3.11.8",
+  "engine": "5.8.4-0+UE5",
+  "command_line": "-RenderOffscreen -unattended -nosplash -NoLiveCoding -log -stdout -FullStdOutLogOutput",
+  "capabilities": {
+   "gpu": true,
+   "display": false,
+   "linux": true,
+   "windows": false,
+   "epic_login": true,
+   "mh_cloud": true
+  }
+ },
+ "doc": "WP4's acceptance test: animation and performance, measured in the editor.",
+ "baselines": [
+  {
+   "name": "rest",
+   "status": "match",
+   "ssim": 1.0,
+   "stops_shift": 0.0,
+   "diff": null
+  },
+  {
+   "name": "turned",
+   "status": "match",
+   "ssim": 1.0,
+   "stops_shift": 0.0,
+   "diff": null
+  }
+ ],
+ "level_after": "/Game/_Scratch/_Blank/L_Blank",
+ "cleaned": "/Game/_Selftest/anim",
+ "ms": 46136,
+ "report": "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141316/anim.json",
+ "local_stills": [
+  "/tmp/fleet-agent-13-ue/reports/194257-assets/stills/anim_rest.png",
+  "/tmp/fleet-agent-13-ue/reports/194257-assets/stills/anim_turned.png"
+ ]
+}

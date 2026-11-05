@@ -1,0 +1,416 @@
+{
+ "area": "render",
+ "ok": false,
+ "status": "error",
+ "passed": 21,
+ "failed": 0,
+ "checks": [
+  {
+   "name": "presets",
+   "ok": true,
+   "ms": 143,
+   "got": [
+    "4k",
+    "draft",
+    "final",
+    "final_exr",
+    "pathtrace",
+    "preview"
+   ],
+   "want": [
+    "4k",
+    "draft",
+    "final",
+    "final_exr",
+    "pathtrace",
+    "preview"
+   ]
+  },
+  {
+   "name": "render.gpu sees the GPU",
+   "ok": true,
+   "ms": 176,
+   "detail": "{'gpu': {'name': 'NVIDIA L4', 'total_gb': 24.15, 'used_gb': 5.12, 'free_gb': 18.54, 'util_pct': 8.0}, 'rss_gb': 11.16, 'rendering': False}"
+  },
+  {
+   "name": "a bad spec is bad_args",
+   "ok": true,
+   "ms": 176,
+   "got": {
+    "code": "bad_args",
+    "hint": "film-ue render presets and film-ue render schema show the fields (docs/unreal/render.md)",
+    "candidates": []
+   },
+   "want": {
+    "code": "bad_args",
+    "hint": "<some>"
+   },
+   "detail": "render spec: spec.preset: 'fnal' is not one of ['preview', 'draft', 'final', 'final_exr', '4k', 'pathtrace'] (did you mean 'final'?)"
+  },
+  {
+   "name": "seq.cuts",
+   "ok": true,
+   "ms": 281,
+   "got": [
+    [
+     0,
+     24
+    ],
+    [
+     24,
+     48
+    ]
+   ],
+   "want": [
+    [
+     0,
+     24
+    ],
+    [
+     24,
+     48
+    ]
+   ]
+  },
+  {
+   "name": "plan: one chunk per cut",
+   "ok": true,
+   "ms": 282,
+   "got": [
+    [
+     0,
+     24,
+     0
+    ],
+    [
+     24,
+     48,
+     0
+    ]
+   ],
+   "want": [
+    [
+     0,
+     24,
+     0
+    ],
+    [
+     24,
+     48,
+     0
+    ]
+   ]
+  },
+  {
+   "name": "plan: VRAM guard passes for deferred",
+   "ok": true,
+   "ms": 282,
+   "detail": "{'ok': True, 'why': '', 'need_gb': 4.0, 'total_gb': 24.15, 'free_gb': 18.54}"
+  },
+  {
+   "name": "job ok",
+   "ok": true,
+   "ms": 5939,
+   "got": "ok",
+   "want": "ok"
+  },
+  {
+   "name": "job frames",
+   "ok": true,
+   "ms": 5939,
+   "got": 48,
+   "want": 48
+  },
+  {
+   "name": "report on disk",
+   "ok": true,
+   "ms": 5939,
+   "detail": "/srv/ue/projects/HostStudio/Saved/Selftest/render/full/_render/full.report.json"
+  },
+  {
+   "name": "re-run converges (nothing rendered)",
+   "ok": true,
+   "ms": 5942,
+   "got": [
+    false,
+    0
+   ],
+   "want": [
+    false,
+    0
+   ]
+  },
+  {
+   "name": "resume plans one pre-rolled chunk",
+   "ok": true,
+   "ms": 5945,
+   "got": [
+    [
+     30,
+     36,
+     6
+    ]
+   ],
+   "want": [
+    [
+     30,
+     36,
+     6
+    ]
+   ]
+  },
+  {
+   "name": "resume renders the six frames",
+   "ok": true,
+   "ms": 6482,
+   "got": [
+    "ok",
+    6
+   ],
+   "want": [
+    "ok",
+    6
+   ]
+  },
+  {
+   "name": "pre-rolled chunk matches the full-shot render (PSNR >= 35 dB)",
+   "ok": true,
+   "ms": 8838,
+   "detail": "[37.513, 37.554, 38.48, 38.118, 37.685, 37.859]"
+  },
+  {
+   "name": "pre-roll is closer to the full shot than a cold start",
+   "ok": true,
+   "ms": 8838,
+   "detail": "[37.513, 37.554, 38.48, 38.118, 37.685, 37.859] [32.709, 30.886, 29.391, 27.963, 26.698, 25.775]"
+  },
+  {
+   "name": "render.compare: pre-rolled chunk vs full shot passes",
+   "ok": true,
+   "ms": 15231,
+   "got": true,
+   "want": true
+  },
+  {
+   "name": "render.frames cameras",
+   "ok": true,
+   "ms": 17367,
+   "got": {
+    "5": "ST_render_CamA",
+    "30": "ST_render_CamB"
+   },
+   "want": {
+    "5": "ST_render_CamA",
+    "30": "ST_render_CamB"
+   }
+  },
+  {
+   "name": "render.frames files",
+   "ok": true,
+   "ms": 17367,
+   "detail": "{5: '/srv/ue/projects/HostStudio/Saved/Selftest/render/stills/0005.png', 30: '/srv/ue/projects/HostStudio/Saved/Selftest/render/stills/0030.png'}"
+  },
+  {
+   "name": "AOV job ok",
+   "ok": true,
+   "ms": 17913,
+   "got": "ok",
+   "want": "ok"
+  },
+  {
+   "name": "AOV folders",
+   "ok": true,
+   "ms": 17913,
+   "got": [
+    "FinalImage",
+    true,
+    true
+   ],
+   "want": [
+    "FinalImage",
+    true,
+    true
+   ]
+  },
+  {
+   "name": "EXR frames per pass",
+   "ok": true,
+   "ms": 17913,
+   "got": [
+    4,
+    4,
+    4
+   ],
+   "want": [
+    4,
+    4,
+    4
+   ]
+  },
+  {
+   "name": "new-process executor renders (no save prompt stall)",
+   "ok": true,
+   "ms": 36312,
+   "got": [
+    "ok",
+    2
+   ],
+   "want": [
+    "ok",
+    2
+   ]
+  }
+ ],
+ "ops_covered": [
+  "render.compare",
+  "render.frames",
+  "render.gpu",
+  "render.job",
+  "render.manifest",
+  "render.plan",
+  "render.presets"
+ ],
+ "ops_missed": [
+  "render.cancel",
+  "render.concat",
+  "render.describe",
+  "render.encode",
+  "render.mrq",
+  "render.progress",
+  "render.status"
+ ],
+ "stills": [],
+ "artifacts": [
+  "/srv/ue/projects/HostStudio/Saved/Selftest/render/full/_render/full.report.json",
+  "/srv/ue/projects/HostStudio/Saved/Selftest/render/full/0005.png",
+  "/srv/ue/projects/HostStudio/Saved/Selftest/render/full/0030.png"
+ ],
+ "notes": [],
+ "metrics": {
+  "op_ms": {
+   "render.presets": [
+    0
+   ],
+   "render.gpu": [
+    33
+   ],
+   "level.spawn": [
+    5,
+    4
+   ],
+   "look.light": [
+    5
+   ],
+   "look.camera": [
+    18,
+    6
+   ],
+   "seq.new": [
+    2
+   ],
+   "seq.camera_cuts": [
+    3
+   ],
+   "level.save": [
+    58
+   ],
+   "seq.cuts": [
+    0
+   ],
+   "render.plan": [
+    0,
+    1
+   ],
+   "render.job": [
+    5657,
+    2,
+    537,
+    545,
+    545,
+    18399
+   ],
+   "render.compare": [
+    6392
+   ],
+   "render.frames": [
+    2136
+   ]
+  },
+  "vram_total_gb": {
+   "value": 24.15,
+   "unit": "GB"
+  },
+  "vram_used_idle_gb": {
+   "value": 5.12,
+   "unit": "GB"
+  },
+  "plan_estimate_s": {
+   "value": 24.2,
+   "unit": "s"
+  },
+  "s_per_frame_480p_draft": {
+   "value": 0.015,
+   "unit": "s"
+  },
+  "sample_s_1080p_measured": {
+   "value": 0.24,
+   "unit": "s"
+  },
+  "vram_peak_gb": {
+   "value": 9.54,
+   "unit": "GB"
+  },
+  "job_s": {
+   "value": 5.6,
+   "unit": "s"
+  },
+  "psnr_preroll_vs_full_min": {
+   "value": 37.51,
+   "unit": "dB"
+  },
+  "psnr_cold_vs_full_min": {
+   "value": 25.77,
+   "unit": "dB"
+  },
+  "ab_min_ssim": {
+   "value": 0.9889,
+   "unit": ""
+  },
+  "ab_method": {
+   "value": "qa",
+   "unit": ""
+  },
+  "process_job_s": {
+   "value": 18.4,
+   "unit": "s"
+  }
+ },
+ "errors": [
+  {
+   "where": "run",
+   "error": "Traceback (most recent call last):\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/selftest/__init__.py\", line 361, in run\n    yield next(gen)\n          ^^^^^^^^^\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/selftest/render.py\", line 170, in run\n    man = t.op(\"render.manifest\", spec={**spec, \"out_dir\": os.path.join(out, \"cmd\"), \"name\": \"cmd\", \"frames\": [0, 2],\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/selftest/__init__.py\", line 151, in op\n    res = ops.call(name, **args)\n          ^^^^^^^^^^^^^^^^^^^^^^\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/ops/__init__.py\", line 60, in call\n    res = fn(**args)\n          ^^^^^^^^^^\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/ops/render.py\", line 812, in manifest\n    m = _write_manifest(q, os.path.join(r[\"out_dir\"], \"_render\", f\"{c['id']}.utxt\"))\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/ops/render.py\", line 381, in _write_manifest\n    res = _editor_library().save_queue_to_manifest_file(q)\n          ^^^^^^^^^^^^^^^^^\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/ops/render.py\", line 374, in _editor_library\n    raise OpError(\"MoviePipelineEditorBlueprintLibrary is not available in this editor (the new-process executor \"\nfmbridge.errors.OpError: MoviePipelineEditorBlueprintLibrary is not available in this editor (the new-process executor needs it to write the queue manifest) (enable the Movie Render Queue plugin's editor module, or render with executor='pie')\n"
+  }
+ ],
+ "extra": null,
+ "box": {
+  "platform": "linux",
+  "python": "3.11.8",
+  "engine": "5.8.4-0+UE5",
+  "command_line": "-RenderOffscreen -unattended -nosplash -NoLiveCoding -log -stdout -FullStdOutLogOutput",
+  "capabilities": {
+   "gpu": true,
+   "display": false,
+   "linux": true,
+   "windows": false,
+   "epic_login": true,
+   "mh_cloud": true
+  }
+ },
+ "doc": "WP9's acceptance test: every render op on a scratch scene, on the GPU box, with numbers and frames to look at.",
+ "baselines": [],
+ "level_after": "/Game/_Scratch/_Blank/L_Blank",
+ "cleaned": "/Game/_Selftest/render",
+ "ms": 38322,
+ "report": "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141316/render.json",
+ "local_stills": []
+}

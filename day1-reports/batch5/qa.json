@@ -1,0 +1,458 @@
+{
+ "area": "qa",
+ "ok": false,
+ "status": "done",
+ "passed": 30,
+ "failed": 2,
+ "checks": [
+  {
+   "name": "view.still capture wrote a PNG",
+   "ok": true,
+   "ms": 1901,
+   "detail": "{'camera': 'ST_qa_Wide', 'mode': 'capture', 'frame': None, 'path': '/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141316/qa/wide_capture.png', 'width': 960, 'height': 540, 'camera_info': {'name': 'ST_qa_Wide', 'loc': [600.0, 0.0, 150.0], 'rot': {'pitch': -5.710593137499643, 'yaw': 180.0, 'roll"
+  },
+  {
+   "name": "view.still size",
+   "ok": true,
+   "ms": 1901,
+   "got": [
+    960,
+    540
+   ],
+   "want": [
+    960,
+    540
+   ]
+  },
+  {
+   "name": "capture is not flat",
+   "ok": true,
+   "ms": 3049,
+   "detail": "{'mean': 91.96, 'median': 0, 'std': 116.39, 'p1': 0, 'p5': 0, 'p95': 245, 'p99': 246, 'clipped_high_pct': 0.0, 'clipped_low_pct': 59.552, 'mean_luminance': 0.33317, 'stops': 0.89, 'verdict': 'clipped'}"
+  },
+  {
+   "name": "the default capture format (RTF_RGBA8) matches the viewport's gamma best",
+   "ok": false,
+   "ms": 7729,
+   "got": "RTF_RGBA8_SRGB",
+   "want": "RTF_RGBA8"
+  },
+  {
+   "name": "capture and viewport show the same picture (SSIM > 0.6)",
+   "ok": false,
+   "ms": 7729,
+   "detail": "{'RTF_RGBA8': {'ssim': 0.5945, 'mean_shift': [-37.24, -37.24, -37.03]}, 'RTF_RGBA8_SRGB': {'ssim': 0.6678, 'mean_shift': [-32.01, -31.99, -31.91]}}"
+  },
+  {
+   "name": "ad-hoc camera still",
+   "ok": true,
+   "ms": 7811
+  },
+  {
+   "name": "unknown camera is not_found with candidates",
+   "ok": true,
+   "ms": 7812,
+   "got": {
+    "code": "not_found",
+    "hint": "list them with level.actors",
+    "candidates": [
+     "ST_qa_Wide",
+     "ST_qa_Away",
+     "ST_qa_Sun"
+    ]
+   },
+   "want": {
+    "code": "not_found",
+    "hint": "<some>"
+   },
+   "detail": "no actor 'ST_qa_Wid'"
+  },
+  {
+   "name": "pillar centre projects near the frame centre",
+   "ok": true,
+   "ms": 7812,
+   "detail": "{'pillar_mid': {'u': 0.5, 'v': 0.5, 'depth_cm': 602.99, 'in_frame': True}}"
+  },
+  {
+   "name": "the projected box lands on the pillar: it differs from what is beside it",
+   "ok": true,
+   "ms": 8101,
+   "detail": "pillar [0.2, 0.2, 0.2] beside [133.3, 133.4, 133.3]"
+  },
+  {
+   "name": "pillar framed in Wide passes",
+   "ok": true,
+   "ms": 9020,
+   "got": true,
+   "want": true
+  },
+  {
+   "name": "pillar out of Away's frame",
+   "ok": true,
+   "ms": 9020,
+   "got": [
+    "framing.out_of_frame"
+   ],
+   "want": [
+    "framing.out_of_frame"
+   ]
+  },
+  {
+   "name": "turntable views",
+   "ok": true,
+   "ms": 9657,
+   "got": 4,
+   "want": 4
+  },
+  {
+   "name": "turntable sheet",
+   "ok": true,
+   "ms": 9657
+  },
+  {
+   "name": "view.sheet",
+   "ok": true,
+   "ms": 10468
+  },
+  {
+   "name": "view.overlay",
+   "ok": true,
+   "ms": 10970
+  },
+  {
+   "name": "a still against itself: SSIM 1",
+   "ok": true,
+   "ms": 12749,
+   "got": 1.0,
+   "want": 1.0
+  },
+  {
+   "name": "a different camera is flagged",
+   "ok": true,
+   "ms": 15168,
+   "detail": "0.3163"
+  },
+  {
+   "name": "floating cube gap ~20 cm",
+   "ok": true,
+   "ms": 15169,
+   "got": 20.0,
+   "want": 20.0
+  },
+  {
+   "name": "resting cube gap ~0",
+   "ok": true,
+   "ms": 15169,
+   "got": 0.0,
+   "want": 0.0
+  },
+  {
+   "name": "qa.floating flags the floating cube",
+   "ok": true,
+   "ms": 15169
+  },
+  {
+   "name": "qa.overlaps finds the sunk pair",
+   "ok": true,
+   "ms": 15169,
+   "got": [
+    [
+     "ST_qa_SunkA",
+     "ST_qa_SunkB"
+    ]
+   ],
+   "want": [
+    [
+     "ST_qa_SunkA",
+     "ST_qa_SunkB"
+    ]
+   ]
+  },
+  {
+   "name": "a sphere through a cube is penetration",
+   "ok": true,
+   "ms": 15879,
+   "detail": "{'views': {'yaw000': {'fraction': 0.16142, 'pixels': 718, 'garment_pixels': 4448, 'worst_cm': 4.93, 'box': [0.3828, 0.4062, 0.6172, 0.6406], 'still': '/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141316/qa/penetration/penetration_yaw000.png'}, 'yaw090': {'fraction': 0.16142, 'pixels': 718, 'garment_pixels': 4448, 'worst_cm': 4.93, 'box': [0.3828, 0.4062, 0.6172, 0.6406], 'still': '/srv/ue/p"
+  },
+  {
+   "name": "a bigger cube covers it: no penetration",
+   "ok": true,
+   "ms": 16196,
+   "detail": "{'views': {'yaw000': {'fraction': 0.0, 'pixels': 0, 'garment_pixels': 10346, 'worst_cm': 0.0, 'box': None}, 'yaw090': {'fraction': 0.0, 'pixels': 0, 'garment_pixels': 10346, 'worst_cm': 0.0, 'box': None}, 'yaw180': {'fraction': 0.0, 'pixels': 0, 'garment_pixels': 10346, 'worst_cm': 0.0, 'box': None}, 'yaw270': {'fraction': 0.0, 'pixels': 0, 'garment_pixels': 10346, 'worst_cm': 0.0, 'box': None}}, "
+  },
+  {
+   "name": "the capture rig is gone",
+   "ok": true,
+   "ms": 16197,
+   "got": 0,
+   "want": 0
+  },
+  {
+   "name": "snapshot has the pillar",
+   "ok": true,
+   "ms": 16199
+  },
+  {
+   "name": "qa.diff sees the move",
+   "ok": true,
+   "ms": 16200,
+   "got": [
+    "ST_qa_Resting"
+   ],
+   "want": [
+    "ST_qa_Resting"
+   ]
+  },
+  {
+   "name": "qa.review (camera) wrote review.json and review.png",
+   "ok": true,
+   "ms": 17765
+  },
+  {
+   "name": "the review found the floating cube",
+   "ok": true,
+   "ms": 17765
+  },
+  {
+   "name": "view.stills: 2 per cut",
+   "ok": true,
+   "ms": 22037,
+   "got": 4,
+   "want": 4
+  },
+  {
+   "name": "view.stills follows the cut",
+   "ok": true,
+   "ms": 22037,
+   "got": [
+    "ST_qa_Wide",
+    "ST_qa_Wide",
+    "ST_qa_Away",
+    "ST_qa_Away"
+   ],
+   "want": [
+    "ST_qa_Wide",
+    "ST_qa_Wide",
+    "ST_qa_Away",
+    "ST_qa_Away"
+   ]
+  },
+  {
+   "name": "sequence review: one panel per cut",
+   "ok": true,
+   "ms": 25350,
+   "got": 2,
+   "want": 2
+  },
+  {
+   "name": "the Away cut is flagged out of frame",
+   "ok": true,
+   "ms": 25350
+  }
+ ],
+ "ops_covered": [
+  "qa.compare",
+  "qa.diff",
+  "qa.floating",
+  "qa.framing",
+  "qa.image",
+  "qa.overlaps",
+  "qa.penetration",
+  "qa.review",
+  "qa.snapshot",
+  "view.camera",
+  "view.overlay",
+  "view.sheet",
+  "view.still",
+  "view.stills",
+  "view.turntable"
+ ],
+ "ops_missed": [
+  "groom.describe",
+  "groom.measure",
+  "groom.set",
+  "groom.sky_lighting",
+  "qa.baseline_check",
+  "qa.baseline_compare",
+  "qa.baseline_list",
+  "qa.baseline_remove",
+  "qa.baseline_save",
+  "qa.exposure",
+  "qa.parts"
+ ],
+ "stills": [],
+ "artifacts": [
+  "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141316/qa/wide_capture.png",
+  "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141316/qa/wide_capture.guides.png",
+  "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141316/qa/framing.png",
+  "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141316/qa/turntable/sheet.png",
+  "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141316/qa/overlay.png",
+  "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141316/qa/review_cam/review.png",
+  "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141316/qa/stills/sheet.png",
+  "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141316/qa/review_seq/review.png"
+ ],
+ "notes": [
+  "no /Game/MetaHumans: MetaHuman penetration/framing part skipped"
+ ],
+ "metrics": {
+  "op_ms": {
+   "level.spawn": [
+    5,
+    3,
+    3,
+    3,
+    3,
+    3,
+    4,
+    3,
+    4,
+    4
+   ],
+   "look.camera": [
+    15,
+    5
+   ],
+   "view.still": [
+    664,
+    672,
+    332,
+    290,
+    81
+   ],
+   "qa.image": [
+    1147
+   ],
+   "qa.compare": [
+    1738,
+    1646,
+    1778,
+    2418
+   ],
+   "view.camera": [
+    0
+   ],
+   "qa.framing": [
+    918,
+    0
+   ],
+   "view.turntable": [
+    636
+   ],
+   "view.sheet": [
+    810
+   ],
+   "view.overlay": [
+    502
+   ],
+   "qa.floating": [
+    1
+   ],
+   "qa.overlaps": [
+    0
+   ],
+   "qa.penetration": [
+    700,
+    316
+   ],
+   "level.move": [
+    0,
+    0
+   ],
+   "level.actors": [
+    0
+   ],
+   "qa.snapshot": [
+    1
+   ],
+   "qa.diff": [
+    1
+   ],
+   "qa.review": [
+    1564,
+    3312
+   ],
+   "seq.new": [
+    9
+   ],
+   "seq.camera_cuts": [
+    8
+   ],
+   "view.stills": [
+    4254
+   ]
+  },
+  "capture_exposure_stops": {
+   "value": 0.89,
+   "unit": "stops"
+  },
+  "capture_gamma": {
+   "value": {
+    "closest": "RTF_RGBA8_SRGB",
+    "scores": {
+     "RTF_RGBA8": {
+      "ssim": 0.5945,
+      "mean_shift": [
+       -37.24,
+       -37.24,
+       -37.03
+      ]
+     },
+     "RTF_RGBA8_SRGB": {
+      "ssim": 0.6678,
+      "mean_shift": [
+       -32.01,
+       -31.99,
+       -31.91
+      ]
+     }
+    }
+   },
+   "unit": ""
+  },
+  "pillar_vs_beside": {
+   "value": {
+    "pillar": [
+     0.2,
+     0.2,
+     0.2
+    ],
+    "beside": [
+     133.3,
+     133.4,
+     133.3
+    ]
+   },
+   "unit": ""
+  },
+  "penetration_worst_fraction": {
+   "value": 0.16142,
+   "unit": ""
+  }
+ },
+ "errors": [],
+ "extra": {
+  "out": "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141316/qa",
+  "review": "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141316/qa/review_seq/review.json"
+ },
+ "box": {
+  "platform": "linux",
+  "python": "3.11.8",
+  "engine": "5.8.4-0+UE5",
+  "command_line": "-RenderOffscreen -unattended -nosplash -NoLiveCoding -log -stdout -FullStdOutLogOutput",
+  "capabilities": {
+   "gpu": true,
+   "display": false,
+   "linux": true,
+   "windows": false,
+   "epic_login": true,
+   "mh_cloud": true
+  }
+ },
+ "doc": "WP10's selftest: Claude's eyes work in the real editor. Takes ~2 min on the L4 (most of it scene-capture warm-up\nand the sequence review). Needs: GPU (a real RHI; offscreen is fine). No Epic sign-in, no project assets: the scene\nis engine basic shapes. A MetaHuman part runs only when one is found under /Game/MetaHumans.",
+ "baselines": [],
+ "level_after": "/Game/_Scratch/_Blank/L_Blank",
+ "cleaned": "/Game/_Selftest/qa",
+ "ms": 27432,
+ "report": "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141316/qa.json",
+ "local_stills": []
+}

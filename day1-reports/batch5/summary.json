@@ -1,0 +1,521 @@
+{
+ "ok": false,
+ "started": "2026-11-05 19:42:58",
+ "capabilities": {
+  "gpu": true,
+  "display": false,
+  "linux": true,
+  "windows": false,
+  "epic_login": true,
+  "mh_cloud": true
+ },
+ "areas": {
+  "assets": {
+   "ok": false,
+   "status": "done",
+   "passed": 62,
+   "failed": 1,
+   "skipped": "",
+   "ms": 119309,
+   "ops_missed": [
+    "assets.save_all",
+    "fab.add",
+    "fab.library"
+   ],
+   "stills": [],
+   "errors": 0,
+   "baselines": [],
+   "doc": "WP2 assets, materials and Fab on a real editor. It writes its own source files on the box (an OBJ box the size of\na chair, a glTF cube, three PNG maps of a texture set), then: imports them (Interchange, no dialog), reads them back\n(assets.describe, the registry catalog, assets.find \"chair 90 cm tall\"), sets mesh build settings (Nanite, LODs,\ncollision), textures by role, re-imports a changed file; builds all 12 library masters and checks each compiles and\nthat every texture matches its sampler; PBR from the set, presets, a graph material, instances that converge;\nassigns a material to a mesh slot; renames, moves, duplicates, tags, follows references, fixes a redirector,\naudits, removes; takes thumbnails; and checks Fab's state (the library only when signed in; fab.add needs a signed\nURL and is not run). Takes ~3 min (12 master compiles on a cold DDC, 2 stills). Needs: GPU (stills, shader\nstatistics); Fab sign-in optional."
+  },
+  "mh": {
+   "ok": false,
+   "status": "error",
+   "passed": 25,
+   "failed": 0,
+   "skipped": "",
+   "ms": 26878,
+   "ops_missed": [
+    "mh.add_item",
+    "mh.apply",
+    "mh.attach",
+    "mh.auth_status",
+    "mh.body_mesh",
+    "mh.build",
+    "mh.can_build",
+    "mh.clear_slot",
+    "mh.clip_check",
+    "mh.cloth_inflate",
+    "mh.components",
+    "mh.describe",
+    "mh.dress",
+    "mh.drive_face",
+    "mh.duplicate",
+    "mh.export",
+    "mh.find",
+    "mh.from_preset",
+    "mh.garment",
+    "mh.import_garment",
+    "mh.item_params",
+    "mh.item_set",
+    "mh.leader",
+    "mh.leader_check",
+    "mh.login",
+    "mh.palette",
+    "mh.preview",
+    "mh.remove",
+    "mh.rig",
+    "mh.textures",
+    "mh.variants"
+   ],
+   "stills": [],
+   "errors": 1,
+   "baselines": [],
+   "doc": "WP3 MetaHuman creation, end to end on the box. Part 1 (no cloud): presets, a character from a preset and a blank one,\nbody measurements (constraint copies, range warnings, idempotent), face blend of two presets and a landmark move\n(applied once), skin/freckles/texture resolution, eyes, eyelashes, teeth, makeup, the hair groom with melanin and\nredness and its instance parameters, slots, describe/export, a variant copy, actionable errors, the live preview actor\nand a still of it, mh.apply on a spec twice (second run changes nothing), a cast of 4 extras (mh.variants: distinct, same seed same\ncast, previews in a row, a contact sheet through view.sheet). Part 2 (only with the Epic sign-in, else\nnoted and skipped): the cloud rig (multi-tick, ~30 s) and its up-to-date skip, the textures (~20 s), the cinematic\nbuild (~3 min on an L4, the editor blocks), the built Blueprint placed, a garment of its own dressed on it with leader\npose (checked on the bones), a prop riding a bone, the clipping check, stills. Takes ~2 min without the cloud, ~6 min\nwith it. Needs: the MetaHuman Creator core data (presets); GPU for the stills; the Epic sign-in for part 2\n(film-ue epic-login once per box)."
+  },
+  "render": {
+   "ok": false,
+   "status": "error",
+   "passed": 21,
+   "failed": 0,
+   "skipped": "",
+   "ms": 39021,
+   "ops_missed": [
+    "render.cancel",
+    "render.concat",
+    "render.describe",
+    "render.encode",
+    "render.mrq",
+    "render.progress",
+    "render.status"
+   ],
+   "stills": [],
+   "errors": 1,
+   "baselines": [],
+   "doc": "WP9's acceptance test: every render op on a scratch scene, on the GPU box, with numbers and frames to look at."
+  },
+  "cam": {
+   "ok": false,
+   "status": "error",
+   "passed": 32,
+   "failed": 9,
+   "skipped": "",
+   "ms": 15361,
+   "ops_missed": [
+    "cam.check_cut",
+    "cam.focus",
+    "cam.presets",
+    "cam.subject",
+    "shot.apply",
+    "shot.check",
+    "shot.describe",
+    "shot.plan",
+    "shot.sheet"
+   ],
+   "stills": [
+    "/tmp/fleet-agent-13-ue/reports/194257-assets/stills/cam_coverage_master.png"
+   ],
+   "errors": 1,
+   "baselines": [
+    {
+     "name": "coverage_master",
+     "status": "match",
+     "ssim": 0.9986,
+     "stops_shift": 0.13,
+     "diff": null
+    }
+   ],
+   "doc": "WP7's acceptance test: cameras and shooting, measured on real renders."
+  },
+  "env": {
+   "ok": false,
+   "status": "error",
+   "passed": 38,
+   "failed": 6,
+   "skipped": "",
+   "ms": 33370,
+   "ops_missed": [
+    "env.mood",
+    "env.plan",
+    "env.preset"
+   ],
+   "stills": [
+    "/tmp/fleet-agent-13-ue/reports/194257-assets/stills/env_calibration_card.png",
+    "/tmp/fleet-agent-13-ue/reports/194257-assets/stills/env_noir.png"
+   ],
+   "errors": 1,
+   "baselines": [
+    {
+     "name": "calibration_card",
+     "status": "match",
+     "ssim": 1.0,
+     "stops_shift": 0.0,
+     "diff": null
+    },
+    {
+     "name": "noir",
+     "status": "match",
+     "ssim": 0.9979,
+     "stops_shift": 0.0,
+     "diff": null
+    }
+   ],
+   "doc": "WP5's selftest: environments and lighting by spec, measured. Takes ~4 min on the L4 (scene captures and a few\nstills; the reflection-capture rebuild runs a lighting build). Needs: GPU (a real RHI; offscreen is fine). No Epic\nsign-in, no project assets: engine basic shapes and a material it makes in its scratch folder."
+  },
+  "anim": {
+   "ok": false,
+   "status": "done",
+   "passed": 22,
+   "failed": 5,
+   "skipped": "",
+   "ms": 48449,
+   "ops_missed": [
+    "anim.bake_follow",
+    "anim.bake_pose",
+    "anim.body_life",
+    "anim.curve",
+    "anim.curves",
+    "anim.gaze_lock",
+    "anim.head_to_body",
+    "anim.retarget",
+    "anim.rig_controls",
+    "anim.rig_keys",
+    "anim.scale_curves",
+    "anim.set_curve",
+    "perf.check",
+    "perf.compose",
+    "perf.gestures",
+    "perf.head_curves",
+    "perf.idle",
+    "perf.lock_eyes",
+    "perf.plot",
+    "perf.solve",
+    "perf.state",
+    "perf.turn_to",
+    "perf.vocab",
+    "perf.walk_to"
+   ],
+   "stills": [
+    "/tmp/fleet-agent-13-ue/reports/194257-assets/stills/anim_rest.png",
+    "/tmp/fleet-agent-13-ue/reports/194257-assets/stills/anim_turned.png"
+   ],
+   "errors": 0,
+   "baselines": [
+    {
+     "name": "rest",
+     "status": "match",
+     "ssim": 1.0,
+     "stops_shift": 0.0,
+     "diff": null
+    },
+    {
+     "name": "turned",
+     "status": "match",
+     "ssim": 1.0,
+     "stops_shift": 0.0,
+     "diff": null
+    }
+   ],
+   "doc": "WP4's acceptance test: animation and performance, measured in the editor."
+  },
+  "qa": {
+   "ok": false,
+   "status": "done",
+   "passed": 30,
+   "failed": 2,
+   "skipped": "",
+   "ms": 28233,
+   "ops_missed": [
+    "groom.describe",
+    "groom.measure",
+    "groom.set",
+    "groom.sky_lighting",
+    "qa.baseline_check",
+    "qa.baseline_compare",
+    "qa.baseline_list",
+    "qa.baseline_remove",
+    "qa.baseline_save",
+    "qa.exposure",
+    "qa.parts"
+   ],
+   "stills": [],
+   "errors": 0,
+   "baselines": [],
+   "doc": "WP10's selftest: Claude's eyes work in the real editor. Takes ~2 min on the L4 (most of it scene-capture warm-up\nand the sequence review). Needs: GPU (a real RHI; offscreen is fine). No Epic sign-in, no project assets: the scene\nis engine basic shapes. A MetaHuman part runs only when one is found under /Game/MetaHumans."
+  },
+  "seq": {
+   "ok": false,
+   "status": "done",
+   "passed": 42,
+   "failed": 2,
+   "skipped": "",
+   "ms": 18571,
+   "ops_missed": [
+    "seq.anim",
+    "seq.audio",
+    "seq.bind",
+    "seq.camera_cuts",
+    "seq.close",
+    "seq.cuts",
+    "seq.diff",
+    "seq.key_collection",
+    "seq.key_color",
+    "seq.key_float",
+    "seq.key_material",
+    "seq.key_transform",
+    "seq.key_visible",
+    "seq.markers",
+    "seq.new",
+    "seq.rebind",
+    "seq.remove_binding",
+    "seq.sample",
+    "seq.scrub",
+    "seq.set_anim",
+    "seq.shot",
+    "seq.still",
+    "seq.tracks"
+   ],
+   "stills": [],
+   "errors": 0,
+   "baselines": [],
+   "doc": "WP8's acceptance test, the Sequencer core on a real editor: a scratch scene (a cube, a skeletal actor, two cine\ncameras, a point light), a SEQUENCE SPEC applied over it with every track kind the core writes (transform with\nlook-at, visibility, skeletal animation, float / colour properties on components, a material parameter, camera cuts,\naudio, fade, a parameter collection when one exists, markers), then:"
+  }
+ },
+ "failures": [
+  {
+   "area": "assets",
+   "name": "fab.login with the saved sign-in",
+   "ok": false,
+   "ms": 113292,
+   "detail": "{'signed_in': False, 'changed': False, 'method': 'persist', 'waited_s': 30.1, 'hint': 'no saved sign-in worked: fab.login portal=true once, or restart the editor with -AUTH_TYPE=exchangecode -AUTH_PASSWORD=<code> (film-ue epic-login --fab)'}"
+  },
+  {
+   "area": "mh",
+   "name": "ERROR in run",
+   "ok": false,
+   "detail": "Traceback (most recent call last):\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/selftest/__init__.py\", line 361, in run\n    yield next(gen)\n          ^^^^^^^^^\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/selftest/mh.py\", line 89, in run\n    r = t.op(\"mh.groom\", character=ch, slot=\"Hair\", item=hair[0], melanin=0.95, redness=0.05)\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/selftest/__init__.py\", line 151, in op\n    res = ops.call(name, **args)\n          ^^^^^^^^^^^^^^^^^^^^^^\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/ops/__init__.py\", line 60, in call\n    res = fn(**args)\n          ^^^^^^^^^^\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/ops/mh/wardrobe.py\", line 333, in groom\n    return add_item(character, item, slot, params=p or None, save=save)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/ops/mh/wardrobe.py\", line 226, in add_item\n    r = _apply_params(inst, slot, params)\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/ops/mh/wardrobe.py\", line 261, in _apply_params\n    raise OpError(f\"the item in {slot} has no parameter {name!r}\", code=\"bad_args\",\nfmbridge.errors.OpError: the item in Hair has no parameter 'Melanin' (mh.item_params lists them: )\n"
+  },
+  {
+   "area": "render",
+   "name": "ERROR in run",
+   "ok": false,
+   "detail": "/selftest/render.py\", line 170, in run\n    man = t.op(\"render.manifest\", spec={**spec, \"out_dir\": os.path.join(out, \"cmd\"), \"name\": \"cmd\", \"frames\": [0, 2],\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/selftest/__init__.py\", line 151, in op\n    res = ops.call(name, **args)\n          ^^^^^^^^^^^^^^^^^^^^^^\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/ops/__init__.py\", line 60, in call\n    res = fn(**args)\n          ^^^^^^^^^^\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/ops/render.py\", line 812, in manifest\n    m = _write_manifest(q, os.path.join(r[\"out_dir\"], \"_render\", f\"{c['id']}.utxt\"))\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/ops/render.py\", line 381, in _write_manifest\n    res = _editor_library().save_queue_to_manifest_file(q)\n          ^^^^^^^^^^^^^^^^^\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/ops/render.py\", line 374, in _editor_library\n    raise OpError(\"MoviePipelineEditorBlueprintLibrary is not available in this editor (the new-process executor \"\nfmbridge.errors.OpError: MoviePipelineEditorBlueprintLibrary is not available in this editor (the new-process executor needs it to write the queue manifest) (enable the Movie Render Queue plugin's editor module, or render with executor='pie')\n"
+  },
+  {
+   "area": "cam",
+   "name": "marker 1 at (u, v) on Super 35mm",
+   "ok": false,
+   "ms": 3961,
+   "got": [
+    0.166,
+    0.299
+   ],
+   "want": [
+    0.25,
+    0.3
+   ]
+  },
+  {
+   "area": "cam",
+   "name": "marker 2 at (u, v) on Super 35mm",
+   "ok": false,
+   "ms": 4732,
+   "got": [
+    0.794,
+    0.659
+   ],
+   "want": [
+    0.72,
+    0.66
+   ]
+  },
+  {
+   "area": "cam",
+   "name": "cam.frame WS converges",
+   "ok": false,
+   "ms": 5534,
+   "got": true,
+   "want": false
+  },
+  {
+   "area": "cam",
+   "name": "cam.frame MCU converges",
+   "ok": false,
+   "ms": 6300,
+   "got": true,
+   "want": false
+  },
+  {
+   "area": "cam",
+   "name": "CU: the figure's top on the predicted row",
+   "ok": false,
+   "ms": 7095,
+   "got": 0.015,
+   "want": 0.05
+  },
+  {
+   "area": "cam",
+   "name": "cam.frame CU converges",
+   "ok": false,
+   "ms": 7098,
+   "got": true,
+   "want": false
+  },
+  {
+   "area": "cam",
+   "name": "cam.shoot reads its own words back without moving",
+   "ok": false,
+   "ms": 8122,
+   "got": true,
+   "want": false
+  },
+  {
+   "area": "cam",
+   "name": "rail: the camera is near the middle of the rail at mid-shot",
+   "ok": false,
+   "ms": 8957,
+   "detail": "y=-200.0"
+  },
+  {
+   "area": "cam",
+   "name": "cam.coverage converges",
+   "ok": false,
+   "ms": 9087,
+   "got": true,
+   "want": false
+  },
+  {
+   "area": "cam",
+   "name": "ERROR in run",
+   "ok": false,
+   "detail": "Traceback (most recent call last):\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/selftest/__init__.py\", line 361, in run\n    yield next(gen)\n          ^^^^^^^^^\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/selftest/cam.py\", line 199, in run\n    yield from t.still(\"coverage_A_OTS\", camera=P + \"Cov_A_OTS\", width=W, height=H)\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/selftest/__init__.py\", line 236, in still\n    res = yield from res\n          ^^^^^^^^^^^^^^\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/selftest/__init__.py\", line 158, in _timed\n    res = yield from gen\n          ^^^^^^^^^^^^^^\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/ops/view.py\", line 319, in still\n    cam = camera_info(camera, loc, look_at, fov_deg, aspect)\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/ops/view.py\", line 75, in camera_info\n    a = find_actor(camera)\n        ^^^^^^^^^^^^^^^^^^\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/ops/view.py\", line 48, in find_actor\n    raise not_found(\"actor\", label, [a.get_actor_label() for a in actors], hint=\"list them with level.actors\")\nfmbridge.errors.NotFoundError: no actor 'ST_cam_Cov_A_OTS'; did you mean 'ST_cam_Cov_ST_cam_B_OTS', 'ST_cam_Cov_ST_cam_A_OTS', 'ST_cam_Cov_two_shot'? (list them with level.actors)\n"
+  },
+  {
+   "area": "env",
+   "name": "the grey card reads as a mid grey (0.3..0.62 display luma)",
+   "ok": false,
+   "ms": 2856,
+   "detail": "{'pixels': 20736, 'mean': 58.75206, 'median': 58.88622, 'p05': 56.8956, 'p95': 60.1376, 'clipped': 1.0, 'crushed': 0.0, 'histogram': [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0], 'linear_mean': 15526.406486, 'cast': {'warm': 1.0207, 'green': -0.072, 'magnitude': 1.0232}}"
+  },
+  {
+   "area": "env",
+   "name": "env.check passes a well exposed card",
+   "ok": false,
+   "ms": 6407,
+   "detail": "[{'code': 'env.exposure_mean', 'severity': 'fail', 'message': 'mean: got 122.97099, want [0.3, 0.75]', 'fix': 'too bright by ~7.36 stops (display): raise env exposure ev100 by 7.36 or scale the lights by x0.01', 'value': 122.97099, 'expected': [0.3, 0.75], 'camera': 'ST_env_CardCam'}, {'code': 'env."
+  },
+  {
+   "area": "env",
+   "name": "env.autoexpose converges on the grey card",
+   "ok": false,
+   "ms": 14422,
+   "detail": "[{'setting': 12.322, 'display': 0.09496, 'error_stops': -4.272}, {'setting': 8.05, 'display': 75.40572, 'error_stops': 17.268}, {'setting': 13.806, 'display': 0.09496, 'error_stops': -4.272}, {'setting': 12.382, 'display': 0.09496, 'error_stops': -4.272}, {'setting': 8.11, 'display': 71.59291, 'error_stops': 17.0885}, {'setting': 13.8062, 'display': 0.09496, 'error_stops': -4.272}, {'setting': 12."
+  },
+  {
+   "area": "env",
+   "name": "env.autoexpose lands near the card's EV100",
+   "ok": false,
+   "ms": 14422,
+   "got": 12.3822,
+   "want": 8.518428871969993,
+   "detail": "rel 0.06"
+  },
+  {
+   "area": "env",
+   "name": "env.autoexpose converges (a re-run changes nothing)",
+   "ok": false,
+   "ms": 21664,
+   "detail": "{'changed': True, 'converged': False, 'iterations': [{'setting': 12.3822, 'display': 0.09496, 'error_stops': -4.272}, {'setting': 8.1102, 'display': 71.58701, 'error_stops': 17.0882}, {'setting': 13.8063, 'display': 0.09496, 'error_stops': -4.272}, {'setting': 12.3823, 'display': 0.09496, 'error_sto"
+  },
+  {
+   "area": "env",
+   "name": "env.captures_rebuild ran",
+   "ok": false,
+   "ms": 27700,
+   "detail": "{'changed': True, 'built': False}"
+  },
+  {
+   "area": "env",
+   "name": "ERROR in run",
+   "ok": false,
+   "detail": "Traceback (most recent call last):\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/selftest/__init__.py\", line 361, in run\n    yield next(gen)\n          ^^^^^^^^^\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/selftest/env.py\", line 194, in run\n    r = yield from t.op(\"env.apply\", spec=day)\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/selftest/__init__.py\", line 158, in _timed\n    res = yield from gen\n          ^^^^^^^^^^^^^^\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/ops/env.py\", line 803, in apply\n    again = S.plan(spec, describe(), mood)\n                         ^^^^^^^^^^\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/ops/env.py\", line 717, in describe\n    out[\"sky_light\"] = _read_sky_light()\n                       ^^^^^^^^^^^^^^^^^\n  File \"/srv/ue/projects/HostStudio/Content/Python/fmbridge/ops/env.py\", line 260, in _read_sky_light\n    \"channels\": U.to_json(c.get_editor_property(\"lighting_channels\")),\n                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nException: SkyLightComponent: Failed to find property 'lighting_channels' for attribute 'lighting_channels' on 'SkyLightComponent'\n"
+  },
+  {
+   "area": "anim",
+   "name": "describe.face_curves",
+   "ok": false,
+   "ms": 159,
+   "detail": "{'path': '/MetaHumanCharacter/Optional/Animation/TemplateAnimations/Expression_Loops/HappyA/mhc_mh002_fmn_f_facialloop_happy_f_s001', 'length_s': 10.5667, 'frames': 634, 'fps': 60.0, 'skeleton': '/MetaHumanCharacter/Face/Face_Archetype_Skeleton', 'curve_count': 135, 'head_curves': [], 'face_curves': 0, 'bone_tracks': 875, 'additive': {'type': '<AdditiveAnimationType.AAT_NONE: 0>', 'base': '<AdditiveBasePoseType.ABPT_NONE: 0>'}, 'root_motion': False, 'perf': {}}"
+  },
+  {
+   "area": "anim",
+   "name": "face.alive",
+   "ok": false,
+   "ms": 995,
+   "detail": "['blink_rate', 'expression_range']"
+  },
+  {
+   "area": "anim",
+   "name": "calibrate.measured",
+   "ok": false,
+   "ms": 31732,
+   "detail": "HeadYaw=10.0 did not move ST_anim_Face's head (0.0000 cm at the eyes): the face rig is not turning the head from the head curves (drive the face from Sequencer with mh.drive_face, and check its Anim Blueprint reads HeadYaw/HeadPitch/HeadRoll with HeadControlSwitch=1)"
+  },
+  {
+   "area": "anim",
+   "name": "head.turns_to_target",
+   "ok": false,
+   "ms": 32862,
+   "detail": "head axis turned 0.0 deg between frames 6 and 60"
+  },
+  {
+   "area": "anim",
+   "name": "body.calibrated",
+   "ok": false,
+   "ms": 37914,
+   "detail": "clavicle_l: no local axis moves the body (twist): {'x': {'flex': 0.0, 'side': 0.0, 'twist': 0.0}, 'y': {'flex': 0.011, 'side': -2.27, 'twist': -0.502}, 'z': {'flex': 2.32, 'side': 0.026, 'twist': -0.149}} (is the body driven by Sequencer (its own anim instance)? see perf.calibrate_body)"
+  },
+  {
+   "area": "qa",
+   "name": "the default capture format (RTF_RGBA8) matches the viewport's gamma best",
+   "ok": false,
+   "ms": 7729,
+   "got": "RTF_RGBA8_SRGB",
+   "want": "RTF_RGBA8"
+  },
+  {
+   "area": "qa",
+   "name": "capture and viewport show the same picture (SSIM > 0.6)",
+   "ok": false,
+   "ms": 7729,
+   "detail": "{'RTF_RGBA8': {'ssim': 0.5945, 'mean_shift': [-37.24, -37.24, -37.03]}, 'RTF_RGBA8_SRGB': {'ssim': 0.6678, 'mean_shift': [-32.01, -31.99, -31.91]}}"
+  },
+  {
+   "area": "seq",
+   "name": "one changed track, one write",
+   "ok": false,
+   "ms": 740,
+   "got": [
+    "seq.write",
+    "seq.write"
+   ],
+   "want": [
+    "seq.write"
+   ]
+  },
+  {
+   "area": "seq",
+   "name": "prune removes the dropped visibility track",
+   "ok": false,
+   "ms": 881,
+   "got": [
+    "seq.write",
+    "seq.remove_track"
+   ],
+   "want": [
+    "seq.remove_track"
+   ]
+  }
+ ],
+ "out": "/tmp/fleet-agent-13-ue/reports/194257-assets",
+ "box_dir": "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141316"
+}

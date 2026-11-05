@@ -1,0 +1,797 @@
+{
+ "area": "seq",
+ "ok": false,
+ "status": "done",
+ "passed": 42,
+ "failed": 2,
+ "checks": [
+  {
+   "name": "the spec validates",
+   "ok": true,
+   "ms": 239,
+   "got": [],
+   "want": []
+  },
+  {
+   "name": "a plan before the first apply has steps",
+   "ok": true,
+   "ms": 241,
+   "detail": "[{'op': 'seq.add', 'args': {'path': '/Game/_Selftest/seq/ST_seq_SEQ', 'start': 0, 'end': 120, 'fps': '24'}, 'why': 'the sequence does not exist'}, {'op': 'seq.bind', 'args': {'path': '/Game/_Selftest/seq/ST_seq_SEQ', 'label': 'ST_seq_Cube'}, 'why': \"no binding for 'ST_seq_Cube'\"}, {'op': 'seq.bind', 'args': {'path': '/Game/_Selftest/seq/ST_seq_SEQ', 'label': 'ST_seq_CamA'}, 'why': \"no binding for 'ST_seq_CamA'\"}]"
+  },
+  {
+   "name": "apply converges",
+   "ok": true,
+   "ms": 325,
+   "got": [
+    true,
+    []
+   ],
+   "want": [
+    true,
+    []
+   ]
+  },
+  {
+   "name": "apply again changes nothing",
+   "ok": true,
+   "ms": 333,
+   "got": [
+    false,
+    0
+   ],
+   "want": [
+    false,
+    0
+   ]
+  },
+  {
+   "name": "plan after apply is empty",
+   "ok": true,
+   "ms": 337,
+   "got": [],
+   "want": []
+  },
+  {
+   "name": "rate and range",
+   "ok": true,
+   "ms": 340,
+   "got": [
+    "24",
+    [
+     0,
+     120
+    ]
+   ],
+   "want": [
+    "24",
+    [
+     0,
+     120
+    ]
+   ]
+  },
+  {
+   "name": "markers",
+   "ok": true,
+   "ms": 340,
+   "got": [
+    {
+     "frame": 24,
+     "label": "a"
+    },
+    {
+     "frame": 96,
+     "label": "b"
+    }
+   ],
+   "want": [
+    {
+     "frame": 24,
+     "label": "a"
+    },
+    {
+     "frame": 96,
+     "label": "b"
+    }
+   ]
+  },
+  {
+   "name": "every binding bound",
+   "ok": true,
+   "ms": 340,
+   "detail": "[{'name': 'ST_seq_CamA', 'kind': 'possessable', 'class': 'CineCameraActor', 'bound': True}, {'name': 'ST_seq_Cube', 'kind': 'possessable', 'class': 'StaticMeshActor', 'bound': True}, {'name': 'ST_seq_CamB', 'kind': 'possessable', 'class': 'CineCameraActor', 'bound': True}, {'name': 'ST_seq_Key', 'kind': 'possessable', 'class': 'PointLight', 'bound': True}, {'name': 'ST_seq_Hero', 'kind': 'possessable', 'class': 'SkeletalMeshActor', 'bound': True}]"
+  },
+  {
+   "name": "nothing unsupported",
+   "ok": true,
+   "ms": 340,
+   "got": [],
+   "want": []
+  },
+  {
+   "name": "describe round-trips through apply",
+   "ok": true,
+   "ms": 348,
+   "got": [
+    false,
+    []
+   ],
+   "want": [
+    false,
+    []
+   ]
+  },
+  {
+   "name": "cube at its keys (world, cm)",
+   "ok": true,
+   "ms": 470,
+   "got": [
+    [
+     0.0,
+     0.0,
+     50.0
+    ],
+    [
+     100.0,
+     0.0,
+     50.0
+    ],
+    [
+     200.0,
+     0.0,
+     50.0
+    ],
+    [
+     200.0,
+     200.0,
+     50.0
+    ]
+   ],
+   "want": [
+    [
+     0,
+     0,
+     50
+    ],
+    [
+     100,
+     0,
+     50
+    ],
+    [
+     200,
+     0,
+     50
+    ],
+    [
+     200,
+     200,
+     50
+    ]
+   ]
+  },
+  {
+   "name": "cube yaw unwrapped through 180 (170 -> 190)",
+   "ok": true,
+   "ms": 470,
+   "got": 20.0,
+   "want": 20
+  },
+  {
+   "name": "light intensity on a linear ramp",
+   "ok": true,
+   "ms": 470,
+   "got": [
+    1000.0,
+    1960.0,
+    2920.0,
+    4840.0
+   ],
+   "want": [
+    1000,
+    1960,
+    2920,
+    4840
+   ]
+  },
+  {
+   "name": "focal length ramp",
+   "ok": true,
+   "ms": 470,
+   "got": [
+    24.0,
+    34.400001525878906
+   ],
+   "want": [
+    24,
+    34.4
+   ]
+  },
+  {
+   "name": "one changed track, one write",
+   "ok": false,
+   "ms": 740,
+   "got": [
+    "seq.write",
+    "seq.write"
+   ],
+   "want": [
+    "seq.write"
+   ]
+  },
+  {
+   "name": "prune removes the dropped visibility track",
+   "ok": false,
+   "ms": 881,
+   "got": [
+    "seq.write",
+    "seq.remove_track"
+   ],
+   "want": [
+    "seq.remove_track"
+   ]
+  },
+  {
+   "name": "20k keys written",
+   "ok": true,
+   "ms": 2481,
+   "got": 20000,
+   "want": 20000
+  },
+  {
+   "name": "20k keys in under 60 s",
+   "ok": true,
+   "ms": 2481,
+   "detail": "1.6 s"
+  },
+  {
+   "name": "the same bake again changes nothing",
+   "ok": true,
+   "ms": 2843,
+   "got": false,
+   "want": false
+  },
+  {
+   "name": "master converges",
+   "ok": true,
+   "ms": 2870,
+   "got": true,
+   "want": true
+  },
+  {
+   "name": "master idempotent",
+   "ok": true,
+   "ms": 2871,
+   "got": false,
+   "want": false
+  },
+  {
+   "name": "shots read back",
+   "ok": true,
+   "ms": 2872,
+   "got": [
+    [
+     "sh010",
+     0,
+     100,
+     8
+    ],
+    [
+     "sh020",
+     100,
+     200,
+     0
+    ],
+    [
+     "sh030",
+     200,
+     300,
+     0
+    ]
+   ],
+   "want": [
+    [
+     "sh010",
+     0,
+     100,
+     8
+    ],
+    [
+     "sh020",
+     100,
+     200,
+     0
+    ],
+    [
+     "sh030",
+     200,
+     300,
+     0
+    ]
+   ]
+  },
+  {
+   "name": "chunks pre-roll to their shot start",
+   "ok": true,
+   "ms": 2872,
+   "got": [
+    [
+     150,
+     100
+    ],
+    [
+     190,
+     100
+    ],
+    [
+     200,
+     200
+    ],
+    [
+     240,
+     200
+    ]
+   ],
+   "want": [
+    [
+     150,
+     100
+    ],
+    [
+     190,
+     100
+    ],
+    [
+     200,
+     200
+    ],
+    [
+     240,
+     200
+    ]
+   ]
+  },
+  {
+   "name": "seq.preroll converges",
+   "ok": true,
+   "ms": 2875,
+   "got": false,
+   "want": false
+  },
+  {
+   "name": "pre-roll on every shot",
+   "ok": true,
+   "ms": 2875,
+   "got": [
+    12,
+    12,
+    12
+   ],
+   "want": [
+    12,
+    12,
+    12
+   ]
+  },
+  {
+   "name": "shot list converges",
+   "ok": true,
+   "ms": 2883,
+   "got": [
+    true,
+    []
+   ],
+   "want": [
+    true,
+    []
+   ]
+  },
+  {
+   "name": "shot list idempotent",
+   "ok": true,
+   "ms": 2885,
+   "got": false,
+   "want": false
+  },
+  {
+   "name": "shots end to end",
+   "ok": true,
+   "ms": 2885,
+   "got": [
+    [
+     "a",
+     0,
+     48
+    ],
+    [
+     "b",
+     48,
+     84
+    ]
+   ],
+   "want": [
+    [
+     "a",
+     0,
+     48
+    ],
+    [
+     "b",
+     48,
+     84
+    ]
+   ]
+  },
+  {
+   "name": "shot a has its handles",
+   "ok": true,
+   "ms": 2886,
+   "got": [
+    0,
+    60
+   ],
+   "want": [
+    0,
+    60
+   ]
+  },
+  {
+   "name": "conform keeps time: range in 30 fps frames",
+   "ok": true,
+   "ms": 2901,
+   "got": [
+    0,
+    150
+   ],
+   "want": [
+    0,
+    150
+   ]
+  },
+  {
+   "name": "the cube is where it was at 2 s",
+   "ok": true,
+   "ms": 3025,
+   "got": [
+    200.0,
+    0.0,
+    50.0
+   ],
+   "want": [
+    200.0,
+    0.0,
+    50.0
+   ]
+  },
+  {
+   "name": "29.97 needs 60000 ticks",
+   "ok": true,
+   "ms": 3039,
+   "got": 60000,
+   "want": 60000
+  },
+  {
+   "name": "copied window range",
+   "ok": true,
+   "ms": 3537,
+   "got": [
+    0,
+    60
+   ],
+   "want": [
+    0,
+    60
+   ]
+  },
+  {
+   "name": "the copy keeps the second camera",
+   "ok": true,
+   "ms": 3540,
+   "got": [
+    [
+     [
+      0,
+      60
+     ],
+     "ST_seq_CamB"
+    ]
+   ],
+   "want": [
+    [
+     [
+      0,
+      60
+     ],
+     "ST_seq_CamB"
+    ]
+   ]
+  },
+  {
+   "name": "ripple moves the end",
+   "ok": true,
+   "ms": 3562,
+   "got": [
+    0,
+    72
+   ],
+   "want": [
+    0,
+    72
+   ]
+  },
+  {
+   "name": "time conversion",
+   "ok": true,
+   "ms": 3562,
+   "got": 60,
+   "want": 60
+  },
+  {
+   "name": "seq.check passes the main sequence",
+   "ok": true,
+   "ms": 3565
+  },
+  {
+   "name": "a typo'd label names candidates",
+   "ok": true,
+   "ms": 3569,
+   "got": {
+    "code": "not_found",
+    "hint": "list them with level.find",
+    "candidates": [
+     "ST_seq_Cube",
+     "ST_seq_CamB",
+     "ST_seq_Key"
+    ]
+   },
+   "want": {
+    "code": "not_found",
+    "hint": "<some>"
+   },
+   "detail": "no actor 'ST_seq_Cubex'"
+  },
+  {
+   "name": "a bad spec lists its problems",
+   "ok": true,
+   "ms": 3569,
+   "got": {
+    "code": "bad_args",
+    "hint": "seq.validate lists them; the schema is schemas/sequence.schema.json",
+    "candidates": []
+   },
+   "want": {
+    "code": "bad_args",
+    "hint": "<some>"
+   },
+   "detail": "2 problem(s) in the sequence spec:\n  range: end 0 must be after start 10\n  camera_cuts[0]: [camera label, first frame(, end)], got [1, 2]"
+  },
+  {
+   "name": "a missing sequence is not_found",
+   "ok": true,
+   "ms": 3569,
+   "got": {
+    "code": "not_found",
+    "hint": "seq.add or seq.apply makes it",
+    "candidates": []
+   },
+   "want": {
+    "code": "not_found",
+    "hint": "<some>"
+   },
+   "detail": "no sequence /Game/_Selftest/seq/ST_seq_Nope"
+  },
+  {
+   "name": "still at 0 through ST_seq_CamA",
+   "ok": true,
+   "ms": 9581,
+   "detail": "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141316/stills_cut/0000.png"
+  },
+  {
+   "name": "still at 40 through ST_seq_CamA",
+   "ok": true,
+   "ms": 9581,
+   "detail": "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141316/stills_cut/0040.png"
+  },
+  {
+   "name": "still at 70 through ST_seq_CamB",
+   "ok": true,
+   "ms": 9581,
+   "detail": "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141316/stills_cut/0070.png"
+  },
+  {
+   "name": "still at 110 through ST_seq_CamB",
+   "ok": true,
+   "ms": 9581,
+   "detail": "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141316/stills_cut/0110.png"
+  }
+ ],
+ "ops_covered": [
+  "seq.add",
+  "seq.apply",
+  "seq.check",
+  "seq.chunks",
+  "seq.conform",
+  "seq.copy",
+  "seq.describe",
+  "seq.eval",
+  "seq.plan",
+  "seq.preroll",
+  "seq.remove_track",
+  "seq.retime",
+  "seq.shots",
+  "seq.stills",
+  "seq.time",
+  "seq.validate",
+  "seq.write"
+ ],
+ "ops_missed": [
+  "seq.anim",
+  "seq.audio",
+  "seq.bind",
+  "seq.camera_cuts",
+  "seq.close",
+  "seq.cuts",
+  "seq.diff",
+  "seq.key_collection",
+  "seq.key_color",
+  "seq.key_float",
+  "seq.key_material",
+  "seq.key_transform",
+  "seq.key_visible",
+  "seq.markers",
+  "seq.new",
+  "seq.rebind",
+  "seq.remove_binding",
+  "seq.sample",
+  "seq.scrub",
+  "seq.set_anim",
+  "seq.shot",
+  "seq.still",
+  "seq.tracks"
+ ],
+ "stills": [],
+ "artifacts": [
+  "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141316/stills_cut/0000.png",
+  "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141316/stills_cut/0040.png",
+  "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141316/stills_cut/0070.png",
+  "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141316/stills_cut/0110.png"
+ ],
+ "notes": [
+  "track kinds written: ['anim', 'audio', 'camera_cut', 'color', 'fade', 'float', 'material', 'transform', 'visibility']"
+ ],
+ "metrics": {
+  "op_ms": {
+   "level.spawn": [
+    4,
+    10,
+    4,
+    4,
+    3
+   ],
+   "assets.list": [
+    21
+   ],
+   "audio.import": [
+    10
+   ],
+   "seq.validate": [
+    0
+   ],
+   "seq.plan": [
+    1,
+    4
+   ],
+   "seq.apply": [
+    84,
+    7,
+    7,
+    269,
+    141,
+    4,
+    0,
+    8,
+    1
+   ],
+   "seq.describe": [
+    2,
+    0,
+    2,
+    2
+   ],
+   "seq.eval": [
+    122,
+    124
+   ],
+   "seq.add": [
+    6,
+    6,
+    3,
+    2,
+    2
+   ],
+   "seq.write": [
+    1589,
+    361
+   ],
+   "seq.remove_track": [
+    8
+   ],
+   "seq.shots": [
+    0,
+    0,
+    0
+   ],
+   "seq.chunks": [
+    0
+   ],
+   "seq.preroll": [
+    2,
+    0
+   ],
+   "seq.conform": [
+    15,
+    13
+   ],
+   "seq.copy": [
+    497
+   ],
+   "seq.retime": [
+    19
+   ],
+   "seq.time": [
+    0
+   ],
+   "seq.check": [
+    2
+   ],
+   "seq.stills": [
+    6011
+   ]
+  },
+  "apply_s": {
+   "value": 0.085,
+   "unit": "s"
+  },
+  "write_keys_per_s": {
+   "value": 12586,
+   "unit": "keys/s"
+  }
+ },
+ "errors": [],
+ "extra": {
+  "anim": "/Game/Speech/Anim/AS_reel_L3a",
+  "sound": "/Game/_Selftest/seq/Audio/tone",
+  "kinds": [
+   "anim",
+   "audio",
+   "camera_cut",
+   "color",
+   "fade",
+   "float",
+   "material",
+   "transform",
+   "visibility"
+  ]
+ },
+ "box": {
+  "platform": "linux",
+  "python": "3.11.8",
+  "engine": "5.8.4-0+UE5",
+  "command_line": "-RenderOffscreen -unattended -nosplash -NoLiveCoding -log -stdout -FullStdOutLogOutput",
+  "capabilities": {
+   "gpu": true,
+   "display": false,
+   "linux": true,
+   "windows": false,
+   "epic_login": true,
+   "mh_cloud": true
+  }
+ },
+ "doc": "WP8's acceptance test, the Sequencer core on a real editor: a scratch scene (a cube, a skeletal actor, two cine\ncameras, a point light), a SEQUENCE SPEC applied over it with every track kind the core writes (transform with\nlook-at, visibility, skeletal animation, float / colour properties on components, a material parameter, camera cuts,\naudio, fade, a parameter collection when one exists, markers), then:",
+ "baselines": [],
+ "level_after": "/Game/_Scratch/_Blank/L_Blank",
+ "cleaned": "/Game/_Selftest/seq",
+ "ms": 18263,
+ "report": "/srv/ue/projects/HostStudio/Saved/SelfTest/20261105-141316/seq.json",
+ "local_stills": []
+}
