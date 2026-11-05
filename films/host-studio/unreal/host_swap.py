@@ -39,8 +39,11 @@ exec(block(src, "his outfit"))
 K.channels(["Host"], [0, 1])  # again for the components the outfit block added or re-created
 _g = his_garment()
 if _g is not None:
-    mh.garment("Host", "Shirt", component=_g.get_name(),
-               vectors={"diffuse_color_1": (0.032, 0.034, 0.038), "diffuse_color_2": (0.045, 0.047, 0.052)})
+    # his tee: Trey keeps studio.py's charcoal; the operator wears a mid grey (~0.12 linear, sRGB ~0.38), so the tee
+    # reads apart from his charcoal trousers (round 3: "charcoal trousers + grey tee")
+    tee = ({"diffuse_color_1": (0.12, 0.12, 0.125), "diffuse_color_2": (0.135, 0.135, 0.14)} if HOST == "op" else
+           {"diffuse_color_1": (0.032, 0.034, 0.038), "diffuse_color_2": (0.045, 0.047, 0.052)})
+    mh.garment("Host", "Shirt", component=_g.get_name(), vectors=tee)
 lc = mh.leader_check(label="Host")
 host = L.actor("Host")
 result = {"host": HOST, "bp": host.get_class().get_path_name(), "tee": _g.get_name() if _g is not None else None,
