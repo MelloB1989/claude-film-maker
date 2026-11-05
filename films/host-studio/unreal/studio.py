@@ -516,9 +516,16 @@ if unreal.EditorAssetLibrary.does_asset_exist(HIS_TROUSERS):
     for slot_, mi_ in his_mats.items():
         his_part("Trousers").set_material_by_name(slot_, unreal.load_asset(mi_))
     his_part("Trousers").set_editor_property("lighting_channels", his_part("Body").get_editor_property("lighting_channels"))
-    for i, slot_ in enumerate(his_part("SkeletalMesh").get_material_slot_names()):  # the shorts: four slots, one name
-        if "short" in str(slot_).lower():
-            his_part("SkeletalMesh").set_material(i, unreal.load_asset(his_hidden))
+    def his_garment():  # the default garment (tee + shorts): "SkeletalMesh" on Trey, by elimination on another build
+        return his_part("SkeletalMesh") or next((c for c in L.actor("Host").get_components_by_class(
+            unreal.SkeletalMeshComponent) if c.get_name() not in ("Body", "Face", "Trousers")), None)
+
+    if his_garment() is not None:
+        for i, slot_ in enumerate(his_garment().get_material_slot_names()):  # the shorts: four slots, one name
+            if "short" in str(slot_).lower():
+                his_garment().set_material(i, unreal.load_asset(his_hidden))
+    else:
+        print("his outfit: no default garment on Host (no tee): wear one (mh.add_item ... slot=Outfits) and rebuild")
     his_part("Trousers").set_editor_property("use_bounds_from_leader_pose_component", True)
     # leader pose last, on every garment (after agent-02): a change to one instance component re-creates the others,
     # and a re-created component has lost its leader (it then stays in its bind pose while the body moves)

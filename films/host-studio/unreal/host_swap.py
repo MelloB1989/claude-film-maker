@@ -34,10 +34,13 @@ src = open(os.path.join(HERE, "studio.py")).read()
 exec(block(src, "host swap"))
 exec(block(src, "his outfit"))
 K.channels(["Host"], [0, 1])
-mh.garment("Host", "Shirt", vectors={"diffuse_color_1": (0.032, 0.034, 0.038), "diffuse_color_2": (0.045, 0.047, 0.052)})
+_g = his_garment()
+if _g is not None:
+    mh.garment("Host", "Shirt", component=_g.get_name(),
+               vectors={"diffuse_color_1": (0.032, 0.034, 0.038), "diffuse_color_2": (0.045, 0.047, 0.052)})
 lc = mh.leader_check(label="Host")
 host = L.actor("Host")
-result = {"host": HOST, "bp": host.get_class().get_path_name(),
+result = {"host": HOST, "bp": host.get_class().get_path_name(), "tee": _g.get_name() if _g is not None else None,
           "components": sorted(c.get_name() for c in host.get_components_by_class(unreal.SkeletalMeshComponent)),
           "leader_pass": lc["pass"], "leader_gap_cm": lc["metric"], "why": lc.get("why", "")}
 print(result)
