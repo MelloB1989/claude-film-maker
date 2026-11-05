@@ -53,7 +53,13 @@ def main() -> None:
         for step, args in (("mh.rig", {"character": char}), ("mh.textures", {"character": char}),
                            ("mh.build", {"character": char, "name": name})):
             t0 = time.time()
-            print(step, ok(client.op(step, timeout=3600, **args)), f"{time.time() - t0:.0f}s")
+            for attempt in range(12):  # right after the textures the build is refused for a few ticks (round 3)
+                res = client.op(step, timeout=3600, **args)
+                why = (res.get("error", "") or "") + (res.get("stdout", "") or "")
+                if res.get("ok") or "cloud request is still running" not in why:
+                    break
+                time.sleep(10)
+            print(step, ok(res), f"{time.time() - t0:.0f}s")
 
 
 if __name__ == "__main__":
