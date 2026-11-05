@@ -26,7 +26,7 @@ one uses the CPU and the other the network.
 
 ```bash
 # the box's checkout of film/host-studio (the one cut.sh runs from; it is at the reel's head)
-R=<the box checkout>
+R=/srv/ue/r3tree     # agent-07's box checkout (tools, reel scripts, fonts, the mixes); confirm it is at the reel's head
 B=s3://rf-render-788655295054-aps1/ue-linux/private
 film-ue profile show      # region ap-south-1, face_data "yes", kms_key: note it if set (used in step 3)
 ```
@@ -81,7 +81,7 @@ when step 0 showed a `kms_key`.
 film-ue sh --timeout 2400 '
 set -e
 KMS="--sse aws:kms"          # + " --sse-kms-key-id <kms_key>" when the box setting is set
-for d in final_c cal_A cal_B cal_C; do
+for d in final_c cal_A cal_B cal_C cut; do   # cut/: the deliverables too (the operator's face is in them), as insurance should the pull fail
   aws s3 sync --only-show-errors --no-progress --region ap-south-1 /srv/ue/reel/r3/$d s3://rf-render-788655295054-aps1/ue-linux/private/renders/r3/$d/ $KMS
   echo kept=$d $(find /srv/ue/reel/r3/$d -type f | wc -l)
 done'
@@ -100,7 +100,7 @@ for k in final_c/0960.png cal_A/_render cal_B/_render cal_C/_render; do
   echo "$k"; aws s3api head-object --region ap-south-1 --bucket rf-render-788655295054-aps1 --key "$k" \
     --query "[ServerSideEncryption,SSEKMSKeyId,ContentLength]" --output text
 done
-for d in final_c cal_A cal_B cal_C; do
+for d in final_c cal_A cal_B cal_C cut; do
   echo $d s3=$(aws s3 ls --region ap-south-1 --recursive --summarize s3://rf-render-788655295054-aps1/ue-linux/private/renders/r3/$d/ | awk "/Total Objects/{print \$3}")
 done'
 ```
@@ -113,7 +113,7 @@ done'
   does not deny unencrypted puts. Tell karmax and agent-10, and do not go on to step 4 until one of them answers.
   Usually the fix is a re-copy in place with KMS:
   `aws s3 cp --recursive s3://.../r3/<d>/ s3://.../r3/<d>/ --sse aws:kms --metadata-directive REPLACE`, on the box.
-- **Report before step 4:** send karmax and agent-10 the four `kept=` and `s3=` counts and the head-object
+- **Report before step 4:** send karmax and agent-10 the five `kept=` and `s3=` counts and the head-object
   output, then go on:
 
   ```bash
