@@ -42,11 +42,11 @@ V04 are dropped.
 | V05 the room | 0:25-0:30 | none | re-render | studio build |
 | S11 sign lights | 0:30-0:32.12 | none | re-render (the halo, letter by letter) | studio build |
 | S12 studio on | 0:32.12-0:35 | none | re-render | studio build |
-| N01 shelves at night | 0:35-0:40 | none | re-render (not in the 45 s cut); hair-pop window: confirm nobody is in it | studio build |
+| N01 shelves at night | 0:35-0:40 | none | re-render (not in the 45 s cut) | studio build |
 | S13 him | 0:40-0:45 | him | new him; perfkit face (head down -> up to the lens, L1, smirk); camera at his eye height | 2, 1, cameras |
 | S15 hand-off | 0:45-0:50 | him, her | new him; perfkit face/body; his head turns to her; her L3a; collar, watch, hair | 2, 1, 3a-c, cameras |
 | S16 her line | 0:50-0:55 | her | perfkit face (L3b, head tilt on "yourself"); watch and collar in frame | 1, 3a-c |
-| S17 together | 0:55-1:00 | him, her | both: the glance on "comes around", then both to the lens; cut above the knee | 2, 1, 3a-c, cameras |
+| S17 together | 0:55-1:00 | him, her | both: the glance on "comes around", then both to the lens; cut above the knee; the hair pop is here (end of the crane out, 45 s cut 0:39-0:40 = f1416-1440): presenters pinned to LOD 0 (agent-09) | 2, 1, 3a-c, cameras |
 | S18 title | 1:00-1:05 | him, her | a natural idle with life (not frozen); the practicals dim | 2, 1, 3a-c |
 
 ## Order of work (the box is never idle)
@@ -85,3 +85,8 @@ If something blocks the editor (a cloud wait, a fix in progress), agent-07 rende
 ## Log
 
 (newest last: what was run, the result, and what is next)
+
+- agent-07: box tree = film/host-studio @502124ff (box paths instead of C:\UEProjects); rebuild + preview queued.
+- agent-09: the hair pop is S17's crane out (f1416-1440 in the 45 s cut), not N01: the groom drops LOD as she
+  shrinks in frame, and MRQ's lod_zero pins meshes but not grooms. `build.py lod0()` pins both presenters' grooms and
+  meshes (merged @2b85fb54); to be proven on the preview's S17 f1400-1440.
