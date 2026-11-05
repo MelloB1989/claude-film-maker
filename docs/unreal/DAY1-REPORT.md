@@ -48,3 +48,8 @@ fast-forwards to.
 | platform | Vulkan SM6 target in setup/first-run; `film-ue plugin-build` (FabScript built on the box in ~20 s); project sync keeps plugin binaries | agent-07 260a1de2, e1a8d90c | 1034 passed |
 | mat | MP_CUSTOM_DATA0/1 (hidden from Python in 5.8) skipped and reported | agent-13 bb6d57c0 | 1034 passed |
 | api_names | box run: 3 missing of 242. USD import now says the USDImporter plugin is off; `EMetaHuman` was a docstring hit (the scan reads code only now); `MoviePipelineEditorBlueprintLibrary` is agent-13's render fix | agent-10 befdc58d | 1034 passed |
+| batch 5 | dx: scratch level left by an earlier run (da9fa76f); render: MRQ editor module on demand, 5.8 AOV folders, JPEG frames are `.jpeg` (48f97794) | agent-13 | 1034 passed |
+| demo | manual exposure (`AEM_MANUAL`), outputs and voice under /srv/ue/demo | agent-13 bd2c487a | 1035 passed |
+| env | display capture RTF_RGBA8_SRGB (/255), sky light without channels: env 38/6 -> 56/0 on the box | agent-08 68bbed7c | 1035 passed |
+| seq | the fake resets a bounded section's range like the engine; a seq selftest check | agent-06 d94b05af | 1035 passed |
+| cam | convergence on the engine (float32 focus, rotations by axes), stills at the filmback aspect, shot.plan lists missing cameras, coverage names | agent-11 c83bf93e | 1035 passed |
