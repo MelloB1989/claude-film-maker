@@ -38,6 +38,13 @@ CHARACTER = "/Game/Host/Host_Op"
 # promoted frames (60 fps take): neutral front ~1 s, turned left ~6 s, turned right ~11.5 s; teeth ~16 s
 FRAMES = {"front": 60, "left": 360, "right": 690}
 TEETH_FRAME = 960
+# what he wears and his grooms: ONE place, so the operator's correction is one STAGE='grooms' run + one rebuild.
+# PLACEHOLDER (round 3): the operator's hair, facial hair and brows are not known yet (asked; no answer by the build):
+# short dark hair, stubble, medium brows. The outfit is the default garment (the tee; its shorts are hidden by studio.py).
+OUTFIT = "WI_DefaultGarment"
+GROOMS = {"Hair": ("WI_Hair_S_BuzzCut", 0.9), "Beard": ("WI_Beard_S_Stubble", 0.9),
+          "Eyebrows": ("WI_Eyebrows_M_Unruly", 0.9), "Eyelashes": ("WI_Eyelashes_S_Fine", None),
+          "Peachfuzz": ("WI_Peachfuzz_M_Thin", None)}  # slot: (item, melanin or None)
 # his body (keep in step with films/host-studio/bodies.py "op")
 BODY = {"Height": 180, "Across Shoulder": 45, "Front Interscye Length": 40, "Chest": 100, "Underbust": None,
         "Waist": 75, "High Hip": 80, "Hip": 92, "Neck Base": 40, "Neck": 38, "Bicep": 31.5, "Forearm": 27.5,
@@ -288,6 +295,21 @@ elif STAGE == "diag":
     for n in ("track_face_landmarks_from_image", "translate_face_landmarks", "commit_target_mesh_keypoints",
               "fit_state_to_target_vertices", "align_to_target_meshes", "get_face_landmarks"):
         t("sub." + n, lambda n=n: (getattr(sub, n).__doc__ or "")[:900])
+
+elif STAGE == "grooms":
+    # wear OUTFIT and GROOMS; their colours need a built collection, so on a character not built yet run this, mh.build,
+    # this again (the colours then apply), and mh.build again
+    from fmbridge.ops import call
+    R["outfit"] = plain(call("mh.add_item", character=CHARACTER, item=OUTFIT, slot="Outfits"))
+    for slot, (item, melanin) in GROOMS.items():
+        r = call("mh.groom", character=CHARACTER, slot=slot, item=item)
+        R.setdefault("grooms", {})[slot] = plain(r) if isinstance(r, dict) else "assembling"
+        if melanin is not None:
+            try:
+                c = call("mh.groom", character=CHARACTER, slot=slot, melanin=melanin)
+                R.setdefault("colours", {})[slot] = "set" if isinstance(c, dict) else "assembling"
+            except Exception as e:  # not_ready before the first build: run again after it
+                R.setdefault("colours", {})[slot] = "later: " + str(e)[:120]
 
 elif STAGE == "character":
     # the character: blank, its face fitted to the identity's conformed mesh (metric scale, eyes), then his body
