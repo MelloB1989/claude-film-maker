@@ -5,6 +5,7 @@ sign-in. A temporary box starts from S3 and puts back what it changed before it 
     film-ue sync ddc save|restore [--version 5.8.4] [--dry-run]
     film-ue sync epic save|restore|status
     film-ue sync engine restore --engine-s3 S3 --version 5.8.4
+    film-ue sync dir up|down --local PATH --s3 S3 [--delete] [--dry-run]    any folder on the box (renders, cuts)
     film-ue sync status                 what is where (S3 sizes and dates, the box's copies)
 
 Where (the box's settings): `bucket`; the project under s3://<bucket>/ue-projects/<project name>/ (or `project_s3`),
@@ -20,6 +21,9 @@ script instead of running it.
                   box skips the ~20 min first-open compile. Best with the editor stopped (the Zen store is copied as
                   is otherwise).
   ddc restore     S3 -> box, before the editor's first start.
+  dir up|down     a folder on the box <-> S3 (renders, reports, cuts): the same rules as the project's: with face data
+                  on the box (face_data) an upload goes only under a .../private/ prefix, and an upload there is
+                  KMS-encrypted in the command (kms_key).
 """
 from __future__ import annotations
 
@@ -109,6 +113,31 @@ def project_script(direction: str, delete: bool = False) -> str:
     return (f"mkdir -p {pd}\n"
             f"aws s3 sync --only-show-errors --no-progress --region {region}{d}{_sse(direction == "up", project_s3())} {_excl(project_s3())} {src} {dst}\n"
             f"echo synced={direction}\n")
+
+
+def dir_script(direction: str, local: str, s3: str, delete: bool = False) -> str:
+    """A folder on the box <-> S3 (renders, their reports, cuts): up is guarded and encrypted like the project's."""
+    if direction not in ("up", "down"):
+        raise SystemExit(f"sync dir {direction}: up (box -> S3) or down (S3 -> box)")
+    if not local or not s3.startswith("s3://"):
+        raise SystemExit("sync dir: --local /path/on/the/box --s3 s3://BUCKET/prefix/")
+    _guard(direction == "up", s3, "sync dir up")
+    region = shlex.quote(ws.conf()["region"])
+    src, dst = (local, s3) if direction == "up" else (s3, local)
+    d = " --delete" if delete else ""
+    mk = "" if direction == "up" else f"mkdir -p {shlex.quote(local)} && "
+    return (f"{mk}aws s3 sync --only-show-errors --no-progress --region {region}{d}{_sse(direction == 'up', s3)} "
+            f"{shlex.quote(src)} {shlex.quote(dst)} && echo synced={direction}\n")
+
+
+def sync_dir(direction: str, local: str, s3: str, *, delete: bool = False, dry_run: bool = False) -> dict:
+    if not ws.linux():
+        raise SystemExit("dir sync runs on a Linux box")
+    script = dir_script(direction, local, s3, delete)
+    if dry_run:
+        return {"dry_run": True, "script": script, "s3": s3}
+    out = ws.sh(script, 7200)
+    return {"direction": direction, "local": local, "s3": s3, "ok": f"synced={direction}" in out}
 
 
 def ddc_script(direction: str, version: str = "") -> str:
