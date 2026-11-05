@@ -44,6 +44,9 @@ class Guid:
     def export_text(self) -> str:
         return f"{self.n:032X}"
 
+    def __str__(self):  # the engine's struct str() carries the wrapper's address: two reads never compare equal
+        return f"<Struct 'Guid' ({id(self):#x}) {{a: {self.n}}}>"
+
     def __eq__(self, o):
         return isinstance(o, Guid) and o.n == self.n
 
@@ -570,6 +573,13 @@ class MovieSceneBindingProxy(_Owner):
 
     def is_valid(self):
         return self.data in self.seq.ms.bindings
+
+    def get_editor_property(self, name: str):  # FMovieSceneBindingProxy's BlueprintReadOnly BindingID / Sequence
+        if name == "binding_id":
+            return Guid(self.data.guid.n)  # a new wrapper per read, like the engine
+        if name == "sequence":
+            return self.seq
+        raise ValueError(f"MovieSceneBindingProxy: Failed to find property '{name}'")
 
     def get_id(self):
         return self.data.guid

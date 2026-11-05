@@ -56,9 +56,35 @@ class _Binding:
 class ControlRigSequencerLibrary(core.Object):
     rigs: list = []
 
+    classes: dict = {}  # rig class name -> {control: bone}, for find_or_create_control_rig_track
+
     @staticmethod
     def get_control_rigs(level_sequence):
-        return [p for p in ControlRigSequencerLibrary.rigs]
+        out = []
+        for p in ControlRigSequencerLibrary.rigs:
+            b = getattr(p, "_binding", None)
+            if b is None:
+                out.append(p)
+            elif b.seq is level_sequence:  # the engine makes the proxy (and its BindingID) afresh on every call
+                out.append(_Proxy("proxy", proxy=type(b)(b.seq, b.data), control_rig=p.control_rig))
+        return out
+
+    @staticmethod
+    def find_or_create_control_rig_track(world, level_sequence, control_rig_class, binding, is_layered_control_rig=False):
+        """FindOrCreateControlRigTrack: the track on `binding` (a MovieSceneBindingProxy), made with a new rig."""
+        for p in ControlRigSequencerLibrary.rigs:
+            b = getattr(p, "_binding", None)
+            if b is not None and b.seq is level_sequence and b.data is binding.data:
+                return p
+        name = control_rig_class.__name__ if isinstance(control_rig_class, type) else str(control_rig_class)
+        controls = ControlRigSequencerLibrary.classes.get(name)
+        if controls is None:
+            return None
+        a = core._fake().actor(binding.data.obj_label)
+        p = _Proxy("proxy", control_rig=FakeControlRig(a, controls, 0.8))
+        object.__setattr__(p, "_binding", binding)
+        ControlRigSequencerLibrary.rigs.append(p)
+        return p
 
     @staticmethod
     def get_control_rig_world_transform(level_sequence, control_rig, control_name, frame, time_unit=None):
@@ -83,6 +109,7 @@ class ControlRigSequencerLibrary(core.Object):
 
 def install(fake):
     ControlRigSequencerLibrary.rigs = []
+    ControlRigSequencerLibrary.classes = {}
     fake.ControlRigSequencerLibrary = ControlRigSequencerLibrary
     fake._classes["ControlRigSequencerLibrary"] = ControlRigSequencerLibrary
 
