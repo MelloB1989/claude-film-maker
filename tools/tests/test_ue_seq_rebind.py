@@ -71,3 +71,20 @@ def test_a_correct_binding_is_left_alone(ue):
     seq = E.load(SEQ)
     have = E.bindings(seq)[("Reel_A", "")]
     assert E.bind(seq, "Reel_A") == (have, False)
+
+
+def test_a_binding_named_apart_from_its_actor_is_judged_as_before(ue):
+    """A binding whose name is no actor's label (renamed, or its actor relabelled): bound means it finds something,
+    as before, so describe never reports it unbound (a plan would emit seq.rebind for it forever) and bind() is not
+    sent to actor(name)."""
+    ue.bind_by_name = True
+    cam = ue.spawn("CineCameraActor", "Reel_A")
+    run_op("seq.new", path=SEQ, start=0, end=48, fps=24)
+    run_op("seq.key_transform", path=SEQ, label="Reel_A", keys=[[0, [0, 0, 100], {"yaw": 0}]])
+    cam.set_actor_label("Reel_A_renamed")
+    from fmbridge.ops.seqcore import _engine as E
+    seq = E.load(SEQ)
+    b = E.bindings(seq)[("Reel_A", "")]
+    assert E.is_bound(seq, b, "Reel_A") is True
+    assert run_op("seq.rebind", path=SEQ) == {}
+    assert located("Reel_A") == [cam]

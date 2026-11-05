@@ -202,7 +202,9 @@ def is_bound(seq, b, label: str = "") -> bool | None:
     if not label:
         return bool(objs)
     a = find_actor(label)
-    return a is not None and len(objs) == 1 and objs[0] == a
+    if a is None:  # no actor of that label (a binding named apart from its actor): only whether it finds anything
+        return bool(objs)
+    return len(objs) == 1 and objs[0] == a
 
 
 def is_spawnable(b) -> bool:
