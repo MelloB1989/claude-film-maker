@@ -26,6 +26,11 @@ VARIANTS = [
     # night1 (cc-64d05f6e): the material is neutral (hair_params.json: melanin 1.0, every dye white, no ombre), so
     # the green is light: the olive overshirt behind and under the lengths, seen through or bounced onto the strands
     {"name": "overshirt_hidden", "hide": ["Overshirt"]},
+    # f1236 A/B (20:26): no change with the overshirt hidden or either lighting cvar, so the green strands are drawn
+    # green. cast4 showed green CARDS: the cards/helmet geometry behind the strands, in the cards MIs. Black dye on
+    # those only (mis: the MI names' ends) blacks them out without touching the strands' look
+    {"name": "cards_helmet_black", "mis": ["_Cards", "_Helmet"], "vectors": {"hairDye": [0.0, 0.0, 0.0]}},
+    {"name": "melanin_0.3", "scalars": {"hairMelanin": 0.3}},
     {"name": "redness_0.3", "scalars": {"hairRedness": 0.3}},
     {"name": "melanin_0.9", "scalars": {"hairMelanin": 0.9}},
     {"name": "white_light_0", "scalars": {"WhiteAmount": 0.0, "LightAmount": 0.0}},
@@ -53,7 +58,7 @@ import unreal
 MEL, SL = unreal.MaterialEditingLibrary, unreal.SystemLibrary
 w = unreal.EditorLevelLibrary.get_editor_world()
 old = {"scalars": {}, "vectors": {}, "cvars": {}}
-for p in MIS:
+for p in [p for p in MIS if not V.get("mis") or any(p.endswith(x) for x in V["mis"])]:
     mi = unreal.load_asset(p)
     for k, v in V.get("scalars", {}).items():
         old["scalars"].setdefault(p, {})[k] = MEL.get_material_instance_scalar_parameter_value(mi, k)

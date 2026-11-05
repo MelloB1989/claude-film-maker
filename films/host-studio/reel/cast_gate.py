@@ -272,8 +272,9 @@ def frames(root: str, eng: str | None, out: str) -> dict:
             im = Image.open(fr[f]).convert("RGB")
             r = {k: hue_of(im, b) for k, b in HUE_REGIONS.items()}
             crown, ends = r["crown"], [v for k, v in r.items() if k.startswith("ends") and v]
-            r["pass"] = bool(crown and ends and all(v["a"] >= HUE_A_MIN and v["C"] - crown["C"] <= HUE_C_OVER
-                                                    for v in ends))
+            r["pass"] = bool(crown and ends and crown["green_px"] <= HUE_GREEN_MAX and all(
+                v["a"] >= HUE_A_MIN and v["C"] - crown["C"] <= HUE_C_OVER and v["green_px"] <= HUE_GREEN_MAX
+                for v in ends))
             hv[f] = r
     res["hair"]["S16_hue"] = {"pass": bool(hv) and all(v["pass"] for v in hv.values()),
                               "failed": [f for f, v in hv.items() if not v["pass"]],
@@ -336,6 +337,7 @@ HUE_REGIONS = {"crown": HAIR_ROOTS, "ends_screen_left": HAIR_ENDS[0], "ends_scre
 HUE_L_MAX = 30.0
 HUE_A_MIN = -2.0      # an end's a* at least this (no green)
 HUE_C_OVER = 3.0      # an end's chroma at most this over the crown's
+HUE_GREEN_MAX = 0.05  # at most this share of a region's hair pixels green (a* < -4): the median hides green strands
 
 
 def lab(rgb):
@@ -387,8 +389,9 @@ def hue(paths: list, out: str, frames_: list | None = None, regions: dict | None
         r = {k: hue_of(im, b) for k, b in regions.items()}
         crown = r.get("crown")
         ends = {k: v for k, v in r.items() if k.startswith("ends") and v}
-        r["pass"] = bool(crown and ends and all(v["a"] >= HUE_A_MIN and v["C"] - crown["C"] <= HUE_C_OVER
-                                                for v in ends.values()))
+        r["pass"] = bool(crown and ends and crown["green_px"] <= HUE_GREEN_MAX and all(
+            v["a"] >= HUE_A_MIN and v["C"] - crown["C"] <= HUE_C_OVER and v["green_px"] <= HUE_GREEN_MAX
+            for v in ends.values()))
         res[name] = r
         w, h = im.size
         cells = []
@@ -406,7 +409,8 @@ def hue(paths: list, out: str, frames_: list | None = None, regions: dict | None
             for j, c in enumerate(row):
                 sheet.paste(c, (j * cw, i * ch))
         sheet.save(o / "hue_sheet.jpg", quality=90)
-    rep = {"regions": regions, "L_max": HUE_L_MAX, "a_min": HUE_A_MIN, "C_over_crown": HUE_C_OVER, "images": res}
+    rep = {"regions": regions, "L_max": HUE_L_MAX, "a_min": HUE_A_MIN, "C_over_crown": HUE_C_OVER,
+           "green_px_max": HUE_GREEN_MAX, "images": res}
     (o / "hue.json").write_text(json.dumps(rep, indent=1))
     return res
 
