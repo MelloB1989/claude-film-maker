@@ -84,8 +84,9 @@ def test_library_uses_the_account_from_the_token(ue, fab, monkeypatch):
 
 
 class _FabEdge:
-    """fab.com as the live box saw it (day 1): the private /e/ API answers on the plugin's host, https://fab.com
-    (UFabSettings::GetUrlFromEnvironment), and refuses www.fab.com and Python's default User-Agent with 403."""
+    """Fab's edge as the live box saw it (day 1 probe): www.fab.com answers the private /e/ API, but refuses
+    Python's default User-Agent with a 403 HTML challenge page; the apex https://fab.com (the plugin's Prod URL)
+    answers 404."""
 
     def __init__(self, pages):
         self.pages, self.seen = list(pages), []
@@ -95,8 +96,10 @@ class _FabEdge:
         import urllib.error
         url, h = req.full_url, {k.lower(): v for k, v in req.header_items()}
         self.seen.append((url, h))
-        if not url.startswith("https://fab.com/") or "python-urllib" in h.get("user-agent", "python-urllib").lower():
-            raise urllib.error.HTTPError(url, 403, "Forbidden", {}, io.BytesIO(b"forbidden"))
+        if not url.startswith("https://www.fab.com/"):
+            raise urllib.error.HTTPError(url, 404, "Not Found", {}, io.BytesIO(b""))
+        if "python-urllib" in h.get("user-agent", "python-urllib").lower():
+            raise urllib.error.HTTPError(url, 403, "Forbidden", {}, io.BytesIO(b"<html>cf challenge</html>"))
         assert h.get("authorization") == f"Bearer {TOKEN}" and h.get("accept") == "application/json"
         body = json.dumps(self.pages.pop(0)).encode()
 
@@ -111,9 +114,9 @@ class _FabEdge:
         return R(body)
 
 
-def test_library_asks_the_plugins_host_with_its_headers(ue, fab, monkeypatch):
-    """Day 1: www.fab.com + Python's UA got HTTP 403; the plugin asks https://fab.com (FabMyFolderIntegration.cpp
-    :66-71) with accept + Bearer and the engine's User-Agent, and quotes the cursor."""
+def test_library_sends_the_engines_user_agent(ue, fab, monkeypatch):
+    """Day 1: Python's default User-Agent got HTTP 403 from www.fab.com; the plugin's request
+    (FabMyFolderIntegration.cpp:66-71) is accept + Bearer with the engine's User-Agent, and a quoted cursor."""
     import urllib.request
     fab["token"] = TOKEN
     edge = _FabEdge([{"results": [{"title": "Oak Chair", "assetId": "a1"}], "cursors": {"next": "c2"}},
@@ -121,7 +124,7 @@ def test_library_asks_the_plugins_host_with_its_headers(ue, fab, monkeypatch):
     monkeypatch.setattr(urllib.request, "urlopen", edge)
     r = run_op("fab.library")
     assert [i["asset_id"] for i in r["items"]] == ["a1", "a2"]
-    assert edge.seen[0][0] == "https://fab.com/e/accounts/acc123/ue/library?count=100"
+    assert edge.seen[0][0] == "https://www.fab.com/e/accounts/acc123/ue/library?count=100"
     assert edge.seen[1][0].endswith("&cursor=%22c2%22")
     assert edge.seen[0][1]["user-agent"].startswith("Fake/")
     assert TOKEN not in json.dumps(r)
@@ -131,16 +134,16 @@ def test_library_403_says_why(ue, fab, monkeypatch):
     import urllib.request
     from fmbridge.ops import fab as F
     fab["token"] = TOKEN
-    monkeypatch.setattr(F, "_base_url", lambda: "https://www.fab.com")  # the old host
+    monkeypatch.setattr(F, "_user_agent", lambda: "Python-urllib/3.11")  # what day 1 sent
     monkeypatch.setattr(urllib.request, "urlopen", _FabEdge([]))
     e = _err("fab.library")
-    assert e.code == "engine" and "403" in str(e) and "fab.login" in e.hint and TOKEN not in str(e)
+    assert e.code == "engine" and "403" in str(e) and "User-Agent" in e.hint and TOKEN not in str(e)
 
 
 def test_host_follows_fab_settings(ue, fab):
     from fmbridge.ops import fab as F
     s = ue.get_default_object(ue.load_class(None, "/Script/Fab.FabSettings"))
-    assert F._base_url() == "https://fab.com"
+    assert F._base_url() == "https://www.fab.com"
     s.set_editor_property("environment", "FabEnvironment.TEST")
     assert F._base_url() == "https://fab.daec.live.use1a.on.epicgames.com"
     s.set_editor_property("environment", "FabEnvironment.CUSTOM_URL")

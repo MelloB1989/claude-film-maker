@@ -30,9 +30,10 @@ from . import op
 from ..errors import OpError
 
 FAB_API_CLASS = "/Script/Fab.FabBrowserApi"
-# UFabSettings::GetUrlFromEnvironment (Engine/Plugins/Fab/Source/Fab/Private/FabSettings.cpp:60-72): the apex host,
-# not www (www answers the private /e/ API with 403)
-BASE_URLS = {"prod": "https://fab.com", "gamedev": "https://fab.cceb.dev.use1a.on.epicgames.com",
+# UFabSettings::GetUrlFromEnvironment (Engine/Plugins/Fab/Source/Fab/Private/FabSettings.cpp:60-72) says Prod is
+# https://fab.com, but live (day 1, the GPU box) the apex answers /e/ with 404 (CloudFront) and www.fab.com answers it
+# with the library JSON; what www refuses (403, a Cloudflare challenge page) is Python's default User-Agent.
+BASE_URLS = {"prod": "https://www.fab.com", "gamedev": "https://fab.cceb.dev.use1a.on.epicgames.com",
              "test": "https://fab.daec.live.use1a.on.epicgames.com"}
 # Megascans subtype by the json's categories[0] (QuixelAssetTypes.cpp ExtractMeta)
 SUBTYPES = {"3d": "3D", "surface": "Surfaces", "3dplant": "Plants", "atlas": "Decals"}
@@ -148,8 +149,8 @@ def _account_id(token: str) -> str:
 
 
 def _base_url() -> str:
-    """The Fab host the plugin talks to: UFabSettings' environment, as GetUrlFromEnvironment maps it (Prod and
-    anything unknown -> https://fab.com)."""
+    """The Fab host for UFabSettings' environment, as GetUrlFromEnvironment maps it, except Prod (and anything
+    unknown) -> https://www.fab.com, the host that answers (see BASE_URLS)."""
     try:
         s = unreal.get_default_object(unreal.load_class(None, "/Script/Fab.FabSettings"))
         v = s.get_editor_property("environment")
@@ -169,7 +170,8 @@ def _base_url() -> str:
 
 def _user_agent() -> str:
     """What the editor's HTTP module sends (FGenericPlatformHttp::GetDefaultUserAgent: <project>/<version>
-    <platform>/<os>), not Python's default, which Fab's edge may refuse."""
+    <platform>/<os>). Python's default (Python-urllib/3.x) gets Cloudflare's 403 challenge page from www.fab.com:
+    that was the day-1 failure."""
     import platform
     try:
         proj = str(unreal.SystemLibrary.get_game_name() or "UnrealEditor")
@@ -204,7 +206,7 @@ def _library_url(account: str, count: int, cursor: str = "") -> str:
 @op("fab.library", mutates=False, idempotent=True, tags=["fab", "needs-epic-login", "experimental"])
 def library(*, query: str = "", limit: int = 100, account_id: str = "") -> dict:
     """The signed-in account's Fab library (what it owns), from the endpoint the plugin's My Folder uses
-    (GET <fab>/e/accounts/<account>/ue/library with the same host, token and headers, FabMyFolderIntegration.cpp): title, asset id, listing type, the
+    (GET <fab>/e/accounts/<account>/ue/library with the same token and headers, FabMyFolderIntegration.cpp): title, asset id, listing type, the
     page url, and a thumbnail url.
 
     Args: query: keep items whose title/description contain these words. limit: at most this many. account_id: the
@@ -229,8 +231,9 @@ def library(*, query: str = "", limit: int = 100, account_id: str = "") -> dict:
             code = getattr(e, "code", None)
             raise OpError(f"Fab library request failed: {type(e).__name__}: {str(e)[:200]}", code="engine",
                           details={"status": code, "host": _base_url()},
-                          hint="401/403: the sign-in expired (fab.login) or the host is wrong (FabSettings "
-                               "environment); the endpoint is private and may have changed") from None
+                          hint="403 with an HTML page: Fab's edge refused the client (User-Agent); 401/403 JSON: the "
+                               "sign-in expired (fab.login); 404: wrong host (fab.status host); the endpoint is "
+                               "private and may have changed") from None
         for it in data.get("results", []):
             text = f"{it.get('title', '')} {it.get('description', '')}".lower()
             if words and not all(w in text for w in words):
