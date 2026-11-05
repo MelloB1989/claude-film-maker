@@ -33,9 +33,11 @@ BOX = "/srv/ue/reel/r3"  # r3/vars.yaml's ${out}: the passes on the box
 
 
 def pattern(frames: Path) -> str:
-    """cut.py's --pattern for a pass: .png, or .jpg when the pass has jpgs and no pngs (the preview)."""
-    has = lambda ext: next(frames.rglob(f"[0-9][0-9][0-9][0-9].{ext}"), None) is not None  # noqa: E731
-    return "{frame:04d}.jpg" if not has("png") and has("jpg") else "{frame:04d}.png"
+    """cut.py's --pattern for a pass: .png, else the JPEG extension the pass uses (MRQ writes a jpg output as .jpeg)."""
+    for ext in ("png", "jpeg", "jpg"):
+        if next(frames.rglob(f"[0-9][0-9][0-9][0-9].{ext}"), None) is not None:
+            return "{frame:04d}." + ext
+    return "{frame:04d}.png"
 
 
 def frames_of(frames: Path, s) -> dict:
@@ -76,7 +78,7 @@ def merged(out: Path, passes: list) -> Path:
                 break
     exts = {x.suffix for x in d.iterdir()}
     if len(exts) > 1:  # a final .png beside a preview .jpg: ffmpeg reads one sequence of one format
-        conv = {x for x in d.iterdir() if x.suffix == ".jpg"}
+        conv = {x for x in d.iterdir() if x.suffix != ".png"}
         from PIL import Image
         for x in conv:
             with Image.open(x) as im:
