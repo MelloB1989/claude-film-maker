@@ -1,0 +1,29 @@
+# Note 3c's proof (agent-09): S17's crane out, master f1400-1440 (the v2 45 s cut's 0:39-0:40 is f1416-1440), at the
+# finals' quality, once with the presenters on automatic LODs (before) and once pinned to LOD 0 (after):
+#   cd tools && uv run python ../films/host-studio/reel/build.py --lod0 off
+#   film-ue apply ../films/host-studio/reel/r3/40-hairpop.yaml --set tag=before
+#   cd tools && uv run python ../films/host-studio/reel/build.py --lod0 on
+#   film-ue apply ../films/host-studio/reel/r3/40-hairpop.yaml --set tag=after
+# Pre-rolled from S17's first frame (preroll: cut), so cloth and hair arrive as in the full shot.
+kind: include
+files: [vars.yaml]
+---
+kind: vars
+vars:
+  tag: after
+---
+kind: render
+version: 1
+name: "r3_hairpop_${tag}"
+sequence: "${seq}"
+level: "${level}"
+out_dir: "${out}/hairpop_${tag}"
+preset: final
+shots: [Reel_S17]
+frames: [1400, 1440]
+chunking: shot
+preroll: cut
+aa_method: tsr          # as 30-final.yaml (follow it if the calibration picks otherwise)
+spatial: 1
+overwrite: true
+cvars: {"r.SSS.Quality": 1, "r.SSS.HalfRes": 0}
