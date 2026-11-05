@@ -102,3 +102,9 @@ If something blocks the editor (a cloud wait, a fix in progress), agent-07 rende
   and estimated word times.
 - agent-07: the first preview (16:29-16:52) ran before the re-place runbook, so its presenter shots don't show the
   performances; its set shots are fine. 10-preview now takes `--set 'shots=[...]'` to re-render the presenter range.
+- Preview 1 QA (agent-09, 16:30 build): all 1560 frames are there. V01-V03, V05, S11 (the halo letter by letter),
+  S12 (downlights on the beats) and N01 are OK. **V04 has a one-frame brightness step at f530** (luma 98 -> 77): the
+  sun's intensity reaches exactly 0 there. agent-09 is fixing it in light.py (end at ~2 lux, off once BLUE), so V04's
+  final waits. The report marks V01 'incomplete' with all frames on disk: a core counting bug (agent-05).
+- Host and Presenter are fresh after the rebuild: no TRASH_* components. Him placed; she is placed by agent-01's steps.
+- Set-shot finals (without V04) start after the AA calibration.
