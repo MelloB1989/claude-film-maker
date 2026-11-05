@@ -1,5 +1,5 @@
 # Stage 9 (WP12): the film files from the rendered frames and the voice (client side, after pulling the frames):
-#   film-ue pull-dir /srv/film/demo/out/render out/demo/render
+#   film-ue pull-dir /srv/ue/demo/out/render out/demo/render
 #   film-post plan examples/unreal/demo/90-delivery.yaml   then   film-post apply ...   (see docs/unreal/post.md)
 kind: delivery
 version: 1

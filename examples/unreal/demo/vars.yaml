@@ -10,9 +10,9 @@ vars:
   host_bp: /Game/_Demo/MH/Unpacked/Host/BP_Host  # where mh.build puts it (<folder>/Unpacked/<name>/BP_<name>): CHECK after stage 1
   face_mesh: /Game/_Demo/MH/Unpacked/Host/Face/SKM_Demo_Host_FaceMesh   # the built face mesh: CHECK after stage 1
   speech: /Game/_Demo/Speech
-  voice_wav: /srv/film/demo/demo_line.wav        # a 3-5 s spoken line ON THE BOX (film-ue push it there)
+  voice_wav: /srv/ue/demo/demo_line.wav          # a 3-8 s spoken line ON THE BOX (first-run --voice, or film-ue push)
   voice_sound: /Game/_Demo/Speech/Audio/demo_line
   face_anim: /Game/_Demo/Speech/Anim/AS_demo_line
   idle: /MetaHumanCharacter/Optional/Animation/TemplateAnimations/Technical_Loops/Idle/mhc_mh001_fmn_b_idle
   seq: /Game/_Demo/SEQ_Demo
-  out: /srv/film/demo/out                        # renders, QA and stills on the box
+  out: /srv/ue/demo/out                          # renders, QA and stills on the box (the editor writes there)
