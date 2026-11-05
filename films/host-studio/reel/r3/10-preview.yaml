@@ -1,7 +1,13 @@
 # Whole reel, fast (960x540, 1 sample, JPG, seconds per shot): after every rebuild of SEQ_Reel, before any final.
 # agent-09 reviews it (framing, clipping, the hair pop, the watch); agent-06 can rough the cut from it.
+#   film-ue apply .../10-preview.yaml --set build=58c0b010     (the film/host-studio commit the box was built from)
+# One directory per build, so a rebuild renders afresh and a second apply of the same build converges (nothing to do).
+# The sequence has 12-frame handles: frames -0012..-0001 and 1560..1571 are handles; the reel is 0000..1559.
 kind: include
 files: [vars.yaml]
+---
+kind: vars
+vars: {build: current}
 ---
 kind: vars
 vars:
@@ -11,11 +17,10 @@ vars:
 ---
 kind: render
 version: 1
-name: r3_preview
+name: "r3_preview_${build}"
 sequence: "${seq}"
 level: "${level}"
-out_dir: "${out}/preview"
+out_dir: "${out}/preview/${build}"
 preset: preview
 shots: ${shots}
 chunking: shot           # one MRQ job per camera cut, each from its own first frame (cloth pre-roll rule)
-overwrite: true          # the scene changes between rebuilds: never keep a stale preview frame
