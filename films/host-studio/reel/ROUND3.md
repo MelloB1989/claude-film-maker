@@ -196,3 +196,7 @@ If something blocks the editor (a cloud wait, a fix in progress), agent-07 rende
 - chain13b on Trey (bcdda51c): calibrate/naturalize her then him, head turns on the bones, runbook, verify, then cast4 + the gate.
 - hair_cover_ab hit B68 (overwrite never converges); it reruns with an out_dir per variant.
 - WRAP.md (agent-13): the last hour on the box, 21:30-22:30 UTC.
+- final_c set check (agent-05): 852/852 frames, 1.64 s/frame, 15.9 GB; the cut flashes are gone. A new defect: V03 f479 was half-lit into V04's state because light steps were baked as two linear keys. Fixed with constant hold keys (74b48a83).
+- V04 sun (agent-09 d0eea488): the sun eases to 2 lux and never reaches 0 before the S11 cut.
+- Re-render after one light.py re-apply: V04 and V05 whole, plus step frames 359, 479, 794 and 959, into final_c with resume. Old frames are deleted or moved, not overwritten (B68). Presenter step frames 1199 and 1319 come with the presenter finals.
+- Operator MetaHuman retry B (agent-04 9450cb90): solve in a separate exec and warm the tracker models. Fallback C (one-image landmarks) is uncertain and would give a weaker likeness; if it comes to C, the operator decides before any swap.
