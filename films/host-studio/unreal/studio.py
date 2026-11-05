@@ -41,6 +41,10 @@ if _h is None or not _h.get_class().get_path_name().startswith(HOST_BP + "."):
     _loc, _yaw = ((_h.get_actor_location(), _h.get_actor_rotation().yaw) if _h is not None
                   else (unreal.Vector(30, 40, 0), 0.0))
     L.spawn("Host", asset=HOST_BP, loc=(_loc.x, _loc.y, _loc.z), rot_=_yaw, replace=True)
+    # the reel's Host binding pointed at the actor just replaced: re-point it (its tracks are kept), and say so
+    if unreal.EditorAssetLibrary.does_asset_exist("/Game/Reel/SEQ_Reel"):
+        from fmbridge.ops import seq as _seq
+        print("SEQ_Reel Host binding:", _seq.rebind("/Game/Reel/SEQ_Reel", ["Host"]))
 
 
 # ------------------------------------------------------------------------------------------------- materials
