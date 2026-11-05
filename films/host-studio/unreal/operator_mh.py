@@ -22,6 +22,17 @@ logged. Only Epic's cloud (rig, textures) sees the face, through the MetaHuman s
 #   are paired). Lead: the frames' contour data is not initialised for the capture config in a scripted promote (the
 #   toolkit does it on promote); look for the call in unreal.PromotedFrameUtils and Epic's MetaHuman Python samples
 #   (Engine/Plugins/MetaHuman*/**/Python). MetaHumanContourData has no Python-visible fields.
+# UPDATE (round 3, later the same night): FIXED. The missing call was
+#   PromotedFrameUtils.initialize_contour_data_for_footage_frame(pose, frame) (Epic's
+#   MetaHumanAnimator/Content/Python/create_identity_for_performance.py); with Epic's sequence (the identity stage now)
+#   all 3 frames tracked and conform = NONE. character: import_from_identity SUCCESS; bodies.py --who op: rig 75 s,
+#   textures 5 s, build 94 s -> /Game/Host/Unpacked/Host_Op/BP_Host_Op (the build was refused once right after the
+#   textures; bodies.py now retries). The blank character wears nothing: STAGE='grooms' (OUTFIT + GROOMS, a hair/beard/
+#   brows PLACEHOLDER) then mh.build; colours need a built collection (grooms, build, grooms, build).
+#   Not swapped in on round 3 (the operator's decision): tomorrow, grooms -> build -> host_swap.py HOST='op' -> save ->
+#   clip checks -> save -> STAGE='measure' -> agent-11's heights -> agent-01's calibration on Host_Op.
+#   The state (OperatorCapture/**, Host_Op*, Unpacked/Host_Op/**, the CaptureManager Media frames) is saved under
+#   ue-linux/private/ only.
 # Not viable: the no-depth route (the Creator's ConformTargetParams wants a target head mesh + 2D curves from a known
 #   camera, i.e. a head mesh built from the depth by hand). Untested: the teeth pose (needs the solved identity).
 import json
