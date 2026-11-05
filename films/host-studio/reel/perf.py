@@ -6,7 +6,10 @@ and body made one skeleton, the eyes locked on each shot's lens or on the partne
 
     cd tools && uv run python ../films/host-studio/reel/perf.py push            # the WAVs to the workstation
     cd tools && uv run python ../films/host-studio/reel/perf.py solve --only him # one solve per call (see SOLVES)
-    cd tools && uv run python ../films/host-studio/reel/perf.py compose         # splice, beats -> AS_reel_<who>_face
+    cd tools && uv run python ../films/host-studio/reel/perf.py compose         # splice -> AS_reel_<who>_solve
+    cd tools && uv run python ../films/host-studio/reel/perf.py calibrate --who her  # once per face: which curve turns
+    cd tools && uv run python ../films/host-studio/reel/perf.py naturalize --who her # perfkit -> AS_reel_<who>_face
+    cd tools && uv run python ../films/host-studio/reel/perf.py check --who her      # anim.check, solve vs face
     cd tools && uv run python ../films/host-studio/reel/perf.py stage           # Test_ sequences, cameras, marks
     cd tools && uv run python ../films/host-studio/reel/perf.py sync|gaze|stills [--who him]
     cd tools && uv run python ../films/host-studio/reel/perf.py place --seq /Game/Reel/SEQ_Reel   # for R7
@@ -312,18 +315,84 @@ result = job()
 """
 
 
-def compose(who: str) -> dict:
-    """The face of `who`'s whole performance: the base solve, the other-mood lines spliced in at their frames, the
-    silent beats added. -> ANIM/AS_reel_<who>_face (curves only; sync bakes the skeleton onto it)."""
+def compose(who: str, r3: bool = True) -> dict:
+    """The face of `who`'s whole performance: the base solve, the other-mood lines spliced in at their frames.
+    Round 3 (`r3`, the default) stops there -> ANIM/AS_reel_<who>_solve, and `naturalize` makes the face; v2 added the
+    smoothstep beats here -> ANIM/AS_reel_<who>_face (curves only; sync bakes the skeleton onto it)."""
     c = cues()
     sec = lambda f: (f - START[who]) / FPS  # noqa: E731  master frame -> seconds into the performance
     splices = [{"anim": f"{SPEECH}/Anim/AS_{anim_name(k)}", "t0": sec(c[k]["file_frame"]), "fade": 4 / FPS}
                for k in SPLICES[who]]
-    beats = [[n, [[sec(f), v * SIGN.get(n, 1.0)] for f, v in ks]] for n, ks in globals()["beats"](who)]
-    params = {"base": f"{SPEECH}/Anim/AS_{anim_name(who)}", "out": f"{ANIM}/AS_reel_{who}_face",
-              "splices": splices, "beats": beats}
+    beats = [] if r3 else [[n, [[sec(f), v * SIGN.get(n, 1.0)] for f, v in ks]] for n, ks in globals()["beats"](who)]
+    params = {"base": f"{SPEECH}/Anim/AS_{anim_name(who)}",
+              "out": f"{ANIM}/AS_reel_{who}_{'solve' if r3 else 'face'}", "splices": splices, "beats": beats}
     return ok(client.exec_code(f"PARAMS = {json.dumps(json.dumps(params))}\n" + COMPOSE, timeout=1800))
 
+
+
+# ------------------------------------------------------------------------------------- round 3: perfkit (note 1)
+
+# The operator on v2: "the facial expressions and movements look very robotic". v2's beats were smoothstep holds on the
+# curves: a head parked at -65 deg for 6 s, smiles at a flat value, nothing alive in between. Round 3 keeps the solve
+# (lip-sync, the solver's own blinks and breaths) and hands the rest to perfkit's perf.face: the same looks and
+# smiles, written as gaze shifts (eyes lead, the head follows with overshoot and settles, saccades and a blink on the
+# big shifts), expression events (asymmetric, with attack/release and life in the hold), a tilt and a nod, the moods
+# as quiet baselines; micro-motion in every hold; irregular blinks. Angles are the CHARACTER's (yaw + = their left,
+# pitch + = up); perf.calibrate (run once per face) says which head curve does what (HeadRoll turns on these rigs).
+SEED = {"him": 31, "her": 17}
+
+
+def events(who: str) -> dict:
+    """perf.face's events for `who`, in seconds from START[who] (PLAN v2's beats as perfkit events)."""
+    s = lambda f: round((f - START[who]) / FPS, 3)  # noqa: E731
+    if who == "her":
+        tilt = word("L3b", "yourself", 1282)
+        return {
+            # S15: she watches him while he speaks L2: he is 80 cm in front and 95 cm to her left (~50 deg), his eyes
+            # ~16 cm higher (~7 deg); her face does most of it, the eyes the rest
+            "start_gaze": [35.0, 4.5],  # where her head already points at f1080 (perfkit starts the head there)
+            # ("head" is the share of the way left from where the head is: 0.1 keeps it near 35 deg, the eyes do 13)
+            "gaze": [{"t": 0.0, "yaw": 48.0, "pitch": 6.0, "dist_cm": 125.0, "scan": "face", "head": 0.1},
+                     # to the lens for L3a (f1158), the eyes first
+                     {"t": s(1146), "yaw": 0.0, "pitch": 0.0, "scan": "lens", "head": 1.0},
+                     # S17: a glance to him on "comes around" (L4b), then back to the lens
+                     {"t": s(1381), "yaw": 44.0, "pitch": 5.0, "dist_cm": 125.0, "scan": "face", "head": 0.6},
+                     {"t": s(1398), "yaw": 0.0, "pitch": 0.0, "scan": "lens", "head": 1.0}],
+            "expressions": [
+                # "Nice try.": a playful half-smile, her left side leading, gone by L3b
+                {"preset": "smirk", "t": s(1160), "until": s(1206), "intensity": 0.55, "asym": 0.6},
+                # after "...That's karma.": a warm smile to the lens, held through S18 (alive in the hold)
+                {"preset": "smile", "t": s(1424), "until": s(END), "intensity": 0.55, "asym": 0.15}],
+            "tilts": [{"t": s(tilt - 6), "until": s(tilt + 40), "roll_deg": 5.0}],  # on "yourself"
+            "nods": [{"t": s(1436), "kind": "nod", "depth_deg": 3.0}],
+            "moods": [{"t0": 0.0, "t1": s(1158), "mood": "calm", "intensity": 0.6},     # listening to him
+                      {"t0": s(1158), "t1": s(1212), "mood": "playful", "intensity": 0.7},
+                      {"t0": s(1212), "t1": s(1380), "mood": "confident", "intensity": 0.7},
+                      {"t0": s(1380), "t1": s(END), "mood": "warm", "intensity": 0.7}],
+        }
+    raise SystemExit("his round-3 events come with the new character (agent-04): ROUND3.md step 6")
+
+
+def naturalize(who: str, plot: bool = True) -> dict:
+    """perf.face over the composed solve -> ANIM/AS_reel_<who>_face (what sync, gaze and place use, as in v2). Needs
+    `compose` (r3) and perf.calibrate on the presenter's face (`calibrate`)."""
+    e = events(who)
+    args = {"anim": f"{ANIM}/AS_reel_{who}_solve", "out": f"{ANIM}/AS_reel_{who}_face",
+            "wav": _j(IMPORT, f"stem_{who}.wav"), "solver_head": "soften", "blink_mode": "replace",
+            "mouth_mix": 0.5, "seed": SEED[who], **e}
+    if plot:
+        args["plot"] = _j(REMOTE_STILLS, f"perf_{who}_face.png")
+    return ok(client.op("perf.face", timeout=900, **args))
+
+
+def calibrate(who: str) -> dict:
+    """perf.calibrate on the presenter in the level (once per face skeleton; the face must be Sequencer-driven)."""
+    return ok(client.op("perf.calibrate", label=LABEL[who], timeout=600))
+
+
+def check(who: str) -> dict:
+    """anim.check on the solve (v2's base) and on the round-3 face: the before/after numbers."""
+    return {k: ok(client.op("anim.check", anim=f"{ANIM}/AS_reel_{who}_{k}")) for k in ("solve", "face")}
 
 
 # ---------------------------------------------------------------------------------------------------- the stage
@@ -748,7 +817,7 @@ def place(path: str) -> list:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("cmd", choices=["push", "solve", "compose", "stage", "signs", "sync", "gaze", "stills", "cleanup", "drive_faces", "restage",
-                                       "place", "arm_axes", "gesture"])
+                                       "place", "arm_axes", "gesture", "calibrate", "naturalize", "check"])
     ap.add_argument("--who", default="him,her")
     ap.add_argument("--seq", default="/Game/Reel/SEQ_Reel", help="place: the sequence")
     ap.add_argument("--frames", help="stills: master frames, comma-separated")
@@ -764,7 +833,8 @@ def main() -> None:
     elif a.cmd == "compose":
         for w in a.who.split(","):
             print(w, json.dumps(compose(w)))
-    elif a.cmd in ("stage", "restage", "signs", "sync", "gaze", "stills", "arm_axes", "gesture"):
+    elif a.cmd in ("stage", "restage", "signs", "sync", "gaze", "stills", "arm_axes", "gesture", "calibrate", "naturalize",
+                   "check"):
         for w in a.who.split(","):
             if a.cmd == "gaze":
                 r = gaze(w, a.start_at, a.stop_at)
