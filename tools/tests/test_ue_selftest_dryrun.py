@@ -157,8 +157,9 @@ def _setup_env(ue, fmb, monkeypatch, tmp_path):
     class Px:
         def __init__(self, v):
             self.r = self.g = self.b = v
+    # an RGBA8 target reads back 0..255 whatever normalize says (day 1), a float one raw
     ue.RenderingLibrary.read_render_target_raw = staticmethod(lambda world, rt, normalize=True:
-                                                              [Px(0.46 if normalize else lum)] * 64)
+                                                              [Px(0.46 * 255 if "RGBA8" in str(rt.fmt) else lum)] * 64)
 
     def still(**kw):
         """view.still on the fake: a flat grey PNG."""
