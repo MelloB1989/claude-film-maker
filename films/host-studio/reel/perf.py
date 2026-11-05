@@ -143,7 +143,13 @@ except Exception:
 def face_mesh(who: str) -> str:
     """The face mesh of the presenter in the level (the Host actor is whoever HOST is: Trey, or the operator's
     MetaHuman once agent-04's build lands), else FACE_MESH's."""
-    return ok(client.exec_code(f"PARAMS = {LABEL[who]!r}\n" + FACE_OF)) or FACE_MESH[who]
+    got = ok(client.exec_code(f"PARAMS = {LABEL[who]!r}\n" + FACE_OF))
+    if got:
+        print(f"face mesh for {who}: {got} (from {LABEL[who]}.Face in the level)", file=sys.stderr)
+        return got
+    print(f"WARNING: no Face mesh on {LABEL[who]} in the level: solving {who} on the fallback {FACE_MESH[who]}",
+          file=sys.stderr)
+    return FACE_MESH[who]
 
 
 
