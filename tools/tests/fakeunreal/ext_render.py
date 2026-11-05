@@ -253,7 +253,7 @@ def install(fake):
             for rp in _passes(cfg):
                 name = fmt.replace("{render_pass}", rp).replace("{frame_number}", f"{f:0{pad}d}")
                 for ext in exts:
-                    path = os.path.join(root, *name.split("/")) + "." + ext
+                    path = os.path.join(root, *name.split("/")) + "." + {"jpg": "jpeg"}.get(ext, ext)  # MRQ writes .jpeg, as on the box
                     os.makedirs(os.path.dirname(path), exist_ok=True)
                     with open(path, "wb") as fh:
                         fh.write(DATA[ext])
