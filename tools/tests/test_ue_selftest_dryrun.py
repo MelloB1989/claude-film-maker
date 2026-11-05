@@ -25,8 +25,9 @@ BUDGET_S = 90.0  # wall clock per area on the fake (layout.settle waits real sec
 
 # checks only a real renderer, physics or engine data can judge: failing here is expected
 FAKE_ONLY = {
-    "cam": {"marker 1 at (u, v) on 16:9 Digital Film", "marker 2 at (u, v) on 16:9 Digital Film",  # pixels
-            "marker 1 at (u, v) on Super 35mm", "marker 2 at (u, v) on Super 35mm",
+    "cam": {"marker 0 at (u, v) on 16:9 Digital Film", "marker 0 at (u, v) on Super 35mm",  # pixels (the fake's
+            "marker 1 at (u, v) on 16:9 Digital Film", "marker 2 at (u, v) on 16:9 Digital Film",  # capture is a
+            "marker 1 at (u, v) on Super 35mm", "marker 2 at (u, v) on Super 35mm",  # stand-in picture)
             "WS: the figure's top on the predicted row", "WS: the feet on the predicted row",
             "MCU: the figure's top on the predicted row", "CU: the figure's top on the predicted row",
             "push-in: Sequencer plays the baked key at 48",  # the fake's Sequencer does not evaluate keys

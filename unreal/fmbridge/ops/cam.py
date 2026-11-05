@@ -856,24 +856,40 @@ def rig_move(*, rig_label: str, sequence: str, keys: list) -> dict:
 
 # --- pictures ---------------------------------------------------------------------------------------------------
 
+def _render(camera: str, path: str, width: int, height: int):
+    """A raw still through a camera: view.still's scene capture (FOV set from the camera, no viewport), else
+    look.still. A generator."""
+    import inspect
+
+    from . import _OPS
+    if "view.still" in _OPS:
+        got = call("view.still", out=path, camera=camera, width_px=int(width), height_px=int(height))
+    else:
+        got = call("look.still", camera_label=camera, path=path, width=int(width), height=int(height))
+    if inspect.isgenerator(got):
+        got = yield from got
+    return got
+
+
 @op("cam.still", mutates=False, idempotent=True, tags=["camera", "qa", "gpu"])
 def still(*, camera: str, out: str, width: int = 960, height: int | None = None, guides: bool = True,
           subjects: list | None = None):
     """A still through a camera with the operator's guides drawn on it: thirds, action/title safe, centre, and each
     subject's landmarks where the lens math puts them (green crosses), so a mismatch between solver and render shows.
     A multi-tick job. Keep it small (960 wide): the overlay is drawn in pure Python. height: default the camera's
-    filmback aspect; another aspect stretches the picture to fill the image (seen on day 1), it is not letterboxed.
+    filmback aspect (the picture is the image then). Rendered by view.still's scene capture at the camera's
+    horizontal field of view; look.still's viewport screenshot only when the bridge has no view.still (on day 1 it
+    sometimes rendered at the viewport's own 90 degrees instead of the camera's lens).
 
     Returns: {"path", "width", "height", "raw": the still without guides}.
     Example: film-ue op cam.still camera=CAM_A out=/tmp/cam_a.png subjects=Presenter
     """
-    from .look import still as look_still
     raw = out[:-4] + "_raw.png" if out.lower().endswith(".png") else out + "_raw.png"
     cam = read(camera)
     subs = _subjects(subjects)
     if height is None:
         height = max(2, round(width / lens.aspect(cam["filmback"])))
-    yield from look_still(camera, raw, width, height)
+    yield from _render(camera, raw, width, height)
     yield
     img = png.read(raw)
     if guides:
