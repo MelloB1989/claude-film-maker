@@ -43,3 +43,8 @@ fast-forwards to.
 | first-run | `editor.api_names`: every `unreal.<Name>` the bridge uses, checked against the live module | agent-10 184437aa | 1025 passed |
 | first-run | `transport.get` in parts (SSM output cap) | agent-07 6a6bc809 | 1027 passed |
 | dx | `view.capture`: show-only/hidden lists through the component's calls (EditInstanceOnly properties) | agent-13 f9bbd4fd | 1027 passed |
+| batch 1-3 | agent-13: `view` render-target cache per world (72a80945), `seq` bounded section ranges set before the range (f36288d1), `dx` scratch cleanup after GC (f8195902) | agent-13 | 1027 passed |
+| batch 1-3 | `wp._box`: `unreal.Box(min, max)` (`is_valid=` is refused live); the fake's Box now refuses it too | agent-10 d06c4b69 + agent-13 8f9320ac | 1027 passed |
+| platform | Vulkan SM6 target in setup/first-run; `film-ue plugin-build` (FabScript built on the box in ~20 s); project sync keeps plugin binaries | agent-07 260a1de2, e1a8d90c | 1034 passed |
+| mat | MP_CUSTOM_DATA0/1 (hidden from Python in 5.8) skipped and reported | agent-13 bb6d57c0 | 1034 passed |
+| api_names | box run: 3 missing of 242. USD import now says the USDImporter plugin is off; `EMetaHuman` was a docstring hit (the scan reads code only now); `MoviePipelineEditorBlueprintLibrary` is agent-13's render fix | agent-10 befdc58d | 1034 passed |
