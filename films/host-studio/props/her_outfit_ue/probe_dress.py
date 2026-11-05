@@ -39,7 +39,8 @@ if seq:
             tracks = []
             for t in b.get_tracks():
                 secs = t.get_sections()
-                tracks.append([t.get_class().get_name(), len(secs),
-                               [[s.get_start_frame(), s.get_end_frame()] for s in secs][:4]])
+                rng = lambda s: [s.get_start_frame() if s.has_start_frame() else None,  # noqa: E731 (infinite
+                                 s.get_end_frame() if s.has_end_frame() else None]          # sections have none)
+                tracks.append([t.get_class().get_name(), len(secs), [rng(s) for s in secs][:4]])
             out["seq"][f"{pname}/{name}" if pname else name] = tracks
 result = out
