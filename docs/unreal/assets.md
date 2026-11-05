@@ -291,14 +291,15 @@ LOD/version tokens are skipped); one-letter tokens count only at the end (`_N`, 
 `unreal/plugins/FabScript` calls Fab's own `UFabBrowserApi::AddToProject` through reflection (FindFunction +
 JsonObjectToUStruct + ProcessEvent: no link to Fab's private code), so Epic's exact workflow runs for every format,
 packs included. Nothing needs it: without it `fab.add` downloads and imports in Python, and only unreal-engine packs
-answer `unsupported` with this hint. To build it into a project on the box:
+answer `unsupported` with this hint. To build it into a project on a Linux box (day 1: 2 files compiled, 20 s):
 ```bash
-cp -r unreal/plugins/FabScript <Project>/Plugins/                      # next to the .uproject
-<Engine>/Engine/Build/BatchFiles/Linux/Build.sh <Project>Editor Linux Development -Project=<Project>/<Project>.uproject
+film-ue --box B plugin-build FabScript     # setup.sh plugin: builds against the restored engine, installs in Plugins/
+film-ue --box B editor restart             # loads it
 # Windows: Engine\Build\BatchFiles\Build.bat <Project>Editor Win64 Development -Project=...
 ```
-Restart the editor; `python: unreal.FabScript.is_fab_loaded()` is True. Not compiled tonight (no engine here): if it
-fails, the fixes are header paths in FabScriptLibrary.cpp (JsonObjectConverter.h is in JsonUtilities). For packs on
+A plain `Build.sh` against the restored engine would rebuild the whole engine (the tarball has no engine
+Intermediate): plugin-build marks the engine installed while UBT runs (docs/unreal/platform.md, gotchas). Then
+`python: unreal.FabScript.is_fab_loaded()` is True. For packs on
 Linux also copy `libBuildPatchInstallerLib.so` from Epic's binary Fab plugin into `Engine/Plugins/Fab/ThirdParty/`.
 
 ## 7. API_NOTES

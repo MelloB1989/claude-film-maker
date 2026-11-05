@@ -31,6 +31,24 @@ def step(name: str, *args: str, timeout: int = 1800) -> str:
     return ws.sh(f"UE_USER={shlex.quote(ws.conf()['user'])} bash {kit_dir()}/setup.sh {name} {a}", timeout, root=True)
 
 
+def build_plugin(name: str, timeout: int = 1800) -> str:
+    """Build unreal/plugins/<name> (a C++ editor plugin, e.g. FabScript) on the box against its engine and install it
+    in the project (setup.sh plugin). The editor loads it on its next restart (film-ue editor restart)."""
+    import base64
+    import io
+    import tarfile
+    src = KIT_SRC.parent / "plugins" / name
+    if not (src / f"{name}.uplugin").is_file():
+        raise SystemExit(f"no plugin {name} in {src.parent}")
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w:gz") as t:
+        t.add(src, arcname=name, filter=lambda i: None if "/Binaries" in i.name or "/Intermediate" in i.name else i)
+    kit = upload_kit()
+    ws.put_text(f"{kit}/plugin-{name}.tgz", buf.getvalue())
+    engine = ws.conf().get("engine_dir") or "/srv/ue/engine"
+    return step("plugin", f"{kit}/plugin-{name}.tgz", engine, ws.conf()["project_dir"], timeout=timeout).strip()
+
+
 def reboot() -> None:
     if ws.over_ssh():
         try:
@@ -81,6 +99,7 @@ def provision(engine_s3: str, version: str, project_src: str, project_name: str,
         log(step("project-copy", f"{WINDISK}/{project_src[4:].strip('/')}", project_dir, timeout=3600).strip())
     else:
         log(step("project", project_src, project_dir, timeout=3600).strip())
+    log(step("rhi", project_dir, timeout=120).strip())  # Vulkan SM6: the DDC in S3 is VULKAN_SM6
     epic_s3 = epic_s3 or ws.conf().get("epic_s3", "")
     log(step("service", engine, f"{project_dir}/{project_name}.uproject", level, epic_s3, timeout=600).strip())
     ws.save(project_dir=project_dir)
