@@ -84,6 +84,22 @@ def _destroy_prefixed(prefix: str) -> int:
     return n
 
 
+def delete_dir(folder: str) -> bool:
+    """Delete a scratch folder after leaving it: the level just left stays in memory (referenced) until a garbage
+    collection, and delete_directory refuses it until then (day 1: 'could not delete /Game/_Selftest/dx_client').
+    Collects, deletes, and once more if the first try was refused."""
+    if not _eal().does_directory_exist(folder):
+        return True
+    for _ in range(2):
+        try:
+            unreal.SystemLibrary.collect_garbage()
+        except Exception:
+            pass
+        if _eal().delete_directory(folder) or not _eal().does_directory_exist(folder):
+            return True
+    return False
+
+
 @contextlib.contextmanager
 def scratch(folder: str, level: bool = True, keep: bool = False, prefix: str = ""):
     folder = folder.rstrip("/")
@@ -100,5 +116,5 @@ def scratch(folder: str, level: bool = True, keep: bool = False, prefix: str = "
         if not level and not keep:
             _destroy_prefixed(s.prefix)
         leave(s.previous, folder)
-        if not keep and _eal().does_directory_exist(folder):
-            _eal().delete_directory(folder)
+        if not keep:
+            delete_dir(folder)

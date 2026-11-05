@@ -59,4 +59,7 @@ def run(ue, t):
         t.ok("a missing actor is an actionable error", err.get("code") == "not_found" or bool(err.get("hint")),
              detail=json.dumps(err)[:500])
     finally:
-        ue.call("selftest.cleanup", area="dx_client")
+        try:
+            ue.call("selftest.cleanup", area="dx_client")
+        except Exception as e:  # leftovers in a scratch folder are not a failure of what was tested
+            t.note(f"cleanup of {t.scratch} failed: {e}")

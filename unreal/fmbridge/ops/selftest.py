@@ -70,6 +70,7 @@ def cleanup(*, area: str = "") -> dict:
     eal = EAL
     if not eal.does_directory_exist(root):
         return {"deleted": [], "changed": False}
-    if not eal.delete_directory(root):
+    from . import _scratch
+    if not _scratch.delete_dir(root):
         raise OpError(f"could not delete {root}", code="engine", hint="something in it is open or referenced")
     return {"deleted": [root], "changed": True}
