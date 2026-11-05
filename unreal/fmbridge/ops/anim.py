@@ -200,7 +200,7 @@ def gaze_lock(sequence: str, actor_label: str, anim: str, out: str, camera: str 
         free(out)
     EAL.duplicate_asset(anim, out)
     a = load(out)
-    length = a.get_editor_property("sequence_length")
+    length = float(AL.get_sequence_length(a))
     orig = {(s, d): _keys(a, f"CTRL_expressions_eyeLook{d}{s}") for s in EYES for d in LOOK}
     zero2 = {(s, d): [0.0, 0.0] for s in EYES for d in LOOK}
     _write_eyes(a, [0.0, length], zero2)
@@ -385,7 +385,7 @@ def bake_pose(sequence: str, actor_label: str, source: str, target: str, anim: s
             rot[b].append(_q(t))
             scl[b].append([sc.x, sc.y, sc.z])
     n_keys = AL.get_num_keys(a)
-    length = a.get_editor_property("sequence_length")
+    length = float(AL.get_sequence_length(a))
     span = (len(frames) - 1) / fps  # the seconds the samples cover
     tracks = {str(n) for n in AL.get_animation_track_names(a)}
     ctrl = a.get_editor_property("controller")
@@ -433,7 +433,7 @@ def bake_follow(sequence: str, actor_label: str, anim: str, out: str, leader: st
     res = yield from bake_pose(sequence, actor_label, leader, follower, anim, out, bones, ticks)
     if not head_control:
         a = load(out)
-        _set(a, "headcontrolswitch", [0.0, a.get_editor_property("sequence_length")], [0.0, 0.0])
+        _set(a, "headcontrolswitch", [0.0, float(AL.get_sequence_length(a))], [0.0, 0.0])
         EAL.save_asset(out)
     return res
 

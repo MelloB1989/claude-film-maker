@@ -46,11 +46,7 @@ def _solve(wav: str, name: str, face_mesh: str, mood: str, intensity: float, hea
     so.set_editor_property("mood", getattr(unreal.AudioDrivenAnimationMood, mood))
     so.set_editor_property("mood_intensity", float(intensity))
     perf.set_editor_property("audio_driven_animation_solve_overrides", so)
-    for k, v in (("generate_blinks", blinks), ("enable_head_movement", head)):
-        try:
-            perf.set_editor_property(k, v)
-        except Exception:
-            pass
+    perf.set_editor_property("generate_blinks", bool(blinks))  # bGenerateBlinks; head motion is an export setting
     perf.set_blocking_processing(False)  # across editor ticks: a blocking solve holds the game thread for minutes
     err = perf.start_pipeline(True)  # EStartPipelineErrorType: NONE, NO_FRAMES, DISABLED (MetaHumanPerformance.h:65)
     started = err == getattr(unreal.StartPipelineErrorType, "NONE", None) or str(err).upper().rstrip(">: 0").endswith("NONE")
@@ -73,17 +69,21 @@ def _solve(wav: str, name: str, face_mesh: str, mood: str, intensity: float, hea
     out = f"{folder}/Anim/AS_{name}"
     free(out)
     U = unreal.MetaHumanPerformanceExportUtils
-    st = U.get_export_animation_sequence_settings(perf)
+    st = U.get_export_animation_sequence_settings(perf)  # the class default object: shared for the session
+    dialog = st.get_editor_property("show_export_dialog")
     for k, v in (("package_path", f"{folder}/Anim"), ("asset_name", f"AS_{name}"), ("show_export_dialog", False),
                  ("enable_head_movement", head), ("export_range", unreal.PerformanceExportRange.WHOLE_SEQUENCE),
                  ("target_skeleton_or_skeletal_mesh", load(face_mesh))):
         st.set_editor_property(k, v)
-    anim = U.export_animation_sequence(perf, st)
+    try:
+        anim = U.export_animation_sequence(perf, st)
+    finally:
+        st.set_editor_property("show_export_dialog", dialog)  # leave the editor's own export as it was
     if anim is None:
         raise SolveFailed("the export produced no animation")
     EAL.save_asset(perf_path)
     return {"sound": wave, "performance": perf_path, "anim": anim.get_path_name().split(".")[0], "pipeline": str(err),
-            "frames": frames, "seconds": anim.get_editor_property("sequence_length")}
+            "frames": frames, "seconds": float(unreal.AnimationLibrary.get_sequence_length(anim))}
 
 
 def _stitch(out: str, face_mesh: str, length_s: float, parts: list) -> None:
