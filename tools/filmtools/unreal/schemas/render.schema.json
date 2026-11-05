@@ -121,6 +121,14 @@
       ],
       "description": "override the project's anti-aliasing (default: the project's)"
     },
+    "shutter_timing": {
+      "enum": [
+        "center",
+        "open",
+        "close"
+      ],
+      "description": "where a frame's temporal samples (motion blur) sit: center (MRQ's default, N-s/2..N+s/2), open (N..N+s) or close; open keeps a camera cut or a stepped key on frame N out of the frame before it (a centred shutter blends the previous shot's camera into a shot's first frame)"
+    },
     "path_tracer": {
       "type": "boolean",
       "description": "render with the path tracer instead of deferred (Lumen)"

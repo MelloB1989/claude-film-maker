@@ -49,7 +49,7 @@ def test_job_renders_every_cut_and_writes_a_report(stage):
 
 def test_job_configures_mrq_from_the_spec(stage):
     ue = stage["ue"]
-    spec = {**stage["spec"], "preset": "final", "frames": [12, 20], "aa_method": "tsr",
+    spec = {**stage["spec"], "preset": "final", "frames": [12, 20], "aa_method": "tsr", "shutter_timing": "open",
             "cvars": {"r.Foo": 2}, "outputs": [{"kind": "exr", "compression": "zip"}, {"kind": "wav"}]}
     rep = run_op("render.job", spec=spec)
     assert rep["status"] == "ok"
@@ -64,6 +64,7 @@ def test_job_configures_mrq_from_the_spec(stage):
     assert ue.mrq.jobs[1]["settings"]["MoviePipelineAntiAliasingSetting"].get_editor_property(
         "use_camera_cut_for_warm_up") is False  # starts on its cut
     assert aa.get_editor_property("anti_aliasing_method") == "AAM_TSR"
+    assert s["MoviePipelineCameraSetting"].get_editor_property("shutter_timing") == "FRAME_OPEN"
     cv = s["MoviePipelineConsoleVariableSetting"].cvars
     assert cv["r.Foo"] == 2 and cv["r.HairStrands.SkyLighting"] == 0 and cv["r.DepthOfFieldQuality"] == 4
     assert s["MoviePipelineImageSequenceOutput_EXR"].get_editor_property("compression") == "ZIP"

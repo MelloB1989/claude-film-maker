@@ -118,6 +118,7 @@ The schema is `tools/filmtools/unreal/schemas/render.schema.json` (`film-ue rend
 | `warmup_render`, `warmup_engine` | preset | frames rendered and discarded at a shot start (TSR history) / ticked without rendering when there is no pre-roll |
 | `preroll` | cut | `cut`: a chunk after its cut's first frame is pre-rolled from it; `none`: start cold |
 | `aa_method` | project's | none, fxaa, taa, msaa, tsr, smaa |
+| `shutter_timing` | MRQ's (center) | center, open, close: where a frame's temporal samples sit. `open` keeps a camera cut on frame N out of the frame before it: with a centred shutter a shot's first frame blends the previous shot's camera (round 3, S11 f720 / S12 f780) |
 | `path_tracer`, `quality` | preset | renderer; film-quality cvars (Lumen, VSM SMRT 16x16, hair MSAA 8, DOF/blur 4) |
 | `cvars` | {} | extra cvars, on top of `t.MaxFPS 0` and `r.HairStrands.SkyLighting 0` (always) |
 | `passes` | [beauty] | beauty, depth, motion_vectors, unlit, lighting_only, detail_lighting, reflections_only, object_id |

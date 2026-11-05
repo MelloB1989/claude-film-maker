@@ -208,6 +208,7 @@ def _setting(cfg, cls_name: str, exact: bool = True):
 
 _AA = {"none": "AAM_NONE", "fxaa": "AAM_FXAA", "taa": "AAM_TEMPORAL_AA", "msaa": "AAM_MSAA", "tsr": "AAM_TSR",
        "smaa": "AAM_SMAA"}
+_SHUTTER = {"center": "FRAME_CENTER", "open": "FRAME_OPEN", "close": "FRAME_CLOSE"}  # EMoviePipelineShutterTiming
 
 
 _GAME_OVERRIDES = {"cinematic_quality": "cinematic_quality_settings", "texture_streaming": "texture_streaming",
@@ -283,6 +284,10 @@ def _configure(job, r: dict, chunk: dict) -> None:
     if r["aa_method"]:
         aa.set_editor_property("override_anti_aliasing", True)
         aa.set_editor_property("anti_aliasing_method", getattr(unreal.AntiAliasingMethod, _AA[r["aa_method"]]))
+    if r.get("shutter_timing"):  # MoviePipelineCameraSetting.ShutterTiming (MoviePipelineCameraSetting.h)
+        cam = _setting(cfg, "MoviePipelineCameraSetting")
+        cam.set_editor_property("shutter_timing", getattr(unreal.MoviePipelineShutterTiming,
+                                                          _SHUTTER[r["shutter_timing"]]))
 
     go = r.get("game_overrides")
     if go:  # absent: MRQ's transient Game Overrides apply with their defaults, as in every earlier render
