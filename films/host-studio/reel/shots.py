@@ -19,10 +19,12 @@ SIGN = (WALL + 4, SLAT_Y, 228.0)  # the sign's centre: 120 cm across, ~36 cm tal
 # The presenters' reel marks (feet), staggered in depth so a focus pull can hand the shot from him to her.
 # In the scene today both stand at the origin (her hidden): the reel's sequence moves them with transform keys.
 MARK_HIM, MARK_HER = (30.0, 40.0, 0.0), (-50.0, -55.0, 0.0)
-EYES_HIM, EYES_HER = 174.0, 158.0
+# him (round 3): the operator's MetaHuman, 178 cm; his eyes are v2's proportion (174 of 182) until agent-04 measures
+# them on the built body
+EYES_HIM, EYES_HER = 170.2, 158.0
 # Standing height (bodies.py's Height, the top of the head) and the knee's centre, cm: framing.py checks that every
 # presenter shot cuts above the knee and keeps the head. The knee is ~0.28 of the height until the bodies are measured.
-TOP_HIM, TOP_HER = 182.0, 168.0
+TOP_HIM, TOP_HER = 178.0, 168.0
 KNEE_HIM, KNEE_HER = TOP_HIM * 0.28, TOP_HER * 0.28
 # His shots were framed (v2) for eyes at 174 cm; they follow his eyes up or down (lifted()) for another body.
 EYES_HIM_V2 = 174.0
