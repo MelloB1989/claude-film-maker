@@ -1,0 +1,27 @@
+# Gate c (agent-09): her hair's green ends are the olive overshirt showing through the thin tips. S16 f1240-1243 at
+# the finals' quality, one render per strand coverage variant, driven by reel/hair_cover_ab.py (which sets the groom
+# and puts it back):  film-ue apply .../45-hair-cover.yaml --set tag=<variant>
+# Pre-rolled from S16's first frame (preroll: cut) so the hair arrives as in the full shot. AA as the finals' current
+# choice (follow 30-final.yaml if the calibration changes it).
+kind: include
+files: [vars.yaml]
+---
+kind: vars
+vars:
+  tag: base
+---
+kind: render
+version: 1
+name: "r3_hair_cover_${tag}"
+sequence: "${seq}"
+level: "${level}"
+out_dir: "${out}/hair_cover/${tag}"
+preset: final
+shots: [Reel_S16]
+frames: [1240, 1244]
+chunking: shot
+preroll: cut
+aa_method: tsr
+spatial: 1
+overwrite: true
+cvars: {"r.SSS.Quality": 1, "r.SSS.HalfRes": 0}

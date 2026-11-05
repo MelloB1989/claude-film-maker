@@ -6,6 +6,7 @@ the pre-roll before frame 0, are skipped).
     python reel/qa_review.py sheets FRAMES --out DIR [--per 8] [--width 320]     a sheet per shot + reel.jpg
     python reel/qa_review.py pops FRAMES [--shots S17] [--box 0.5,0,1,1] [--k 4]  jumps between frames, per shot
     python reel/qa_review.py pair BEFORE AFTER --out DIR [--frames 1400:1440] [--every 4] [--box ...]
+    python reel/qa_review.py crop FRAMES --out SHEET.jpg --frames 1256,1302 --box 0.3,0.5,0.7,1   a detail, full size
 
 `pops` measures the mean absolute change of each frame from the one before (grey, 1/4 size, inside `--box`, a
 fraction of the frame x0,y0,x1,y1) and flags a frame whose change is over `--k` times its shot's median (and over
@@ -144,6 +145,27 @@ def pair(before: str, after: str, out: str, lo: int, hi: int, every: int = 4, bo
     return {k: v for k, v in summary.items() if k != "series"}
 
 
+def crop(root: str, out: str, frames_: list, box, width: int = 640) -> str:
+    """Full-resolution crops of `box` (fractions x0,y0,x1,y1) at these master frames, side by side in one small
+    sheet: a detail (hair ends, a neckline, a wrist) judged at full size without pulling the frames."""
+    fr = frames(root)
+    cells = []
+    for f in frames_:
+        if f not in fr:
+            continue
+        im = Image.open(fr[f]).convert("RGB")
+        w, h = im.size
+        c = im.crop((round(box[0] * w), round(box[1] * h), round(box[2] * w), round(box[3] * h)))
+        c = c.resize((width, round(width * c.height / c.width)), Image.LANCZOS)
+        cells.append(_label(c, f"f{f}"))
+    if not cells:
+        raise SystemExit("no such frames")
+    p = Path(out)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    _grid(cells, min(3, len(cells))).save(p, quality=92)
+    return str(p)
+
+
 def _box(s: str):
     v = tuple(float(x) for x in s.split(","))
     if len(v) != 4:
@@ -172,12 +194,20 @@ def main() -> None:
     c.add_argument("--frames", default="1400:1440")
     c.add_argument("--every", type=int, default=4)
     c.add_argument("--box", type=_box, default=(0, 0, 1, 1))
+    d = sub.add_parser("crop")
+    d.add_argument("root")
+    d.add_argument("--out", required=True, help="the sheet's path (.jpg)")
+    d.add_argument("--frames", required=True, help="1256,1280,1302")
+    d.add_argument("--box", type=_box, required=True)
+    d.add_argument("--width", type=int, default=640)
     x = ap.parse_args()
     if x.cmd == "sheets":
         r = sheets(x.root, x.out, x.per, x.width)
     elif x.cmd == "pops":
         r = pops(x.root, set(x.shots.split(",")) if x.shots else None, x.box, x.k, floor=x.floor)
         r = {s: {k: v for k, v in d.items() if k != "series"} for s, d in r.items()}
+    elif x.cmd == "crop":
+        r = crop(x.root, x.out, [int(v) for v in x.frames.split(",")], x.box, x.width)
     else:
         lo, hi = (int(v) for v in x.frames.split(":"))
         r = pair(x.before, x.after, x.out, lo, hi, x.every, x.box)
