@@ -192,49 +192,49 @@ elif STAGE == "ingest":
         EAL.save_loaded_asset(fcd)
 
 elif STAGE == "identity":
-    # an Identity from the footage: the neutral pose on the take, promoted frames front/left/right, each tracked
-    # (contours from the frame's pixels + its depth map), then the identity solve (conform) - all in the editor, local
+    # Epic's sequence (MetaHumanAnimator/Content/Python/create_identity_for_performance.py, 5.8.4): the neutral pose on
+    # the footage, promoted frames whose contour data is initialised for the capture config
+    # (PromotedFrameUtils.initialize_contour_data_for_footage_frame - round 3's missing call), each frame's image and its
+    # timecode-paired depth path from PromotedFrameUtils, tracking, then the identity solve (conform) - local, editor
     fcd = footage()
     R["footage_path"] = fcd.get_path_name().split(".")[0]
+    PFU = unreal.PromotedFrameUtils
     tools = unreal.AssetToolsHelpers.get_asset_tools()
-    ident = EAL.load_asset(IDENTITY) if EAL.does_asset_exist(IDENTITY) else tools.create_asset(
-        IDENTITY.rsplit("/", 1)[1], CAPTURE_FOLDER, unreal.MetaHumanIdentity, unreal.MetaHumanIdentityFactoryNew())
+    if EAL.does_asset_exist(IDENTITY):
+        EAL.delete_asset(IDENTITY)  # a clean identity each run (round 3 left one with empty frames)
+    ident = tools.create_asset(IDENTITY.rsplit("/", 1)[1], CAPTURE_FOLDER, unreal.MetaHumanIdentity,
+                               unreal.MetaHumanIdentityFactoryNew())
     face = ident.get_or_create_part_of_class(unreal.MetaHumanIdentityFace)
-    pose = face.find_pose_by_type(unreal.IdentityPoseType.NEUTRAL)
-    if pose is None:
-        pose = unreal.new_object(unreal.MetaHumanIdentityPose, outer=face)
-        pose.set_editor_property("pose_type", unreal.IdentityPoseType.NEUTRAL)
-        face.add_pose_of_type(unreal.IdentityPoseType.NEUTRAL, pose)
-        pose = face.find_pose_by_type(unreal.IdentityPoseType.NEUTRAL)
+    pose = unreal.new_object(type=unreal.MetaHumanIdentityPose, outer=face)
+    face.add_pose_of_type(unreal.IdentityPoseType.NEUTRAL, pose)
     pose.set_capture_data(fcd)
+    pose.set_editor_property("fit_eyes", True)
     pose.load_default_tracker()
     t("capture_valid", lambda: pose.is_capture_data_valid())
-    imgs = frames(fcd.get_editor_property("image_sequences")[0])
-    deps = frames(fcd.get_editor_property("depth_sequences")[0])
-    R["n_images"], R["n_depth"] = len(imgs), len(deps)
+    cam = pose.get_editor_property("camera")
+    align = pose.get_editor_property("timecode_alignment")
     ident.set_blocking_processing(True)
-    # load the face contour tracker's NNE models first: the Creator's image tracker loads the default tracker (the same
-    # GenericFaceContourTracker the pose uses) synchronously on its first call; the identity pipeline may not (day 3:
-    # zero contours). Only whether a face was found is kept, never the landmarks.
-    w0, h0, c0 = png_rgba(imgs[FRAMES["front"]])
-    sub = unreal.get_editor_subsystem(unreal.MetaHumanCharacterEditorSubsystem)
-    t("warm_tracker_face_found", lambda: sub.track_face_landmarks_from_image(c0, w0, h0) is not None)
-    del c0
-    for old in list(pose.get_editor_property("promoted_frames")):  # a rerun starts clean (day 3: empty frames)
-        pose.remove_promoted_frame(old)
     R["tracked"] = {}
     for name, n in FRAMES.items():
-        pf, idx = pose.add_new_promoted_frame()
+        pf, _ = pose.add_new_promoted_frame()
+        pf.set_editor_property("is_front_view", name == "front")
+        pf.set_navigation_locked(True)
         pf.set_editor_property("frame_number", n)
         pf.set_editor_property("frame_name", name)
-        pf.set_editor_property("is_front_view", name == "front")
-        w, h, cols = png_rgba(imgs[n])
-        dn = min(len(deps) - 1, round(n * len(deps) / len(imgs)))
-        ident.start_frame_tracking_pipeline(cols, w, h, deps[dn], pose, pf, False)
-        R["tracked"][name] = {"frame": n, "depth_frame": dn, "size": [w, h],
-                              "contours": pf.frame_contours_contain_active_data()}
-    # the tracking results reach the frames on the game thread after this exec returns (day 3: contours false right
-    # after, so conform failed DEPTH_INPUT): solve in the next exec (STAGE='solve')
+        ok_init = PFU.initialize_contour_data_for_footage_frame(pose, pf)
+        e = {"frame": n, "init": bool(ok_init)}
+        if ok_init:
+            img = PFU.get_image_path_for_frame(fcd, cam, n, True, align)
+            dep = PFU.get_image_path_for_frame(fcd, cam, n, False, align)
+            got = PFU.get_promoted_frame_as_pixel_array_from_disk(img)
+            if got:
+                size, px = got
+                e["size"] = [size.x, size.y]
+                ident.start_frame_tracking_pipeline(px, size.x, size.y, dep, pose, pf, False)
+                e["contours"] = pf.frame_contours_contain_active_data()
+        R["tracked"][name] = e
+    t("conform", lambda: str(face.conform(unreal.ConformType.SOLVE)))
+    t("is_conformed", lambda: face.get_editor_property("is_conformed"))
     EAL.save_loaded_asset(ident)
     R["identity"] = IDENTITY
 
@@ -299,7 +299,7 @@ elif STAGE == "character":
     ident = EAL.load_asset(IDENTITY)
     prm = unreal.ImportFromIdentityParams()
     prm.set_editor_property("use_eye_meshes", True)
-    prm.set_editor_property("use_metric_scale", True)
+    prm.set_editor_property("use_metric_scale", False)  # Epic's example: MetaHuman-sized head on his 180 cm body
     prm.set_editor_property("use_teeth_mesh", False)  # no teeth pose solved yet
     R["import"] = str(K.sub().import_from_identity(c, ident, prm))
     R["body"] = plain(call("mh.body", character=CHARACTER, measurements=BODY))
