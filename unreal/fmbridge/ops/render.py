@@ -1068,8 +1068,8 @@ def compare(*, a: str, b: str, frames: list | None = None, ext: str = "png", zer
                           hint="install ffmpeg on the box (method=ffmpeg), or render PNG")
         from ..qa import compare as qcmp, image as qim
         for i, f in enumerate(want):
-            r = qcmp.compare(qim.read(os.path.join(a, f"{f:0{zero_pad}d}.{ext}")),
-                             qim.read(os.path.join(b, f"{f:0{zero_pad}d}.{ext}")), width=480)
+            r = qcmp.compare(qim.read(os.path.join(a, f"{rs.frame_number(f, zero_pad)}.{ext}")),
+                             qim.read(os.path.join(b, f"{rs.frame_number(f, zero_pad)}.{ext}")), width=480)
             ssim[f], psnr[f] = float(r["ssim"]), float(r["psnr"])
             yield {"progress": round((i + 1) / len(want), 3), "message": f"frame {f}: SSIM {ssim[f]:.4f}"}
     out = rs.ab_summary(ssim, psnr, min_ssim=min_ssim, worst=worst)
@@ -1079,8 +1079,8 @@ def compare(*, a: str, b: str, frames: list | None = None, ext: str = "png", zer
         from ..qa import image as qim, sheet as qsheet
         cells = []
         for f, sv, pv in out["worst"]:
-            pair = qsheet.side_by_side(qim.read(os.path.join(a, f"{f:0{zero_pad}d}.png")),
-                                       qim.read(os.path.join(b, f"{f:0{zero_pad}d}.png")), labels=("A", "B"))
+            pair = qsheet.side_by_side(qim.read(os.path.join(a, f"{rs.frame_number(f, zero_pad)}.png")),
+                                       qim.read(os.path.join(b, f"{rs.frame_number(f, zero_pad)}.png")), labels=("A", "B"))
             cells.append({"image": pair, "label": f"{f}  SSIM {sv:.4f}  PSNR {pv}",
                           "status": "fail" if sv < min_ssim else "ok"})
             yield

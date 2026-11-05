@@ -273,7 +273,8 @@ def install(fake):
                 state.active = None
                 return
             for rp in _passes(cfg):
-                name = fmt.replace("{render_pass}", rp).replace("{frame_number}", f"{f:0{pad}d}")
+                num = ("-" if f < 0 else "") + f"{abs(f):0{pad}d}"  # MRQ pads after the sign: -0012 (seen on the box)
+                name = fmt.replace("{render_pass}", rp).replace("{frame_number}", num)
                 for ext in exts:
                     path = os.path.join(root, *name.split("/")) + "." + {"jpg": "jpeg"}.get(ext, ext)  # MRQ writes .jpeg, as on the box
                     os.makedirs(os.path.dirname(path), exist_ok=True)

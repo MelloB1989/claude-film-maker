@@ -228,6 +228,19 @@ def test_cmdline_job_without_the_mrq_editor_library(stage, monkeypatch):
     assert stage["ue"].load_asset(c["manifest"].split(".")[0]) is None  # dropped after the chunk
 
 
+def test_handles_before_frame_0_count_as_rendered(stage, fmb, monkeypatch):
+    """Round 3's preview: SEQ_Reel has 12-frame handles, so V01's cut is [-12, 180); MRQ writes -0012..-0001
+    (padded after the sign) and the report said 'incomplete' because it looked for Python's -012."""
+    ue = stage["ue"]
+    ue.add_sequence("/Game/Reel/SEQ_H", start=-12, end=20, fps=24, cuts=[["CamA", -12, 8], ["CamB", 8, 20]])
+    monkeypatch.setattr(fmb.seq, "cuts", lambda path: [list(c) for c in ue.load_asset(path).cuts])
+    spec = {**stage["spec"], "sequence": "/Game/Reel/SEQ_H"}
+    rep = run_op("render.job", spec=spec)
+    assert [c["status"] for c in rep["chunks"]] == ["ok", "ok"] and rep["frames"] == 32 and rep["status"] == "ok"
+    assert {"-0012.png", "-0001.png", "0000.png"} <= set(os.listdir(stage["out"]))
+    assert run_op("render.plan", spec=spec)["chunks"] == []  # converged: the handles are on disk
+
+
 def test_status_cancel_describe(stage):
     st = run_op("render.status")
     assert st["status"] == "idle" and st["rendering"] is False
