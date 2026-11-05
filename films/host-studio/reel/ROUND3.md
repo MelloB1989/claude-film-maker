@@ -49,6 +49,42 @@ V04 are dropped.
 | S17 together | 0:55-1:00 | him, her | both: the glance on "comes around", then both to the lens; cut above the knee; the hair pop is here (end of the crane out, 45 s cut 0:39-0:40 = f1416-1440): presenters pinned to LOD 0 (agent-09) | 2, 1, 3a-c, cameras |
 | S18 title | 1:00-1:05 | him, her | a natural idle with life (not frozen); the practicals dim | 2, 1, 3a-c |
 
+## The presenter gate (nothing with presenters reaches the operator before it passes)
+
+The operator watched preview 1 and found it worse than v2: she clipped through her clothes, there was no lip
+movement, and he showed no improvement. It had none of the presenter setup and should never have gone out. So from
+now on nothing with presenters goes to the operator until agent-09 signs a written checklist with numbers
+(`reel/cast_gate.py`: frames, then `cast_gate.py engine` on the box; `perf.py verify` for the face numbers):
+
+| | check | how it is measured | pass |
+|---|---|---|---|
+| a | lips move with the VO in every speaking frame, still between lines | `perf.py verify`: per-line jaw/mouth range and std on the placed face, and the silences; frames: mouth motion on vs off the lines | every line moves, every silence is still |
+| b | garments and watch follow the body in every presenter frame | stills across each shot (sleeves vs arms, trousers, collar, the watch on the back of the LEFT wrist); `probe_dress.py` engine numbers | no A-pose, no gap, no clip, watch seated |
+| c | her hair black end to end | `cast_gate.py`: ends minus roots, teal_g | at most 0.02 |
+| d | the natural-performance layer is on | `anim.check` (blinks irregular, head moves, gaze shifts), `perf.py verify` | all checks pass |
+| e | him too: the same naturalize and body life on the current male presenter until the operator's MetaHuman replaces him | as (a) and (d) with `--who him` | as (a) and (d) |
+
+The deliverable that follows the gate is the cast preview, S13-S18 at 960x540 with audio. Then the presenter finals,
+each after its stills are approved.
+
+Runbook before any presenter render (and again after any re-place or editor restart): `restore_leader.py` ->
+`perf.py drive_faces` -> `perf.py place` (both) -> `props/her_outfit_ue/dress_her.py` -> `seq_dress.py`
+(the garments take Body's animation in SEQ_Reel, and the watch and hoops get attach tracks, so a level reload can't
+undo them) -> `probe_dress.py`. The face steps per presenter are agent-01's (`--who her|him`: solve, compose,
+calibrate, naturalize, check, stage/sync/gaze, calibrate_body, life, place, verify).
+
+## Privacy: the operator's face
+
+From the operator, 22:30 IST: once the operator's MetaHuman exists, the project and the DDC are saved only under
+`s3://rf-render-788655295054-aps1/ue-linux/private/` (SSE-KMS; only the box's role can read it), and only from the box.
+The core enforces this (main): when the box setting `face_data` is set, `film-ue sync project up` and `sync ddc
+save` refuse any destination outside `.../private/`. Without it, the project sync always leaves out the face assets
+(`Content/Host/OperatorCapture`, `Host_Op*`, `Unpacked/Host*`, `Capture/operator-face`). The pre-face DDC was saved
+at 17:00 to the normal prefix, which is fine. At the end, the final DDC and project go to `private/ddc/5.8.4/` and
+`private/project/HostStudio/`.
+
+The box ends at **22:30 UTC** (operator's extension). Every finished render is pulled off as it lands.
+
 ## Order of work (the box is never idle)
 
 The editor is the bottleneck: renders and character work both need it. Long set-shot renders fill the box while the
@@ -114,3 +150,8 @@ If something blocks the editor (a cloud wait, a fix in progress), agent-07 rende
 - Bind pose in preview 1's S17/S18 (operator): that preview ran before restore_leader; `dress_her.py` (agent-02) is now
   the checked last step. The watch sits 3.6 cm above the wrist, dial on the back of the wrist. The collar is still
   in Blender on the box. To prove it: a cast preview (S13, S15-S18) after the runbook, checked by agent-09.
+- Set-shot finals done at 16:57 UTC (V01-V03, V05, S11, S12, N01: 852 frames, 431 s); pulled to kali.
+- Cast preview 1df0cb0c-cast (17:02) against the gate: (b) PASS by eye (sleeves follow, the watch on the back of
+  the left wrist, the collar sits); (c) FAIL, teal_g +0.069 even with MI_K_HerHair on all slots: a material A/B is
+  next; (a) S16 PASS on frames, S13 waits for the engine numbers; (d)/(e) FAIL: naturalize was not applied
+  (calibrate failed on a dead HeadRoll: fixed in core 45e8146b).
