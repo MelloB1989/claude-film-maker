@@ -62,3 +62,44 @@ After day1-demo d6c24fa9 (anim.bake_follow, r.HairStrands.SkyLighting 0, penetra
 
 The shirt holds in 119 and 120; at 167 the collar still slips (the face's own neck motion at the end of the line:
 open), and the CU's warm hair is the 4300 K rim light (a look choice, not a bug).
+
+## HANDOFF (agent-13, 2026-11-05 ~15:00 UTC)
+
+Green on the box (latest runs, code = fleet/agent-10/day1 + the branches below): platform 48/0, dx 32/0, layout 36/0,
+seq 45/0, cam 52/0, qa 32/0, audio 17/0, env 56/0, foliage 20/0, wp 17/0. The demo applies end to end and converges
+(a second plan has nothing to change), rendered preview + final (168 frames), review passes (warnings only).
+
+Open, and why:
+- assets 62/1: fab.login. Fab needs its own Epic sign-in; the device-code URL is redacted in the log and goes to a
+  headless browser, so only the exchange-code route works (an operator gives a one-time code; agent-07's
+  `film-ue epic-login --exchange-code-cmd` / editor.epic_exchange_code). Asked the orchestrator.
+- render 25/2: the new-process / command-line executors need MoviePipelineEditorBlueprintLibrary, which this build's
+  editor never exposes (unreal.load_module('MovieRenderPipelineEditor') does not bring it); 'cancelled job reports
+  cancelled' got ok. agent-05 has no task: needs an owner.
+- anim 22/5 and pose (rig_keys: no control rig track): agent-01 (task assigned; reports on fleet/agent-13/day1-reports).
+- mh 36/2: no groom has instance parameters before the instance is assembled (probe output on day1-reports);
+  agent-04 is fixing the op; for this run the melanin/redness/whiteness steps were skipped (kali-only patch).
+- demo: frame 167 the collar still slips (the face's neck motion at the end of the line); the CU's warm hair is the
+  4300 K rim (a look choice). The review's penetration check is now on.
+
+How I drive the box (all from kali, 192.168.29.222, user nikhil; the fleet secret kali-ssh is a PASSWORD: use
+SSH_ASKPASS, never print it):
+- Checkout: /tmp/fleet-agent-13-ue (tools, unreal, examples, docs rsynced from a local merge of fleet/agent-10/day1 +
+  the fix branches being tested). Env: AWS_PROFILE=nani AWS_REGION=ap-south-1 FILM_UE_CONF_DIR=/tmp/fleet-agent-13-ue/conf
+  (conf = agent-07's film-ue.json + `film-ue set --local-port 18775`: agent-07's tunnel holds 18765).
+- After changing code: `cd tools && uv run film-ue install` (retry once: the first can fail while the old bridge goes).
+- Selftests: `/tmp/fleet-agent-13-ue/run.sh <areas...|all>` (film-ue selftest --keep-going into
+  /tmp/fleet-agent-13-ue/reports/<time>-<first area>/, log beside it); `python3 /tmp/fleet-agent-13-ue/why.py <dir> [areas]`
+  prints each failure and error in one line.
+- Demo: `uv run film-ue apply ../examples/unreal/demo/demo.yaml`, review `.../70-qa.yaml`, render `.../80-render.yaml
+  [--set preset=final]`; outputs in /srv/ue/demo/out (render/, qa/, stills*/); the voice line /srv/ue/demo/demo_line.wav
+  (espeak-ng on the box).
+- Pictures: `film-ue view stills --sequence /Game/_Demo/SEQ_Demo --out-dir /srv/ue/demo/out/stillsN --per-shot 2`, then
+  `film-ue pull .../sheet.png /tmp/...` and LOOK at it.
+- Read-only engine source on the box (the source box is gone): /srv/ue/engine/Engine/Source and Plugins, through SSM
+  (`aws ssm send-command ... AWS-RunShellScript`; my wrapper /work/ssm.sh).
+- Slot protocol: only one driver; agent-07 gave me the slot after first-run ('slot to agent-13') and takes it back at
+  16:55 UTC for the DDC save ('slot to agent-07'); the box's TTL is 17:27 UTC.
+- Reports for owners: fleet/agent-13/day1-reports (JSON per area). Fix branches: fleet/agent-13/day1-{view,seq,dx,wp,
+  mat,render,demo}, merged by agent-10.
+
