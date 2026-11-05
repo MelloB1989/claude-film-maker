@@ -20,6 +20,12 @@
 #   watchdog TTL_UNTIL IDLE_MIN STALL_MIN [PROJECT_DIR]
 #                                  the box's watchdog (ue_watchdog.py, every minute): power off past TTL_UNTIL (epoch,
 #                                  0 = none) or after IDLE_MIN idle minutes, restart an editor stalled STALL_MIN minutes
+#   plugin TGZ ENGINE PROJECT_DIR  build a C++ plugin (a .tgz of its folder: NAME/NAME.uplugin, Source/) against the
+#                                  restored engine and install it in PROJECT_DIR/Plugins (the editor loads it on its
+#                                  next start). The engine is marked installed while UBT runs, so only the plugin's
+#                                  modules compile (seconds) instead of the whole engine (the tarball has no engine
+#                                  Intermediate: ~6000 actions); built in a scratch project, so a failed build never
+#                                  leaves the real project unable to start
 #   check                          GPU, Vulkan, engine binary, unit state, as key=value lines
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -236,6 +242,29 @@ PY
     echo "watchdog: ttl_until=$ttl idle_min=$idle stall_min=$stall ($(systemctl is-active ue-watchdog.timer))"
 }
 
+step_plugin() {
+    local tgz="${1:?plugin TGZ ENGINE PROJECT_DIR}" engine="${2:?}" project="${3:?}" name w log
+    w="${PLUGIN_BUILD_DIR:-/srv/ue/pluginbuild}"
+    rm -rf "$w" && mkdir -p "$w/Plugins" && tar -xzf "$tgz" -C "$w/Plugins"
+    name="$(basename "$(ls -d "$w"/Plugins/*/ | head -1)")"
+    [ -f "$w/Plugins/$name/$name.uplugin" ] || { echo "plugin: no $name.uplugin in $tgz" >&2; exit 1; }
+    printf '{"FileVersion": 3, "EngineAssociation": "", "Plugins": [{"Name": "%s", "Enabled": true}]}\n' "$name" \
+        > "$w/PluginBuild.uproject"
+    chown -R "$UE_USER:$UE_USER" "$w"
+    PLUGIN_MARK="$engine/Engine/Build/InstalledBuild.txt"  # global: the EXIT trap runs after the function returns
+    if [ -f "$PLUGIN_MARK" ]; then PLUGIN_MARK=""; else touch "$PLUGIN_MARK"; trap 'rm -f "${PLUGIN_MARK:-/nonexistent}"' EXIT; fi
+    log=/tmp/plugin-build-$name.log
+    if ! runuser -u "$UE_USER" -- timeout 1500 "$engine/Engine/Build/BatchFiles/Linux/Build.sh" UnrealEditor Linux \
+            Development -Project="$w/PluginBuild.uproject" > "$log" 2>&1; then
+        tail -30 "$log" >&2; echo "plugin: $name did not build (log: $log)" >&2; exit 1
+    fi
+    [ -z "$PLUGIN_MARK" ] || rm -f "$PLUGIN_MARK"
+    rm -rf "$w/Plugins/$name/Intermediate" "${project:?}/Plugins/$name"
+    mkdir -p "$project/Plugins" && cp -r "$w/Plugins/$name" "$project/Plugins/"
+    chown -R "$UE_USER:$UE_USER" "$project/Plugins/$name"
+    echo "plugin: $name built ($(grep -c '^\[' "$log") actions) into $project/Plugins/$name; restart the editor to load it"
+}
+
 step_check() {
     echo "gpu=$(nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv,noheader 2>/dev/null || echo none)"
     echo "vulkan=$(vulkaninfo --summary 2>/dev/null | awk -F= '/deviceName/{gsub(/^ +/,"",$2); print $2; exit}' || echo none)"
@@ -247,6 +276,6 @@ step_check() {
     echo "ram_gb=$(free -g | awk '/Mem:/{print $2}') disk_free=$(df -h --output=avail /srv/ue 2>/dev/null | tail -1 | tr -d ' ')"
 }
 
-cmd="${1:?usage: setup.sh volume|driver|engine|project|windisk|project-copy|service|epic|mode|desktop|watchdog|check ...}"
+cmd="${1:?usage: setup.sh volume|driver|engine|project|windisk|project-copy|service|epic|mode|desktop|watchdog|plugin|check ...}"
 shift
 "step_$cmd" "$@"

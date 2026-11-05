@@ -3770,7 +3770,7 @@
    "verb": "epic_exchange_code",
    "module": "fmbridge.ops.editor",
    "file": "unreal/fmbridge/ops/editor.py",
-   "line": 198,
+   "line": 199,
    "summary": "Hand the MetaHuman cloud services a single-use Epic exchange code (MetaHuman.Cloud.Config.ExchangeCode), so",
    "doc": "Hand the MetaHuman cloud services a single-use Epic exchange code (MetaHuman.Cloud.Config.ExchangeCode), so\nits next login (mh.rig, mh.textures) signs in without a browser and saves a sign-in for later starts\n(MetaHumanCloudAuthentication.cpp: exchange code before persistent auth). The code itself is never returned or\nkept by the bridge; the console echoes it to the editor log, where it is spent after use (~5 min validity).\nClients: film-ue epic-login --exchange-code-cmd CMD.\n\nArgs: code: the exchange code (from Epic's OAuth exchange endpoint; see docs/unreal/platform.md).\nReturns: {\"set\": true}.\nExample: film-ue epic-login --exchange-code-cmd ./my-exchange-code-helper",
    "params": [
@@ -3797,7 +3797,7 @@
    "verb": "gc",
    "module": "fmbridge.ops.editor",
    "file": "unreal/fmbridge/ops/editor.py",
-   "line": 185,
+   "line": 186,
    "summary": "Collect garbage (frees unreferenced objects after big imports or level changes) and report memory.",
    "doc": "Collect garbage (frees unreferenced objects after big imports or level changes) and report memory.\n\nReturns: {\"rss_mb_before\", \"rss_mb_after\"} (Linux; None elsewhere).\nExample: film-ue op editor.gc",
    "params": [],
