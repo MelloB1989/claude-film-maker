@@ -6,7 +6,8 @@ one sheet of full-size crops of the ends. Run on the box, from tools/ (the bridg
 
     uv run --with pillow --with numpy python ../films/host-studio/reel/hair_cover_ab.py --out /srv/ue/reel/r3/hair_cover
 
-Only <out>/hair_cover.jpg and <out>/hair_cover.json need to leave the box.
+Each run renders into <out>/<HHMMSS>/<variant>; only <out>/<HHMMSS>/hair_cover.jpg and hair_cover.json need to
+leave the box.
 """
 from __future__ import annotations
 
@@ -73,12 +74,16 @@ def groups_for(v: dict, orig: list) -> list:
     return out
 
 
-def render(tag: str) -> None:
+def render(tag: str, run: str) -> None:
+    """One variant's render; a non-zero exit from film-ue apply is only a failure if its frames did not land."""
     from filmtools.unreal.cli import main as cli
     argv = sys.argv
     try:
-        sys.argv = ["film-ue", "apply", str(SPEC), "--set", f"tag={tag}"]
+        sys.argv = ["film-ue", "apply", str(SPEC), "--set", f"tag={tag}", "--set", f"run={run}"]
         cli()
+    except SystemExit as e:
+        if e.code not in (0, None):
+            print(f"film-ue apply {tag}: exit {e.code} (checking the frames)", flush=True)
     finally:
         sys.argv = argv
 
@@ -87,13 +92,17 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", required=True, help="on the box: the renders' parent dir (the spec's out) and the sheet")
     a = ap.parse_args()
-    out = Path(a.out)
+    import time
+    run = time.strftime("%H%M%S")
+    out = Path(a.out) / run
     orig = ok(client.exec_code(SNAP))
     rep = {"original": orig, "variants": {}}
     try:
         for v in VARIANTS:
             ok(client.exec_code(f"GROUPS = {groups_for(v, orig)!r}\n" + PUT))
-            render(v["name"])
+            render(v["name"], run)
+            if 1241 not in qa_review.frames(str(out / v["name"])):
+                raise SystemExit(f"{v['name']}: no frame 1241 under {out / v['name']}")
             rep["variants"][v["name"]] = {"groups": groups_for(v, orig)}
     finally:
         rep["restored"] = ok(client.exec_code(f"GROUPS = {orig!r}\n" + PUT))
