@@ -288,4 +288,5 @@ If something blocks the editor (a cloud wait, a fix in progress), agent-07 rende
       - Dump the transform-track keys first.
     - The hair (c) is still open (0.237/0.219). Next: `hair_teal_ab.py --lights` (the lights + emissives, greenest first).
     - The cast_op3 likeness and the tee clip have not been judged by eye. That waits on cc-64d05f6e's review (face rule).
+16. Core bug: `film-ue sync epic save --dry-run` ignores --dry-run and saves (agent-07, 21:11 UTC). Fix it with a test.
 
