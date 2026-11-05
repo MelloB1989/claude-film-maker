@@ -345,7 +345,12 @@ name: the row for X in §6 says where to look.
 State (2026-11-05 night, agent-08, branch `fleet/agent-08/ue-env`, all merged into `ue-helpers`): WP5 code, unit
 tests (pure, fake ops, spec kinds through WP11's engine, legacy look.* golden), selftest, examples and this doc are
 done; B16, B17 (light.rig), B50 (env.autoexpose), B56 (look.* as a layer), B57 fixes (project settings through
-editor.project_setting, clouds material) done. Full ue suite green. NOTHING has run on a real engine yet.
+editor.project_setting, clouds material) done. Full ue suite green.
+
+Day 1 (2026-11-05, agent-13's GPU run, branch `fleet/agent-08/env-day1`): `selftest env` went from 38 passed / 6 failed
++ an ERROR to 56 passed / 0 failed on the real engine after three fixes (§8 day-1 rows): the 8-bit readback is 0..255, the
+display capture is RTF_RGBA8_SRGB, and the sky light has no lighting channels. MID_GREY_DISPLAY 0.46 holds.
+`env.captures_rebuild`'s recapture route is in, but nothing checks yet whether the captures update.
 
 Tomorrow on the GPU box, in order:
 1. `film-ue selftest env` (~4 min). Use §8 for any failure. Read the two calibration numbers: `meter_offset_stops`
