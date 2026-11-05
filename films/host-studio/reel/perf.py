@@ -370,6 +370,9 @@ def events(who: str) -> dict:
                 {"preset": "smile", "t": s(1424), "until": s(END), "intensity": 0.55, "asym": 0.15}],
             "tilts": [{"t": s(tilt - 6), "until": s(tilt + 40), "roll_deg": 5.0}],  # on "yourself"
             "nods": [{"t": s(1436), "kind": "nod", "depth_deg": 3.0}],
+            # the talking rate plus a blink with each big shift and phrase end came out at 36/min on the box (people:
+            # ~12-26): she speaks under half her 20 s
+            "blink_state": "listen",
             "moods": [{"t0": 0.0, "t1": s(1158), "mood": "calm", "intensity": 0.6},     # listening to him
                       {"t0": s(1158), "t1": s(1212), "mood": "playful", "intensity": 0.7},
                       {"t0": s(1212), "t1": s(1380), "mood": "confident", "intensity": 0.7},
@@ -485,9 +488,42 @@ def verify(who: str) -> dict:
         if b - a > 24:
             silent.append({"frames": [a, b], **span(sec(a), sec(b))})
     chk = ok(client.op("anim.check", anim=face))
+    turn = ok(client.exec_code(f"PARAMS = {json.dumps(json.dumps([f'{ANIM}/AS_reel_{who}_body', face]))}\n" + TURN))
     return {"face": face, "curves": sorted(got), "lines": lines, "silences": silent,
             "all_lines_lip_sync": all(x["lip_sync"] for x in lines.values()),
-            "check": {"pass": chk.get("pass"), "failed": chk.get("failed")}}
+            "check": {"pass": chk.get("pass"), "failed": chk.get("failed")}, "turn": turn}
+
+
+# How far the neck and head turn in the body animation (what the body plays; sync put the face's turn there) and in
+# the placed face: the largest rotation of neck_01 + neck_02 + head from their pose at the start, per animation. On
+# 5.8 no face curve turns the head, so a planned look that never reaches these bones is a head that does not turn.
+TURN = r"""
+import json, math, unreal
+AL, X = unreal.AnimationLibrary, unreal.AnimPoseExtensions
+def angle(a, b):  # degrees between two quaternions
+    d = abs(a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w)
+    return math.degrees(2 * math.acos(min(1.0, d)))
+out = {}
+for path in json.loads(PARAMS):
+    a = unreal.load_asset(path)
+    if a is None:
+        out[path] = None
+        continue
+    L = float(AL.get_sequence_length(a))
+    n = max(2, int(L * 10))
+    first, best = None, (0.0, 0.0)
+    for k in range(n + 1):
+        t = L * k / n
+        pose = X.get_anim_pose_at_time(a, t, unreal.AnimPoseEvaluationOptions())
+        qs = [X.get_bone_pose(pose, b, unreal.AnimPoseSpaces.LOCAL).rotation for b in ("neck_01", "neck_02", "head")]
+        if first is None:
+            first = qs
+        tot = sum(angle(q, q0) for q, q0 in zip(qs, first))
+        if tot > best[0]:
+            best = (tot, t)
+    out[path] = {"max_deg": round(best[0], 1), "at_s": round(best[1], 2)}
+result = out
+"""
 
 
 def blinks_together(closed: float = 0.5) -> dict:
