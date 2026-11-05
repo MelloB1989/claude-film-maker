@@ -7,7 +7,8 @@ to one of her instance components does not survive that (or the render's PIE cop
   track, every row: idle -> performance -> idle and the life layer), so each plays her body's pose with or without a
   leader. With the leader set, the leader still wins: nothing changes where it holds.
 - HerWatch, HerEarL, HerEarR: an attach track (whole sequence) onto Presenter's Body/Face bone, and a transform
-  track holding the offset each has from that bone now. So run dress_her.py first: it seats them and checks them.
+  track holding the offset each has from that bone now (the watch: from its seat rule, as dress_her.py seats it).
+  So run dress_her.py first: it seats them and checks them.
 
 Run with film-ue exec after perf.py place (it copies the Body track place wrote) and after dress_her.py; run again
 after any re-place. Saves SEQ_Reel. Returns what it wrote and each accessory's offset.
@@ -23,6 +24,7 @@ GARMENTS = ("Top", "Trousers", "Overshirt")
 RIDERS = {"HerWatch": ("Body", "lowerarm_twist_01_l"), "HerEarL": ("Face", "FACIAL_L_Ear4"),
           "HerEarR": ("Face", "FACIAL_R_Ear4")}
 KR = unreal.AttachmentRule.KEEP_RELATIVE
+WATCH_UP_ARM = 3.6  # dress_her.py's seat: the watch this far up the forearm from hand_l, band across the wrist
 
 seq = unreal.load_asset(SEQ)
 her = L.actor("Presenter")
@@ -52,8 +54,25 @@ for lab, (comp, bone) in RIDERS.items():
         raise RuntimeError(f"seq_dress: {lab} rides {par.get_name() if par else None}/{rc.get_attach_socket_name()}, "
                            f"not {comp}/{bone}: run dress_her.py first")
     rl, rr = rc.relative_location, rc.relative_rotation
+    if lab == "HerWatch":
+        # the watch's offset from its seat rule, not read back from the actor: cast_op2/3 rendered it 8.2 cm from
+        # hand_l while dress_her had just seated it at 3.6 (likely Sequencer re-applying the transform track's old
+        # key between dress_her and here, so keying what the actor then holds keeps the old seat)
+        bc = comps[comp]
+        P = bc.get_socket_location
+        hand = P("hand_l")
+        fwd = (hand - P("lowerarm_l")).normal()
+        across = P("index_metacarpal_l") - P("pinky_metacarpal_l")
+        across = (across - fwd * across.dot(fwd)).normal()
+        rot = unreal.MathLibrary.make_rot_from_yz(fwd, fwd.cross(across).normal())
+        seat = unreal.Transform(hand - fwd * WATCH_UP_ARM, rot, unreal.Vector(1, 1, 1))
+        rel = seat.make_relative(bc.get_socket_transform(bone, unreal.RelativeTransformSpace.RTS_WORLD))
+        was = [round(rl.x, 2), round(rl.y, 2), round(rl.z, 2)]
+        rl, rr = rel.translation, rel.rotation.rotator()
+        out.setdefault("watch_actor_rel_was", was)
     b = E.binding(seq, lab, "", create=True)
-    for t in list(b.find_tracks_by_type(unreal.MovieScene3DAttachTrack)):
+    for t in list(b.find_tracks_by_type(unreal.MovieScene3DAttachTrack)) + list(
+            b.find_tracks_by_type(unreal.MovieScene3DTransformTrack)):  # no old seat's keys left to win
         b.remove_track(t)
     sec = b.add_track(unreal.MovieScene3DAttachTrack).add_section()
     sec.set_start_frame_bounded(False)
