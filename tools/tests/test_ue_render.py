@@ -192,16 +192,19 @@ def test_manifest_writes_one_per_chunk(stage, monkeypatch):
     assert "-game" in first["argv"] and res["exit_codes"][3]
 
 
-def test_manifest_without_the_mrq_editor_library_saves_queue_assets(stage):
+def test_manifest_without_the_mrq_editor_library_saves_queue_assets(stage, monkeypatch):
     """Day 1 (5.8.4 Linux): `unreal` has no MoviePipelineEditorBlueprintLibrary, so no .utxt manifest; the queue is
     saved as an asset, which -MoviePipelineConfig takes too."""
     ue = stage["ue"]
+    eal, saved = stage["render"].EAL, []  # the library or the subsystem, whichever this run's EAL is
+    monkeypatch.setattr(eal, "save_loaded_asset", lambda a, only_if_is_dirty=True: saved.append(a.get_path_name()) or True,
+                        raising=False)
     res = run_op("render.manifest", spec={**stage["spec"], "executor": "cmdline"})
     first = res["chunks"][0]
     assert first["manifest"] == "/Game/_FilmRender/Queues/SEQ_T_c000_0.SEQ_T_c000_0"
     assert f"-MoviePipelineConfig={first['manifest']}" in first["argv"]
     q = ue.load_asset("/Game/_FilmRender/Queues/SEQ_T_c000_0")
-    assert q is not None and len(q.get_jobs()) == 1 and "/Game/_FilmRender/Queues/SEQ_T_c000_0" in ue.saved
+    assert q is not None and len(q.get_jobs()) == 1 and q.get_path_name() in saved
     assert ue.load_asset("/Game/_FilmRender/Queues/SEQ_T_c002_16") is not None
     run_op("render.manifest", spec={**stage["spec"], "executor": "cmdline"})  # again: replaces, no overwrite dialog
     assert not ue.dialogs
