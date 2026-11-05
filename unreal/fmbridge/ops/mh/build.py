@@ -103,7 +103,8 @@ def build(character: str, name: str = "", cinematic: bool = True, *, bp_name: st
     if not bp:  # the subsystem logs why (LogMetaHumanCharacterEditor) and returns nothing
         raise OpError(f"no BP_{name} after building {path}", code="engine",
                       hint="see the editor log (LogMetaHumanCharacterEditor): 'not ready for assembly' or a pipeline error")
-    K.set_tag(c, "Build", fp)
+    # what was built, read after the build: item parameters only exist once the collection is built (live 5.8.4)
+    K.set_tag(c, "Build", build_fingerprint(state(c, path)))
     K.set_tag(c, "BuildOpts", ofp)
     K.set_tag(c, "BuildBP", bp)
     K.save(path)

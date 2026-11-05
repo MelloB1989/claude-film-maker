@@ -231,10 +231,13 @@ Example: `examples/unreal/cast/cafe-extras.yaml`.
 - **Garments in cm.** Export FBX garments in cm on the MetaHuman skeleton, with an unscaled root. A root bone that
   carries a scale (bones in metres under a x100 root) shrinks to nothing as soon as the body poses it.
   `mh.import_garment` checks the bounds and `mh.dress` checks the root scale.
-- **Item parameters exist only after assembly** (day 1, live). An instance that has not been assembled has no instance
-  parameters for any item (`get_instance_parameter_item_paths() == []`), so a groom's Melanin or a brow's Whiteness
-  cannot be read or set yet. `mh.groom`/`mh.item_set`/`mh.item_params` assemble the instance first (`instance.assemble(d)`,
-  once per selection, waiting across ticks for its `on_assembled` delegate). A preset already wears a groom: wearing that groom again reports `changed: false`.
+- **Item parameters exist only after the first build** (day 1, live). `instance.assemble(on_assembled)` fails at once
+  (`MetaHumanCharacterAssemblyResult.FAILED`; log `LogMetaHumanCharacterPalette: Failed to assemble Instance ..., as the
+  referenced Collection ... has not been built`) until `mh.build` has built the character's collection, and the
+  collection has no Python build method. So a groom's Melanin or a garment's colour can only be set on a character that
+  has been rigged, textured and built; the ops then assemble (once per selection, the callback takes one argument) and
+  answer `not_ready` before. `mh.apply` and the planner wear items first, build, set the colours, build again; a spec
+  with no build leaves colours unset. A preset already wears a groom: wearing it again reports `changed: false`.
 - **The preview actor is not a level actor** (day 1, live). `spawn_meta_human_actor` gives an actor that
   `get_all_level_actors` does not list, so `mh.preview` keeps the actor it spawned per label.
 - **Leader pose must persist.** Changing any instance component of a Blueprint actor reruns its construction script,

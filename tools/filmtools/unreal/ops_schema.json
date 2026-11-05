@@ -9937,7 +9937,7 @@
    "verb": "add_item",
    "module": "fmbridge.ops.mh.wardrobe",
    "file": "unreal/fmbridge/ops/mh/wardrobe.py",
-   "line": 277,
+   "line": 288,
    "summary": "Wear a wardrobe item: put it (a groom or garment from mh.wardrobe) in its slot of the character's collection",
    "doc": "Wear a wardrobe item: put it (a groom or garment from mh.wardrobe) in its slot of the character's collection\nand select it there, replacing what the slot held; optionally set its parameters.\n\nArgs: character: the character. item: a wardrobe item path or asset name (WI_Hair_S_BuzzCut). slot: Hair,\nEyebrows, Beard, Mustache, Eyelashes, Peachfuzz, Outfits (guessed from the item's path when empty). params: the\nitem's instance parameters (mh.item_params lists them), e.g. {\"Melanin\": 0.9, \"Redness\": 0.1}.\nReturns: {\"slot\", \"item\", \"display\", \"changed\", \"params\"}. Rebuild (mh.build) to see it on the Blueprint.\nExample: film-ue op mh.add_item character=/Game/Characters/Ava/MH_Ava item=WI_Hair_L_Straight 'params={\"Melanin\": 1.0}'",
    "params": [
@@ -9991,7 +9991,7 @@
    "verb": "apply",
    "module": "fmbridge.ops.mh.spec",
    "file": "unreal/fmbridge/ops/mh/spec.py",
-   "line": 88,
+   "line": 101,
    "summary": "Converge a character to a `character` spec in one multi-tick job: make it (from a preset/source/blank), shape",
    "doc": "Converge a character to a `character` spec in one multi-tick job: make it (from a preset/source/blank), shape\nthe body and face, skin, eyes, eyelashes, teeth, makeup, grooms with colours, outfit, cloud rig and textures,\nbuild the Blueprint, dress a placed actor. Every step is an mh.* op that changes only what differs, so a second\napply reports nothing changed.\n\nArgs: spec: the spec object (schema: character.schema.json; examples/unreal/character/). dry_run: return the\nsteps without running them. stop_before: an op name to stop at (e.g. \"mh.rig\" to shape without the cloud).\nReturns: {\"asset\", \"steps\": [{\"op\", \"args\", \"changed\", \"result\"}], \"changed\", \"describe\"}.\nExample: film-ue op mh.apply 'spec={\"kind\": \"character\", \"version\": 1, \"name\": \"Ava\", \"asset\": \"/Game/Characters/Ava/MH_Ava\", \"from\": {\"preset\": \"Ada\"}, \"body\": {\"Height\": 168}}'",
    "params": [
@@ -10335,7 +10335,7 @@
    "verb": "clear_slot",
    "module": "fmbridge.ops.mh.wardrobe",
    "file": "unreal/fmbridge/ops/mh/wardrobe.py",
-   "line": 316,
+   "line": 327,
    "summary": "Wear nothing in a slot (e.g. no Beard).",
    "doc": "Wear nothing in a slot (e.g. no Beard).\n\nReturns: {\"slot\", \"changed\"}.\nExample: film-ue op mh.clear_slot character=/Game/Characters/Ava/MH_Ava slot=Beard",
    "params": [
@@ -10671,7 +10671,7 @@
    "verb": "export",
    "module": "fmbridge.ops.mh.spec",
    "file": "unreal/fmbridge/ops/mh/spec.py",
-   "line": 119,
+   "line": 132,
    "summary": "A character written back as a `character` spec (what mh.apply would converge a fresh copy to): body",
    "doc": "A character written back as a `character` spec (what mh.apply would converge a fresh copy to): body\nmeasurements, face coefficients, skin, eyes, eyelashes, teeth, makeup, grooms and outfit with their parameters,\nrig and build. Apply it to a new asset (change `asset` and add `from: {preset: ...}`) for a twin.\n\nArgs: path: the character. name: the spec's name (default the asset's). face: include the face coefficients.\nReturns: the spec object.\nExample: film-ue op mh.export path=/Game/Characters/Ava/MH_Ava",
    "params": [
@@ -11012,7 +11012,7 @@
    "verb": "groom",
    "module": "fmbridge.ops.mh.wardrobe",
    "file": "unreal/fmbridge/ops/mh/wardrobe.py",
-   "line": 406,
+   "line": 417,
    "summary": "A groom in one call: wear `item` in `slot` (or keep what is worn, or wear nothing with item=\"none\") and set its",
    "doc": "A groom in one call: wear `item` in `slot` (or keep what is worn, or wear nothing with item=\"none\") and set its\ncolour (melanin: 0 blond .. 1 black; redness 0..1) and any other groom parameter.\n\nArgs: slot: Hair|Eyebrows|Beard|Mustache|Eyelashes|Peachfuzz. item: a groom wardrobe item (mh.wardrobe kind=Hair),\n\"\" to keep, \"none\" to clear. Returns: {\"slot\", \"item\", \"changed\", \"params\"}.\nExample: film-ue op mh.groom character=/Game/Characters/Ava/MH_Ava slot=Hair item=WI_Hair_L_Straight melanin=1.0 redness=0.05",
    "params": [
@@ -11127,7 +11127,7 @@
    "verb": "item_params",
    "module": "fmbridge.ops.mh.wardrobe",
    "file": "unreal/fmbridge/ops/mh/wardrobe.py",
-   "line": 364,
+   "line": 375,
    "summary": "The instance parameters of the item worn in a slot, with their values: for a groom Melanin, Redness,",
    "doc": "The instance parameters of the item worn in a slot, with their values: for a groom Melanin, Redness,\nRoughness, Whiteness, Lightness, DyeColor, bUseOmbre/OmbreU/OmbreV/..., bUseRegions/..., bUseHighlights/...\n(MetaHumanDefaultGroomPipeline); for a garment its material colours.\n\nReturns: {\"slot\", \"item\", \"params\": {name: value}}.\nExample: film-ue op mh.item_params character=/Game/Characters/Ava/MH_Ava slot=Hair",
    "params": [
@@ -11158,7 +11158,7 @@
    "verb": "item_set",
    "module": "fmbridge.ops.mh.wardrobe",
    "file": "unreal/fmbridge/ops/mh/wardrobe.py",
-   "line": 387,
+   "line": 398,
    "summary": "Set instance parameters of the item worn in a slot: hair colour by melanin/redness (0..1), dye colour, ombre,",
    "doc": "Set instance parameters of the item worn in a slot: hair colour by melanin/redness (0..1), dye colour, ombre,\nhighlights; a garment's colours. Only differing values are written.\n\nReturns: {\"slot\", \"changed\", \"params\"}.\nExample: film-ue op mh.item_set character=/Game/Characters/Ava/MH_Ava slot=Hair 'params={\"Melanin\": 1.0, \"Redness\": 0.05}'",
    "params": [
@@ -11351,7 +11351,7 @@
    "verb": "palette",
    "module": "fmbridge.ops.mh.wardrobe",
    "file": "unreal/fmbridge/ops/mh/wardrobe.py",
-   "line": 240,
+   "line": 251,
    "summary": "What the character wears now: its collection's slots, every item in its palette and the selection per slot",
    "doc": "What the character wears now: its collection's slots, every item in its palette and the selection per slot\nwith the selected items' parameters.\n\nReturns: {\"slots\": [...], \"items\": [...], \"selected\": {slot: {\"item\", \"params\"} or null}}.\nExample: film-ue op mh.palette character=/Game/Characters/Ava/MH_Ava",
    "params": [
@@ -11391,7 +11391,7 @@
    "verb": "preview",
    "module": "fmbridge.ops.mh.build",
    "file": "unreal/fmbridge/ops/mh/build.py",
-   "line": 126,
+   "line": 127,
    "summary": "A live MetaHuman Editor actor of the character in the open level, with no rig and no build: it follows",
    "doc": "A live MetaHuman Editor actor of the character in the open level, with no rig and no build: it follows\nchanges made to the character (body, face, skin, wardrobe), for stills while shaping one.\n\nRe-running with the same label moves the existing one. Args: label: the actor label (default MHPreview_<name>).\nloc: [x, y, z] cm. yaw_deg: facing. transient: not saved with the level.\nReturns: {\"label\", \"changed\"}.\nExample: film-ue op mh.preview path=/Game/Characters/Ava/MH_Ava 'loc=[0,0,0]'",
    "params": [
