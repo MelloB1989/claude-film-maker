@@ -47,6 +47,8 @@ if _g is not None:
 lc = mh.leader_check(label="Host")
 host = L.actor("Host")
 result = {"host": HOST, "bp": host.get_class().get_path_name(), "tee": _g.get_name() if _g is not None else None,
+          "tee_slots": ({str(n_): (m_.get_name() if m_ else None) for n_, m_ in
+                         zip(_g.get_material_slot_names(), _g.get_materials())} if _g is not None else {}),
           "components": sorted(c.get_name() for c in host.get_components_by_class(unreal.SkeletalMeshComponent)),
           "leader_pass": lc["pass"], "leader_gap_cm": lc["metric"], "why": lc.get("why", "")}
 print(result)
