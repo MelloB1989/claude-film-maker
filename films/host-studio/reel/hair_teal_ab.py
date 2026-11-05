@@ -23,6 +23,10 @@ VARIANTS = [
     {"name": "white_light_0", "scalars": {"WhiteAmount": 0.0, "LightAmount": 0.0}},
     {"name": "rough_0.6", "scalars": {"HairRoughness": 0.6}},
     {"name": "dye_warm", "vectors": {"HairDye": [0.06, 0.035, 0.02]}},
+    # which geometry draws the ends at S16's size: auto LOD (cvar 1) may pick cards, whose own texture carries colour;
+    # manual (0) lets LODSync's pin (LOD 0, strands) decide; cards forced on shows what the cards look like
+    {"name": "lodmode_manual", "cvars": {"r.HairStrands.LODMode": 0}},
+    {"name": "cards_forced", "cvars": {"r.HairStrands.UseCardsInsteadOfStrands": 1}},
     {"name": "no_scatter_scene", "cvars": {"r.HairStrands.ScatterSceneLighting": 0}},
     {"name": "no_lumen_hair", "cvars": {"r.Lumen.HairStrands.LightingMode": 0, "r.HairStrands.Lumen": 0}},
     {"name": "no_multiscatter", "cvars": {"r.HairStrands.SkyLighting.IntegrationType": 0,
