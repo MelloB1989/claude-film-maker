@@ -417,6 +417,23 @@ and merged into ue-helpers in chunks; nothing has run in a real editor yet (no b
    selftest's thumbnail luma.
 6. **`fab.login` on Linux offscreen**: does `OpenInNewTab` create the CEF tab (or its error tab) and trigger the
    persist login? `fab.library`'s account id from the JWT `sub` is an assumption; the endpoint is private.
+   **Day 1 (deferred to BACKLOG by the operator, box time went to the shoot):** sign-in works (device code;
+   the EOS credential restored from S3), but "the Fab library answers" got HTTP 403. A read-only probe in the live
+   editor (agent-07; script: `fab_library_probe.py`, agent-02's worktrees dir in the shared code) found:
+   - `https://www.fab.com/e/accounts/<sub>/ue/library` with Python's default User-Agent: **403**, Cloudflare's
+     HTML challenge page. With an engine-like UA (`UnrealEditor/<ver> Linux/<os>`) or a browser UA: **200** JSON
+     (`results`, `cursors.next`). So the token, the `accept` + `Authorization: Bearer` headers and the JWT `sub` as
+     the account id are all right; only the UA was refused.
+   - `https://fab.com/...` (Prod in the plugin's own `FabSettings.cpp:60-72` GetUrlFromEnvironment): **404**
+     (CloudFront) for every UA. Prod stays `https://www.fab.com`.
+   - The plugin's request (`Teds/FabMyFolderIntegration.cpp:44-76`): GET, `accept: application/json`,
+     `Authorization: Bearer <EOS user token>` (same as GetAuthToken), `count=N`, cursor sent as `&cursor="<next>"`,
+     account `LexToString(EpicAccountId)`; the engine's HTTP module supplies the UA. The plugin's C++ never fetches
+     a download URL: the signed URL only comes from the web page (`fab_shim.py`); `FabDownloader` sets no headers.
+   Fix on `fleet/agent-02/day1-fab` (1dc2a83d): `fab.library` sends the engine UA (`_user_agent`), quotes the cursor,
+   takes the host from FabSettings' environment (`_base_url`, Prod -> www); `fab.add` downloads with the same UA;
+   `fab.status` reports `host`; the fake models the edge (403 for Python's UA, 404 on the apex). **Not yet run on
+   the box**: first thing next box session, `film-ue selftest assets` and check "the Fab library answers".
 7. **FabScript** compiled on day 1 with `film-ue plugin-build FabScript` (20 s) and loads in the Linux editor (log: InternalLoadLibrary FabScript). `fab.add` of a pack through it: see DAY1-REPORT.
 8. **EditorScriptingUtilities**: done. `ops/assets.py` `EAL` falls back to the EditorAssetSubsystem when the plugin
    is off, every module of the bridge now imports it (577192b), and a test fails on any new direct
