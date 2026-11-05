@@ -2,8 +2,8 @@
 seat_her_accessories() does at the end of a build: HerEarL/R through the lobes on FACIAL_*_Ear4, HerWatch flat on the
 back of her left wrist (band round the forearm, dial out) on lowerarm_twist_01_l. Run it LAST, after anything that
 changes her components (import_overshirt.py, restore_leader.py, mh.cloth_inflate): those re-create her components and
-leave what rode them at its bone with no offset. Run with film-ue exec; reports how the watch sits, then saves nothing
-(L.save_level() when it reads ok)."""
+leave what rode them at its bone with no offset. Run with film-ue exec; reports how the watch sits and saves the level
+when it reads ok."""
 import unreal
 
 from fmbridge.ops import level as L
@@ -60,4 +60,7 @@ out["HerWatch"] = {"from_hand_cm": round((w.get_actor_location() - hand).length(
 h = out["HerWatch"]
 h["ok"] = abs(h["from_hand_cm"] - WATCH_UP_ARM) < 0.5 and h["band_along_forearm"] > 0.98 and \
     h["dial_to_back_of_wrist"] > 0.98
+if h["ok"]:
+    L.save_level()
+out["saved"] = h["ok"]
 result = out
