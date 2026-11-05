@@ -29,3 +29,13 @@ Live table (newest result per area; times are wall clock on the box):
 ## Log
 
 (each run: when, what, the report folder, what was learned)
+
+## Merged (agent-10)
+
+Every day-1 fix goes through the gate (dx gen, the ue suite, dx docs) onto `fleet/agent-10/day1`, which main
+fast-forwards to.
+
+| when | what | from | gate |
+|---|---|---|---|
+| before the run | Blender tests start Blender only when `BLENDER` is set | agent-10 06f89092 | 1021 passed |
+| before the run | this report | agent-13 day1-report 84211934 | |
