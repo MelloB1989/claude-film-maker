@@ -161,6 +161,46 @@ def sheet(frames: Path, out: Path, shot: str, every: int = 6, tile: int = 640) -
     return made
 
 
+def contact(passes: list, out: Path, name: str, tile: int = 480) -> Path:
+    """sheets/<name>.jpg: the whole reel at a glance, one row per shot (its first, middle and last frame), each shot
+    from the first pass that has it whole (a slate-grey tile when none does), labelled with the shot, the frame and
+    the pass. Small, for bringing down from the box."""
+    from PIL import Image, ImageDraw
+    rows = []
+    for s in SHOTS:
+        got, src = {}, ""
+        for p in passes:
+            g = frames_of(p, s)
+            if all(g.values()):
+                got, src = g, p.name
+                break
+        picks = [s.start, (s.start + s.end) // 2, s.end - 1]
+        tiles = []
+        for f in picks:
+            if got:
+                with Image.open(got[f]) as im:
+                    t = im.convert("RGB")
+                    t.thumbnail((tile, tile))
+            else:
+                t = Image.new("RGB", (tile, tile * 9 // 16), (60, 60, 60))
+            d = ImageDraw.Draw(t)
+            label = f"{s.id} f{f} {src or 'missing'}"
+            d.rectangle((0, 0, int(cut.font(18, 600).getlength(label)) + 12, 26), fill=(0, 0, 0))
+            d.text((6, 3), label, font=cut.font(18, 600), fill=(255, 255, 0))
+            tiles.append(t)
+        rows.append(tiles)
+    tw, th = rows[0][0].size
+    g = Image.new("RGB", (3 * tw + 8, len(rows) * th + (len(rows) - 1) * 4), (255, 255, 255))
+    for i, r in enumerate(rows):
+        for j, t in enumerate(r):
+            g.paste(t.resize((tw, th)), (j * (tw + 4), i * (th + 4)))
+    (out / "sheets").mkdir(parents=True, exist_ok=True)
+    dest = out / "sheets" / f"{name}.jpg"
+    g.save(dest, quality=82)
+    print(dest)
+    return dest
+
+
 def preview(frames: Path, out: Path, mix: Path, mix45: Path | None, cues: Path | None, scale: float, source: str,
             hold: str) -> None:
     """The reel so far from one pass: rendered shots and slates for the rest, the mix, title and captions; the 65 s
@@ -175,6 +215,7 @@ def preview(frames: Path, out: Path, mix: Path, mix45: Path | None, cues: Path |
     (work / "karma-reel-1080p-h264.mp4").replace(out / f"preview_{tag}.mp4")
     (work / "karma-reel-45s-1080p-h264.mp4").replace(out / f"preview_{tag}_45s.mp4")
     (work / "cut.json").replace(out / f"preview_{tag}.json")
+    contact([frames], out, f"preview_{tag}")
     print(out / f"preview_{tag}.mp4", out / f"preview_{tag}_45s.mp4",
           f"({n} of {len(SHOTS)} shots: {', '.join(whole(frames))})")
 
@@ -196,6 +237,7 @@ def final(frames: Path, out: Path, mix: Path, mix45: Path | None, cues: Path | N
     c = (["--cues", str(cues)] if cues else []) + ["--source", source, "--hold-first", hold, "--pattern", pattern(src)]
     cut.main([str(src), "--mix", str(mix), "--out", str(out), *c])
     cut.main([str(src), "--edl", "45s", "--mix", str(mix45 or mix), "--out", str(out), *c])
+    contact(passes, out, "final" if not rough else "rough")
 
 
 def main(argv=None) -> None:
