@@ -39,3 +39,7 @@ fast-forwards to.
 |---|---|---|---|
 | before the run | Blender tests start Blender only when `BLENDER` is set | agent-10 06f89092 | 1021 passed |
 | before the run | this report | agent-13 day1-report 84211934 | |
+| first-run | `editor.wait_compile` uses `AutomationLibrary` (the ScriptName); the file inbox writes the /exec result shape | agent-07 f580b805 | 1021 passed |
+| first-run | `editor.api_names`: every `unreal.<Name>` the bridge uses, checked against the live module | agent-10 184437aa | 1025 passed |
+| first-run | `transport.get` in parts (SSM output cap) | agent-07 6a6bc809 | 1027 passed |
+| dx | `view.capture`: show-only/hidden lists through the component's calls (EditInstanceOnly properties) | agent-13 f9bbd4fd | 1027 passed |
