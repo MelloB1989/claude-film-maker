@@ -154,7 +154,11 @@ def run(t):
                                               "outputs": [{"kind": "exr"}]})
     t.check("AOV job ok", rep["status"], "ok")
     dirs = sorted(d for d in os.listdir(aov) if not d.startswith("_"))
-    t.check("AOV folders", dirs, ["FinalImage", "MovieRenderQueue_MotionVectors", "MovieRenderQueue_WorldDepth"])
+    # live 5.8 names a post-process pass "FinalImage" + its material (FinalImageMovieRenderQueue_MotionVectors): accept
+    # either spelling, require the three passes
+    want = ("MotionVectors", "WorldDepth")
+    t.check("AOV folders", [dirs[0] if dirs else None] + [any(d.endswith(w) for d in dirs) for w in want],
+            ["FinalImage", True, True])
     t.check("EXR frames per pass", [len(glob.glob(os.path.join(aov, d, "*.exr"))) for d in dirs], [4, 4, 4])
 
     # executors: a separate process after saving, and a command line with no editor
