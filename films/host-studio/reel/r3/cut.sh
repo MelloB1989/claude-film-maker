@@ -4,10 +4,10 @@
 #
 #   R3_PREVIEW=preview/<build> films/host-studio/reel/r3/cut.sh preview   # that build's preview pass
 #   films/host-studio/reel/r3/cut.sh preview              # rough cut of the preview pass: 65 s + 45 s, 1080p, captions
-#   films/host-studio/reel/r3/cut.sh final                # the finals, shots not final yet filled from the preview
+#   films/host-studio/reel/r3/cut.sh final                # the finals (R3_FINAL, default final_c), shots not final yet filled from the preview
 #   films/host-studio/reel/r3/cut.sh final --fill-from none   # the deliverables: every final must be in
-#   films/host-studio/reel/r3/cut.sh check final           # per shot: frames present, size, luma (no encode)
-#   films/host-studio/reel/r3/cut.sh sheet final S13       # a contact sheet of one shot (small: fine to bring down)
+#   films/host-studio/reel/r3/cut.sh check final_c         # per shot: frames present, size, luma (no encode)
+#   films/host-studio/reel/r3/cut.sh sheet final_c S13     # a contact sheet of one shot (small: fine to bring down)
 #
 # Reads the passes where the r3 specs write them (R3_FRAMES, default /srv/ue/reel/r3/<pass>), the mixes from the
 # repo (audio/mix), the captions' word times from vo.py's cues.json (out/host-studio/reel/vo/cues.json) when it is
@@ -22,6 +22,7 @@ FRAMES=${R3_FRAMES:-/srv/ue/reel/r3}
 OUT=${R3_CUT:-/srv/ue/reel/r3/cut}
 TOOLS=${R3_TOOLS:-/srv/ue/tools/ffmpeg}
 CUES=${R3_CUES:-$ROOT/out/host-studio/reel/vo/cues.json}
+FINAL=${R3_FINAL:-final_c}       # the finals' pass under R3_FRAMES (agent-05's pick C; final/ is superseded)
 PREVIEW=${R3_PREVIEW:-preview}   # the preview pass under R3_FRAMES: preview/<build> when each rebuild has its own
 [ -d "$HOME/.local/bin" ] && export PATH="$HOME/.local/bin:$PATH"   # uv's default install
 
@@ -56,10 +57,10 @@ mkdir -p "$OUT"
 case "$cmd" in
   preview) "${asm[@]}" --pass "$PREVIEW" check
            "${asm[@]}" --pass "$PREVIEW" preview "${mix[@]}" "${cues[@]}" "$@" ;;
-  final)   "${asm[@]}" --pass final check
-           "${asm[@]}" --pass final final "${mix[@]}" "${cues[@]}" --fill-from "$PREVIEW" "$@" ;;
-  check)   "${asm[@]}" --pass "${1:-final}" check "${@:2}" ;;
-  sheet)   "${asm[@]}" --pass "${1:-final}" sheet "${@:2}" ;;
+  final)   "${asm[@]}" --pass "$FINAL" check
+           "${asm[@]}" --pass "$FINAL" final "${mix[@]}" "${cues[@]}" --fill-from "$PREVIEW" "$@" ;;
+  check)   "${asm[@]}" --pass "${1:-$FINAL}" check "${@:2}" ;;
+  sheet)   "${asm[@]}" --pass "${1:-$FINAL}" sheet "${@:2}" ;;
   *) echo "usage: cut.sh preview|final|check <pass>|sheet <pass> <shot> [args]" >&2; exit 2 ;;
 esac
 ls -la "$OUT"
