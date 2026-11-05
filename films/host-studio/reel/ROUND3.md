@@ -222,7 +222,7 @@ If something blocks the editor (a cloud wait, a fix in progress), agent-07 rende
    - measure, then agent-11's `framing.py --him`;
    - hair/beard: a placeholder until the operator answers (`operator_mh.py` GROOMS, then STAGE='grooms' + mh.build).
 3. agent-01's face chain on both: calibrate (it failed on her tonight with old signs: find out why), naturalize her then him, turn_head, verify head_turns + both-eyes-shut.
-4. Her hair: hair_cover's COVERAGE winner in dress_her, then lod0. Gate (c) needs black end to end.
+4. Her hair: the green tint is NOT coverage. hair_cover found no winner, and the green sits inside the lengths beside her face. Do a full parameter dump of MI_K_HerHair and its parent, then fix the material/colour. Gate (c) needs black end to end. The pop at 0:39-0:40 is fixed by the LOD-0 pin.
 5. Set finals: move V01, V02 and S11 out of final_c to final_c_<shot>_old, then re-render them at C after level.save + probe_cam --check, then camcheck 90/270/750/775. Good already: V03, V04, V05, S12, N01.
 6. The presenter gate on a cast preview. Then presenter finals S13-S18 at C, one per approved shot, with the camera rule.
 7. Cut: agent-06's cut.sh final --fill-from none. Keep step to private/renders/r3 (KMS + head-object). Then the private project/DDC save.
