@@ -1,0 +1,9 @@
+# copyrighted footage, mattes, the song and the final mix stay local (symlinks/copies of the handover)
+assets/clips
+assets/roto
+assets/*.wav
+assets/presets/
+audio/
+# non-OFL fonts
+fonts/chinese rocks rg.otf
+fonts/Spider-Man.otf.ttf

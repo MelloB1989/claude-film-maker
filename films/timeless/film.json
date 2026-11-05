@@ -1,0 +1,9 @@
+{
+  "id": "timeless",
+  "title": "Timeless (Spider-Man trilogy AMV, SAU_EDITZ)",
+  "format": "landscape",
+  "fps": 30,
+  "theme": { "extends": "noir", "accent": "#e8202a", "accent2": "#2f7dff" },
+  "audio": { "mix": "audio/mix/mix.wav", "bpm": 105 },
+  "amv": { "plan": "amv/plan.json", "watermark": "SAU_EDITZ" }
+}
