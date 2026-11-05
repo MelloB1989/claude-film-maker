@@ -59,7 +59,7 @@ Branches:
    - her green hair (item 15: the lights/emissives list, then the A/B);
    - the watch: seq_dress, then the post-scrub check, which must read 3.6 cm;
    - with Host_Op: his lips (the face rig), the iris hue crop, the tee waistband.
-4. Respawn + re-dress, then save -> open -> lod0 (no TRASH_) -> save. Then `build.py --cameras` -> `probe_cam --check` on all 13 shots, per `r3/CAMERAS.md` (agent-11). It also covers switching back to Trey's numbers if he is the presenter that passes.
+4. Respawn + re-dress (in the order of `r3/DRESS.md`, agent-02), then save -> open -> lod0 (no TRASH_) -> save. Then `build.py --cameras` -> `probe_cam --check` on all 13 shots, per `r3/CAMERAS.md` (agent-11). It also covers switching back to Trey's numbers if he is the presenter that passes.
 5. A cast preview through agent-09's gate. The gate state, the cast_op4 numbers and the commands are in `QA_HANDOFF.md`.
 6. 1080p finals of every shot at pick C into a fresh dir (`30-final.yaml --set final=final_d`; see the HANDOFF section of `r3/README.md`):
    - ~1560 frames at 2.6 s/frame is ~70 min;
