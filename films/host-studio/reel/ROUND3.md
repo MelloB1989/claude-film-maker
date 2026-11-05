@@ -259,3 +259,19 @@ If something blocks the editor (a cloud wait, a fix in progress), agent-07 rende
 6. The presenter gate on a cast preview. Then presenter finals S13-S18 at C, one per approved shot, with the camera rule.
 7. Cut: agent-06's cut.sh final --fill-from none. Keep step to private/renders/r3 (KMS + head-object). Then the private project/DDC save.
 8. Core backlog: B68 (overwrite never converges: the take field); render.encode's pattern for frames before 0. Narrow PRIVATE_EXCLUDES' `Unpacked/Host/*` (Trey's build, not face data) when Trey's BP needs syncing.
+
+### Added overnight (05 Nov, 20:00-21:00 UTC)
+
+9. The operator MetaHuman likeness (agent-04):
+   - Skin: a closed loop on the box. Match the mean cheek/forehead colour of the capture front frame against a neutral-lit Host_Op still by stepping mh.skin u/v. The numbers stay on the box. Texture-from-capture is to be scoped, not promised.
+   - The grooms come from the operator's answer, plus the character-side colour path (preview collection).
+   - A TEETH identity pose at ~16 s of the capture.
+   - More promoted frames (chin up/down), then re-conform.
+   - The trousers' waist, if the tee-hem patches survive chest 104.
+10. Her hair green (agent-09): the strands are drawn green, not lit (the overshirt and the Lumen/scatter cvars change green_px by <0.01).
+    - Re-run cards_helmet_black with the not-black check.
+    - If that doesn't win, check the groom's strand data on Linux (Hair_L_Straight).
+    - Gate: green_px <= 0.05 per region.
+11. TRASH_ components after the outfit blocks (Host and Trey): do a respawn + re-dress, so that lod0 and drive_faces hit the live components. agent-09 won't sign finals with TRASH_ in lod0.
+12. The first run of agent-01's `perf.py place --cleanup` (ME from REEL_PERF_ME), then level.list for Test_. Pull main a9107015 (seq rebind exact, agent-11) into the box tree.
+13. The 1080p finals of every shot (fresh dir) with whichever presenter passes, then agent-06's 65 s + 45 s cuts. Anything with Host_Op goes to private/ only.
