@@ -1,0 +1,328 @@
+{
+ "engine": "5.8.4-58902052+++UE5+Release-5.8",
+ "bare_info": {
+  "name": "None",
+  "association": "<MaterialParameterAssociation.GLOBAL_PARAMETER: 2>",
+  "index": "-1"
+ },
+ "SignHalo": {
+  "actor": "/Game/Studio/Studio.Studio:PersistentLevel.StaticMeshActor_437",
+  "SignHalo/StaticMeshComponent0": {
+   "bound": [
+    "/Game/Studio/Studio.Studio:PersistentLevel.StaticMeshActor_437.StaticMeshComponent0"
+   ],
+   "tracks": [
+    {
+     "class": "MovieSceneComponentMaterialTrack",
+     "name": "Material Element 0",
+     "info": {
+      "material_slot_index": "0",
+      "material_slot_name": "lambert1",
+      "material_type": "<ComponentMaterialType.INDEXED_MATERIAL: 1>"
+     },
+     "sections": [
+      {
+       "class": "MovieSceneComponentMaterialParameterSection",
+       "active": true,
+       "range": [
+        false,
+        false
+       ],
+       "channels": [
+        [
+         "Intensity_9",
+         3
+        ],
+        [
+         "Reveal_4",
+         53
+        ]
+       ],
+       "infos": "!Exception: MovieSceneComponentMaterialParameterSection: Failed to find property 'scalar_parameter_names_and_curves' for attribute 'scalar_parameter_names_and_curves' on 'MovieSceneComponentMaterialParameterSection'"
+      }
+     ]
+    }
+   ]
+  },
+  "SignHalo": {
+   "bound": [
+    "/Game/Studio/Studio.Studio:PersistentLevel.StaticMeshActor_437"
+   ],
+   "tracks": []
+  }
+ },
+ "Outside": {
+  "actor": "/Game/Studio/Studio.Studio:PersistentLevel.StaticMeshActor_434",
+  "Outside/StaticMeshComponent0": {
+   "bound": [
+    "/Game/Studio/Studio.Studio:PersistentLevel.StaticMeshActor_434.StaticMeshComponent0"
+   ],
+   "tracks": [
+    {
+     "class": "MovieSceneComponentMaterialTrack",
+     "name": "Material Element 0",
+     "info": {
+      "material_slot_index": "0",
+      "material_slot_name": "lambert1",
+      "material_type": "<ComponentMaterialType.INDEXED_MATERIAL: 1>"
+     },
+     "sections": [
+      {
+       "class": "MovieSceneComponentMaterialParameterSection",
+       "active": true,
+       "range": [
+        false,
+        false
+       ],
+       "channels": [
+        [
+         "Intensity_10",
+         542
+        ]
+       ],
+       "infos": "!Exception: MovieSceneComponentMaterialParameterSection: Failed to find property 'scalar_parameter_names_and_curves' for attribute 'scalar_parameter_names_and_curves' on 'MovieSceneComponentMaterialParameterSection'"
+      }
+     ]
+    }
+   ]
+  },
+  "Outside": {
+   "bound": [
+    "/Game/Studio/Studio.Studio:PersistentLevel.StaticMeshActor_434"
+   ],
+   "tracks": []
+  }
+ },
+ "Terminal": {
+  "actor": "/Game/Studio/Studio.Studio:PersistentLevel.StaticMeshActor_458",
+  "Terminal/StaticMeshComponent0": {
+   "bound": [
+    "/Game/Studio/Studio.Studio:PersistentLevel.StaticMeshActor_458.StaticMeshComponent0"
+   ],
+   "tracks": [
+    {
+     "class": "MovieSceneComponentMaterialTrack",
+     "name": "Material Element 0",
+     "info": {
+      "material_slot_index": "1",
+      "material_slot_name": "M_Label_Terminal",
+      "material_type": "<ComponentMaterialType.INDEXED_MATERIAL: 1>"
+     },
+     "sections": [
+      {
+       "class": "MovieSceneComponentMaterialParameterSection",
+       "active": true,
+       "range": [
+        false,
+        false
+       ],
+       "channels": [
+        [
+         "Blink_2",
+         13
+        ]
+       ],
+       "infos": "!Exception: MovieSceneComponentMaterialParameterSection: Failed to find property 'scalar_parameter_names_and_curves' for attribute 'scalar_parameter_names_and_curves' on 'MovieSceneComponentMaterialParameterSection'"
+      }
+     ]
+    }
+   ]
+  },
+  "Terminal": {
+   "bound": [
+    "/Game/Studio/Studio.Studio:PersistentLevel.StaticMeshActor_458"
+   ],
+   "tracks": []
+  }
+ }
+}
+{
+ "SignHalo": [
+  {
+   "component": "StaticMeshComponent0",
+   "slot": 0,
+   "class": "MaterialInstanceDynamic",
+   "material": "/Game/Studio/Studio.Studio:PersistentLevel.StaticMeshActor_437.StaticMeshComponent0.MI_K_HaloWipe_Animated_1",
+   "parent": "/Game/Studio/Materials/MI_K_HaloWipe.MI_K_HaloWipe",
+   "Reveal": 1.0,
+   "Intensity": 2.5,
+   "Softness": 0.029999999329447746,
+   "Blink": 0.0
+  }
+ ],
+ "Outside": [
+  {
+   "component": "StaticMeshComponent0",
+   "slot": 0,
+   "class": "MaterialInstanceDynamic",
+   "material": "/Game/Studio/Studio.Studio:PersistentLevel.StaticMeshActor_434.StaticMeshComponent0.MI_K_Outside_Animated_1",
+   "parent": "/Game/Studio/Materials/MI_K_Outside.MI_K_Outside",
+   "Reveal": 0.0,
+   "Intensity": 0.0,
+   "Softness": 0.0,
+   "Blink": 0.0
+  }
+ ],
+ "Terminal": [
+  {
+   "component": "StaticMeshComponent0",
+   "slot": 0,
+   "class": "MaterialInstanceConstant",
+   "material": "/Game/Studio/Materials/MI_K_Anodised.MI_K_Anodised",
+   "parent": "/Game/FM/Materials/M_FM_Surface.M_FM_Surface",
+   "Reveal": 0.0,
+   "Intensity": 0.0,
+   "Softness": 0.0,
+   "Blink": 0.0
+  },
+  {
+   "component": "StaticMeshComponent0",
+   "slot": 1,
+   "class": "MaterialInstanceDynamic",
+   "material": "/Game/Studio/Studio.Studio:PersistentLevel.StaticMeshActor_458.StaticMeshComponent0.MI_K_TerminalBlink_Animated_1",
+   "parent": "/Game/Studio/Materials/MI_K_TerminalBlink.MI_K_TerminalBlink",
+   "Reveal": 0.0,
+   "Intensity": 2.200000047683716,
+   "Softness": 0.0,
+   "Blink": 1.0
+  },
+  {
+   "component": "StaticMeshComponent0",
+   "slot": 2,
+   "class": "MaterialInstanceConstant",
+   "material": "/Game/Studio/Materials/MI_K_ScreenGlass.MI_K_ScreenGlass",
+   "parent": "/Game/FM/Materials/M_FM_Glass.M_FM_Glass",
+   "Reveal": 0.0,
+   "Intensity": 0.0,
+   "Softness": 0.0,
+   "Blink": 0.0
+  }
+ ]
+}
+{
+ "blend": "<BlendMode.BLEND_ADDITIVE: 3>",
+ "shading": "<MaterialShadingModel.MSM_UNLIT: 0>",
+ "emissive": {
+  "class": "MaterialExpressionMultiply",
+  "const_a": "0.0",
+  "const_b": "1.0",
+  "in": [
+   {
+    "class": "MaterialExpressionMultiply",
+    "const_a": "0.0",
+    "const_b": "1.0",
+    "in": [
+     {
+      "class": "MaterialExpressionMultiply",
+      "const_a": "0.0",
+      "const_b": "1.0",
+      "in": [
+       {
+        "class": "MaterialExpressionTextureSampleParameter2D",
+        "parameter_name": "Tex",
+        "in": [
+         {
+          "class": "MaterialExpressionMultiply",
+          "const_a": "0.0",
+          "const_b": "1.0",
+          "in": [
+           {
+            "class": "MaterialExpressionTextureCoordinate",
+            "coordinate_index": "0",
+            "in": []
+           },
+           {
+            "class": "MaterialExpressionScalarParameter",
+            "parameter_name": "Tiling",
+            "in": []
+           }
+          ]
+         },
+         null
+        ]
+       },
+       {
+        "class": "MaterialExpressionVectorParameter",
+        "parameter_name": "Color",
+        "in": []
+       }
+      ]
+     },
+     {
+      "class": "MaterialExpressionScalarParameter",
+      "parameter_name": "Intensity",
+      "in": []
+     }
+    ]
+   },
+   {
+    "class": "MaterialExpressionSaturate",
+    "in": [
+     {
+      "class": "MaterialExpressionDivide",
+      "const_a": "1.0",
+      "const_b": "2.0",
+      "in": [
+       {
+        "class": "MaterialExpressionSubtract",
+        "const_a": "1.0",
+        "const_b": "1.0",
+        "in": [
+         {
+          "class": "MaterialExpressionScalarParameter",
+          "parameter_name": "Reveal",
+          "in": []
+         },
+         {
+          "class": "MaterialExpressionComponentMask",
+          "mask": "r",
+          "in": [
+           {
+            "class": "MaterialExpressionTextureCoordinate",
+            "coordinate_index": "0",
+            "in": []
+           }
+          ]
+         }
+        ]
+       },
+       {
+        "class": "MaterialExpressionScalarParameter",
+        "parameter_name": "Softness",
+        "in": []
+       }
+      ]
+     }
+    ]
+   }
+  ]
+ }
+}
+[
+ {
+  "actor": "SignHalo",
+  "component": "StaticMeshComponent0",
+  "slot": 0,
+  "material": "/Game/Studio/Studio.Studio:PersistentLevel.StaticMeshActor_437.StaticMeshComponent0.MI_K_HaloWipe_Animated_1",
+  "base": "/Game/FM/Materials/M_FM_GlowWipe.M_FM_GlowWipe",
+  "loc": [
+   -256,
+   25,
+   230
+  ],
+  "visible": true
+ },
+ {
+  "actor": "OutsideNight",
+  "component": "StaticMeshComponent0",
+  "slot": 0,
+  "material": "/Game/Studio/Materials/MI_K_OutsideNight.MI_K_OutsideNight",
+  "base": "/Game/FM/Materials/M_FM_Glow.M_FM_Glow",
+  "loc": [
+   -399,
+   205,
+   150
+  ],
+  "visible": true
+ }
+]

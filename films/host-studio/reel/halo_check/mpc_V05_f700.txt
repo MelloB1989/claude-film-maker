@@ -1,0 +1,74 @@
+Key Temperature 2
+{
+ "fm_rev": "3",
+ "collection_nodes": [
+  {
+   "param": "WipeReveal",
+   "collection": "/Game/FM/Materials/MPC_FM.MPC_FM"
+  },
+  {
+   "param": "WipeOn",
+   "collection": "/Game/FM/Materials/MPC_FM.MPC_FM"
+  }
+ ],
+ "collection_tracks": [
+  {
+   "mpc": "/Game/FM/Materials/MPC_FM.MPC_FM",
+   "sections": [
+    {
+     "class": "MovieSceneParameterSection",
+     "active": true,
+     "range": [
+      false,
+      false
+     ],
+     "channels": [
+      [
+       "WipeOn_0",
+       3
+      ],
+      [
+       "WipeReveal_0",
+       53
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}
+/private/tmp/fleet-agent-06-2-operator/reel/films/host-studio/reel/halo_check/Reel_V05_f700_warm.png
+/private/tmp/fleet-agent-06-2-operator/reel/films/host-studio/reel/halo_check/Reel_V05_f700_as_is.png
+[
+ [
+  "WipeReveal",
+  1.0
+ ],
+ [
+  "WipeOn",
+  0.0
+ ]
+]
+/private/tmp/fleet-agent-06-2-operator/reel/films/host-studio/reel/halo_check/Reel_V05_f700_wipeon_default_0.png
+[
+ [
+  "WipeReveal",
+  1.0
+ ],
+ [
+  "WipeOn",
+  1.0
+ ]
+]
+[
+ [
+  "WipeReveal",
+  1.0
+ ],
+ [
+  "WipeOn",
+  1.0
+ ]
+]
+
+[exited with code 0]

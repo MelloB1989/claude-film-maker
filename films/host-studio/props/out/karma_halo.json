@@ -1,0 +1,25 @@
+{
+  "image": "karma_halo.png",
+  "width_px": 2048,
+  "height_px": 823,
+  "view": "orthographic from +X (Y to image right, Z up); white = letters",
+  "units": "cm, in karma_sign's own coordinates (origin: bottom centre of the letters' back plane at the wall)",
+  "y0": -56.0,
+  "y1": 56.0,
+  "z0": -6.003,
+  "z1": 39.005,
+  "letters_bbox_cm": {
+    "y": [
+      -50.0,
+      50.0
+    ],
+    "z": [
+      0.0,
+      33.001
+    ]
+  },
+  "x_letter_back_cm": 4.0,
+  "x_letter_front_cm": 6.5,
+  "x_wall_cm": 0.0,
+  "padding_cm": 6.0
+}
