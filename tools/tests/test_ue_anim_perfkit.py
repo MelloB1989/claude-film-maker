@@ -667,3 +667,17 @@ def test_clavicle_axes_from_the_box_need_no_twist():
     assert BLF.pick_axes("clavicle_l", box) == {"flex": ["z", 1.0], "side": ["y", -1.0], "twist": ["x", 1.0]}
     with pytest.raises(ValueError):
         BLF.pick_axes("spine_03", box)  # a spine bone must twist the body
+
+
+def test_head_axes_with_a_dead_curve():
+    """Round 3 (box): HeadRoll=10 left her 5.8 face exactly at rest; HeadYaw and HeadPitch moved it. The dead curve
+    takes the axis left over (writing it is harmless); fewer than two live curves is an error."""
+    resp = {"HeadYaw": {"yaw": 0.02, "pitch": -1.6, "roll": 0.01}, "HeadPitch": {"yaw": 1.5, "pitch": -0.1, "roll": 0.05},
+            "HeadRoll": {"yaw": 0.0, "pitch": 0.0, "roll": 0.0}}
+    assert R.head_axes(resp) == {"yaw": "HeadPitch", "pitch": "HeadYaw", "roll": "HeadRoll"}
+    tilt = dict(resp, HeadPitch={"yaw": 1.5, "pitch": -0.1, "roll": 0.9})
+    assert R.head_axes(tilt) == {"yaw": "HeadRoll", "pitch": "HeadYaw", "roll": "HeadPitch"}
+    with pytest.raises(ValueError):
+        R.head_axes(dict(resp, HeadPitch={"yaw": 0.0, "pitch": 0.0, "roll": 0.0}))
+    with pytest.raises(ValueError):  # two curves that both nod
+        R.head_axes(dict(resp, HeadPitch={"yaw": 0.1, "pitch": 1.4, "roll": 0.0}))
