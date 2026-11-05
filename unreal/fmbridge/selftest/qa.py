@@ -5,7 +5,8 @@ is engine basic shapes. A MetaHuman part runs only when one is found under /Game
 It proves:
 - view.still renders a viewport-free PNG through a cine camera, an ad-hoc camera and a sequence's cut; it is not flat,
   it matches a viewport still of the same camera (SSIM, mean colour), and which render-target format (RGBA8 or
-  RGBA8_SRGB) matches the viewport's gamma (metric `capture_gamma`; the default must be the closer one);
+  RGBA8_SRGB) matches the viewport's gamma (metric `capture_gamma`; the default, view.STILL_FORMAT, must be the
+  closer one);
 - view.camera's projection agrees with the picture: the pillar's projected box holds the pillar's colour;
 - view.turntable, view.stills, view.sheet, view.overlay write their images;
 - qa.image measures exposure (a lit scene is not "flat"; a black still is); qa.compare gives SSIM 1 for a still and
@@ -24,6 +25,7 @@ from __future__ import annotations
 
 import os
 from ..ops.assets import EAL  # EditorAssetLibrary, or the EditorAssetSubsystem when its plugin is off
+from ..ops.view import STILL_FORMAT, STILL_FORMATS  # the capture target view.still uses unless told otherwise
 
 REQUIRES = ["gpu"]
 AREAS = ["qa", "view", "groom"]
@@ -69,7 +71,7 @@ def run(t):
         t.note(f"viewport still unavailable here: {e}")
     if vp and os.path.isfile(vp["path"]):
         best, scores = None, {}
-        for fmt in ("RTF_RGBA8", "RTF_RGBA8_SRGB"):
+        for fmt in sorted(STILL_FORMATS, key=lambda f: f != STILL_FORMAT):  # the default first: a tie keeps it
             c = yield from t.op("view.still", out=f"{out}/wide_{fmt}.png", camera=P + "Wide", width_px=960,
                                 height_px=540, rt_format=fmt)
             cmp_ = t.op("qa.compare", image=c["path"], reference=vp["path"], min_ssim=0.5)
@@ -78,8 +80,9 @@ def run(t):
             if best is None or err < best[1]:
                 best = (fmt, err)
         t.metric("capture_gamma", {"closest": best[0], "scores": scores})
-        t.check("the default capture format (RTF_RGBA8) matches the viewport's gamma best", best[0], "RTF_RGBA8")
-        t.ok("capture and viewport show the same picture (SSIM > 0.6)", scores["RTF_RGBA8"]["ssim"] > 0.6,
+        t.check(f"the default capture format ({STILL_FORMAT}) matches the viewport's gamma best", best[0],
+                STILL_FORMAT)
+        t.ok("capture and viewport show the same picture (SSIM > 0.6)", scores[STILL_FORMAT]["ssim"] > 0.6,
              detail=str(scores))
 
     adhoc = yield from t.op("view.still", out=f"{out}/adhoc.png", loc=[300, 300, 250], look_at=[0, 0, 90],

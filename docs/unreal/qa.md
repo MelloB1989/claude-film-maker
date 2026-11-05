@@ -202,10 +202,11 @@ floating: {ignore: [Pendant]}
   post-process settings and 8 warm-up captures (rendering state kept, so TAA and Lumen settle), but no motion blur,
   and DoF only as the post settings carry it. Use it for framing, layout, exposure trends and continuity; use
   `mode=mrq` (render.frames) for a frame you would judge as final.
-- **Gamma.** The capture's render target is `RTF_RGBA8` by default: Final Color LDR is already display-encoded, and
-  a non-float 8-bit target exports as PNG unchanged (TextureRenderTarget2D.cpp:704 gives 8-bit targets display gamma
-  2.2). The selftest measures RGBA8 against RGBA8_SRGB and a viewport still (`capture_gamma` metric): if SRGB wins on
-  the box, change `capture()`'s default in ops/view.py.
+- **Gamma.** The capture's render target is `RTF_RGBA8_SRGB` by default (`view.STILL_FORMAT`). The guess was
+  `RTF_RGBA8` (Final Color LDR already display-encoded), but on the box on day 1 SRGB matched a viewport still better
+  (SSIM 0.60 vs 0.54, mean shift -30 vs -35) and env's grey card read 0.23 through RGBA8 where ~0.46 was wanted. The
+  selftest keeps measuring both against a viewport still (`capture_gamma` metric); if RGBA8 ever wins, change
+  `STILL_FORMAT` in ops/view.py.
 - **Depth needs 32-bit floats.** `read_render_target_raw` reads only RGBA8, RGBA16f and RGBA32f
   (KismetRenderingLibrary.cpp:337-351); fp16 depth steps ~0.3 cm at 3 m, as coarse as the penetration tolerance, so
   depth captures use `RTF_RGBA32F`. Pass `False` for normalize (raw values: depth in cm).
@@ -315,7 +316,7 @@ Most rows are the HANDOFF's unproven list: a failure there is new knowledge, so 
 |---|---|---|
 | `view.still capture wrote a PNG` | the editor runs without an RHI (`-nullrhi`), or ExportRenderTarget refused the target | `film-ue log 200 \| grep -i ExportRenderTarget`; `film-ue selftest list` must show `gpu: true`; export is `ops/view.py` `export_png` |
 | `capture is not flat` (black or one colour) | warm-up too short for Lumen/streaming, or the `capture_source` write did not take (an `interp` property) | `film-ue selftest qa --keep`, then `film-ue op view.still out=/tmp/w.png camera=ST_qa_Wide warmup=24`. If still black: `film-ue exec -c "result=str(unreal.SceneCaptureComponent2D().get_editor_property('capture_source'))"`, setter at `ops/view.py:168` |
-| `the default capture format (RTF_RGBA8) matches the viewport's gamma best` | the capture is gamma-encoded the other way round from the guess | read metric `capture_gamma.closest`. If it is `RTF_RGBA8_SRGB`, change the default in `ops/view.py` `capture()` (`fmt = fmt or ("RTF_RGBA8" ...`) to `RTF_RGBA8_SRGB`, rerun, then `film-ue selftest qa --baseline update` |
+| `the default capture format (RTF_RGBA8_SRGB) matches the viewport's gamma best` | the capture is gamma-encoded the other way round from day 1's measurement | read metric `capture_gamma.closest`. If it is `RTF_RGBA8`, set `STILL_FORMAT` in `ops/view.py` to it, rerun, then `film-ue selftest qa --baseline update` |
 | `capture and viewport show the same picture (SSIM > 0.6)` | field of view or aspect differs (CineCamera horizontal FOV, aspect constraint), or exposure differs (auto exposure in the viewport) | compare `wide_capture.png` with `wide_viewport.png`. If framing differs, look at `camera_info` (`ops/view.py:65-99`). If only brightness, turn auto exposure off on the camera (look.camera, env area). Skipped with a note when there is no viewport (offscreen) |
 | `pillar centre projects near the frame centre` / `the projected box lands on the pillar` | the projection's axes or FOV disagree with the renderer (`qa/framing.py` `axes`, `Camera`) | `film-ue op view.camera camera=ST_qa_Wide 'points={"o":[0,0,90]}'` should give u ≈ 0.5. If u is off by a constant, the FOV is wrong (vertical vs horizontal, `camera_info`); if mirrored, the sign of `u` in `qa/framing.py` |
 | `floating cube gap ~20 cm` / `qa.floating flags the floating cube` / `resting cube gap ~0` | the trace hits nothing (channel), or `HitResult.to_tuple()` order differs from BreakHitResult | `film-ue exec` a `SystemLibrary.line_trace_single` under the floating cube and print `fmbridge.ops.qa._hit_tuple(hit)`: [1] initial_overlap, [3] distance. Fix the indices in `ops/qa.py` `_hit_tuple`; channel from `ops/_util.py` `visibility_channel` |
