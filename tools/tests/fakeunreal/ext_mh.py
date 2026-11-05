@@ -236,6 +236,11 @@ class InstanceParameter(FakeStruct):
         return self._set("COLOR", v)
 
 
+class MetaHumanCharacterAssemblyResult:
+    SUCCEEDED = "<MetaHumanCharacterAssemblyResult.SUCCEEDED: 0>"
+    FAILED = "<MetaHumanCharacterAssemblyResult.FAILED: 1>"
+
+
 class Assembled:
     """unreal.MetaHumanCharacterAssembled: the dynamic delegate MetaHumanInstance.assemble calls when done."""
 
@@ -251,9 +256,9 @@ class Assembled:
                             f"(expected 1, got {n})")
         self._fns = [fn]
 
-    def _fire(self):
+    def _fire(self, result=None):
         for f in self._fns:
-            f(None)
+            f(result)
 
 
 class MetaHumanInstance(core.Object):
@@ -296,8 +301,12 @@ class MetaHumanInstance(core.Object):
     def _finish(self):
         d, _ = self._pending
         object.__setattr__(self, "_pending", None)
-        object.__setattr__(self, "_assembled", True)
-        d._fire()
+        c = getattr(self, "_char", None)
+        # live 5.8.4 (day 1): 'Failed to assemble Instance ..., as the referenced Collection ... has not been built'
+        # (FAILED, at once): the character's internal collection is built by mh.build (BuildMetaHuman)
+        ok = c is None or getattr(c._props["internal_collection"], "_built", False)
+        object.__setattr__(self, "_assembled", bool(ok))
+        d._fire(MetaHumanCharacterAssemblyResult.SUCCEEDED if ok else MetaHumanCharacterAssemblyResult.FAILED)
 
     def get_instance_parameter_item_paths(self):
         if not self._assembled:
@@ -376,6 +385,7 @@ class MetaHumanCharacter(core.Object):
         p.setdefault("__fm_landmarks", [core.Vector(float(i), 0.0, 160.0) for i in range(4)])
         p.setdefault("__fm_body", {k: [False, v[0]] for k, v in BODY.items()})
         p.setdefault("__fm_rigged", False)
+        object.__setattr__(p["internal_collection"]._props["default_instance"], "_char", self)
 
 
 class MetaHumanCharacterEditorSubsystem(core.Object):
@@ -529,6 +539,7 @@ class MetaHumanCharacterEditorSubsystem(core.Object):
         name = params.name_override or c.get_name()
         folder = params.absolute_build_path or core._package(c.get_path_name()).rsplit("/", 1)[0] + f"/Unpacked/{name}"
         f.add_asset(f"{folder}/BP_{name}", "Blueprint")
+        object.__setattr__(c.get_editor_property("internal_collection"), "_built", True)
 
     def spawn_meta_human_actor(self, c, keep_transient=False):
         self._rec("spawn_meta_human_actor", c, keep_transient)

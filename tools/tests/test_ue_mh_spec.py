@@ -54,8 +54,9 @@ def test_fingerprints_match_the_ops():
 def test_plan_fresh_runs_everything_in_order():
     spec = yaml.safe_load((EX / "presenter.yaml").read_text())
     ops = [s["op"] for s in mh_spec.plan(spec, {"exists": False})]
+    # live 5.8.4: item parameters exist only once the collection is built: wear, build, colours, build again
     assert ops == ["mh.add", "mh.body", "mh.skin", "mh.eyes", "mh.groom", "mh.groom", "mh.groom", "mh.add_item",
-                   "mh.rig", "mh.textures", "mh.build"]
+                   "mh.rig", "mh.textures", "mh.build", "mh.groom", "mh.groom", "mh.build"]
 
 
 def test_plan_needs_from_for_a_missing_character():
@@ -96,7 +97,12 @@ def test_plan_groom_compares_item_and_colour():
     worn = {"Hair": {"item": "Hair_S_BuzzCut_Binding", "params": {"Melanin": 0.9, "Redness": 0.0}}}
     assert mh_spec.plan(spec, state(wardrobe=worn)) == []
     worn["Hair"]["params"]["Melanin"] = 0.5
-    assert [s["op"] for s in mh_spec.plan(spec, state(wardrobe=worn))] == ["mh.groom"]
+    assert mh_spec.plan(spec, state(wardrobe=worn)) == []  # no build: no item parameters, the colour waits
+    spec = {**spec, "build": {}}
+    built = {"bp": "/Game/C/BP_T", "stale": False}
+    assert [s["op"] for s in mh_spec.plan(spec, state(wardrobe=worn, build=built))] == ["mh.groom", "mh.build"]
+    worn["Hair"]["params"]["Melanin"] = 0.9
+    assert mh_spec.plan(spec, state(wardrobe=worn, build=built)) == []
 
 
 @pytest.fixture
