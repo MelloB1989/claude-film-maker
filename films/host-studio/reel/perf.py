@@ -53,7 +53,7 @@ SPEECH = "/Game/Speech"
 ANIM = "/Game/Reel/Perf"
 ME = "agent-10"
 IDLE = "/MetaHumanCharacter/Optional/Animation/TemplateAnimations/Technical_Loops/Idle/mhc_mh001_fmn_b_idle"
-FACE_MESH = {"him": "/Game/Host/Unpacked/Host/Face/SKM_Host_Trey_FaceMesh",
+FACE_MESH = {"him": "/Game/Host/Unpacked/Host/Face/SKM_Host_Trey_FaceMesh",  # fallbacks: face_mesh() asks the level
              "her": "/Game/Host/Unpacked/Presenter/Face/SKM_Presenter_F_FaceMesh"}
 LABEL = {"him": "Host", "her": "Presenter"}
 MARK = {"him": MARK_HIM, "her": MARK_HER}
@@ -126,7 +126,24 @@ def push() -> list:
 def solve(key: str) -> dict:
     s = SOLVES[key]
     return ok(client.op("speech.to_face", wav=_j(IMPORT, f"{s['wav']}.wav"), name=anim_name(key),
-                        face_mesh=FACE_MESH[s["who"]], mood=s["mood"], intensity=s["intensity"], timeout=1800))
+                        face_mesh=face_mesh(s["who"]), mood=s["mood"], intensity=s["intensity"], timeout=1800))
+
+
+FACE_OF = r"""
+import unreal
+from fmbridge.ops.seq import component_of
+try:
+    m = component_of(PARAMS, "Face").get_skeletal_mesh_asset()
+    result = m.get_path_name().split(".")[0] if m else ""
+except Exception:
+    result = ""
+"""
+
+
+def face_mesh(who: str) -> str:
+    """The face mesh of the presenter in the level (the Host actor is whoever HOST is: Trey, or the operator's
+    MetaHuman once agent-04's build lands), else FACE_MESH's."""
+    return ok(client.exec_code(f"PARAMS = {LABEL[who]!r}\n" + FACE_OF)) or FACE_MESH[who]
 
 
 
