@@ -15,16 +15,16 @@ Live table (newest result per area; times are wall clock on the box):
 | 4 | layout | OK 36/0 | 11 s | (was: view.capture error) | day1-view | OK 36/0 | stills in report |
 | 5 | mh | ERROR after 25/0 -> 36/2 (melanin skipped, kali-only) | 79 s | no groom has instance params before assembly (Hair Melanin, Eyebrows Whiteness: item_params empty live); 'hair worn' changed False | agent-04 (probe running) | 36/2 | |
 | 6 | anim | 22/5 | 48 s | head curves do not turn the head (0 cm); face.alive; describe.face_curves; clavicle twist axis | agent-01 (task assigned) | 22/5 | |
-| 7 | seq | 31/13 -> 42/2 | 20 s | section ranges collapsed to the whole sequence (SetStart/EndFrameBounded after set_range) | day1-seq f36288d1 | 42/2 | |
-| 8 | cam | 25/14+ERR -> 32/9+ERR | 15 s | 16:9 projection now OK; Super 35 horizontal offsets 1.34x; frame/coverage do not converge; coverage camera names | agent-11 (task assigned) | 32/9 | |
-| 9 | render | 12/9+ERR -> 21/0+ERR | 39 s | MRQ editor library not loadable in this build (new-process/cmdline executors); AOV names | day1-render 98b23e7e (now one failed check); day1-seq | 21/0 + executor check | |
+| 7 | seq | 42/3 | 25 s | after seq.eval the camera's transform track re-plans (ST_seq_CamA/transform differs) | day1-seq f36288d1; agent-06 (fake-bounded) | 42/3 | |
+| 8 | cam | 43/9 -> rerunning c83bf93e | 31 s | filmback aspect of stills, convergence, coverage names, shot.plan up_to_date with cameras gone | agent-11 day1-cam c83bf93e | rerunning | |
+| 9 | render | 25/2 | 53 s | MRQ editor library missing (new-process/cmdline executors); cancelled job reports ok; (fixed: JPEG frames are .jpeg) | day1-render 48f97794 | 25/2 | |
 | 10 | qa | 30/2 | 28 s | default capture format: RTF_RGBA8_SRGB matches the viewport better (SSIM 0.67 vs 0.59) | agent-09 | 30/2 | |
 | 11 | audio | OK 17/0 | 10 s | | | | |
-| 12 | env | 38/6+ERR | 33 s | SkyLightComponent has no lighting_channels; exposure 0-255 vs 0-1; autoexpose oscillates | agent-08 | 38/6 | |
+| 12 | env | OK 56/0 | 37 s | (was: no lighting_channels on SkyLight; display read 0..255; capture stored linear) | agent-08 env-day1 8eb7dcb9 + 71520e48 | OK 56/0 | |
 | 13 | foliage | OK 20/0 | 30 s | | | | |
 | 14 | pose | ERROR 0/0 | 7 s | anim.py:1008 rig_keys: the engine made no control rig track | needs an owner (agent-01 has no task) | | |
 | 15 | wp | OK 17/0 | 5 s | unreal.Box(min, max, is_valid) refused (FBox native make: 2 args) | day1-wp 8f9320ac | OK 17/0 | |
-| D | demo | stage 1: preset + cloud rig (86 s) + textures (19 s) OK; build 'cloud request still running' -> retrying | | mh.textures returns before the cloud is done? | | running | |
+| D | demo | CONVERGES (2nd plan 0 to change); 168 frames rendered | stage 1 ~6 min (rig 86 s, textures 19 s, build 251 s) | build raced the textures; enum as string; /srv/film unwritable; no voice (espeak-ng on the box); stale shot hash; JPEG frames .jpeg; qa.review counted cameras as overlaps | day1-demo bd2c487a; day1-render 688a2b3b; day1-dx 1641cf31 (save the level before a scratch level); agent-09 still-srgb; agent-11 | converged | /srv/ue/demo/out/render, qa |
 
 ## Log
 
@@ -41,3 +41,9 @@ Live table (newest result per area; times are wall clock on the box):
 - 14:12-14:20 UTC batch 5 (all fixes installed): see rows. Probes: the capture's fov_angle applies (90 -> 33 reads back).
 - 14:25 UTC demo stage 1 on Epic's real cloud: preset, rig, textures OK; mh.build said a cloud request was still
   running: retried after 30 s. Reports for owners: fleet/agent-13/day1-reports.
+- 14:30 UTC the demo applied end to end (MetaHuman from the real Epic cloud, set, lights, speech-to-face from an
+  espeak-ng line, sequence, audio, 3 shots) and a second plan was empty. The level had been reloaded unsaved by a
+  selftest in between (cameras lost, shot hash kept): fixed by saving the open level before any scratch level
+  (day1-dx 1641cf31) and by shot.plan checking its cameras (agent-11).
+- 14:40 UTC preview render: 168 JPEG frames in /srv/ue/demo/out/render; the job reported 0 (looked for .jpg): fixed.
+- 14:50 UTC env OK 56/0 with agent-08's branch.
