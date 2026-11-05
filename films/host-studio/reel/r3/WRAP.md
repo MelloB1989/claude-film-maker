@@ -1,6 +1,6 @@
-# Round 3 wrap: the last hour on the box (21:30 -> 22:30 UTC)
+# Round 3 wrap: the last hour on the box (21:30 -> 22:10 UTC power-off, 22:30 hard end)
 
-For agent-07, the only editor driver (or the backup driver, if agent-07 hands over). The box ends at **22:30 UTC**.
+For agent-07, the only editor driver (or the backup driver, if agent-07 hands over). The box is **powered off by hand by 22:10 UTC** (karmax, agent-10), and the hard end is 22:30.
 Run the steps in this order. Each step has a time budget. Every command runs from kali through `film-ue`, but the
 work runs **on the box**: `film-ue sh` runs in the box's shell, and `film-ue sync` sends its script to the box. Uploads
 go box -> S3 with the box role, in the same region. **Nothing is uploaded from kali, and nothing face-derived goes
@@ -8,12 +8,16 @@ anywhere but `.../private/`.**
 
 | # | Step | Budget | By |
 |---|---|---|---|
-| 1 | Last renders done and checked | 10 min | 21:40 |
-| 2 | Deliverables: `cut.sh final --fill-from none` | 15 min | 21:55 |
-| 3 | Keep: frames -> `private/renders/r3/` (SSE-KMS), head-object check, report | 10 min | 22:05 |
-| 4 | Save level/project, `sync project up`, `editor stop`, `sync ddc save` (both private) | 15 min | 22:20 |
-| 5 | kali cleanup | 5 min | 22:25 |
-| | slack | 5 min | 22:30 |
+| 1 | Last renders done and checked | 6 min | 21:36 |
+| 2 | Deliverables: `cut.sh final --fill-from none` | 10 min | 21:46 |
+| 3 | Keep: final_c, cut/ and cal_* -> `private/renders/r3/` (`sync dir up`, SSE-KMS), head-object check, report | 8 min | 21:54 |
+| 4 | Save level/project, `sync project up`, `editor stop`, `sync ddc save` (both private), head-object | 10 min | 22:04 |
+| 6 | Power the box off by hand, once (3) and (4) are verified | 6 min | 22:10 |
+| 5 | kali cleanup (kali only, no box) | 5 min | after 22:10 |
+| | slack before the hard end | 20 min | 22:30 |
+
+**The one thing that must hold at the end:** every private upload of anything showing the operator's face (the
+frames, `cut/`, the project) is verified `aws:kms` by head-object, and then the box is powered off.
 
 **If you are behind**, drop or defer in this order:
 1. the DDC save (4c), which only saves the next box's ~20 min shader compile;
@@ -46,15 +50,15 @@ film-ue sh --timeout 900 "cd $R && films/host-studio/reel/r3/cut.sh check final_
 - **Pass:** every row has `"missing": 0` and `size` `1920x1080`, and the luma is not black or clipped (compare
   the rows to each other).
 - **A shot missing or short:**
-  - while a render is still running, wait for it until 21:40 at most (`film-ue op render.status`);
+  - while a render is still running, wait for it until 21:36 at most (`film-ue op render.status`);
   - otherwise tell agent-10 and agent-05 at once, with `fleetctl tell`, naming the shot and its `first missing`
     frame.
-  - Do not start a new render after 21:40: one shot at C takes ~5 min plus warm-up, and steps 2-4 need the editor
+  - Do not start a new render after 21:30: one shot at C takes ~5 min plus warm-up, and steps 2-4 need the editor
     quiet.
-  - If a shot is still not final at 21:45, step 2 becomes a rough cut. Run `cut.sh final` without
+  - If a shot is still not final at 21:36, step 2 becomes a rough cut. Run `cut.sh final` without
     `--fill-from none`; the preview stands in, and `cut.json` says so. Say so in the report.
 
-## 2. Deliverables (21:40 -> 21:55)
+## 2. Deliverables (21:36 -> 21:46)
 
 ```bash
 film-ue sh --timeout 1800 "cd $R && films/host-studio/reel/r3/cut.sh final --fill-from none"
@@ -68,60 +72,65 @@ film-ue sh --timeout 1800 "cd $R && films/host-studio/reel/r3/cut.sh final --fil
   - `.srt` and `.vtt`;
   - `cut.json` and the contact sheet.
 - The closing `ls -la` lists them.
-- Leave them on the box: **the orchestrator pulls the MP4s.** Send karmax the `ls` lines, the paths and sizes,
-  as soon as it finishes, so the pull runs while you do steps 3 and 4.
-- **Pull them before 22:30**: the box (and its disk) ends then.
+- **They show the operator's MetaHuman: they are not pulled to kali** (README, the face rule). They leave the box
+  only to `private/renders/r3/cuts/` in step 3. Send karmax and agent-10 the `ls` lines (paths and sizes).
+- No-face MP4s may come down to kali's disk (never `/tmp`) through agent-07 or agent-10, but only if karmax asks
+  for them.
 
-## 3. Keep: the frames -> private S3, SSE-KMS (21:55 -> 22:05)
+## 3. Keep: the frames -> private S3, SSE-KMS (21:46 -> 21:54; start the final_c and cal_* syncs alongside step 2 if you are behind)
 
-This is the README's keep step, run on the box with the box role. Add `--sse-kms-key-id <kms_key>` to `KMS` only
-when step 0 showed a `kms_key`.
+This is the README's keep step. Run it with `film-ue sync dir up`, **never a raw `aws s3 cp/sync`**. With the box
+setting `face_data` set, it refuses any destination outside `.../private/`, and it adds `--sse aws:kms` itself (with
+`--sse-kms-key-id` when `kms_key` is set). It runs on the box with the box role: from kali, `film-ue` sends the
+script to the box.
 
 ```bash
-film-ue sh --timeout 2400 '
-set -e
-KMS="--sse aws:kms"          # + " --sse-kms-key-id <kms_key>" when the box setting is set
-for d in final_c cal_A cal_B cal_C cut; do   # cut/: the deliverables too (the operator's face is in them), as insurance should the pull fail
-  aws s3 sync --only-show-errors --no-progress --region ap-south-1 /srv/ue/reel/r3/$d s3://rf-render-788655295054-aps1/ue-linux/private/renders/r3/$d/ $KMS
-  echo kept=$d $(find /srv/ue/reel/r3/$d -type f | wc -l)
-done'
+P=s3://rf-render-788655295054-aps1/ue-linux/private/renders/r3
+film-ue sync dir up --local /srv/ue/reel/r3/final_c --s3 $P/final_c/ --dry-run   # the script: .../private/... and --sse aws:kms in it
+film-ue sync dir up --local /srv/ue/reel/r3/final_c --s3 $P/final_c/   # frames + _render reports; {"ok": true}
+film-ue sync dir up --local /srv/ue/reel/r3/cut     --s3 $P/cuts/      # both full cuts (him in them)
+film-ue sync dir up --local /srv/ue/reel/r3/cal_C   --s3 $P/cal_C/
+film-ue sync dir up --local /srv/ue/reel/r3/cal_A   --s3 $P/cal_A/
+film-ue sync dir up --local /srv/ue/reel/r3/cal_B   --s3 $P/cal_B/
+film-ue sh 'for d in final_c cut cal_C cal_A cal_B; do echo kept=$d $(find /srv/ue/reel/r3/$d -type f | wc -l); done'
 ```
 
+- The order puts what matters most first: final_c, then the cuts.
 - Each pass's reports (`<pass>/_render/*.report.json`) go with it.
-- The previews are not kept.
+- The previews, the superseded `final/` and the `*_old` folders are not kept.
 - The `kept=` lines give the local file counts.
 
 Then check what landed, still on the box (only the box role can read `private/`):
 
 ```bash
 film-ue sh --timeout 300 '
-for k in final_c/0960.png cal_A/_render cal_B/_render cal_C/_render; do
-  case $k in */_render) k=$(aws s3 ls --region ap-south-1 --recursive s3://rf-render-788655295054-aps1/ue-linux/private/renders/r3/$k/ | awk "NR==1{print \$4}") ;; *) k=ue-linux/private/renders/r3/$k ;; esac
+for k in final_c/0960.png cuts cal_A/_render cal_B/_render cal_C/_render; do
+  case $k in */_render|cuts) k=$(aws s3 ls --region ap-south-1 --recursive s3://rf-render-788655295054-aps1/ue-linux/private/renders/r3/$k/ | awk "NR==1{print \$4}") ;; *) k=ue-linux/private/renders/r3/$k ;; esac
   echo "$k"; aws s3api head-object --region ap-south-1 --bucket rf-render-788655295054-aps1 --key "$k" \
     --query "[ServerSideEncryption,SSEKMSKeyId,ContentLength]" --output text
 done
-for d in final_c cal_A cal_B cal_C cut; do
+for d in final_c cuts cal_A cal_B cal_C; do
   echo $d s3=$(aws s3 ls --region ap-south-1 --recursive --summarize s3://rf-render-788655295054-aps1/ue-linux/private/renders/r3/$d/ | awk "/Total Objects/{print \$3}")
 done'
 ```
 
 - **Pass:**
   - every head-object line starts `aws:kms`, followed by the key ARN (the `kms_key` when one is set);
-  - every `s3=` count equals that pass's `kept=` count.
+  - every `s3=` count equals that pass's `kept=` count (`cuts` against `cut`).
   - `final_c/0960.png` is S13's first frame (the operator's MetaHuman). This is the key that matters most.
 - **`AES256`, or no `sse`:** stop. That object went up without KMS; the bucket's default is SSE-S3, and the policy
   does not deny unencrypted puts. Tell karmax and agent-10, and do not go on to step 4 until one of them answers.
-  Usually the fix is a re-copy in place with KMS:
-  `aws s3 cp --recursive s3://.../r3/<d>/ s3://.../r3/<d>/ --sse aws:kms --metadata-directive REPLACE`, on the box.
+  Check `film-ue profile show` (`face_data`) and the dry-run's script, then re-run that `sync dir up`. If the
+  object still shows `AES256`, leave the fix to karmax.
 - **Report before step 4:** send karmax and agent-10 the five `kept=` and `s3=` counts and the head-object
   output, then go on:
 
   ```bash
-  fleetctl tell karmax "r3 keep: final_c/cal_A/cal_B/cal_C -> s3://rf-render-788655295054-aps1/ue-linux/private/renders/r3/, counts <...>, head-object final_c/0960.png ServerSideEncryption=aws:kms <...>"
+  fleetctl tell karmax "r3 keep: final_c/cuts/cal_A/cal_B/cal_C -> s3://rf-render-788655295054-aps1/ue-linux/private/renders/r3/, counts <...>, head-object final_c/0960.png ServerSideEncryption=aws:kms <...>"
   fleetctl tell agent-10 "<the same>"
   ```
 
-## 4. Save the level and project, then the project and DDC -> private (22:05 -> 22:20)
+## 4. Save the level and project, then the project and DDC -> private (21:54 -> 22:04)
 
 ### 4a. Save in the editor
 
@@ -183,20 +192,39 @@ done'
 
 - **Pass:** both show `aws:kms`. If one does not, treat it like the step 3 failure.
 - Then report to karmax and agent-10: `ok`, the `s3` paths and the head-object lines.
-- Leave the editor stopped. The box ends at 22:30, and the pre-face DDC from 17:00 under the normal prefix stays as
+- Leave the editor stopped. The box is powered off next (step 6), and the pre-face DDC from 17:00 under the normal prefix stays as
   it is.
 
-## 5. kali cleanup (22:20 -> 22:25; kali only, may run after 22:30)
+## 6. Power the box off by hand (22:04 -> 22:10)
+
+Only once all of these hold:
+- step 3's and step 4's head-objects show `aws:kms`;
+- karmax and agent-10 have the report.
+
+```bash
+film-ue status                      # the instance and its state (running)
+film-ue down                        # closes the tunnel, then EC2 stop-instances on the box in the settings
+film-ue status                      # stopping/stopped; again after a minute until stopped
+```
+
+- `film-ue down` stops the instance. It does not terminate it: the disk, with the frames on it, survives, private.
+- Over the `ssh` transport, `film-ue down` does nothing (it only returns the state). Then the operator, or karmax,
+  must power the box off by hand. Ask at once, with the instance id from `film-ue status`.
+- Report the final state (`stopped`) to karmax and agent-10.
+
+## 5. kali cleanup (after 22:10; kali only)
 
 ```bash
 ls -la /home/nikhil/code/.worktrees/agent-07/out          # list it first (ROUND3: agent-07 deletes it once the shoot is delivered)
 du -sh /home/nikhil/code/.worktrees/agent-07/out
-# only after the orchestrator confirms the deliverables are pulled and the keep step is reported:
+# only after the keep step (3) and the project save (4) are reported:
 rm -rf /home/nikhil/code/.worktrees/agent-07/out
 ls -la /tmp; df -h /tmp                                    # tmpfs (RAM): remove only your own session's files
 ```
 
 - Delete only what you made: your own `/tmp/fleet-agent-07-*` and scratch files.
+- **No Host_Op content on kali or in `/tmp`** (karmax). Anything there that shows the operator's face is deleted
+  now, and named in the report.
 - Close your `film-ue` tunnel with `film-ue close` before you remove its directory.
 - **Never delete another agent's files.**
 - The set-shot finals pulled to kali at 16:57 hold no face, but they still go. Say in the report what you deleted.
@@ -207,7 +235,7 @@ ls -la /tmp; df -h /tmp                                    # tmpfs (RAM): remove
 The report gives:
 
 - `cut.sh check` (13 shots, missing 0), or what was missing;
-- the deliverables' paths and sizes on the box, and whether karmax has pulled them;
+- the deliverables' paths and sizes on the box, and their `private/renders/r3/cuts/` copy;
 - the keep: the counts, the head-object `aws:kms`, and the `s3://` path;
 - the project and DDC: `ok` and the paths, or that the DDC save was skipped for time;
 - the kali cleanup;
