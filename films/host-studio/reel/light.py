@@ -50,6 +50,7 @@ STATES = {  # name: (start, still frame)
 # studio.py's day and night values (studio.py builds the day; its night is what BLUE/NIGHT match)
 DAY_SUN = dict(elevation=28.0, azimuth=-28.0, lux=17000.0, temperature=5100.0, sky=0.6)
 NIGHT_SUN = dict(elevation=-8.0, lux=0.0, temperature=7500.0, sky=0.04)
+SUN_EMBER = 2.0  # lux: the sun's floor from V04 f530 until S11 (0.0 there made the engine drop it in one frame)
 WINDOW_NIGHT = (0.42, 0.53, 0.74)  # WindowSky's night colour (sRGB 0-1, as look.light takes it): a steel blue; a
 # saturated blue goes magenta through the tonemapper (S12 796 had the curtain violet)
 WINDOW_BLUE = (0.39, 0.53, 0.9)    # and its blue hour, a lighter blue
@@ -209,7 +210,12 @@ def tracks() -> list:
              (ig, NIGHT_SUN["elevation"]))
     T.append(Track("FM_Sun", "transform", "", C((0, SUN_LOC), (END, SUN_LOC)), aim=elev,
                    note="pitch = -elevation, yaw = azimuth"))
-    sun = C((0, 17000.0), (g, 17000.0), (d, 6000.0), (d + 30, 1000.0, "lin"), (d + 50, 0.0, "out"), (b, 0.0))
+    # it never reaches 0 while a frame can see it go: round 3's preview stepped 21% darker in one frame at V04 f530,
+    # where it hit 0.0 (the keys were smooth: ~2.5 lux at f529; the engine drops a 0-lux sun and the sky with it). So
+    # it eases to SUN_EMBER lux and holds (under the horizon from BLUE: nothing visible) until the cut to S11, where it
+    # goes out on the ignition's first frame, a hard cut into a near-black room
+    sun = C((0, 17000.0), (g, 17000.0), (d, 6000.0), (d + 30, 1000.0, "lin"), (d + 50, SUN_EMBER, "out"),
+            (ig, NIGHT_SUN["lux"], "hold"))
     add("FM_Sun", "float", "Intensity", _dip(sun, *V03, V03_SUN))
     add("FM_Sun", "float", "Temperature", C((0, 5100.0), (g, 5100.0), (d, 4300.0), (d + 120, 3300.0),
                                             (ig, NIGHT_SUN["temperature"])))
