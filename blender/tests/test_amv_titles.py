@@ -19,6 +19,8 @@ HERO = {"T05_black_lens.0": ("novax", 139, 31), "T06_bully_smirk.0": ("chrome", 
 
 @pytest.fixture(scope="module")
 def jobs():
+    if not (FILM / "amv" / "plan.json").exists():  # the film is on its own branch (film/timeless)
+        pytest.skip("films/timeless is not in this checkout (film/timeless)")
     return J.jobs_from_plan(P.load(FILM))
 
 

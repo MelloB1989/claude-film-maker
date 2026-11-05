@@ -8,7 +8,9 @@ from filmtools.amv2 import moves
 from filmtools.amv2.remap import Remap, remap_keys
 
 EDL = Path(__file__).resolve().parents[2] / "films/timeless/amv2/edl.json"
-SHOTS = json.loads(EDL.read_text())["shots"]
+# the film lives on its own branch (film/timeless): the tests that read its edit skip when it is not checked out
+SHOTS = json.loads(EDL.read_text())["shots"] if EDL.exists() else []
+needs_edl = pytest.mark.skipif(not EDL.exists(), reason="films/timeless is not in this checkout (film/timeless)")
 
 
 def rm_of(sh, cut=None):
@@ -26,6 +28,7 @@ def test_endpoints_exact_and_monotonic(sh):
     assert all(sgn * (y - x) > 0 for x, y in zip(vals, vals[1:])), "strictly monotonic incl. handles"
 
 
+@needs_edl
 def test_reverse_shot_runs_backwards():
     s09 = next(s for s in SHOTS if s["id"] == "S09")
     rm = rm_of(s09)
@@ -71,6 +74,7 @@ def test_handles_continue_the_speed():
     assert rm(-1) == pytest.approx(-0.05) and rm(21) == pytest.approx(1.05)
 
 
+@needs_edl
 def test_source_cut_lands_on_the_comp_frame():
     sh = next(s for s in SHOTS if s["id"] == "S28")          # M11: a=690, cut@700
     F = 700
@@ -104,6 +108,7 @@ def test_keys_clamped_to_the_clip():
 
 
 # ---------------------------------------------------------------- moves
+@needs_edl
 def test_velocity_continuous_at_the_cut():
     """A's exit speed == B's entry speed for whips and spins (zoom flips direction: magnitudes match)."""
     for i, (a, b) in enumerate(zip(SHOTS, SHOTS[1:])):
@@ -130,6 +135,7 @@ def test_velocity_continuous_at_the_cut():
         assert pa == sorted(pa)
 
 
+@needs_edl
 def test_zoom_in_keys_exact_values():
     a = next(s for s in SHOTS if s["id"] == "S07")             # xout zoom_in, drift 150 -> 100
     ks = {k["f"]: k for k in moves.shot_keys(a, None, None, 2, 2)}
@@ -137,6 +143,7 @@ def test_zoom_in_keys_exact_values():
     assert ks[a["b"] - 5]["scale"] == pytest.approx(100.0 + 0, abs=6.0) or True
 
 
+@needs_edl
 def test_every_shot_has_keys_for_every_frame_and_covers_the_frame():
     for i, sh in enumerate(SHOTS):
         ks = moves.shot_keys(sh, SHOTS[i - 1] if i else None, None, 6, 6)
