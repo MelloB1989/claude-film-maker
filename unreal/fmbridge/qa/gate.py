@@ -177,9 +177,10 @@ ITEMS: dict = {
         "why": "the gate passed Fit5 (neck_px 0, armor 0.109) while the collar stood off his neck"},
     "garment.collar_roll": {
         "area": "garment", "track": "T3a", "op": "==", "line": 0, "unit": "count", "guard": True,
-        "what": "frames where the collar band rolls or folds: gap > 0.8 cm OR the band's radial spread p90-p10 > "
-                "1.5 cm (a hugging band is one wall, ~0.3 cm); spread 1.5 is first-guess, calibrated on Fit5 (fail) "
-                "and Fit6 (pass)",
+        "what": "frames where the collar band rolls or folds: gap > 0.8 cm OR the band's LOCAL radial spread p90-p10 "
+                "> 1.5 cm (the worst 1 cm x 10 deg cell of its top 3 cm: a fold is two layers at one place; a hugging "
+                "band is one wall, ~0.3 cm; agent-02 07b841bf). A frame with no cell measured is NOT measured: the "
+                "gate refuses it",
         "where": "S13, S15, S17", "how": "qa.garment_look collar_lift (T3a)",
         "r4": [None, "round 4: no roll"],
         "must_fail": [6, "round 5 Fit5 (agent-06): 6 rolled frames; a fold at the front and a roll all round "

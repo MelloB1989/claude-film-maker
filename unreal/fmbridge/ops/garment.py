@@ -566,11 +566,13 @@ def garment_look(*, label: str, garment: str = "", ref_body: str = "", sequence:
         m["detail"] = min(det)
     cols = [v["collar"] for v in vals if v.get("collar", {}).get("n")]
     if cols:
-        w = max(cols, key=lambda c: c["spread_cm"])
+        meas = [c for c in cols if c.get("spread_cm") is not None]
+        w = max(meas, key=lambda c: c["spread_cm"]) if meas else {}
         m["collar"] = {"frames": len(cols), "gap_cm": max(c["gap_cm"] for c in cols),
-                       "spread_cm": w["spread_cm"], "spread_where": w.get("spread_where"),
+                       "spread_cm": w.get("spread_cm"), "spread_where": w.get("spread_where"),
                        "spread_window_cm": max((c.get("spread_window_cm") or 0) for c in cols),
-                       "roll_frames": sum(1 for c in cols if c["roll"])}
+                       "roll_frames": sum(1 for c in cols if c["roll"] is True),
+                       "roll_unmeasured": sum(1 for c in cols if c["roll"] is None)}
     hems = [v["hem"] for v in vals if v.get("hem", {}).get("n")]
     if hems:
         rs = [h for h in hems if h.get("ratio")]

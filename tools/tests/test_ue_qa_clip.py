@@ -260,6 +260,15 @@ def test_collar_roll_is_local():
     assert GL.collar_stats(a, r, g, angle=ang)["roll"]
     a, r, g, ang = band(gap=1.8)  # a floating collar: the gap still fails it
     assert GL.collar_stats(a, r, g, angle=ang)["roll"]
+    a, r, g, ang = band(n=12, heights=(0.0,))  # sparse (2 verts per 30 deg): no cell judged -> NOT measured, never 0
+    sparse = GL.collar_stats(a, r, g, angle=ang)
+    assert sparse["spread_cells"] == 0 and sparse["spread_cm"] is None and sparse["roll"] is None
+    a, r, g, ang = band(n=12, heights=(0.0,), gap=1.8)  # ... but a floating gap still fails it
+    assert GL.collar_stats(a, r, g, angle=ang)["roll"] is True
+    m = {"collar": {"frames": 2, "gap_cm": 0.5, "spread_cm": None, "roll_frames": 0, "roll_unmeasured": 1}}
+    look = GL.look(m, "Host")
+    assert look["terms"]["collar_roll"]["value"] is None
+    assert any(i["code"] == "garment.collar_roll" and i["severity"] == "fail" for i in look["issues"])
 
 
 def test_look_fails_a_floating_collar_hard():

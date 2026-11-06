@@ -127,7 +127,11 @@ def gate_numbers(clip: dict | None, look: dict | None, first_pass: bool = False)
             miss("garment.armor_index", "qa.garment_look measured nothing")
         if "collar_gap" in t:
             g["garment.collar_gap_cm"] = {"value": t["collar_gap"]["value"], "where": "worst frame"}
-            g["garment.collar_roll"] = {"value": t["collar_roll"]["value"], "where": "frames rolled/folded"}
+            if t["collar_roll"]["value"] is None:
+                miss("garment.collar_roll", f"the collar's roll was not measured in "
+                                            f"{t['collar_roll'].get('unmeasured_frames')} frames (qa.garment_look)")
+            else:
+                g["garment.collar_roll"] = {"value": t["collar_roll"]["value"], "where": "frames rolled/folded"}
         else:
             miss("garment.collar_gap_cm", "qa.garment_look without the collar check (sequence + frames, collar=true)")
             miss("garment.collar_roll", "qa.garment_look without the collar check")
