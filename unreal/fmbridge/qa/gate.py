@@ -149,13 +149,26 @@ ITEMS: dict = {
         "where": "S15, S17", "how": "qa.garment_look (T3a)",
         "r4": [None, "a guard, not a regression line: round 4 did not balloon (probe G3 gives its value)"],
         "why": "08:19 round 4: the tee BALLOONED once"},
-    "garment.cloth_detail": {
-        "area": "garment", "track": "T3b", "op": ">=", "line": None, "unit": "",
-        "what": "cloth behaviour: fold/shading detail on the tee's chest (T3b's metric)",
-        "where": "S13, S15 close shots",
-        "how": "T3b's check",
-        "r4": [None, "not measured; the operator: a smooth rigid shell"],
-        "why": "T3b sets the line"},
+    "garment.cloth_alive": {
+        "area": "garment", "track": "T3b", "op": ">=", "line": 0.30, "unit": "cm",
+        "what": "min over his tee in S13 and S15 of qa.cloth zones.hem.motion_cm: p75 over the hem's sample vertices "
+                "of the temporal std of (simulated - skinned) over a gesture's frames; an error if not simulating",
+        "where": "S13, S15 gesture frames", "how": "film-ue op qa.cloth per shot -> r5/cloth_gate.py (agent-08, T3b)",
+        "r4": [0.0, "his tee had no clothing data (cloth.no_clothing)"],
+        "why": "the operator: no cloth behaviour; qa.cloth warns under 0.30 and fails under 0.15"},
+    "garment.cloth_sound": {
+        "area": "garment", "track": "T3b", "op": "==", "line": 1, "unit": "bool",
+        "what": "no cloth.explosion / velocity_spike / cold_start issue in any shot's qa.cloth",
+        "where": "S13, S15, S17, S18", "how": "film-ue op qa.cloth (T3b)",
+        "r4": [0, "no simulation at all"], "why": "a live but broken sim is worse than none"},
+    "garment.cloth_detail_ratio": {
+        "area": "garment", "track": "T3b", "op": ">=", "line": 1.25, "unit": "ratio",
+        "what": "fold/shading detail on his tee's front chest (RMS of a DoG band-pass, sigma 1.5-4 px at 1080p, of "
+                "luminance / its mean, in the band 8-30 cm below the collar) OVER round 4's at the same frames and "
+                "camera (round 4 measured on the box first)",
+        "where": "S13, S15 close shots", "how": "agent-08's writer (T3b) from agent-02's qa.clip tee mask",
+        "r4": [1.0, "round 4 against itself (its value is box-only: face rule)"],
+        "why": "the operator: a smooth rigid shell; 25% more fold detail than the shell"},
     # --- T4: hair
     "hair.cut_reach_pct": {
         "area": "hair", "track": "T4", "op": "<=", "line": 12.0, "unit": "%",

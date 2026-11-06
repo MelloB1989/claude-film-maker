@@ -52,6 +52,18 @@
   "head.blink_nod_deg": {
    "value": 1.61,
    "where": "Presenter S17 f1380 (perfkit alone)"
+  },
+  "garment.cloth_alive": {
+   "value": 0.0,
+   "where": "no clothing data"
+  },
+  "garment.cloth_sound": {
+   "value": false,
+   "where": "no sim"
+  },
+  "garment.cloth_detail_ratio": {
+   "value": 1.0,
+   "where": "r4 vs itself"
   }
  }
 }

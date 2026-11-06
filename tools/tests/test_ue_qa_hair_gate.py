@@ -91,7 +91,8 @@ def test_round4_numbers_refuse_and_name_each_blocker():
     failed = {row["id"] for row in r["rows"] if row["state"] == "FAIL"}
     # every operator blocker of round 4 that has a round-4 number fails on it
     for k in ("lips.lead_in_cm", "lips.onset_lead_ms", "lips.lag_frames", "lips.cues_fresh", "garment.neck_px",
-              "garment.wpo_cm", "garment.pair_fraction",
+              "garment.wpo_cm", "garment.pair_fraction", "garment.cloth_alive", "garment.cloth_sound",
+              "garment.cloth_detail_ratio",
               "garment.silhouette_pct", "hair.lock", "hair.render_cvars"):
         assert k in failed, k
     # and what round 4 never measured fails as "not measured", not silently
@@ -112,7 +113,7 @@ def test_round4_waivers_are_refused_on_complaints():
 
 def test_waiver_needs_reason_and_name_and_works_off_complaints():
     nums = {k: None for k in gate.ITEMS}
-    spec = {"items": {"garment.cloth_detail": {"line": 0.1}}, "complaints": []}
+    spec = {"items": {"garment.cloth_alive": {"line": 0.1}}, "complaints": []}
     r = gate.judge({"garment.silhouette_pct": 2.5}, waivers={"garment.silhouette_pct": ("", "x")}, spec=spec,
                    only=["garment.silhouette_pct"])
     assert r["refused_waivers"][0]["refused"] == "a waiver needs a written reason"
@@ -131,12 +132,12 @@ def test_clean_numbers_sign():
             "lips.render_conclusive": True, "garment.wpo_cm": 0.0, "garment.armor_index": 0.3,
             "garment.pair_fraction": 0.0, "garment.silhouette_ratio": 1.05,
             "head.blink_nod_deg": 0.2, "head.blink_locked_deg": 0.1, "garment.neck_px": 0, "garment.silhouette_pct": 0.8,
-            "garment.cloth_detail": 0.3, "hair.cut_reach_pct": 3.1, "hair.pop_reach_pct": 1.2, "hair.lock": 1,
+            "garment.cloth_alive": 0.6, "garment.cloth_sound": True, "garment.cloth_detail_ratio": 1.6, "hair.cut_reach_pct": 3.1, "hair.pop_reach_pct": 1.2, "hair.lock": 1,
             "hair.render_cvars": 1}
-    r = gate.judge(good, spec={"items": {"garment.cloth_detail": {"line": 0.2}}})
+    r = gate.judge(good)
     assert r["verdict"] == "SIGN", r["issues"]
     # an item with no line cannot pass
-    r = gate.judge(good)
+    r = gate.judge(good, spec={"items": {"garment.cloth_alive": {"line": None}}})
     assert r["verdict"] == "REFUSE" and any("no line set" in i["message"] for i in r["issues"])
 
 
