@@ -105,7 +105,9 @@ def solver_stats(comp) -> dict:
     it = _call(comp, "get_clothing_simulation_interactor")
     if it is None:
         return {}
-    out = {}
+    out = {"tick_option": str(_get(comp, "visibility_based_anim_tick_option")),
+           "recently_rendered": _call(comp, "was_recently_rendered"),
+           "tick_enabled": _call(comp, "is_component_tick_enabled")}
     for k, fn in (("cloths", "get_num_cloths"), ("dynamic_particles", "get_num_dynamic_particles"),
                   ("kinematic_particles", "get_num_kinematic_particles"), ("iterations", "get_num_iterations"),
                   ("substeps", "get_num_substeps"), ("sim_time_ms", "get_simulation_time")):
@@ -119,10 +121,13 @@ def _config_values(asset) -> dict:
     """The cloth config properties a preset sets, read back from the clothing asset's configs (Chaos + shared)."""
     out = {}
     for cfg in (_get(asset, "cloth_configs", {}) or {}).values():
-        for k in _presets.BASE_CONFIG:
-            v = _get(cfg, k)
-            if v is not None and k not in out:
-                out[k] = _plain(v)
+        for k, dv in _presets.BASE_CONFIG.items():
+            if k in out:
+                continue
+            try:
+                out[k] = _plain(_cfg_get(cfg, k, dv)[1])
+            except Exception:  # noqa: BLE001 - not on this config (or no Python type: the weighted values)
+                pass
     return out
 
 
@@ -344,6 +349,26 @@ def apply_interactor(comp, cloth_name: str, config: dict) -> dict:
     return out
 
 
+def cpp_name(key: str, value=None) -> str:
+    """The C++ property name for a snake_case config key. EditAnywhere-only properties (not BlueprintVisible) have no
+    Python name, so get/set_editor_property looks the given string up as the C++ name, case-insensitively
+    (PyWrapperObject.cpp FindEditorPropertyImpl): "density" finds Density, "collision_thickness" finds nothing
+    (round 5). bools carry the b prefix: use_ccd -> bUseCcd (= bUseCCD)."""
+    camel = "".join(w[:1].upper() + w[1:] for w in key.split("_"))
+    return ("b" + camel) if isinstance(value, bool) else camel
+
+
+def _cfg_get(c, key: str, value=None):
+    """(name that worked, value) for a config property by its Python name, else its C++ name; raises the last error."""
+    err = None
+    for n in (key, cpp_name(key, value)):
+        try:
+            return n, c.get_editor_property(n)
+        except Exception as e:  # noqa: BLE001
+            err = e
+    raise err
+
+
 def write_config(asset, config: dict) -> dict:
     """Write a preset's config onto the clothing asset's config objects (cloth_configs: Chaos + shared), except the
     INTERACTOR_KEYS. The configs are fetched afresh for every key and written without edit notifications: in round 5
@@ -358,7 +383,7 @@ def write_config(asset, config: dict) -> dict:
         target = None
         for c in list((asset.get_editor_property("cloth_configs") or {}).values()):
             try:
-                c.get_editor_property(k)
+                name, cur = _cfg_get(c, k, v)
                 target = c
                 break
             except Exception as e:  # noqa: BLE001 - collect the engine's reason
@@ -366,14 +391,13 @@ def write_config(asset, config: dict) -> dict:
         if target is None:
             missing.append(f"{k}: " + ("; ".join(why) or "no config objects"))
             continue
-        cur = target.get_editor_property(k)
         val = type(cur)(*[float(x) for x in v]) if isinstance(v, list) and len(v) == 3 else v
         try:
             if quiet is not None:
-                target.set_editor_property(k, val, quiet)
+                target.set_editor_property(name, val, quiet)
             else:
-                target.set_editor_property(k, val)
-            done[k] = _plain(target.get_editor_property(k))
+                target.set_editor_property(name, val)
+            done[k] = _plain(target.get_editor_property(name))
         except Exception as e:  # noqa: BLE001 - one refused key must not stop the rest
             missing.append(f"{k}: {type(e).__name__}: {e}")
     return {"set": done, "missing": missing}
@@ -538,6 +562,25 @@ def _cloth_comps(label: str, component: str = "") -> dict:
     return {n: c for n, c in comps.items() if clothing_assets(c.get_skeletal_mesh_asset())}
 
 
+def editor_cloth(comp) -> None:
+    """Make an editor-world garment simulate: the flag first, then re-create the clothing simulation, because the
+    simulation is only created when the world is ready for it (bShouldSimulatePhysics, false in the editor, or
+    bUpdateClothInEditor: SkeletalMeshComponentPhysics.cpp:3146-3150) and the cloth tick runs in the editor only with
+    the flag (:83). Round 5: the flag alone left sim_time 0."""
+    _call(comp, "set_update_cloth_in_editor", True)
+    _call(comp, "set_component_tick_enabled", True)
+    # TickClothing steps the cloth only when the component was recently RENDERED or always ticks its pose; otherwise
+    # it teleports-and-resets every tick (SkeletalMeshComponentPhysics.cpp:3820-3845). The offscreen editor renders
+    # nothing, so a garment on OnlyTickPoseWhenRendered never simulates there (round 5: sim_time 0 with realtime on).
+    opt = getattr(getattr(unreal, "VisibilityBasedAnimTickOption", None), "ALWAYS_TICK_POSE_AND_REFRESH_BONES", None)
+    if opt is not None:
+        try:
+            comp.set_editor_property("visibility_based_anim_tick_option", opt)
+        except Exception:  # noqa: BLE001 - reported by solver_stats
+            pass
+    _call(comp, "recreate_clothing_actors")
+
+
 def reset(comps) -> None:
     """Teleport-and-reset every cloth on its next update (back to the skinned pose)."""
     for c in comps:
@@ -567,8 +610,9 @@ def preroll_live(*, sequence: str, frame: int, labels: list | None = None, frame
         comps += [(f"{lab}.{n}", c) for n, c in _cloth_comps(lab).items()]
     n = int(frames) or _preroll.need_frames(_settle_for(), fps)
     steps = _preroll.live_steps(int(frame), n, mode, start)
-    for _, c in comps:   # an editor world ticks cloth only with this (SkeletalMeshComponentPhysics.cpp:83, 3148)
-        _call(c, "set_update_cloth_in_editor", True)
+    for _, c in comps:
+        editor_cloth(c)
+    yield
     call("seq.scrub", path=sequence, frame=steps[0])
     yield
     reset([c for _, c in comps])
