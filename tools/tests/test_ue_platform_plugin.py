@@ -12,6 +12,11 @@ import pytest
 SETUP = Path(__file__).resolve().parents[2] / "unreal" / "linux" / "setup.sh"
 
 BUILD_OK = """#!/bin/bash
+if [ "$1" = "-Mode=QueryTargets" ]; then   # compiles the engine's C# rules only, and must run unmarked
+    [ -f "$(dirname "$0")/../../InstalledBuild.txt" ] && { echo "installed: rules are read-only"; exit 8; }
+    r="$(dirname "$0")/../../../Intermediate/Build/BuildRules"; mkdir -p "$r" && touch "$r/UE5Rules.dll"; exit 0
+fi
+[ -f "$(dirname "$0")/../../../Intermediate/Build/BuildRules/UE5Rules.dll" ] || { echo "Precompiled rules assembly does not exist"; exit 7; }
 [ -f "$(dirname "$0")/../../InstalledBuild.txt" ] || { echo "not installed: would rebuild the engine"; exit 9; }
 proj="${4#-Project=}"; d="$(dirname "$proj")/Plugins/Demo"
 mkdir -p "$d/Binaries/Linux" "$d/Intermediate/Build" && touch "$d/Binaries/Linux/libUnrealEditor-Demo.so"
@@ -19,7 +24,7 @@ echo "[1/2] Compile Demo.cpp"; echo "[2/2] Link libUnrealEditor-Demo.so"
 """
 
 
-def sandbox(tmp_path, build_sh):
+def sandbox(tmp_path, build_sh, rules=True):
     shims = tmp_path / "shims"
     shims.mkdir()
     (shims / "runuser").write_text('#!/bin/bash\nshift 3\nexec "$@"\n')  # runuser -u USER -- CMD...
@@ -31,6 +36,10 @@ def sandbox(tmp_path, build_sh):
     b.mkdir(parents=True)
     (b / "Build.sh").write_text(build_sh)
     (b / "Build.sh").chmod(0o755)
+    if rules:  # a box whose engine already has its compiled build rules
+        r = engine / "Engine" / "Intermediate" / "Build" / "BuildRules"
+        r.mkdir(parents=True)
+        (r / "UE5Rules.dll").write_bytes(b"")
     buf = io.BytesIO()
     with tarfile.open(fileobj=buf, mode="w:gz") as t:
         for name, data in (("Demo/Demo.uplugin", b"{}"), ("Demo/Source/Demo/Demo.Build.cs", b"//")):
@@ -66,6 +75,17 @@ def test_a_failed_build_leaves_project_and_engine_alone(tmp_path):
     r = run()
     assert r.returncode != 0 and "Demo did not build" in r.stderr and "no such header" in r.stderr
     assert not (project / "Plugins").exists()
+    assert not (engine / "Engine/Build/InstalledBuild.txt").exists()
+
+
+def test_a_restored_engine_without_build_rules_compiles_them_first_unmarked(tmp_path):
+    # round 5, 0.4: the restored tarball has no Engine/Intermediate, and an installed engine loads its rules
+    # precompiled ("Precompiled rules assembly ... UE5Rules.dll does not exist")
+    run, engine, project = sandbox(tmp_path, BUILD_OK, rules=False)
+    r = run()
+    assert r.returncode == 0, r.stderr + r.stdout
+    assert (engine / "Engine/Intermediate/Build/BuildRules/UE5Rules.dll").exists()
+    assert (project / "Plugins/Demo/Binaries/Linux/libUnrealEditor-Demo.so").exists()
     assert not (engine / "Engine/Build/InstalledBuild.txt").exists()
 
 
