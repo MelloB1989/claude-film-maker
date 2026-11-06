@@ -308,5 +308,3 @@ red; the 25 tools failures + 1 error are the known no-ffmpeg/cv2 ones on the int
   mask_seams, mask_diff, garment.md §9.
 - Held back once: 923d8b6a alone (its percentile misread Epic's band); no fast-forward was asked for a sha with it
   before bf43039f.
-||||||| parent of 59953af6 (reel r5b: ROUND5.md her patch traced to editor state, S17+S18/S16/S15 re-render)
-||||||| parent of a122a649 (reel r5b: ROUND5.md wrap: candidate 2 delivered unsigned, sync, round-6 list)
