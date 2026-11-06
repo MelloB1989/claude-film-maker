@@ -197,7 +197,7 @@ library:
   idle: [/MetaHumanCharacter/Optional/Animation/TemplateAnimations/Technical_Loops/Idle/mhc_mh001_fmn_b_idle]
   walk: {anim: /MetaHumanCharacter/Optional/Animation/UEFNAnimPreset/Locomotion/AS_MH_Neutral_Walk_Loop_F, speed_cm_s: 145}
   gestures: {open_palms: {anim: /Game/Anim/AS_OpenPalms, stroke_s: 0.7}}
-face: {solver_head: soften, blink_mode: replace, mouth_mix: 0.5, camera_lock: false}
+face: {solver_head: replace, blink_head: still, blink_mode: replace, mouth_mix: 0.5, camera_lock: false}
 lines:
   - id: l1
     audio: /home/ue/Audio/presenter_intro_l1.wav      # solved with the line's mood; emphasis found in it

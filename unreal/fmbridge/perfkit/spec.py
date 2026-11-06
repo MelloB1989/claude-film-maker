@@ -47,7 +47,7 @@ TOP = {"kind", "version", "name", "description", "sequence", "actor", "face_comp
 LINE = {"id", "start_s", "gap_s", "audio", "face_anim", "duration_s", "text", "mood", "intensity", "solver_mood",
         "emphasis", "gaze", "gestures", "expressions", "nods", "tilts", "listen"}
 CHARACTER = {"facing_offset_deg", "lead", "head", "energy", "auto_turn_deg", "eye_micro_deg", "signs", "body_life"}
-FACE = {"out", "layers", "solver_head", "blink_mode", "mouth_mix", "camera_lock", "solve_folder", "brow_chance",
+FACE = {"out", "layers", "solver_head", "blink_mode", "blink_head", "mouth_mix", "camera_lock", "solve_folder", "brow_chance",
         "beat_every", "tail_s", "backchannel", "aversion"}
 ACTION = {"at_s", "walk_to", "path", "speed_cm_s", "turn_to", "end_facing"}
 
@@ -367,7 +367,8 @@ def compile(spec: dict, state: dict) -> dict:  # noqa: A001 (the spec's verb)
                  "head_style": {"seed": seed, **(ch.get("head") or {})}, "nods": nods, "tilts": tilts,
                  "moods": moods, "expressions": events, "emphasis": sorted(emphasis),
                  "phrase_ends": sorted(phrase_ends), "layers": fc.get("layers", list(_layers())),
-                 "solver_head": fc.get("solver_head", "soften"), "blink_mode": fc.get("blink_mode", "replace"),
+                 "solver_head": fc.get("solver_head", "replace"), "blink_mode": fc.get("blink_mode", "replace"),
+                 "blink_head": fc.get("blink_head", "still"),
                  "blink_state": blink_state or "talk", "energy": float(ch.get("energy", 1.0)),
                  "mouth_mix": float(fc.get("mouth_mix", 0.5)), "brow_chance": float(fc.get("brow_chance", 0.55)),
                  "beat_every": int(fc.get("beat_every", 1)), "seed": seed, "signs": ch.get("signs"),

@@ -19,7 +19,8 @@ library:
     - /MetaHumanCharacter/Optional/Animation/UEFNAnimPreset/Locomotion/AS_MH_Neutral_Stand_Idle_Loop
   walk: {anim: /MetaHumanCharacter/Optional/Animation/UEFNAnimPreset/Locomotion/AS_MH_Neutral_Walk_Loop_F, speed_cm_s: 145}
 face:
-  solver_head: soften
+  solver_head: replace          # the solve's head nods with its blinks: dropped (r5)
+  blink_head: still
   blink_mode: replace
   mouth_mix: 0.5
 lines:
