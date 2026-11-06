@@ -1,0 +1,24 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "0.1",
+	"FriendlyName": "FMCloth",
+	"Description": "Skeletal-mesh Chaos cloth for editor Python (claude-film-maker fmbridge cloth.*): create clothing data on a section, write its weight maps, read the simulated positions. These are C++ only in 5.8.",
+	"Category": "Editor",
+	"CreatedBy": "claude-film-maker",
+	"EnabledByDefault": true,
+	"CanContainContent": false,
+	"Modules": [
+		{
+			"Name": "FMCloth",
+			"Type": "Editor",
+			"LoadingPhase": "PostDefault"
+		}
+	],
+	"Plugins": [
+		{
+			"Name": "ChaosCloth",
+			"Enabled": true
+		}
+	]
+}
