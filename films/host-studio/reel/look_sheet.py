@@ -557,9 +557,11 @@ def render(a) -> None:
             look = merge(base, change)
             if a.target == "build":
                 row = {"label": v["label"], "look": change}
-                if i > 0:
+                if i > 0 and set(change) - {"eye"}:
                     row["applied"] = apply_look(change, PREVIEW, skip_eye=True)
                     row["build"] = build_spawn(a, change, rep)
+                elif i > 0:  # only the eye: the same build, its eye material changed
+                    row["applied"], row["build"] = {}, {"s": 0, "reused": True}
                 else:
                     row["applied"] = apply_look(change, PREVIEW, skip_eye=True)
                     row["build"] = rep["first_build"]

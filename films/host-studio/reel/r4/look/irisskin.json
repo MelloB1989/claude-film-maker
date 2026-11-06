@@ -1,0 +1,8 @@
+[
+ {"label": "skin 0.50/0.60 | iris hue 0.07 value 0.15", "skin": {"u": 0.50, "v": 0.60}, "eye": {"hue": 0.07, "value": 0.15}},
+ {"label": "skin 0.50/0.60 | iris hue 0.07 value 0.28", "eye": {"hue": 0.07, "value": 0.28}},
+ {"label": "skin 0.56/0.68 | iris hue 0.05 value 0.20", "skin": {"u": 0.56, "v": 0.68}, "eye": {"hue": 0.05, "value": 0.20}},
+ {"label": "skin 0.56/0.68 | iris hue 0.09 value 0.22", "eye": {"hue": 0.09, "value": 0.22}},
+ {"label": "skin 0.45/0.52 | iris hue 0.92 value 0.12 (round 4)", "skin": {"u": 0.45, "v": 0.52}, "eye": {"hue": 0.92, "value": 0.12}},
+ {"label": "skin 0.45/0.52 | iris hue 0.06 value 0.35", "eye": {"hue": 0.06, "value": 0.35}}
+]
