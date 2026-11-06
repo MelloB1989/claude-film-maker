@@ -78,15 +78,16 @@ def ex(code: str, **g):
     return ok(client().exec_code(head + code))
 
 
-def op(name, **args):
-    return ok(client().op(name, timeout=1800, **args))
+def op(op_name, /, **args):
+    return ok(client().op(op_name, timeout=1800, **args))
 
 
 # --- editor side ---------------------------------------------------------------------------------------------------
 
 GEO = r"""
 import unreal
-from fmbridge.ops.mh import build as _b
+import importlib
+_b = importlib.import_module("fmbridge.ops.mh.build")  # (fmbridge.ops.mh re-exports a build function)
 a = _b._PREVIEWS.get(LABEL)
 if a is None:
     raise RuntimeError("no preview " + LABEL + ": run look_sheet.py render (it spawns it)")
@@ -229,7 +230,8 @@ if os.path.exists(STATE):
                     got["shown"] += 1
     os.rename(STATE, STATE + ".restored")
     got["expected"] = len(st["vis"])
-from fmbridge.ops.mh import build as _b
+import importlib
+_b = importlib.import_module("fmbridge.ops.mh.build")  # (fmbridge.ops.mh re-exports a build function)
 p = _b._PREVIEWS.pop(LABEL, None)
 if p is not None:
     try:
@@ -237,15 +239,15 @@ if p is not None:
         got["removed"].append(LABEL)
     except Exception:
         pass
-from fmbridge.ops import view
-view.remove_rig()
+importlib.import_module("fmbridge.ops.view").remove_rig()
 result = got
 """
 
 HAIR_COLOR = r"""
 import unreal
-from fmbridge.ops.mh import build as _b
-from fmbridge.ops import groom as G_
+import importlib
+_b = importlib.import_module("fmbridge.ops.mh.build")  # (fmbridge.ops.mh re-exports a build function)
+G_ = importlib.import_module("fmbridge.ops.groom")
 a = _b._PREVIEWS[LABEL]
 out = {}
 for c in a.get_components_by_class(unreal.GroomComponent):
