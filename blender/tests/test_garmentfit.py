@@ -75,3 +75,27 @@ def test_ease_report_and_gate():
     bad = GF.ease_report(np.r_[np.full(5, -0.2), np.linspace(0.6, 4, 95)], reg)
     assert any("inside" in p for p in GF.fit_gate(bad))
     assert GF.fit_gate(GF.ease_report(np.full(3, 50.0), reg[:3]))[0].startswith("no garment vertex")
+
+
+def test_harmonic_fill_interpolates_a_hole():
+    X, T = grid(7)
+    E = GF.edges_of(T)
+    known = np.ones(len(X), bool)
+    known[[16, 17, 23, 24, 30, 31]] = False  # a hole in the middle
+    v = X[:, 0].copy()  # a linear field: the fill must reproduce it
+    v[~known] = 0.0
+    f = GF.harmonic_fill(v, known, E, iters=500)
+    assert np.allclose(f, X[:, 0], atol=1e-3)
+
+
+def test_morph_onto_a_cut_body():
+    X, T = grid(7)
+    ref = X.copy()  # another person: flat
+    target = X + np.array([0, 0, 0.5])  # ours: 0.5 cm higher, and cut in the middle (no surface there)
+    cut = set([16, 17, 23, 24, 30, 31])
+
+    def nearest(p):
+        i = int(np.argmin(((X - p) ** 2).sum(1)))
+        return None if i in cut else target[i]
+    M, known, st = GF.morph_onto(ref, T, nearest, match_cm=1.0)
+    assert not known[list(cut)].any() and np.allclose(M[:, 2], 0.5, atol=1e-3) and st["fill_median_cm"] == 0.5

@@ -8,13 +8,13 @@ at an even distance from the body, with no folds and no motion of its own. Each 
 | wpo | the garment materials' inflate parameters (FM_Inflate, FM_Neck, FM_Patch ...) | 0: the ease is geometry | a World Position Offset push: the silhouette grows evenly, shadows, collision and cloth do not see it |
 | thickness | the garment's rim (hem, collar, cuffs) wall, cm | jersey 0.05-0.3 | > 0.6: a thick shell |
 | silhouette | (garment U body px) / body px in the garment's rows, the uncut body as reference | 1.0-1.10 | > 1.2: bulked out |
-| detail | high-frequency energy of the garment's normals (world-normal capture), mean |N - blur(N)| | folds and a wrinkle normal map | smooth: ~0 |
+| detail | high-frequency energy of the garment's normals (world-normal capture), mean |N - blur(N)| | her fitted top 0.105 | his round-4 tee 0.050 |
 | motion | the garment's motion relative to the body under it, rms(d(g - b)) / rms(d b) over frames | > ~0.1 with a cloth sim (hem, sleeves) | 0: skinned only, moves as a rigid part of the body |
 
 Each term maps to an armor score 0..1 (a linear ramp between its 'cloth' and 'armor' values); the index is their
 weighted mean over the terms measured. FAIL when the index is >= 0.5 or a hard rule breaks (a WPO inflate over
-`wpo_max_cm`). The thresholds for `detail` and `motion` are provisional until calibrated on the box (the reel's
-round-5 probes: her fitted top and overshirt as the cloth reference, the round-4 tee as armor).
+`wpo_max_cm`). `detail` is calibrated on the box (round 5, G3/G3b); `silhouette` and `motion` are reported with weight
+0 until the op's reference-body capture is fixed (their box values were impossible).
 
 Pure Python: the qa.garment_look op measures in the editor and calls look(); tests call it on synthetic numbers."""
 from __future__ import annotations
@@ -28,9 +28,13 @@ RAMPS = {
     "ease_spread": (1.0, 0.4, 1.0),
     "ease_median": (3.0, 5.0, 0.5),
     "thickness": (0.3, 0.8, 0.75),
-    "silhouette": (1.10, 1.25, 1.0),
-    "detail": (0.035, 0.012, 1.5),   # provisional (probe G3)
-    "motion": (0.12, 0.03, 1.5),     # provisional (probe G4)
+    # silhouette and motion: weight 0 since the round-5 box probes (G3: 2.30 and 966 for his tee, motion 0.23-0.76
+    # on an UNSIMULATED tee): the temporary reference-body actor is not drawn/posed where his body is. Reported,
+    # not scored, until fixed; the cloth's motion is gated by T3b's garment.cloth_alive instead.
+    "silhouette": (1.10, 1.25, 0.0),
+    # calibrated on the box (G3/G3b, 06 Nov): her fitted Top 0.105 (cloth), his round-4 WPO tee 0.0497 (armor)
+    "detail": (0.09, 0.055, 1.5),
+    "motion": (0.12, 0.03, 0.0),
     "wpo": (0.0, 0.5, 1.0),
 }
 WPO_MAX_CM = 0.2
@@ -203,6 +207,9 @@ def look(m: dict, subject: str = "", *, ramps: dict | None = None, wpo_max_cm: f
     terms, num, den = {}, 0.0, 0.0
     for k, v in vals.items():
         good, bad, wt = R[k]
+        if wt <= 0:  # reported, not scored
+            terms[k] = {"value": v, "score": None, "weight": 0.0, "cloth": good, "armor": bad}
+            continue
         s = ramp(v, good, bad)
         terms[k] = {"value": v, "score": round(s, 3), "weight": wt, "cloth": good, "armor": bad}
         num += s * wt
@@ -221,8 +228,8 @@ def look(m: dict, subject: str = "", *, ramps: dict | None = None, wpo_max_cm: f
                             f"{subject}: {100 * e['inside']:.1f}% of the garment's verts are inside the body",
                             "garment.fit pushes them out to min_ease_cm; check the reference body matches the build",
                             subject=subject, value=e["inside"]))
-    for k, t in sorted(terms.items(), key=lambda kv: -kv[1]["score"]):
-        if t["score"] >= 0.5 and k != "wpo":
+    for k, t in sorted(terms.items(), key=lambda kv: -(kv[1]["score"] or 0.0)):
+        if t["score"] is not None and t["score"] >= 0.5 and k != "wpo":
             issues.append(issue(f"garment.armor_{k}", "fail" if t["score"] >= 0.75 else "warn",
                                 f"{subject}: {k} {t['value']:g} reads as armor (cloth {t['cloth']}, armor "
                                 f"{t['armor']}; score {t['score']})", FIX[k], subject=subject, value=t["value"],

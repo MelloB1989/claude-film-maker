@@ -9,11 +9,13 @@ from filmtools.unreal import cli_garment as G
 
 def test_command_passes_only_given_knobs():
     cmd = G.command({"src": "/s", "garment": "tee", "out": "/o", "drape_frames": 40, "ease": '{"chest": 1.8}',
-                     "min_ease": None, "only_slots": ""}, "/b/blender")
+                     "min_ease": None, "only_slots": "", "morph_ref": False}, "/b/blender")
     assert cmd[:6] == ["/b/blender", "-b", "--factory-startup", "--python-exit-code", "2", "-P"]
     assert cmd[6].endswith("blender/garment_fit.py") and cmd[7:10] == ["--", "--src", "/s"]
     tail = cmd[10:]
     assert tail == ["--garment", "tee", "--out", "/o", "--ease", '{"chest": 1.8}', "--drape-frames", "40"]
+    cmd = G.command({"src": "/s", "morph_ref": True, "match_cm": 1.2}, "/b/blender")
+    assert cmd[-3:] == ["--morph-ref", "--match-cm", "1.2"]
 
 
 REP = {"before": {"all": {"median": 0.4, "spread": 0.3, "inside": 0.02}},
