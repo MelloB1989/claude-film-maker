@@ -23,3 +23,9 @@ face_data=yes), the kali tree is agent-06's worktree `fleet/agent-06/r4-integrat
 | 02:56 | agent-04 look_sheet list OK; iris + hair renders died at `op()` (name clash) and restore (`_PREVIEWS`); fixed by agent-04 e724e597, merged |
 | 02:58 | Blender 4.2.23 LTS at /srv/ue/tools/blender-4.2 (for agent-02's fit) |
 | 02:59 | level.open from disk (drop any lab state), probe V01/V02/S11 OK, **set finals V01/V02/S11 1080p at C into /srv/ue/reel/r3/final_d** (30-final.yaml batch d_set1) |
+| 03:11 | Set finals V01/V02/S11 done: 432 frames in 697 s (~1.6 s/frame), converged, `final_d/_render/r3_final_d_set1.report.json` |
+| 03:12-03:13 | agent-02: Host before2 clip pass; export_body (his_outfit_op). neck_probe/export_alt_body failed only because `film-ue exec FILE` reads the KALI path: use the kali tree's path for exec FILE |
+| 03:14, 03:16 | **Editor crashed twice** in agent-04's look_sheet render: loading Host_Op's MetaHuman Identity (MHI_Operator) asks PromotedFrameUtils for a capture frame, and its footage isn't initialised on a fresh box → assertion in PromotedFrameUtils.cpp:148, SIGSEGV. Editor restarted itself, reopening the level from disk. agent-04 fixed it (51424063: render never touches the identity). private/operator-face restored to `/srv/ue/projects/HostStudio/Capture/operator-face/MySlate_3` (box only) |
+| 03:16-03:18 | agent-02 before3 clip pass, neck_probe (before), export_alt_body |
+| 03:18 | agent-04's look queue on 51424063: iris grid OK 03:21 (25 cells, numbers only) |
+| | Merges: agent-04 832695c6, e724e597, 51424063; agent-02 3fdb2d52, 73295418, 250b7570, 63507bb8, 8de260a8, 1135a1b4; agent-01 b41a9300. film/host-studio 748f5a9f |
