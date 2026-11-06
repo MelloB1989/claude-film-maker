@@ -160,9 +160,9 @@ def test_round4_tee_reads_as_armor_and_a_draped_sim_tee_as_cloth():
                      "wpo": {"FM_Inflate": 0.15, "FM_Neck": 0.75, "FM_Patch": 1.76}}, "Host tee")
     assert armor["verdict"] == "armor" and not armor["pass"]
     codes = [i["code"] for i in armor["issues"]]
-    assert codes[0] == "garment.wpo_inflate" and "garment.armor_detail" in codes and "garment.armor_motion" in codes
+    assert codes[0] == "garment.wpo_inflate" and "garment.armor_detail" in codes and "garment.armor_motion" not in codes
     cloth = GL.look({"ease": GL.ease_stats([0.4 + 3.5 * (i / 399) ** 1.5 for i in range(400)]), "thickness_cm": 0.15,
-                     "silhouette": 1.06, "detail": 0.05, "motion": 0.2, "wpo": {"FM_Inflate": 0.0}}, "Host tee")
+                     "silhouette": 1.06, "detail": 0.11, "motion": 0.2, "wpo": {"FM_Inflate": 0.0}}, "Host tee")
     assert cloth["verdict"] == "cloth" and cloth["pass"] and cloth["index"] < 0.1 and not cloth["issues"]
 
 
@@ -170,3 +170,17 @@ def test_armor_without_wpo_still_fails_on_the_index():
     r = GL.look({"ease": GL.ease_stats([1.2] * 50), "thickness_cm": 0.9, "silhouette": 1.3, "detail": 0.005})
     assert r["verdict"] == "armor" and r["issues"][0]["code"] == "garment.armor" and "motion" in r["missing"]
     assert GL.look({})["pass"] is False
+
+
+def test_box_calibration_round5():
+    """The box's G3/G3b numbers (06 Nov): his round-4 WPO tee reads armor on the index alone, her fitted Top cloth;
+    silhouette and motion (broken reference-body capture) are reported, not scored."""
+    his = GL.look({"ease": {"n": 1500, "median": 0.775, "spread": 4.867}, "thickness_cm": 0.336, "silhouette": 2.2986,
+                   "detail": 0.04971, "motion": 0.2258, "wpo": {"FM_Inflate": 0.15, "FM_Neck": 0.75, "FM_Patch": 1.76}})
+    hers = GL.look({"ease": {"n": 1500, "median": 0.307, "spread": 4.103}, "thickness_cm": 0.159, "silhouette": 1.3914,
+                    "detail": 0.10504, "motion": 0.0964, "wpo": {}})
+    assert his["verdict"] == "armor" and his["index"] >= 0.5 and his["terms"]["silhouette"]["score"] is None
+    assert hers["verdict"] == "cloth" and hers["index"] < 0.1
+    no_wpo = GL.look({**{"ease": {"n": 1500, "median": 0.775, "spread": 4.867}}, "thickness_cm": 0.336,
+                      "detail": 0.04971})
+    assert no_wpo["verdict"] == "borderline" and no_wpo["index"] >= 0.35  # the smooth shell alone, no WPO
