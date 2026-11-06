@@ -1,0 +1,26 @@
+# Round 4 cast preview (S13-S18, 960x540): film-ue apply .../r4/12-cast.yaml --set build=cast_op5
+# agent-09 reviews it (framing, clipping, the hair pop, the watch); agent-06 can rough the cut from it.
+#   film-ue apply .../10-preview.yaml --set build=58c0b010     (the film/host-studio commit the box was built from)
+# One directory per build, so a rebuild renders afresh and a second apply of the same build converges (nothing to do).
+# The sequence has 12-frame handles: frames -0012..-0001 and 1560..1571 are handles; the reel is 0000..1559.
+kind: include
+files: [../r3/vars.yaml]
+---
+kind: vars
+vars: {build: current}
+---
+kind: vars
+vars:
+  # all 13 by default; after a re-place, only the presenters':
+  #   film-ue apply .../10-preview.yaml --set 'shots=["Reel_S13","Reel_S15","Reel_S16","Reel_S17","Reel_S18"]'
+  shots: [Reel_S13, Reel_S15, Reel_S16, Reel_S17, Reel_S18]
+---
+kind: render
+version: 1
+name: "r4_preview_${build}"
+sequence: "${seq}"
+level: "${level}"
+out_dir: "/srv/ue/reel/r4/preview/${build}"
+preset: preview
+shots: ${shots}
+chunking: shot           # one MRQ job per camera cut, each from its own first frame (cloth pre-roll rule)
