@@ -99,3 +99,19 @@ def test_morph_onto_a_cut_body():
         return None if i in cut else target[i]
     M, known, st = GF.morph_onto(ref, T, nearest, match_cm=1.0)
     assert not known[list(cut)].any() and np.allclose(M[:, 2], 0.5, atol=1e-3) and st["fill_median_cm"] == 0.5
+
+
+def test_blend_weights_by_region():
+    X, T = grid(4)
+    nb = GF.neighbours(len(X), T)
+    region = np.array([GF.REGIONS.index("collar")] * 8 + [GF.REGIONS.index("hem")] * 8)
+    a = GF.region_alpha(region, ("collar",), nb, smooth_iters=0)
+    assert list(a[:8]) == [1] * 8 and list(a[8:]) == [0] * 8
+    Wa, ga = np.tile([[1.0, 0.0]], (16, 1)), ["neck_01", "spine_05"]
+    Wb, gb = np.tile([[1.0, 0.0]], (16, 1)), ["pelvis", "spine_05"]
+    W, names = GF.blend_weights(Wa, ga, Wb, gb, a)
+    assert names == ["neck_01", "spine_05", "pelvis"]
+    assert W[0] == pytest.approx([1, 0, 0]) and W[15] == pytest.approx([0, 0, 1])
+    a2 = GF.region_alpha(region, ("collar",), nb, smooth_iters=3)
+    W2, _ = GF.blend_weights(Wa, ga, Wb, gb, a2)
+    assert np.allclose(W2.sum(1), 1) and 0 < a2[8] < 1
