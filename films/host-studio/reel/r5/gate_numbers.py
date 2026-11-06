@@ -128,6 +128,7 @@ def hair(check: str, yaml_path: str, qa_paths: list) -> dict:
         bad = [f"{k}={have.get(k)!r} (want {v})" for k, v in want.items()
                if k not in have or float(have[k]) != float(v)]
         g["hair.render_cvars"] = {"value": int(not bad), "where": Path(yaml_path).name, "mismatch": bad}
+    judged, popped = [], []  # every cut each result judged, so the gate output shows them (the orchestrator's check)
     for p in qa_paths:
         d = json.loads(_read(p) or "null")
         if d is None:
@@ -136,6 +137,12 @@ def hair(check: str, yaml_path: str, qa_paths: list) -> dict:
             continue
         if isinstance(d.get("result"), dict):  # film-ue op's {"ok", "result": {...}}
             d = d["result"]
+        src = "editor" if "characters" in d else "render"
+        rows = [c for r in (d.get("characters") or {"": d}).values() for c in (r.get("cuts") or [])
+                if isinstance(c, dict) and "from" in c]
+        judged += [f"{src} {c['from']}->{c['to']} f{c.get('frame')} {c['reach'][2] * 100:+.2f}%" for c in rows]
+        popped += [f"{c['from']}->{c['to']} f{c.get('cut')} x{c['ratio']}" if "ratio" in c else
+                   f"{c['from']}->{c['to']} missing {c.get('missing')}" for c in d.get("cut_pops") or []]
         for k, v in (d.get("gate") or {}).items():
             # several results (render-side film-qa hair, the editor's qa.hair_continuity): a measured number beats
             # an error (the render matte saturates at night: hair.matte_saturated), and the worst number wins
@@ -145,6 +152,9 @@ def hair(check: str, yaml_path: str, qa_paths: list) -> dict:
             bad_old = old is None or ov is None or (isinstance(old, dict) and bool(old.get("error")))
             if old is None or (bad_old and not bad_new) or (not bad_old and not bad_new and vv > ov):
                 g[k] = v
+    for k, extra in (("hair.cut_reach_pct", {"cuts_judged": judged}), ("hair.cut_pop_ratio", {"pop_cuts": popped})):
+        if k in g and qa_paths:
+            g[k] = {**(g[k] if isinstance(g[k], dict) else {"value": g[k]}), **extra}
     return g
 
 
