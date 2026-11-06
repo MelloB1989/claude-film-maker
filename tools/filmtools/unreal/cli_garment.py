@@ -213,12 +213,15 @@ def dispatch(a) -> bool:
             sys.stderr.write("no Blender: pass --blender or set $BLENDER (the box has /srv/ue/tools/blender-*)\n")
             raise SystemExit(2)
         os.makedirs(a.out, exist_ok=True)
+        rp = os.path.join(a.out, "fit_report.json")
+        if os.path.exists(rp):  # never judge an earlier run's report (round 5: a crashed run re-read the last one)
+            os.remove(rp)
         log = os.path.join(a.out, "garment_fit.log")
         with open(log, "w") as fh:
             rc = subprocess.run(command(a, bl), stdout=fh, stderr=subprocess.STDOUT).returncode
-        rp = os.path.join(a.out, "fit_report.json")
-        if not os.path.isfile(rp):
-            sys.stderr.write(f"Blender exited {rc} with no report: see {log}\n")
+        if not os.path.isfile(rp) or rc == 2:  # 2: a Python error in garment_fit.py (--python-exit-code 2)
+            tail = "".join(open(log, errors="replace").readlines()[-25:]) if os.path.exists(log) else ""
+            sys.stderr.write(f"Blender exited {rc} ({'a Python error' if rc == 2 else 'no report'}): {log}\n{tail}")
             raise SystemExit(2)
         rep = json.loads(Path(rp).read_text())
     j = judge(rep)
