@@ -27,6 +27,8 @@ LABEL = globals().get("LABEL", "Host")
 TEE = globals().get("TEE", "Tee")  # the refit tee's component
 REACH = float(globals().get("REACH", 4.0))  # cm: a face vert this far under the cloth (along its normal) is covered
 RAMP = float(globals().get("RAMP", 3.0))  # cm under the collar edge to full shrink
+EDGE_W = float(globals().get("EDGE_W", 0.0))  # the shrink weight AT the collar edge (round 5b: a turn exposes the
+# neck right at the edge, where a 0 ramp start left it unshrunk; 0.3 = 30 % of SHRINK_CM there)
 SHRINK_CM = float(globals().get("SHRINK_CM", 1.5))
 SIZE = int(globals().get("SIZE", 1024))
 OUT = globals().get("OUT") or "/srv/ue/reel/r5/garment/neck_hidden.png"
@@ -84,7 +86,12 @@ def mask():
     host = next(a for a in unreal.get_editor_subsystem(unreal.EditorActorSubsystem).get_all_level_actors()
                 if a.get_actor_label() == LABEL)
     comps = {c.get_name(): c for c in host.get_components_by_class(unreal.SkeletalMeshComponent)}
-    face, tee = dm_of(comps["Face"].get_skeletal_mesh_asset()), dm_of(comps[TEE].get_skeletal_mesh_asset())
+    tee_c = comps.get(TEE) or next((c for n, c in comps.items() if n not in ("Face", "Body") and any(
+        "shirt" in (m.get_name().lower() if m else "") for m in c.get_materials())), None)
+    if tee_c is None:
+        raise RuntimeError(f"no {TEE} component and none with a shirt material: TEE=<the garment's component> "
+                           f"(components: {sorted(comps)})")
+    face, tee = dm_of(comps["Face"].get_skeletal_mesh_asset()), dm_of(tee_c.get_skeletal_mesh_asset())
     V = list(LU.convert_vector_list_to_array(pick(MQ.get_all_vertex_positions(face, False), "GeometryScriptVectorList")))
     N = list(LU.convert_vector_list_to_array(pick(unreal.GeometryScript_Normals.get_mesh_per_vertex_normals(face),
                                                   "GeometryScriptVectorList")))
@@ -120,7 +127,7 @@ def mask():
     for i, c in enumerate(cov):
         if c and E:
             d = min((V[i] - e).length() for e in E)
-            w[i] = max(0.0, min(1.0, d / RAMP))
+            w[i] = EDGE_W + (1.0 - EDGE_W) * max(0.0, min(1.0, d / RAMP))
     img = bytearray([255] * (SIZE * SIZE))
     drawn = 0
     for a, b, c in tris:
@@ -148,7 +155,7 @@ def mask():
                     drawn += 1
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     I.write(I.Image(SIZE, SIZE, 1, img), OUT)
-    return {"face_verts": len(V), "covered": sum(cov), "edge_verts": len(edge), "full_shrink": sum(1 for x in w if x >= 1),
+    return {"tee_component": tee_c.get_name(), "face_verts": len(V), "covered": sum(cov), "edge_verts": len(edge), "full_shrink": sum(1 for x in w if x >= 1),
             "px_drawn": drawn, "png": OUT, "uv_valid": bool(UV) and len(UV) == len(V)}
 
 
