@@ -35,4 +35,7 @@ aa_method: "${aa}"
 spatial: ${spatial}
 shutter_timing: open
 overwrite: ${overwrite}
-cvars: {"r.SSS.Quality": 1, "r.SSS.HalfRes": 0}
+# hair: groom.lock's render_cvars (round 5, docs/unreal/research/hair-lod.md): no Auto-LOD curve thinning on wide
+# shots (S18's short hair in round 4), no cards. Run `film-ue op groom.lock labels=[Host, Presenter]` BEFORE this.
+cvars: {"r.SSS.Quality": 1, "r.SSS.HalfRes": 0, "r.HairStrands.LODMode": 0, "r.HairStrands.AutoLOD.Bias": 1.0,
+        "r.HairStrands.UseCardsInsteadOfStrands": 0}

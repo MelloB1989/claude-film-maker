@@ -258,9 +258,19 @@ def lod0(on: bool = True) -> dict:
     master f1416-1440): the groom dropped to a coarser LOD as she got smaller in frame. MRQ's game overrides pin
     meshes to LOD 0, not grooms, so the presenters' LODSync, grooms and skeletal meshes are pinned to LOD 0 on the
     placed actors (saved with the level, which the render saves before PIE). Says what took, per component."""
-    # off (the before of the proof): back to automatic LODs (-1 for LODSync/grooms, 0 for skeletal meshes)
-    sync, skel = (0, 1) if on else (-1, 0)
-    return run(f"LABELS = {HIM[:1] + HER[:1]!r}\nSYNC, SKEL = {sync}, {skel}\n" + LOD0)
+    # Round 5: the core op groom.lock does all of it and reads it back: LODSync forced_lod, every visible groom
+    # added to LODSync's components_to_sync (a re-dress can rename the hair out of it), use_cards off, the
+    # skeletal meshes, and the hair cvars (r.HairStrands.LODMode 0 + AutoLOD.Bias 1: Auto LOD thinned her hair on
+    # S18's wide even at LOD 0; docs/unreal/research/hair-lod.md). It refuses on TRASH_ components.
+    # off (the before of the proof): release (LODSync -1, skeletal 0, the engine's cvars).
+    from filmtools.unreal import client
+    r = client.op("groom.lock", labels=HIM[:1] + HER[:1], lod=0, release=not on)
+    if not r.get("ok"):
+        raise SystemExit(f"groom.lock failed: {r.get('error') or r}")
+    res = r["result"]
+    if on and not res.get("pass"):
+        raise SystemExit("groom.lock did not verify:\n  " + "\n  ".join(res["check"]["problems"]))
+    return res
 
 
 def build() -> None:
