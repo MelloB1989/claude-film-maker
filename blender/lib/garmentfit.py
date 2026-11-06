@@ -66,12 +66,30 @@ def fit_displacement(dist: np.ndarray, target: np.ndarray, *, min_ease: float = 
     (inside the body: dist < 0, all the way out); where it is looser than target + slack, `pull` of the excess back
     in (a garment that stands off is drawn towards the body, never through the target)."""
     want = np.maximum(target, min_ease)
+    slack = np.broadcast_to(np.asarray(slack, float), np.shape(dist))  # per vertex (a tighter collar) or one number
     d = np.zeros_like(dist, float)
     close = dist < want
     d[close] = want[close] - dist[close]
     loose = dist > want + slack
-    d[loose] = -pull * (dist[loose] - want[loose] - slack)
+    d[loose] = -pull * (dist[loose] - want[loose] - slack[loose])
     return d
+
+
+def neck_ring(X: np.ndarray, neck: np.ndarray, head: np.ndarray, *, ring_cm: float, window=(-8.0, 4.0)) -> np.ndarray:
+    """The garment's neck opening by its shape, as qa.garment_look's collar_stats measures it: vertices in the axial
+    window round neck_01 (along neck_01 -> head) whose distance from that axis is within ring_cm of the innermost.
+    Round 5b: the bone-weight "collar" region (neck_/head weights, 291 v on Epic's tee) missed this ring (803 v,
+    weighted to the clavicles/spine), so collar ease never reached the band the gap is measured on."""
+    X = np.asarray(X, float)
+    u = np.asarray(head, float) - np.asarray(neck, float)
+    u = u / (np.linalg.norm(u) or 1.0)
+    rel = X - np.asarray(neck, float)
+    t = rel @ u
+    r = np.linalg.norm(rel - np.outer(t, u), axis=1)
+    win = (t >= window[0]) & (t <= window[1])
+    if not win.any():
+        return np.zeros(len(X), bool)
+    return win & (r <= r[win].min() + ring_cm)
 
 
 def neighbours(n: int, tris: np.ndarray) -> list:
