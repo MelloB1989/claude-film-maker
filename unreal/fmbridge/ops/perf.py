@@ -231,9 +231,11 @@ def _turn_by_bones(o, t: list, v: list, sg: HeadSigns) -> dict:
             # the character's vertical in this bone's parent space at this key: the turn goes about it (r5)
             qc = unreal.AnimPoseExtensions.get_bone_pose(pose, b, unreal.AnimPoseSpaces.WORLD).rotation
             up.setdefault(b, []).append(HD.up_in_parent([q.x, q.y, q.z, q.w], [qc.x, qc.y, qc.z, qc.w]))
-    rot = HD.turn_bones(own, yaw, sg.yaw_bone, up_parent=up)
+    vstats: dict = {}
+    rot = HD.turn_bones(own, yaw, sg.yaw_bone, up_parent=up, stats=vstats)
     _write_tracks(o, {b: list(zip(pos[b], rot[b], scl[b])) for b in rot}, n_keys)
     return {"bones": {b: sg.yaw_bone[b] for b in rot}, "keys": n_keys, "had_tracks": sorted(b for b in rot if b in tracks),
+            "vertical": vstats,
             "max_deg": round(max((abs(y) for y in yaw), default=0.0), 1)}
 
 
