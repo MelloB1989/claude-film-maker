@@ -1,4 +1,7 @@
-"""Round 4, read-only: does Host's FACE mesh (its lower neck, down to the clavicles) stand out through his tee? On the
+"""SUPERSEDED by clip_pass.py's per-frame `neck` (NECK_ONLY=True for that alone): this probe neither sees the tee's
+WPO inflate nor tells his throat in the neckline's opening from a poke, so it over-counts. Kept for the record.
+
+Round 4, read-only: does Host's FACE mesh (its lower neck, down to the clavicles) stand out through his tee? On the
 posed meshes in the editor's current pose (Geometry Script, render LOD 0). Before the slim build, on cast_op4's
 Host_Op: face verts under the collar line stood 0.4-2.3 cm out of the tee (the orange patch left of his neckline).
     film-ue exec films/host-studio/reel/r4/neck_probe.py           (scrub SEQ_Reel to a frame first to probe a pose)
