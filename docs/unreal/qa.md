@@ -318,6 +318,12 @@ names are the snake_case of the reflected names. Paths are relative to `Engine/S
 | `r.HairStrands.SkyLighting` (cvar), `SystemLibrary.get_console_variable_int_value` | Runtime/Renderer/Private/HairStrands/HairStrandsEnvironment.cpp:38; KismetSystemLibrary.h:630-631 | yes |
 | `Actor.get_actor_forward_vector` | Runtime/Engine/Classes/GameFramework/Actor.h (K2 BlueprintCallable; used by every area) | yes (in use) |
 | `EditorActorSubsystem.get_all_level_actors / spawn_actor_from_class / destroy_actor`, `SystemLibrary.get_engine_version`, `EditorAssetLibrary.*` | used by every area; proven on the box (unreal/README.md) | yes (in use) |
+| `unreal.LODSyncComponent` `.forced_lod` (EditAnywhere, BlueprintReadWrite, interp), `.num_lods`, `.min_lod`, `.components_to_sync`, `.custom_lod_mapping` (groom.lock) | Runtime/Engine/Classes/Components/LODSyncComponent.h:69-91 | yes |
+| `unreal.ComponentSync(name, sync_option)` (FComponentSync: Name, SyncOption), `unreal.SyncOption.DRIVE/PASSIVE/DISABLED` (ESyncOption) | LODSyncComponent.h:25-44 | yes |
+| `LODSyncComponent.get_lod_sync_debug_text()` (UFUNCTION BlueprintCallable): "Name : renderedLOD" per resolved sub component; names resolve only in OnRegister (no PostEditChange) | LODSyncComponent.h:94-95; Runtime/Engine/Private/Components/LODSyncComponent.cpp:24-28, GetLODSyncDebugText | yes |
+| `GroomComponent.use_cards` (bUseCards, EditAnywhere BlueprintReadWrite); SetForcedLOD/GetForcedLOD are C++ only (not UFUNCTION) | Engine/Plugins/Runtime/HairStrands/Source/HairStrandsCore/Public/GroomComponent.h:257-277 | yes |
+| `GroomAsset.lod_mode` (EGroomLODMode Default/Manual/Auto, EditAnywhere private), `.auto_lod_bias`, `.hair_groups_lod[g]` (FHairGroupsLOD: `auto_lod_bias`, LODs -> Python `lo_ds` per the 5.6 API pages; the op tries `lods` too: probe P2) with FHairLODSettings `geometry_type` (EGroomGeometryType STRANDS/CARDS/MESHES), `visible`, `screen_size`, `curve_decimation` | HairStrandsCore/Public/GroomAsset.h:480-485, :521-522; GroomAssetInterpolation.h:32-37, :64-110, :227-236 | yes (C++), `lo_ds` Python name: probe |
+| cvars `r.HairStrands.LODMode` (default 1 = Auto; read per groom in UGroomComponent::InitResources), `r.HairStrands.AutoLOD.Bias` (default 0.1, read per frame), `r.HairStrands.UseCardsInsteadOfStrands` | Runtime/RenderCore/Private/RenderUtils.cpp:2019-2023; HairStrandsCore/Private/GroomManager.cpp:50, :69-80, :2644-2652; GroomComponent.cpp:3045 | yes |
 
 ## Selftest
 
