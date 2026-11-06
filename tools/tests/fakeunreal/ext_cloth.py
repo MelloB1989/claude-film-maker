@@ -34,15 +34,22 @@ class StrictConfig(core.Object):
         for k, v in self._DEFAULTS.items():
             self._props.setdefault(k, v() if callable(v) else v)
 
+    def _resolve(self, name):
+        """As on the box (PyWrapperObject.cpp): these EditAnywhere-only properties have no Python names, so the string
+        is matched against the C++ name case-insensitively: "density" works, "collision_thickness" does not,
+        "CollisionThickness"/"bUseCcd" do."""
+        for k in self._DEFAULTS:
+            camel = "".join(w[:1].upper() + w[1:] for w in k.split("_"))
+            cpp = ("b" + camel) if isinstance(self._props.get(k), bool) else camel
+            if str(name).lower() == cpp.lower():
+                return k
+        raise Exception(f"Failed to find property '{name}' for attribute '{name}' on '{type(self).__name__}'")
+
     def get_editor_property(self, name):
-        if name not in self._DEFAULTS:
-            raise Exception(f"Failed to find property '{name}' on {type(self).__name__}")
-        return self._props[name]
+        return self._props[self._resolve(name)]
 
     def set_editor_property(self, name, value, notify_mode=None):
-        if name not in self._DEFAULTS:
-            raise Exception(f"Failed to find property '{name}' on {type(self).__name__}")
-        super().set_editor_property(name, value)
+        super().set_editor_property(self._resolve(name), value)
 
 
 def _install_types(fake):
