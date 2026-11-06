@@ -324,3 +324,21 @@ film-qa gate ... lips_gate.json                        # agent-09's gate v2 merg
    - Watch item (agent-04): component +Z is the vertical only while the animation's root is not pitched. That holds
      for standing presenters. A seated, leaning or lying performance needs the vertical from the world (the actor's
      up) instead.
+6. **His turns after the respawn (open: r5 ended with his S15/S17 looks -38/-24° off on the box as saved).**
+   After `mh.build` ×2 and `host_swap`, `perf.calibrate --who him` measured HeadRoll as LIVE (+1.64 cm per 10 units;
+   it was dead this morning). So `dead: []`, `turn_on: Face` and `yaw_bone: null`: the turn became a face curve, and
+   sync's turn step was skipped ("this face turns its head itself"). The turn did not reach the placed body.
+   - The suspects are calibrate's state (HeadControlSwitch=1 on a scratch section) against playback's (sync bakes
+     the face following the body with head control off), or `head_to_body` not carrying a curve-driven turn on this
+     build.
+   - The morning's working signs file (HeadRoll dead, `turn_on: Body`, `yaw_bone`) is in
+     `private/project_r5_snapshot/HostStudio/Saved/fmbridge/perf/signs_Face_Archetype_Skeleton.json`, unless
+     agent-06 restored it before the wrap.
+   - Next session, smallest safe path:
+     - restore that file (or pin `turn_on: Body` + its `yaw_bone` in the reel, for both faces);
+     - then `perf.py naturalize --who him` → `sync` (expect `turn.changed` true, `turn.vertical` neck_01/neck_02/head
+       ~1.0) → gaze → place → `looks --measured` → `perf.py head` (agent-04: blink_nod < 0.6) →
+       `lips.py check --stage placed`.
+   - This is also the first box verification of the neck_01 vertical-turn fix (core ddc8eaec).
+   - Code follow-up: make `perf.calibrate` measure in the playback state, or refuse `turn_on: Face` when the reel's
+     chain bakes with head control off.
