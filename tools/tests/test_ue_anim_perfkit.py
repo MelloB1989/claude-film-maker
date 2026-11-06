@@ -692,3 +692,31 @@ def test_blinks_keep_out_of_the_other_faces_blinks():
         his = B.plan(0.0, 20.0, "listen", phrase_ends=ends, seed=seed, avoid=hers)
         assert his and not any(a.t < h1 + 0.08 and h0 - 0.08 < a.end() for a in his for h0, h1 in hers), seed
         assert len(his) >= len(B.plan(0.0, 20.0, "listen", phrase_ends=ends, seed=seed)) - 3  # mostly moved, not dropped
+
+
+def test_turn_bones_about_the_true_vertical_keeps_the_head_level():
+    """r5: his neck/head local turn axes sit ~8 deg off vertical, so a 90 deg turn pitched the head (agent-04's fit
+    7.7(1-cos th) + 6.8 sin th). Turned about the character's vertical in each bone's parent space, the head's
+    forward keeps its elevation through the turn, and it still turns the calibrated way."""
+    from perfkit.bodylife import qmul
+    tilt = H.axis_angle([0.0, 1.0, 0.0], 8.0)  # the parent leans 8 deg about its Y (a forward lean)
+    q_local = [0.0, 0.0, 0.0, 1.0]
+    q_comp = qmul(tilt, q_local)
+    fwd = [1.0, 0.0, 0.0]
+    up = H.up_in_parent(q_local, q_comp)
+
+    def elevation(q_loc):
+        v = H.qrot(qmul(tilt, q_loc), fwd)
+        return math.degrees(math.asin(max(-1.0, min(1.0, v[2]))))
+
+    def heading(q_loc):
+        v = H.qrot(qmul(tilt, q_loc), fwd)
+        return math.degrees(math.atan2(v[1], v[0]))
+    e0 = elevation(q_local)
+    yaws = [0.0, 30.0, 60.0, 90.0]
+    old = H.turn_bones({"head": [q_local] * 4}, yaws, {"head": ["z", 1]}, shares={"head": 1.0})["head"]
+    new = H.turn_bones({"head": [q_local] * 4}, yaws, {"head": ["z", 1]}, shares={"head": 1.0},
+                       up_parent={"head": [up] * 4})["head"]
+    assert max(abs(elevation(q) - e0) for q in old) > 1.0  # the local-axis turn pitches the head
+    assert max(abs(elevation(q) - e0) for q in new) < 1e-6  # about the vertical: level
+    assert abs(heading(new[3]) - heading(new[0]) - 90.0) < 1e-6  # the full turn, the calibrated way
