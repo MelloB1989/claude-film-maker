@@ -250,3 +250,20 @@ inside the overshirt opening; S15). Found so far:
   separate it either (ragged 0.835-0.871 vs clean 0.839-0.863), so it is not proposed as a line. Round 6 needs a
   neckline-edge measure, or the eye stays the only judge of the tear.
 - The settle measure on a large box moved the same in round 4 and round 5, so it is a diagnostic (INFO), never a line.
+
+### Integration (agent-10): what went to main and film/host-studio in round 5b
+Every merge went through the full gate (dx gen, the whole tools suite, the ue suite, the reel tests; nothing pushed on
+red; the 25 tools failures + 1 error are the known no-ffmpeg/cv2 ones on the integrating container).
+- **main** 8bca76cd → b8631197 (via `fleet/agent-10/r5-integrate`): round 5's core work that had gone to film only,
+  ported by path (agent-01's perf.calibrate/perfkit commits, 5e771ce9's turn_by=auto|bones; the orchestrator: every core
+  feature goes to main); agent-02's garment-fit `--neck-ring-cm`/`--collar-slack` (455c320f, 4d1fcfc9) and
+  qa.garment_look collar (923d8b6a + its fix bf43039f; local roll 07b841bf + d20daa7d: no cell judged = NOT measured,
+  refused at the gate, the orchestrator's condition); agent-04's unseen_spikes (8d5509ea, approved); 854b0d71's core
+  half (qa_local hair pop_cuts).
+- **film/host-studio** 4b8f6463 → 245a63d4, then this log: agent-09 gate_numbers (cameras_ok, render_matches_r4,
+  hair.lock/render_cvars, pop_cuts, --qa-pop, hair_pop_exclude, settle, start_motion_ratio, reach), neck_crops,
+  gate_spec path (iv); agent-04 `--no-turn-blinks`, place without an on-screen cross-fade; agent-01 TURN_BY (bones,
+  then back to auto); agent-02 neck_backstop (EDGE_W, DILATE, PAD_PX, BOUND_CM, TEX_NAME), tee_layers, shrink_live,
+  mask_seams, mask_diff, garment.md §9.
+- Held back once: 923d8b6a alone (its percentile misread Epic's band); no fast-forward was asked for a sha with it
+  before bf43039f.
