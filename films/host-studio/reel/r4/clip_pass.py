@@ -20,24 +20,28 @@ it does not count; a hand pressed into the trousers borders leg skin just under 
 The number per (frame, pair): `fraction` = clipping pixels / G's pixels (what agent-09's gate reads), with `raw` (all
 in-band pixels, before the edge rule), the clusters (box as fractions of the frame, pixels, worst cm) and
 `seen` = the share of clipping pixels actually visible (U is the nearest layer of all there). Skin within 3 px (at
-480 wide) of where it leaves the garment's silhouette (his neck above the collar edge: a thin band, no clip; the
+480 wide) of an opening (skin with no garment behind, or the garment's far side > BAND behind) (his neck above the collar edge: a thin band, no clip; the
 orchestrator's review of the before sheet) is left out and counted as `at_opening_px`.
 
 Writes on the box only (face data with Host_Op on the level; never off it): OUT/clip.json (numbers), per frame
-<shot>_<frame>_final.png (the scene through the camera), _mask.png (flat colours: body red, face orange, tee/top
+<shot>_<frame>_final.png (the scene through the camera), _depth.bin (the layers, for clip_rejudge.py), _mask.png (flat colours: body red, face orange, tee/top
 green, trousers blue, shoes yellow, other garments cyan; clipping magenta), and with DIAG the A/B stills: _nobody.png
 (body and face hidden), _nogarment.png (the over-garments hidden), _albedo_<layer>.png (each garment's own base
 colour alone: a skin-coloured patch there is the garment's texture or material, not skin).
 Returns the numbers (no images).
 """
+import array
 import json
 import os
 
-import unreal
-from fmbridge.ops import call
-from fmbridge.ops.view import (_scrub, camera_info, capture, cut_camera, find_actor, read_pixels, remove_rig,
-                               to_image)
-from fmbridge.qa import image as _image
+try:
+    import unreal
+    from fmbridge.ops import call
+    from fmbridge.ops.view import (_scrub, camera_info, capture, cut_camera, find_actor, read_pixels, remove_rig,
+                                   to_image)
+    from fmbridge.qa import image as _image
+except ImportError:  # off the editor: clip_rejudge.py uses the rules below only
+    unreal = None
 
 SEQ = "/Game/Reel/SEQ_Reel"
 LABEL = globals().get("LABEL", "Host")
@@ -135,11 +139,14 @@ def judge(d, under, over) -> dict:
         if u >= EMPTY:
             continue
         gap = g - u
+        if gap > BAND:
+            opening.add(i)  # the under layer seen through an opening, well in front of the garment's far side
         if TOL < gap <= BAND:
             inband.add(i)
         elif -NEAR <= gap <= TOL:
             shallow.add(i)
-    # skin at a garment's opening (his neck above the collar, an arm out of a sleeve) passes in front of the
+    # skin at a garment's opening (his neck above the collar, an arm out of a sleeve; an opening is where the skin is
+    # seen with no garment behind it, or with the garment's far side more than BAND behind) passes in front of the
     # garment's inside there: a thin band along the edge that is no clip (the orchestrator, round 4). Skin pixels
     # within R px of where the skin leaves the garment's silhouette are reported apart (at_opening_px), not counted.
     near_open = set()
@@ -219,6 +226,12 @@ def run():
                     yield
                 base = os.path.join(OUT, f"{shot}_{f:04d}")
                 _image.write(mask_image(d, clip), base + "_mask.png")
+                # the depth layers themselves, so the rules can be re-run off the editor (clip_rejudge.py)
+                with open(base + "_depth.bin", "wb") as fh:
+                    head = json.dumps({"w": W, "h": H, "layers": list(d)}).encode()
+                    fh.write(len(head).to_bytes(4, "little") + head)
+                    for n in d:
+                        array.array("f", d[n]).tofile(fh)
                 rt = yield from capture(info, 2 * W, 2 * H, "final", warmup=4)
                 save(rt, base + "_final.png")
                 if DIAG and f == mid:
@@ -261,4 +274,5 @@ def run():
     return rep
 
 
-result = run()
+if unreal is not None and globals().get("RUN", True):
+    result = run()
