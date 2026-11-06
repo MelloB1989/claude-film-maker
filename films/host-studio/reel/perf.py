@@ -1085,6 +1085,7 @@ from fmbridge.ops.anim import _anim, _skeleton_path, model_keys
 from fmbridge.ops.perf_body import _calib_file, _write_tracks
 from fmbridge.perfkit import curves as C
 from fmbridge.perfkit.bodylife import qmul, quat_from_euler_xyz
+from fmbridge.perfkit import head as HD
 P = json.loads(PARAMS)
 APE = unreal.AnimPoseExtensions
 def job():
@@ -1099,18 +1100,21 @@ def job():
     if missing:
         raise RuntimeError(f"no calibrated axes for {missing}: run perf.calibrate_body on this body")
     own = {b: [] for b in bones}
+    up = {b: [] for b in bones}
     for i, x in enumerate(times):
         pose = APE.get_anim_pose_at_time(o, x, unreal.AnimPoseEvaluationOptions())
         for b in bones:
             tr = APE.get_bone_pose(pose, b, unreal.AnimPoseSpaces.LOCAL)
             q, p, sc = tr.rotation, tr.translation, tr.scale3d
             own[b].append(([p.x, p.y, p.z], [q.x, q.y, q.z, q.w], [sc.x, sc.y, sc.z]))
+            qc = APE.get_bone_pose(pose, b, unreal.AnimPoseSpaces.WORLD).rotation
+            up[b].append(HD.up_in_parent([q.x, q.y, q.z, q.w], [qc.x, qc.y, qc.z, qc.w]))
         if i % 40 == 39:
             yield
     tracks, peak = {}, 0.0
     for b in bones:
         keys = []
-        for x, (p, q, sc) in zip(times, own[b]):
+        for x, (p, q, sc), u in zip(times, own[b], up[b]):
             y = C.at(P["times"], P["yaw"], x)
             peak = max(peak, abs(y))
             shift = P["shift_cm"] * y / P["full"]  # + = towards the own left, as the turn
@@ -1121,14 +1125,24 @@ def job():
             if b == "pelvis":
                 comp["side"] = comp.get("side", 0.0) + tilt
             e = [0.0, 0.0, 0.0]
+            twist = None
             for k, v in comp.items():
                 ax, sg = cal["axes"][b][k]
+                if k == "twist":  # r5: the twist goes about the character's VERTICAL, not the tilted spine axis
+                    ev = [1.0 if ax == c else 0.0 for c in "xyz"]
+                    a_par = HD.qrot(q, ev)
+                    n = sum(i * i for i in u) ** 0.5 or 1.0
+                    d = sum(i * j for i, j in zip(a_par, u)) / n
+                    if abs(d) >= HD.VERTICAL_MIN_COS:
+                        twist = HD.axis_angle(u, (1.0 if d >= 0 else -1.0) * sg * v)
+                        continue
                 e["xyz".index(ax)] += sg * v
             pos = list(p)
             if b == "pelvis" and cal.get("shift_axis"):
                 ax, sg = cal["shift_axis"]
                 pos["xyz".index(ax)] += sg * shift
-            keys.append((pos, qmul(q, quat_from_euler_xyz(*e)), sc))
+            qn = qmul(q, quat_from_euler_xyz(*e))
+            keys.append((pos, qmul(twist, qn) if twist else qn, sc))
         tracks[b] = keys
     yield
     _write_tracks(o, tracks, n)
