@@ -219,12 +219,66 @@ def axis_quat(axis: str, deg: float) -> list:
     return q
 
 
-def turn_bones(own: dict, yaw_deg: list, axes: dict, shares: dict | None = None) -> dict:
+def qconj(q: list) -> list:
+    return [-q[0], -q[1], -q[2], q[3]]
+
+
+def qrot(q: list, v: list) -> list:
+    """`v` rotated by the unit quaternion `q` ([x, y, z, w]; q v q^-1, as FQuat::RotateVector)."""
+    from .bodylife import qmul
+    r = qmul(qmul(q, [v[0], v[1], v[2], 0.0]), qconj(q))
+    return r[:3]
+
+
+def axis_angle(axis: list, deg: float) -> list:
+    n = math.sqrt(sum(a * a for a in axis)) or 1.0
+    h = math.radians(deg) / 2
+    s_ = math.sin(h) / n
+    return [axis[0] * s_, axis[1] * s_, axis[2] * s_, math.cos(h)]
+
+
+def up_in_parent(q_local: list, q_component: list, up: tuple = (0.0, 0.0, 1.0)) -> list:
+    """The character's vertical (component +Z) in a bone's PARENT space, from the bone's local and component
+    rotations at one key (component = parent x local, so parent = component x local^-1)."""
+    from .bodylife import qmul
+    qp = qmul(q_component, qconj(q_local))
+    return qrot(qconj(qp), list(up))
+
+
+VERTICAL_MIN_COS = math.cos(math.radians(25.0))  # the vertical replaces a calibrated axis within 25 deg of it (r5: ~8)
+
+
+def turn_bones(own: dict, yaw_deg: list, axes: dict, shares: dict | None = None, up_parent: dict | None = None) -> dict:
     """The neck and head bones' local rotations with a head turn added: `own` {bone: [q per key]} as the animation
     has them, `yaw_deg` the turn per key (the character's frame: + = their left), `axes` {bone: [axis, sign]} the
     local axis that turns each bone left (perf.calibrate: yaw_bone), each bone taking its NECK_SHARE.
+
+    `up_parent` {bone: [the character's vertical in the bone's parent space, per key]} (up_in_parent): each bone then
+    turns about the TRUE VERTICAL, not its calibrated local axis, so the head's yaw is a pure yaw and its pitch and
+    roll stay put through the turn (r5: his local turn axes sit ~7-8 deg off vertical; the head pitched
+    7.7(1-cos th) + 6.8 sin th deg with the turn, agent-04's fit). The calibrated axis then only gives the sign (which
+    way along the vertical is "left"), and a key whose vertical is more than 25 deg from that axis keeps the local
+    turn (a rig whose component space is not Z-up). Without `up_parent`, round 4's local-axis turn.
     -> {bone: [q per key]}."""
     from .bodylife import qmul
     sh = shares or NECK_SHARE
-    return {b: [qmul(q, axis_quat(axes[b][0], axes[b][1] * sh[b] * y)) for q, y in zip(qs, yaw_deg)]
-            for b, qs in own.items() if b in sh and b in axes}
+    out = {}
+    for b, qs in own.items():
+        if b not in sh or b not in axes:
+            continue
+        ax, sg = axes[b][0], axes[b][1]
+        if up_parent and b in up_parent:
+            e = [1.0 if ax == c else 0.0 for c in "xyz"]
+            keys = []
+            for q, y, u in zip(qs, yaw_deg, up_parent[b]):
+                a_par = qrot(q, e)  # the calibrated axis in the parent's space: says which way "left" is
+                n = math.sqrt(sum(i * i for i in u)) or 1.0
+                d = sum(i * j for i, j in zip(a_par, u)) / n
+                if abs(d) < VERTICAL_MIN_COS:  # the vertical is nowhere near the measured turn axis: do not trust it
+                    keys.append(qmul(q, axis_quat(ax, sg * sh[b] * y)))
+                else:
+                    keys.append(qmul(axis_angle(u, (1.0 if d >= 0 else -1.0) * sg * sh[b] * y), q))
+            out[b] = keys
+        else:
+            out[b] = [qmul(q, axis_quat(ax, sg * sh[b] * y)) for q, y in zip(qs, yaw_deg)]
+    return out
