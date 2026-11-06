@@ -41,12 +41,14 @@ BG = "/Game/FM/Materials/MI_LookLab_Bg"
 BASE = {"grooms": {"Hair": "WI_Hair_S_SlickBack", "Eyebrows": "WI_Eyebrows_M_Full", "Mustache": "WI_Mustache_M_Stubble",
                    "Beard": "none"},
         "hair_color": {"melanin": 1.0, "redness": 0.08}, "skin": {"u": 0.62, "v": 0.58}, "iris": {"u": 0.92, "v": 0.12}}
-# his body now (bodies.py "op") and the slim one the photos show: 180 cm, narrow shoulders, lean, not muscular
+# his body now (bodies.py "op") and the slim one the photos show: 180 cm, narrow shoulders, lean, not muscular. The
+# neck stays (40/38): the face mesh's neck already stands 0.4-2.3 cm out of the tee below the collar (agent-02, r4), so
+# a narrower body neck would widen that step
 BODY_NOW = {"Height": 180, "Across Shoulder": 45, "Front Interscye Length": 40, "Chest": 100, "Waist": 75,
             "High Hip": 80, "Hip": 92, "Neck Base": 40, "Neck": 38, "Bicep": 31.5, "Forearm": 27.5, "Thigh": 56,
             "Knee": 34, "Calf": 37, "Fat": -1.4, "Muscularity": 0.7, "Masculine/Feminine": -1.5}
 BODY_SLIM = {**BODY_NOW, "Across Shoulder": 41, "Front Interscye Length": 37, "Chest": 92, "Waist": 72, "High Hip": 78,
-             "Hip": 89, "Neck Base": 37, "Neck": 35, "Bicep": 27, "Forearm": 25, "Thigh": 50, "Knee": 33, "Calf": 34,
+             "Hip": 89, "Bicep": 27, "Forearm": 25, "Thigh": 50, "Knee": 33, "Calf": 34,
              "Fat": -1.2, "Muscularity": -0.3}
 BODY_SLIMMER = {**BODY_SLIM, "Across Shoulder": 40, "Chest": 89, "Waist": 70, "Bicep": 25.5, "Thigh": 48,
                 "Muscularity": -0.8}
