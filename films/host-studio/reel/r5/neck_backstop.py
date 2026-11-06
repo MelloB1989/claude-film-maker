@@ -43,6 +43,34 @@ def pick(res, cls):
     return next((x for x in items if type(x).__name__ == cls), items[0])
 
 
+def _names(name):
+    """A property's spellings: the snake_case one, then the C++ one (an EditAnywhere-only UPROPERTY has no Python
+    name; get/set_editor_property still find it by its C++ name: box, 06 Nov)."""
+    camel = "".join(w[:1].upper() + w[1:] for w in name.split("_"))
+    return [name, camel]
+
+
+def gp(obj, name):
+    err = None
+    for n in _names(name):
+        try:
+            return obj.get_editor_property(n)
+        except Exception as e:  # noqa: BLE001
+            err = e
+    raise err
+
+
+def sp(obj, name, value):
+    err = None
+    for n in _names(name):
+        try:
+            obj.set_editor_property(n, value)
+            return
+        except Exception as e:  # noqa: BLE001
+            err = e
+    raise err
+
+
 def dm_of(skm):
     dm = unreal.DynamicMesh()
     lod = unreal.GeometryScriptMeshReadLOD()
@@ -141,23 +169,24 @@ def apply():
     if not EAL.does_asset_exist(dst):
         EAL.duplicate_asset(WI, dst)
     wi = EAL.load_asset(dst)
-    ed = wi.get_editor_property("pipeline").get_editor_property("editor_pipeline")
-    h = ed.get_editor_property("head_hidden_face_map_texture")
-    h.set_editor_property("texture", tex)
-    s = h.get_editor_property("settings")
-    s.set_editor_property("max_cull_value", -0.01)  # never remove: shrink only
-    s.set_editor_property("min_keep_value", 0.9)
-    s.set_editor_property("max_shrink_distance", SHRINK_CM)
-    h.set_editor_property("settings", s)
-    ed.set_editor_property("head_hidden_face_map_texture", h)
+    ed = gp(gp(wi, "pipeline"), "editor_pipeline")
+    h = gp(ed, "head_hidden_face_map_texture")
+    sp(h, "texture", tex)
+    s = gp(h, "settings")
+    sp(s, "max_cull_value", -0.01)  # never remove: shrink only
+    sp(s, "min_keep_value", 0.9)
+    sp(s, "max_shrink_distance", SHRINK_CM)
+    sp(h, "settings", s)
+    sp(ed, "head_hidden_face_map_texture", h)
     EAL.save_asset(dst)
-    back = ed.get_editor_property("head_hidden_face_map_texture")
-    bs = back.get_editor_property("settings")
-    return {"wi": dst, "texture": tex.get_path_name(), "read_back": {
-        "texture": back.get_editor_property("texture").get_path_name() if back.get_editor_property("texture") else None,
-        "max_cull_value": bs.get_editor_property("max_cull_value"),
-        "min_keep_value": bs.get_editor_property("min_keep_value"),
-        "max_shrink_distance": bs.get_editor_property("max_shrink_distance")},
+    back = gp(ed, "head_hidden_face_map_texture")
+    bs = gp(back, "settings")
+    bt = gp(back, "texture")
+    return {"wi": dst, "texture": tex.get_path_name(), "editor_pipeline": type(ed).__name__, "read_back": {
+        "texture": bt.get_path_name() if bt else None,
+        "max_cull_value": gp(bs, "max_cull_value"),
+        "min_keep_value": gp(bs, "min_keep_value"),
+        "max_shrink_distance": gp(bs, "max_shrink_distance")},
         "next": f"mh.add_item character=<his MH_> item={dst} slot=Outfits; mh.build; the re-dress chain (garment.md §5b)"}
 
 
