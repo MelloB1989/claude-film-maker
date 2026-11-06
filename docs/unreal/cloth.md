@@ -131,9 +131,21 @@ max distance at ease + collision thickness. The backstop keeps the cloth from si
   `SetUpdateClothInEditor(true)`, tick enabled, `VisibilityBasedAnimTickOption` AlwaysTickPoseAndRefreshBones (the
   offscreen editor renders nothing, and cloth steps only when recently rendered or always ticking), then
   `RecreateClothingActors`. MRQ renders are game worlds and need none of it.
+- **Only a cloth-shaped section can be simulated** (round 5: her overshirt exploded into a crumpled, shredded mass).
+  Legacy skeletal-mesh cloth simulates the render section itself, so `cloth.setup` refuses (clothkit.topology,
+  judged on the garment's largest material group):
+  - a CLOSED shell (no border edges): a solidified garment, outer and inner layers joined at the rims. MetaHuman's
+    default tee is one (0.34 cm wall), and her overshirt was solidified;
+  - separate pieces holding more than 1% of the vertices: buttons, pockets, a loose band;
+  - more than 40k vertices.
+
+  `dry_run` returns the `topology` per material group. `force=true` skips the check, only after a stills test.
 - **`cloth.setup` edits the mesh asset, which re-creates a MetaHuman's components** (construction script): it re-leads every
   garment last (`leaders` in the result; round 5 lost Tee AND Trousers). Run `mh.dress`/`dress_him` after it only if
   `leaders` shows a garment not ok.
+- **`qa.cloth` cannot run in our editor** (round 5): with update-in-editor, tick enabled, AlwaysTickPose and the
+  simulation re-created, the solver still reported 0 ms. Judge cloth on renders (step-6 previews,
+  `garment.cloth_detail_ratio`) until it runs in PIE.
 - **`qa.cloth` changes the max distance scale while it runs** and restores it. Do not run it during a render.
 
 ## API_NOTES
@@ -167,6 +179,22 @@ shapes (GPU probes).
 
 None yet: the cloth ops need a garment on a MetaHuman and the FMCloth plugin. The round-5 GPU probes in the film
 plan (`films/host-studio/reel/r5/cloth.md`) are the acceptance test. They become `selftest/cloth.py` once they pass.
+
+## Round 6: cloth on a thick garment (the proxy-sim path)
+
+Epic's pattern for a thick render garment is a thin SIM mesh driving it, and the legacy path supports it:
+1. agent-02's `garment.fit --single-layer` (fleet/agent-02/r5-garment 0cd07e67, not yet run) exports the outer
+   layer, welded and single-piece, as an EXTRA section (material slot e.g. `SimProxy`, same weights) next to the
+   untouched render garment.
+2. FMCloth gains `EnsureClothFromProxy(Mesh, Lod, SimSection, RenderSection, ...)`: `CreateFromSkeletalMesh` with
+   `SourceSection = SimSection`, `bRemoveFromMesh = true` (the proxy is not drawn), then
+   `AssignClothingToSection(..., RenderSection, ...)`, which builds the mesh-to-mesh mapping (render vertices driven by
+   the sim triangles).
+3. `cloth.setup sim_section=... render_section=...`: the topology guard judges the sim section, and the maps are
+   painted on it.
+4. A stills test (`cloth.preroll` + `view.still` at 3 frames per shot) before any preview. Also: the editor-side
+   `qa.cloth` cannot run (the editor never steps skeletal-mesh cloth, even with every switch: round 5), so measure
+   "alive" on renders (a garment-masked frame difference vs a `cloth.remove` render) or in a PIE session.
 
 ## HANDOFF
 

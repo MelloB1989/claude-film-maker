@@ -15,6 +15,10 @@ waived. v2's rules:
 3. A waiver needs a written reason and a name, and is REFUSED for an item marked `complaint` (the operator
    complained about it) or for any item whose `area` the round lists in `complaints`: what the operator saw cannot
    be signed away by the people who missed it.
+4. NOT ATTEMPTED is a scope decision, not a waiver: only a `deferrable` item (a fix the round decided not to try,
+   while hard lines in its area still gate the complaint), only from the round's spec (`not_attempted: {id:
+   {reason, by}}`), and the verdict's `summary` names every one. Round 5: the cloth sim on his closed-shell tee
+   (orchestrator); armor_index, wpo_cm, neck_px and pair_fraction stay hard lines.
 
     numbers = {"lips.lead_in_cm": {"value": 0.33, "where": "S13 f977-1001"}, ...}
     rep = gate.judge(numbers, waivers={"garment.silhouette_pct": ("by eye: no balloon", "cc-64d05f6e")})
@@ -91,12 +95,16 @@ ITEMS: dict = {
     "lips.render_lag_frames": {
         "area": "lips", "track": "T1", "op": "<=", "line": 1, "unit": "frames",
         "what": "lag of the RENDERED mouth crop vs the voice", "where": "every spoken line",
-        "how": "film-ue lips gate --render (T1)", "r4": [None, "T1's probe on round 4's finals"],
+        "how": "film-ue lips gate --render (T1)",
+        "r4": [28.83, "round 4's 65 s cut vs the v2 solves (probe 1.7, agent-01 c9f8f9bd): every line fails; him L1 "
+                      "6.64, L2 16.77, L4a -14.32; her L3a -7.03, L3b 28.83, L4b -26.75 frames"],
         "why": "the curves can be right and the render still wrong"},
     "lips.render_conclusive": {
         "area": "lips", "track": "T1", "op": "==", "line": 1, "unit": "bool",
         "what": "the render lag beats a 6-frame shifted-audio control", "where": "every spoken line",
-        "how": "film-ue lips gate --render (T1)", "r4": [None, "T1's probe"],
+        "how": "film-ue lips gate --render (T1)",
+        "r4": [None, "a property of the measure, not of the sync: on round 4 it was sensitive on 5 of 6 lines "
+                     "(not L4b)"],
         "why": "an inconclusive measure cannot sign"},
     "lips.cues_fresh": {
         "area": "lips", "track": "T1", "op": "==", "line": 1, "unit": "bool",
@@ -158,6 +166,21 @@ ITEMS: dict = {
         "what": "worst under>over clip fraction over the non-face pairs (Body>tee, Body>Trousers, Trousers>tee)",
         "where": "S13, S15, S17, S18", "how": "film-ue op qa.clip (T3a)",
         "r4": [0.0067, "Trousers>tee at cast_op4"], "why": "~4 px of a garment"},
+    "garment.collar_gap_cm": {
+        "area": "garment", "track": "T3a", "op": "<=", "line": 0.8, "unit": "cm", "guard": True,
+        "what": "worst gap between his collar band and the neck surface (qa.garment_look collar_gap), any frame",
+        "where": "S13, S15, S17 (every measured frame)", "how": "qa.garment_look collar_gap (agent-02, T3a)",
+        "r4": [None, "round 4's collar hugged the neck (Epic's band): not this failure"],
+        "must_fail": [None, "round 5 Fit5: the collar FLOATED as a rolled ring off the neck in every S13 frame "
+                            "(orchestrator by eye); agent-02 measures Fit5"],
+        "why": "the gate passed Fit5 (neck_px 0, armor 0.109) while the collar stood off his neck"},
+    "garment.collar_roll": {
+        "area": "garment", "track": "T3a", "op": "==", "line": 0, "unit": "count", "guard": True,
+        "what": "frames where the collar band folds or rolls (lifts above the neck base: qa.garment_look collar_lift)",
+        "where": "S13, S15, S17", "how": "qa.garment_look collar_lift (T3a)",
+        "r4": [None, "round 4: no roll"],
+        "must_fail": [None, "round 5 Fit5: a fold at the front and a roll all round (orchestrator by eye)"],
+        "why": "a rolled collar reads as a cowl, not a tee"},
     "garment.silhouette_ratio": {
         "area": "garment", "track": "T3a", "op": "<=", "line": 1.12, "unit": "ratio", "guard": True, "info": True,
         "what": "(garment U body) / uncut body px in the garment's rows: the balloon guard for the refit",
@@ -166,19 +189,19 @@ ITEMS: dict = {
                      "(2.30 / 966 px, agent-02); garment.silhouette_pct and the orchestrator's eye cover a balloon"],
         "why": "08:19 round 4: the tee BALLOONED once"},
     "garment.cloth_alive": {
-        "area": "garment", "track": "T3b", "op": ">=", "line": 0.30, "unit": "cm",
+        "area": "garment", "track": "T3b", "deferrable": True, "op": ">=", "line": 0.30, "unit": "cm",
         "what": "min over his tee in S13 and S15 of qa.cloth zones.hem.motion_cm: p75 over the hem's sample vertices "
                 "of the temporal std of (simulated - skinned) over a gesture's frames; an error if not simulating",
         "where": "S13, S15 gesture frames", "how": "film-ue op qa.cloth per shot -> r5/cloth_gate.py (agent-08, T3b)",
         "r4": [0.0, "his tee had no clothing data (cloth.no_clothing)"],
         "why": "the operator: no cloth behaviour; qa.cloth warns under 0.30 and fails under 0.15"},
     "garment.cloth_sound": {
-        "area": "garment", "track": "T3b", "op": "==", "line": 1, "unit": "bool",
+        "area": "garment", "track": "T3b", "deferrable": True, "op": "==", "line": 1, "unit": "bool",
         "what": "no cloth.explosion / velocity_spike / cold_start issue in any shot's qa.cloth",
         "where": "S13, S15, S17, S18", "how": "film-ue op qa.cloth (T3b)",
         "r4": [0, "no simulation at all"], "why": "a live but broken sim is worse than none"},
     "garment.cloth_detail_ratio": {
-        "area": "garment", "track": "T3b", "op": ">=", "line": 1.25, "unit": "ratio",
+        "area": "garment", "track": "T3b", "deferrable": True, "op": ">=", "line": 1.25, "unit": "ratio",
         "what": "fold/shading detail on his tee's front chest (RMS of a DoG band-pass, sigma 1.5-4 px at 1080p, of "
                 "luminance / its mean, in the band 8-30 cm below the collar) OVER round 4's at the same frames and "
                 "camera (round 4 measured on the box first)",
@@ -275,11 +298,21 @@ def judge(numbers: dict, waivers: dict | None = None, spec: dict | None = None, 
     Returns {"verdict": SIGN|REFUSE, "rows", "issues", "refused_waivers"}."""
     its = items(spec)
     complaints = set((spec or {}).get("complaints", []))
+    deferred = (spec or {}).get("not_attempted") or {}
     rows, issues, refused = [], [], []
     for k, it in its.items():
         if only and k not in only:
             continue
         row = check(k, it, numbers.get(k))
+        d = deferred.get(k)
+        if d is not None and row["state"] == "FAIL":
+            why_not = ("only a `deferrable` item can be not attempted (a hard line cannot)" if not it.get("deferrable")
+                       else "not_attempted needs a reason" if not str(d.get("reason") or "").strip()
+                       else "not_attempted needs who decided it" if not str(d.get("by") or "").strip() else "")
+            if why_not:
+                refused.append({"id": k, "reason": d.get("reason"), "by": d.get("by"), "refused": why_not})
+            else:
+                row.update(state="NOT_ATTEMPTED", decision={"reason": d["reason"], "by": d["by"]})
         w = (waivers or {}).get(k)
         if w and row["state"] == "FAIL":
             reason, by = (w if isinstance(w, (list, tuple)) else (w, ""))[:2]
@@ -300,17 +333,26 @@ def judge(numbers: dict, waivers: dict | None = None, spec: dict | None = None, 
         issues.append(issue("gate.waiver_refused", "fail", f"waiver on {r['id']} refused: {r['refused']}",
                             "fix the item; it cannot be waived", subject=r["id"]))
     verdict = "SIGN" if not any(r["state"] == "FAIL" for r in rows) and not refused else "REFUSE"
+    not_attempted = [{"id": r["id"], **r["decision"]} for r in rows if r["state"] == "NOT_ATTEMPTED"]
     return {"verdict": verdict, "rows": rows, "issues": issues, "refused_waivers": refused,
-            "complaints": sorted(complaints)}
+            "not_attempted": not_attempted, "complaints": sorted(complaints),
+            "summary": f"{verdict}" + (f" with {len(not_attempted)} item(s) NOT ATTEMPTED by decision: "
+                                       + ", ".join(f"{x['id']} ({x['by']})" for x in not_attempted)
+                                       if not_attempted else "")}
 
 
 def lines_fail(round_values: dict | None = None, spec: dict | None = None) -> dict:
-    """The gate's own test: does every item's line fail the round-4 value it is meant to catch? {item: True (it
+    """The gate's own test: does every item's line fail the round-4 value it is meant to catch (or, for a guard,
+    the `must_fail` value: the failure it was added for)? {item: True (it
     fails r4, good) | False (the line would have passed round 4: tighten it) | None (no r4 number yet)}."""
     out = {}
     for k, it in items(spec).items():
         v = (round_values or {}).get(k, (it.get("r4") or [None])[0])
-        if v is None or it.get("line") is None or it.get("guard"):  # a guard catches a new failure, not round 4's
+        if it.get("must_fail"):  # the failure this line exists for, when it is not round 4's (a guard's case)
+            v = (it["must_fail"] or [None])[0] if k not in (round_values or {}) else v
+        elif it.get("guard"):  # a guard catches a new failure, not round 4's
+            v = None
+        if v is None or it.get("line") is None:
             out[k] = None
         else:
             out[k] = not OPS[it["op"]](v, it["line"])

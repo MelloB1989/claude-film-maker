@@ -154,7 +154,12 @@ def describe_component(comp) -> dict:
          "solver": solver_stats(comp)}
     flm = d["forced_lod_model"]
     d["drawn_lod"] = "auto" if not isinstance(flm, int) or flm <= 0 else flm - 1
-    d["simulating"] = bool(assets) and not d["settings"].get("disable_cloth_simulation", False) and \
+    L = _plugin()
+    bound = None
+    if L is not None and mesh is not None and hasattr(L, "section_cloth"):
+        bound = [i for i in range(16) if L.section_cloth(mesh, 0, i) is not None]
+    d["bound_sections_lod0"] = bound
+    d["simulating"] = bool(assets) and (bound is None or bool(bound)) and not d["settings"].get("disable_cloth_simulation", False) and \
         not d["suspended"] and d["solver"].get("dynamic_particles", 1) > 0
     return d
 
@@ -234,6 +239,8 @@ def _render_colours(mesh, lod: int = 0):
     AU.copy_mesh_from_skeletal_mesh(mesh, dm, unreal.GeometryScriptCopyMeshFromAssetOptions(), req)
     pts = [(p.x, p.y, p.z) for p in LU.convert_vector_list_to_array(
         _pick(MQ.get_all_vertex_positions(dm, False), "GeometryScriptVectorList"))]
+    global _LAST_TOPOLOGY
+    _LAST_TOPOLOGY = _topology_of(dm)
     VC = getattr(unreal, "GeometryScript_VertexColors", None)
     if VC is None or not hasattr(VC, "get_mesh_per_vertex_colors"):
         return pts, None
@@ -242,6 +249,32 @@ def _render_colours(mesh, lod: int = 0):
     if not arr or len(arr) != len(pts) or all((c.r, c.g) == (1.0, 1.0) for c in arr):
         return pts, None
     return pts, [(c.r, c.g, c.b, c.a) for c in arr]
+
+
+_LAST_TOPOLOGY: dict = {}
+
+
+def _topology_of(dm) -> dict:
+    """Per material id of a Geometry Script mesh: clothkit.topology.analyze (vertices, border edges, islands)."""
+    from .mh.actor import _pick
+    from ..clothkit import topology as _topo
+    MQ, LU = unreal.GeometryScript_MeshQueries, unreal.GeometryScript_List
+    try:
+        tl = _pick(MQ.get_all_triangle_indices(dm, True), "GeometryScriptTriangleList")
+        tris = [(t.x, t.y, t.z) for t in LU.convert_triangle_list_to_array(tl)]
+        mids = None
+        MM = getattr(unreal, "GeometryScript_Materials", None)
+        if MM is not None and hasattr(MM, "get_all_triangle_material_i_ds"):
+            il = _pick(MM.get_all_triangle_material_i_ds(dm), "GeometryScriptIndexList")
+            mids = list(LU.convert_index_list_to_array(il))
+        elif MM is not None and hasattr(MM, "get_all_triangle_material_ids"):
+            il = _pick(MM.get_all_triangle_material_ids(dm), "GeometryScriptIndexList")
+            mids = list(LU.convert_index_list_to_array(il))
+        if mids is not None and len(mids) != len(tris):
+            mids = None
+        return _topo.analyze(tris, mids)
+    except Exception as e:  # noqa: BLE001 - the guard reports it could not look
+        return {"error": f"{type(e).__name__}: {e}"}
 
 
 def nearest_colours(points: list, src: list, colours: list, cell_cm: float = 2.0) -> list:
@@ -421,7 +454,8 @@ def write_config(asset, config: dict) -> dict:
 
 @op("cloth.setup", mutates=True, idempotent=True, tags=["cloth", "metahuman", "experimental"])
 def setup(*, label: str, component: str, preset: str, overrides: dict | None = None, physics_asset: str = "",
-          lod: int = 0, section: int = -1, use_colours: bool = True, dry_run: bool = False, save: bool = True) -> dict:
+          lod: int = 0, section: int = -1, use_colours: bool = True, dry_run: bool = False, save: bool = True,
+          force: bool = False) -> dict:
     """Make a skeletal-mesh garment Chaos cloth from a fabric preset: clothing data on its LOD-0 section, the max
     distance painted by rule (0 at the collar/shoulder seams or the waistband, ramping to the preset's cm at the hem
     and sleeve ends; the fit's vertex colours pin and cap it), the preset's solver config, the body's physics asset
@@ -432,7 +466,8 @@ def setup(*, label: str, component: str, preset: str, overrides: dict | None = N
     cotton_tee | overshirt_light | trousers (cloth.presets). overrides: {"config": {key: value}, "zones": {zone:
     {"to_cm": cm}}, "settle_s": s}. physics_asset: collision shapes (default: the Body's physics asset).
     lod/section: the garment section to simulate (-1 = the largest). use_colours: read the fit's vertex colours
-    (R ease, G pinned). dry_run: paint the garment's render vertices and return the stats; write nothing.
+    (G pinned). dry_run: paint the garment's render vertices and return the stats; write nothing. force: skip the
+    simulatable check (a closed/solidified shell, separate pieces, > 40k vertices are refused: clothkit.topology).
     Returns: {"changed", "leaders" (mh.leader_state after re-leading every garment: the asset edit re-creates the
     actor's components), "cloth", "points", "maps": {zone: {"n", "min_cm", "max_cm", "mean_cm"}}, "colours",
     "config": {"set", "missing"}, "settings", "physics_asset", "readback_max_cm"}.
@@ -453,9 +488,24 @@ def setup(*, label: str, component: str, preset: str, overrides: dict | None = N
             raise OpError("dry_run reads the garment through Geometry Script, which is not enabled", code="unsupported",
                           hint="enable GeometryScripting in the .uproject")
         pm = plan_maps(pts, mesh, p, render)
-        return {"changed": False, "dry_run": True, "points": len(pts), "maps": pm["maps"]["stats"],
+        return {"changed": False, "dry_run": True, "points": len(pts), "topology": dict(_LAST_TOPOLOGY), "maps": pm["maps"]["stats"],
                 "problems": pm["problems"], "colours": pm["colours"], "colours_ignored": pm["colours_ignored"],
                 "physics_asset": phys, "preset": preset}
+    if not render[0]:
+        _render_colours(mesh, lod)            # the topology comes with the read
+    topo = dict(_LAST_TOPOLOGY)
+    if not force:
+        from ..clothkit import topology as _topo
+        if "error" in topo or not topo:
+            raise OpError(f"{component}: could not check that the mesh is simulatable ({topo.get('error', 'no data')})",
+                          code="failed", hint="enable GeometryScripting; or force=true if you have looked at it")
+        main = max(topo.values(), key=lambda g: g["tris"])   # the garment's own (largest) material group
+        why = _topo.judge(main)
+        if why:
+            raise OpError(f"{component} is not simulatable as cloth: {'; '.join(why)}", code="failed",
+                          details={"topology": topo},
+                          hint="leave it skinned, or give it a single-layer welded proxy SIM section (round 6: "
+                               "garment.fit --single-layer); force=true only after a stills test")
     if render[0]:   # check the rule on the render vertices BEFORE creating clothing data (a refusal changes nothing)
         pre = plan_maps(render[0], mesh, p, render if render[1] else None)
         if pre["problems"]:

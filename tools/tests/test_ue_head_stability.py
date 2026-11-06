@@ -301,7 +301,7 @@ def test_head_gate_reports_the_worst_blink_and_errors_on_missing_numbers(tmp_pat
     b = tmp_path / "him.json"
     b.write_text(json.dumps({"label": "Host", "frames": [960, 1584], "fps": 24.0, "blinks": []}))
     g = QH.gate([str(a)])["gate"]["head.blink_nod_deg"]
-    assert g["value"] == 1.4 and g["where"].startswith("Presenter f1101") and g["value"] > QH.GATE_LINE_DEG
+    assert g["value"] == 1.4 and g["where"].startswith("Presenter f1104-") and g["value"] > QH.GATE_LINE_DEG
     lk = QH.gate([str(a)])["gate"]["head.blink_locked_deg"]
     assert lk["value"] == 0.62 and lk["value"] > QH.GATE_LOCKED_DEG
     both = QH.gate([str(a), str(b)])["gate"]

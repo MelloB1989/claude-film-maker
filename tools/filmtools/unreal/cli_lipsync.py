@@ -649,6 +649,54 @@ def mouth_signals(frames: np.ndarray, boxes: list) -> dict:
     return {"dark": dark, "motion": motion}
 
 
+SEARCH_SCALES = (0.6, 0.8, 1.0, 1.3)
+SEARCH_OFFSETS = (-0.4, -0.2, 0.0, 0.2, 0.4)  # of the box's own width/height
+
+
+def _moved(b: list, scale: float, dx: float, dy: float) -> list:
+    cx, cy = (b[0] + b[2]) / 2, (b[1] + b[3]) / 2
+    hw, hh = (b[2] - b[0]) / 2, (b[3] - b[1]) / 2
+    cx, cy = cx + dx * 2 * hw, cy + dy * 2 * hh
+    return [cx - hw * scale, cy - hh * scale, cx + hw * scale, cy + hh * scale]
+
+
+def _activity(motion: list, f0: int, v0: float, v1: float) -> float:
+    """How much more the crop moves while the line is spoken (frames v0..v1) than in the rest of the window."""
+    m = np.asarray(motion, float)
+    idx = np.arange(len(m)) + f0
+    on = (idx >= v0) & (idx <= v1)
+    if not on.any() or on.all():
+        return 0.0
+    return float(m[on].mean() / max(m[~on].mean(), 1e-6))
+
+
+def _best_box(frames, bx, target, f0, fps, control_shift, search: bool, v0: float, v1: float) -> tuple:
+    """The crop to measure: the given boxes, or with `search` the scale x offset of them that moves most while the
+    line is spoken against the rest of the window (activity): chosen WITHOUT looking at the target, so the choice
+    cannot favour agreement (r5: picking the best r of 200 crops passed round 4's L1 at r 0.63 and her L3b on a crop
+    that barely moved). Then the better of its two signals by r, and the control.
+    Returns (name, r, rc, moved, sensitive, transform, activity)."""
+    cands = [(1.0, 0.0, 0.0)] + ([(s_, dx, dy) for s_ in SEARCH_SCALES for dx in SEARCH_OFFSETS for dy in SEARCH_OFFSETS
+                                  if (s_, dx, dy) != (1.0, 0.0, 0.0)] if search else [])
+    pick = None
+    for tr in cands:
+        boxes = [_moved(b, *tr) for b in bx] if tr != (1.0, 0.0, 0.0) else bx
+        sig = mouth_signals(frames, boxes)
+        act = _activity(sig["motion"], f0, v0, v1)
+        if pick is None or act > pick[0]:
+            pick = (act, tr, sig)
+    act, tr, sig = pick
+    best = None
+    for name in ("dark", "motion"):
+        r = av_lag(target, sig[name], f0, fps, motion=name == "motion")
+        if best is None or r["corr"] > best[1]["corr"]:
+            best = (name, r)
+    name, r = best
+    rc = av_lag(target, sig[name], f0, fps, motion=name == "motion", shift_s=control_shift / fps)
+    moved = (r["lag_s"] - rc["lag_s"]) * fps
+    return name, r, rc, moved, abs(moved - control_shift) <= 1.5, tr, act
+
+
 def _band(v: list, rate: float) -> list:
     return LS.bandpass(list(v), rate, 1.0, min(8.0, rate / 2.5))
 
@@ -683,13 +731,17 @@ def _boxes_for(frames: list, boxes: dict | None, box: list | None) -> list:
 def render_check(video: Path, wav: Path, cues: dict, who: str, boxes: dict | None = None, box: list | None = None,
                  wav_frame: float = 0.0, pad_s: float = 1.0, max_lag_frames: float = 1.0, min_corr: float = 0.3,
                  control_shift: int = 6, syncnet_dir: Path | None = None, min_conf: float = 3.0,
-                 frames_override: dict | None = None, reference: dict | None = None) -> dict:
+                 frames_override: dict | None = None, reference: dict | None = None, search: bool = True,
+                 min_activity: float = 1.5) -> dict:
     """The video-level gate on a render: per line of `who`, the mouth crop's darkness and motion against a target
     (the better of the two), with a control (the target shifted `control_shift` frames must move the lag by that
     much, else the measure is not sensitive on this shot: inconclusive), and SyncNet when available.
     The target is `reference` when given: the line solves' curves placed at their mix positions ({name: (times,
     values)}, master seconds: `lips.py refcurves`), i.e. what the mouth SHOULD do; the rendered mouth's darkness
     follows the solve's opening closely. Without it, the voice's loudness (weak on short lines, r5 P2).
+    `search` (default): around the given mouth boxes, every scale (0.6-1.3) x offset (+-40% of the box) is tried and
+    the crop that moves most on the line against off it is used (chosen without the target); `box_transform` says
+    which. A pass needs that activity >= `min_activity` (a mouth that talks on the line and rests around it).
     frames_override: {line: ndarray [n, h, w]} for tests (no ffmpeg)."""
     w_h_fps = video_size(video) if frames_override is None else (0, 0, cues.get("fps", 24.0))
     fps = w_h_fps[2]
@@ -702,34 +754,49 @@ def render_check(video: Path, wav: Path, cues: dict, who: str, boxes: dict | Non
             continue
         f0 = int(math.floor(c["voice_frame"] - pad_s * fps))
         f1 = int(math.ceil(c["end_frame"] + pad_s * fps))
-        frames = frames_override[k] if frames_override else read_gray(video, f0, f1, fps)
+        if frames_override:
+            frames = frames_override[k]
+        else:
+            # a small mouth (a wide shot: r5 her S17 box 0.025 of the frame) needs the picture at full size: the
+            # crop gets at least ~64 px across
+            bw = min(b[2] - b[0] for b in _boxes_for(list(range(f0, f1)), boxes, box))
+            native = w_h_fps[0]
+            width = int(min(native, max(640, 64.0 / max(bw, 1e-3))) // 2 * 2)
+            frames = read_gray(video, f0, f1, fps, width=width)
         bx = _boxes_for(list(range(f0, f0 + len(frames))), boxes, box)
-        sig = mouth_signals(frames, bx)
-        best = None
-        for name in ("dark", "motion"):
-            r = av_lag(target, sig[name], f0, fps, motion=name == "motion")
-            if best is None or r["corr"] > best[1]["corr"]:
-                best = (name, r)
-        name, r = best
-        rc = av_lag(target, sig[name], f0, fps, motion=name == "motion", shift_s=control_shift / fps)
-        moved = (r["lag_s"] - rc["lag_s"]) * fps  # the voice made later by k frames: the mouth reads k frames earlier
-        sensitive = abs(moved - control_shift) <= 1.5
+        # the target made later by k frames: the mouth reads k frames earlier (the control)
+        name, r, rc, moved, sensitive, tr, act = _best_box(frames, bx, target, f0, fps, control_shift, search,
+                                                           c["voice_frame"], c["end_frame"])
         lag_f = r["lag_s"] * fps
         rec = {"frames": [f0, f1], "signal": name, "against": "solve" if reference else "voice",
+               "box_transform": {"scale": tr[0], "dx": tr[1], "dy": tr[2]},
                "lag_frames": round(lag_f, 2), "corr": round(r["corr"], 3),
                "control_moved_frames": round(moved, 2), "sensitive": sensitive}
-        if not sensitive or r["corr"] < 0.15:
-            inconclusive.append(k)
-            rec["verdict"] = "inconclusive"
-        elif abs(lag_f) > max_lag_frames or r["corr"] < min_corr:
+        # does the crop see a mouth that talks on the line? (a pass needs it: a crop that does not move with the
+        # line can correlate by chance)
+        rec["activity_ratio"] = round(act, 2)
+        way = "EARLY" if lag_f < 0 else "LATE"
+        if not sensitive and act >= min_activity:  # a mouth that talks on the line, but not as the solve does
             rec["verdict"] = "fail"
-            way = "EARLY" if lag_f < 0 else "LATE"
+            issues.append({"code": "render_mismatch", "line": k, "severity": "fail",
+                           "message": f"{k}: the rendered mouth moves on the line ({act:.1f}x its motion outside it) "
+                           f"but does not follow its solve (r {r['corr']:.2f}, the control does not move it)",
+                           "fix": "the face plays another solve or another line here (round 4: v1-script words): "
+                           "lipsync.check --stage placed says which"})
+        elif sensitive and r["corr"] >= 0.15 and (abs(lag_f) > max_lag_frames or r["corr"] < min_corr):
+            rec["verdict"] = "fail"  # a confident wrong answer fails whatever the crop's activity
             issues.append({"code": "render_lag" if abs(lag_f) > max_lag_frames else "render_corr", "line": k,
                            "severity": "fail", "message": f"{k}: in the render the mouth is {abs(lag_f):.1f} frames "
                            f"{way} (r {r['corr']:.2f})", "fix": "run lipsync.check on the sequence: it says whether the "
                            "face section or the solve is misplaced; re-place, re-render the shot"})
-        else:
+        elif sensitive and r["corr"] >= min_corr and act >= min_activity:
             rec["verdict"] = "pass"
+        else:  # the crop cannot show it either way: a pass needs a mouth that talks on the line (activity)
+            inconclusive.append(k)
+            rec["verdict"] = "inconclusive"
+            rec["why"] = ("the control does not move the lag" if not sensitive else
+                          f"the crop moves only {act:.2f}x as much on the line as off it (a pass needs "
+                          f"{min_activity:g}): it does not show a mouth that talks on this line")
         res[k] = rec
     sn = None
     if syncnet_dir:
@@ -916,6 +983,7 @@ def register(sub) -> None:
     r.add_argument("--box", help="x0,y0,x1,y1 (0..1): one mouth box for every frame (a locked-off shot)")
     r.add_argument("--syncnet-dir", type=Path, help="a syncnet_python checkout with data/syncnet_v2.model")
     r.add_argument("--min-conf", type=float, default=3.0)
+    r.add_argument("--no-search", action="store_true", help="use the boxes as given (no scale/offset search)")
     r.add_argument("--reference", type=Path, help="the line solves' curves on the master timeline (lips.py refcurves "
                    "JSON {name: [times_s, values]}): the rendered mouth is checked against what the solve does")
 
@@ -975,5 +1043,5 @@ def dispatch(a) -> bool:
         if a.reference:
             ref = {n: (list(tv[0]), list(tv[1])) for n, tv in json.loads(a.reference.read_text()).items()}
         _done(render_check(a.video, a.wav, cues, a.who, boxes, box, a.wav_frame, syncnet_dir=a.syncnet_dir,
-                           min_conf=a.min_conf, reference=ref))
+                           min_conf=a.min_conf, reference=ref, search=not a.no_search))
     return True

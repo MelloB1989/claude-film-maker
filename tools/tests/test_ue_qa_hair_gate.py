@@ -90,7 +90,7 @@ def test_round4_numbers_refuse_and_name_each_blocker():
     assert r["verdict"] == "REFUSE"
     failed = {row["id"] for row in r["rows"] if row["state"] == "FAIL"}
     # every operator blocker of round 4 that has a round-4 number fails on it
-    for k in ("lips.lead_in_cm", "lips.onset_lead_ms", "lips.lag_frames", "lips.cues_fresh", "garment.neck_px",
+    for k in ("lips.lead_in_cm", "lips.onset_lead_ms", "lips.lag_frames", "lips.render_lag_frames", "lips.cues_fresh", "garment.neck_px",
               "garment.wpo_cm", "garment.pair_fraction", "garment.cloth_alive", "garment.cloth_sound",
               "garment.cloth_detail_ratio", "hair.cut_pop_ratio", "garment.armor_index",  # a guard: still blocks
               "garment.silhouette_pct", "hair.lock", "hair.render_cvars"):
@@ -131,7 +131,7 @@ def test_clean_numbers_sign():
     good = {"lips.lead_in_cm": 0.008, "lips.onset_lead_ms": 140, "lips.track_r": 0.93, "lips.measured_against": 1, "lips.cues_fresh": True,
             "lips.lag_frames": 0, "lips.silence_open": 0.03, "lips.silence_busy": 0.1, "lips.render_lag_frames": 1,
             "lips.render_conclusive": True, "garment.wpo_cm": 0.0, "garment.armor_index": 0.3,
-            "garment.pair_fraction": 0.0, "garment.silhouette_ratio": 1.05,
+            "garment.pair_fraction": 0.0, "garment.silhouette_ratio": 1.05, "garment.collar_gap_cm": 0.3, "garment.collar_roll": 0,
             "head.blink_nod_deg": 0.2, "head.blink_locked_deg": 0.1, "garment.neck_px": 0, "garment.silhouette_pct": 0.8,
             "garment.cloth_alive": 0.6, "garment.cloth_sound": True, "garment.cloth_detail_ratio": 1.6, "hair.cut_reach_pct": 3.1, "hair.pop_reach_pct": 1.2, "hair.cut_pop_ratio": 1.1, "hair.lock": 1,
             "hair.render_cvars": 1}
@@ -254,3 +254,30 @@ def test_scope_by_cast():
     kept, dropped = scope.split({1100: 0.2, 1300: 2.89, 1400: 0.3}, him)
     assert set(kept) == {1100, 1400} and set(dropped) == {1300}
     assert scope.narrow(him, [1100, 1101, 1102, 1300, 1400]) == [[1100, 1103], [1400, 1401]]
+
+
+def test_not_attempted_is_scoped():
+    na = {"garment.cloth_alive": {"reason": "closed-shell tee; proxy sim is round 6", "by": "cc-64d05f6e"},
+          "garment.wpo_cm": {"reason": "skip", "by": "cc-64d05f6e"}}
+    spec = {"complaints": ["garment"], "not_attempted": na}
+    r = gate.judge({"garment.wpo_cm": 2.66}, spec=spec, only=["garment.cloth_alive", "garment.wpo_cm"])
+    rows = {x["id"]: x for x in r["rows"]}
+    assert rows["garment.cloth_alive"]["state"] == "NOT_ATTEMPTED"
+    assert rows["garment.wpo_cm"]["state"] == "FAIL"           # a hard line cannot be deferred
+    assert r["refused_waivers"][0]["id"] == "garment.wpo_cm" and r["verdict"] == "REFUSE"
+    ok = gate.judge({}, spec={"not_attempted": {"garment.cloth_alive": na["garment.cloth_alive"]}},
+                    only=["garment.cloth_alive"])
+    assert ok["verdict"] == "SIGN" and "NOT ATTEMPTED" in ok["summary"] and ok["not_attempted"][0]["by"]
+    bad = gate.judge({}, spec={"not_attempted": {"garment.cloth_alive": {"reason": "", "by": "x"}}},
+                     only=["garment.cloth_alive"])
+    assert bad["verdict"] == "REFUSE"
+
+
+def test_guard_must_fail_its_own_failure():
+    spec = {"items": {"garment.collar_gap_cm": {"must_fail": [1.9, "Fit5"]},
+                      "garment.collar_roll": {"must_fail": [40, "Fit5"]}}}
+    res = gate.lines_fail(spec=spec)
+    assert res["garment.collar_gap_cm"] is True and res["garment.collar_roll"] is True
+    assert gate.lines_fail()["garment.collar_gap_cm"] is None  # not measured yet: open, not a pass
+    bad = gate.lines_fail(spec={"items": {"garment.collar_gap_cm": {"must_fail": [0.5, "a fit that floats"]}}})
+    assert bad["garment.collar_gap_cm"] is False  # a line Fit5 would pass: the gate's own test fails
