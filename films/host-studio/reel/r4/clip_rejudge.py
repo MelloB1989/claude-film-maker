@@ -19,18 +19,19 @@ def main():
     ap.add_argument("--band", type=float, default=3.0)
     ap.add_argument("--tol", type=float, default=0.3)
     ap.add_argument("--near", type=float, default=1.5)
+    ap.add_argument("--at-open", type=float, default=5.0, help="neck_px: px at 960 wide that are at the opening")
     ap.add_argument("--fov", default="", help="JSON {shot: horizontal fov deg} for layers saved without it")
     a = ap.parse_args()
     ns = {"RUN": False, "BAND": a.band, "TOL": a.tol, "NEAR": a.near, "__name__": "clip_pass"}
     exec(compile(open(os.path.join(HERE, "clip_pass.py")).read(), "clip_pass.py", "exec"), ns)
-    ns.update(BAND=a.band, TOL=a.tol, NEAR=a.near)
+    ns.update(BAND=a.band, TOL=a.tol, NEAR=a.near, AT_OPEN_960=a.at_open)
     fovs = json.loads(a.fov) if a.fov else {}
     old = os.path.join(a.dir, "clip.json")
     keep = os.path.join(a.dir, "clip_pass.json")
     if os.path.exists(old) and not os.path.exists(keep):
         shutil.copy(old, keep)
     rep = json.load(open(keep)) if os.path.exists(keep) else {"shots": {}}
-    rep.update(band_cm=a.band, tol_cm=a.tol, near_cm=a.near, rejudged=True)
+    rep.update(band_cm=a.band, tol_cm=a.tol, near_cm=a.near, at_open_960=a.at_open, rejudged=True)
     for p in sorted(glob.glob(os.path.join(a.dir, "*_depth.bin"))):
         shot, f = os.path.basename(p)[:-len("_depth.bin")].rsplit("_", 1)
         f = str(int(f))

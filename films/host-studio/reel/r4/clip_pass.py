@@ -167,6 +167,10 @@ def judge(d, under, over) -> dict:
 
 RIM_JUMP = float(globals().get("RIM_JUMP", 4.0))  # cm: the tee's front surface ends at the collar (behind: its inside)
 NECK_MARGIN = float(globals().get("NECK_MARGIN", 1.0))  # cm under the collar rim that is still the collar band
+# px at 960 wide: a clip pixel this close to the opening (his face seen with no tee, or the tee's inside far behind) is
+# his neck at the collar's edge, not a patch (the orchestrator's ruling on clip_host_fix: 4-5 px at 960 for the
+# collar the neckline term moved out); scaled to the capture width
+AT_OPEN_960 = float(globals().get("AT_OPEN_960", 5.0))
 
 
 def neck_px(d, mask) -> dict:
@@ -175,6 +179,8 @@ def neck_px(d, mask) -> dict:
     pixel above has no tee or tee more than RIM_JUMP cm further (the tee's inside back, seen over the front collar),
     with his face nearer than the tee there (his neck seen above the collar). The band is NECK_MARGIN cm (projected at
     the rim's depth) under that rim. A column with no rim takes the nearest rim column's within 24 px; none: no band.
+    Of what is below the band, a pixel within AT_OPEN_960 px (at 960 wide) of the opening (his face with no tee in
+    front, or the tee's inside more than BAND behind) is his neck at the collar's edge: counted as at_opening only.
     The neck correctly in front of the collar's inner lip (the thin band) sits within it; the patch ~3 cm below does not."""
     F, T = d["Face"], d["tee"]
     fpx = (W / 2) / math.tan(math.radians(FOV) / 2)
@@ -196,11 +202,27 @@ def neck_px(d, mask) -> dict:
         near = [k for k in xs if abs(k - x) <= 24]
         return rim[min(near, key=lambda k: abs(k - x))] if near else None
 
-    below = set()
+    r = max(1, math.ceil(AT_OPEN_960 * W / 960 - 1e-6))  # 5 px at 960 -> 3 at 480
+    below, at_open = set(), 0
     for i in mask:
         x, y = i % W, i // W
         e = edge(x)
-        if e is None or y > e[0] + e[1]:
+        if not (e is None or y > e[0] + e[1]):
+            continue
+        near = False
+        for dy in range(-r, r + 1):
+            for dx in range(-r, r + 1):
+                xx, yy = x + dx, y + dy
+                if 0 <= xx < W and 0 <= yy < H:
+                    j = yy * W + xx
+                    if F[j] < EMPTY and (T[j] >= EMPTY or T[j] - F[j] > BAND):
+                        near = True
+                        break
+            if near:
+                break
+        if near:
+            at_open += 1
+        else:
             below.add(i)
     blobs = []
     for blob, _ in clusters(below, set()):
@@ -210,7 +232,7 @@ def neck_px(d, mask) -> dict:
                       "box": [round(min(bx) / W, 3), round(min(by) / H, 3), round((max(bx) + 1) / W, 3),
                               round((max(by) + 1) / H, 3)]})
     blobs.sort(key=lambda b: -b["px"])
-    return {"px": len(below), "clusters": blobs[:6], "rim_cols": len(rim)}
+    return {"px": len(below), "at_opening": at_open, "clusters": blobs[:6], "rim_cols": len(rim)}
 
 
 def neck3d(face_c, tee_c, body_c) -> dict:
