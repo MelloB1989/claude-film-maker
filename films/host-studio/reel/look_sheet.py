@@ -31,6 +31,7 @@ import time
 
 CHAR = "/Game/Host/Host_Op"
 DUP = "/Game/Host/LookLab/Host_OpLook"
+BP_OP = "/Game/Host/Unpacked/Host_Op/BP_Host_Op"
 PREVIEW = "LookLab_Op"
 LAB = [0.0, 30000.0, 0.0]  # far from the set (the studio is within a few metres of the origin)
 CHIP_TARGET = 118  # the 18% grey chip under the key, sRGB: the sheet's exposure
@@ -271,6 +272,43 @@ vals.sort()
 result = vals[len(vals) // 2] if vals else None
 """
 
+SPAWN_BP = r"""
+import importlib, unreal
+_b = importlib.import_module("fmbridge.ops.mh.build")
+eas = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
+for x in eas.get_all_level_actors():
+    if x.get_actor_label() == LABEL:
+        eas.destroy_actor(x)
+cls = unreal.EditorAssetLibrary.load_blueprint_class(BP)
+a = eas.spawn_actor_from_class(cls, unreal.Vector(*LOC), unreal.Rotator(0, 0, 0))
+a.set_actor_label(LABEL)
+_b._PREVIEWS[LABEL] = a
+result = {"label": LABEL, "comps": len(a.get_components_by_class(unreal.ActorComponent))}
+"""
+
+# the built character's eye material (MI_Eye{L,R}_Baked): mh.eyes' iris primary_color_u/v are its "Iris Primary Color
+# Hue"/"Value" (and secondary the same), read on BP_Host_Op r4. The live preview ignores mh.eyes (r4: 25 iris cells,
+# one image), so the iris is judged on a spawned copy of the built Blueprint with these set on dynamic instances
+EYE_SET = r"""
+import importlib, unreal
+_b = importlib.import_module("fmbridge.ops.mh.build")
+a = _b._PREVIEWS[LABEL]
+done = []
+for c in a.get_components_by_class(unreal.SkinnedMeshComponent):
+    for i, m in enumerate(c.get_materials()):
+        if m is None or "eye" not in m.get_name().lower():
+            continue
+        names = [str(n) for n in unreal.MaterialEditingLibrary.get_scalar_parameter_names(
+            m if not isinstance(m, unreal.MaterialInstanceDynamic) else m.get_editor_property("parent"))]
+        if "Iris Primary Color Hue" not in names:
+            continue
+        mid = m if isinstance(m, unreal.MaterialInstanceDynamic) else c.create_dynamic_material_instance(i, m, "FMQA_Eye%d" % i)
+        for k, v in P.items():
+            mid.set_scalar_parameter_value(k, float(v))
+        done.append(c.get_name() + ":" + str(i))
+result = done
+"""
+
 # --- client side ---------------------------------------------------------------------------------------------------
 
 def rot_axes(rot: dict):
@@ -339,6 +377,10 @@ def variants_for(sheet: str, a, wardrobe: dict) -> list:
     if sheet == "hair":
         items = a.items.split(",") if a.items else pick_hair(wardrobe.get("Hair", []))[:6]
         return [{"label": i.removeprefix("WI_Hair_"), "grooms": {"Hair": i}} for i in items]
+    if sheet == "iris" and a.target == "bp":
+        uv = [tuple(map(float, x.split(":"))) for x in a.items.split(",")] if a.items else [
+            (0.06, 0.20), (0.06, 0.30), (0.08, 0.25), (0.08, 0.35), (0.10, 0.30), (0.92, 0.12)]
+        return [{"label": f"iris hue {u:.2f} value {v:.2f}", "eye": {"hue": u, "value": v}} for u, v in uv]
     if sheet == "iris":
         uv = [tuple(map(float, x.split(":"))) for x in a.items.split(",")] if a.items else [
             (0.92, 0.12), (0.95, 0.05), (0.85, 0.15), (0.92, 0.25), (0.75, 0.10), (0.98, 0.20)]
@@ -412,6 +454,11 @@ def apply_look(look: dict, label: str) -> dict:
         u, v = look["iris"]["u"], look["iris"]["v"]
         done["iris"] = op("mh.eyes", path=DUP, save=False, both={"iris": {
             "primary_color_u": u, "primary_color_v": v, "secondary_color_u": u, "secondary_color_v": v}}).get("changed")
+    if look.get("eye"):  # on the built Blueprint (--target bp): the eye material's own parameters
+        h, v = look["eye"]["hue"], look["eye"]["value"]
+        p = {"Iris Primary Color Hue": h, "Iris Primary Color Value": v, "Iris Secondary Color Hue": h,
+             "Iris Secondary Color Value": v, **look["eye"].get("params", {})}
+        done["eye"] = ex(EYE_SET, LABEL=label, P=p)
     if look.get("body"):
         done["body"] = op("mh.body", character=DUP, measurements=look["body"]).get("changed")
     return done
@@ -437,16 +484,26 @@ def render(a) -> None:
     vs = variants_for(sheet, a, ward)
     if not vs:
         raise SystemExit(json.dumps({"error": "no variants", "wardrobe": ward}))
-    if a.grid:  # iris or skin: a grid over the palette, numbers only (choose the sheet's candidates from it)
+    if a.grid and a.target == "bp":  # the iris on the built eye: hue (u) over the browns x value (v)
+        n = a.grid
+        hs = [round(0.02 + 0.11 * i / (n - 1), 3) for i in range(n)]
+        vals = [round(0.10 + 0.45 * j / (n - 1), 3) for j in range(n)]
+        vs = [{"label": f"iris {h:.2f}/{v:.2f}", "eye": {"hue": h, "value": v}} for h in hs for v in vals]
+    elif a.grid:  # iris or skin: a grid over the palette, numbers only (choose the sheet's candidates from it)
         n, k = a.grid, ("skin" if sheet == "skin" else "iris")
         vs = [{"label": f"{k} {u:.2f}/{v:.2f}", k: {"u": round(u, 3), "v": round(v, 3)}}
               for u in [i / (n - 1) for i in range(n)] for v in [j / (n - 1) for j in range(n)]]
     rep = {"sheet": sheet, "out": out, "base": base, "variants": [], "wardrobe": ward if sheet in ("hair", "facial") else {}}
-    if not a.no_dup:
+    if a.target == "bp":  # the built Blueprint as it is: no character edits (grooms, skin, body) apply
+        base = {k: v for k, v in base.items() if k in ("hair_color", "eye")}
+    elif not a.no_dup:
         rep["dup"] = op("mh.duplicate", source=CHAR, path=DUP, overwrite=True)
     for mi, col in ((GREY, 0.18), (BG, 0.22)):
         op("look.material", name=short(mi), color=[col, col, col], roughness=0.95, specular=0.0)
-    op("mh.preview", path=DUP, label=PREVIEW, loc=LAB, yaw_deg=0.0)
+    if a.target == "bp":
+        rep["spawn"] = ex(SPAWN_BP, LABEL=PREVIEW, BP=BP_OP, LOC=LAB)
+    else:
+        op("mh.preview", path=DUP, label=PREVIEW, loc=LAB, yaw_deg=0.0)
     rep["base_applied"] = apply_look(base, PREVIEW)
     settle(a, 4)
     if base.get("hair_color"):
@@ -738,6 +795,9 @@ def main() -> None:
     r.add_argument("--items", default="", help="hair: item names; iris/skin: u:v,u:v; facial: M+B,M+B")
     r.add_argument("--variants", default="", help="a JSON list (or a file) of {label, grooms, skin, iris, body}")
     r.add_argument("--base", default="", help="JSON over the base look (earlier picks), e.g. '{\"grooms\": {\"Hair\": \"WI_Hair_M_X\"}}'")
+    r.add_argument("--target", choices=("preview", "bp"), default="preview",
+                   help="preview: a live preview of a scratch copy (grooms, skin, body); bp: a spawned copy of the built "
+                        "BP_Host_Op (the iris: its eye material's hue/value)")
     r.add_argument("--grid", type=int, default=0, help="iris or skin: an NxN palette grid, numbers only")
     r.add_argument("--px", type=int, default=1024)
     r.add_argument("--frame-cm", type=float, default=40.0, help="the headshot's frame width at the face")
