@@ -161,8 +161,9 @@ def face_mesh(who: str) -> str:
 # Silent beats on the face's curves, in master frames: [curve, [[frame, value], ...]] added onto what the solve made
 # (eased between keys, so a beat starts and ends at 0). The head curves are degrees, but on this rig their names do not
 # say what they do (`signs` measured it on the head bone, +-20 each): HeadYaw nods (+ tips the head down), HeadRoll
-# turns (+ towards world -Y: his own right, screen left from the front) and HeadPitch tilts ear to shoulder.
-# The beats use PITCH (+ down) and turn() (+ towards world +Y: own left, screen right from the front).
+# turns (+ towards world -Y) and HeadPitch tilts ear to shoulder. The beats use PITCH (+ down) and turn() (+ towards
+# world +Y). (Round 4: facing +X in left-handed Unreal, +Y is a presenter's own RIGHT and screen LEFT; v2's notes had it
+# the other way, so v2's beats below turn away from the partner. Round 3 on does not use them: see PARTNER_LOOKS.)
 PITCH = "HeadYaw"
 TURN, TURN_SIGN = "HeadRoll", -1.0
 SIGN: dict = {}
@@ -372,22 +373,47 @@ def compose(who: str, r3: bool = True) -> dict:
 # pitch + = up); perf.calibrate (run once per face) says which head curve does what (HeadRoll turns on these rigs).
 SEED = {"him": 31, "her": 17}
 
+# The looks at the partner (round 4, the operator on preview2: "he turns head in wrong directions"): computed from the
+# stage by looks.py, never signed by hand. Each: the master frame the shift starts, a frame in its hold (the check's),
+# the frame it lets go, the head share (as in round 3). The stage is the level's when `perf.py looks` has sampled it
+# (OUT/looks_stage.json), else shots.py's marks and eyes.
+PARTNER_LOOKS = {
+    "him": [{"beat": "over his shoulder to her (S15)", "t": 1128, "hold": 1170, "until": 1290, "head": 0.76},
+            {"beat": "glance on 'comes around' (S17)", "t": 1378, "hold": 1394, "until": 1404, "head": 0.58}],
+    "her": [{"beat": "watching him (S15)", "t": 1080, "hold": 1110, "until": 1146, "head": None},
+            {"beat": "glance on 'comes around' (S17)", "t": 1381, "hold": 1392, "until": 1398, "head": 0.6}],
+}
+START_LEAD = 0.73  # her S15 opening: the head already round at the share of this much of the look (round 3: 35 of 48)
 
-def events(who: str) -> dict:
-    """perf.face's events for `who`, in seconds from START[who] (PLAN v2's beats as perfkit events)."""
+
+def partner_look(who: str, i: int, stage=None) -> dict:
+    """The i-th look at the partner (PARTNER_LOOKS) as perf.face's yaw/pitch/dist_cm, from the stage at its hold."""
+    import looks as LK
+    b = PARTNER_LOOKS[who][i]
+    return LK.look(who, b["hold"], b["head"] if b["head"] is not None else 1.0, stage)
+
+
+def _g(lk: dict) -> dict:
+    return {"yaw": lk["yaw"], "pitch": lk["pitch"], "dist_cm": lk["dist_cm"]}
+
+
+def events(who: str, stage=None) -> dict:
+    """perf.face's events for `who`, in seconds from START[who] (PLAN v2's beats as perfkit events); the looks at the
+    partner computed on `stage` (a looks.Stage; default the sampled level's, else shots.py)."""
     s = lambda f: round((f - START[who]) / FPS, 3)  # noqa: E731
     if who == "her":
         tilt = word("L3b", "yourself", 1282)
+        watch, glance = partner_look("her", 0, stage), partner_look("her", 1, stage)
         return {
-            # S15: she watches him while he speaks L2: he is 80 cm in front and 95 cm to her left (~50 deg), his eyes
-            # ~16 cm higher (~7 deg); her face does most of it, the eyes the rest
-            "start_gaze": [35.0, 4.5],  # where her head already points at f1080 (perfkit starts the head there)
-            # ("head" is the share of the way left from where the head is: 0.1 keeps it near 35 deg, the eyes do 13)
-            "gaze": [{"t": 0.0, "yaw": 48.0, "pitch": 6.0, "dist_cm": 125.0, "scan": "face", "head": 0.1},
+            # S15: she watches him while he speaks L2 (looks.py: his face from her eyes, on HER RIGHT: yaw -), her face
+            # does most of it, the eyes the rest; perfkit starts the head at its share of start_gaze (START_LEAD of the
+            # look), and the first shift ("head" 0.1, the share from where the head is) takes the eyes the rest
+            "start_gaze": [round(watch["yaw"] * START_LEAD, 1), round(watch["pitch"] * START_LEAD, 1)],
+            "gaze": [{"t": 0.0, **_g(watch), "scan": "face", "head": 0.1},
                      # to the lens for L3a (f1158), the eyes first
                      {"t": s(1146), "yaw": 0.0, "pitch": 0.0, "scan": "lens", "head": 1.0},
                      # S17: a glance to him on "comes around" (L4b), then back to the lens
-                     {"t": s(1381), "yaw": 44.0, "pitch": 5.0, "dist_cm": 125.0, "scan": "face", "head": 0.6},
+                     {"t": s(1381), **_g(glance), "scan": "face", "head": 0.6},
                      {"t": s(1398), "yaw": 0.0, "pitch": 0.0, "scan": "lens", "head": 1.0}],
             "expressions": [
                 # "Nice try.": a playful half-smile, her left side leading, gone by L3b
@@ -404,20 +430,21 @@ def events(who: str) -> dict:
                       {"t0": s(1212), "t1": s(1380), "mood": "confident", "intensity": 0.7},
                       {"t0": s(1380), "t1": s(END), "mood": "warm", "intensity": 0.7}],
         }
-    # him (the current presenter until agent-04's character replaces him; the beats are the same)
+    # him (Host: Trey or the operator's MetaHuman; the looks follow his eyes wherever the level puts them)
+    over, glance = partner_look("him", 0, stage), partner_look("him", 1, stage)
     return {
         # S13: a silhouette, head and eyes down; his eyes come up to the lens as the key ramps (f988-1002)
         # (perfkit starts the head at its share of start_gaze: -30 puts it ~15 deg down, as v2's silhouette)
         "start_gaze": [0.0, -30.0],
         "gaze": [{"t": 0.0, "yaw": 0.0, "pitch": -26.0, "scan": "still", "head": 0.1},
                  {"t": s(988), "yaw": 0.0, "pitch": 0.0, "scan": "lens", "head": 1.0},
-                 # after L2 "Ask her what's next." (ends ~f1120): over his right shoulder to her. She is ~130 deg
-                 # from his front: the head takes ~65, the eyes ~20, the rest is out of view anyway
-                 {"t": s(1128), "yaw": -85.0, "pitch": -5.0, "dist_cm": 125.0, "scan": "face", "head": 0.76},
+                 # after L2 "Ask her what's next." (ends ~f1120): over his LEFT shoulder to her (she is on his left,
+                 # screen right, ~130 deg round: looks.py carries the look as far as the head share reaches)
+                 {"t": s(1128), **_g(over), "scan": "face", "head": 0.76},
                  # back to the front while he is off screen in S16
                  {"t": s(1290), "yaw": 0.0, "pitch": 0.0, "scan": "lens", "head": 1.0},
                  # S17: a glance to her as she says "comes around", then the lens
-                 {"t": s(1378), "yaw": -57.0, "pitch": -3.0, "dist_cm": 125.0, "scan": "face", "head": 0.58},
+                 {"t": s(1378), **_g(glance), "scan": "face", "head": 0.58},
                  {"t": s(1404), "yaw": 0.0, "pitch": 0.0, "scan": "lens", "head": 1.0}],
         "expressions": [
             # after L1 "Took you long enough.": a one-sided smirk (his right side), let go as L2 comes
@@ -517,19 +544,26 @@ def verify(who: str) -> dict:
             "check": {"pass": chk.get("pass"), "failed": chk.get("failed")}, "turn": turn}
 
 
-# Where each presenter's face points on SEQ_Reel (what renders), sampled at a lens frame and at their planned looks:
-# the horizontal angle between the face's forward (head bone -> between the eyes) there and at the lens frame,
-# + = to the presenter's own left. (On 5.8 no face curve turns the head: a look that never reaches the body's neck
-# shows here as ~0.) The expected values are the planned head share of each look (events()).
-LOOKS = {"her": {"lens": 1240, "looks": {"watching him (S15)": [1100, 30.0], "glance on 'comes around'": [1392, 26.0]}},
-         "him": {"lens": 1050, "looks": {"over his right shoulder (S15)": [1170, -65.0],
-                                         "glance on 'comes around'": [1392, -33.0]}}}
+# Where each presenter's face points on SEQ_Reel (what renders), sampled at a lens frame and at their looks at the
+# partner (PARTNER_LOOKS' hold frames): the horizontal angle between the face's forward (head bone -> between the
+# eyes) there and at the lens frame, + = to the presenter's own left. (On 5.8 no face curve turns the head: a look that
+# never reaches the body's neck shows here as ~0.) The expected value is the head perfkit planned there; a turn passes
+# when it goes the planned way (round 4: preview2 passed with every look turned the wrong way, the sign was not read)
+# by at least 40% of the plan.
+LENS_FRAME = {"her": 1240, "him": 1050}
+
+
+def planned_head(who: str, frame: int, stage=None) -> tuple:
+    """perfkit's planned head (yaw, pitch) and gaze (yaw, pitch) at a master frame, from events()."""
+    import looks as LK
+    e = events(who, stage)
+    return LK.head_plan(e["gaze"], e.get("start_gaze"), (frame - START[who]) / FPS)
 
 
 def head_turns(who: str, path: str = "/Game/Reel/SEQ_Reel") -> dict:
     import math
-    spec = LOOKS[who]
-    frames = [spec["lens"]] + [f for f, _ in spec["looks"].values()]
+    looks_ = {b["beat"]: [b["hold"], round(planned_head(who, b["hold"])[0][0], 1)] for b in PARTNER_LOOKS[who]}
+    frames = [LENS_FRAME[who]] + [f for f, _ in looks_.values()]
     smp = ok(client.op("seq.sample", path=path, actor_label=LABEL[who], component="Face",
                        bones=["FACIAL_L_Eye", "FACIAL_R_Eye", "head"], frames=frames, ticks=4, timeout=600))
     b = smp["bones"]
@@ -539,11 +573,153 @@ def head_turns(who: str, path: str = "/Game/Reel/SEQ_Reel") -> dict:
         return math.degrees(math.atan2(mid[1] - b["head"][i][1], mid[0] - b["head"][i][0]))
     h0 = heading(0)
     out = {}
-    for i, (name, (f, want)) in enumerate(spec["looks"].items(), start=1):
+    for i, (name, (f, want)) in enumerate(looks_.items(), start=1):
         d = (heading(i) - h0 + 180) % 360 - 180
-        got = -d  # world yaw + is counter-clockwise from above; Unreal is left-handed, so a turn to the left is -
-        out[name] = {"frame": f, "deg": round(got, 1), "planned": want, "turned": abs(got) >= 0.4 * abs(want)}
-    return {"lens_frame": spec["lens"], "looks": out, "pass": all(x["turned"] for x in out.values())}
+        got = -d  # world yaw + is clockwise from above (X to Y, left-handed): a turn to the own left is -
+        out[name] = {"frame": f, "deg": round(got, 1), "planned": want,
+                     "turned": got * want > 0 and abs(got) >= 0.4 * abs(want)}
+    return {"lens_frame": LENS_FRAME[who], "looks": out, "pass": all(x["turned"] for x in out.values())}
+
+
+# ------------------------------------------------------------------------------------- round 4: the looks' check
+
+def look_table(stage=None, measured: dict | None = None) -> list:
+    """Every look at the partner in every camera that sees it (the shot cut at its hold, and the hold's shot's cast):
+    the head and gaze perfkit plans (or, with `measured`, the head and eyes read from the animation on the box: see
+    `looks`), projected into the shot's camera against the partner's face (looks.check). The table agent-09's gate
+    reads (OUT/looks.json)."""
+    import looks as LK
+    st = stage or LK.Stage.load()
+    rows = []
+    for who in ("him", "her"):
+        for i, b in enumerate(PARTNER_LOOKS[who]):
+            lk = partner_look(who, i, st)
+            for f in (b["hold"],):
+                shot = LK.shot_of(f)
+                if who not in shot.cast:
+                    continue
+                if measured and str(f) in measured.get(who, {}):
+                    m = measured[who][str(f)]
+                    head, gz, src = m["head_fwd"], m["gaze_fwd"], "anim"
+                else:
+                    (hy, hp), (gy, gp) = planned_head(who, f, st)
+                    head, gz, src = [hy, hp], [gy, gp], "plan"
+                r = LK.check(who, f, shot.id, head, gz, st)
+                rows.append({"shot": shot.id, "beat": b["beat"], "who": who, "frames": [b["t"], b["until"]], "f0": b["t"], "f1": b["until"],
+                             "target": "partner_face", "yaw_cmd": lk["yaw"], "pitch_cmd": lk["pitch"],
+                             "dist_cm": lk["dist_cm"], "stage": st.source, "head_from": src, **r})
+    return rows
+
+
+# One job on the box: SEQ_Reel played to each frame, both presenters' eyes, head and facing (the actor's forward, and
+# the head's at the lens frames as a check) and every reel camera that is cut at those frames.
+STAGE_READ = r"""
+import json, unreal
+from fmbridge.ops.seq import actor, component_of, _xform
+LSE = unreal.LevelSequenceEditorBlueprintLibrary
+P = json.loads(PARAMS)
+def job():
+    LSE.open_level_sequence(unreal.load_asset(P["path"]))
+    out = {"path": P["path"], "frames": {}}
+    LSE.set_current_time(int(P["frames"][0]) + 1)
+    yield
+    for f in P["frames"]:
+        LSE.set_current_time(int(f))
+        for _ in range(P["ticks"]):
+            yield
+        row = {"cameras": {}}
+        for who, lab in P["labels"].items():
+            a = actor(lab)
+            face = component_of(lab, "Face")
+            bones = {b: _xform(face, b) for b in ("head", "FACIAL_L_Eye", "FACIAL_R_Eye")}
+            fw = a.get_actor_forward_vector()
+            row[who] = {"label": lab, "loc": [a.get_actor_location().x, a.get_actor_location().y,
+                                              a.get_actor_location().z],
+                        "fwd": [fw.x, fw.y, fw.z], "bones": bones}
+        for sid in P["shots"].get(str(f), []):
+            try:
+                c = component_of("Reel_" + sid, "CameraComponent")
+            except Exception:  # no such camera in the level: looks.py falls back to shots.py's keys
+                continue
+            p, q = c.get_world_location(), c.get_forward_vector()
+            fb = c.get_editor_property("filmback")
+            row["cameras"][sid] = {"loc": [p.x, p.y, p.z], "fwd": [q.x, q.y, q.z],
+                                   "focal": c.get_editor_property("current_focal_length"),
+                                   "film_w": fb.get_editor_property("sensor_width")}
+        out["frames"][str(f)] = row
+    return out
+result = job()
+"""
+
+
+def _pose_from(row: dict) -> dict:
+    """A sampled presenter as looks.py's pose: the eyes' mid-point, the head bone, the facing (the actor's forward)."""
+    import math
+    b = row["bones"]
+    eyes = [(b["FACIAL_L_Eye"][k] + b["FACIAL_R_Eye"][k]) / 2 for k in range(3)]
+    return {"eyes": eyes, "head": b["head"][:3], "yaw": math.degrees(math.atan2(row["fwd"][1], row["fwd"][0]))}
+
+
+def _eye_fwd(row: dict, rest_row: dict) -> list:
+    """The eyes' gaze in the world at a sampled frame: of each eye bone's axes the one along the face at rest (as
+    perf.calibrate picks it), signed forward, the two eyes averaged."""
+    import looks as LK
+    rb = rest_row["bones"]
+    rest_fwd = LK.sub([(rb["FACIAL_L_Eye"][k] + rb["FACIAL_R_Eye"][k]) / 2 for k in range(3)], rb["head"][:3])
+    g = []
+    for e in ("FACIAL_L_Eye", "FACIAL_R_Eye"):
+        ax0 = [rb[e][3:6], rb[e][6:9], rb[e][9:12]]
+        i = max(range(3), key=lambda k: abs(LK.dot(ax0[k], rest_fwd)))
+        sg = 1.0 if LK.dot(ax0[i], rest_fwd) > 0 else -1.0
+        g.append(LK.mul(row["bones"][e][3 + 3 * i:6 + 3 * i], sg))
+    return LK.unit(LK.add(*g))
+
+
+def _head_fwd(row: dict, rest_row: dict, rest_yaw: float) -> list:
+    """The head's forward in the world at a sampled frame: the rest frame's head -> eyes direction carried by the head
+    bone's rotation since then, so the head's own tilt at rest does not count."""
+    import looks as LK
+    rb, b = rest_row["bones"]["head"], row["bones"]["head"]
+    rest_fwd = LK.world_dir({"yaw": rest_yaw}, 0.0, 0.0)
+    ax0, ax1 = [rb[3:6], rb[6:9], rb[9:12]], [b[3:6], b[6:9], b[9:12]]
+    loc = [LK.dot(rest_fwd, a) for a in ax0]  # the rest forward in the head bone's frame
+    return LK.unit(LK.add(LK.add(LK.mul(ax1[0], loc[0]), LK.mul(ax1[1], loc[1])), LK.mul(ax1[2], loc[2])))
+
+
+def looks(path: str = "/Game/Reel/SEQ_Reel", measured: bool = False) -> dict:
+    """Sample the stage on the box (STAGE_READ) at the looks' hold frames and the lens frames -> OUT/looks_stage.json
+    (what events() computes the looks from), then the table -> OUT/looks.json. With `measured`, the table's head and
+    gaze are what the placed animation does at those frames (the cast preview's), not perfkit's plan."""
+    import looks as LK
+    holds = sorted({b["hold"] for w in PARTNER_LOOKS for b in PARTNER_LOOKS[w]})
+    frames = sorted(set(holds) | set(LENS_FRAME.values()))
+    shots = {str(f): [LK.shot_of(f).id] for f in frames}
+    raw = run(STAGE_READ, {"path": path, "frames": frames, "ticks": 4, "labels": LABEL, "shots": shots}, 900)
+    st = {"source": path, "frames": {}, "rest": {}}
+    for f, row in raw["frames"].items():
+        st["frames"][f] = {w: _pose_from(row[w]) for w in ("him", "her")}
+        st["frames"][f]["cameras"] = {sid: {"loc": c["loc"], "at": LK.add(c["loc"], LK.mul(c["fwd"], 100.0)),
+                                            "focal": c["focal"], "film_w": c["film_w"]}
+                                      for sid, c in row["cameras"].items()}
+    for w in ("him", "her"):
+        st["rest"][w] = st["frames"][str(LENS_FRAME[w])][w]
+    OUT.mkdir(parents=True, exist_ok=True)
+    (OUT / "looks_stage_raw.json").write_text(json.dumps(raw))
+    (OUT / "looks_stage.json").write_text(json.dumps(st, indent=1))
+    stage = LK.Stage(st)
+    meas = None
+    if measured:
+        meas = {}
+        for w in ("him", "her"):
+            rest = raw["frames"][str(LENS_FRAME[w])][w]
+            ry = st["rest"][w]["yaw"]
+            meas[w] = {str(b["hold"]): {"head_fwd": _head_fwd(raw["frames"][str(b["hold"])][w], rest, ry),
+                                        "gaze_fwd": _eye_fwd(raw["frames"][str(b["hold"])][w], rest)}
+                       for b in PARTNER_LOOKS[w]}
+    rows = look_table(stage, meas)
+    (OUT / ("looks_measured.json" if measured else "looks.json")).write_text(json.dumps(rows, indent=1))
+    print(LK.table(rows), file=sys.stderr)
+    return {"pass": all(r["ok"] for r in rows), "rows": rows}
 
 
 def blinks_together(closed: float = 0.5) -> dict:
@@ -1051,7 +1227,7 @@ def place(path: str) -> list:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("cmd", choices=["push", "solve", "compose", "stage", "signs", "sync", "gaze", "stills", "cleanup", "drive_faces", "restage",
-                                       "place", "arm_axes", "gesture", "calibrate", "naturalize", "check", "calibrate_body", "life", "verify"])
+                                       "place", "arm_axes", "gesture", "calibrate", "naturalize", "check", "calibrate_body", "life", "verify", "looks"])
     ap.add_argument("--who", default="him,her")
     ap.add_argument("--seq", default="/Game/Reel/SEQ_Reel", help="place: the sequence")
     ap.add_argument("--frames", help="stills: master frames, comma-separated")
@@ -1059,6 +1235,7 @@ def main() -> None:
     ap.add_argument("--to", dest="stop_at", type=int, default=99, help="gaze: stop after this range (short jobs)")
     ap.add_argument("--only", help="solve: comma-separated SOLVES keys")
     ap.add_argument("--me", help="the owner tag in test asset names (default REEL_PERF_ME, else 'perf')")
+    ap.add_argument("--measured", action="store_true", help="looks: the head and eyes the placed animation has")
     ap.add_argument("--cleanup", action="store_true", help="place: then remove every test actor and sequence")
     a = ap.parse_args()
     if a.me:
@@ -1084,6 +1261,10 @@ def main() -> None:
             print(w, json.dumps(r, default=str))
         if a.cmd == "verify" and set(a.who.split(",")) == {"him", "her"}:
             print("both", json.dumps(blinks_together()))
+    elif a.cmd == "looks":
+        r = looks(a.seq, a.measured)
+        print(json.dumps(r))
+        sys.exit(0 if r["pass"] else 1)
     elif a.cmd == "cleanup":
         print(json.dumps(cleanup()))
     elif a.cmd == "drive_faces":
