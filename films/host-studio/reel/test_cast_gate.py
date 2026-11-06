@@ -101,7 +101,7 @@ def test_sign_refuses_and_waives(tmp_path):
         p.write_text(obj if isinstance(obj, str) else json.dumps(obj))
         return str(p)
     eng = {"people": {}, "shots": {"S16": {1202: {"watch_cm": 3.6, "her": {"pass": True, "worst_fraction": 0.3}}},
-                                   "S13": {962: {"him": {"pass": True, "worst_fraction": 0.004}}}}}
+                                   "S13": {962: {"him": {"pass": True, "worst_fraction": 0.0004}}}}}
     lines = {k: {"frames": [a, b], "ratio": 3.0, "pass": True} for k, _, a, b, _ in g.LINES}
     fr = {"lips": {"all": {"lines": lines}}}
     hue = {"images": {"f1236": {"crown": {"a": 2, "b": 7, "C": 7, "green_px": 0.01},
@@ -109,7 +109,7 @@ def test_sign_refuses_and_waives(tmp_path):
                       "f1300": {"crown": {"a": 2, "b": 7, "C": 7, "green_px": 0.01}}}}
     lod = {"pass": True, "failed": []}
     a = Namespace(name="t", engine=w("e.json", eng), frames=w("f.json", fr), hue=w("h.json", hue),
-                  turns=w("t.json", [{"shot": "S15", "who": "him", "f0": 1128, "f1": 1316, "ok": True}]), clip=[],
+                  turns=w("t.json", [{"shot": "S15", "who": "him", "f0": 1128, "f1": 1316, "ok": True}]), clip=[], clip_before="",
                   cams=w("c.txt", "\n".join(f"{s} OK" for s in g.SHOTS_13)), framing=w("fr.txt", ""),
                   lod0=w("l.json", lod), waive=[], out=str(tmp_path / "gate.json"))
     rep = g.sign(a)
@@ -134,15 +134,26 @@ def test_turns_agent01_rule():
 
 
 def test_clip_pass_json():
-    him = {"label": "Host", "shots": {sid: {"962": {"Body>tee": {"fraction": 0.001, "clusters": []}}}
-                                      for sid in ("S13", "S15", "S17", "S18")}}
-    her = {"label": "Presenter", "shots": {sid: {"1210": {"Body>Top": {"fraction": 0.0}, "albedo_warm": {"Top": 0.3}}}
-                                           for sid in ("S15", "S16", "S17", "S18")}}
-    assert g._clip([him, her], None)["pass"]
-    him["shots"]["S17"]["1330"] = {"Body>tee": {"fraction": 0.04, "clusters": [{"px": 120, "worst_cm": 1.2}]}}
-    r = g._clip([him, her], None)
-    assert not r["pass"] and r["failed"][0].startswith("Host S17 f1330 Body>tee: 0.04")
-    assert r["worst"]["Host Body>tee"] == {"fraction": 0.04, "at": "S17@1330"}
-    del her["shots"]["S16"]
+    def him_shots(**over):
+        return {"label": "Host", "shots": {sid: {"962": {"Body>tee": {"fraction": 0.0, "clusters": []},
+                                                          "Face>tee": {"fraction": 0.03},
+                                                          "neck": {"n": 400, "out": 0, "max_out_cm": 0.0}}}
+                                           for sid in ("S13", "S15", "S17", "S18")}}
+    her_b = {"label": "Presenter", "shots": {sid: {"1210": {"Body>Top": {"fraction": 0.15}}}
+                                             for sid in ("S15", "S16", "S17", "S18")}}
+    her = json.loads(json.dumps(her_b))
+    him = him_shots()
+    r = g._clip([him, her], None, her_b)
+    assert r["pass"], r["failed"]
+    assert r["info_only"]["Host Face>tee"] == 0.03          # reported, not gated
+    him["shots"]["S17"]["1330"] = {"Trousers>tee": {"fraction": 0.0047, "clusters": [{"px": 21, "worst_cm": 1.2}]}}
+    him["shots"]["S15"]["962"]["neck"] = {"out": 227, "max_out_cm": 2.46}
+    her["shots"]["S16"]["1210"]["Body>Top"]["fraction"] = 0.155
+    her["shots"]["S17"]["1210"]["Body>Top"]["fraction"] = 0.30
+    r = g._clip([him, her], None, her_b)
+    assert [f.split(":")[0] for f in r["failed"]] == ["Host S15 f962 neck", "Host S17 f1330 Trousers>tee",
+                                                      "Presenter S17 f1210 Body>Top"]
+    assert not g._clip([her], None, None)["pass"]           # her needs her before pass
+    del her_b["shots"]["S16"]
     her["shots"]["S18"] = {"error": "no camera cut S18"}
-    assert len(g._clip([her], None)["failed"]) == 2
+    assert len(g._clip([her], None, her_b)["failed"]) == 3   # S18 errored, S16 has no before, S17 0.30
