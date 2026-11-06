@@ -83,7 +83,8 @@ def test_setup_paints_configures_and_converges(ue, host):
     assert aw["bending_stiffness_weighted"] == "(Low=0.080000,High=0.080000)" and "mass_mode" not in aw
     assert r["config"]["set"]["iteration_count"] == 2
     assert r["settings"]["teleport_distance_threshold"] == 50.0 and r["settings"]["reset_after_teleport"] is True
-    run_op("cloth.setup", label="Host", component="Tee", preset="cotton_tee")
+    r2 = run_op("cloth.setup", label="Host", component="Tee", preset="cotton_tee")
+    assert r2["leaders"]["Tee"]["leader"] == "Body"                    # garments re-led last (round 5)
     assert len(ue.called("FMCloth.create")) == 1                       # converged: one clothing asset
     st = run_op("cloth.settings", label="Host")                          # a respawn: the interactor values again
     assert st["garments"]["Tee"]["interactor"]["material"] == [1.0, 0.08, 1.0]
