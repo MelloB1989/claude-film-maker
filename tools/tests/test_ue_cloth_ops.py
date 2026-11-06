@@ -79,6 +79,8 @@ def test_setup_paints_configures_and_converges(ue, host):
     assert r["config"]["interactor"]["material"] == [1.0, 0.08, 1.0]      # set through the clothing interactor
     assert ue.called("ChaosClothingInteractor.set_material_linear")[-1][0] == (1.0, 0.08, 1.0)
     assert r["config"]["interactor"]["aerodynamics"] == [0.035, 0.035] and "error" not in r["config"]["interactor"]
+    aw = r["config"]["asset_weighted"]                                     # on the asset too, for MRQ's own world
+    assert aw["bending_stiffness_weighted"] == "(Low=0.080000,High=0.080000)" and "mass_mode" not in aw
     assert r["config"]["set"]["iteration_count"] == 2
     assert r["settings"]["teleport_distance_threshold"] == 50.0 and r["settings"]["reset_after_teleport"] is True
     run_op("cloth.setup", label="Host", component="Tee", preset="cotton_tee")
@@ -197,3 +199,9 @@ def test_settings_keeps_setups_config_overrides_after_a_respawn(ue, host):
            overrides={"config": {"bending_stiffness_weighted": 0.05}, "zones": {"torso": {"to_cm": 4.0}}})
     st = run_op("cloth.settings", label="Host")
     assert st["garments"]["Tee"]["interactor"]["material"] == [1.0, 0.05, 1.0]
+
+
+def test_an_older_plugin_without_set_config_value_says_so(ue, host):
+    ue.FMCloth = type("FMClothOld", (), {k: v for k, v in vars(ue.FMCloth).items() if k != "set_config_value"})
+    r = run_op("cloth.setup", label="Host", component="Tee", preset="cotton_tee")
+    assert "plugin-build FMCloth" in r["config"]["asset_weighted"]["unsupported"]
