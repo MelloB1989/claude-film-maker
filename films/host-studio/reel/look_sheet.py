@@ -534,6 +534,7 @@ def render(a) -> None:
         a._need_tex = not rep["can_build"]["can_build"]
         rep["base_applied"] = apply_look(base, PREVIEW, skip_eye=True)
         first = {k: x for k, x in vs[0].items() if k != "label"}
+        rep["first_applied"] = apply_look(first, PREVIEW, skip_eye=True)  # before the build (r4: A was built as the base)
         rep["first_build"] = build_spawn(a, merge(base, first) if a._need_tex else first, rep)
         rep["base_eye"] = apply_look({"eye": base["eye"]}, PREVIEW) if base.get("eye") else None
     else:
@@ -563,7 +564,7 @@ def render(a) -> None:
                 elif i > 0:  # only the eye: the same build, its eye material changed
                     row["applied"], row["build"] = {}, {"s": 0, "reused": True}
                 else:
-                    row["applied"] = apply_look(change, PREVIEW, skip_eye=True)
+                    row["applied"] = rep["first_applied"]
                     row["build"] = rep["first_build"]
                 if look.get("eye"):
                     row["eye"] = apply_look({"eye": look["eye"]}, PREVIEW)
