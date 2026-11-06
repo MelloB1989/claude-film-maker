@@ -37,7 +37,11 @@ film-ue garment-fit --src $G/fit --garment tee --out $G/fit/out9 --only-slots sh
     --weights blend --blend-regions collar,shoulder,sleeve --ease '{"collar": 1.8, "waist": 3.0, "hem": 3.4}'
 ```
 qa.clip: neck_px 0, Body>Tee 0.00067, Trousers>Tee 0; armor 0.109 (round 4's WPO tee: 0.538), wpo 0. It took 9 runs;
-the lessons are in §4 (weights, the uncut body, the pose test, the closed shell).
+the lessons are in §4 (weights, the uncut body, the pose test, the closed shell). **Then rejected by eye**: the collar
+floated off his neck like a rolled cowl (collar ease 1.8 cm, and the wrong skeleton, below) and the hem flared (hem
+ease 3.4 along the hip normal). qa.garment_look now fails both (collar gap/roll, hem flare). The orchestrator's final
+call for round 5: Epic's own default garment, WPO 0, the head hidden-face-map shrink for the neck (reel/r5
+neck_backstop.py), round 4's trousers.
 
 ## 2. Ops
 
@@ -82,6 +86,10 @@ ease_spread 1.0 → 0.4; ease_median 3 → 5 cm; thickness 0.3 → 0.8 cm; silho
 - **No uncut body of the character?** (MetaHuman assembles only the cut one.) `--morph-ref` with another uncut
   MetaHuman body of the same topology (30455 verts; a cut one has fewer): it is morphed onto the worn body where
   they meet and the cut region filled smoothly (round 5: 74.5% matched, fill median 0.2 cm).
+- **Export on THE CHARACTER'S skeleton.** Unreal skins an imported mesh with its own bind pose against the
+  character's bones: a garment bound to another body's armature (round 5's `--morph-ref` before 868ef94e kept the
+  reference person's) is posed offset by the two skeletons' joint differences (Fit6: Epic's collar band 5.5 cm off
+  his neck, the tee riding off trousers fitted to its rest geometry). The fit now always binds to body.fbx's armature.
 - **Weights decide clips that ease cannot.** Body-transferred weights let the collar follow a big neck turn, but at
   the hem they follow the thighs, while under-garments fitted to the garment's OWN weights (his trousers copy the
   old tee's) stay with the spine: the waistband came through by 3 cm. `--weights blend --blend-regions
