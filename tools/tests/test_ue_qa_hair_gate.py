@@ -92,7 +92,7 @@ def test_round4_numbers_refuse_and_name_each_blocker():
     # every operator blocker of round 4 that has a round-4 number fails on it
     for k in ("lips.lead_in_cm", "lips.onset_lead_ms", "lips.lag_frames", "lips.cues_fresh", "garment.neck_px",
               "garment.wpo_cm", "garment.pair_fraction", "garment.cloth_alive", "garment.cloth_sound",
-              "garment.cloth_detail_ratio",
+              "garment.cloth_detail_ratio", "hair.cut_pop_ratio",
               "garment.silhouette_pct", "hair.lock", "hair.render_cvars"):
         assert k in failed, k
     # and what round 4 never measured fails as "not measured", not silently
@@ -132,7 +132,7 @@ def test_clean_numbers_sign():
             "lips.render_conclusive": True, "garment.wpo_cm": 0.0, "garment.armor_index": 0.3,
             "garment.pair_fraction": 0.0, "garment.silhouette_ratio": 1.05,
             "head.blink_nod_deg": 0.2, "head.blink_locked_deg": 0.1, "garment.neck_px": 0, "garment.silhouette_pct": 0.8,
-            "garment.cloth_alive": 0.6, "garment.cloth_sound": True, "garment.cloth_detail_ratio": 1.6, "hair.cut_reach_pct": 3.1, "hair.pop_reach_pct": 1.2, "hair.lock": 1,
+            "garment.cloth_alive": 0.6, "garment.cloth_sound": True, "garment.cloth_detail_ratio": 1.6, "hair.cut_reach_pct": 3.1, "hair.pop_reach_pct": 1.2, "hair.cut_pop_ratio": 1.1, "hair.lock": 1,
             "hair.render_cvars": 1}
     r = gate.judge(good)
     assert r["verdict"] == "SIGN", r["issues"]
@@ -191,3 +191,39 @@ def test_film_qa_hair_on_frames(capsys, tmp_path):
     r = json.loads(capsys.readouterr().out)
     assert r["metrics"]["frames_measured"] == 8 and r["gate"]["hair.cut_reach_pct"] > 12
     assert r["issues"][0]["code"] == "hair.cut_jump" and r["issues"][0]["frame"] == 1440
+
+
+def test_film_qa_hair_cut_pop_and_saturation(capsys, tmp_path):
+    """Round 5 P3: at night the matte ran into the box's bottom (dark clothing), so reach read the box and missed
+    the change; the cut pop (frame differences in the head box) sees a pop at a held camera."""
+    import pytest
+    from filmtools.unreal import qa_local
+    # a held camera: S17's end and S18's start frame the same; S18's hair differs from its first frame (a sim restart)
+    for f in range(1436, 1440):
+        _frame(tmp_path / f"{f:04d}.png", 40)
+    for f in range(1440, 1444):
+        _frame(tmp_path / f"{f:04d}.png", 20)
+    spec = {"character": "Presenter", "cuts": [["S17", 1392, 1440], ["S18", 1440, 1560]],
+            "frames_glob": str(tmp_path / "*.png"), "boxes": {"S17": [0.3, 0.0, 0.7, 0.6], "S18": [0.3, 0.0, 0.7, 0.6]},
+            "anchors": {str(f): [0.2, 0.6] for f in range(1436, 1444)}}
+    sp = tmp_path / "spec.json"
+    sp.write_text(json.dumps(spec))
+    with pytest.raises(SystemExit):
+        qa_local.main(["hair", str(sp)])
+    r = json.loads(capsys.readouterr().out)
+    codes = {i["code"] for i in r["issues"]}
+    assert "hair.matte_saturated" in codes  # S17's hair (to row 39) runs past the box bottom (row 32)
+    assert r["gate"]["hair.cut_reach_pct"]["value"] is None and "saturated" in r["gate"]["hair.cut_reach_pct"]["error"]
+    assert "hair.cut_pop" in codes and r["gate"]["hair.cut_pop_ratio"] > 3
+    assert r["cut_pops"][0]["d_before"] == 0.0 and r["cut_pops"][0]["d_after"] == 0.0
+    # only the inner sides of the cut were read (no S17-start / S18-end frames)
+    assert r["metrics"]["frames_measured"] == 8
+
+
+def test_cut_pop_quiet_cut():
+    a = image.solid(20, 20, (100, 100, 100))
+    b = image.solid(20, 20, (102, 100, 100))
+    frames = {1438: a, 1439: b, 1440: a, 1441: b}  # the cut changes as much as each shot's own frames
+    r = hair.cut_pop(frames, 1440, [0, 0, 1, 1])
+    assert r["ratio"] <= 1.01
+    assert hair.cut_pop({1439: a}, 1440, [0, 0, 1, 1])["missing"] == [1438, 1440, 1441]
