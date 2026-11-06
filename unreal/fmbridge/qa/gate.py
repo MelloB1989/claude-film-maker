@@ -95,12 +95,16 @@ ITEMS: dict = {
     "lips.render_lag_frames": {
         "area": "lips", "track": "T1", "op": "<=", "line": 1, "unit": "frames",
         "what": "lag of the RENDERED mouth crop vs the voice", "where": "every spoken line",
-        "how": "film-ue lips gate --render (T1)", "r4": [None, "T1's probe on round 4's finals"],
+        "how": "film-ue lips gate --render (T1)",
+        "r4": [28.83, "round 4's 65 s cut vs the v2 solves (probe 1.7, agent-01 c9f8f9bd): every line fails; him L1 "
+                      "6.64, L2 16.77, L4a -14.32; her L3a -7.03, L3b 28.83, L4b -26.75 frames"],
         "why": "the curves can be right and the render still wrong"},
     "lips.render_conclusive": {
         "area": "lips", "track": "T1", "op": "==", "line": 1, "unit": "bool",
         "what": "the render lag beats a 6-frame shifted-audio control", "where": "every spoken line",
-        "how": "film-ue lips gate --render (T1)", "r4": [None, "T1's probe"],
+        "how": "film-ue lips gate --render (T1)",
+        "r4": [None, "a property of the measure, not of the sync: on round 4 it was sensitive on 5 of 6 lines "
+                     "(not L4b)"],
         "why": "an inconclusive measure cannot sign"},
     "lips.cues_fresh": {
         "area": "lips", "track": "T1", "op": "==", "line": 1, "unit": "bool",
@@ -162,6 +166,21 @@ ITEMS: dict = {
         "what": "worst under>over clip fraction over the non-face pairs (Body>tee, Body>Trousers, Trousers>tee)",
         "where": "S13, S15, S17, S18", "how": "film-ue op qa.clip (T3a)",
         "r4": [0.0067, "Trousers>tee at cast_op4"], "why": "~4 px of a garment"},
+    "garment.collar_gap_cm": {
+        "area": "garment", "track": "T3a", "op": "<=", "line": 0.8, "unit": "cm", "guard": True,
+        "what": "worst gap between his collar band and the neck surface (qa.garment_look collar_gap), any frame",
+        "where": "S13, S15, S17 (every measured frame)", "how": "qa.garment_look collar_gap (agent-02, T3a)",
+        "r4": [None, "round 4's collar hugged the neck (Epic's band): not this failure"],
+        "must_fail": [None, "round 5 Fit5: the collar FLOATED as a rolled ring off the neck in every S13 frame "
+                            "(orchestrator by eye); agent-02 measures Fit5"],
+        "why": "the gate passed Fit5 (neck_px 0, armor 0.109) while the collar stood off his neck"},
+    "garment.collar_roll": {
+        "area": "garment", "track": "T3a", "op": "==", "line": 0, "unit": "count", "guard": True,
+        "what": "frames where the collar band folds or rolls (lifts above the neck base: qa.garment_look collar_lift)",
+        "where": "S13, S15, S17", "how": "qa.garment_look collar_lift (T3a)",
+        "r4": [None, "round 4: no roll"],
+        "must_fail": [None, "round 5 Fit5: a fold at the front and a roll all round (orchestrator by eye)"],
+        "why": "a rolled collar reads as a cowl, not a tee"},
     "garment.silhouette_ratio": {
         "area": "garment", "track": "T3a", "op": "<=", "line": 1.12, "unit": "ratio", "guard": True, "info": True,
         "what": "(garment U body) / uncut body px in the garment's rows: the balloon guard for the refit",
@@ -323,12 +342,17 @@ def judge(numbers: dict, waivers: dict | None = None, spec: dict | None = None, 
 
 
 def lines_fail(round_values: dict | None = None, spec: dict | None = None) -> dict:
-    """The gate's own test: does every item's line fail the round-4 value it is meant to catch? {item: True (it
+    """The gate's own test: does every item's line fail the round-4 value it is meant to catch (or, for a guard,
+    the `must_fail` value: the failure it was added for)? {item: True (it
     fails r4, good) | False (the line would have passed round 4: tighten it) | None (no r4 number yet)}."""
     out = {}
     for k, it in items(spec).items():
         v = (round_values or {}).get(k, (it.get("r4") or [None])[0])
-        if v is None or it.get("line") is None or it.get("guard"):  # a guard catches a new failure, not round 4's
+        if it.get("must_fail"):  # the failure this line exists for, when it is not round 4's (a guard's case)
+            v = (it["must_fail"] or [None])[0] if k not in (round_values or {}) else v
+        elif it.get("guard"):  # a guard catches a new failure, not round 4's
+            v = None
+        if v is None or it.get("line") is None:
             out[k] = None
         else:
             out[k] = not OPS[it["op"]](v, it["line"])
