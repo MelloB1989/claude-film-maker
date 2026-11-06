@@ -639,7 +639,7 @@ def job():
         for sid in P["shots"].get(str(f), []):
             try:
                 c = component_of("Reel_" + sid, "CameraComponent")
-            except StopIteration:
+            except Exception:  # no such camera in the level: looks.py falls back to shots.py's keys
                 continue
             p, q = c.get_world_location(), c.get_forward_vector()
             fb = c.get_editor_property("filmback")
