@@ -96,3 +96,24 @@ def test_hair_lists_every_cut_judged(tmp_path):
     assert g["hair.cut_reach_pct"]["value"] == 1.1
     assert [j.split()[1] for j in g["hair.cut_reach_pct"]["cuts_judged"]] == ["S15->S16", "S16->S17", "S17->S18"]
     assert g["hair.cut_pop_ratio"]["pop_cuts"] == ["S17->S18 f1440 x1.1"]
+
+
+def test_settle_flags_a_start_pop(tmp_path):
+    from filmtools.unreal import qa_local
+    qa_local.qa()
+    im = sys.modules["fmqa.image"]
+    import numpy as np
+    s15 = next(s for s in GN.SHOTS if s.id == "S15")
+    rng = np.random.default_rng(1)
+    base = (rng.random((54, 96, 3)) * 200).astype("uint8")
+    for k in range(17):
+        a = base.copy()
+        a[:, :, 0] = np.clip(a[:, :, 0].astype(int) + k, 0, 255)  # slow, even motion
+        if k == 1:
+            a[10:30, 30:60] = 250  # a jolt at the first frames
+        im.write(im.Image.from_array(a), str(tmp_path / f"{s15.start + k:04d}.png"))
+    spec = {"cuts": [["S15", s15.start, s15.end]], "boxes": {"S15": [0.2, 0.1, 0.8, 0.7]}}
+    (tmp_path / "spec.json").write_text(json.dumps(spec))
+    r = GN.settle(str(tmp_path), str(tmp_path / "spec.json"), "S15")
+    assert r["pass"] is False and r["ratio"] > 1.8
+    assert GN.settle(str(tmp_path), str(tmp_path / "spec.json"), "S16")["error"]
