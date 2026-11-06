@@ -15,6 +15,7 @@
 #include "Rendering/SkeletalMeshModel.h"
 #include "SkeletalMeshClothingSystemUtilities.h"  // AssignClothingToSection (SkeletalMeshEditor)
 #include "SkeletalMeshTypes.h"                     // FScopedSkeletalMeshPostEditChange
+#include "UObject/Package.h"                       // GetTransientPackage (NoPCHs: nothing comes in implicitly)
 
 namespace FMClothPrivate
 {
