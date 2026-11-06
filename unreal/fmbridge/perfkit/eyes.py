@@ -104,6 +104,10 @@ def to_rig(eyes: dict, signs: HeadSigns | None = None, tol: float = 0.003, lid_f
     for side in ("L", "R"):
         cols = {"Left": [], "Right": [], "Up": [], "Down": []}
         for y, p in eyes[side]:
+            if s.eye_table and side in s.eye_table:  # measured per eye and direction (perf.calibrate, r4)
+                for d, v in s.eye_curves(side, y, p).items():
+                    cols[d].append(v)
+                continue
             y *= flip
             cols["Left"].append(min(1.0, max(0.0, y / s.eye_deg["Left"])))
             cols["Right"].append(min(1.0, max(0.0, -y / s.eye_deg["Right"])))
@@ -133,6 +137,11 @@ def angles_from_rig(curves: dict, signs: HeadSigns | None = None) -> dict:
             ts, vs = curves.get(eye_look(d, side), ([0.0], [0.0]))
             return [C.at(ts, vs, t) for t in times]
         lf, rt, up, dn = v("Left"), v("Right"), v("Up"), v("Down")
+        if s.eye_table and side in s.eye_table:
+            ea = s.eye_angle
+            out[side] = [(ea(side, "Left", a) + ea(side, "Right", b), ea(side, "Up", c) + ea(side, "Down", d))
+                         for a, b, c, d in zip(lf, rt, up, dn)]
+            continue
         out[side] = [(flip * (a * s.eye_deg["Left"] - b * s.eye_deg["Right"]), c * s.eye_deg["Up"] - d * s.eye_deg["Down"])
                      for a, b, c, d in zip(lf, rt, up, dn)]
     return out

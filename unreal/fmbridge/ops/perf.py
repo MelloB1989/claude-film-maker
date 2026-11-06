@@ -191,6 +191,7 @@ def face(*, anim: str, out: str = "", wav: str = "", gaze: list | None = None, s
     return res
 
 
+EYE_PROBE = (0.25, 0.5, 0.75, 1.0)  # eyeLook values perf.calibrate measures each direction at
 TURN_PROBE = (-240.0, -180.0, -140.0, -100.0, -70.0, -40.0, -20.0, 20.0, 40.0, 70.0, 100.0, 140.0, 180.0, 240.0)
 WEAK_TURN_MIN = 0.1  # a turn curve under a tenth of a real turn counts as dead (the bones turn the head)
 PLANNED_TURN = "FM_PlannedHeadTurn"  # perf.face's planned head turn, when the bones carry it (no AnimBP reads it)
@@ -548,10 +549,42 @@ def calibrate(*, label: str, face_component: str = "Face", body_component: str =
         if d == "Left":
             flip_votes.append(_dot(_sub(gaze_new, gaze_old), left) < 0)
         raw[f"eyeLook{d}L"] = round(ang, 3)
+    # each direction on both eyes at once (as perf.face drives them) at several values, each eye's own yaw and pitch
+    # off its rest in the character's frame: r4 (box), the left-eye-alone probe above read Right 4.6 and Down 11.5,
+    # and her eyes then overshot her partner by 20 deg
+    eye_table = {"L": {}, "R": {}}
+    rest_gaze = {}
+    for sd in ("L", "R"):
+        x = rest2["bones"][f"FACIAL_{sd}_Eye"][0]
+        ax = [x[3:6], x[6:9], x[9:12]]
+        gi = max(range(3), key=lambda i: abs(_dot(ax[i], fwd)))
+        rest_gaze[sd] = (gi, 1.0 if _dot(ax[gi], fwd) > 0 else -1.0)
+
+    def eye_angles(m, sd):
+        gi, sg = rest_gaze[sd]
+        x = m["bones"][f"FACIAL_{sd}_Eye"][0]
+        v = _unit([sg * c for c in [x[3:6], x[6:9], x[9:12]][gi]])
+        return (math.degrees(math.atan2(_dot(v, left), _dot(v, fwd))),
+                math.degrees(math.asin(max(-1.0, min(1.0, _dot(v, up))))))
+    apply({})
+    last = yield from _await_change(measure, frame, "FACIAL_L_Eye", last["bones"]["FACIAL_L_Eye"][0], timeout=8.0)
+    last = yield from settled(last, "FACIAL_L_Eye")
+    at_rest = {sd: eye_angles(last, sd) for sd in ("L", "R")}
+    for d in ("Left", "Right", "Up", "Down"):
+        k = 0 if d in ("Left", "Right") else 1
+        for val in EYE_PROBE:
+            apply({f"CTRL_expressions_eyeLook{d}L": ([0.0, 2.0], [val, val]),
+                   f"CTRL_expressions_eyeLook{d}R": ([0.0, 2.0], [val, val])})
+            m = yield from _await_change(measure, frame, "FACIAL_L_Eye", last["bones"]["FACIAL_L_Eye"][0], timeout=8.0)
+            m = yield from settled(m, "FACIAL_L_Eye")
+            last = m
+            for sd in ("L", "R"):
+                eye_table[sd].setdefault(d, []).append([val, round(eye_angles(m, sd)[k] - at_rest[sd][k], 2)])
+    raw["eye_table"] = eye_table
     apply({})
     result = HeadSigns(signs["yaw"], signs["pitch"], signs["roll"], eye_deg, True, bool(flip_votes and flip_votes[0]),
                        curves, dead, yaw_bone, turn_on if turn_on == face_component else "Body", yaw_gain,
-                       yaw_table)
+                       yaw_table, eye_table)
     path = _signs_file(skel)
     with open(path, "w") as f:
         json.dump(result.to_json(), f, indent=1)
