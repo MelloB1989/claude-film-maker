@@ -593,9 +593,14 @@ def speech_gain(who: str) -> list:
     return out
 
 
+# r5b: his turn on the neck bones about the vertical (perf.turn_head in sync), not through his live HeadRoll: the face
+# rig turns about its tilted axes and head_to_body carried that pitch to the body (S15 turn-out blink_nod 1.41 deg)
+TURN_BY = {"him": "bones", "her": "auto"}
+
+
 def calibrate(who: str) -> dict:
     """perf.calibrate on the presenter in the level (once per face skeleton; the face must be Sequencer-driven)."""
-    return ok(client.op("perf.calibrate", label=LABEL[who], timeout=600))
+    return ok(client.op("perf.calibrate", label=LABEL[who], turn_by=TURN_BY[who], timeout=600))
 
 
 def check(who: str) -> dict:
