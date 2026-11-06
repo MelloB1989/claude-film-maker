@@ -25,7 +25,8 @@ LABEL = globals().get("LABEL", "Host")
 FOLDER = globals().get("FOLDER", "/Game/FM/ClothOp4")
 FRAMES = globals().get("FRAMES") or [("Reel_S13", 1078), ("Reel_S15", 1105), ("Reel_S15", 1130), ("Reel_S15", 1198),
                                      ("Reel_S17", 1322), ("Reel_S17", 1410), ("Reel_S18", 1493)]
-INFLATE = float(globals().get("INFLATE", 0.2))
+INFLATE = float(globals().get("INFLATE", 0.15))
+NECK_ARC = bool(globals().get("NECK_ARC", True))  # the shallow collar arc to a weak neckline term (else the inflate)
 PATCH = globals().get("PATCH") or {}
 FIND_ONLY = bool(globals().get("FIND_ONLY", False))
 MAX_R = float(globals().get("MAX_R", 4.0))  # cm: the patch (the orchestrator: a 4-5 cm falloff round it)
@@ -210,6 +211,17 @@ def run():
              "FM_Patch": round(min(3.0, max(1.5, deep + 0.8)), 2),
              "FM_PatchX": round(cx, 2), "FM_PatchY": round(cy, 2), "FM_PatchZ": round(cz, 2),
              "FM_PatchR": round(r + 1.0, 2), "FM_PatchF": 3.0}
+    shallow = {i: v for i, v in ids.items() if v < deep_at}
+    if shallow and NECK_ARC:
+        # the shallow arc along the collar: a WEAK neckline term (its depth + 0.15 cm, at most 1 cm) over a 3 cm ramp
+        # ending at the arc's lowest pierce point, front-weighted; the plain inflate stays INFLATE. (neck_fix.py's
+        # ballooned collar was 3 cm over 13 cm.) Keeps his tee's silhouette (the plain inflate widened it ~4% at 0.5)
+        zs = [ref[i].z for i in shallow]
+        ys = [ref[i].y for i in shallow]
+        z1 = min(zs)
+        knobs.update({"FM_Inflate": INFLATE, "FM_Neck": round(min(1.0, max(shallow.values()) + 0.15), 2),
+                      "FM_NeckZ0": round(z1 - 3.0, 2), "FM_NeckZ1": round(z1, 2),
+                      "FM_NeckFront": 0.1 if sum(ys) >= 0 else -0.1, "FM_NeckFrontBias": 0.5})
     rep["deep"] = {"threshold_cm": round(deep_at, 2), "verts": len(pick[0]), "radius": round(r, 2),
                    "shallow_left": sum(1 for v in ids.values() if v < deep_at),
                    "shallow_deepest_cm": round(max([v for v in ids.values() if v < deep_at] or [0.0]), 2)}
