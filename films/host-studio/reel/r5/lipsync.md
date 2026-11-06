@@ -278,3 +278,41 @@ film-qa gate ... lips_gate.json                        # agent-09's gate v2 merg
   primary check.
 - **T2 (agent-04)** edits perf.face's head and blink layers but has agreed not to touch the speech curves. A `face`
   stage failure after their merge goes to them.
+
+## What the GPU session found (r5, 06 Nov)
+
+- **Round 4's real root cause was the wrong script, not just a timing offset.** The faces were solved from round-4
+  line WAVs and stems that are the **v1 script**: L1 is a 9.2 s line from f929. The delivered mix plays the **v2**
+  takes: L1 "Took you long enough." at f1020.
+  - Those v2 takes were gone: no take on hand scored over 0.31 against the mix.
+  - Fix (option D): separate the voice from the committed mix with demucs htdemucs, cut it per line
+    (`audio/vo_sep/`), solve from that, and prove the provenance.
+    - `voice.json`: the mix's sha256 and every WAV's.
+    - `mix.py` now records the voice stems' sha256 for any future re-mix.
+    - `film-ue lips cues` fails `vo_not_mixed` / `vo_unproven`.
+- **Voice-vs-mouth correlation is not a timing measure on short real lines.**
+  - The six real mouth-only solves were exactly in place. Yet loudness vs jaw read r 0.25-0.88 with lags of -23 to
+    +16 frames, because loudness is not jaw opening ("her", the "m" of "comes").
+  - The strict gate is now the face against each line's **own solve at its mix place**: mouth vs mouth, r 1.0 in
+    place. FAIL on |lag| > 1 frame or r < 0.8.
+    - On the real curves: pass at 0 and ±1, fail at ±2 and at -14.
+  - The render check uses the same reference (`lips.py refcurves`, `film-ue lips render --reference`).
+- Phase 4 result: ref lag ≤ 0.8 frames and ref r ≥ 0.97 on all six lines, and the silences closed.
+  - L2 is the weakest. Its solve opens the jaw right at the WAV's start, and the 3-frame fade trims that opening;
+    `--fade-frames 1` would keep it.
+
+## Round 6
+
+1. **Torso/head phase-lock** (the orchestrator, r5). His head leads a big return turn: ~0.58 s from the shift,
+   ~0.03 s lag. `looks.TORSO_TIMING["big"]` brings the chest back 0.15 s later over 0.75 s (`back_lag`/`back`), and
+   on the way out it uses `lag` 0.22 / `in` 0.8.
+   - While the neck is back but the spine twist is not (a ~10° tilted axis), the head pitches: a bell of -4.6° at
+     mid-turn on his S16 return (off screen); 1.33° on screen in S15 and 0.59° in S17. Gate v2 passes.
+   - Fix: run the torso move in phase with the head's (lag 0, the head's duration and ease), or counter-pitch the
+     head bone by the residual.
+   - Prove it with `perf.py sync` + agent-04's `qa.head_stability` (`head_turn_dip`) + `perf.py looks --measured`.
+2. **Real word timings.** The cues' words are estimated (no stable-ts on kali). `uv pip install stable-ts`, then
+   `lips.py cues`, makes the per-word check and the captions word-accurate.
+3. **SyncNet second opinion**: not run in r5. Calibrate `--min-conf` on this avatar (in-sync vs audio shifted 12
+   frames) before relying on it.
+4. **`lipsync.mouth_boxes`** on the engine: if it was replaced by `--box` per shot in r5, run it once and compare.

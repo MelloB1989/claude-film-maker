@@ -401,8 +401,52 @@ def partner_look(who: str, i: int, stage=None) -> dict:
     return LK.look(who, b["hold"], b["head"] if b["head"] is not None else 1.0, stage, b.get("torso", 0.0))
 
 
+def head_gaze_plan(who: str, stage=None):
+    """perfkit's GazePlan exactly as perf.face builds it for `who` (the same shifts, start, lead, head gain, energy
+    and seed): the head's own timing, to lock the torso to."""
+    sys.path.insert(0, str(ROOT / "unreal" / "fmbridge"))
+    from perfkit import face as FACE, gaze as G, head as H
+    e = events(who, stage)
+    style = H.Style.from_json({"seed": SEED[who], **(e.get("head") or {})})
+    return G.GazePlan([FACE._shift(g) for g in e["gaze"]], start=tuple(e.get("start_gaze") or (0.0, 0.0)),
+                      lead=e.get("lead", "eyes"), head_gain=style.gain, energy=e.get("energy", 1.0), seed=SEED[who])
+
+
+def torso_locked(who: str, stage=None):
+    """The torso's yaw (degrees, + = own left) at t s from START[who], PHASE-LOCKED to the head (r5, the orchestrator):
+    for each look with a torso turn, the chest's share of it follows the head's own progress, from where the head was
+    just before the look to where it holds, and back with it: no lag, the head's duration and ease. Round 4's
+    torso_moves brought the chest back 0.15 s after the head over 0.75 s (0.58 s for the head): while the neck was
+    back and the spine twist (a ~10 deg tilted axis) was not, his head pitched (-4.6 deg mid-turn, his S16 return).
+    Returns f(t)."""
+    plan = head_gaze_plan(who, stage)
+    beats = []
+    for i, b in enumerate(PARTNER_LOOKS[who]):
+        tz = partner_look(who, i, stage)["torso_yaw"]
+        if not tz:
+            continue
+        t0, th, tu = ((b[k] - START[who]) / FPS for k in ("t", "hold", "until"))
+        h0 = plan.head_base(t0 - 0.05)[0]
+        hh = plan.head_base(th)[0]
+        if abs(hh - h0) < 1.0:
+            continue
+        nxt = min([(o["t"] - START[who]) / FPS for o in PARTNER_LOOKS[who] if o["t"] > b["t"]] + [tu + 2.5])
+        beats.append((t0 - 0.1, min(nxt, tu + 2.5), h0, hh, tz))
+
+    def f(t: float) -> float:
+        y = 0.0
+        hy = None
+        for a, b_, h0, hh, tz in beats:
+            if a <= t <= b_:
+                hy = plan.head_base(t)[0] if hy is None else hy
+                y += tz * max(0.0, min(1.15, (hy - h0) / (hh - h0)))
+        return y
+    return f
+
+
 def torso_plan(who: str, stage=None) -> list:
-    """The torso's moves for `who`'s looks (looks.torso_moves), in seconds from START[who]."""
+    """The torso's moves for `who`'s looks (looks.torso_moves), in seconds from START[who]: round 4's lagged timing,
+    kept for reference; torso() and planned_head() use torso_locked."""
     import looks as LK
     beats = [{"t": (b["t"] - START[who]) / FPS, "until": (b["until"] - START[who]) / FPS, "kind": b.get("kind", "big"),
               "yaw": partner_look(who, i, stage)["torso_yaw"]} for i, b in enumerate(PARTNER_LOOKS[who])]
@@ -601,8 +645,9 @@ def planned_head(who: str, frame: int, stage=None) -> tuple:
     import looks as LK
     e = events(who, stage)
     t = (frame - START[who]) / FPS
-    (hy, hp), (gy, gp) = LK.head_plan(e["gaze"], e.get("start_gaze"), t)
-    tz = LK.torso_yaw(torso_plan(who, stage), t)  # the chest carries the neck round: head and eyes ride on it
+    plan = head_gaze_plan(who, stage)  # as perf.face builds it (its seed and gain: the head's real timing)
+    (hy, hp), (gy, gp) = plan.head_base(t), plan.gaze(t)
+    tz = torso_locked(who, stage)(t)  # the chest carries the neck round, in phase: head and eyes ride on it
     return (hy + tz, hp), (gy + tz, gp)
 
 
@@ -1097,12 +1142,12 @@ def torso(who: str) -> dict:
     """The torso turn (torso_plan) on `who`'s fresh body animation (sync's AS_reel_<who>_body, after turn_head): not
     idempotent, like turn_head, so only from sync. Needs perf.calibrate_body on this body (calibrate_body --who)."""
     import looks as LK
-    moves = torso_plan(who)
+    lock = torso_locked(who)
     sys.path.insert(0, str(ROOT / "unreal" / "fmbridge"))
     from perfkit import curves as C
     times = C.grid(0.0, (END + POST_ROLL - START[who]) / FPS, 30.0)
     return run(TORSO, {"anim": f"{ANIM}/AS_reel_{who}_body", "times": [round(t, 4) for t in times],
-                       "yaw": [round(LK.torso_yaw(moves, t), 3) for t in times], "share": TORSO_SHARE,
+                       "yaw": [round(lock(t), 3) for t in times], "share": TORSO_SHARE,
                        "counter": TORSO_COUNTER, "shift_cm": TORSO_SHIFT_CM, "full": TORSO_FULL}, 1800)
 
 
@@ -1375,30 +1420,49 @@ def place(path: str) -> list:
     return out
 
 
-def head_check(seq: str) -> dict:
+def seen_frames(who: str) -> list:
+    """[[f0, f1), ...] master frames `who` is on screen in the cut: the shots whose cast has them (merged)."""
+    out = []
+    for sh in sorted(SHOTS, key=lambda x: x.start):
+        if who in sh.cast:
+            if out and out[-1][1] == sh.start:
+                out[-1][1] = sh.end
+            else:
+                out.append([sh.start, sh.end])
+    return out
+
+
+def head_check(seq: str, rejudge: bool = False) -> dict:
     """Round 5: does either head move with its blinks (or buzz) as SEQ_Reel plays? qa.head_stability on each
     presenter's head bone over their screen time (the Face's own eyeBlink curves; the planned blinks of
-    OUT/blinks_<who>.json if the instance shows none), the results pulled to OUT/qa/, then gate v2's numbers file
-    OUT/qa/gate_head.json (head.blink_nod_deg <= 0.6, head.blink_locked_deg <= 0.3: film-qa head-gate)."""
+    OUT/blinks_<who>.json if the instance shows none), the results pulled to OUT/qa/, then judged on the frames each
+    is ON SCREEN in the cut (the shots' cast: the orchestrator's r5 ruling; his return turn in S16, her single, is not
+    seen) and gate v2's numbers file OUT/qa/gate_head.json (head.blink_nod_deg <= 0.6, head.blink_locked_deg <= 0.3).
+    `rejudge`: no editor, judge the files already in OUT/qa/ again."""
     from filmtools.unreal import qa_head as QH
-    got, local = {}, []
+    got, local, seen = {}, [], {}
     (OUT / "qa").mkdir(parents=True, exist_ok=True)
     for who in ("her", "him"):
-        remote = _j(REMOTE_STILLS, f"head_{who}.json")
-        args = {"sequence": seq, "label": LABEL[who], "start": START[who], "end": END - 1, "out": remote}
-        r = ok(client.op("qa.head_stability", timeout=1800, **args))
-        mine = OUT / f"blinks_{who}.json"
-        if any(i["code"] == "head.no_blinks" for i in r["issues"]) and mine.exists():
-            r = ok(client.op("qa.head_stability", timeout=1800, blinks=json.loads(mine.read_text()), **args))
         dst = OUT / "qa" / f"head_{who}.json"
-        client.pull(remote, str(dst))
+        seen[LABEL[who]] = seen_frames(who)
+        if not rejudge:
+            remote = _j(REMOTE_STILLS, f"head_{who}.json")
+            args = {"sequence": seq, "label": LABEL[who], "start": START[who], "end": END - 1, "out": remote}
+            r = ok(client.op("qa.head_stability", timeout=1800, **args))
+            mine = OUT / f"blinks_{who}.json"
+            if any(i["code"] == "head.no_blinks" for i in r["issues"]) and mine.exists():
+                r = ok(client.op("qa.head_stability", timeout=1800, blinks=json.loads(mine.read_text()), **args))
+            client.pull(remote, str(dst))
         local.append(str(dst))
-        got[who] = {"pass": r["pass"], "metrics": r["metrics"], "issues": [i["code"] for i in r["issues"]],
-                    "worst": max(r["blinks"], key=lambda b: abs(b["nod_deg"]), default=None)}
-    g = QH.gate(local)
+        j = QH.samples(str(dst), seen_frames=seen[LABEL[who]])
+        warn = [c["name"] for c in j["checks"] if not c["pass"] and c.get("severity") == "warn"]
+        got[who] = {"pass": j["pass"], "failed": j["failed"], "warn": warn, "metrics": j["metrics"],
+                    "seen": seen[LABEL[who]], "unseen": j["unseen"], "turns": j["turns"],
+                    "worst": max(j["blinks"], key=lambda b: abs(b["nod_deg"]), default=None)}
+    g = QH.gate(local, seen=seen)
     (OUT / "qa" / "gate_head.json").write_text(json.dumps(g, indent=1))
     got["gate"] = g["gate"]
-    got["pass"] = all(v.get("pass") for k, v in got.items() if k in ("her", "him")) and \
+    got["pass"] = all(got[w]["pass"] for w in ("her", "him")) and \
         all("error" not in it and it["value"] <= it["line"] for it in g["gate"].values())
     return got
 
@@ -1417,6 +1481,7 @@ def main() -> None:
     ap.add_argument("--me", help="the owner tag in test asset names (default REEL_PERF_ME, else 'perf')")
     ap.add_argument("--measured", action="store_true", help="looks: the head and eyes the placed animation has")
     ap.add_argument("--cleanup", action="store_true", help="place: then remove every test actor and sequence")
+    ap.add_argument("--rejudge", action="store_true", help="head: judge the files already pulled, no editor")
     a = ap.parse_args()
     if a.me:
         global ME
@@ -1446,7 +1511,7 @@ def main() -> None:
         print(json.dumps(r))
         sys.exit(0 if r["pass"] else 1)
     elif a.cmd == "head":
-        r = head_check(a.seq)
+        r = head_check(a.seq, a.rejudge)
         print(json.dumps(r, default=str))
         sys.exit(0 if r["pass"] else 1)
     elif a.cmd == "cleanup":

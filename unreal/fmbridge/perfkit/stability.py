@@ -37,6 +37,9 @@ LIMITS = {
     "speed_ratio": 2.5,      # FAIL when the head moves this much faster inside blink windows...
     "speed_min_deg_s": 6.0,  # ...and that peak speed is over this (a still head's ratios are noise)
     "jitter_rms_deg": 0.08,  # FAIL on buzz: RMS residual off the local fit, any axis
+    "turn_deg": None,        # off (the orchestrator, r5: turn blinks are judged as nods; the pitch bell of our torso
+                             # lagging the neck is our artifact). A number lists blink windows yawing that much as "turns"
+    "turn_dip_deg": 2.0,     # ...but a turn whose pitch departs this much is flagged (head_turn_dip, a warning)
     "spike_deg": 0.5,        # FAIL on any residual over this (a twitch; the sharpest planned onsets leave ~0.4)
 }
 PRE, POST = 0.1, 0.12        # a blink's window around its lid motion (s)
@@ -146,7 +149,7 @@ def jitter(times: list, values: list, window_s: float = 0.2) -> dict:
 
 
 def check(times: list, pitch: list, blinks: list, yaw: list | None = None, roll: list | None = None,
-          limits: dict | None = None, jitter_s: float = 0.2, source: str = "curves") -> dict:
+          limits: dict | None = None, jitter_s: float = 0.2, source: str = "curves", seen: list | None = None) -> dict:
     """Every head-stability check on a regularly sampled head (degrees) and its blinks [(onset, end)] (s).
     Returns {"pass", "failed", "checks", "blinks": [{"t", "nod_deg"}], "bta": {...}, "jitter": {...}}; each
     check says what to do about a failure. `source` (curves|bones|render) only words the messages."""
@@ -164,6 +167,24 @@ def check(times: list, pitch: list, blinks: list, yaw: list | None = None, roll:
     cut = [{"t": round(a, 3), "nod_deg": round(nod_depth(times, pitch, a, b), 3)} for a, b in blinks
             if a - PRE < times[0] or b + POST > times[-1]]
     blinks = [(a, b) for a, b in blinks if a - PRE >= times[0] and b + POST <= times[-1]]
+    # `seen`: the spans [(t0, t1)] the face is on screen (the shots' cast): a blink off screen is listed, not judged
+    # (r5 box: his return turn in S16, her single)
+    unseen = []
+    if seen is not None:
+        unseen = [{"t": round(a, 3), "nod_deg": round(nod_depth(times, pitch, a, b), 3)} for a, b in blinks
+                  if not any(s0 <= a and b <= s1 for s0, s1 in seen)]
+        blinks = [(a, b) for a, b in blinks if any(s0 <= a and b <= s1 for s0, s1 in seen)]
+    # a blink on a big head turn (the gaze-evoked blink: every head turn over ~17 deg carries one, Evinger 1994) is
+    # not a nod: the head's pitch along a 60-95 deg turn is the turn's path (r5 box: his return turn dipped 4.6 deg
+    # with its blink, his face flat). Listed as "turn" with the departure; head_turn_dip warns on a big one.
+    turns = []
+    if yaw and L["turn_deg"]:
+        def swing(a, b):
+            seg = _segment(times, yaw, max(times[0], a - PRE), min(times[-1], b + POST))[1]
+            return max(seg) - min(seg) if seg else 0.0
+        turns = [{"t": round(a, 3), "nod_deg": round(nod_depth(times, pitch, a, b), 3), "yaw_deg": round(swing(a, b), 1)}
+                 for a, b in blinks if swing(a, b) >= L["turn_deg"]]
+        blinks = [(a, b) for a, b in blinks if swing(a, b) < L["turn_deg"]]
     if blinks:
         for a, b in blinks:
             per.append({"t": round(a, 3), "nod_deg": round(nod_depth(times, pitch, a, b), 3)})
@@ -197,6 +218,15 @@ def check(times: list, pitch: list, blinks: list, yaw: list | None = None, roll:
             f"outside. {fix}"))
     else:
         bta, lags, bta_dev, ctl_dev = [], [], 0.0, 0.0
+    if turns:
+        big = max(turns, key=lambda x: abs(x["nod_deg"]))
+        ok = abs(big["nod_deg"]) < L["turn_dip_deg"]
+        c = _check("head_turn_dip", ok, abs(big["nod_deg"]), L["turn_dip_deg"],
+                   f"the head's pitch departs {big['nod_deg']:+.2f} deg along a {big['yaw_deg']} deg turn at "
+                   f"{big['t']:.2f} s (the blink there is the turn's own): a dip or bob in the turn's path; on screen, "
+                   "look at the neck/torso turn timing (perf.turn_head, the torso plan)")
+        c["severity"] = "warn"
+        checks.append(c)
     jit = {}
     for name, v in (("pitch", pitch), ("yaw", yaw), ("roll", roll)):
         if v:
@@ -214,8 +244,9 @@ def check(times: list, pitch: list, blinks: list, yaw: list | None = None, roll:
             f"{axis} carries {rms:.3f} deg RMS of buzz (off its {jitter_s} s local fit), {len(spikes)} spike frames over "
             f"{L['spike_deg']} deg (first {spikes[:5]}): a solver's buzz or a snapped key. perf.face "
             "solver_head='replace' (or 'clean': spike removal and a low-pass), and no beat nods faster than 0.15 s"))
-    failed = [c["name"] for c in checks if not c["pass"]]
+    failed = [c["name"] for c in checks if not c["pass"] and c.get("severity") != "warn"]
     return {"pass": not failed, "failed": failed, "checks": checks, "source": source, "blinks": per, "edge": cut,
+            "turns": turns, "unseen": unseen,
             "bta": {"lags": [round(x, 3) for x in lags][::3], "mean_deg": [round(x, 3) for x in bta][::3],
                     "peak_deg": round(bta_dev, 3), "control_deg": round(ctl_dev, 3)},
             "jitter": jit}

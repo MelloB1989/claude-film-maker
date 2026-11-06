@@ -134,6 +134,17 @@ smooth turn scores ~0.
 | `blink_speed` | median peak pitch speed in blink windows / outside | ≥ 2.5× and ≥ 6°/s | a jerk without much depth |
 | `head_buzz` | residual off a 0.2 s Savitzky–Golay cubic, any axis | RMS > 0.08° or any frame > 0.5° | follows a 32° turn in 0.39 s (perfkit's fastest) at 0; flags snapped keys and solver buzz |
 
+
+What is judged:
+- **Turns:** blinks on a big turn are judged as nods like any other. The orchestrator's r5 ruling: the pitch bell on
+  his turns (the torso twisting back 0.15-0.22 s after the neck, about a ~10° tilted axis) is our artifact, and we
+  do not exempt our own artifacts. The gaze-evoked blink stays on the turn, and the turn path is fixed (the torso is
+  phase-locked to the head). `limits={"turn_deg": 20}` lists such blinks under `turns` for diagnosis only.
+- **Edges:** blinks whose window runs off either end of the samples are listed under `edge`.
+- **Off screen:** the gate judges only the frames where that presenter is on screen in the cut (the shot table's
+  cast; `film-qa head-gate --seen` / `perf.py head`). Blinks elsewhere are listed under `unseen`. This is the
+  orchestrator's ruling in r5: the check's correct scope, not a waiver.
+
 Readers:
 - **Curves:** `perf.face` / `anim.check` reports (`metrics.report`).
 - **Bones:** `film-ue op qa.head_stability sequence=… label=… start=… end=… [blinks=@spans.json] out=…`. It plays the

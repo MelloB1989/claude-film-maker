@@ -160,7 +160,7 @@ def judge(tr: dict, limits: dict | None = None, threshold: float | None = None) 
     issues = []
     for c in r["checks"]:
         if not c["pass"]:
-            issues.append({"code": f"head.{c['name']}", "severity": "fail", "message": c["why"],
+            issues.append({"code": f"head.{c['name']}", "severity": c.get("severity", "fail"), "message": c["why"],
                            "value": c["metric"], "expected": c["threshold"],
                            "fix": "perf.face blink_head=still solver_head=replace; then qa.head_stability in the "
                                   "editor names the frames"})
@@ -185,17 +185,22 @@ def frames_in(folder: str) -> list:
     return sorted(str(p) for p in Path(folder).iterdir() if p.suffix.lower() in IMAGE_EXT)
 
 
-def samples(path: str, limits: dict | None = None) -> dict:
-    """Re-judge what qa.head_stability saved with out= (the bone samples and blink curve), offline."""
+def samples(path: str, limits: dict | None = None, seen_frames: list | None = None) -> dict:
+    """Re-judge what qa.head_stability saved with out= (the bone samples and blink curve), offline. `seen_frames`:
+    [[f0, f1], ...] master frames the face is on screen (the shots' cast; f1 exclusive): blinks elsewhere are listed
+    under "unseen", not judged."""
     ST = stability()
     d = json.loads(Path(path).read_text())
     s = d["samples"]
     h = ST.from_bones(s["frames"], s["fps"], s["bone"], s["forward"])
     t = [x - h["times"][0] for x in h["times"]]
     spans = ST.blink_windows(t, s["closure"]) if s.get("closure") else []
-    r = ST.check(t, h["pitch"], spans, h["yaw"], h["roll"], limits=limits, source="bones")
+    f0, fps = s["frames"][0], s["fps"]
+    seen = [((a - f0) / fps, (b - f0) / fps) for a, b in seen_frames] if seen_frames is not None else None
+    r = ST.check(t, h["pitch"], spans, h["yaw"], h["roll"], limits=limits, source="bones", seen=seen)
     return {"pass": r["pass"], "failed": r["failed"], "metrics": {c["name"]: c["metric"] for c in r["checks"]},
-            "checks": r["checks"], "blinks": r["blinks"], "edge": r["edge"], "bta": r["bta"],
+            "checks": r["checks"], "blinks": r["blinks"], "edge": r["edge"], "turns": r["turns"],
+            "unseen": r["unseen"], "bta": r["bta"],
             "jitter": r["jitter"]}
 
 
@@ -203,13 +208,15 @@ GATE_LINE_DEG = 0.6  # head.blink_nod_deg: the worst blink's pitch departure, bo
 GATE_LOCKED_DEG = 0.3  # head.blink_locked_deg: the blink-triggered average's peak (a small nod on every blink)
 
 
-def gate(results: list, line: float = GATE_LINE_DEG, locked_line: float = GATE_LOCKED_DEG) -> dict:
+def gate(results: list, line: float = GATE_LINE_DEG, locked_line: float = GATE_LOCKED_DEG,
+         seen: dict | None = None) -> dict:
     """agent-09's gate v2 numbers file from qa.head_stability results (their out= JSON, or the op's return saved
-    as JSON; one per presenter and shot range): {"gate": {"head.blink_nod_deg": {"value", "where"},
+    as JSON; one per presenter and shot range; `seen` keyed by label or by the file's who, head_<who>.json): {"gate": {"head.blink_nod_deg": {"value", "where"},
     "head.blink_locked_deg": {"value", "where"}}}: the worst |nod_deg| over every blink of every result, and the
     worst blink-triggered average peak. A result with no blinks, or that failed to load, is an error on both (the
-    gate fails a number it cannot measure)."""
-    worst, where, errors = 0.0, "", []
+    gate fails a number it cannot measure). `seen`: {label: [[f0, f1], ...]} the master frames each presenter is on
+    screen (blinks elsewhere are not judged; saved samples are re-judged with it)."""
+    worst, where, errors, out_of_scope = 0.0, "", [], []
     locked, lwhere = 0.0, ""
     for p in results:
         try:
@@ -218,12 +225,20 @@ def gate(results: list, line: float = GATE_LINE_DEG, locked_line: float = GATE_L
             errors.append(f"{p}: {e}")
             continue
         if d.get("samples"):  # qa.head_stability's out=: judge its samples afresh (the r5 box's first files
-            r = samples(p)    # carried no blinks from the op's clock bug; the samples were right)
+            stem = Path(p).stem.split("head_")[-1]  # carried no blinks: the op's clock bug); seen by label or who
+            spans = (seen or {}).get(d.get("label")) or (seen or {}).get(stem)
+            if seen is not None and spans is None:
+                errors.append(f"{Path(p).name}: no on-screen ranges for {d.get('label')!r} / {stem!r} in the scope")
+                continue
+            r = samples(p, seen_frames=spans)
+            fr0, fps0 = d["samples"]["frames"][0], d["samples"]["fps"]
+            out_of_scope += [{"who": d.get("label", stem), "frame": int(fr0 + round(u["t"] * fps0)),
+                              "nod_deg": u["nod_deg"]} for u in r.get("unseen", [])]
             fr = d["samples"]["frames"]
             d = {**d, "blinks": r["blinks"], "bta": r["bta"], "frames": [fr[0], fr[-1]], "fps": d["samples"]["fps"]}
         blinks = d.get("blinks") or []
         if not blinks:
-            errors.append(f"{Path(p).name}: no blinks measured")
+            errors.append(f"{Path(p).name}: no blinks measured" + (" on screen" if seen is not None else ""))
             continue
         f0, fps = (d.get("frames") or [0])[0], d.get("fps") or 24.0
         who = d.get("label", Path(p).stem)
@@ -240,4 +255,7 @@ def gate(results: list, line: float = GATE_LINE_DEG, locked_line: float = GATE_L
     lk = {"value": round(locked, 3), "where": lwhere, "line": locked_line}
     if errors:
         nod["error"] = lk["error"] = "; ".join(errors)
-    return {"gate": {"head.blink_nod_deg": nod, "head.blink_locked_deg": lk}}
+    out = {"gate": {"head.blink_nod_deg": nod, "head.blink_locked_deg": lk}}
+    if seen is not None:
+        out["out_of_scope"] = out_of_scope
+    return out

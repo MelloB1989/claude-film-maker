@@ -362,12 +362,17 @@ def test_bone_samples_from_a_late_frame_find_the_blinks():
                                                 "forward": [1.0, 0.0, 0.0]}}))
         r = QH.samples(str(path))
         g = QH.gate([str(path)])["gate"]  # the gate re-judges saved samples (the box's first files had no blinks)
+        # agent-09's scope.json keys are who, the file is head_<who>.json: the first blink's frames off screen
+        sc = QH.gate([str(path)], seen={"samples": [[1080 + 30, 1560]]})
+        none = QH.gate([str(path)], seen={"someone_else": [[0, 10]]})
     finally:
         path.unlink()
     assert len(r["blinks"]) == len(ONSETS)
     assert "blink_nod" in r["failed"]
     assert "error" not in g["head.blink_nod_deg"] and g["head.blink_nod_deg"]["value"] > 1.0
     assert g["head.blink_nod_deg"]["where"].startswith("_tmp_head_samples f1")
+    assert len(sc["out_of_scope"]) == 1 and 1095 <= sc["out_of_scope"][0]["frame"] <= 1102
+    assert "error" in none["gate"]["head.blink_nod_deg"]
 
 
 def test_a_blink_cut_by_the_end_of_the_samples_is_not_judged():
@@ -378,3 +383,29 @@ def test_a_blink_cut_by_the_end_of_the_samples_is_not_judged():
     r = ST.check(t, [(-8.0 * (x - 10.2) if x > 10.2 else 0.0) for x in t], ST.blink_windows(t, clos))
     assert r["pass"], r["failed"]
     assert len(r["edge"]) == 1 and len(r["blinks"]) == len(ONSETS)
+
+
+def test_turn_blinks_are_nods_by_default_and_listed_only_when_asked():
+    """r5 box: his return turn (-94 -> 0 deg in 16 frames) carried its gaze blink and dipped 2.9 deg in pitch, his face
+    flat: judged as the turn's path (head_turn_dip, a warning over 2 deg), not as a blink nod."""
+    t = C.grid(0, 10.5, RATE)
+    yaw = lambda x: C.move(x, 5.15, 0.6, -90.0, 0.0)  # noqa: E731
+    pitch = lambda x: dip(x, [5.15], 4.0, 0.6)  # noqa: E731
+    off, _ = judge(pitch, yaw_fn=yaw)  # the default (the orchestrator's r5 ruling): a turn blink is judged as a nod
+    assert not off["turns"] and min(b["nod_deg"] for b in off["blinks"]) < -2.0
+    t = C.grid(0, 10.5, RATE)
+    r = ST.check(t, [pitch(x) for x in t], ST.blink_windows(t, [blink_closure(x, ONSETS) for x in t]),
+                 yaw=[yaw(x) for x in t], limits={"turn_deg": 20.0})
+    c = by_name(r)
+    assert c["blink_nod"]["pass"] and c["blink_locked"]["pass"], r["blinks"]
+    assert len(r["turns"]) == 1 and not c["head_turn_dip"]["pass"] and c["head_turn_dip"]["severity"] == "warn"
+    assert r["pass"]  # a warning does not fail
+
+
+def test_off_screen_blinks_are_listed_not_judged():
+    t = C.grid(0, 10.5, RATE)
+    spans = ST.blink_windows(t, [blink_closure(x, ONSETS) for x in t])
+    pitch = [dip(x, ONSETS[3:5], 2.0) for x in t]
+    assert not ST.check(t, pitch, spans)["pass"]
+    r = ST.check(t, pitch, spans, seen=[(0.0, 4.5), (7.5, 10.5)])
+    assert r["pass"] and len(r["unseen"]) == 2 and r["unseen"][0]["nod_deg"] < -1.5
