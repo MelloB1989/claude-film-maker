@@ -105,7 +105,9 @@ def solver_stats(comp) -> dict:
     it = _call(comp, "get_clothing_simulation_interactor")
     if it is None:
         return {}
-    out = {}
+    out = {"tick_option": str(_get(comp, "visibility_based_anim_tick_option")),
+           "recently_rendered": _call(comp, "was_recently_rendered"),
+           "tick_enabled": _call(comp, "is_component_tick_enabled")}
     for k, fn in (("cloths", "get_num_cloths"), ("dynamic_particles", "get_num_dynamic_particles"),
                   ("kinematic_particles", "get_num_kinematic_particles"), ("iterations", "get_num_iterations"),
                   ("substeps", "get_num_substeps"), ("sim_time_ms", "get_simulation_time")):
@@ -567,6 +569,15 @@ def editor_cloth(comp) -> None:
     the flag (:83). Round 5: the flag alone left sim_time 0."""
     _call(comp, "set_update_cloth_in_editor", True)
     _call(comp, "set_component_tick_enabled", True)
+    # TickClothing steps the cloth only when the component was recently RENDERED or always ticks its pose; otherwise
+    # it teleports-and-resets every tick (SkeletalMeshComponentPhysics.cpp:3820-3845). The offscreen editor renders
+    # nothing, so a garment on OnlyTickPoseWhenRendered never simulates there (round 5: sim_time 0 with realtime on).
+    opt = getattr(getattr(unreal, "VisibilityBasedAnimTickOption", None), "ALWAYS_TICK_POSE_AND_REFRESH_BONES", None)
+    if opt is not None:
+        try:
+            comp.set_editor_property("visibility_based_anim_tick_option", opt)
+        except Exception:  # noqa: BLE001 - reported by solver_stats
+            pass
     _call(comp, "recreate_clothing_actors")
 
 
