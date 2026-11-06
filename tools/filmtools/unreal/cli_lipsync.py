@@ -516,8 +516,9 @@ def lines_from_voice(vocals: Path, plan: dict, out_dir: Path, mix: Path, fps: fl
     lines, issues, manifest = {}, [], {"source": "separated", "mix_sha256": sha256(Path(mix)), "model": model,
                                        "vocals_sha256": sha256(Path(vocals)), "lines_sha256": {}}
     windows = []
+    prev_end = 0.0  # s: a window never reaches back into the line before (r5: L4b's caught L4a's tail)
     for i, (k, c) in enumerate(order):
-        a = c["voice_frame"] - 0.6 * fps
+        a = max(c["voice_frame"] - 0.6 * fps, (prev_end + 0.05) * fps)
         b = order[i + 1][1]["voice_frame"] - 0.15 * fps if i + 1 < len(order) else (c.get("slot_end") or a) + 2 * fps
         i0, i1 = max(0, int(a / fps * env.rate)), min(len(vals), int(b / fps * env.rate))
         sp = LS.vad(list(vals[i0:i1]), env.rate, i0 / env.rate, on=on, off=off)
@@ -527,7 +528,8 @@ def lines_from_voice(vocals: Path, plan: dict, out_dir: Path, mix: Path, fps: fl
                            "fix": "the separation lost it, or the line is elsewhere: check the mix by ear"})
             continue
         t0, t1 = sp[0][0], sp[-1][1]
-        c0, c1 = max(0.0, t0 - pre_s), min(len(v) / sr, t1 + post_s)
+        prev_end = t1
+        c0, c1 = max(0.0, t0 - pre_s, windows[-1][1] if windows else 0.0), min(len(v) / sr, t1 + post_s)
         y = v[int(c0 * sr):int(c1 * sr)].astype(np.float32).copy()
         fade = int(0.01 * sr)
         y[:fade] *= np.linspace(0, 1, fade)

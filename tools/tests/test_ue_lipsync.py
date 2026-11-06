@@ -566,3 +566,20 @@ def test_line_wavs_cut_from_the_mixs_separated_voice(tmp_path):
     wrong = {"lines": {"L1": {**plan["lines"]["L1"], "who": "her"}}}  # the plan says her: the pitch says him
     _, issues, _ = CL.lines_from_voice(tmp_path / "vocals.wav", wrong, tmp_path / "sep2", mix, fps)
     assert [i["code"] for i in issues if i["severity"] == "fail"] == ["speaker"]
+
+
+def test_a_line_window_never_reaches_into_the_line_before(tmp_path):
+    """r5 on the real vocals: L4b's window (planned f1386 - 0.6 s) began inside L4a's tail (him to f1378)."""
+    from filmtools.unreal import cli_lipsync as CL
+    sr, fps = 48000, 24.0
+    him, her = _voice_at(sr, 1.15, 120, 1), _voice_at(sr, 1.6, 240, 2)
+    vocals = _place(sr, 62.0, [(1350.0 / fps, him), (1384.0 / fps, her)], noise=3e-4)
+    sf.write(tmp_path / "vocals.wav", vocals, sr, subtype="PCM_24")
+    mix = tmp_path / "mix.wav"
+    sf.write(mix, vocals, sr)
+    plan = {"lines": {"L4a": {"who": "him", "text": "What goes around…", "voice_frame": 1350, "slot_end": 1380},
+                      "L4b": {"who": "her", "text": "…comes around. That's karma.", "voice_frame": 1386,
+                              "slot_end": 1420}}}
+    lines, issues, _ = CL.lines_from_voice(tmp_path / "vocals.wav", plan, tmp_path / "sep", mix, fps)
+    assert not [i for i in issues if i["severity"] == "fail"], issues
+    assert abs(lines["L4b"]["voice_frame"] - 1384.0) < 1.5 and lines["L4b"]["f0_hz"] > 200
