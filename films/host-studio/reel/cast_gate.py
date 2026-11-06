@@ -36,9 +36,15 @@ HER_GARMENTS = ["Top", "Trousers", "Overshirt"]
 # her watch: dress_her seats it 3.6 cm above the wrist, so it is measured from hand_l (cast2 read a steady 13 cm
 # from lowerarm_twist_02_l, mid-forearm: riding the arm, the wrong reference), and must hold steady across the frames
 WATCH, WATCH_BONE, WATCH_MAX_CM, WATCH_SPREAD_CM = "HerWatch", "hand_l", 8.0, 1.5
+# round 4: the seat itself, after the scrub, at every sampled frame (dress_her's rule: 3.6 cm from hand_l; cast_op2-4
+# rendered a stale 8.2 that the old <= 8.0 cap would have waved through at 7.9)
+WATCH_CM, WATCH_TOL_CM = 3.6, 0.5
 JAW_ON_OFF = 3.0       # the jaw moves at least this many times more on a speaker's lines than between them
 PEN_MAX = 0.01         # at most 1% of a garment's pixels with skin through (qa.penetration's fraction)
 LIPS_RATIO = 2.0      # frames: mouth-box change on the lines over off them (preview 1, no lip-sync: 1.55; r1: 2.37)
+LIPS_EDGE = 3         # frames either side of a line that count as neither on nor silent (the mouth sets and closes)
+LIPS_MIN_PX = 8       # a mouth box under this many pixels tall is not read on the frames (S17's 28 mm two-shot at
+                      # 960x540: ~5 px, where one pixel of head motion moves the whole box); the engine's jaw decides
 
 
 def presenter_shots():
@@ -192,9 +198,72 @@ def summary(rep: dict) -> dict:
     s["b.garments_worst"] = sorted(pen, key=lambda x: -(x[3]["worst_fraction"] or 0))[:3]
     w = [(sid, f, fr["watch_cm"]) for sid, r in rep["shots"].items() for f, fr in r.items() if "watch_cm" in fr]
     cms = [cm for *_, cm in w]
-    s["b.watch"] = bool(cms) and max(cms) <= WATCH_MAX_CM and max(cms) - min(cms) <= WATCH_SPREAD_CM
+    s["b.watch"] = bool(cms) and all(abs(cm - WATCH_CM) <= WATCH_TOL_CM for cm in cms)
     s["b.watch_cm"] = [min(cms), max(cms)] if cms else None
+    s["b.watch_off"] = [[sid, f, cm] for sid, f, cm in w if abs(cm - WATCH_CM) > WATCH_TOL_CM]
     return s
+
+
+# ------------------------------------------------------------------------------------------------- lod0 (read-only)
+# build.py --lod0 pins the presenters to LOD 0 (LODSync forced_lod 0 drives the grooms; skeletal meshes
+# forced_lod_model 1). A blueprint re-instance leaves stale TRASH_* components on the actor, and a pin (or
+# drive_faces, or the dressing) that lands on those does nothing to what renders. The gate: no TRASH_ component on
+# either presenter at all, and every live LODSync and skeletal mesh pinned.
+LOD0_PROBE = """
+import unreal
+out = {}
+for a in unreal.get_editor_subsystem(unreal.EditorActorSubsystem).get_all_level_actors():
+    lab = a.get_actor_label()
+    if lab not in LABELS:
+        continue
+    r = out.setdefault(lab, {"class": a.get_class().get_name(), "components": []})
+    for c in a.get_components_by_class(unreal.ActorComponent):
+        n, k = c.get_name(), c.get_class().get_name()
+        row = {"name": n, "class": k, "trash": n.startswith("TRASH_")}
+        try:
+            if isinstance(c, unreal.SkeletalMeshComponent):
+                row["forced_lod_model"] = c.get_editor_property("forced_lod_model")
+            elif k == "LODSyncComponent":
+                row["forced_lod"] = c.get_editor_property("forced_lod")
+            elif isinstance(c, unreal.GroomComponent):
+                row["groom"] = True
+            else:
+                continue
+        except Exception as e:
+            row["error"] = str(e)[:120]
+        r["components"].append(row)
+result = out
+"""
+
+
+def lod0(out: str) -> dict:
+    from filmtools.unreal import client
+    r = client.exec_code(f"LABELS = {list(CAST.values())!r}\n" + LOD0_PROBE)
+    if not r.get("ok"):
+        raise SystemExit(r.get("stdout", "") + r.get("error", ""))
+    rep = lod0_judge(r["result"])
+    Path(out).write_text(json.dumps(rep, indent=1))
+    return {k: v for k, v in rep.items() if k != "actors"}
+
+
+def lod0_judge(actors: dict) -> dict:
+    bad = []
+    for lab in CAST.values():
+        a = actors.get(lab)
+        if not a:
+            bad.append(f"{lab}: not in the level")
+            continue
+        comps = a["components"]
+        bad += [f"{lab}: {c['name']} (stale TRASH_ {c['class']})" for c in comps if c["trash"]]
+        live = [c for c in comps if not c["trash"]]
+        syncs = [c for c in live if "forced_lod" in c]
+        if not syncs:
+            bad.append(f"{lab}: no live LODSync (the grooms are not pinned)")
+        bad += [f"{lab}: {c['name']} LODSync forced_lod {c['forced_lod']} (want 0)" for c in syncs if c["forced_lod"] != 0]
+        bad += [f"{lab}: {c['name']} forced_lod_model {c['forced_lod_model']} (want 1 = LOD 0)" for c in live
+                if "forced_lod_model" in c and c["forced_lod_model"] != 1]
+        bad += [f"{lab}: {c['name']} {c['error']}" for c in live if "error" in c]
+    return {"pass": not bad, "failed": bad, "actors": actors}
 
 
 # ------------------------------------------------------------------------------------------------- frames half
@@ -216,7 +285,21 @@ EYE_BONES = ["FACIAL_L_Eye", "FACIAL_R_Eye"]
 MOUTH_MARGIN = 0.5  # of the lips' extent, each side (the jaw drops ~that far on an open vowel)
 
 
+def speakers(shots: list | None = None) -> list:
+    """[(shot id, who)] for every presenter with a line in the shot (round 4: every spoken line, not only S13/S16's
+    leads): S13 him, S15 him + her, S16 her, S17 him + her."""
+    out = []
+    for s in presenter_shots():
+        if shots and s.id not in shots:
+            continue
+        for who in s.cast:
+            if any(a < s.end and b > s.start for _, a, b in windows(who)):
+                out.append((s.id, who))
+    return out
+
+
 def mouth(out: str, shots: list | None = None, step: int = 12) -> dict:
+    """mouth.json keyed "<shot>:<who>" (a bare "<shot>" is its first cast, round 3's form)."""
     from filmtools.unreal import client
 
     def ok(res):
@@ -225,9 +308,10 @@ def mouth(out: str, shots: list | None = None, step: int = 12) -> dict:
         return res.get("result")
 
     res = {}
-    for sid in shots or list(MOUTH):
+    for sid, who in speakers(shots):
+        key = f"{sid}:{who}"
         s = next(x for x in SHOTS if x.id == sid)
-        lab = CAST[s.cast[0]]
+        lab = CAST[who]
         us, vs, used, per = [], [], set(), {}
         for f in sorted(set(range(s.start + 2, s.end - 2, step)) | {s.end - 3}):
             ok(client.op("seq.scrub", path=SEQ, frame=f))
@@ -252,12 +336,12 @@ def mouth(out: str, shots: list | None = None, step: int = 12) -> dict:
             us += fu
             vs += fv
         if not us:
-            res[sid] = {"who": s.cast[0], "box": None, "why": "no lip or eye bone projected into the frame"}
+            res[key] = {"who": who, "box": None, "why": "no lip or eye bone projected into the frame"}
             continue
         w, h = max(us) - min(us), max(vs) - min(vs)
         mw, mh = max(0.01, w * MOUTH_MARGIN), max(0.01, h * MOUTH_MARGIN)
         box = [max(0.0, min(us) - mw), max(0.0, min(vs) - mh), min(1.0, max(us) + mw), min(1.0, max(vs) + mh)]
-        res[sid] = {"who": s.cast[0], "label": lab, "box": [round(x, 4) for x in box], "from": sorted(used),
+        res[key] = {"who": who, "label": lab, "box": [round(x, 4) for x in box], "from": sorted(used),
                     "per_frame": per}
     Path(out).parent.mkdir(parents=True, exist_ok=True)
     Path(out).write_text(json.dumps(res, indent=1))
@@ -279,14 +363,20 @@ def frames(root: str, eng: str | None, out: str, mouths: dict | None = None) -> 
                           np.float32)
 
     res = {"lips": {}, "hair": {}}
-    boxes = dict(MOUTH)
-    boxes.update({k: tuple(v["box"]) for k, v in (mouths or {}).items() if v.get("box")})
+    boxes = {} if mouths else dict(MOUTH)  # round 3's fixed boxes only when no projected box is given
+    for k, v in (mouths or {}).items():
+        if v.get("box"):
+            boxes[k] = tuple(v["box"])
     res["mouth_boxes"] = boxes
-    for sid, box in boxes.items():
+    first = next(iter(fr.values()), None)
+    W, H = Image.open(first).size if first else (0, 0)
+    for key, box in boxes.items():
+        sid, _, who = key.partition(":")
         s = next(x for x in SHOTS if x.id == sid)
-        who = s.cast[0]
-        on = {f for _, a, b in windows(who) for f in range(a, b)}
-        per = {int(k): v for k, v in ((mouths or {}).get(sid) or {}).get("per_frame", {}).items()}
+        who = who or s.cast[0]
+        mine = [(k, max(a, s.start + 1), min(b, s.end)) for k, a, b in windows(who) if a < s.end and b > s.start]
+        near = {f for _, a, b in windows(who) for f in range(a - LIPS_EDGE, b + LIPS_EDGE)}
+        per = {int(k): v for k, v in ((mouths or {}).get(key) or {}).get("per_frame", {}).items()}
 
         def box_at(f):  # the lips' own box at the nearest projected frame, a quarter wider each side: a box over
             if not per:  # the whole shot's extent takes in the head's moves (cast_op3: her S16 3.24 -> 1.48)
@@ -299,14 +389,27 @@ def frames(root: str, eng: str | None, out: str, mouths: dict | None = None) -> 
             if f in fr and f - 1 in fr:
                 bx = box_at(f)
                 d[f] = float(np.mean(np.abs(crop(f, bx, "L") - crop(f - 1, bx, "L"))))
-        a_on = [v for f, v in d.items() if f in on]
-        a_off = [v for f, v in d.items() if f not in on]
-        if a_on and a_off:
-            r = (sum(a_on) / len(a_on)) / max(1e-3, sum(a_off) / len(a_off))
-            res["lips"][sid] = {"who": who, "on": round(sum(a_on) / len(a_on), 3),
-                                "off": round(sum(a_off) / len(a_off), 3), "ratio": round(r, 2), "pass": r >= LIPS_RATIO}
-        else:
-            res["lips"][sid] = {"who": who, "pass": None, "why": "no speaking (or no silent) frames in this shot"}
+        # the speaker's silence in this shot: off every line of theirs, LIPS_EDGE frames clear (co-articulation)
+        off = [v for f, v in d.items() if f not in near]
+        mean = lambda xs: sum(xs) / len(xs)  # noqa: E731
+        px = round(min((box_at(f)[3] - box_at(f)[1]) * H for f in d), 1) if d else 0
+        lines = {}
+        for k, a, b in mine:
+            on = [d[f] for f in range(a, b) if f in d]
+            if not on or not off:
+                lines[k] = {"frames": [a, b], "pass": None, "why": "no frames on the line" if not on else
+                            "no silent frames of the speaker in this shot", "n_on": len(on), "n_off": len(off)}
+                continue
+            r = mean(on) / max(1e-3, mean(off))
+            lines[k] = {"frames": [a, b], "on": round(mean(on), 3), "off": round(mean(off), 3), "ratio": round(r, 2),
+                        "pass": r >= LIPS_RATIO if px >= LIPS_MIN_PX else None}
+            if px < LIPS_MIN_PX:
+                lines[k]["why"] = f"mouth box {px} px tall (< {LIPS_MIN_PX}): judged on the engine's jaw per line"
+        a_on = [v for f, v in d.items() if f in near]
+        r = mean(a_on) / max(1e-3, mean(off)) if a_on and off else None
+        res["lips"][key] = {"who": who, "shot": sid, "box_px_min": px, "ratio": round(r, 2) if r else None,
+                            "lines": lines, "pass": None if not lines else
+                            all(v["pass"] is not False for v in lines.values())}
     s16 = next(x for x in SHOTS if x.id == "S16")
 
     def chroma(c):
@@ -419,12 +522,23 @@ def lab(rgb):
     return np.stack([116 * f[..., 1] - 16, 500 * (f[..., 0] - f[..., 1]), 200 * (f[..., 1] - f[..., 2])], -1)
 
 
-def hue_of(im, box) -> dict | None:
+MASK_DIFF = 6.0  # with --mask: a pixel is hair when the hair-hidden still differs from it by more than this (0-255)
+
+
+def hue_of(im, box, mask=None) -> dict | None:
+    """Lab of the hair's pixels in box: dark ones (L* < HUE_L_MAX), and with `mask` (the same still with her hair
+    hidden) only the ones the hair changes. Without a mask a dark green background between thin tips (the pothos,
+    the overshirt in shadow) counts as green hair; with it only the strands do."""
     import numpy as np
     w, h = im.size
-    c = np.asarray(im.crop((round(box[0] * w), round(box[1] * h), round(box[2] * w), round(box[3] * h))), np.float32)
+    xy = (round(box[0] * w), round(box[1] * h), round(box[2] * w), round(box[3] * h))
+    c = np.asarray(im.crop(xy), np.float32)
     v = lab(c).reshape(-1, 3)
-    v = v[(v[:, 0] > 2.0) & (v[:, 0] < HUE_L_MAX)]
+    keep = (v[:, 0] > 2.0) & (v[:, 0] < HUE_L_MAX)
+    if mask is not None:
+        m = np.asarray(mask.crop(xy), np.float32)
+        keep &= (np.abs(c - m).mean(axis=2) > MASK_DIFF).reshape(-1)
+    v = v[keep]
     if len(v) < 30:
         return None
     a, b = float(np.median(v[:, 1])), float(np.median(v[:, 2]))
@@ -433,7 +547,7 @@ def hue_of(im, box) -> dict | None:
             "n": int(len(v))}
 
 
-def hue(paths: list, out: str, frames_: list | None = None, regions: dict | None = None) -> dict:
+def hue(paths: list, out: str, frames_: list | None = None, regions: dict | None = None, mask: str = "") -> dict:
     """Per image (frames of a shot, by master frame, or A/B stills): the hair regions' Lab, the ends against the
     crown, pass/fail, and one sheet of the regions at full size (only the sheet and the numbers leave the box)."""
     from PIL import Image, ImageDraw
@@ -452,9 +566,11 @@ def hue(paths: list, out: str, frames_: list | None = None, regions: dict | None
     o = Path(out)
     o.mkdir(parents=True, exist_ok=True)
     res, rows = {}, []
+    mk = Image.open(mask).convert("RGB") if mask else None
+    files = [(n, f) for n, f in files if not mask or Path(f).resolve() != Path(mask).resolve()]
     for name, f in files:
         im = Image.open(f).convert("RGB")
-        r = {k: hue_of(im, b) for k, b in regions.items()}
+        r = {k: hue_of(im, b, mk if mk and mk.size == im.size else None) for k, b in regions.items()}
         crown = r.get("crown")
         ends = {k: v for k, v in r.items() if k.startswith("ends") and v}
         r["pass"] = bool(crown and ends and crown["green_px"] <= HUE_GREEN_MAX and all(
@@ -478,9 +594,177 @@ def hue(paths: list, out: str, frames_: list | None = None, regions: dict | None
                 sheet.paste(c, (j * cw, i * ch))
         sheet.save(o / "hue_sheet.jpg", quality=90)
     rep = {"regions": regions, "L_max": HUE_L_MAX, "a_min": HUE_A_MIN, "C_over_crown": HUE_C_OVER,
-           "green_px_max": HUE_GREEN_MAX, "images": res}
+           "green_px_max": HUE_GREEN_MAX, "mask": mask or None, "images": res}
     (o / "hue.json").write_text(json.dumps(rep, indent=1))
     return res
+
+
+# ------------------------------------------------------------------------------------------------- sign (round 4)
+# The round-4 gate on a cast preview, numbers only: every item passes or the gate refuses, listing what failed with
+# its frames. The orchestrator's by-eye review runs alongside; both must pass before the presenter finals.
+SHOTS_13 = ["V01", "V02", "V03", "V04", "V05", "S11", "S12", "N01", "S13", "S15", "S16", "S17", "S18"]
+HUE_FRAMES = (1236, 1300)  # S16, where the screen-left ends read green (night1, cast_op3/4: green_px ~0.24)
+# agent-02's clipping metric on him: the share of a garment's pixels with skin through, per sampled frame. Set in
+# _clip() from agent-02's clean vs clip numbers (see CLIP_WHY).
+CLIP_MAX = 0.01
+CLIP_WHY = "qa.penetration's own pass line (PEN_MAX); pending agent-02's clean-vs-clip numbers"
+
+
+def _rows(x):
+    """A list of dict rows from a report: a list, or the first list-valued field of a dict."""
+    if isinstance(x, list):
+        return x
+    for k in ("beats", "rows", "items", "frames", "results"):
+        if isinstance(x.get(k), list):
+            return x[k]
+    return []
+
+
+def _lips(fr: dict, eng: dict | None) -> dict:
+    bad, per = [], {}
+    lines = {k: (who, v) for who, p in ((eng or {}).get("people") or {}).items()
+             for k, v in (p.get("lips") or {}).get("lines", {}).items()}
+    spoken = {k for k, *_ in LINES}
+    for key, r in (fr.get("lips") or {}).items():
+        for k, v in (r.get("lines") or {}).items():
+            spoken.discard(k)
+            if v.get("pass") is None:  # too small or no silence on the frames: the engine's jaw on that line
+                j = lines.get(k, (None, {}))[1]
+                ok_ = bool(j) and j.get("jaw_max", 0) >= 0.08 and j.get("activity", 0) > 0
+                per[f"{key} {k}"] = {"frames": v["frames"], "engine_jaw_max": j.get("jaw_max"), "pass": ok_,
+                                     "why": v.get("why")}
+            else:
+                per[f"{key} {k}"] = {"frames": v["frames"], "ratio": v["ratio"], "pass": v["pass"]}
+            if not per[f"{key} {k}"]["pass"]:
+                bad.append(f"{key} {k} f{v['frames'][0]}-{v['frames'][1]}: " + (
+                    f"frames ratio {v['ratio']} < {LIPS_RATIO}" if v.get("pass") is False else
+                    f"engine jaw_max {per[f'{key} {k}'].get('engine_jaw_max')} ({v.get('why')})"))
+    bad += [f"{k}: no mouth box measured it" for k in sorted(spoken)]
+    for who, p in ((eng or {}).get("people") or {}).items():
+        lp = p.get("lips") or {}
+        if not lp.get("pass"):
+            bad.append(f"engine {who}: jaw on/off lines {lp.get('ratio')} (>= {JAW_ON_OFF}), silent {lp.get('silent_lines')}")
+    return {"pass": not bad, "failed": bad, "lines": per}
+
+
+def _watch(eng: dict | None) -> dict:
+    if not eng:
+        return {"pass": False, "failed": ["no engine report"]}
+    w = [(sid, f, fr["watch_cm"]) for sid, r in eng["shots"].items() for f, fr in r.items() if "watch_cm" in fr]
+    bad = [f"{sid} f{f}: {cm} cm" for sid, f, cm in w if abs(cm - WATCH_CM) > WATCH_TOL_CM]
+    return {"pass": bool(w) and not bad, "failed": bad or ([] if w else ["no watch reading"]), "target_cm": WATCH_CM,
+            "tol_cm": WATCH_TOL_CM, "range_cm": [min(c for *_, c in w), max(c for *_, c in w)] if w else None}
+
+
+def _hue(h: dict | None, fr: dict | None) -> dict:
+    imgs = (h or {}).get("images") or {}
+    if not imgs and fr:  # the frames report's own S16 hue (every 8th frame)
+        imgs = {f"f{k}": v for k, v in (((fr.get("hair") or {}).get("S16_hue") or {}).get("frames") or {}).items()}
+    want = [f"f{f}" for f in HUE_FRAMES]
+    bad = [f"{n}: not measured" for n in want if n not in imgs]
+    for n, r in imgs.items():
+        for k, v in r.items():
+            if k == "pass" or not v:
+                continue
+            why = []
+            if v["green_px"] > HUE_GREEN_MAX:
+                why.append(f"green_px {v['green_px']}")
+            if k.startswith("ends") and v["a"] < HUE_A_MIN:
+                why.append(f"a* {v['a']}")
+            if why:
+                bad.append(f"{n} {k}: " + ", ".join(why))
+    return {"pass": not bad, "failed": bad, "green_px_max": HUE_GREEN_MAX,
+            "worst": max(((n, k, v["green_px"]) for n, r in imgs.items() for k, v in r.items()
+                          if k != "pass" and v), key=lambda x: x[2], default=None)}
+
+
+def _turns(t) -> dict:
+    if t is None:
+        return {"pass": False, "failed": ["no head-turn table (agent-01)"]}
+    rows = _rows(t)
+    bad = []
+    for r in rows:
+        ok_ = r.get("ok", r.get("pass"))
+        if not ok_:
+            fr_ = r.get("frames") or [r.get("f0"), r.get("f1")]
+            bad.append(f"{r.get('shot')} {r.get('who')} f{fr_[0]}-{fr_[-1]} -> {r.get('target', '?')}: "
+                       + ", ".join(f"{k} {r[k]}" for k in ("yaw", "measured", "want", "sign", "why") if k in r))
+    return {"pass": bool(rows) and not bad, "failed": bad or ([] if rows else ["the table has no beats"]),
+            "beats": len(rows)}
+
+
+def _clip(c, eng: dict | None) -> dict:
+    rows = _rows(c) if c is not None else []
+    bad, src = [], "agent-02" if rows else "engine qa.penetration (him only: her necklines read as false positives)"
+    if rows:
+        for r in rows:
+            v = next((r[k] for k in ("fraction", "worst_fraction", "skin_fraction", "value") if k in r), None)
+            if v is None or v > CLIP_MAX:
+                bad.append(f"{r.get('shot')} f{r.get('frame')} {r.get('garment', '')}: {v}")
+    elif eng:
+        for sid, r in eng["shots"].items():
+            for f, fr_ in r.items():
+                v = fr_.get("him")
+                if isinstance(v, dict) and (v.get("worst_fraction") or 0) > CLIP_MAX:
+                    bad.append(f"{sid} f{f} him: {v['worst_fraction']}")
+    else:
+        bad.append("no clipping numbers")
+    return {"pass": not bad, "failed": bad, "threshold": CLIP_MAX, "why": CLIP_WHY, "source": src}
+
+
+def _cams(txt: str | None, framing: str | None) -> dict:
+    bad = []
+    if txt is None:
+        bad.append("no probe_cam --check output")
+    else:
+        st = {}
+        for line in txt.splitlines():
+            w = line.split(None, 1)
+            if len(w) == 2 and w[0] in SHOTS_13:
+                st[w[0]] = w[1].strip()
+        bad += [f"{sid}: {st.get(sid, 'not probed')}" for sid in SHOTS_13 if not st.get(sid, "").startswith("OK")]
+    if framing is None:
+        bad.append("no framing.py output")
+    else:
+        bad += [ln.strip() for ln in framing.splitlines() if ln.startswith("PROBLEM")]
+    ok_n = len(SHOTS_13) - len([b for b in bad if b.split(":")[0] in SHOTS_13])
+    return {"pass": not bad, "failed": bad, "cameras_ok": f"{ok_n}/{len(SHOTS_13)}" if txt is not None else None}
+
+
+def sign(a) -> dict:
+    rd = lambda p: json.loads(Path(p).read_text()) if p else None  # noqa: E731
+    tx = lambda p: Path(p).read_text() if p else None  # noqa: E731
+    eng, fr = rd(a.engine), rd(a.frames)
+    items = {
+        "a.lips": _lips(fr or {}, eng) if fr else {"pass": False, "failed": ["no frames report"]},
+        "b.watch": _watch(eng),
+        "c.hair_hue": _hue(rd(a.hue), fr),
+        "d.head_turns": _turns(rd(a.turns)),
+        "e.clipping": _clip(rd(a.clip), eng),
+        "f.cameras_framing": _cams(tx(a.cams), tx(a.framing)),
+        "g.lod0_live": (lambda r: {"pass": r["pass"], "failed": r["failed"]})(
+            rd(a.lod0) if a.lod0 else {"pass": False, "failed": ["no lod0 probe"]}),
+    }
+    waived = dict(w.split("=", 1) for w in a.waive)
+    for k, why in waived.items():
+        if k in items and not items[k]["pass"]:
+            items[k]["waived"] = why
+    blocking = [k for k, v in items.items() if not v["pass"] and "waived" not in v]
+    rep = {"preview": a.name, "verdict": "SIGN" if not blocking else "REFUSE", "blocking": blocking, "items": items}
+    Path(a.out).parent.mkdir(parents=True, exist_ok=True)
+    Path(a.out).write_text(json.dumps(rep, indent=1, default=str))
+    return rep
+
+
+def sign_text(rep: dict) -> str:
+    out = [f"agent-09 gate, {rep['preview']}: {rep['verdict']}"]
+    for k, v in rep["items"].items():
+        st = "PASS" if v["pass"] else ("WAIVED: " + v["waived"] if "waived" in v else "FAIL")
+        out.append(f"  {k}: {st}" + (f" ({v['cameras_ok']})" if v.get("cameras_ok") else ""))
+        out += [f"    - {b}" for b in v.get("failed", [])[:12]]
+        if len(v.get("failed", [])) > 12:
+            out.append(f"    ... {len(v['failed']) - 12} more in the json")
+    return "\n".join(out)
 
 
 def main() -> None:
@@ -504,12 +788,34 @@ def main() -> None:
     u.add_argument("paths", nargs="+", help="frame dirs (with --frames) or stills")
     u.add_argument("--out", required=True)
     u.add_argument("--frames", default="", help="master frames, e.g. 1236,1300")
+    u.add_argument("--mask", default="", help="the same still with her hair hidden: only the pixels the hair "
+                   "changes are measured (hair_teal_ab.py's hair_hidden.png)")
     u.add_argument("--region", action="append", default=[],
                    help="name=x0,y0,x1,y1 (fractions; crown and ends_* names), replaces the default regions")
+    g = sub.add_parser("sign", help="round 4: every item -> SIGN or REFUSE, with the failing frames")
+    g.add_argument("--name", default="cast_op5")
+    g.add_argument("--engine", default="", help="engine --out (with the post-scrub watch)")
+    g.add_argument("--frames", default="", help="frames --mouth's cast_gate_frames.json")
+    g.add_argument("--hue", default="", help=f"hue --frames {','.join(map(str, HUE_FRAMES))}'s hue.json")
+    g.add_argument("--turns", default="", help="agent-01's head-turn direction table (json)")
+    g.add_argument("--clip", default="", help="agent-02's clipping metric (json); else the engine's qa.penetration")
+    g.add_argument("--cams", default="", help="probe_cam.py <13 shots> --check's output (text)")
+    g.add_argument("--framing", default="", help="framing.py's output (text)")
+    g.add_argument("--lod0", default="", help="cast_gate.py lod0's json")
+    g.add_argument("--waive", action="append", default=[], help="item=reason, only on the orchestrator's word")
+    g.add_argument("--out", required=True)
+    o = sub.add_parser("lod0", help="read-only: no TRASH_ on the presenters, every live LODSync/mesh pinned")
+    o.add_argument("--out", required=True)
     a = ap.parse_args()
-    if a.cmd == "hue":
+    if a.cmd == "sign":
+        rep = sign(a)
+        print(sign_text(rep))
+        sys.exit(0 if rep["verdict"] == "SIGN" else 1)
+    if a.cmd == "lod0":
+        r = lod0(a.out)
+    elif a.cmd == "hue":
         reg = {k: tuple(float(x) for x in v.split(",")) for k, v in (s.split("=", 1) for s in a.region)} or None
-        r = hue(a.paths, a.out, [int(x) for x in a.frames.split(",")] if a.frames else None, reg)
+        r = hue(a.paths, a.out, [int(x) for x in a.frames.split(",")] if a.frames else None, reg, a.mask)
     elif a.cmd == "mouth":
         r = mouth(a.out, a.shots.split(",") if a.shots else None)
     elif a.cmd == "frames":
