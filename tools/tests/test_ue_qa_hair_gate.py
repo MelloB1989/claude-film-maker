@@ -278,7 +278,8 @@ def test_guard_must_fail_its_own_failure():
                       "garment.collar_roll": {"must_fail": [40, "Fit5"]}}}
     res = gate.lines_fail(spec=spec)
     assert res["garment.collar_gap_cm"] is True and res["garment.collar_roll"] is True
-    assert gate.lines_fail()["garment.collar_gap_cm"] is None  # not measured yet: open, not a pass
+    assert gate.lines_fail()["garment.collar_gap_cm"] is True  # Fit5 measured: 2.447 cm fails 0.8
+    assert gate.lines_fail()["garment.hem_flare_ratio"] is None  # Fit5 read a pass: open, not proven
     bad = gate.lines_fail(spec={"items": {"garment.collar_gap_cm": {"must_fail": [0.5, "a fit that floats"]}}})
     assert bad["garment.collar_gap_cm"] is False  # a line Fit5 would pass: the gate's own test fails
 
