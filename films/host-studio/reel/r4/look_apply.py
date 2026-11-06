@@ -81,7 +81,7 @@ def main() -> None:
     if a.skip_build:
         print(json.dumps(rep, indent=1))
         return
-    steps = ([("mh.rig", {"character": CHAR})] if body or a.rerig else []) + [
+    steps = ([("mh.rig", {"character": CHAR, **({"force": True} if a.rerig and not body else {})})] if body or a.rerig else []) + [
         ("mh.textures", {"character": CHAR}), ("mh.build", {"character": CHAR, "name": "Host_Op", "force": True})]
     for step, args in steps:
         t0 = time.time()
