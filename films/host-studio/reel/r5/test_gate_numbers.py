@@ -117,3 +117,16 @@ def test_settle_flags_a_start_pop(tmp_path):
     r = GN.settle(str(tmp_path), str(tmp_path / "spec.json"), "S15")
     assert r["pass"] is False and r["ratio"] > 1.8
     assert GN.settle(str(tmp_path), str(tmp_path / "spec.json"), "S16")["error"]
+
+
+def test_hair_pop_only_ignores_the_night_matte(tmp_path):
+    """Round 5b: film-qa hair on the night finals read cut_reach 156.5 % (the matte took her dark clothing) without
+    flagging saturation; with --qa-pop only its cut_pop_ratio is taken and the editor's reach stands."""
+    (tmp_path / "c.json").write_text(json.dumps({"pass": True}))
+    (tmp_path / "rd.json").write_text(json.dumps({"gate": {"hair.cut_reach_pct": 156.5, "hair.pop_reach_pct": 0.0,
+                                                           "hair.cut_pop_ratio": 1.372}}))
+    (tmp_path / "ed.json").write_text(json.dumps({"gate": {"hair.cut_reach_pct": 2.0, "hair.pop_reach_pct": 8.9}}))
+    g = GN.hair(str(tmp_path / "c.json"), str(GN.REEL / "r3" / "30-final.yaml"), [str(tmp_path / "ed.json")],
+                [str(tmp_path / "rd.json")])
+    assert g["hair.cut_reach_pct"]["value"] == 2.0 and g["hair.pop_reach_pct"] == 8.9
+    assert g["hair.cut_pop_ratio"]["value"] == 1.372
