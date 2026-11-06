@@ -87,6 +87,12 @@ peak <= -1 dBTP; every caption line within 2 frames of its first VO word (cues.j
 - 09:1x GATE SIGNED on cast_op5 = patch3 (gate_signed.json on the box): b c d f g PASS; a WAIVED (S13 L1, by eye); e
   WAIVED on the orchestrator's eye (no balloon, no hole): residue neck_px 1-3 single px S15 f1082-1128, tee silhouette
   +2.1..+2.2% S15 f1150-1198 (agent-02's tee_silhouette.py agrees, worst +2.23%). Presenter finals released.
+- 09:3x FINALS QA final_d (patch3): PASS. 1584 frames, 13 shots complete, 9 render reports ok, 1920x1080, no black/
+  white/unreadable, no luma jump (S15's old pops gone); hair at 1080p green_px 0.000 (f1236/f1300).
+- 09:4x CUTS QA /srv/ue/reel/r4/final: PASS. 65 s: h264, clean h264, ProRes 4444, 1560 fr, 65.0 s, -14.0 LUFS / -1.7
+  dBTP; 45 s: 1080 fr, 45.0 s, -14.1 LUFS / -1.7 dBTP; captions 6/6 lines 0 frames off in both, no filled frames.
+  Caveat: cues.json is round 3's known-good copy with ESTIMATED word times (vo.py cues), so the sync check proves the
+  captions follow the cues through the EDLs, not that they meet the spoken words to the frame: an ear check remains.
 - neck patch (agent-02 neck_px, before4 -> after, worst px per shot): S13 169 -> 172, S15 709 -> 649, S17 91 -> 93,
   S18 39 -> 34: NOT fixed; the gate refuses e until 0.
 
