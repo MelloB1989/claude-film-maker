@@ -20,6 +20,10 @@ vars:
   final: final_c   # the folder under ${out}: a fresh one per take (--set final=final_d), since overwrite never converges
   aa: none
   spatial: 4
+  # shot: one MRQ job per camera cut. S17 + S18 MUST be one job (round 5): S18 is S17's end held, and a new job
+  # restarts the hair simulation, a visible step at f1440 (round 4's "her hair becomes short at 01:00"):
+  #   --set batch=S17S18 --set 'shots=["Reel_S17","Reel_S18"]' --set chunking=none
+  chunking: shot
 ---
 kind: render
 version: 1
@@ -29,7 +33,7 @@ level: "${level}"
 out_dir: "${out}/${final}"
 preset: final
 shots: ${shots}
-chunking: shot
+chunking: ${chunking}
 preroll: cut
 aa_method: "${aa}"
 spatial: ${spatial}
