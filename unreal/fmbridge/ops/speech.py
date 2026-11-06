@@ -29,8 +29,38 @@ class SolveFailed(Exception):
     """The audio solver did not produce an animation (the reason in the message)."""
 
 
+# MetaHuman Performance (UE 5.6+) audio options by their Python names (Epic's audio-driven animation docs; the plugin
+# is not in the engine source, so each is set only if the asset has it, and what was missing is reported):
+#   audio_driven_animation_output_controls  FULL_FACE | MOUTH_ONLY  ("Process Mask": mouth-only when perfkit owns the
+#                                            eyes, brows and blinks)
+#   head_movement_mode                       the solver's head motion; DISABLED when perfkit/the body owns the head
+#   downmix_channels, audio_channel_index    a stereo file: mix down, or which channel
+MASKS = {"full": "FULL_FACE", "mouth": "MOUTH_ONLY"}
+
+
+def _set_enum(obj, prop: str, member: str) -> str | None:
+    """Set an enum property by member name, the enum class taken from the property's current value (the plugin's enum
+    names are not guessed). Returns the value set, or None when the object has no such property/member."""
+    try:
+        cur = obj.get_editor_property(prop)
+    except Exception:
+        return None
+    val = getattr(type(cur), member, None)
+    if val is None:
+        return None
+    obj.set_editor_property(prop, val)
+    return member
+
+
+def _enum_members(obj, prop: str) -> list:
+    try:
+        return [m for m in dir(type(obj.get_editor_property(prop))) if m.isupper()]
+    except Exception:
+        return []
+
+
 def _solve(wav: str, name: str, face_mesh: str, mood: str, intensity: float, head: bool, blinks: bool,
-           folder: str, timeout_s: float):
+           folder: str, timeout_s: float, process_mask: str = "full"):
     """One audio solve, multi-tick: import `wav`, run the performance's pipeline (non-blocking), export
     {folder}/Anim/AS_{name}. Raises SolveFailed with the reason; returns the result dict."""
     wave = import_files([wav], f"{folder}/Audio")[0].split(".")[0]
@@ -46,7 +76,23 @@ def _solve(wav: str, name: str, face_mesh: str, mood: str, intensity: float, hea
     so.set_editor_property("mood", getattr(unreal.AudioDrivenAnimationMood, mood))
     so.set_editor_property("mood_intensity", float(intensity))
     perf.set_editor_property("audio_driven_animation_solve_overrides", so)
-    perf.set_editor_property("generate_blinks", bool(blinks))  # bGenerateBlinks; head motion is an export setting
+    perf.set_editor_property("generate_blinks", bool(blinks))  # bGenerateBlinks
+    options, missing = {"generate_blinks": bool(blinks)}, []
+    got = _set_enum(perf, "audio_driven_animation_output_controls", MASKS[process_mask])
+    if got:
+        options["process_mask"] = got
+    elif process_mask != "full":
+        have = _enum_members(perf, "audio_driven_animation_output_controls")
+        raise OpError("this MetaHuman plugin has no Process Mask (audio_driven_animation_output_controls: "
+                      f"{have or 'no such property'}): a mouth-only solve needs UE 5.6+", code="unsupported",
+                      hint="solve the full face (process_mask=full) and let lipsync.compose keep only the mouth")
+    else:
+        missing.append("audio_driven_animation_output_controls")
+    if not head:
+        got = _set_enum(perf, "head_movement_mode", "DISABLED")
+        options["head_movement_mode"] = got or "export only"
+        if not got:
+            missing.append("head_movement_mode")
     perf.set_blocking_processing(False)  # across editor ticks: a blocking solve holds the game thread for minutes
     err = perf.start_pipeline(True)  # EStartPipelineErrorType: NONE, NO_FRAMES, DISABLED (MetaHumanPerformance.h:65)
     started = err == getattr(unreal.StartPipelineErrorType, "NONE", None) or str(err).upper().rstrip(">: 0").endswith("NONE")
@@ -82,8 +128,24 @@ def _solve(wav: str, name: str, face_mesh: str, mood: str, intensity: float, hea
     if anim is None:
         raise SolveFailed("the export produced no animation")
     EAL.save_asset(perf_path)
+    seconds = float(unreal.AnimationLibrary.get_sequence_length(anim))
     return {"sound": wave, "performance": perf_path, "anim": anim.get_path_name().split(".")[0], "pipeline": str(err),
-            "frames": frames, "seconds": float(unreal.AnimationLibrary.get_sequence_length(anim))}
+            "frames": frames, "seconds": seconds, "options": options, "missing_options": missing,
+            "timing": timing(AU.Envelope.from_wav(wav).duration_s, seconds, frames)}
+
+
+def timing(wav_s: float, anim_s: float, frames: int) -> dict:
+    """The solve's timebase against its WAV: the animation must be as long as the audio (its t=0 is the WAV's first
+    sample), at a whole frame rate. A different length means a trimmed/padded wave or a rate mismatch: every lip-sync
+    placed from it would be off. {"wav_s", "anim_s", "fps", "ok", "why"?}"""
+    fps = round(frames / anim_s, 3) if anim_s > 0 and frames else None
+    out = {"wav_s": round(wav_s, 3), "anim_s": round(anim_s, 3), "fps": fps,
+           "ok": abs(anim_s - wav_s) <= max(0.1, 2.0 / (fps or 30.0))}
+    if not out["ok"]:
+        out["why"] = (f"the animation is {anim_s:.2f} s for a {wav_s:.2f} s WAV: its t=0 may not be the WAV's first "
+                      "sample (a processing range, a trimmed wave or a frame-rate mismatch); lipsync.check anim=... "
+                      "wav=... measures the lag")
+    return out
 
 
 def _stitch(out: str, face_mesh: str, length_s: float, parts: list) -> None:
@@ -114,7 +176,7 @@ def _flap(env, length_s: float) -> dict:
 @op("speech.to_face", mutates=True, idempotent=True, tags=["slow"])
 def to_face(wav: str, name: str, face_mesh: str, mood: str = "CONFIDENCE", intensity: float = 1.0,
             head: bool = True, blinks: bool = True, folder: str = "/Game/Speech", max_chunk_s: float = 40.0,
-            fallback: bool = True, timeout_s: float = 0.0):
+            fallback: bool = True, timeout_s: float = 0.0, process_mask: str = "full"):
     """Import `wav` (a path on the workstation), solve it with MetaHuman Animator's audio solver in `mood` at
     `intensity`, and export an animation on `face_mesh`'s skeleton at {folder}/Anim/AS_{name}. A multi-tick job.
     Then make it alive with perf.face (head, eyes, blinks, brows over the lip-sync).
@@ -124,13 +186,20 @@ def to_face(wav: str, name: str, face_mesh: str, mood: str = "CONFIDENCE", inten
     raises an OpError (code engine/timeout, with the reason) unless `fallback`: then that part becomes a lip flap
     driven by the voice's loudness and the result says {"fallback": true, "errors": [...]}: re-solve when the solver
     works.
-    Returns: {"sound", "performance", "anim", "pipeline", "frames", "seconds", "chunks", "fallback", "errors"}.
+    For a line whose face perfkit makes (head, eyes, blinks, brows): process_mask="mouth" head=false blinks=false,
+    one solve per line WAV, then lipsync.compose places each at its cue and lipsync.check proves the timing.
+    `timing` in the result: the animation's length against the WAV's (t=0 is the WAV's first sample; a mismatch is
+    flagged). `options`: what was set on the performance; `missing_options`: what this plugin version lacks.
+    Returns: {"sound", "performance", "anim", "pipeline", "frames", "seconds", "chunks", "fallback", "errors",
+    "options", "timing"}.
     Example: film-ue op speech.to_face wav=/home/ue/Audio/line1.wav name=line1 face_mesh=/Game/MetaHumans/Ada/Face/Ada_FaceMesh mood=CONFIDENCE
     """
     if not os.path.exists(wav):
         raise not_found("WAV file", wav, hint="push it to the box first (client.push); the path is on the box")
     if not EAL.does_asset_exist(face_mesh.split(".")[0]):
         raise not_found("face mesh", face_mesh, hint="the MetaHuman's face SkeletalMesh (mh.components or assets.list)")
+    if process_mask not in MASKS:
+        raise OpError(f"process_mask {process_mask!r}", code="bad_args", hint="full or mouth")
     if MOODS and mood not in MOODS:
         raise OpError(f"unknown mood {mood!r}", code="bad_args", candidates=closest(mood, MOODS),
                       hint="speech.moods lists them")
@@ -144,7 +213,7 @@ def to_face(wav: str, name: str, face_mesh: str, mood: str = "CONFIDENCE", inten
     errors = []
     if not cuts:
         try:
-            r = yield from _solve(wav, name, face_mesh, mood, intensity, head, blinks, folder, budget)
+            r = yield from _solve(wav, name, face_mesh, mood, intensity, head, blinks, folder, budget, process_mask)
             return {**r, "chunks": 1, "fallback": False, "errors": [], "changed": True}
         except SolveFailed as e:
             if not fallback:
@@ -165,7 +234,7 @@ def to_face(wav: str, name: str, face_mesh: str, mood: str = "CONFIDENCE", inten
         cw = AU.write_chunk(wav, os.path.join(saved, f"c{k:02d}.wav"), a, b)
         try:
             r = yield from _solve(cw, f"{name}_c{k:02d}", face_mesh, mood, intensity, head, blinks,
-                                  f"{folder}/Chunks", budget)
+                                  f"{folder}/Chunks", budget, process_mask)
             parts.append((a, read_all(load(r["anim"]))))
             frames += r["frames"]
         except SolveFailed as e:

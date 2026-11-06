@@ -8567,6 +8567,281 @@
    ]
   },
   {
+   "name": "lipsync.check",
+   "area": "lipsync",
+   "verb": "check",
+   "module": "fmbridge.ops.lipsync",
+   "file": "unreal/fmbridge/ops/lipsync.py",
+   "line": 107,
+   "summary": "Lip-sync of one face against its voice: per line the lag between the voice's syllable rhythm and the mouth's",
+   "doc": "Lip-sync of one face against its voice: per line the lag between the voice's syllable rhythm and the mouth's\nopening (frames; < 0 = the mouth is EARLY), their correlation, how early the mouth starts, and the mouth in the\nsilences. FAILS on |lag| > 1 frame, r < 0.35, an opening more than 0.25 s ahead of the first sound, or talking\nin a silence (open > 0.10 or busier than 25% of the lines). Each issue says what to do; `diagnosis` says whether\nit is one offset (misplaced section/audio), a drift (a frame-rate mismatch) or per line.\n\nWhat it reads (one of):\n  sequence + label: what the sequence PLAYS on label.component (every skeletal animation section, with its start,\n    offset and play rate): the placed face, as the render will show it. Also lists the sequence's audio sections.\n  anim: an animation alone, its t=0 on master frame `anim_frame` (a solve right after speech.to_face: anim_frame =\n    wav_frame, so the solver's own lag is measured; pass it as expected_lag_s to later checks).\nwav: the voice on the box, its first sample on master frame `wav_frame` (a 65 s stem from frame 0: 0; a line's WAV:\n  its cue's file_frame). lines: [{\"id\", \"f0\", \"f1\"}] speech onset/offset frames, or cues=<cues.json on the box>\n  who=<who> (it must be a measured one: film-ue lipsync cues). fps: default the sequence's, else 24.\n\nReturns {\"pass\", \"lines\": {id: {lag_frames, corr, onset_lead_s, ...}}, \"silences\", \"issues\", \"diagnosis\",\n\"sections\"?, \"audio\"?}.\nExample: film-ue op lipsync.check sequence=/Game/Reel/SEQ_Reel label=Host wav=/srv/ue/vo/vo_him.wav cues=/srv/ue/vo/cues.json who=him",
+   "params": [
+    {
+     "name": "wav",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "lines",
+     "kind": "keyword",
+     "type": "list | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "cues",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "who",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "anim",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "sequence",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "label",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "component",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "Face"
+    },
+    {
+     "name": "wav_frame",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 0.0
+    },
+    {
+     "name": "anim_frame",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 0.0
+    },
+    {
+     "name": "fps",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 0.0
+    },
+    {
+     "name": "expected_lag_s",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 0.0
+    },
+    {
+     "name": "limits",
+     "kind": "keyword",
+     "type": "dict | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "span_frames",
+     "kind": "keyword",
+     "type": "list | None",
+     "required": false,
+     "default": null
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "qa"
+   ]
+  },
+  {
+   "name": "lipsync.compose",
+   "area": "lipsync",
+   "verb": "compose",
+   "module": "fmbridge.ops.lipsync",
+   "file": "unreal/fmbridge/ops/lipsync.py",
+   "line": 169,
+   "summary": "A performance's mouth from per-line solves, each at its cue: one timebase, no talking in the silences.",
+   "doc": "A performance's mouth from per-line solves, each at its cue: one timebase, no talking in the silences.\n\nparts: [{\"anim\": a line's speech.to_face result, \"frame\": the master frame its WAV starts on (cues' file_frame)}].\nThe animation `out` runs from master frame `start_frame` for `length_frames`: a copy of `base` (the performance\nthe head/eyes/blinks are layered on: perf.face runs after this) with its speech curves (jaw, lips, tongue; not\nthe smile layer) replaced, or a new animation on `skeleton`. Between lines the mouth rests (keep_base > 0 keeps\nthat share of base's own mouth there, for breaths); each line fades in/out over `fade_frames` at its WAV's ends\n(a line WAV starts ~50 ms before its first sound, vo.py). Run lipsync.check on the result before layering.\n\nReturns {\"out\", \"curves\", \"parts\": [[anim, frame, seconds]], \"changed\"}.\nExample: film-ue op lipsync.compose out=/Game/Reel/Perf/AS_reel_him_mouth base=/Game/Speech/Anim/AS_reel_him start_frame=960 length_frames=624 'parts=[{\"anim\":\"/Game/Speech/Anim/AS_reel_L1\",\"frame\":1018.8}]'",
+   "params": [
+    {
+     "name": "parts",
+     "kind": "keyword",
+     "type": "list",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "out",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "length_frames",
+     "kind": "keyword",
+     "type": "float",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "start_frame",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 0.0
+    },
+    {
+     "name": "fps",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 24.0
+    },
+    {
+     "name": "base",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "keep_base",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 0.0
+    },
+    {
+     "name": "fade_frames",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 3.0
+    },
+    {
+     "name": "skeleton",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "slow"
+   ]
+  },
+  {
+   "name": "lipsync.mouth_boxes",
+   "area": "lipsync",
+   "verb": "mouth_boxes",
+   "module": "fmbridge.ops.lipsync",
+   "file": "unreal/fmbridge/ops/lipsync.py",
+   "line": 217,
+   "summary": "Where `label`'s mouth is in the picture, per frame: through `camera` or (default) the camera the edit shows on",
+   "doc": "Where `label`'s mouth is in the picture, per frame: through `camera` or (default) the camera the edit shows on\nthat frame, the mouth's corner/lip/jaw bones projected (cam.project's lens model) to a square box (0..1 from the\ntop left) padded by `pad` x its size, for the video check's crop (film-ue lipsync render --boxes). A multi-tick\njob. Bones default to the MetaHuman face's FACIAL_C_Jaw, FACIAL_L/R_LipCorner, FACIAL_C_LipUpper/LipLower.\n\nReturns {\"frames\": {frame: {\"camera\", \"box\": [x0, y0, x1, y1], \"visible\"}}}.\nExample: film-ue op lipsync.mouth_boxes sequence=/Game/Reel/SEQ_Reel label=Host 'frames=[1000,1001]'",
+   "params": [
+    {
+     "name": "sequence",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "label",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "frames",
+     "kind": "keyword",
+     "type": "list",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "component",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "Face"
+    },
+    {
+     "name": "camera",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "bones",
+     "kind": "keyword",
+     "type": "list | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "pad",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 0.6
+    },
+    {
+     "name": "ticks",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 2
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "qa",
+    "slow"
+   ]
+  },
+  {
    "name": "list",
    "area": "",
    "verb": "list",
@@ -17138,9 +17413,9 @@
    "verb": "to_face",
    "module": "fmbridge.ops.speech",
    "file": "unreal/fmbridge/ops/speech.py",
-   "line": 114,
+   "line": 176,
    "summary": "Import `wav` (a path on the workstation), solve it with MetaHuman Animator's audio solver in `mood` at",
-   "doc": "Import `wav` (a path on the workstation), solve it with MetaHuman Animator's audio solver in `mood` at\n`intensity`, and export an animation on `face_mesh`'s skeleton at {folder}/Anim/AS_{name}. A multi-tick job.\nThen make it alive with perf.face (head, eyes, blinks, brows over the lip-sync).\n\nLonger than `max_chunk_s` seconds: cut in pauses into chunks, each solved on its own (under {folder}/Chunks), and\nstitched into the one animation. `timeout_s` per solve (0 = 60 s + 20 x the audio's length). A solve that fails\nraises an OpError (code engine/timeout, with the reason) unless `fallback`: then that part becomes a lip flap\ndriven by the voice's loudness and the result says {\"fallback\": true, \"errors\": [...]}: re-solve when the solver\nworks.\nReturns: {\"sound\", \"performance\", \"anim\", \"pipeline\", \"frames\", \"seconds\", \"chunks\", \"fallback\", \"errors\"}.\nExample: film-ue op speech.to_face wav=/home/ue/Audio/line1.wav name=line1 face_mesh=/Game/MetaHumans/Ada/Face/Ada_FaceMesh mood=CONFIDENCE",
+   "doc": "Import `wav` (a path on the workstation), solve it with MetaHuman Animator's audio solver in `mood` at\n`intensity`, and export an animation on `face_mesh`'s skeleton at {folder}/Anim/AS_{name}. A multi-tick job.\nThen make it alive with perf.face (head, eyes, blinks, brows over the lip-sync).\n\nLonger than `max_chunk_s` seconds: cut in pauses into chunks, each solved on its own (under {folder}/Chunks), and\nstitched into the one animation. `timeout_s` per solve (0 = 60 s + 20 x the audio's length). A solve that fails\nraises an OpError (code engine/timeout, with the reason) unless `fallback`: then that part becomes a lip flap\ndriven by the voice's loudness and the result says {\"fallback\": true, \"errors\": [...]}: re-solve when the solver\nworks.\nFor a line whose face perfkit makes (head, eyes, blinks, brows): process_mask=\"mouth\" head=false blinks=false,\none solve per line WAV, then lipsync.compose places each at its cue and lipsync.check proves the timing.\n`timing` in the result: the animation's length against the WAV's (t=0 is the WAV's first sample; a mismatch is\nflagged). `options`: what was set on the performance; `missing_options`: what this plugin version lacks.\nReturns: {\"sound\", \"performance\", \"anim\", \"pipeline\", \"frames\", \"seconds\", \"chunks\", \"fallback\", \"errors\",\n\"options\", \"timing\"}.\nExample: film-ue op speech.to_face wav=/home/ue/Audio/line1.wav name=line1 face_mesh=/Game/MetaHumans/Ada/Face/Ada_FaceMesh mood=CONFIDENCE",
    "params": [
     {
      "name": "wav",
@@ -17218,6 +17493,13 @@
      "type": "float",
      "required": false,
      "default": 0.0
+    },
+    {
+     "name": "process_mask",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": "full"
     }
    ],
    "returns": null,
@@ -18003,6 +18285,7 @@
   "layout": "Layout and set dressing: rest things on what is under them, place one actor relative to another, lay out rows, grids, circles and seeded scatters of an asset, align and distribute.",
   "level": "Levels and actors: new/open/save, find and describe, spawn (shapes, assets, classes), move, aim, set, delete.",
   "light": "Lights by spec: one light that converges (light.add), rigs relative to a subject and camera with intensities from target lux and ratios (light.rig), practical fixtures by type (light.practical), the lights' state as numbers (light.describe)",
+  "lipsync": "Lip-sync in the editor: measure WHEN a face's mouth moves against its voice (perfkit.lipsync), on an animation or on what a sequence actually plays; build a performance's mouth from per-line solves placed at their cues; and project a speake",
   "look": "The look: materials (surface, emissive, glass), lights (rect, spot, point), atmosphere (volumetric fog), post-process and cine cameras, plus quick stills through a camera for checking a frame without a render.",
   "mat": "Materials (WP2): a library of master materials built by code, instances converged from a dict of parameters, PBR materials from a texture set, presets (glass, chrome, emissive in nits...), any material from a node-graph spec, and numbers to",
   "mh": "An assembled MetaHuman in a level (the Blueprint mh.build made, placed as an actor): its components, the face driven by Sequencer, garments of your own on its body (skeletal FBX garments on the MetaHuman skeleton, posed by the body through ",
