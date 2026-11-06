@@ -80,6 +80,10 @@
   "lips.measured_against": {
    "value": 0,
    "where": "round 4 gate: frames + voice"
+  },
+  "lips.render_lag_frames": {
+   "value": 28.83,
+   "where": "her L3b, round 4's 65 s cut"
   }
  }
 }

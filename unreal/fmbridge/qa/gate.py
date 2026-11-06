@@ -95,12 +95,16 @@ ITEMS: dict = {
     "lips.render_lag_frames": {
         "area": "lips", "track": "T1", "op": "<=", "line": 1, "unit": "frames",
         "what": "lag of the RENDERED mouth crop vs the voice", "where": "every spoken line",
-        "how": "film-ue lips gate --render (T1)", "r4": [None, "T1's probe on round 4's finals"],
+        "how": "film-ue lips gate --render (T1)",
+        "r4": [28.83, "round 4's 65 s cut vs the v2 solves (probe 1.7, agent-01 c9f8f9bd): every line fails; him L1 "
+                      "6.64, L2 16.77, L4a -14.32; her L3a -7.03, L3b 28.83, L4b -26.75 frames"],
         "why": "the curves can be right and the render still wrong"},
     "lips.render_conclusive": {
         "area": "lips", "track": "T1", "op": "==", "line": 1, "unit": "bool",
         "what": "the render lag beats a 6-frame shifted-audio control", "where": "every spoken line",
-        "how": "film-ue lips gate --render (T1)", "r4": [None, "T1's probe"],
+        "how": "film-ue lips gate --render (T1)",
+        "r4": [None, "a property of the measure, not of the sync: on round 4 it was sensitive on 5 of 6 lines "
+                     "(not L4b)"],
         "why": "an inconclusive measure cannot sign"},
     "lips.cues_fresh": {
         "area": "lips", "track": "T1", "op": "==", "line": 1, "unit": "bool",

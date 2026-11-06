@@ -90,7 +90,7 @@ def test_round4_numbers_refuse_and_name_each_blocker():
     assert r["verdict"] == "REFUSE"
     failed = {row["id"] for row in r["rows"] if row["state"] == "FAIL"}
     # every operator blocker of round 4 that has a round-4 number fails on it
-    for k in ("lips.lead_in_cm", "lips.onset_lead_ms", "lips.lag_frames", "lips.cues_fresh", "garment.neck_px",
+    for k in ("lips.lead_in_cm", "lips.onset_lead_ms", "lips.lag_frames", "lips.render_lag_frames", "lips.cues_fresh", "garment.neck_px",
               "garment.wpo_cm", "garment.pair_fraction", "garment.cloth_alive", "garment.cloth_sound",
               "garment.cloth_detail_ratio", "hair.cut_pop_ratio", "garment.armor_index",  # a guard: still blocks
               "garment.silhouette_pct", "hair.lock", "hair.render_cvars"):
