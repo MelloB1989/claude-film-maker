@@ -254,3 +254,20 @@ def test_scope_by_cast():
     kept, dropped = scope.split({1100: 0.2, 1300: 2.89, 1400: 0.3}, him)
     assert set(kept) == {1100, 1400} and set(dropped) == {1300}
     assert scope.narrow(him, [1100, 1101, 1102, 1300, 1400]) == [[1100, 1103], [1400, 1401]]
+
+
+def test_not_attempted_is_scoped():
+    na = {"garment.cloth_alive": {"reason": "closed-shell tee; proxy sim is round 6", "by": "cc-64d05f6e"},
+          "garment.wpo_cm": {"reason": "skip", "by": "cc-64d05f6e"}}
+    spec = {"complaints": ["garment"], "not_attempted": na}
+    r = gate.judge({"garment.wpo_cm": 2.66}, spec=spec, only=["garment.cloth_alive", "garment.wpo_cm"])
+    rows = {x["id"]: x for x in r["rows"]}
+    assert rows["garment.cloth_alive"]["state"] == "NOT_ATTEMPTED"
+    assert rows["garment.wpo_cm"]["state"] == "FAIL"           # a hard line cannot be deferred
+    assert r["refused_waivers"][0]["id"] == "garment.wpo_cm" and r["verdict"] == "REFUSE"
+    ok = gate.judge({}, spec={"not_attempted": {"garment.cloth_alive": na["garment.cloth_alive"]}},
+                    only=["garment.cloth_alive"])
+    assert ok["verdict"] == "SIGN" and "NOT ATTEMPTED" in ok["summary"] and ok["not_attempted"][0]["by"]
+    bad = gate.judge({}, spec={"not_attempted": {"garment.cloth_alive": {"reason": "", "by": "x"}}},
+                     only=["garment.cloth_alive"])
+    assert bad["verdict"] == "REFUSE"
