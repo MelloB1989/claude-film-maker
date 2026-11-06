@@ -48,3 +48,26 @@ def test_dispatch_refuses_without_export(tmp_path, monkeypatch):
     with pytest.raises(SystemExit) as e:
         cli.main()
     assert e.value.code == 2
+
+
+def test_gate_numbers_contract(tmp_path, monkeypatch):
+    clip = {"metrics": {"worst": {"neck_px": {"px": 3, "at_opening": 2, "at": "Reel_S15@1082"},
+                                  "silhouette": {"pct": -2.23, "at": "Reel_S15@1150"},
+                                  "Body>tee": {"fraction": 0.0, "px": 0, "at": "Reel_S13@960"},
+                                  "Trousers>tee": {"fraction": 0.0067, "px": 30, "at": "Reel_S18@1500"},
+                                  "Face>tee": {"fraction": 0.0071, "px": 31, "at": "Reel_S15@1082"}}}}
+    look = {"index": 0.71, "missing": ["motion"], "terms": {"wpo": {"value": 2.66}, "silhouette": {"value": 1.08}},
+            "metrics": {"frames": {"1082": {}}}}
+    g = G.gate_numbers(clip, look)["gate"]
+    assert g["garment.neck_px"] == {"value": 3, "where": "S15 f1082"}
+    assert g["garment.silhouette_pct"]["value"] == 2.23
+    assert g["garment.pair_fraction"] == {"value": 0.0067, "where": "S18 f1500 Trousers>tee"}
+    assert g["garment.wpo_cm"]["value"] == 2.66 and g["garment.armor_index"]["value"] == 0.71
+    g2 = G.gate_numbers(None, None)["gate"]
+    assert all(v["value"] is None and v["error"] for v in g2.values()) and len(g2) == 6
+    from filmtools.unreal import cli
+    (tmp_path / "c.json").write_text(json.dumps(clip))
+    out = tmp_path / "g.json"
+    monkeypatch.setattr(sys, "argv", ["film-ue", "garment-gate", "--clip", str(tmp_path / "c.json"), "--out", str(out)])
+    cli.main()
+    assert json.loads(out.read_text())["gate"]["garment.armor_index"]["error"]

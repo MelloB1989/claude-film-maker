@@ -19,7 +19,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-NAMES = ("garment-fit",)
+NAMES = ("garment-fit", "garment-gate")
 ROOT = Path(__file__).resolve().parents[3]
 SCRIPT = ROOT / "blender" / "garment_fit.py"
 PASS_THROUGH = ("garment", "out", "ease", "min_ease", "slack", "pull", "smooth_iters", "passes", "drape_frames",
@@ -27,6 +27,10 @@ PASS_THROUGH = ("garment", "out", "ease", "min_ease", "slack", "pull", "smooth_i
 
 
 def register(sub) -> None:
+    q = sub.add_parser("garment-gate", help="gate v2's garment numbers (one JSON) from qa.clip / qa.garment_look results")
+    q.add_argument("--clip", default="", help="qa.clip's clip.json (out_dir/clip.json)")
+    q.add_argument("--look", default="", help="qa.garment_look's result saved as JSON")
+    q.add_argument("--out", required=True)
     p = sub.add_parser("garment-fit", help="refit a garment to the body with real ease (headless Blender, on the box)")
     p.add_argument("--src", help="garment.export's out_dir (body/face/ref_body/garment_*.fbx, manifest.json)")
     p.add_argument("--garment", default="tee")
@@ -46,6 +50,71 @@ def register(sub) -> None:
     p.add_argument("--blender", default="", help="the Blender binary (default $BLENDER, /srv/ue/tools/blender-*)")
     p.add_argument("--report", default="", help="only judge this fit_report.json")
     p.add_argument("--json", action="store_true")
+
+
+def _where(at: str) -> str:
+    """'Reel_S15@1082' -> 'S15 f1082'."""
+    if not at or "@" not in at:
+        return at or ""
+    shot, f = at.split("@", 1)
+    return f"{shot.replace('Reel_', '')} f{f}"
+
+
+def gate_numbers(clip: dict | None, look: dict | None) -> dict:
+    """Gate v2's numbers (agent-09's contract: {"gate": {id: {"value", "where"} or {"error"}}}) from a qa.clip result
+    (clip.json) and a qa.garment_look result: garment.neck_px (worst px), garment.silhouette_pct (worst |%| vs the
+    ref_dir), garment.pair_fraction (worst non-face pair), garment.wpo_cm (the inflate params' push),
+    garment.armor_index, garment.silhouette_ratio (garment U body over the uncut body)."""
+    g = {}
+
+    def miss(k, why):
+        g[k] = {"value": None, "error": why}
+
+    if clip:
+        w = (clip.get("metrics") or clip).get("worst") or {}
+        n = w.get("neck_px")
+        g["garment.neck_px"] = {"value": n["px"], "where": _where(n["at"])} if n else None
+        if g["garment.neck_px"] is None:
+            miss("garment.neck_px", "no neck_px in the qa.clip run (Face and the tee both captured?)")
+        sil = w.get("silhouette")
+        if sil:
+            g["garment.silhouette_pct"] = {"value": abs(sil["pct"]), "where": _where(sil["at"])}
+        else:
+            miss("garment.silhouette_pct", "qa.clip ran without ref_dir (or no frame matched it)")
+        pairs = [(v["fraction"], k, v["at"]) for k, v in w.items() if isinstance(v, dict) and "fraction" in v
+                 and not k.startswith("Face>")]
+        if pairs:
+            f, k, at = max(pairs)
+            g["garment.pair_fraction"] = {"value": f, "where": f"{_where(at)} {k}"}
+        else:
+            miss("garment.pair_fraction", "no (under, over) pair judged")
+    else:
+        for k in ("garment.neck_px", "garment.silhouette_pct", "garment.pair_fraction"):
+            miss(k, "no qa.clip result given (--clip)")
+    if look:
+        t = look.get("terms") or {}
+        m = (look.get("metrics") or {}).get("measured") or {}
+        if "wpo" in t:
+            g["garment.wpo_cm"] = {"value": t["wpo"]["value"], "where": "materials"}
+        elif "wpo" in m:
+            g["garment.wpo_cm"] = {"value": m["wpo"] if isinstance(m["wpo"], (int, float)) else 0.0, "where": "materials"}
+        else:
+            miss("garment.wpo_cm", "qa.garment_look did not read the materials")
+        if look.get("index") is not None:
+            g["garment.armor_index"] = {"value": look["index"], "where": "frames " + ",".join(
+                str(f) for f in ((look.get("metrics") or {}).get("frames") or {}))}
+            if look.get("missing"):
+                g["garment.armor_index"]["note"] = "terms not measured: " + ", ".join(look["missing"])
+        else:
+            miss("garment.armor_index", "qa.garment_look measured nothing")
+        if "silhouette" in t:
+            g["garment.silhouette_ratio"] = {"value": t["silhouette"]["value"], "where": "worst frame"}
+        else:
+            miss("garment.silhouette_ratio", "qa.garment_look without ref_body/sequence")
+    else:
+        for k in ("garment.wpo_cm", "garment.armor_index", "garment.silhouette_ratio"):
+            miss(k, "no qa.garment_look result given (--look)")
+    return {"gate": g}
 
 
 def blender_bin(given: str = "") -> str:
@@ -97,6 +166,18 @@ def judge(rep: dict) -> dict:
 
 
 def dispatch(a) -> bool:
+    if a.cmd == "garment-gate":
+        rd = (lambda p: json.loads(Path(p).read_text()) if p else None)
+        look = rd(a.look)
+        if isinstance(look, dict) and "result" in look and "index" not in look:  # film-ue op --json wraps it
+            look = look["result"]
+        clip = rd(a.clip)
+        if isinstance(clip, dict) and "result" in clip and "metrics" not in clip:
+            clip = clip["result"]
+        g = gate_numbers(clip, look)
+        Path(a.out).write_text(json.dumps(g, indent=1))
+        print(json.dumps(g, indent=1))
+        return True
     if a.cmd != "garment-fit":
         return False
     if a.report:

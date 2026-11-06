@@ -656,3 +656,47 @@ def hide_under(*, label: str, garment: str, body: str = "Body", reach_cm: float 
     out["leader"] = call("mh.leader", label=label, body=body)["ok"] if body == "Body" else None
     out["mesh"] = dest
     return out
+
+
+# --- MetaHuman's own hiding: the wardrobe item's hidden face maps -------------------------------------------------
+
+def _hfm(pipe, which: str) -> dict:
+    """One FHiddenFaceMapTexture (texture + settings) of an item's editor pipeline, as plain values."""
+    try:
+        h = pipe.get_editor_property(f"{which}_hidden_face_map_texture")
+    except Exception as e:  # noqa: BLE001
+        return {"error": f"{type(pipe).__name__} has no {which}_hidden_face_map_texture ({e})"}
+    tex = h.get_editor_property("texture")
+    s = h.get_editor_property("settings")
+    return {"texture": tex.get_path_name() if tex else None,
+            "max_cull_value": float(s.get_editor_property("max_cull_value")),
+            "min_keep_value": float(s.get_editor_property("min_keep_value")),
+            "max_shrink_distance": float(s.get_editor_property("max_shrink_distance"))}
+
+
+@op("garment.hidden_face_maps", mutates=False, idempotent=True, tags=["metahuman"])
+def hidden_face_maps(*, item: str) -> dict:
+    """A MetaHuman wardrobe item's hidden face maps: what MetaHuman itself removes or SHRINKS of the head and body
+    under this garment at assembly (5.7+: UMetaHumanOutfitEditorPipeline and UMetaHumanSkeletalMeshEditorPipeline
+    both carry HeadHiddenFaceMapTexture and BodyHiddenFaceMapTexture; settings MaxCullValue 0.1, MinKeepValue 0.9,
+    MaxShrinkDistance 0 by default, i.e. shrink OFF). Pixels <= max_cull are removed, between the two the skin is
+    moved in along -normal by up to max_shrink_distance (cm), >= min_keep untouched; the head map is sampled in the
+    head's UV space (the highest of R, G, B).
+
+    Args: item: the wardrobe item's asset path (mh.palette lists a character's; a WI_ asset).
+    Returns: {"item", "pipeline", "editor_pipeline", "head": {texture, max_cull_value, min_keep_value,
+    max_shrink_distance}, "body": {...}}.
+    Example: film-ue op garment.hidden_face_maps item=/MetaHumanCharacter/Optional/Clothing/DefaultGarment/WI_DefaultGarment
+    """
+    wi = unreal.EditorAssetLibrary.load_asset(item)
+    if wi is None:
+        raise OpError(f"no asset {item}", code="not_found", hint="mh.palette / mh.wardrobe kind=Clothing list items")
+    pipe = wi.get_editor_property("pipeline")
+    if pipe is None:
+        raise OpError(f"{item} has no pipeline", code="not_found", hint="is it a MetaHuman wardrobe item (WI_)?")
+    ed = pipe.get_editor_property("editor_pipeline")
+    if ed is None:
+        raise OpError(f"{item}'s pipeline has no editor pipeline", code="not_found",
+                      hint="open the item once in the editor (SetDefaultEditorPipeline runs then)")
+    return {"item": item, "pipeline": type(pipe).__name__, "editor_pipeline": type(ed).__name__,
+            "head": _hfm(ed, "head"), "body": _hfm(ed, "body")}

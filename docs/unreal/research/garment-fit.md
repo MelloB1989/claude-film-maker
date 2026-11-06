@@ -96,8 +96,13 @@ In order of preference [7, 8, 10, 22]:
    pose, the collar band skinned from the body (8 influences, the full skeleton). No WPO.
 2. Head Hidden Face Map shrink (route B, 5.7+): a grey band under the collar on the head UV map moves those vertices
    inward by up to `max_shrink_distance` (`HiddenFaceMapSettings`: `max_cull_value`, `min_keep_value`,
-   `max_shrink_distance`) [7]. Only through the Wardrobe Item / Outfit Pipeline. Defaults unpublished (read
-   `MetaHumanGeometryRemovalTypes.h` on the box). Known 5.8 bug: an all-black body map is ignored after assembly
+   `max_shrink_distance`) [7]. Read on the 5.8.4 source (the MetaHuman plugin is in the tree): defaults
+   **MaxCullValue 0.1, MinKeepValue 0.9, MaxShrinkDistance 0.0 (shrink OFF unless set)**
+   (`MetaHumanGeometryRemovalTypes.h:26,33,50`), and BOTH `UMetaHumanOutfitEditorPipeline` and
+   `UMetaHumanSkeletalMeshEditorPipeline` carry `HeadHiddenFaceMapTexture` / `BodyHiddenFaceMapTexture`
+   (`MetaHumanSkeletalMeshEditorPipeline.h:41-48`): a plain skeletal-mesh wardrobe item (the default garment's kind)
+   can shrink the head's neck too. All three channels are sampled, the highest wins. Applied at assembly (a
+   MetaHuman rebuild). `garment.hidden_face_maps item=<WI_>` reads an item's maps. Known 5.8 bug: an all-black body map is ignored after assembly
    (leave a white speck) [10b, T4].
 3. Cloth sim: Max Distance 0 on a 2-4 cm collar band and the shoulder seam (kinematic: then the collar is a fit
    problem, not a sim problem) [10, 37] (T3b).
@@ -150,7 +155,8 @@ In order of preference [7, 8, 10, 22]:
   source: `GeometryScript_MeshEdits`, `GeometryScript_Normals`, `GeometryScript_AssetUtils`).
 - G2 the fitted tee imports with its vertex colours linear (R = ease/5) and 8 influences.
 - G3/G4 calibrate qa.garment_look's detail/motion on her fitted top (cloth) and the round-4 tee (armor).
-- G5 does the Host's default garment wardrobe item expose `HeadHiddenFaceMapTexture` (5.7+ API) on this build?
+- G5 `garment.hidden_face_maps` on the Host's default-garment wardrobe item: which head/body maps it carries, and
+  its shrink distance (0 = the neck is never shrunk under the collar: route B would set it).
 - G6 `body.hide_under apply=false` on her Top: the covered count is sane (her body is MetaHuman-cut under the
   default garment only).
 

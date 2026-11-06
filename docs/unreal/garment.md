@@ -38,6 +38,7 @@ A garment of your own that MetaHuman did not cut the body for: `film-ue op body.
 | `body.hide_under` | body triangles a garment covers (ray out along the skin normal hits it within reach_cm), shrunk by `rings`; `apply` writes a body copy | yes |
 | `qa.clip` | per shot/frame depth layers from the shot camera; per (under, over) pair clip px at intersection edges; `neck_px` under the collar band; silhouette vs `ref_dir`; gate | yes |
 | `qa.garment_look` | the armor index: ease spread/median vs the uncut body, wall thickness, WPO params, silhouette ratio, normal detail, motion | yes |
+| `garment.hidden_face_maps` | a MetaHuman wardrobe item's head/body hidden face maps and settings (cull / shrink) | no |
 | `film-ue garment-fit` | CLI: runs `blender/garment_fit.py` on the box, judges `fit_report.json` | (Blender) |
 
 Pure parts, tested without an engine: `unreal/fmbridge/qa/clip.py`, `unreal/fmbridge/qa/garment_look.py`,
@@ -92,4 +93,6 @@ Python names are the snake_case of the reflected names. ✓ = read in the header
 | `set_leader_pose_component` | USkinnedMeshComponent::SetLeaderPoseComponent | Engine/Source/Runtime/Engine/Classes/Components/SkinnedMeshComponent.h:1884 | ✓ |
 | `set_skeletal_mesh_asset` | USkeletalMeshComponent::SetSkeletalMeshAsset | Engine/Source/Runtime/Engine/Classes/Components/SkeletalMeshComponent.h:369 | ✓ |
 | capture source `normal` | ESceneCaptureSource SCS_Normal ("Deferred Renderer only") | Engine/Source/Runtime/Engine/Classes/Engine/EngineTypes.h:542 | ✓ |
-| MetaHuman `HeadHiddenFaceMapTexture` / `HiddenFaceMapSettings` | the MetaHuman plugin (not in the source tree) | Epic API docs 5.7 (research [7], [8]): GPU probe G5 | – |
+| wardrobe item `pipeline` -> `editor_pipeline` | UMetaHumanWardrobeItem::Pipeline (EditAnywhere, Instanced); UMetaHumanSkeletalMeshPipeline / UMetaHumanOutfitPipeline::EditorPipeline | Engine/Plugins/MetaHuman/MetaHumanCharacter/Source/MetaHumanCharacterPalette/Public/MetaHumanWardrobeItem.h:67; MetaHumanDefaultPipeline/Public/Item/MetaHumanSkeletalMeshPipeline.h:97, MetaHumanOutfitPipeline.h:133 | ✓ |
+| `head_hidden_face_map_texture`, `body_hidden_face_map_texture` (texture, settings) | UMetaHumanSkeletalMeshEditorPipeline / UMetaHumanOutfitEditorPipeline (EditAnywhere) | MetaHumanDefaultEditorPipeline/Public/Item/MetaHumanSkeletalMeshEditorPipeline.h:41-48, MetaHumanOutfitEditorPipeline.h:83-90 | ✓ |
+| settings `max_cull_value` 0.1, `min_keep_value` 0.9, `max_shrink_distance` 0.0 | FHiddenFaceMapSettings (EditAnywhere) | MetaHumanCharacter/Public/MetaHumanGeometryRemovalTypes.h:26, :33, :50 | ✓ |
