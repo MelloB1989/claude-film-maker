@@ -720,3 +720,26 @@ def test_turn_bones_about_the_true_vertical_keeps_the_head_level():
     assert max(abs(elevation(q) - e0) for q in old) > 1.0  # the local-axis turn pitches the head
     assert max(abs(elevation(q) - e0) for q in new) < 1e-6  # about the vertical: level
     assert abs(heading(new[3]) - heading(new[0]) - 90.0) < 1e-6  # the full turn, the calibrated way
+
+
+def test_a_forward_leaning_neck_still_turns_about_the_vertical_and_says_so():
+    """r5 box: his neck_01's calibrated turn axis runs along a neck leaning ~30 deg, past the old 25 deg guard, so it
+    kept the local turn on every key and pitched the head 4.7 deg. Within 60 deg the vertical is used, and the stats
+    say which branch each bone took."""
+    from perfkit.bodylife import qmul
+    lean = H.axis_angle([0.0, 1.0, 0.0], 35.0)
+    q_local = [0.0, 0.0, 0.0, 1.0]
+    up = H.up_in_parent(q_local, qmul(lean, q_local))
+    st = {}
+    new = H.turn_bones({"neck_01": [q_local] * 3}, [0.0, 45.0, 90.0], {"neck_01": ["z", 1]},
+                       shares={"neck_01": 1.0}, up_parent={"neck_01": [up] * 3}, stats=st)["neck_01"]
+
+    def elevation(q_loc):
+        v = H.qrot(qmul(lean, q_loc), [1.0, 0.0, 0.0])
+        return math.degrees(math.asin(max(-1.0, min(1.0, v[2]))))
+    assert max(abs(elevation(q) - elevation(q_local)) for q in new) < 1e-6
+    assert st["neck_01"]["vertical"] == 1.0 and 34.0 < st["neck_01"]["off_deg"] < 36.0
+    st2 = {}  # a rig whose component is not Z-up (the vertical 90 deg off the axis): the local turn, and it says so
+    H.turn_bones({"neck_01": [q_local]}, [30.0], {"neck_01": ["x", 1]}, shares={"neck_01": 1.0},
+                 up_parent={"neck_01": [[0.0, 0.0, 1.0]]}, stats=st2)
+    assert st2["neck_01"]["vertical"] == 0.0
