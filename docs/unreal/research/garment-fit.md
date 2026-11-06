@@ -47,9 +47,13 @@ the throat), through Material Attributes (round 4's ClothOp4, `films/host-studio
   Body Parts); Num Resizing Interpolation Points 1500 (1000-2500) [3]; RBF warp from the source body to the target.
 - Wardrobe Item (`WI_`, Principal Asset = the OA_, Pipeline = MetaHuman Outfit Pipeline), worn in MetaHuman Creator;
   the outfit pipeline carries the **Body Hidden Face Map** (5.6+) and **Head Hidden Face Map** (5.7+) [6, 8].
-- Limits: resizing is editor-only [27, T2]; **MetaHuman Creator's assembly strips the sim mesh** (Epic staff, 5.8):
-  to keep a simulated outfit, make a second outfit from the "Resizing Graph" template (Target Body = the character,
-  Strip Sim Mesh = false) and put it on a Chaos Cloth Component [9, T2]. Morph targets on clothing asserted in 5.7.0
+- Limits: resizing is editor-only [27, T2]. An Epic staff answer (5.8) says MetaHuman Creator's assembly strips the
+  outfit's sim mesh and suggests a second outfit from the "Resizing Graph" template (Strip Sim Mesh = false) on a
+  Chaos Cloth Component [9, T2]. **The 5.8.4 source says otherwise for a rigged build** (agent-08, T3b):
+  `MetaHumanDefaultEditorPipelineBase.cpp` strips only on the PREVIEW path (`bStripSimMesh = !Character->HasFaceDNA()`,
+  :455); the full BUILD sets `bStripSimMesh = false` (:499); MetaHumanCrowd always strips
+  (`MetaHumanCrowdOutfitEditorPipeline.cpp:417`). So our built MetaHuman keeps an outfit's sim mesh: the tee's
+  rigidity is not explained by stripping (the default garment may simply have no simulation: T3b's GPU probe). Morph targets on clothing asserted in 5.7.0
   [27].
 - Epic's garments: a thickened render mesh driven by an optional single-sided sim mesh [2]; Marvelous Designer export
   "Thick", unified UVs, 2048 maps, Normal Map on, collar in "Trim_Fusible_Rigid" [21].
