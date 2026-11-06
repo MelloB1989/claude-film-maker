@@ -57,6 +57,17 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "FMCloth")
 	static TArray<float> GetWeightMap(UClothingAssetBase* Cloth, int32 ClothLod, const FString& Target);
 
+	/** Set a cloth config property ON THE ASSET by its C++ name, on whichever of the clothing asset's config objects
+	 *  has it: a weighted value (FChaosClothWeightedValue: Low and High), or a float/double/int/bool (Low). Python
+	 *  cannot build the weighted struct in 5.8, and runtime interactor values do not reach an MRQ render's world.
+	 *  Returns "" or what went wrong. */
+	UFUNCTION(BlueprintCallable, Category = "FMCloth")
+	static FString SetConfigValue(UClothingAssetBase* Cloth, const FString& PropertyName, float Low, float High);
+
+	/** A config property's value(s) as text ("Low,High" for a weighted value), "" when absent. */
+	UFUNCTION(BlueprintCallable, Category = "FMCloth")
+	static FString GetConfigValue(UClothingAssetBase* Cloth, const FString& PropertyName);
+
 	/** The component's simulated cloth particles this frame, world space (cm), every clothing asset in turn; [] when
 	 *  nothing simulates. Set bWaitForParallelClothTask on the component for this frame's values. */
 	UFUNCTION(BlueprintCallable, Category = "FMCloth")

@@ -16,6 +16,8 @@
 #include "SkeletalMeshClothingSystemUtilities.h"  // AssignClothingToSection (SkeletalMeshEditor)
 #include "SkeletalMeshTypes.h"                     // FScopedSkeletalMeshPostEditChange
 #include "UObject/Package.h"                       // GetTransientPackage (NoPCHs: nothing comes in implicitly)
+#include "UObject/UnrealType.h"                    // FProperty, FStructProperty, FNumericProperty, FBoolProperty
+#include "ClothConfigBase.h"                       // UClothConfigBase (ClothingAssetCommon::ClothConfigs values)
 
 namespace FMClothPrivate
 {
@@ -217,5 +219,104 @@ TArray<FVector> UFMCloth::SimulatedPositions(USkeletalMeshComponent* Component)
 			Out.Add(ToWorld.TransformPosition(FVector(P)));
 		}
 	}
+	return Out;
+}
+
+namespace FMClothPrivate
+{
+	// The config object and property for a C++ property name, searched over the clothing asset's configs.
+	bool FindConfigProperty(UClothingAssetBase* Cloth, const FString& PropertyName, UObject*& OutConfig, FProperty*& OutProp)
+	{
+		UClothingAssetCommon* Common = Cast<UClothingAssetCommon>(Cloth);
+		if (!Common)
+		{
+			return false;
+		}
+		for (const TPair<FName, TObjectPtr<UClothConfigBase>>& Pair : Common->ClothConfigs)
+		{
+			UObject* Config = Pair.Value.Get();
+			if (!Config)
+			{
+				continue;
+			}
+			if (FProperty* Prop = Config->GetClass()->FindPropertyByName(FName(*PropertyName)))
+			{
+				OutConfig = Config;
+				OutProp = Prop;
+				return true;
+			}
+		}
+		return false;
+	}
+
+	bool SetNumber(FProperty* Prop, void* ValuePtr, double Value)
+	{
+		if (FNumericProperty* Num = CastField<FNumericProperty>(Prop))
+		{
+			if (Num->IsFloatingPoint())
+			{
+				Num->SetFloatingPointPropertyValue(ValuePtr, Value);
+			}
+			else
+			{
+				Num->SetIntPropertyValue(ValuePtr, (int64)FMath::RoundToDouble(Value));
+			}
+			return true;
+		}
+		if (FBoolProperty* Bool = CastField<FBoolProperty>(Prop))
+		{
+			Bool->SetPropertyValue(ValuePtr, Value != 0.0);
+			return true;
+		}
+		return false;
+	}
+}
+
+FString UFMCloth::SetConfigValue(UClothingAssetBase* Cloth, const FString& PropertyName, float Low, float High)
+{
+	UObject* Config = nullptr;
+	FProperty* Prop = nullptr;
+	if (!FMClothPrivate::FindConfigProperty(Cloth, PropertyName, Config, Prop))
+	{
+		return FString::Printf(TEXT("no config property %s on the clothing asset's configs"), *PropertyName);
+	}
+	Config->Modify();
+	void* ValuePtr = Prop->ContainerPtrToValuePtr<void>(Config);
+	if (FStructProperty* StructProp = CastField<FStructProperty>(Prop))
+	{
+		FProperty* LowProp = StructProp->Struct->FindPropertyByName(TEXT("Low"));
+		FProperty* HighProp = StructProp->Struct->FindPropertyByName(TEXT("High"));
+		if (!LowProp || !HighProp)
+		{
+			return FString::Printf(TEXT("%s is a %s, not a weighted value (Low/High)"), *PropertyName, *StructProp->Struct->GetName());
+		}
+		if (!FMClothPrivate::SetNumber(LowProp, LowProp->ContainerPtrToValuePtr<void>(ValuePtr), Low)
+			|| !FMClothPrivate::SetNumber(HighProp, HighProp->ContainerPtrToValuePtr<void>(ValuePtr), High))
+		{
+			return FString::Printf(TEXT("%s: Low/High are not numbers"), *PropertyName);
+		}
+	}
+	else if (!FMClothPrivate::SetNumber(Prop, ValuePtr, Low))
+	{
+		return FString::Printf(TEXT("%s is not a number, bool or weighted value"), *PropertyName);
+	}
+	Config->MarkPackageDirty();
+	if (UClothingAssetCommon* Common = Cast<UClothingAssetCommon>(Cloth))
+	{
+		Common->InvalidateAllCachedData();
+	}
+	return FString();
+}
+
+FString UFMCloth::GetConfigValue(UClothingAssetBase* Cloth, const FString& PropertyName)
+{
+	UObject* Config = nullptr;
+	FProperty* Prop = nullptr;
+	if (!FMClothPrivate::FindConfigProperty(Cloth, PropertyName, Config, Prop))
+	{
+		return FString();
+	}
+	FString Out;
+	Prop->ExportTextItem_Direct(Out, Prop->ContainerPtrToValuePtr<void>(Config), nullptr, nullptr, PPF_None);
 	return Out;
 }
