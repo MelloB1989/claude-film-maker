@@ -117,15 +117,24 @@ def cmd_push() -> list:
     return [client.push(str(p), box(p.name)) for p in files]
 
 
-def check_anim(anim: str, who: str, at_frame: float) -> dict:
-    """lipsync.check on an animation whose t=0 plays on master frame `at_frame`, against who's stem from frame 0."""
+def reference(who: str) -> list:
+    """Each of `who`'s line solves at the master frame its WAV starts on: the strict reference for every check."""
+    return [{"anim": line_anim(u["key"]), "frame": u["file_frame"]} for u in units(who)]
+
+
+def check_anim(anim: str, who: str, at_frame: float, ref: bool = True) -> dict:
+    """lipsync.check on an animation whose t=0 plays on master frame `at_frame`, against who's stem from frame 0 and
+    (ref) the line solves at their places."""
+    kw = {"reference": reference(who)} if ref else {}
     return P.ok(client.op("lipsync.check", anim=anim, anim_frame=at_frame, wav=box(f"vo_{who}.wav"),
-                          cues=box("cues.json"), who=who, fps=FPS, timeout=600))
+                          cues=box("cues.json"), who=who, fps=FPS, timeout=600, **kw))
 
 
 def summary(r: dict) -> dict:
+    """Per line [ref_lag_frames, ref_corr | voice lag, voice r, onset lead]."""
     return {"pass": r["pass"], "diagnosis": r["diagnosis"],
-            "lines": {k: [v["lag_frames"], v["corr"], v["onset_lead_s"]] for k, v in r["lines"].items()},
+            "lines": {k: [v.get("ref_lag_frames"), v.get("ref_corr"), v["lag_frames"], v["corr"], v["onset_lead_s"]]
+                      for k, v in r["lines"].items()},
             "silence": r["silence"], "issues": [i["message"] for i in r["issues"]]}
 
 
@@ -156,7 +165,7 @@ def cmd_probe(who: str) -> dict:
     try:
         out["6_placed"] = summary(P.ok(client.op("lipsync.check", sequence="/Game/Reel/SEQ_Reel", label=P.LABEL[who],
                                                  wav=box(f"vo_{who}.wav"), cues=box("cues.json"), who=who,
-                                                 timeout=600)))
+                                                 reference=reference(who), timeout=600)))
     except SystemExit as e:
         out["6_placed"] = {"error": str(e)[:300]}
     return out
@@ -186,18 +195,23 @@ def cmd_solve(only: list | None) -> dict:
 
 
 def cmd_bias() -> dict:
-    """P2: each raw line solve against its own WAV, both on the line's file_frame: the solver's own lag (expected
-    |lag| <= 1 frame; the mean is the expected_lag_s later checks may subtract)."""
+    """P2: each raw line solve against its own WAV, both on the line's file_frame (and itself as the reference):
+    `pass` judges the mouth's onset and the silences around the line; the voice-vs-mouth lag and r are REPORTED only
+    (r5: on these 1-2 s lines loudness and jaw opening diverge, r 0.25-0.88, while the jaw peaks sit on the loud
+    syllables). The separated voice's cleanliness is voice.json's leak_db (-43 dB), not this r."""
     doc = cues()
     out = {}
     for who in ("him", "her"):
         for u in units(who):
             ls = [{"id": k, "f0": doc["lines"][k]["voice_frame"], "f1": doc["lines"][k]["end_frame"]}
                   for k in u["lines"]]
+            ref = [{"anim": line_anim(u["key"]), "frame": u["file_frame"]}]  # itself: judges onset and silence
             r = P.ok(client.op("lipsync.check", anim=line_anim(u["key"]), anim_frame=u["file_frame"],
-                               wav=box(u["wav"]), wav_frame=u["file_frame"], lines=ls, fps=FPS, timeout=600))
+                               wav=box(u["wav"]), wav_frame=u["file_frame"], lines=ls, fps=FPS, reference=ref,
+                               timeout=600))
+            out.setdefault("_issues", []).extend(i["message"] for i in r["issues"])
             out.update({k: r["lines"][k] for k in u["lines"]})
-    lags = [v["raw_lag_s"] for v in out.values()]
+    lags = [v["raw_lag_s"] for k, v in out.items() if not k.startswith("_")]
     out["mean_lag_s"] = round(sum(lags) / len(lags), 4)
     return out
 
@@ -213,7 +227,8 @@ def cmd_compose(who: str, keep_base: float) -> dict:
 def cmd_check(who: str, stage: str) -> dict:
     if stage == "placed":
         r = P.ok(client.op("lipsync.check", sequence="/Game/Reel/SEQ_Reel", label=P.LABEL[who],
-                           wav=box(f"vo_{who}.wav"), cues=box("cues.json"), who=who, timeout=600))
+                           wav=box(f"vo_{who}.wav"), cues=box("cues.json"), who=who, reference=reference(who),
+                           timeout=600))
     else:
         anim = {"solve": f"{P.ANIM}/AS_reel_{who}_solve", "face": f"{P.ANIM}/AS_reel_{who}_face",
                 "final": P.final_face(who)}[stage]

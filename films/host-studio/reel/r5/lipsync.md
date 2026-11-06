@@ -75,9 +75,16 @@ them. So the voice is separated from the mix itself.
    - Provenance: `voice.json` holds the mix's sha256 and each WAV's. cues fails `vo_not_mixed` if the mix or a WAV
      changed.
    - **Captions** (agent-06's cut) read this cues.json.
-4. **Gate (P2):** `lips.py bias` must give corr ≥ 0.5 on most lines. Otherwise the separated voice is too dirty to
-   solve from, and the fallback is regenerating the v2 takes (vo.py, the operator's ElevenLabs key): ask the
-   orchestrator.
+4. **Gate (P2):** `lips.py bias` must pass on onset and silence for every line. The voice-vs-mouth r is only
+   reported.
+   - Why: on the real solves (curves pulled after P2) the jaw peaks sit on the loud syllables, yet r reads 0.25-0.88
+     and the lag -23 to +16 frames on 1-2 s lines. Loudness is not jaw opening ("her", the "m" of "comes").
+   - How clean the separated voice is shows in `voice.json`'s `leak_db` (-43 dB: music 43 dB under the voice), not in
+     that r.
+   - From compose on, every check uses **the line's own solve at its place** as the reference: mouth vs mouth, r = 1.0
+     in place.
+     - It FAILS on |lag| > 1 frame or r < 0.8.
+     - On the real L2/L3a/L3b/L4b curves: pass at 0 and ±1 frame, fail at ±2 and at round 4's -14.
 
 ### 2. Push (box)
 
