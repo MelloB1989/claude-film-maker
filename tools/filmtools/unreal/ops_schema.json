@@ -2503,6 +2503,75 @@
    ]
   },
   {
+   "name": "body.hide_under",
+   "area": "body",
+   "verb": "hide_under",
+   "module": "fmbridge.ops.garment",
+   "file": "unreal/fmbridge/ops/garment.py",
+   "line": 572,
+   "summary": "Hide the body where a garment covers it (MetaHuman does this for its own garments; a garment of your own",
+   "doc": "Hide the body where a garment covers it (MetaHuman does this for its own garments; a garment of your own\nneeds it too): a body vertex is covered when a ray out along its normal meets the garment within reach_cm, a\ntriangle is hidden when all its corners are, less `rings` triangles round the border (cloth that moves off the\nbody never opens a gap). Measured in the reference pose (the meshes' own vertices), so it holds for every frame.\n\nWith apply=False (default) it only counts. With apply=True the triangles are deleted on a COPY of the body mesh\n(dest, default <body mesh>_Under_<garment>), set on the component, and leader pose re-applied (mh.leader).\nNever on the Face: its rig (DNA, morph targets) does not survive a mesh copy; refit the garment round the face\ninstead (garment.fit's collider takes the face).\nReturns: {\"vertices\", \"covered_vertices\", \"triangles\", \"hidden\", \"fraction\", \"mesh\" (with apply)}.\nExample: film-ue op body.hide_under label=Ava garment=Top apply=true",
+   "params": [
+    {
+     "name": "label",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "garment",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "body",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "Body"
+    },
+    {
+     "name": "reach_cm",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 4.0
+    },
+    {
+     "name": "rings",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 2
+    },
+    {
+     "name": "apply",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": false
+    },
+    {
+     "name": "dest",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": true,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "metahuman",
+    "experimental"
+   ]
+  },
+  {
    "name": "bridge.health",
    "area": "bridge",
    "verb": "health",
@@ -5992,6 +6061,67 @@
    "tags": [
     "layout",
     "foliage"
+   ]
+  },
+  {
+   "name": "garment.export",
+   "area": "garment",
+   "verb": "export",
+   "module": "fmbridge.ops.garment",
+   "file": "unreal/fmbridge/ops/garment.py",
+   "line": 489,
+   "summary": "Export what the Blender fit (film-ue garment fit) needs, as FBX in cm on the body skeleton, to out_dir on the",
+   "doc": "Export what the Blender fit (film-ue garment fit) needs, as FBX in cm on the body skeleton, to out_dir on the\nbox: body.fbx (the body as worn: cut under its garments), face.fbx (its lower neck is in the collider: a\nMetaHuman's face mesh runs ~10 cm below neck_01, to the clavicles), ref_body.fbx (the UNCUT body: weights and\nease come from it), garment_<name>.fbx per garment, anim_<name>.fbx for every animation the sequences play on\nthe character (the fit's pose tests). Read-only on the project.\n\nArgs: label: the character. garments: component names (default every garment role but shoes). ref_body: the\nuncut body mesh (default: another body mesh in the body's folder, e.g. SKM_<Name>_BodyMesh from an earlier\nbuild; refused when none: say which). sequences: level sequences whose skeletal animation sections count (default\nnone); anims: extra AnimSequence paths.\nReturns: {\"out_dir\", \"files\": {name: [asset, ok, bytes]}, \"ref_body\", \"manifest\"} (manifest.json beside them).\nExample: film-ue op garment.export label=Host out_dir=/srv/ue/fit/host 'sequences=[\"/Game/Reel/SEQ_Reel\"]'",
+   "params": [
+    {
+     "name": "label",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "out_dir",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "garments",
+     "kind": "keyword",
+     "type": "list | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "ref_body",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "anims",
+     "kind": "keyword",
+     "type": "list | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "sequences",
+     "kind": "keyword",
+     "type": "list | None",
+     "required": false,
+     "default": null
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "metahuman"
    ]
   },
   {
@@ -13364,6 +13494,174 @@
    "tags": []
   },
   {
+   "name": "qa.clip",
+   "area": "qa",
+   "verb": "clip",
+   "module": "fmbridge.ops.garment",
+   "file": "unreal/fmbridge/ops/garment.py",
+   "line": 118,
+   "summary": "Skin or an under-garment coming out through a garment, as the shot's camera sees it, per shot and frame.",
+   "doc": "Skin or an under-garment coming out through a garment, as the shot's camera sees it, per shot and frame.\n\nEach part (Body, Face, each garment) is depth-captured ALONE from the shot's camera; every (under, over) pair is\njudged by fmbridge.qa.clip: a pixel clips where the under layer is nearer by tol_cm..band_cm AND its blob meets an\nintersection edge (an arm in front of the cloth does not count). For a face under an upper garment the gate is\n`neck_px`: Face pixels through the garment more than neck_margin_cm under its collar rim and not hugging the\nopening. With `ref_dir` (an earlier qa.clip out_dir) each frame's over-garments' covered pixels are compared with\nthe same frame there: `silhouette` (a balloon reads +%). With `before` (an earlier clip.json) a pair is judged\nagainst its own worst there + 0.01 (an open neckline that reads high on clean frames).\n\nArgs: label: the character. sequence: the level sequence; shots: camera-cut names (default all); n frames spread\nper shot, `extra` {shot: [frames]} besides (twists, glances). roles_map {role: component} (default: roles()).\npairs: [[under, over], ...] (default fmbridge.qa.clip.pairs). out_dir (on the box; face data stays there): per frame\n<shot>_<frame>_mask.png (body red, face orange, tee green, trousers blue, clip magenta), _depth.bin, with\n`stills` _final.png. Gate knobs: pair_fraction, neck_max_px, silhouette_pct.\nReturns: {\"pass\", \"issues\", \"metrics\": {\"worst\", \"shots\": {shot: {frame: {\"U>G\": {...}, \"neck_px\", \"silhouette\"}}}},\n\"out_dir\"}. Multi-tick (~10 s a frame at 480 px).\nExample: film-ue op qa.clip label=Host sequence=/Game/Reel/SEQ_Reel 'shots=[\"Reel_S15\"]' out_dir=/srv/ue/qa/clip/now",
+   "params": [
+    {
+     "name": "label",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "sequence",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "shots",
+     "kind": "keyword",
+     "type": "list | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "n",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 6
+    },
+    {
+     "name": "extra",
+     "kind": "keyword",
+     "type": "dict | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "width_px",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 480
+    },
+    {
+     "name": "roles_map",
+     "kind": "keyword",
+     "type": "dict | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "pairs",
+     "kind": "keyword",
+     "type": "list | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "ref_dir",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "before",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "out_dir",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "stills",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": true
+    },
+    {
+     "name": "neck_over",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "tol_cm",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 0.3
+    },
+    {
+     "name": "band_cm",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 3.0
+    },
+    {
+     "name": "near_cm",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 1.5
+    },
+    {
+     "name": "neck_margin_cm",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 1.0
+    },
+    {
+     "name": "at_open_960",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 5.0
+    },
+    {
+     "name": "pair_fraction",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 0.001
+    },
+    {
+     "name": "neck_max_px",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 0
+    },
+    {
+     "name": "silhouette_pct",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 2.0
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "gpu",
+    "slow",
+    "metahuman"
+   ]
+  },
+  {
    "name": "qa.compare",
    "area": "qa",
    "verb": "compare",
@@ -13629,6 +13927,112 @@
    "mutates": false,
    "idempotent": true,
    "tags": []
+  },
+  {
+   "name": "qa.garment_look",
+   "area": "qa",
+   "verb": "garment_look",
+   "module": "fmbridge.ops.garment",
+   "file": "unreal/fmbridge/ops/garment.py",
+   "line": 335,
+   "summary": "Does the garment read as cloth or as ARMOR (fmbridge.qa.garment_look: the armor index)?",
+   "doc": "Does the garment read as cloth or as ARMOR (fmbridge.qa.garment_look: the armor index)?\n\nMeasured: `ease` (each sampled garment vertex's distance to the UNCUT reference body, posed: its spread and\nmedian), `thickness` (the garment's wall: a ray in along -normal to its own inside), `wpo` (inflate parameters on\nits materials: FM_Inflate/FM_Neck/FM_Patch), and from the shot's camera at `frames`: `silhouette` ((garment U\nbody) px / body px in the garment's rows) and `detail` (high-frequency energy of the garment's world normals); with\nmotion_frames > 1, `motion` (the garment's motion relative to the body under it, frame to frame, from motion_from).\n\nArgs: label: the character. garment: its garment component (default: the 'tee' role, qa.clip's roles).\nref_body: the uncut body mesh of the same build (needed for ease, silhouette, motion; without it they are skipped\nand reported missing). sequence + frames: where to look (default the sequence's first cut, middle). out_dir:\n_look_normal.png per frame (the garment's normals) on the box.\nReturns: {\"pass\", \"verdict\": cloth|borderline|armor, \"index\", \"terms\", \"issues\", \"missing\", \"metrics\"}.\nExample: film-ue op qa.garment_look label=Host ref_body=/Game/Host/Unpacked/Host/Body/SKM_Host_BodyMesh sequence=/Game/Reel/SEQ_Reel 'frames=[1082,1150]' motion_from=1140 motion_frames=12",
+   "params": [
+    {
+     "name": "label",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "garment",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "ref_body",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "sequence",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "frames",
+     "kind": "keyword",
+     "type": "list | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "motion_from",
+     "kind": "keyword",
+     "type": "int | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "motion_frames",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 0
+    },
+    {
+     "name": "width_px",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 480
+    },
+    {
+     "name": "samples",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 1500
+    },
+    {
+     "name": "body",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "Body"
+    },
+    {
+     "name": "out_dir",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "ramps",
+     "kind": "keyword",
+     "type": "dict | None",
+     "required": false,
+     "default": null
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "gpu",
+    "slow",
+    "metahuman",
+    "experimental"
+   ]
   },
   {
    "name": "qa.image",
@@ -17991,12 +18395,14 @@
   "anim": "Animation curves: read and write a sequence's float curves, and lock a talking face's gaze on the camera.",
   "assets": "Assets (WP2): the content browser by code.",
   "audio": "Audio in Unreal: WAVs in as SoundWaves, sounds onto named Sequencer audio tracks with their timing, and the audio of a sequence read back.",
+  "body": "Garments on a MetaHuman, measured and fitted the way round 4 of the karma reel had to learn (docs/unreal/garment.md, docs/unreal/research/garment-fit.md):",
   "bridge": "The bridge itself, as an op (the same answers as GET /health, for clients that only speak /op).",
   "cam": "Cameras: cine cameras by label (filmback, lens, aperture, focus), the framing solver on real subjects, camera moves keyed into Sequencer, rail and crane rigs, a scene's coverage, framing feedback (where points land in the frame, optics and ",
   "editor": "The editor itself: what it is and how it is doing (describe), console variables and commands, the idle frame cap of an offscreen editor, waiting for shader/asset compilation to finish, and garbage collection.",
   "env": "Environments: sun and moon by time of day and place, physical sky (atmosphere, volumetric clouds, sky light), HDRI skies, height and volumetric fog, exposure (manual by EV100, physical camera, auto), colour grading, Lumen/VSM/HWRT quality, ",
   "fab": "Fab (WP2): Epic's asset store by code, with no Fab window.",
   "foliage": "Foliage by code: seeded scatters of meshes (grass, rocks, trees, litter) as foliage instances (one InstancedFoliage actor draws them all as hierarchical instanced static meshes, never thousands of actors), placed on the ground by line trace",
+  "garment": "Garments on a MetaHuman, measured and fitted the way round 4 of the karma reel had to learn (docs/unreal/garment.md, docs/unreal/research/garment-fit.md):",
   "groom": "Hair (grooms) by numbers, on any actor with GroomComponents (a built MetaHuman's Hair/Eyebrows/Beard/...): read it (`groom.describe`), tune it per instance (`groom.set`: strand width, root/tip scale, shadow density, LOD bias, length, and th",
   "jobs": "The bridge's jobs as ops (the same as GET /jobs, GET /job, POST /job/cancel, for clients that only speak /op).",
   "journal": "The op journal (BACKLOG B32): every op that changes something is appended, with its arguments, how long it took and what it returned, to Saved/fmbridge/journal.jsonl on the box.",

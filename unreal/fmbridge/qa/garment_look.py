@@ -173,7 +173,7 @@ def secondary_motion(garment_frames: list, body_frames: list) -> dict:
 def wpo_inflate_cm(params: dict) -> float:
     """The largest push a garment material's inflate parameters make (cm): FM_Inflate + FM_Neck + FM_Patch, as
     mh.cloth_inflate and the round-4 neck patch named them."""
-    return round(sum(max(0.0, float(params.get(k, 0.0) or 0.0)) for k in INFLATE_PARAMS), 3)
+    return round(sum(max(0.0, float(params.get(k, 0.0) or 0.0)) for k in INFLATE_PARAMS if k in params), 3)
 
 
 def look(m: dict, subject: str = "", *, ramps: dict | None = None, wpo_max_cm: float = WPO_MAX_CM,
