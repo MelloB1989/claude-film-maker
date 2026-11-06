@@ -37,6 +37,15 @@ def test_hair_lock_cvars_and_qa(tmp_path):
     g = GN.hair(str(tmp_path / "c.json"), str(tmp_path / "ok.yaml"), [str(tmp_path / "q1.json"), str(tmp_path / "q2.json")])
     assert g["hair.lock"]["value"] == 1 and g["hair.render_cvars"]["value"] == 1
     assert g["hair.cut_reach_pct"] == 3.0 and g["hair.cut_pop_ratio"] == 1.2  # the worst of the two
+    sat = {"gate": {"hair.cut_reach_pct": {"value": None, "error": "the hair matte saturated"}, "hair.cut_pop_ratio": 1.3}}
+    (tmp_path / "sat.json").write_text(json.dumps(sat))
+    (tmp_path / "ed.json").write_text(json.dumps({"gate": {"hair.cut_reach_pct": 1.07, "hair.pop_reach_pct": 2.0}}))
+    for order in (("sat.json", "ed.json"), ("ed.json", "sat.json")):  # the editor's number beats the render's error
+        g = GN.hair(str(tmp_path / "c.json"), str(tmp_path / "ok.yaml"), [str(tmp_path / n) for n in order])
+        assert g["hair.cut_reach_pct"] == 1.07 and g["hair.cut_pop_ratio"] == 1.3 and g["hair.pop_reach_pct"] == 2.0
+    (tmp_path / "e2.json").write_text(json.dumps({"gate": {"hair.pop_reach_pct": {"value": None, "error": "x"}}}))
+    g = GN.hair(str(tmp_path / "c.json"), str(tmp_path / "ok.yaml"), [str(tmp_path / "e2.json")])
+    assert g["hair.pop_reach_pct"]["error"]  # an error alone stays an error
     g = GN.hair(str(tmp_path / "c.json"), str(tmp_path / "bad.yaml"), [str(tmp_path / "missing.json")])
     assert g["hair.render_cvars"]["value"] == 0 and g["hair.cut_pop_ratio"]["error"]
 
