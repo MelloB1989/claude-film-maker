@@ -11888,7 +11888,7 @@
    "verb": "apply",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 796,
+   "line": 801,
    "summary": "Converge the editor on a PERFORMANCE spec (kind: performance): speech-solve the lines whose audio or mood",
    "doc": "Converge the editor on a PERFORMANCE spec (kind: performance): speech-solve the lines whose audio or mood\nchanged, compose the face, key the body and the actor's moves in the sequence; re-run safely (a converged spec\ndoes nothing). `dry_run` returns the plan only. A multi-tick job (speech solves take seconds per line).\n\nReturns: {\"converged\", \"rounds\", \"ran\": [{\"op\", \"why\", \"result\"}], \"report\": the face's naturalness checks}.\nExample: film-ue op perf.apply spec=@films/demo/perf/intro.yaml",
    "params": [
@@ -12067,7 +12067,7 @@
    "verb": "compose",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 697,
+   "line": 702,
    "summary": "Compose a performance spec into the sequence: one continuous face animation (every line's lip-sync placed at",
    "doc": "Compose a performance spec into the sequence: one continuous face animation (every line's lip-sync placed at\nits time, with the head, eyes, blinks, moods and expressions of perfkit over the whole timeline, so nothing\njumps between lines) on the face track, the body's idle/gesture/walk sections, and the actor's transform keys.\nperf.apply calls it after the speech solves; call it yourself to re-key without re-solving.\nReturns: {\"face_anim\", \"fingerprint\", \"frames\", \"report\", \"timeline\", \"body_sections\", \"notes\", \"changed\"}.\nExample: film-ue op perf.compose spec=@examples/unreal/performance/listener.yaml",
    "params": [
@@ -12091,7 +12091,7 @@
    "verb": "describe",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 830,
+   "line": 835,
    "summary": "An actor's performance in a sequence: the animation sections on its face and body tracks, the face",
    "doc": "An actor's performance in a sequence: the animation sections on its face and body tracks, the face\nanimation's perf metadata (which spec, its fingerprint), and its transform keys.\nExample: film-ue op perf.describe sequence=/Game/Shots/S010 label=Presenter",
    "params": [
@@ -12321,7 +12321,7 @@
    "verb": "gestures",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 957,
+   "line": 962,
    "summary": "Gestures timed to their beats: each {\"anim\" | \"name\", \"at_s\" (the beat: the stressed word), \"stroke_s\" (where",
    "doc": "Gestures timed to their beats: each {\"anim\" | \"name\", \"at_s\" (the beat: the stressed word), \"stroke_s\" (where\nthe stroke falls in the clip; default 40% in), \"hold_s\", \"intensity\"}; the clip starts so its stroke lands\n`lead_s` before the beat. Overlaps are moved or dropped (see notes). Adds the sections to the body track.\nExample: film-ue op perf.gestures sequence=/Game/Shots/S010 label=Presenter 'gestures=[{\"anim\":\"/Game/Anim/AS_OpenPalms\",\"at_s\":2.1,\"stroke_s\":0.7}]'",
    "params": [
@@ -12380,7 +12380,7 @@
    "verb": "head_curves",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 983,
+   "line": 988,
    "summary": "Preview organic head motion with no engine and no animation: the HeadYaw/Pitch/Roll curves (character frame,",
    "doc": "Preview organic head motion with no engine and no animation: the HeadYaw/Pitch/Roll curves (character frame,\ndegrees) perfkit makes for these gaze shifts, nods and tilts, with the plan and the head checks. For trying\nstyles before writing them (perf.face).\nExample: film-ue op perf.head_curves duration_s=6 'gaze=[{\"t\":1,\"yaw\":30},{\"t\":3.5,\"yaw\":-10,\"pitch\":-5}]' 'nods=[{\"t\":4.5,\"kind\":\"nod\"}]'",
    "params": [
@@ -12453,7 +12453,7 @@
    "verb": "idle",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 938,
+   "line": 943,
    "summary": "An idle that never loops visibly on an actor's body track: segments of 4-9 s from the given idle clips at",
    "doc": "An idle that never loops visibly on an actor's body track: segments of 4-9 s from the given idle clips at\nrandom offsets and play rates 0.92-1.08, cross-fading into each other; split around `gaps` [[start, end]]\nframes (where gestures play). end 0 = the sequence's end.\nExample: film-ue op perf.idle sequence=/Game/Shots/S010 label=Presenter 'clips=[\"/MetaHumanCharacter/Optional/Animation/TemplateAnimations/Technical_Loops/Idle/mhc_mh001_fmn_b_idle\"]'",
    "params": [
@@ -12533,7 +12533,7 @@
    "verb": "lock_eyes",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 784,
+   "line": 789,
    "summary": "Measured eye contact with the spec's camera over the composed face (anim.gaze_lock: the eye curves solved",
    "doc": "Measured eye contact with the spec's camera over the composed face (anim.gaze_lock: the eye curves solved\nfrom the eye bones' real pose on the lines that look at the camera). A multi-tick job.\nExample: film-ue op perf.lock_eyes spec=@examples/unreal/performance/presenter_intro.yaml",
    "params": [
@@ -12559,7 +12559,7 @@
    "verb": "plan",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 621,
+   "line": 626,
    "summary": "What perf.apply would do for a performance spec, without doing it: {\"steps\": [{\"op\", \"args\", \"why\"}],",
    "doc": "What perf.apply would do for a performance spec, without doing it: {\"steps\": [{\"op\", \"args\", \"why\"}],\n\"compiled\": timeline, body sections and notes}. Empty steps = converged.\nExample: film-ue op perf.plan spec=@performance.yaml",
    "params": [
@@ -12637,7 +12637,7 @@
    "verb": "solve",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 640,
+   "line": 645,
    "summary": "A line's speech solve (speech.to_face) tagged with the key of what it was made from, so perf.plan knows when",
    "doc": "A line's speech solve (speech.to_face) tagged with the key of what it was made from, so perf.plan knows when\nit is up to date. A multi-tick job.\nExample: film-ue op perf.solve wav=/home/ue/Audio/l1.wav name=intro_l1 face_mesh=/Game/MetaHumans/Ada/Face/Ada_FaceMesh mood=HAPPINESS",
    "params": [
@@ -12705,7 +12705,7 @@
    "verb": "state",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 547,
+   "line": 552,
    "summary": "What a performance spec depends on, read from the editor (the planner's input): the sequence's rate, the",
    "doc": "What a performance spec depends on, read from the editor (the planner's input): the sequence's rate, the\nactor's position/facing/head height and face mesh, every target's position, clip lengths, each line's audio\nanalysis and speech-solve key, and the composed face animation's fingerprint.\nExample: film-ue op perf.state spec=@performance.yaml",
    "params": [
@@ -12776,7 +12776,7 @@
    "verb": "turn_to",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 914,
+   "line": 919,
    "summary": "Turn an actor in place to face a target (a point, an actor, \"Label:Component:bone\") or a yaw (degrees),",
    "doc": "Turn an actor in place to face a target (a point, an actor, \"Label:Component:bone\") or a yaw (degrees),\neased with a skewed min-jerk over 0.45 s + 0.5 s per 90 deg (/ speed); keys its transform (replacing the\ntransform track, so give a whole route to perf.walk_to or a spec instead when there are several moves).\nExample: film-ue op perf.turn_to sequence=/Game/Shots/S020 label=Presenter target=Guest at_frame=48",
    "params": [
@@ -12851,7 +12851,7 @@
    "verb": "walk_to",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 873,
+   "line": 878,
    "summary": "Walk an actor to a point in a sequence: turn in place if needed, accelerate, follow `path` waypoints, brake,",
    "doc": "Walk an actor to a point in a sequence: turn in place if needed, accelerate, follow `path` waypoints, brake,\noptionally turn to face `end_facing`; the actor's transform is keyed (replacing its transform track) and the walk\nloop is added on the body track at the play rate that matches its own speed (`clip_speed_cm_s`, default\nspeed_cm_s: rate 1).\n\nArgs: to: [x, y, z] cm, or a target (actor label, \"Label:Component:bone\"). at_frame: when it sets off.\nspeed_cm_s: cruise speed (people: 110-150). facing_offset_deg: the actor's forward vs its mesh's (MetaHumans: 0).\nReturns: {\"changed\", \"keys\", \"frames\": [start, stop], \"distance_cm\", \"walk\": the walk section, \"slide\": check}.\nExample: film-ue op perf.walk_to sequence=/Game/Shots/S020 label=Presenter 'to=[300,120,0]' walk_anim=/MetaHumanCharacter/Optional/Animation/UEFNAnimPreset/Locomotion/AS_MH_Neutral_Walk_Loop_F at_frame=24",
    "params": [

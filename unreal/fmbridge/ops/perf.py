@@ -187,7 +187,7 @@ def face(*, anim: str, out: str = "", wav: str = "", gaze: list | None = None, s
     return res
 
 
-WEAK_TURN = 0.5  # a turn curve under half of a real turn's motion at the eyes: the turn goes on the bones
+WEAK_TURN_MIN = 0.1  # a turn curve under a tenth of a real turn counts as dead (the bones turn the head)
 PLANNED_TURN = "FM_PlannedHeadTurn"  # perf.face's planned head turn, when the bones carry it (no AnimBP reads it)
 
 
@@ -426,14 +426,19 @@ def calibrate(*, label: str, face_component: str = "Face", body_component: str =
                           hint="drive the face from Sequencer with mh.drive_face, and check its Anim Blueprint reads "
                                "HeadYaw/HeadPitch/HeadRoll with HeadControlSwitch=1") from None
     dead = [c for c in resp if max(abs(v) for v in resp[c].values()) < LIVE_CM]
-    # a turn curve that turns the head only part way counts as dead too, so the turn goes on the bones: r4 (box), the
-    # rebuilt Host_Op's HeadRoll moved the eyes 0.55 cm for 10 (a full 10 deg at his 9.4 cm is 1.6), so S15's 95 deg
-    # look would have turned ~30 (r3 saw the same weak HeadRoll on her)
+    # how much of a real turn the turn curve gives: r4 (box), the rebuilt Host_Op's HeadRoll moved the eyes 0.55 cm
+    # for 10 (a full 10 deg at his 9.4 cm is 1.6), so S15's 95 deg look would have turned ~30 (r3: the same on her)
     full_cm = math.hypot(mid0[0] - head0[0], mid0[1] - head0[1]) * math.sin(math.radians(degrees))
-    weak = curves["yaw"] not in dead and abs(resp[curves["yaw"]]["yaw"]) < WEAK_TURN * full_cm
-    if weak:
-        dead.append(curves["yaw"])
-    raw["turn_strength"] = round(abs(resp[curves["yaw"]]["yaw"]) / max(full_cm, 1e-6), 3)
+    strength = abs(resp[curves["yaw"]]["yaw"]) / max(full_cm, 1e-6)
+    raw["turn_strength"] = round(strength, 3)
+    # the neck bones cannot carry it instead: on her 5.8 face the body's head bone moves nothing and its necks a sixth
+    # (r4, box), so the curve is written stronger (HeadSigns.yaw_gain); a curve under WEAK_TURN_MIN is still dead
+    yaw_gain = 1.0
+    if curves["yaw"] not in dead and strength < 0.9:
+        if strength < WEAK_TURN_MIN:
+            dead.append(curves["yaw"])
+        else:
+            yaw_gain = round(strength, 3)
     signs = {k: (1.0 if resp[c][k] > 0 else -1.0) if c not in dead else 1.0 for k, c in curves.items()}
     yaw_bone, turn_on = None, "Face"
     if curves["yaw"] in dead:  # no curve turns this head (5.8): find the bones that do, and each one's turn axis
@@ -506,7 +511,7 @@ def calibrate(*, label: str, face_component: str = "Face", body_component: str =
         raw[f"eyeLook{d}L"] = round(ang, 3)
     apply({})
     result = HeadSigns(signs["yaw"], signs["pitch"], signs["roll"], eye_deg, True, bool(flip_votes and flip_votes[0]),
-                       curves, dead, yaw_bone, turn_on if turn_on == face_component else "Body")
+                       curves, dead, yaw_bone, turn_on if turn_on == face_component else "Body", yaw_gain)
     path = _signs_file(skel)
     with open(path, "w") as f:
         json.dump(result.to_json(), f, indent=1)

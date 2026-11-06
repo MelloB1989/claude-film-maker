@@ -187,7 +187,8 @@ def to_rig(head: dict, signs: HeadSigns | None = None, tol_deg: float = 0.02, sw
     t = head["times"]
     out = {}
     for name, key, sign in s.axes():
-        out[name] = C.reduce(t, [sign * v for v in head[key]], tol_deg)
+        g = s.gain(key)
+        out[name] = C.reduce(t, [sign * v / g for v in head[key]], tol_deg)
     if switch:
         out["HeadControlSwitch"] = ([t[0], t[-1]], [1.0, 1.0])
     return out
@@ -200,7 +201,7 @@ def from_rig(curves: dict, signs: HeadSigns | None = None) -> dict:
     for name, key, sign in s.axes():
         if name in curves:
             t, v = curves[name]
-            out[key] = (list(t), [sign * x for x in v])
+            out[key] = (list(t), [sign * s.gain(key) * x for x in v])
     return out
 
 

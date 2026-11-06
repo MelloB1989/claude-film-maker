@@ -137,8 +137,12 @@ class HeadSigns:
 
     def __init__(self, yaw: float = 1.0, pitch: float = 1.0, roll: float = 1.0, eye_deg: dict | None = None,
                  measured: bool = False, eye_flip: bool = False, curves: dict | None = None,
-                 dead: list | None = None, yaw_bone: dict | None = None, turn_on: str = "Face"):
+                 dead: list | None = None, yaw_bone: dict | None = None, turn_on: str = "Face",
+                 yaw_gain: float = 1.0):
         self.yaw, self.pitch, self.roll = yaw, pitch, roll
+        # how far the turn curve turns the head per unit, as a fraction of a degree (perf.calibrate's turn_strength):
+        # r4 (box), HeadRoll turns the 5.8 faces ~0.35 deg per unit, so to_rig writes the turn at 1/gain
+        self.yaw_gain = yaw_gain
         # which head curve turns the head about each of the character's axes. The names need not say it: on the
         # reel's MetaHumans HeadYaw nods, HeadRoll turns and HeadPitch tilts (REEL_PERF.md, measured on the head bone)
         self.curves = {"yaw": "HeadYaw", "pitch": "HeadPitch", "roll": "HeadRoll", **(curves or {})}
@@ -164,17 +168,22 @@ class HeadSigns:
     def to_json(self) -> dict:
         return {"yaw": self.yaw, "pitch": self.pitch, "roll": self.roll, "eye_deg": dict(self.eye_deg),
                 "measured": self.measured, "eye_flip": self.eye_flip, "curves": dict(self.curves), "dead": list(self.dead),
-                "yaw_bone": self.yaw_bone, "turn_on": self.turn_on}
+                "yaw_bone": self.yaw_bone, "turn_on": self.turn_on, "yaw_gain": self.yaw_gain}
 
     def axes(self):
         """(curve name, axis, sign) for the three head curves."""
         return [(self.curves[k], k, getattr(self, k)) for k in self.AXES]
 
+    def gain(self, key: str) -> float:
+        """Degrees the head turns per unit of `key`'s curve (only the turn is measured; the others 1)."""
+        return self.yaw_gain if key == "yaw" and self.curves["yaw"] not in self.dead else 1.0
+
     @classmethod
     def from_json(cls, d: dict | None) -> "HeadSigns":
         d = d or {}
         return cls(d.get("yaw", 1.0), d.get("pitch", 1.0), d.get("roll", 1.0), d.get("eye_deg"), d.get("measured", False),
-                   d.get("eye_flip", False), d.get("curves"), d.get("dead"), d.get("yaw_bone"), d.get("turn_on", "Face"))
+                   d.get("eye_flip", False), d.get("curves"), d.get("dead"), d.get("yaw_bone"), d.get("turn_on", "Face"),
+                   d.get("yaw_gain", 1.0))
 
 
 LIVE_CM = 0.05  # 10 degrees of head turn moves the eyes over a centimetre: under this a curve does nothing

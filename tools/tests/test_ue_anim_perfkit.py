@@ -692,3 +692,16 @@ def test_blinks_keep_out_of_the_other_faces_blinks():
         his = B.plan(0.0, 20.0, "listen", phrase_ends=ends, seed=seed, avoid=hers)
         assert his and not any(a.t < h1 + 0.08 and h0 - 0.08 < a.end() for a in his for h0, h1 in hers), seed
         assert len(his) >= len(B.plan(0.0, 20.0, "listen", phrase_ends=ends, seed=seed)) - 3  # mostly moved, not dropped
+
+
+def test_a_weak_turn_curve_is_written_stronger():
+    """r4 (box): HeadRoll turned the 5.8 faces ~0.35 deg per unit; perf.calibrate saves it as yaw_gain and to_rig
+    writes the turn at 1/gain (nods and tilts unchanged), from_rig reads it back in degrees."""
+    s = R.HeadSigns(yaw=1.0, pitch=-1.0, roll=1.0, curves={"yaw": "HeadRoll", "pitch": "HeadYaw", "roll": "HeadPitch"},
+                    dead=["HeadPitch"], yaw_gain=0.35)
+    head = {"times": [0.0, 1.0], "yaw": [0.0, 35.0], "pitch": [0.0, 5.0], "roll": [0.0, 2.0]}
+    rig = H.to_rig(head, s, tol_deg=0.0)
+    assert abs(rig["HeadRoll"][1][1] - 100.0) < 1e-6 and rig["HeadYaw"][1][1] == -5.0
+    assert abs(H.from_rig(rig, s)["yaw"][1][1] - 35.0) < 1e-6
+    assert R.HeadSigns.from_json(s.to_json()).yaw_gain == 0.35
+    assert R.HeadSigns(curves=s.curves, dead=["HeadRoll"], yaw_gain=0.35).gain("yaw") == 1.0  # a dead curve: bones
