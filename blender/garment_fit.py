@@ -342,8 +342,10 @@ def retarget(src, dst):
         pb.matrix_basis = rl.inverted() @ want
 
 
-def pose_tests(sc, a) -> dict:
-    """Every anim_*.fbx at anim_samples frames: garment verts inside the posed body/face (count, deepest cm)."""
+def pose_tests(sc, a, active=None) -> dict:
+    """Every anim_*.fbx at anim_samples frames: the FITTED garment verts (active: --only-slots; a MetaHuman default
+    garment's shorts are hidden and were never refit, so their thighs say nothing about the tee) inside the posed
+    body/face: count, deepest cm (distances past 6 cm are left out: a nearest point across a gap, not a clip)."""
     out = {}
     for p in sorted(glob.glob(os.path.join(a.src, "anim_*.fbx"))):
         before = set(bpy.data.actions)
@@ -364,6 +366,8 @@ def pose_tests(sc, a) -> dict:
             bpy.context.view_layer.update()
             _, _, bvh = sc.collider(evaluated=True)
             G, _ = world_cm(sc.garment, evaluated=True)
+            if active is not None and len(active) == len(G):
+                G = G[active]
             d, _ = signed(bvh, G[::2])
             d = d[np.isfinite(d) & (np.abs(d) < 6.0)]
             n_in = int((d < -0.1).sum())
@@ -483,7 +487,7 @@ def main():
     attr = me.color_attributes.new("FitCol", "BYTE_COLOR", "POINT")
     attr.data.foreach_set("color", col.ravel())
     me.color_attributes.active_color = attr
-    rep["poses"] = pose_tests(sc, a)
+    rep["poses"] = pose_tests(sc, a, active if len(active) == len(sc.garment.data.vertices) else None)
     problems = GF.fit_gate(rep["after"])
     problems += [f"pose test {k}: {v['inside']} garment verts inside the body at frame {v['frame']} "
                  f"(deepest {v['deepest_cm']} cm)" for k, v in rep["poses"].items() if v["inside"] > 0]

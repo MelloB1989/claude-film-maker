@@ -167,7 +167,10 @@ def judge(rep: dict) -> dict:
         if "shell" in p:
             nxt.append("drape it: --drape-frames 40 (the hem and sleeves fall, folds form)")
         elif "inside the body" in p and "pose test" in p:
-            nxt.append("weights: --weights transfer (from the uncut body), or more ease where it clips (--ease)")
+            if (rep.get("args") or {}).get("weights") == "transfer":
+                nxt.append("more ease where it clips (--ease '{\"<region>\": ...}'): see the pose test's frame")
+            else:
+                nxt.append("weights: --weights transfer (from the uncut body), or more ease where it clips (--ease)")
         elif "inside" in p or "closer than" in p:
             nxt.append("raise --min-ease or the region's --ease; check the export is the same build (garment.export)")
     if rep.get("pass"):
