@@ -66,6 +66,11 @@ peak <= -1 dBTP; every caption line within 2 frames of its first VO word (cues.j
   jaw 3.8 passes), S16 her L3b 1.99, S15 her L3a 0.80 and S17 him L4a 0.85 (her over-turns in their silences), S15 L2
   and S17 L4b pass. Gate fixes in the run: clip keys Reel_*; the lips box interpolated and each frame pair lined up
   (+-3 px) before differencing, so the head's own move in silence is not read as speech.
+- 08:0x (after the box was re-provisioned) final_d set shots, rendered 02:59-04:54 UTC (before the glow fix): frames QA
+  PASS (final_check: 3 reports ok; final_qa: all frames present, 1920x1080, no black/white/jump). Glow continuity, worst
+  32 px block dE old->new vs the A/A noise floor: V05 4.97/0.32, V04 3.54/0.20, S12 2.50/0.35, V02 2.25/0.38 ->
+  RE-RENDER those four; V01 0.71/1.74, V03 0.75/0.94, N01 1.38/0.74, S11 0.67/0.03 stay. Mean dE < 1 everywhere (local,
+  upper frame). camcheck on the noise-floor stills: all 8 framing_match (scale 1.000, shift <= 1 px at 480).
 - neck patch (agent-02 neck_px, before4 -> after, worst px per shot): S13 169 -> 172, S15 709 -> 649, S17 91 -> 93,
   S18 39 -> 34: NOT fixed; the gate refuses e until 0.
 
