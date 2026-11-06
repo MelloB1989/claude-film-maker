@@ -29,3 +29,8 @@ face_data=yes), the kali tree is agent-06's worktree `fleet/agent-06/r4-integrat
 | 03:16-03:18 | agent-02 before3 clip pass, neck_probe (before), export_alt_body |
 | 03:18 | agent-04's look queue on 51424063: iris grid OK 03:21 (25 cells, numbers only) |
 | | Merges: agent-04 832695c6, e724e597, 51424063; agent-02 3fdb2d52, 73295418, 250b7570, 63507bb8, 8de260a8, 1135a1b4; agent-01 b41a9300. film/host-studio 748f5a9f |
+| 03:26-03:41 | **GPU hang:** MRQ draft render of the set camcheck (Reel_V03) froze the editor at 03:26:52; kernel NVIDIA Xid 109 CTX SWITCH TIMEOUT at 03:39:43. Editor restarted 03:41 (level from disk). Decision: no copy from final_c; V03/V04/V05/S12/N01 are re-rendered into final_d (night-1 S12/N01 bindings sat on Test cameras for part of the night, so a copy can't be proven) |
+| 03:41-04:04 | agent-04's look sheets moved from the untextured live preview (bald, placeholder materials: the orchestrator rejected look_hair.jpg) to `--target build` (scratch copy rebuilt per variant). H1 hair check 03:44; H2 killed twice on the "groom not worn" check (unsaved edits; first variant built before its grooms), fixed in cd2327e0/ac736b5b. **look_hairfacial.jpg** 04:04 → orchestrator picks: hair B S_SideSweptFringe, mustache S_Full, light stubble, brows M_SlightArch, skin lighter |
+| 03:54-03:56 | agent-02 before4 (Host still cast_op4): neck out 463 verts (rule since refined, 086c318c); tee neckline test failed (wrong UE class name), fixed d0584a06, rerun 04:20 (cleaned, ClothOpTest empty) |
+| 04:07 | IRISSKIN killed (all skins too dark per orchestrator); **look_skin2.jpg** 04:20 (5 builds) → orchestrator |
+| 04:20 | Set finals V03/V04/V05/S12/N01 into final_d (batch d_set2), probe 5/5 OK after level.open from disk |
