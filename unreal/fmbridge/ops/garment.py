@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import array
 import json
+import math
 import os
 
 import unreal
@@ -368,14 +369,24 @@ def _collar(a, parts, gv, body: str = "Body") -> dict:
     u = ax * (1.0 / L)
     skins = [_Surface(_posed(parts[k])) for k in ("Face", body) if k in parts]
     near = [p for p in gv if -10.0 <= (p - n0).dot(u) <= 6.0]
-    axial, radial, gap = [], [], []
+    # a frame round the neck axis for the angle (local roll): world X made perpendicular to it, and u x that
+    ux, uy, uz = u.x, u.y, u.z
+    k = ux  # X . u
+    e1 = (1.0 - k * ux, -k * uy, -k * uz)
+    n1 = math.sqrt(sum(c * c for c in e1)) or 1.0
+    e1 = tuple(c / n1 for c in e1)
+    e2 = (uy * e1[2] - uz * e1[1], uz * e1[0] - ux * e1[2], ux * e1[1] - uy * e1[0])
+    axial, radial, gap, angle = [], [], [], []
     for p in near:
         t = (p - n0).dot(u)
-        radial.append((p - n0 - u * t).length())
+        v = p - n0 - u * t
+        radial.append(v.length())
+        angle.append(math.degrees(math.atan2(v.x * e2[0] + v.y * e2[1] + v.z * e2[2],
+                                             v.x * e1[0] + v.y * e1[1] + v.z * e1[2])) % 360.0)
         axial.append(t)
         ds = [(p - r[0]).length() for r in (sk.nearest(p) for sk in skins) if r is not None]
         gap.append(min(ds) if ds else float("nan"))
-    return _look.collar_stats(axial, radial, gap)
+    return _look.collar_stats(axial, radial, gap, angle=angle)
 
 
 def _hem(parts, gv, rc, body: str = "Body") -> dict:
@@ -555,8 +566,11 @@ def garment_look(*, label: str, garment: str = "", ref_body: str = "", sequence:
         m["detail"] = min(det)
     cols = [v["collar"] for v in vals if v.get("collar", {}).get("n")]
     if cols:
+        w = max(cols, key=lambda c: c["spread_cm"])
         m["collar"] = {"frames": len(cols), "gap_cm": max(c["gap_cm"] for c in cols),
-                       "spread_cm": max(c["spread_cm"] for c in cols), "roll_frames": sum(1 for c in cols if c["roll"])}
+                       "spread_cm": w["spread_cm"], "spread_where": w.get("spread_where"),
+                       "spread_window_cm": max((c.get("spread_window_cm") or 0) for c in cols),
+                       "roll_frames": sum(1 for c in cols if c["roll"])}
     hems = [v["hem"] for v in vals if v.get("hem", {}).get("n")]
     if hems:
         rs = [h for h in hems if h.get("ratio")]
