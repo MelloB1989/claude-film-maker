@@ -119,10 +119,13 @@ def _config_values(asset) -> dict:
     """The cloth config properties a preset sets, read back from the clothing asset's configs (Chaos + shared)."""
     out = {}
     for cfg in (_get(asset, "cloth_configs", {}) or {}).values():
-        for k in _presets.BASE_CONFIG:
-            v = _get(cfg, k)
-            if v is not None and k not in out:
-                out[k] = _plain(v)
+        for k, dv in _presets.BASE_CONFIG.items():
+            if k in out:
+                continue
+            try:
+                out[k] = _plain(_cfg_get(cfg, k, dv)[1])
+            except Exception:  # noqa: BLE001 - not on this config (or no Python type: the weighted values)
+                pass
     return out
 
 
@@ -344,6 +347,26 @@ def apply_interactor(comp, cloth_name: str, config: dict) -> dict:
     return out
 
 
+def cpp_name(key: str, value=None) -> str:
+    """The C++ property name for a snake_case config key. EditAnywhere-only properties (not BlueprintVisible) have no
+    Python name, so get/set_editor_property looks the given string up as the C++ name, case-insensitively
+    (PyWrapperObject.cpp FindEditorPropertyImpl): "density" finds Density, "collision_thickness" finds nothing
+    (round 5). bools carry the b prefix: use_ccd -> bUseCcd (= bUseCCD)."""
+    camel = "".join(w[:1].upper() + w[1:] for w in key.split("_"))
+    return ("b" + camel) if isinstance(value, bool) else camel
+
+
+def _cfg_get(c, key: str, value=None):
+    """(name that worked, value) for a config property by its Python name, else its C++ name; raises the last error."""
+    err = None
+    for n in (key, cpp_name(key, value)):
+        try:
+            return n, c.get_editor_property(n)
+        except Exception as e:  # noqa: BLE001
+            err = e
+    raise err
+
+
 def write_config(asset, config: dict) -> dict:
     """Write a preset's config onto the clothing asset's config objects (cloth_configs: Chaos + shared), except the
     INTERACTOR_KEYS. The configs are fetched afresh for every key and written without edit notifications: in round 5
@@ -358,7 +381,7 @@ def write_config(asset, config: dict) -> dict:
         target = None
         for c in list((asset.get_editor_property("cloth_configs") or {}).values()):
             try:
-                c.get_editor_property(k)
+                name, cur = _cfg_get(c, k, v)
                 target = c
                 break
             except Exception as e:  # noqa: BLE001 - collect the engine's reason
@@ -366,14 +389,13 @@ def write_config(asset, config: dict) -> dict:
         if target is None:
             missing.append(f"{k}: " + ("; ".join(why) or "no config objects"))
             continue
-        cur = target.get_editor_property(k)
         val = type(cur)(*[float(x) for x in v]) if isinstance(v, list) and len(v) == 3 else v
         try:
             if quiet is not None:
-                target.set_editor_property(k, val, quiet)
+                target.set_editor_property(name, val, quiet)
             else:
-                target.set_editor_property(k, val)
-            done[k] = _plain(target.get_editor_property(k))
+                target.set_editor_property(name, val)
+            done[k] = _plain(target.get_editor_property(name))
         except Exception as e:  # noqa: BLE001 - one refused key must not stop the rest
             missing.append(f"{k}: {type(e).__name__}: {e}")
     return {"set": done, "missing": missing}
