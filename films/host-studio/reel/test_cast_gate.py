@@ -123,10 +123,13 @@ def test_sign_refuses_and_waives(tmp_path):
 def test_turns_agent01_rule():
     row = {"shot": "S15", "who": "him", "beat": "over his shoulder", "f0": 1128, "f1": 1316, "frame": 1150,
            "true_yaw": 130.1, "head_yaw": 65.0, "screen_dir": "right", "partner_dir": "right", "err_deg": 44.4,
-           "stage": "level", "ok": True}
+           "stage": "level", "ok": True, "head_plan_yaw": 65.0, "head_vs_plan_deg": 0.0}
     her = {"shot": "S15", "who": "her", "f0": 1080, "f1": 1146, "frame": 1100, "true_yaw": -49.9, "head_yaw": -32.2,
-           "screen_dir": "left", "partner_dir": "left", "err_deg": 0.0, "stage": "level", "ok": True}
+           "screen_dir": "left", "partner_dir": "left", "err_deg": 0.0, "stage": "level", "ok": True,
+           "head_plan_yaw": -32.2, "head_vs_plan_deg": 0.0}
     assert g._turns([row, her])["pass"]
+    assert not g._turns([{**row, "head_yaw": 41.0, "head_vs_plan_deg": -54.0}])["pass"]  # S15: 41 against 95
+    assert not g._turns([{k: v for k, v in her.items() if k != "head_vs_plan_deg"}])["pass"]  # no plan check: refuse
     assert not g._turns([{**row, "screen_dir": "left"}])["pass"]          # preview2's wrong way, even if ok says so
     assert not g._turns([{**her, "err_deg": 40.0}])["pass"]               # within reach but missing her face
     assert not g._turns([{**row, "head_yaw": 20.0}])["pass"]              # beyond reach, the head barely turns

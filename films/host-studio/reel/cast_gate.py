@@ -700,12 +700,16 @@ def _hue(h: dict | None, fr: dict | None) -> dict:
 
 
 TURN_ERR_DEG, TURN_REACH_DEG, TURN_HEAD_MIN_DEG = 15.0, 100.0, 32.5  # agent-01's rule (fleet/agent-01/r4-look)
+TURN_PLAN_TOL = 15.0  # and the head within 15 deg of its planned yaw (the orchestrator's +-15; agent-01 64161ac8): the
+                      # beyond-reach clause alone passed his S15 head at 41 against 95 planned
 
 
 def _turn_ok(r: dict) -> bool:
     """agent-01's pass rule, re-applied here: the head turns towards the partner on screen, and the gaze lands within
     15 deg of their face, or (the partner beyond neck + eye reach) the head is turned their way by >= 32.5 deg."""
     if r.get("screen_dir") is None or r.get("screen_dir") != r.get("partner_dir"):
+        return False
+    if r.get("head_vs_plan_deg") is None or abs(r["head_vs_plan_deg"]) > TURN_PLAN_TOL:
         return False
     if r.get("err_deg") is not None and r["err_deg"] <= TURN_ERR_DEG:
         return True
@@ -725,8 +729,9 @@ def _turns(t) -> dict:
         if "stage" in r and r["stage"] != "level":
             bad.append(f"{where}: measured on {r['stage']}, not the level")
         elif not (r.get("ok", r.get("pass")) and ("screen_dir" not in r or _turn_ok(r))):
-            bad.append(f"{where}: head {r.get('head_yaw')} deg to screen {r.get('screen_dir')}, partner "
-                       f"{r.get('partner_dir')}, gaze err {r.get('err_deg')} deg (true yaw {r.get('true_yaw')})")
+            bad.append(f"{where}: head {r.get('head_yaw')} deg (plan {r.get('head_plan_yaw')}, off "
+                       f"{r.get('head_vs_plan_deg')}) to screen {r.get('screen_dir')}, partner {r.get('partner_dir')}, "
+                       f"gaze err {r.get('err_deg')} deg (true yaw {r.get('true_yaw')})")
     return {"pass": bool(rows) and not bad, "failed": bad or ([] if rows else ["the table has no beats"]),
             "beats": len(rows)}
 
