@@ -678,17 +678,34 @@ def _hue(h: dict | None, fr: dict | None) -> dict:
                           if k != "pass" and v), key=lambda x: x[2], default=None)}
 
 
+TURN_ERR_DEG, TURN_REACH_DEG, TURN_HEAD_MIN_DEG = 15.0, 100.0, 32.5  # agent-01's rule (fleet/agent-01/r4-look)
+
+
+def _turn_ok(r: dict) -> bool:
+    """agent-01's pass rule, re-applied here: the head turns towards the partner on screen, and the gaze lands within
+    15 deg of their face, or (the partner beyond neck + eye reach) the head is turned their way by >= 32.5 deg."""
+    if r.get("screen_dir") is None or r.get("screen_dir") != r.get("partner_dir"):
+        return False
+    if r.get("err_deg") is not None and r["err_deg"] <= TURN_ERR_DEG:
+        return True
+    ty, hy = r.get("true_yaw"), r.get("head_yaw")
+    return ty is not None and hy is not None and abs(ty) > TURN_REACH_DEG and hy * ty > 0 and abs(hy) >= TURN_HEAD_MIN_DEG
+
+
 def _turns(t) -> dict:
+    """agent-01's looks_measured.json (perf.py looks --measured): one row per look beat x camera that sees it."""
     if t is None:
         return {"pass": False, "failed": ["no head-turn table (agent-01)"]}
     rows = _rows(t)
     bad = []
     for r in rows:
-        ok_ = r.get("ok", r.get("pass"))
-        if not ok_:
-            fr_ = r.get("frames") or [r.get("f0"), r.get("f1")]
-            bad.append(f"{r.get('shot')} {r.get('who')} f{fr_[0]}-{fr_[-1]} -> {r.get('target', '?')}: "
-                       + ", ".join(f"{k} {r[k]}" for k in ("yaw", "measured", "want", "sign", "why") if k in r))
+        fr_ = r.get("frames") or [r.get("f0"), r.get("f1")]
+        where = f"{r.get('shot')} {r.get('who')} '{r.get('beat', '')}' f{fr_[0]}-{fr_[-1]} (hold f{r.get('frame')})"
+        if "stage" in r and r["stage"] != "level":
+            bad.append(f"{where}: measured on {r['stage']}, not the level")
+        elif not (r.get("ok", r.get("pass")) and ("screen_dir" not in r or _turn_ok(r))):
+            bad.append(f"{where}: head {r.get('head_yaw')} deg to screen {r.get('screen_dir')}, partner "
+                       f"{r.get('partner_dir')}, gaze err {r.get('err_deg')} deg (true yaw {r.get('true_yaw')})")
     return {"pass": bool(rows) and not bad, "failed": bad or ([] if rows else ["the table has no beats"]),
             "beats": len(rows)}
 

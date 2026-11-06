@@ -16,7 +16,7 @@ On the box, from `tools/` in the box tree, `G=/srv/ue/reel/r4/gate`, `R=../films
         --mouth $G/mouth.json --out $G/frames
     uv run --with pillow --with numpy python $R/cast_gate.py hue <cast_op5 dir> --frames 1236,1300 --out $G/hue
     uv run --with pillow --with numpy python $R/cast_gate.py sign --name cast_op5 --engine $G/engine.json \
-        --frames $G/frames/cast_gate_frames.json --hue $G/hue/hue.json --turns <agent-01's table> \
+        --frames $G/frames/cast_gate_frames.json --hue $G/hue/hue.json --turns <tree>/out/host-studio/reel/perf/looks_measured.json \
         --clip <agent-02's json> --cams $G/cams.txt --framing $G/framing.txt --lod0 $G/lod0.json --out $G/gate.json
 
 | item | measure | pass | why this line |
@@ -24,7 +24,7 @@ On the box, from `tools/` in the box tree, `G=/srv/ue/reel/r4/gate`, `R=../films
 | a. lips | every spoken line (L1 S13 him; L2 S15 him; L3a S15 her; L3b S16 her; L4a S17 him; L4b S17 her): mean abs luma change inside the speaker's projected mouth box (per frame, from FACIAL_* lip bones via cam.project) on the line, over the same in the speaker's own silence in that shot (3 frames clear of any line) | ratio >= 2.0 per line; and the engine's jaw on/off >= 3 per person, no silent line | 2.0: preview 1 with no lip sync read 1.55, round 1's good sync 2.37, cast3 S13 2.13. Boxes under 8 px tall (S17's 28 mm two-shot at 960x540: ~5 px) cannot separate a mouth from a pixel of head motion, so those lines are judged on the engine's jaw for that line (jaw_max >= 0.08 and moving), and re-read on the 1080p finals |
 | b. watch | HerWatch to hand_l, cm, after seq.scrub, at start+2 / mid / end-3 of S15-S18 | every sample 3.6 +- 0.5 | dress_her's seat is 3.6; cast_op2-4 rendered a stale 8.2, which the old <= 8.0 cap would pass at 7.9 |
 | c. hair hue | Lab on the hair's dark pixels (L* < 30) in the crown and both ends regions, f1236 and f1300 | green_px <= 0.05 in every region, ends a* >= -2 | 0.05: the right ends and the clean frames read 0.02-0.03; the defect reads 0.21-0.24 |
-| d. head turns | agent-01's direction table, every look beat | every beat ok | agent-01's own rule per beat |
+| d. head turns | agent-01's `perf.py looks --seq /Game/Reel/SEQ_Reel --measured` (fleet/agent-01/r4-look) -> out/host-studio/reel/perf/looks_measured.json: every look beat x every camera that sees it, at its hold frame | re-applied here, not trusted from `ok`: screen_dir == partner_dir, and gaze err <= 15 deg, or (partner beyond reach, \|true_yaw\| > 100) the head turned their way >= 32.5 deg; rows from the plan (stage shots.py) refuse | preview2 passed on turn size alone with every turn the wrong way (him S15 -64.6 deg LEFT, err 144); the sign is what failed, so the sign is checked |
 | e. clipping (him) | agent-02's metric; without it the engine's qa.penetration worst_fraction on his garments | <= CLIP_MAX per garment per sampled frame | see `CLIP_WHY` in cast_gate.py (set from agent-02's clean-vs-clip numbers) |
 | f. cameras + framing | probe_cam --check on all 13 Reel_ cameras; framing.py's PROBLEM lines | 13/13 OK, no PROBLEM | the plan's own tolerances (1 cm, 0.1 deg, 0.05 mm) |
 | g. lod0 live | the presenters' components (read-only) | no TRASH_ component on Host or Presenter at all; every live LODSync forced_lod 0; every skeletal mesh forced_lod_model 1 | a pin, drive_faces or a dressing on a TRASH_ component does nothing to what renders |

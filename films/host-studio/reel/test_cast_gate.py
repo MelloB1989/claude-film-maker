@@ -118,3 +118,16 @@ def test_sign_refuses_and_waives(tmp_path):
     a.waive = ["c.hair_hue=time-boxed, dropped on the orchestrator's word"]
     rep = g.sign(a)
     assert rep["verdict"] == "SIGN" and "WAIVED" in g.sign_text(rep)
+
+
+def test_turns_agent01_rule():
+    row = {"shot": "S15", "who": "him", "beat": "over his shoulder", "f0": 1128, "f1": 1316, "frame": 1150,
+           "true_yaw": 130.1, "head_yaw": 65.0, "screen_dir": "right", "partner_dir": "right", "err_deg": 44.4,
+           "stage": "level", "ok": True}
+    her = {"shot": "S15", "who": "her", "f0": 1080, "f1": 1146, "frame": 1100, "true_yaw": -49.9, "head_yaw": -32.2,
+           "screen_dir": "left", "partner_dir": "left", "err_deg": 0.0, "stage": "level", "ok": True}
+    assert g._turns([row, her])["pass"]
+    assert not g._turns([{**row, "screen_dir": "left"}])["pass"]          # preview2's wrong way, even if ok says so
+    assert not g._turns([{**her, "err_deg": 40.0}])["pass"]               # within reach but missing her face
+    assert not g._turns([{**row, "head_yaw": 20.0}])["pass"]              # beyond reach, the head barely turns
+    assert not g._turns([{**row, "stage": "shots.py"}])["pass"]           # the plan, not the level
