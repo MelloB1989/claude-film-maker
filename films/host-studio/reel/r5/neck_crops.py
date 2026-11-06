@@ -1,7 +1,9 @@
 """Round 5b (agent-09): 400% neck crops for the orchestrator's eye on garment.neck_px, on the box (face rule: the
 crops hold Host_Op; they go to private/renders/r5/review/ only). For each frame, his neck bones are projected through
 the shot's camera (cam.project) and the same box is cut from this round's final and round 4's final_d, scaled 4x
-(nearest, so no pixel is invented) and put side by side: left round 5, right round 4.
+(nearest, so no pixel is invented) and put side by side: left round 5, right round 4. Each row also carries the
+1:1 crops' SSIM vs round 4 (path iv wears round 4's garment, so a new neckline defect, e.g. a torn skin edge that
+neck_px cannot see, lowers it): a number to compare frames and fixes by, not a gate line.
 
     cd tools && uv run --with pillow python ../films/host-studio/reel/r5/neck_crops.py --shot S15 \
         --frames 1150,1152,1175 --final /srv/ue/reel/r5/final --r4 /srv/ue/reel/r3/final_d \
@@ -34,6 +36,16 @@ def neck_box(pts: dict, w: int, h: int) -> list:
     return [int(max(0, cx - half)), int(max(0, cy - half)), int(min(w, cx + half)), int(min(h, cy + half))]
 
 
+def _ssim(a, b) -> float:
+    """SSIM of the two 1:1 crops (qa/compare.py), a number to compare frames and fixes by: the eye decides."""
+    import numpy as np
+    from filmtools.unreal import qa_local
+    qa_local.qa()
+    im, cm = sys.modules["fmqa.image"], sys.modules["fmqa.compare"]
+    A, B = (im.Image.from_array(np.asarray(x)) for x in (a, b))
+    return round(cm.against_reference(A, B, min_ssim=0.0)["ssim"], 4)
+
+
 def main(argv=None) -> int:
     from PIL import Image
     from filmtools.unreal import client
@@ -62,6 +74,7 @@ def main(argv=None) -> int:
             im4 = im4.resize(im5.size, Image.LANCZOS)
         box = neck_box(pts, *im5.size)
         c5, c4 = (im.crop(box) for im in (im5, im4))
+        ssim = _ssim(c5, c4)  # same garment as round 4 (path iv): a new defect at the neckline lowers it
         c5, c4 = (c.resize((c.width * a.scale, c.height * a.scale), Image.NEAREST) for c in (c5, c4))
         side = Image.new("RGB", (c5.width * 2 + 8, c5.height), (255, 0, 255))
         side.paste(c5, (0, 0))
@@ -70,7 +83,7 @@ def main(argv=None) -> int:
         for tag, im in (("r5", c5), ("r4", c4), ("r5_vs_r4", side)):
             paths[tag] = str(out / f"{a.shot}_f{f}_neck_{a.scale * 100}pct_{tag}.png")
             im.save(paths[tag])
-        rows.append({"frame": f, "box_px": box, **paths})
+        rows.append({"frame": f, "box_px": box, "ssim_vs_r4": ssim, **paths})
     print(json.dumps(rows, indent=1))
     return 0
 
