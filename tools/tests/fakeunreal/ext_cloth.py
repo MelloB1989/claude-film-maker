@@ -133,6 +133,9 @@ def install(fake):
     def set_uce(self, on):
         self._props["__update_cloth_in_editor"] = bool(on)
 
+    def set_leader(self, leader, *a, **k):
+        self._props["leader_pose_component"] = leader
+
     def get_skm(self):
         return self._props.get("skeletal_mesh_asset")
 
@@ -140,7 +143,7 @@ def install(fake):
                   ("get_ref_pose_transform", get_ref_pose_transform), ("set_cloth_max_distance_scale", set_scale),
                   ("get_cloth_max_distance_scale", get_scale),
                   ("force_cloth_next_update_teleport_and_reset", reset), ("get_skeletal_mesh_asset", get_skm),
-                  ("set_update_cloth_in_editor", set_uce)):
+                  ("set_update_cloth_in_editor", set_uce), ("set_leader_pose_component", set_leader)):
         setattr(SMC, k, fn)
 
     fake.stub("MathLibrary.compose_transforms",
