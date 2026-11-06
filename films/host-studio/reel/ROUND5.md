@@ -233,10 +233,16 @@ inside the overshirt opening; S15). Found so far:
 - JOB/TIME-DEPENDENT: located on 40 px cells (`patchcells.py`, numbers only). The S17+S18 FINAL's f1350 is darker than
   round 4 at x1280 y760 (dL −15.3 on L 50.3), x1200 y760 (−5.8) and x1160 y800 (−5.2); f1386 at x1200 y760 (−11.1). A
   fresh 1-frame render of the same frame (75-still, same pose and assets) is clean (|dL| 0.4).
-- So something stateful evolves over the long job: physics on her overshirt (physics-asset bodies on the lapels),
-  the warm-up ticking physics, or a velocity/temporal-sample effect. Round-6 test (the orchestrator): a SHORT job
-  S17 f1320-1350 with the final's exact settings, (a) as is and (b) with her overshirt's physics off, f1350 crops of
-  both beside the final frame.
+- S18 f1500 (the same wide framing) carries it too, weaker: x1120 y760 dL −6.8 (round 4 L 43.9). The close shots
+  (S15, S16) cannot be compared cell for cell (her pose differs from round 4).
+- **Cause narrowed to editor STATE at the time of the finals** (agent-06's test, after the 19:09 restart): the same frame
+  with the finals' exact spec renders CLEAN, both as 1 frame (L* 50.6 | 33.6 | 16.0 in the three cells) and as a
+  30-frame run from S17's start (f1350: 48.9 | 33.3 | 16.0). Round 4 reads 50.3 | 33.8 | 16.0; the S17 final reads
+  35.0 | 28.0 | 10.8. Not the final spec or motion blur, and not a build-up along the shot. Test frames:
+  `/srv/ue/reel/r5/patch_final{,2}/` on the box.
+- Round 6: find WHAT state (the 18:08 overshirt restore ran in that editor session before the finals; the restart
+  reloaded her assets). Re-render any final made in that session (S13, S15, S16, S17+S18, 18:20-18:51) after a fresh
+  editor start.
 
 **What the gate learned this session (tools, all on r5-film-integrate)**
 
