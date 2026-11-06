@@ -17,6 +17,12 @@ if [ "$1" = "-Mode=QueryTargets" ]; then   # compiles the engine's C# rules only
     r="$(dirname "$0")/../../../Intermediate/Build/BuildRules"; mkdir -p "$r" && touch "$r/UE5Rules.dll"; exit 0
 fi
 [ -f "$(dirname "$0")/../../../Intermediate/Build/BuildRules/UE5Rules.dll" ] || { echo "Precompiled rules assembly does not exist"; exit 7; }
+if [ "$5" = "-SkipBuild" ]; then           # UHT over the engine, unmarked, no compile
+    [ -f "$(dirname "$0")/../../InstalledBuild.txt" ] && { echo "installed: no UHT for the engine"; exit 8; }
+    u="$(dirname "$0")/../../../Intermediate/Build/Linux/UnrealEditor/Inc/CoreUObject/UHT"; mkdir -p "$u"
+    touch "$u/PrimaryAssetId.generated.h"; exit 0
+fi
+[ -f "$(dirname "$0")/../../../Intermediate/Build/Linux/UnrealEditor/Inc/CoreUObject/UHT/PrimaryAssetId.generated.h" ] || { echo "PrimaryAssetId.generated.h file not found"; exit 6; }
 [ -f "$(dirname "$0")/../../InstalledBuild.txt" ] || { echo "not installed: would rebuild the engine"; exit 9; }
 proj="${4#-Project=}"; d="$(dirname "$proj")/Plugins/Demo"
 mkdir -p "$d/Binaries/Linux" "$d/Intermediate/Build" && touch "$d/Binaries/Linux/libUnrealEditor-Demo.so"
@@ -40,6 +46,9 @@ def sandbox(tmp_path, build_sh, rules=True):
         r = engine / "Engine" / "Intermediate" / "Build" / "BuildRules"
         r.mkdir(parents=True)
         (r / "UE5Rules.dll").write_bytes(b"")
+        u = engine / "Engine/Intermediate/Build/Linux/UnrealEditor/Inc/CoreUObject/UHT"
+        u.mkdir(parents=True)
+        (u / "PrimaryAssetId.generated.h").write_bytes(b"")
     buf = io.BytesIO()
     with tarfile.open(fileobj=buf, mode="w:gz") as t:
         for name, data in (("Demo/Demo.uplugin", b"{}"), ("Demo/Source/Demo/Demo.Build.cs", b"//")):
@@ -85,6 +94,7 @@ def test_a_restored_engine_without_build_rules_compiles_them_first_unmarked(tmp_
     r = run()
     assert r.returncode == 0, r.stderr + r.stdout
     assert (engine / "Engine/Intermediate/Build/BuildRules/UE5Rules.dll").exists()
+    assert (engine / "Engine/Intermediate/Build/Linux/UnrealEditor/Inc/CoreUObject/UHT/PrimaryAssetId.generated.h").exists()
     assert (project / "Plugins/Demo/Binaries/Linux/libUnrealEditor-Demo.so").exists()
     assert not (engine / "Engine/Build/InstalledBuild.txt").exists()
 
