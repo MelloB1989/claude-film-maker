@@ -369,6 +369,22 @@ def _cfg_get(c, key: str, value=None):
     raise err
 
 
+def write_weighted(L, cloth, config: dict) -> dict:
+    """The INTERACTOR_KEYS (but mass_mode, Density by default) written on the clothing asset through
+    FMCloth.SetConfigValue by C++ name. {key: "low,high" read back} or {"unsupported": why} with an older plugin."""
+    if not hasattr(L, "set_config_value"):
+        return {"unsupported": "FMCloth without SetConfigValue: rebuild it (film-ue plugin-build FMCloth); until then "
+                               "renders use the engine's weighted defaults (bending 1.0)"}
+    out = {}
+    for k in INTERACTOR_KEYS:
+        if k == "mass_mode" or k not in config:
+            continue
+        v = float(config[k])
+        err = L.set_config_value(cloth, cpp_name(k), v, v)
+        out[k] = f"error: {err}" if err else L.get_config_value(cloth, cpp_name(k))
+    return out
+
+
 def write_config(asset, config: dict) -> dict:
     """Write a preset's config onto the clothing asset's config objects (cloth_configs: Chaos + shared), except the
     INTERACTOR_KEYS. The configs are fetched afresh for every key and written without edit notifications: in round 5
@@ -471,6 +487,9 @@ def setup(*, label: str, component: str, preset: str, overrides: dict | None = N
     settings_done = _apply_component(garment(label, component))
     _call(garment(label, component), "recreate_clothing_actors")
     cfg["interactor"] = apply_interactor(garment(label, component), cloth.get_name(), p["config"])
+    # ... and ON THE ASSET when the plugin can (FMCloth.SetConfigValue): interactor values live on this world's
+    # simulation only, and an MRQ render builds its own from the asset (round 5)
+    cfg["asset_weighted"] = write_weighted(L, cloth, p["config"])
     EAL.set_metadata_tag(mesh, "FMClothPreset", preset)   # qa.cloth reads it
     # cloth.settings re-applies the interactor values after a respawn: it needs the overrides too
     EAL.set_metadata_tag(mesh, "FMClothOverrides", json.dumps(overrides or {}, sort_keys=True))
