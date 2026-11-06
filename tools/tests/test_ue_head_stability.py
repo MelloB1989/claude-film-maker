@@ -385,13 +385,17 @@ def test_a_blink_cut_by_the_end_of_the_samples_is_not_judged():
     assert len(r["edge"]) == 1 and len(r["blinks"]) == len(ONSETS)
 
 
-def test_a_blink_on_a_big_turn_is_the_turns_not_a_nod():
+def test_turn_blinks_are_nods_by_default_and_listed_only_when_asked():
     """r5 box: his return turn (-94 -> 0 deg in 16 frames) carried its gaze blink and dipped 2.9 deg in pitch, his face
     flat: judged as the turn's path (head_turn_dip, a warning over 2 deg), not as a blink nod."""
     t = C.grid(0, 10.5, RATE)
     yaw = lambda x: C.move(x, 5.15, 0.6, -90.0, 0.0)  # noqa: E731
     pitch = lambda x: dip(x, [5.15], 4.0, 0.6)  # noqa: E731
-    r, _ = judge(pitch, yaw_fn=yaw)
+    off, _ = judge(pitch, yaw_fn=yaw)  # the default (the orchestrator's r5 ruling): a turn blink is judged as a nod
+    assert not off["turns"] and min(b["nod_deg"] for b in off["blinks"]) < -2.0
+    t = C.grid(0, 10.5, RATE)
+    r = ST.check(t, [pitch(x) for x in t], ST.blink_windows(t, [blink_closure(x, ONSETS) for x in t]),
+                 yaw=[yaw(x) for x in t], limits={"turn_deg": 20.0})
     c = by_name(r)
     assert c["blink_nod"]["pass"] and c["blink_locked"]["pass"], r["blinks"]
     assert len(r["turns"]) == 1 and not c["head_turn_dip"]["pass"] and c["head_turn_dip"]["severity"] == "warn"
