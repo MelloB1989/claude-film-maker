@@ -1,9 +1,9 @@
 """Round 5, track T1: the presenters' lip sync, re-done on one timebase and proved (r5/lipsync.md is the plan).
 
-    cd tools && uv run python ../films/host-studio/reel/r5/lips.py cues            # measured cues.json (local, no box)
+    cd tools && uv run python ../films/host-studio/reel/r5/lips.py cues            # cues from the MIX (local, no box)
     cd tools && uv run python ../films/host-studio/reel/r5/lips.py push            # stems, line WAVs, cues -> the box
     cd tools && uv run python ../films/host-studio/reel/r5/lips.py probe --who him # P1: where round 4's lag entered
-    cd tools && uv run python ../films/host-studio/reel/r5/lips.py solve [--only L1]   # mouth-only solve per line
+    cd tools && uv run python ../films/host-studio/reel/r5/lips.py solve [--only L1]   # mouth-only solve per line WAV
     cd tools && uv run python ../films/host-studio/reel/r5/lips.py bias            # P2: each raw solve's own lag
     cd tools && uv run python ../films/host-studio/reel/r5/lips.py compose --who him   # -> AS_reel_<who>_solve
     cd tools && uv run python ../films/host-studio/reel/r5/lips.py check --who him [--stage face|placed]
@@ -28,8 +28,12 @@ from vo import MOODS, OUT as VO  # noqa: E402
 
 from filmtools.unreal import client  # noqa: E402
 
-LINES = {"him": ["L1", "L2", "L4a"], "her": ["L3a", "L3b", "L4b"]}
 CUES = VO / "cues.json"           # the measured one (lips.py cues), what everything reads
+MIX = REEL / "audio" / "mix" / "mix.wav"  # the delivered mix: CANONICAL (the orchestrator, r5): the viewer hears it
+R4_STEMS = VO / "r4_stems"        # round 4's stems, kept aside: they placed L1 ~14 frames before the mix
+# The solve units: one per line WAV. Only L1, L2, L3, L4a, L4b.wav exist (Nov 1): L3 holds L3a + L3b, solved whole
+# and placed once (its mood the longer part's, L3b's); cues split it at its pause for captions and checks.
+UNIT_MOOD = {"L3.wav": MOODS["L3b"]}
 LENGTH = {w: P.END + P.POST_ROLL - P.START[w] for w in ("him", "her")}
 
 
@@ -48,17 +52,63 @@ def cues() -> dict:
     return doc
 
 
+def plan_lines() -> dict:
+    """The line list from the plan (cues_v2.json, never the measured cues.json: a second run would take its
+    measured frames as the plan), mapped onto the line WAVs that exist; L3a + L3b -> L3.wav with a split."""
+    plan = json.loads((REEL / "cues_v2.json").read_text())
+    lines = dict(plan["lines"])
+    if not (VO / "L3a.wav").exists() and (VO / "L3.wav").exists():
+        a, b = lines.pop("L3a"), lines.pop("L3b")
+        lines["L3"] = {**a, "wav": "L3.wav", "text": f"{a['text']} {b['text']}", "split": [
+            {"id": "L3a", "text": a["text"], "voice_frame": a["voice_frame"], "mood": a["mood"],
+             "intensity": a["intensity"], "slot_end": a["slot_end"]},
+            {"id": "L3b", "text": b["text"], "voice_frame": b["voice_frame"], "mood": b["mood"],
+             "intensity": b["intensity"], "slot_end": b["slot_end"]}]}
+    missing = [c["wav"] for c in lines.values() if not (VO / c["wav"]).exists()]
+    if missing:
+        raise SystemExit(f"line WAVs missing in {VO}: {missing}")
+    return {**plan, "lines": lines}
+
+
 def cmd_cues(words: str) -> dict:
-    from filmtools.unreal.cli_lipsync import build_cues
-    src = CUES if CUES.exists() else REEL / "cues_v2.json"
-    doc = build_cues(json.loads(src.read_text()), {w: VO / f"vo_{w}.wav" for w in ("him", "her")}, FPS, words)
+    """Cues from the delivered mix: each line WAV located in mix.wav, the voice stems rebuilt there (out/.../vo/
+    vo_<who>.wav, round 4's kept in vo/r4_stems/ and checked against the mix: they must FAIL on L1), measured."""
+    import shutil
+    from filmtools.unreal.cli_lipsync import cues_from_mix
+    R4_STEMS.mkdir(parents=True, exist_ok=True)
+    for w in ("him", "her"):
+        if (VO / f"vo_{w}.wav").exists() and not (R4_STEMS / f"vo_{w}.wav").exists():
+            shutil.copy2(VO / f"vo_{w}.wav", R4_STEMS / f"vo_{w}.wav")
+    old = {w: R4_STEMS / f"vo_{w}.wav" for w in ("him", "her") if (R4_STEMS / f"vo_{w}.wav").exists()}
+    doc = cues_from_mix(plan_lines(), VO, MIX, VO / "mix_aligned", old, FPS, words)
+    for w, info in doc["stems"].items():  # what perf.py, the checks and the gate read
+        shutil.copy2(info["path"], VO / f"vo_{w}.wav")
+        info["path"] = str(VO / f"vo_{w}.wav")
     CUES.write_text(json.dumps(doc, indent=1))
-    return {k: [c["voice_frame"], c["end_frame"], c.get("voice_frame_planned"), c["words_source"]]
-            for k, c in doc["lines"].items()} | {"issues": doc["issues"]}
+    fails = [i for i in doc["issues"] if i["severity"] == "fail"]
+    return {"lines": {k: {"file_frame": c["file_frame"], "voice": [c["voice_frame"], c["end_frame"]],
+                          "planned": c.get("voice_frame_planned"), "mix_score": c.get("mix_score"),
+                          "words": c["words_source"]} for k, c in doc["lines"].items()},
+            "fails": fails, "old_stems": doc.get("old_stems"), "pass": not fails}
+
+
+def units(who: str) -> list:
+    """The solve units of `who`: one per line WAV, [{"key", "wav", "file_frame", "lines", "mood", "intensity"}]."""
+    out = {}
+    for k, c in sorted(cues()["lines"].items(), key=lambda kc: kc[1]["file_frame"]):
+        if c["who"] != who:
+            continue
+        u = out.setdefault(c["wav"], {"key": Path(c["wav"]).stem, "wav": c["wav"], "file_frame": c["file_frame"],
+                                      "lines": []})
+        u["lines"].append(k)
+    for u in out.values():
+        u["mood"], u["intensity"] = UNIT_MOOD.get(u["wav"]) or MOODS[u["lines"][0]]
+    return list(out.values())
 
 
 def cmd_push() -> list:
-    files = [VO / "vo_him.wav", VO / "vo_her.wav", CUES] + [VO / f"{k}.wav" for ks in LINES.values() for k in ks]
+    cues()  # refuses stale cues
+    files = [VO / "vo_him.wav", VO / "vo_her.wav", CUES] + [VO / u["wav"] for w in ("him", "her") for u in units(w)]
     return [client.push(str(p), box(p.name)) for p in files]
 
 
@@ -89,10 +139,13 @@ def cmd_probe(who: str) -> dict:
             out[name] = summary(check_anim(anim, who, f))
         except SystemExit as e:
             out[name] = {"error": str(e)[:300]}
-    for k in LINES[who]:  # the round-4 splices alone, at their file_frame
+    lines = json.loads(CUES.read_text())["lines"]
+    for k in P.SPLICES[who]:  # the round-4 splice solves alone, at their WAV's place in the mix
+        if k not in lines:
+            continue
         try:
             out[f"0_line_{k}"] = summary(check_anim(f"{P.SPEECH}/Anim/AS_{P.anim_name(k)}", who,
-                                                   json.loads(CUES.read_text())["lines"][k]["file_frame"]))
+                                                   lines[k]["file_frame"]))
         except SystemExit as e:
             out[f"0_line_{k}"] = {"error": str(e)[:300]}
     try:
@@ -109,17 +162,17 @@ def line_anim(k: str) -> str:
 
 
 def cmd_solve(only: list | None) -> dict:
-    """One mouth-only solve per line from its own WAV (head off, blinks off: perfkit owns them), in its mood."""
+    """One mouth-only solve per line WAV (head off, blinks off: perfkit owns them), in its mood."""
     out = {}
-    for who, ks in LINES.items():
+    for who in ("him", "her"):
         mesh = P.face_mesh(who)
-        for k in ks:
+        for u in units(who):
+            k = u["key"]
             if only and k not in only:
                 continue
-            mood, inten = MOODS[k]
-            r = P.ok(client.op("speech.to_face", wav=box(f"{k}.wav"), name=f"reel5_{k}", face_mesh=mesh, mood=mood,
-                               intensity=inten, process_mask="mouth", head=False, blinks=False, fallback=False,
-                               timeout=1800))
+            r = P.ok(client.op("speech.to_face", wav=box(u["wav"]), name=f"reel5_{k}", face_mesh=mesh,
+                               mood=u["mood"], intensity=u["intensity"], process_mask="mouth", head=False,
+                               blinks=False, fallback=False, timeout=1800))
             out[k] = {"anim": r["anim"], "timing": r.get("timing"), "options": r.get("options"),
                       "missing": r.get("missing_options")}
             if not (r.get("timing") or {}).get("ok", False):
@@ -132,21 +185,20 @@ def cmd_bias() -> dict:
     |lag| <= 1 frame; the mean is the expected_lag_s later checks may subtract)."""
     doc = cues()
     out = {}
-    for who, ks in LINES.items():
-        for k in ks:
-            c = doc["lines"][k]
-            r = P.ok(client.op("lipsync.check", anim=line_anim(k), anim_frame=c["file_frame"], wav=box(f"{k}.wav"),
-                               wav_frame=c["file_frame"], lines=[{"id": k, "f0": c["voice_frame"],
-                                                                  "f1": c["end_frame"]}], fps=FPS, timeout=600))
-            out[k] = r["lines"][k]
+    for who in ("him", "her"):
+        for u in units(who):
+            ls = [{"id": k, "f0": doc["lines"][k]["voice_frame"], "f1": doc["lines"][k]["end_frame"]}
+                  for k in u["lines"]]
+            r = P.ok(client.op("lipsync.check", anim=line_anim(u["key"]), anim_frame=u["file_frame"],
+                               wav=box(u["wav"]), wav_frame=u["file_frame"], lines=ls, fps=FPS, timeout=600))
+            out.update({k: r["lines"][k] for k in u["lines"]})
     lags = [v["raw_lag_s"] for v in out.values()]
     out["mean_lag_s"] = round(sum(lags) / len(lags), 4)
     return out
 
 
 def cmd_compose(who: str, keep_base: float) -> dict:
-    doc = cues()
-    parts = [{"anim": line_anim(k), "frame": doc["lines"][k]["file_frame"]} for k in LINES[who]]
+    parts = [{"anim": line_anim(u["key"]), "frame": u["file_frame"]} for u in units(who)]
     base = f"{P.SPEECH}/Anim/AS_{P.anim_name(who)}"  # round 4's whole-performance solve: only the canvas
     return P.ok(client.op("lipsync.compose", parts=parts, out=f"{P.ANIM}/AS_reel_{who}_solve", base=base,
                           start_frame=P.START[who], length_frames=LENGTH[who], fps=FPS, keep_base=keep_base,
@@ -171,8 +223,8 @@ def cmd_check(who: str, stage: str) -> dict:
 
 def cmd_boxes(who: str) -> dict:
     doc = cues()
-    frames = sorted({f for k in LINES[who] for f in range(int(doc["lines"][k]["voice_frame"] - 30),
-                                                           int(doc["lines"][k]["end_frame"] + 30))})
+    mine = [c for c in doc["lines"].values() if c["who"] == who]
+    frames = sorted({f for c in mine for f in range(int(c["voice_frame"] - 30), int(c["end_frame"] + 30))})
     r = P.ok(client.op("lipsync.mouth_boxes", sequence="/Game/Reel/SEQ_Reel", label=P.LABEL[who], frames=frames,
                        timeout=3600))
     out = P.OUT / f"mouth_boxes_{who}.json"

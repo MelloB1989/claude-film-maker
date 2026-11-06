@@ -107,8 +107,10 @@ def stems() -> list[Path]:
             x, sr = read_wav(VO / f"vo_{who}.wav")
         else:  # only the line WAVs and cues.json: each line placed on its file frame
             sr, x = SR, np.zeros(int((END + FPS) * SR / FPS), np.float32)
+            placed = set()  # one WAV may hold several lines (L3 -> L3a, L3b): place it once
             for k, c in cues().items():
-                if c["who"] == who:
+                if c["who"] == who and (c["wav"], c["file_frame"]) not in placed:
+                    placed.add((c["wav"], c["file_frame"]))
                     w, _ = read_wav(VO / c["wav"])
                     i0 = int(round(c["file_frame"] / FPS * sr))
                     x[i0:i0 + len(w)] += w[:len(x) - i0]
@@ -122,7 +124,7 @@ def stems() -> list[Path]:
 
 def push() -> list:
     out = []
-    for p in stems() + [VO / f"{k}.wav" for k in cues()]:
+    for p in stems() + [VO / w for w in sorted({c["wav"] for c in cues().values()})]:  # each line WAV once
         out.append(client.push(str(p), _j(IMPORT, p.name)))
     return out
 
