@@ -207,9 +207,14 @@ The orchestrator's render batch (S13, S15, S16, S17, S18) follows. No change fro
 ### 10. P3 — the render gate, after the cut is muxed (on the box or kali, CPU)
 
 ```
+uv run python ../films/host-studio/reel/r5/lips.py refcurves --who him    # (and her) what each mouth SHOULD do
 film-ue lips render --video karma-reel-1080p-clean-h264.mp4 --wav out/host-studio/reel/vo/vo_him.wav \
     --cues out/host-studio/reel/vo/cues.json --who him --boxes out/host-studio/reel/perf/mouth_boxes_him.json \
+    --reference out/host-studio/reel/perf/ref_him.json \
     > render_him.json                               # exit 0; 2 = inconclusive (fix the box), 1 = fail
+
+The rendered mouth (crop darkness or motion) is checked against the solve's mouth opening at its mix place (`against:
+solve`). The loudness check is weak on these short lines (P2).
 # the same for her
 ```
 

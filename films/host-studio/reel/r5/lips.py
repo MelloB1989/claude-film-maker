@@ -241,6 +241,28 @@ def cmd_check(who: str, stage: str) -> dict:
     raise SystemExit(0 if r["pass"] else 1)
 
 
+def cmd_refcurves(who: str) -> dict:
+    """What `who`'s mouth SHOULD do on the master timeline: each line solve's mouth-opening curves placed at its
+    WAV's place in the mix (out/.../perf/ref_<who>.json, {name: [times_s, values]}), the target of `film-ue lips
+    render --reference` (the rendered mouth against the solve, not the voice)."""
+    import sys as _s
+    _s.path.insert(0, str(Path(P.ROOT) / "unreal" / "fmbridge"))
+    from perfkit import lipsync as LS
+    parts = []
+    for u in units(who):
+        got = P.ok(client.op("anim.read_curves", anim=line_anim(u["key"]), names=list(LS.APERTURE)))
+        cur = {n: (tv[0], tv[1]) for n, tv in got.items() if tv[0]}
+        t0 = u["file_frame"] / FPS
+        placed = LS.place(cur, t0, rest_outside=True)
+        t1 = max(t[-1] for t, _ in placed.values())
+        parts.append((t0 - 0.01, t1 + 0.01, placed))
+    ref = LS.merge_sections(parts)
+    out = P.OUT / f"ref_{who}.json"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps({n: [t, v] for n, (t, v) in ref.items()}))
+    return {"out": str(out), "lines": [u["lines"] for u in units(who)], "curves": len(ref)}
+
+
 def cmd_boxes(who: str) -> dict:
     doc = cues()
     mine = [c for c in doc["lines"].values() if c["who"] == who]
@@ -255,7 +277,8 @@ def cmd_boxes(who: str) -> dict:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["voice", "cues", "push", "probe", "solve", "bias", "compose", "check", "boxes"])
+    ap.add_argument("cmd", choices=["voice", "cues", "push", "probe", "solve", "bias", "compose", "check", "boxes",
+                                    "refcurves"])
     ap.add_argument("--vocals", type=Path, default=SEP / "vocals.wav", help="demucs vocals of audio/mix/mix.wav")
     ap.add_argument("--who", choices=["him", "her"], default="him")
     ap.add_argument("--only", nargs="*")
@@ -267,7 +290,7 @@ def main() -> None:
         cmd_check(a.who, a.stage)
     r = {"voice": lambda: cmd_voice(a.vocals), "cues": lambda: cmd_cues(a.words), "push": cmd_push, "probe": lambda: cmd_probe(a.who),
          "solve": lambda: cmd_solve(a.only), "bias": cmd_bias, "compose": lambda: cmd_compose(a.who, a.keep_base),
-         "boxes": lambda: cmd_boxes(a.who)}[a.cmd]()
+         "boxes": lambda: cmd_boxes(a.who), "refcurves": lambda: cmd_refcurves(a.who)}[a.cmd]()
     print(json.dumps(r, indent=1, default=str))
 
 
