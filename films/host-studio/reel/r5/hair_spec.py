@@ -20,6 +20,9 @@ from cast_gate import CAST, SEQ  # noqa: E402
 from shots import SHOTS  # noqa: E402
 
 K = 4          # frames per side of each cut (qa/hair.py THRESHOLDS k)
+# cuts whose camera holds (shots.py: S18 is "locked off on the end of S17"): the only ones `film-qa hair`'s cut pop
+# reads; across a camera change the head box changes by design and would read as a pop
+HELD_CUTS = (("S17", "S18"),)
 BONES = ("head", "spine_05")
 
 
@@ -59,8 +62,10 @@ def build(who: str, frames_dir: str, cut_ids: list, k: int = K) -> dict:
             old = boxes.get(s.id)
             boxes[s.id] = b if old is None else [min(old[0], b[0]), min(old[1], b[1]), max(old[2], b[2]),
                                                  max(old[3], b[3])]
+    pairs = {(a[0], b[0]) for a, b in zip(cuts, cuts[1:])}
     return {"character": lab, "cuts": cuts, "frames_glob": str(Path(frames_dir) / "*.png"), "boxes": boxes,
-            "anchors": anchors, "max_luma": 40.0, "thresholds": {"k": k}}
+            "anchors": anchors, "max_luma": 40.0, "thresholds": {"k": k},
+            "pop_cuts": [list(c) for c in HELD_CUTS if c in pairs]}
 
 
 def main(argv=None):
