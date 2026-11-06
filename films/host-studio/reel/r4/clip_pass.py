@@ -19,7 +19,9 @@ it does not count; a hand pressed into the trousers borders leg skin just under 
 
 The number per (frame, pair): `fraction` = clipping pixels / G's pixels (what agent-09's gate reads), with `raw` (all
 in-band pixels, before the edge rule), the clusters (box as fractions of the frame, pixels, worst cm) and
-`seen` = the share of clipping pixels actually visible (U is the nearest layer of all there).
+`seen` = the share of clipping pixels actually visible (U is the nearest layer of all there). Skin within 3 px (at
+480 wide) of where it leaves the garment's silhouette (his neck above the collar edge: a thin band, no clip; the
+orchestrator's review of the before sheet) is left out and counted as `at_opening_px`.
 
 Writes on the box only (face data with Host_Op on the level; never off it): OUT/clip.json (numbers), per frame
 <shot>_<frame>_final.png (the scene through the camera), _mask.png (flat colours: body red, face orange, tee/top
@@ -121,10 +123,12 @@ def clusters(mask, keep_edge) -> list:
 def judge(d, under, over) -> dict:
     """One pair at one frame from the depth layers d[name] (lists, cm)."""
     U, G = d[under], d[over]
-    inband, shallow, gpx = set(), set(), 0
+    inband, shallow, gpx, opening = set(), set(), 0, set()
     for i in range(W * H):
         g = G[i]
         if g >= EMPTY:
+            if U[i] < EMPTY:
+                opening.add(i)  # the under layer seen where the garment is not: it leaves the garment here
             continue
         gpx += 1
         u = U[i]
@@ -135,6 +139,18 @@ def judge(d, under, over) -> dict:
             inband.add(i)
         elif -NEAR <= gap <= TOL:
             shallow.add(i)
+    # skin at a garment's opening (his neck above the collar, an arm out of a sleeve) passes in front of the
+    # garment's inside there: a thin band along the edge that is no clip (the orchestrator, round 4). Skin pixels
+    # within R px of where the skin leaves the garment's silhouette are reported apart (at_opening_px), not counted.
+    near_open = set()
+    if under in SKIN and opening:
+        R = max(2, round(3 * W / 480))
+        for i in inband:
+            y, x = divmod(i, W)
+            if any((yy * W + xx) in opening for yy in range(max(0, y - R), min(H, y + R + 1))
+                   for xx in range(max(0, x - R), min(W, x + R + 1))):
+                near_open.add(i)
+        inband -= near_open
     kept, blobs = set(), []
     for blob, edge in clusters(inband, shallow):
         if edge:
@@ -148,6 +164,7 @@ def judge(d, under, over) -> dict:
     nearest = [min(d[n][i] for n in d) for i in kept] if kept else []
     seen = sum(1 for i, z in zip(kept, nearest) if U[i] <= z + 1e-3)
     return {"g_px": gpx, "raw": round(len(inband) / gpx, 5) if gpx else 0.0, "px": len(kept),
+            "at_opening_px": len(near_open),
             "fraction": round(len(kept) / gpx, 5) if gpx else 0.0, "seen": round(seen / len(kept), 3) if kept else 0.0,
             "clusters": blobs[:6], "_mask": kept}
 
