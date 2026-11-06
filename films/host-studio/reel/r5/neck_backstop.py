@@ -28,6 +28,9 @@ LABEL = globals().get("LABEL", "Host")
 TEE = globals().get("TEE", "Tee")  # the refit tee's component
 REACH = float(globals().get("REACH", 4.0))  # cm: a face vert this far under the cloth (along its normal) is covered
 RAMP = float(globals().get("RAMP", 3.0))  # cm under the collar edge to full shrink
+BOUND_CM = float(globals().get("BOUND_CM", 0.0))  # round 5b loop 5: the face mesh's OPEN edge (its seam to the body at
+# the neck base) and this far from it never shrink (ramping in): a shrunk edge pulls away from the body and opens a hole
+# (S13/S15 finals: a ragged lip at the face's lower edge, see-through below it)
 PAD_PX = int(globals().get("PAD_PX", 0))  # round 5b loop 4: grow the dark mask this many texels into the white round
 # it (texture padding): a covered vertex on a UV island's edge or seam sampled half-white texels and barely shrank
 # (loop 2: ~27 of 1160 covered verts moved < 0.5 cm while every covered one should move >= EDGE_W x SHRINK_CM)
@@ -144,6 +147,21 @@ def mask():
             if d < DILATE_CM:
                 w[i] = DILATE_W * (1.0 - d / DILATE_CM)
                 dil += 1
+    # the face's open edges (edges of one triangle): at the neck base it is stitched to the body by position
+    ec = {}
+    for a_, b_, c_ in tris:
+        for e in ((a_, b_), (b_, c_), (c_, a_)):
+            k = (min(e), max(e))
+            ec[k] = ec.get(k, 0) + 1
+    bverts = {i for k, n in ec.items() if n == 1 for i in k}
+    near = [i for i in range(len(V)) if w[i] > 0]
+    B = [V[i] for i in bverts if any((V[i] - V[j]).length() < 6.0 for j in near[::7])] if near else []
+    bound_hit = sum(1 for i in near if i in bverts)
+    if BOUND_CM > 0 and B:
+        for i in near:
+            d = min((V[i] - b).length() for b in B)
+            if d < BOUND_CM:
+                w[i] *= d / BOUND_CM
     val = [1.0 - w[i] if (cov[i] or w[i] > 0) else 1.0 for i in range(len(V))]
     img = bytearray([255] * (SIZE * SIZE))
     drawn = 0
@@ -205,7 +223,8 @@ def mask():
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     I.write(I.Image(SIZE, SIZE, 1, img), OUT)
     return {"tee_component": tee_c.get_name(), "face_verts": len(V), "covered": sum(cov), "edge_verts": len(edge), "dilated": dil, "full_shrink": sum(1 for x in w if x >= 1),
-            "px_drawn": drawn, "pad_px": PAD_PX, "weak_covered": len(weak),
+            "px_drawn": drawn, "pad_px": PAD_PX, "open_edge_verts_near": len(B), "shrunk_on_open_edge": bound_hit,
+            "bound_cm": BOUND_CM, "weak_covered": len(weak),
             "weak_z_cm": [round(min(V[i].z for i in weak), 1), round(max(V[i].z for i in weak), 1)] if weak else None, "png": OUT, "uv_valid": bool(UV) and len(UV) == len(V)}
 
 
