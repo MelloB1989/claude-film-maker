@@ -27,7 +27,10 @@ LABEL = globals().get("LABEL", "Host")
 TEE = globals().get("TEE", "Tee")  # the refit tee's component
 REACH = float(globals().get("REACH", 4.0))  # cm: a face vert this far under the cloth (along its normal) is covered
 RAMP = float(globals().get("RAMP", 3.0))  # cm under the collar edge to full shrink
-EDGE_W = float(globals().get("EDGE_W", 0.0))  # the shrink weight AT the collar edge (round 5b: a turn exposes the
+DILATE_CM = float(globals().get("DILATE_CM", 0.0))  # round 5b: uncovered face verts this close ABOVE the collar edge
+# also shrink, EDGE_W fading to 0 at DILATE_CM (a turn brings the neck out right at the line, where nothing was covered)
+EDGE_W = float(globals().get("EDGE_W", 0.0))
+DILATE_W = float(globals().get("DILATE_W", EDGE_W))  # the dilated band's weight at the line (visible skin: keep small)  # the shrink weight AT the collar edge (round 5b: a turn exposes the
 # neck right at the edge, where a 0 ramp start left it unshrunk; 0.3 = 30 % of SHRINK_CM there)
 SHRINK_CM = float(globals().get("SHRINK_CM", 1.5))
 SIZE = int(globals().get("SIZE", 1024))
@@ -128,12 +131,22 @@ def mask():
         if c and E:
             d = min((V[i] - e).length() for e in E)
             w[i] = EDGE_W + (1.0 - EDGE_W) * max(0.0, min(1.0, d / RAMP))
+    dil = 0
+    if DILATE_CM > 0 and E:
+        for i, c in enumerate(cov):
+            if c or V[i].z > top:
+                continue
+            d = min((V[i] - e).length() for e in E)
+            if d < DILATE_CM:
+                w[i] = DILATE_W * (1.0 - d / DILATE_CM)
+                dil += 1
+    val = [1.0 - w[i] if (cov[i] or w[i] > 0) else 1.0 for i in range(len(V))]
     img = bytearray([255] * (SIZE * SIZE))
     drawn = 0
     for a, b, c in tris:
-        if not (cov[a] or cov[b] or cov[c]):
+        if min(val[a], val[b], val[c]) >= 1.0:
             continue
-        P = [(UV[i].x * SIZE, UV[i].y * SIZE, 1.0 - w[i] if cov[i] else 1.0) for i in (a, b, c)]
+        P = [(UV[i].x * SIZE, UV[i].y * SIZE, val[i]) for i in (a, b, c)]
         x0, x1 = int(max(0, min(p[0] for p in P))), int(min(SIZE - 1, max(p[0] for p in P) + 1))
         y0, y1 = int(max(0, min(p[1] for p in P))), int(min(SIZE - 1, max(p[1] for p in P) + 1))
         (ax, ay, av), (bx, by, bv), (cx, cy, cv) = P
@@ -155,7 +168,7 @@ def mask():
                     drawn += 1
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     I.write(I.Image(SIZE, SIZE, 1, img), OUT)
-    return {"tee_component": tee_c.get_name(), "face_verts": len(V), "covered": sum(cov), "edge_verts": len(edge), "full_shrink": sum(1 for x in w if x >= 1),
+    return {"tee_component": tee_c.get_name(), "face_verts": len(V), "covered": sum(cov), "edge_verts": len(edge), "dilated": dil, "full_shrink": sum(1 for x in w if x >= 1),
             "px_drawn": drawn, "png": OUT, "uv_valid": bool(UV) and len(UV) == len(V)}
 
 
