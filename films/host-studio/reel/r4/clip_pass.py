@@ -5,7 +5,7 @@ level (the QA capture rig comes and goes, as qa.penetration's does). Run in the 
     film-ue exec -c "TAG='before'; CHECKOUT='<checkout>'; exec(open(CHECKOUT + '/films/host-studio/reel/r4/clip_pass.py').read())"
 
 Knobs (globals, all optional): LABEL ('Host' | 'Presenter'), SHOTS (camera-cut names, default his: Reel_S13, S15,
-S17, S18; hers add S16), N (frames per shot, spread start..end, default 6), W (capture width, default 480), BAND, TOL,
+S17, S18; hers add S16), N (frames per shot, spread start..end, default 6), EXTRA ({shot: [frames]} measured too), W (capture width, default 480), BAND, TOL,
 NEAR (cm, below), DIAG (True: also the A/B stills at each shot's middle frame), OUT (default /srv/ue/reel/r4/clip/TAG).
 
 How a pixel is judged. Each layer (Body, Face, his tee, Trousers, shoes, ...) is depth-captured alone from the shot's
@@ -46,6 +46,9 @@ W = int(globals().get("W", 480))
 H = round(W * 9 / 16)
 BAND, TOL, NEAR = float(globals().get("BAND", 3.0)), float(globals().get("TOL", 0.3)), float(globals().get("NEAR", 1.5))
 DIAG = bool(globals().get("DIAG", True))
+# frames always measured besides the spread ones: his torso-twisting looks at her (agent-01, round 4): S15's hold at
+# ~+65 deg neck with a 30 deg torso twist, S17's glance (neck ~+49, torso 12)
+EXTRA = globals().get("EXTRA") or {"Reel_S15": [1150, 1220, 1290], "Reel_S17": [1390, 1397, 1404]}
 TAG = globals().get("TAG", "now")
 OUT = globals().get("OUT") or f"/srv/ue/reel/r4/clip/{LABEL}_{TAG}"
 EMPTY = 1.0e7
@@ -178,7 +181,8 @@ def run():
                 rep["shots"][shot] = {"error": f"no camera cut {shot}: {sorted(cuts)}"}
                 continue
             s, e = cuts[shot]
-            frames = sorted({s + 2 + round(k * (e - 4 - s) / max(1, N - 1)) for k in range(N)})
+            frames = sorted({s + 2 + round(k * (e - 4 - s) / max(1, N - 1)) for k in range(N)} |
+                            {f for f in EXTRA.get(shot, ()) if s <= f < e})
             mid = frames[len(frames) // 2]
             per = {}
             for f in frames:
