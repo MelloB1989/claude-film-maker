@@ -200,6 +200,23 @@ def install(fake):
 
     fake.FMCloth = FMCloth
 
+    class ChaosClothingInteractor(core.Object):
+        def __getattr__(self, name):
+            if name.startswith("set_"):
+                def rec(*a, _n=name):
+                    core.FAKE.calls.append((f"ChaosClothingInteractor.{_n}", a, {}))
+                return rec
+            raise AttributeError(name)
+
+    class ClothingSimulationInteractor(core.Object):
+        def get_clothing_interactor(self, name):
+            return ChaosClothingInteractor(str(name), self)
+
+    def get_interactor(self, name=None):
+        m = self._props.get("skeletal_mesh_asset")
+        return ClothingSimulationInteractor("CSI", self) if m is not None and m._props.get("mesh_clothing_assets") else None
+    SMC.get_clothing_simulation_interactor = get_interactor
+
     class ChaosCacheManager(core.Actor):
         def find_or_add_observed_component(self, component, cache_name="", transfer=False):
             obs = self._props.setdefault("__observed", {})

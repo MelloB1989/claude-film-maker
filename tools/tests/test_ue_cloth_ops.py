@@ -73,11 +73,16 @@ def test_setup_paints_configures_and_converges(ue, host):
     assert r["maps"]["torso"]["max_cm"] == pytest.approx(3.0) and r["readback_max_cm"] == pytest.approx(3.0)
     assert r["config"]["missing"] == []
     assert r["config"]["set"]["density"] == 0.15
-    assert r["config"]["set"]["bending_stiffness_weighted"] == {"low": 0.08, "high": 0.08}
+    assert "bending_stiffness_weighted" not in r["config"]["set"]          # no Python type for weighted values:
+    assert r["config"]["interactor"]["material"] == [1.0, 0.08, 1.0]      # set through the clothing interactor
+    assert ue.called("ChaosClothingInteractor.set_material_linear")[-1][0] == (1.0, 0.08, 1.0)
+    assert r["config"]["interactor"]["aerodynamics"] == [0.035, 0.035] and "error" not in r["config"]["interactor"]
     assert r["config"]["set"]["iteration_count"] == 2
     assert r["settings"]["teleport_distance_threshold"] == 50.0 and r["settings"]["reset_after_teleport"] is True
     run_op("cloth.setup", label="Host", component="Tee", preset="cotton_tee")
     assert len(ue.called("FMCloth.create")) == 1                       # converged: one clothing asset
+    st = run_op("cloth.settings", label="Host")                          # a respawn: the interactor values again
+    assert st["garments"]["Tee"]["interactor"]["material"] == [1.0, 0.08, 1.0]
     mesh = ue.assets["/Game/H/SKM_Tee"]
     assert len(mesh._props["mesh_clothing_assets"]) == 1
     assert ue.EditorAssetLibrary.get_metadata_tag(mesh, "FMClothPreset") == "cotton_tee"
@@ -163,3 +168,23 @@ def test_cache_sets_up_one_manager(ue, host):
     assert len([a for a in ue.world.actors() if a.get_actor_label() == "ClothCache_Host"]) == 1
     with pytest.raises(Exception):
         run_op("cloth.cache", label="Host", mode="replay")
+
+
+def test_colours_that_pin_most_of_a_garment_are_not_the_fits_and_are_ignored(ue, host):
+    # round 5: her overshirt carried its own vertex colours (G > 0.5 everywhere): every vertex read as pinned (0 cm)
+    from fmbridge.clothkit import presets
+    from fmbridge.ops import cloth as C
+    pts = tee()
+    mesh = ue.assets["/Game/H/SKM_Tee"]
+    own = C.plan_maps(pts, mesh, presets.get("cotton_tee"), (pts, [(0.8, 0.8, 0.8, 1.0)] * len(pts)))
+    assert own["colours"] is False and "ignored" in own["colours_ignored"] and own["problems"] == []
+    assert own["maps"]["stats"]["torso"]["max_cm"] == pytest.approx(3.0)
+    fit = [(0.4, 1.0 if p[2] >= 145 else 0.0, 0, 1) for p in pts]
+    r = C.plan_maps(pts, mesh, presets.get("cotton_tee"), (pts, fit))
+    assert r["colours"] is True and r["colours_ignored"] == ""
+
+
+def test_describe_reports_the_drawn_lod(ue, host):
+    host.get_components_by_class(ue.SkeletalMeshComponent)[1].set_editor_property("forced_lod_model", 1)
+    d = run_op("cloth.describe", label="Host", component="Tee")["garments"]["Tee"]
+    assert d["forced_lod_model"] == 1 and d["drawn_lod"] == 0

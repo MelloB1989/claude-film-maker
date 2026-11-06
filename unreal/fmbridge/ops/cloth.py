@@ -33,6 +33,7 @@ from ..clothkit import presets as _presets
 from ..clothkit import preroll as _preroll
 
 BODY = "Body"
+PIN_MAX_FRACTION = 0.6   # fit colours pin the collar and shoulder seams (5-15%); more than this is someone else's colours
 SKIP = ("Body", "Face")   # a MetaHuman's skin components: never cloth
 
 # preset COMPONENT keys -> USkeletalMeshComponent property names (Python snake_case of the UPROPERTY)
@@ -142,8 +143,10 @@ def describe_component(comp) -> dict:
          "settings": {k: _plain(_get(comp, p)) for k, p in COMPONENT_PROPS.items() if _get(comp, p) is not None},
          "max_distance_scale": _call(comp, "get_cloth_max_distance_scale"),
          "suspended": _call(comp, "is_clothing_simulation_suspended"),
-         "forced_lod": _get(comp, "forced_lod_model"),
+         "forced_lod_model": _get(comp, "forced_lod_model"),   # ForcedLodModel: 0 = auto, N = LOD N-1
          "solver": solver_stats(comp)}
+    flm = d["forced_lod_model"]
+    d["drawn_lod"] = "auto" if not isinstance(flm, int) or flm <= 0 else flm - 1
     d["simulating"] = bool(assets) and not d["settings"].get("disable_cloth_simulation", False) and \
         not d["suspended"] and d["solver"].get("dynamic_particles", 1) > 0
     return d
@@ -176,7 +179,7 @@ def describe(*, label: str, component: str = "") -> dict:
     means it is disabled, suspended or has no dynamic particles (all painted 0).
     Args: label: the actor. component: one garment (else every skeletal mesh component but Body and Face).
     Returns: {"label", "garments": {name: {"mesh", "leader", "clothing", "settings", "max_distance_scale",
-    "suspended", "forced_lod", "solver", "simulating"}}, "skinned_only": [names]}.
+    "suspended", "forced_lod_model", "drawn_lod", "solver", "simulating"}}, "skinned_only": [names]}.
     Example: film-ue op cloth.describe label=Host
     """
     comps = {component: garment(label, component)} if component else \
@@ -286,8 +289,16 @@ def plan_maps(points: list, mesh, preset: dict, colours_from=None) -> dict:
     except ValueError as e:
         raise OpError(str(e), code="failed", hint="the garment must be skinned to the MetaHuman body skeleton") from None
     cols = nearest_colours(points, colours_from[0], colours_from[1]) if colours_from and colours_from[1] else None
+    ignored = ""
+    if cols:
+        pinned = sum(1 for c in cols if c is not None and c[1] > _paint.PIN_LEVEL) / float(len(cols))
+        if pinned > PIN_MAX_FRACTION:   # not the fit's encoding (a garment's own colours): round 5, her overshirt
+            ignored = (f"the vertex colours pin {pinned:.0%} of the garment: not garment.fit's encoding (G = pinned "
+                       "collar/shoulder), ignored")
+            cols = None
     maps = _paint.paint(points, zones, segs, preset, parents, colours=cols)
-    return {"maps": maps, "problems": _paint.check_maps(maps, preset), "colours": cols is not None}
+    return {"maps": maps, "problems": _paint.check_maps(maps, preset), "colours": cols is not None,
+            "colours_ignored": ignored}
 
 
 def _preset(name: str, overrides=None) -> dict:
@@ -298,27 +309,61 @@ def _preset(name: str, overrides=None) -> dict:
                       hint="cloth.presets lists the presets, their zones and config keys") from None
 
 
+# Config keys Python cannot write on the asset in 5.8.4: FChaosClothWeightedValue and EClothMassMode have no Python
+# type (round 5: "Cannot nativize float as StructBase" on drag). The weighted ones go through the per-cloth
+# UChaosClothingInteractor at runtime (ChaosClothingSimulationInteractor.h:41-84); mass_mode stays the engine's
+# default, Density.
+INTERACTOR_KEYS = ("edge_stiffness_weighted", "bending_stiffness_weighted", "area_stiffness_weighted",
+                   "tether_stiffness", "tether_scale", "anim_drive_stiffness", "drag", "lift", "mass_mode")
+
+
+def apply_interactor(comp, cloth_name: str, config: dict) -> dict:
+    """The weighted config values a preset sets, through the component's Chaos clothing interactor (runtime: they
+    live on the simulation, not the asset, so cloth.settings re-applies them after a respawn). Returns what it set or
+    {"error": ...}."""
+    it = _call(comp, "get_clothing_simulation_interactor")
+    ci = _call(it, "get_clothing_interactor", cloth_name) if it is not None else None
+    if ci is None:
+        return {"error": f"no clothing interactor for {cloth_name} (is the cloth simulating? cloth.describe)"}
+    c = config
+    out = {}
+    try:
+        ci.set_material_linear(float(c["edge_stiffness_weighted"]), float(c["bending_stiffness_weighted"]),
+                               float(c["area_stiffness_weighted"]))
+        out["material"] = [c["edge_stiffness_weighted"], c["bending_stiffness_weighted"], c["area_stiffness_weighted"]]
+        ci.set_long_range_attachment_linear(float(c["tether_stiffness"]), float(c["tether_scale"]))
+        out["long_range_attachment"] = [c["tether_stiffness"], c["tether_scale"]]
+        ci.set_anim_drive_linear(float(c["anim_drive_stiffness"]))
+        out["anim_drive"] = c["anim_drive_stiffness"]
+        ci.set_aerodynamics(float(c["drag"]), float(c["lift"]), unreal.Vector(0, 0, 0))
+        out["aerodynamics"] = [c["drag"], c["lift"]]
+    except Exception as e:  # noqa: BLE001 - report it with what did get set
+        out["error"] = f"{type(e).__name__}: {e}"
+    return out
+
+
 def write_config(asset, config: dict) -> dict:
     """Write a preset's config onto the clothing asset's config objects (cloth_configs: Chaos + shared); a number
     for a weighted value sets low = high. Returns {"set": {key: value read back}, "missing": [keys no config has]}."""
     cfgs = list((_get(asset, "cloth_configs", {}) or {}).values())
     done, missing = {}, []
     for k, v in config.items():
+        if k in INTERACTOR_KEYS:
+            continue
         target = next((c for c in cfgs if _get(c, k) is not None), None)
         if target is None:
             missing.append(k)
             continue
         cur = _get(target, k)
-        if hasattr(cur, "low") and hasattr(cur, "high") and isinstance(v, (int, float)):
-            val = unreal.ChaosClothWeightedValue(low=float(v), high=float(v))
-        elif isinstance(v, list) and len(v) == 3:
+        if isinstance(v, list) and len(v) == 3:
             val = type(cur)(*[float(x) for x in v]) if cur is not None else unreal.Vector(*v)
-        elif isinstance(v, str) and k == "mass_mode":
-            val = getattr(unreal.ClothMassMode, v)
         else:
             val = v
-        target.set_editor_property(k, val)
-        done[k] = _plain(_get(target, k))
+        try:
+            target.set_editor_property(k, val)
+            done[k] = _plain(_get(target, k))
+        except Exception as e:  # noqa: BLE001 - one refused key must not stop the rest
+            missing.append(f"{k}: {type(e).__name__}: {e}")
     return {"set": done, "missing": missing}
 
 
@@ -356,7 +401,15 @@ def setup(*, label: str, component: str, preset: str, overrides: dict | None = N
                           hint="enable GeometryScripting in the .uproject")
         pm = plan_maps(pts, mesh, p, render)
         return {"changed": False, "dry_run": True, "points": len(pts), "maps": pm["maps"]["stats"],
-                "problems": pm["problems"], "colours": pm["colours"], "physics_asset": phys, "preset": preset}
+                "problems": pm["problems"], "colours": pm["colours"], "colours_ignored": pm["colours_ignored"],
+                "physics_asset": phys, "preset": preset}
+    if render[0]:   # check the rule on the render vertices BEFORE creating clothing data (a refusal changes nothing)
+        pre = plan_maps(render[0], mesh, p, render if render[1] else None)
+        if pre["problems"]:
+            raise OpError(f"{component}: the painted maps are wrong: {'; '.join(pre['problems'])}", code="failed",
+                          details={"maps": pre["maps"]["stats"], "colours_ignored": pre["colours_ignored"]},
+                          hint="use_colours=false when the garment's vertex colours are not garment.fit's; or change "
+                               "the preset's zones (overrides.zones)")
     L = _need_plugin()
     sec = int(section) if section >= 0 else int(L.largest_section(mesh, int(lod)))
     err = L.ensure_cloth_on_section(mesh, int(lod), sec, f"Cloth_{component}",
@@ -381,11 +434,12 @@ def setup(*, label: str, component: str, preset: str, overrides: dict | None = N
     cfg = write_config(cloth, p["config"])
     settings_done = _apply_component(garment(label, component))
     _call(garment(label, component), "recreate_clothing_actors")
+    cfg["interactor"] = apply_interactor(garment(label, component), cloth.get_name(), p["config"])
     EAL.set_metadata_tag(mesh, "FMClothPreset", preset)   # qa.cloth reads it
     if save:
         EAL.save_loaded_asset(mesh)
     return {"changed": True, "cloth": cloth.get_name(), "section": sec, "points": len(pts),
-            "maps": maps["stats"], "colours": pm["colours"], "config": cfg, "settings": settings_done,
+            "maps": maps["stats"], "colours": pm["colours"], "colours_ignored": pm["colours_ignored"], "config": cfg, "settings": settings_done,
             "physics_asset": phys, "preset": preset, "readback_max_cm": round(max(back), 3) if back else None}
 
 
@@ -447,7 +501,16 @@ def settings(*, label: str, component: str = "") -> dict:
     """
     comps = {component: garment(label, component)} if component else \
         {n: c for n, c in _components(label).items() if n not in SKIP}
-    out = {n: _apply_component(c) for n, c in comps.items() if clothing_assets(c.get_skeletal_mesh_asset())}
+    out = {}
+    for n, c in comps.items():
+        mesh = c.get_skeletal_mesh_asset()
+        assets = clothing_assets(mesh)
+        if not assets:
+            continue
+        out[n] = _apply_component(c)
+        tag = EAL.get_metadata_tag(mesh, "FMClothPreset")
+        if tag:   # the weighted values live on the simulation, not the asset: a respawn loses them
+            out[n]["interactor"] = apply_interactor(c, assets[0].get_name(), _presets.get(tag)["config"])
     return {"changed": bool(out), "garments": out}
 
 
