@@ -228,3 +228,10 @@ def test_hem_flare():
     bad = GL.look({**base, "hem": {"frames": 2, "ratio": 1.21, "ease_cm": 3.4, "ref": "body"}})
     assert not bad["pass"] and any(i["code"] == "garment.hem_flare" for i in bad["issues"])
     assert GL.look({**base, "hem": {"frames": 2, "ratio": 1.11, "ease_cm": 1.8, "ref": "body"}})["pass"]
+
+
+def test_hem_angle_independent_of_the_body():
+    st = GL.hem_stats([19.5] * 20, [], upper_r=[16.0] * 20)
+    assert st["angle_deg"] == pytest.approx(20.2, abs=0.1) and "ratio" not in st
+    straight = GL.hem_stats([17.0] * 20, [16.0] * 20, upper_r=[16.6] * 20)
+    assert straight["angle_deg"] < 3 and straight["ratio"] == pytest.approx(1.0625)

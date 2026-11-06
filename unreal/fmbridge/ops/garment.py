@@ -388,15 +388,15 @@ def _hem(parts, gv, rc, body: str = "Body") -> dict:
     c = b.get_socket_location("pelvis")
     zlo = min(p.z for p in gv)
 
-    def radii(vs):
-        return [((p.x - c.x) ** 2 + (p.y - c.y) ** 2) ** 0.5 for p in vs if zlo <= p.z <= zlo + 3.0]
+    def radii(vs, z0=0.0, z1=3.0):
+        return [((p.x - c.x) ** 2 + (p.y - c.y) ** 2) ** 0.5 for p in vs if zlo + z0 <= p.z <= zlo + z1]
 
     ref, name = None, "body"
     if rc is not None:
         ref = radii(_verts(_posed(rc)))
     if not ref and "Trousers" in parts:
         ref, name = radii(_verts(_posed(parts["Trousers"]))), "trousers"
-    return _look.hem_stats(radii(gv), ref or [], name)
+    return _look.hem_stats(radii(gv), ref or [], name, upper_r=radii(gv, 8.0, 11.0))
 
 
 def _wpo_params(comp) -> dict:
@@ -557,10 +557,13 @@ def garment_look(*, label: str, garment: str = "", ref_body: str = "", sequence:
     if cols:
         m["collar"] = {"frames": len(cols), "gap_cm": max(c["gap_cm"] for c in cols),
                        "spread_cm": max(c["spread_cm"] for c in cols), "roll_frames": sum(1 for c in cols if c["roll"])}
-    hems = [v["hem"] for v in vals if v.get("hem", {}).get("n") and v["hem"].get("ratio")]
+    hems = [v["hem"] for v in vals if v.get("hem", {}).get("n")]
     if hems:
-        w = max(hems, key=lambda h: h["ratio"])
-        m["hem"] = {"frames": len(hems), "ratio": w["ratio"], "ease_cm": w["ease_cm"], "ref": w["ref"]}
+        rs = [h for h in hems if h.get("ratio")]
+        w = max(rs, key=lambda h: h["ratio"]) if rs else {}
+        ang = [h["angle_deg"] for h in hems if h.get("angle_deg") is not None]
+        m["hem"] = {"frames": len(hems), "ratio": w.get("ratio"), "ease_cm": w.get("ease_cm"), "ref": w.get("ref"),
+                    "angle_deg": max(ang) if ang else None}
     if isinstance(m.get("motion"), dict):
         m["motion"] = m["motion"].get("ratio")
         if m["motion"] is None:
