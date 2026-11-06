@@ -190,10 +190,19 @@ class Scene:
         """ref_body (another person, uncut) onto body.fbx (him, cut): lib/garmentfit.morph_onto."""
         wo = import_fbx(os.path.join(a.src, "body.fbx"))
         worn = next(o for o in wo if o.type == "MESH")
+        his_arm = next((o for o in wo if o.type == "ARMATURE"), None)
         WX, WT = world_cm(worn)
         bvh = BVHTree.FromPolygons(WX.tolist(), WT.tolist())
-        for o in wo:
-            bpy.data.objects.remove(o, do_unlink=True)
+        bpy.data.objects.remove(worn, do_unlink=True)
+        if his_arm is not None:
+            # HIS skeleton, not the reference person's: the garment is exported bound to self.arm, and Unreal skins
+            # it with the mesh's bind pose against his bones: on the other person's joints every part of the tee
+            # moved by their joint offsets (round 5 Fit6: collar 5.5 cm off his neck, the tee off his trousers)
+            bind(self.body, his_arm)  # (drops the reference person's armature, its parent)
+            self.arm = his_arm
+            log("morph: the skeleton is HIS (body.fbx's armature); the reference body is bound to it")
+        else:
+            log("morph: WARNING body.fbx has no armature: the reference person's skeleton is used")
 
         def nearest(p):
             loc, nor, fi, dist = bvh.find_nearest(Vector(p))
