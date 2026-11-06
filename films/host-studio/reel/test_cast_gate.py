@@ -167,3 +167,27 @@ def test_clip_neck_px_required():
                                       for sid in ("S13", "S15", "S17", "S18")}}
     r = g._clip([him], None)
     assert not r["pass"] and "neck_px" in r["failed"][-1]   # a clean 3D count is not enough
+
+
+def test_clip_reel_prefix():
+    him = {"label": "Host", "shots": {f"Reel_{sid}": {"962": {"Body>tee": {"fraction": 0.0}, "neck_px": {"px": 0}}}
+                                      for sid in ("S13", "S15", "S17", "S18")}}
+    her_b = {"label": "Presenter", "shots": {f"Reel_{sid}": {"1210": {"Body>Top": {"fraction": 0.15}}}
+                                             for sid in ("S15", "S16", "S17", "S18")}}
+    assert g._clip([him, json.loads(json.dumps(her_b))], None, her_b)["pass"]
+
+
+def test_lips_head_motion_is_not_speech(tmp_path):
+    """A textured face sliding 2 px a frame through a still box in silence, and a mouth that changes on the line:
+    the shift search keeps the slide out of the silence."""
+    rng = np.random.default_rng(3)
+    tex = rng.integers(0, 255, (80, 140), dtype=np.uint8)
+    for f in range(960, 1080):
+        a = np.full((540, 960), 90, np.uint8)
+        x = 410 + (2 * (f - 960) % 30 if f < 1020 else 0)  # the head moves in the silence before L1
+        a[230:310, x:x + 140] = tex
+        if 1020 <= f < 1065:  # the mouth works on L1
+            a[260:280, x + 50:x + 90] = rng.integers(0, 255, (20, 40), dtype=np.uint8)
+        Image.fromarray(np.stack([a] * 3, -1)).save(tmp_path / f"{f:04d}.png")
+    r = g.frames(str(tmp_path), None, str(tmp_path / "out"), {"S13:him": {"box": [0.47, 0.47, 0.54, 0.53]}})
+    assert r["lips"]["S13:him"]["lines"]["L1"]["ratio"] > 3

@@ -42,6 +42,7 @@ WATCH_CM, WATCH_TOL_CM = 3.6, 0.5
 JAW_ON_OFF = 3.0       # the jaw moves at least this many times more on a speaker's lines than between them
 PEN_MAX = 0.01         # at most 1% of a garment's pixels with skin through (qa.penetration's fraction)
 LIPS_RATIO = 2.0      # frames: mouth-box change on the lines over off them (preview 1, no lip-sync: 1.55; r1: 2.37)
+LIPS_SHIFT = 3        # px at 960 wide: the previous frame is lined up within this before the mouth's change is read
 LIPS_EDGE = 3         # frames either side of a line that count as neither on nor silent (the mouth sets and closes)
 LIPS_MIN_PX = 8       # a mouth box under this many pixels tall is not read on the frames (S17's 28 mm two-shot at
                       # 960x540: ~5 px, where one pixel of head motion moves the whole box); the engine's jaw decides
@@ -378,17 +379,36 @@ def frames(root: str, eng: str | None, out: str, mouths: dict | None = None) -> 
         near = {f for _, a, b in windows(who) for f in range(a - LIPS_EDGE, b + LIPS_EDGE)}
         per = {int(k): v for k, v in ((mouths or {}).get(key) or {}).get("per_frame", {}).items()}
 
-        def box_at(f):  # the lips' own box at the nearest projected frame, a quarter wider each side: a box over
-            if not per:  # the whole shot's extent takes in the head's moves (cast_op3: her S16 3.24 -> 1.48)
+        def box_at(f):  # the lips' own box, interpolated between the projected frames (every 12th: the nearest
+            if not per:  # one lags a moving head by up to 6 frames), a quarter wider each side
                 return box
-            b = per[min(per, key=lambda k: abs(k - f))]
+            ks = sorted(per)
+            lo = max([k for k in ks if k <= f], default=ks[0])
+            hi = min([k for k in ks if k >= f], default=ks[-1])
+            t = 0.0 if hi == lo else (f - lo) / (hi - lo)
+            b = [per[lo][i] + (per[hi][i] - per[lo][i]) * t for i in range(4)]
             mw, mh = (b[2] - b[0]) * 0.25 + 0.005, (b[3] - b[1]) * 0.25 + 0.005
             return (b[0] - mw, b[1] - mh, b[2] + mw, b[3] + mh)
+
+        def change(f, bx):
+            """Mean abs luma change in the box from f-1 to f, with f-1 shifted up to LIPS_SHIFT px to line up with f
+            first: the head's own move through the box (S13: head down -> up to the lens in silence) is not the
+            mouth's. The mouth's opening and closing does not line up by a shift, so it stays."""
+            a = crop(f, bx, "L")
+            r = max(1, round(LIPS_SHIFT * W / 960))
+            p0 = (bx[0] - r / W, bx[1] - r / H, bx[2] + r / W, bx[3] + r / H)
+            b0 = crop(f - 1, p0, "L")
+            h, w = a.shape
+            best = None
+            for dy in range(0, b0.shape[0] - h + 1):
+                for dx in range(0, b0.shape[1] - w + 1):
+                    v = float(np.mean(np.abs(a - b0[dy:dy + h, dx:dx + w])))
+                    best = v if best is None or v < best else best
+            return best if best is not None else float(np.mean(np.abs(a - crop(f - 1, bx, "L"))))
         d = {}
         for f in range(s.start + 1, s.end):
             if f in fr and f - 1 in fr:
-                bx = box_at(f)
-                d[f] = float(np.mean(np.abs(crop(f, bx, "L") - crop(f - 1, bx, "L"))))
+                d[f] = change(f, box_at(f))
         # the speaker's silence in this shot: off every line of theirs, LIPS_EDGE frames clear (co-articulation)
         off = [v for f, v in d.items() if f not in near]
         mean = lambda xs: sum(xs) / len(xs)  # noqa: E731
@@ -742,6 +762,7 @@ def _clip(cs: list, eng: dict | None, before: dict | None = None) -> dict:
     def worst_of(c):
         w = {}
         for sid, per in (c.get("shots") or {}).items():
+            sid = sid.removeprefix("Reel_")
             for f, fr_ in (per.items() if isinstance(per, dict) and "error" not in per else ()):
                 for pair, v in fr_.items():
                     if isinstance(v, dict) and "fraction" in v and v["fraction"] >= w.get((sid, pair), (-1,))[0]:
@@ -749,7 +770,8 @@ def _clip(cs: list, eng: dict | None, before: dict | None = None) -> dict:
         return w
     for c in cs:
         lab = c.get("label", "?")
-        shots = c.get("shots") or {}
+        shots = {k.removeprefix("Reel_"): v for k, v in (c.get("shots") or {}).items()}  # clip_pass writes Reel_S13
+        c = {**c, "shots": shots}
         for sid in CLIP_SHOTS.get(lab, []):
             if sid not in shots:
                 bad.append(f"{lab} {sid}: not in the clip pass")
