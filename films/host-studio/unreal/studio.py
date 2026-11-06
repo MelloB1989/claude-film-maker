@@ -424,8 +424,10 @@ prop("Coin", "bitcoin_coin", (WALL + 11, SH_L - 109, TOPS[1]), yaw=20)  # turned
 prop("Pickaxe", "pickaxe", (WALL + 9, SH_L - 128, TOPS[1]), yaw=-10)
 # bottom shelf: the root prompt, the print, a looser row of books, the small pothos
 prop("Terminal", "terminal_display", (WALL + 12, SH_L - 22, TOPS[0]), yaw=4)
+# radius 120: the glow stays on the shelf and the terminal; at the default 2000 it reached her hair ~3 m away and
+# turned its ends teal in S16 (round 4 A/B, f1236/f1300: green_px 0.21 -> 0.00 with this light off)
 K.light("TerminalGlow", "rect", loc=(WALL + 16, SH_L - 22, TOPS[0] + 4), look_at=(WALL + 60, SH_L - 22, TOPS[0] + 4),
-        intensity=0.15, color=(0.35, 1.0, 0.5), width=20, height=4, shadows=False, volumetric=0.0)
+        intensity=0.15, color=(0.35, 1.0, 0.5), width=20, height=4, shadows=False, volumetric=0.0, radius=120)
 prop("Print", "framed_print", (WALL + 6, SH_L - 50, TOPS[0]))
 prop("BooksLow", "books_low", (D, SH_L - 95, TOPS[0]))
 prop("ShelfPlant", "plant_shelf", (WALL + 13, SH_L - 135, TOPS[0]), yaw=180)
