@@ -1,0 +1,30 @@
+# Round 5, PLAN Phase 7.4: the test previews the orchestrator judges by eye before the finals (cloth folds, his neck,
+# her blinks and hair). Preview quality, but the finals' hair cvars and the cloth warm-up (warmup_engine 22: the
+# overshirt settles; cloth.render_check), one MRQ job per shot, pre-rolled from the shot's first frame.
+#   film-ue apply films/host-studio/reel/r5/70-preview.yaml --set batch=S16 --set 'shots=["Reel_S16"]' --set 'frames=[1240,1300]'
+# Run `film-ue op groom.lock labels=[Host, Presenter]` and cloth.settings for both first. Frames stay on the box.
+kind: include
+files: [../r3/vars.yaml]
+---
+kind: vars
+vars:
+  batch: S16
+  shots: [Reel_S16]
+  frames: [1240, 1300]
+---
+kind: render
+version: 1
+name: "r5_preview_${batch}"
+sequence: "${seq}"
+level: "${level}"
+out_dir: "/srv/ue/reel/r5/preview/${batch}"
+preset: preview
+width: 1920
+height: 1080
+shots: ${shots}
+frames: ${frames}
+chunking: shot
+preroll: cut
+warmup_engine: 22
+overwrite: true
+cvars: {"r.HairStrands.LODMode": 0, "r.HairStrands.AutoLOD.Bias": 1.0, "r.HairStrands.UseCardsInsteadOfStrands": 0}
