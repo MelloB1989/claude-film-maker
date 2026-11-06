@@ -351,7 +351,10 @@ elif STAGE == "look":
     R["eyes"] = plain(call("mh.eyes", path=CHARACTER, both={"iris": {"primary_color_u": iu, "primary_color_v": iv,
                                                                        "secondary_color_u": iu,
                                                                        "secondary_color_v": iv}}).get("changed"))
-    R["next"] = ("film-ue op mh.textures character=" + CHARACTER + " (multi-tick), then mh.build character=" + CHARACTER
+    if globals().get("BODY_SET"):  # round 4: the slim body the photos show (a body change wants mh.rig again)
+        R["body"] = plain(call("mh.body", character=CHARACTER, measurements={**BODY, **globals()["BODY_SET"]}).get("changed"))
+    R["next"] = ("(after a body change: film-ue op mh.rig character=" + CHARACTER + "), "
+                 "film-ue op mh.textures character=" + CHARACTER + " (multi-tick), then mh.build character=" + CHARACTER
                  + " name=Host_Op force=true, then host_swap.py HOST='op', groom.set label=Host melanin=1.0 redness=0.05")
 
 elif STAGE == "character":
