@@ -19,10 +19,12 @@ def main():
     ap.add_argument("--band", type=float, default=3.0)
     ap.add_argument("--tol", type=float, default=0.3)
     ap.add_argument("--near", type=float, default=1.5)
+    ap.add_argument("--fov", default="", help="JSON {shot: horizontal fov deg} for layers saved without it")
     a = ap.parse_args()
     ns = {"RUN": False, "BAND": a.band, "TOL": a.tol, "NEAR": a.near, "__name__": "clip_pass"}
     exec(compile(open(os.path.join(HERE, "clip_pass.py")).read(), "clip_pass.py", "exec"), ns)
     ns.update(BAND=a.band, TOL=a.tol, NEAR=a.near)
+    fovs = json.loads(a.fov) if a.fov else {}
     old = os.path.join(a.dir, "clip.json")
     keep = os.path.join(a.dir, "clip_pass.json")
     if os.path.exists(old) and not os.path.exists(keep):
@@ -35,7 +37,7 @@ def main():
         with open(p, "rb") as fh:
             n = int.from_bytes(fh.read(4), "little")
             head = json.loads(fh.read(n))
-            ns.update(W=head["w"], H=head["h"])
+            ns.update(W=head["w"], H=head["h"], FOV=float(head.get("fov") or fovs[shot]))
             d = {}
             for name in head["layers"]:
                 x = array.array("f")
