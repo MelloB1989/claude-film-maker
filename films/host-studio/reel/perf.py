@@ -593,9 +593,10 @@ def speech_gain(who: str) -> list:
     return out
 
 
-# r5b: his turn on the neck bones about the vertical (perf.turn_head in sync), not through his live HeadRoll: the face
-# rig turns about its tilted axes and head_to_body carried that pitch to the body (S15 turn-out blink_nod 1.41 deg)
-TURN_BY = {"him": "bones", "her": "auto"}
+# perf.calibrate's turn_by per presenter. r5b: "bones" for him (the turn about the vertical, not his live HeadRoll's
+# tilted axes) failed on the rebuilt him with a led face (every Body neck axis moved his eyes the same 2.3-3 cm up,
+# no yaw: the scratch body's bone tracks did not land); his HeadRoll now turns at full strength (1.04), so auto
+TURN_BY = {"him": "auto", "her": "auto"}
 
 
 def calibrate(who: str) -> dict:
