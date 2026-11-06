@@ -12,7 +12,13 @@ already drawn is ever recompiled.
 """
 import unreal
 
-FOLDER = "/Game/FM/ClothOp"
+FOLDER = "/Game/FM/ClothOp2"  # ClothOp: the first build, whose offset never reached the render (wpo_probe.py)
+# MetaHuman's fabric master (M_fabric_simpler) runs on Material Attributes: its plain WPO pin is ignored, so the
+# offset goes in through Break/Make Material Attributes on the attributes pin (every other attribute passed through)
+MA_PINS = ("BaseColor", "Metallic", "Specular", "Roughness", "Anisotropy", "EmissiveColor", "Opacity", "OpacityMask",
+           "Normal", "Tangent", "SubsurfaceColor", "ClearCoat", "ClearCoatRoughness", "AmbientOcclusion",
+           "Refraction", "PixelDepthOffset", "ShadingModel", "Displacement", "SurfaceThickness", "FrontMaterial",
+           *(f"CustomizedUV{i}" for i in range(8)))
 PARAMS = {"FM_Inflate": 0.0, "FM_Neck": 0.0, "FM_NeckZ0": 0.0, "FM_NeckZ1": 1.0, "FM_NeckFront": 0.0,
           "FM_NeckFrontBias": 1.0}
 
@@ -77,6 +83,11 @@ def add_neck_inflate(master):
     n = X(unreal.MaterialExpressionVertexNormalWS, -500, 1800)
     off = op(unreal.MaterialExpressionMultiply, n, amt, -350, 1850)
     wpo = unreal.MaterialProperty.MP_WORLD_POSITION_OFFSET
+    if master.get_editor_property("use_material_attributes"):
+        _into_attributes(master, off, X)
+        master.set_editor_property("used_with_skeletal_mesh", True)
+        MEL.recompile_material(master)
+        return
     prev = MEL.get_material_property_input_node(master, wpo)
     if prev:
         add = X(unreal.MaterialExpressionAdd, -200, 1850)
@@ -87,3 +98,28 @@ def add_neck_inflate(master):
         MEL.connect_material_property(off, "", wpo)
     master.set_editor_property("used_with_skeletal_mesh", True)
     MEL.recompile_material(master)
+
+
+def _into_attributes(master, off, X):
+    """The offset added to the WorldPositionOffset of the master's Material Attributes (Break -> Make, the rest
+    passed through as they were)."""
+    MEL = unreal.MaterialEditingLibrary
+    ma = unreal.MaterialProperty.MP_MATERIAL_ATTRIBUTES
+    src = MEL.get_material_property_input_node(master, ma)
+    if src is None:
+        raise RuntimeError(f"{master.get_name()} uses material attributes but nothing drives them")
+    src_out = MEL.get_material_property_input_node_output_name(master, ma)
+    br = X(unreal.MaterialExpressionBreakMaterialAttributes, -350, 2300)
+    if not MEL.connect_material_expressions(src, src_out, br, ""):
+        raise RuntimeError("could not break the master's material attributes")
+    mk = X(unreal.MaterialExpressionMakeMaterialAttributes, 0, 2300)
+    passed = [p for p in MA_PINS if MEL.connect_material_expressions(br, p, mk, p)]
+    for need in ("BaseColor", "Normal", "Roughness"):
+        if need not in passed:
+            raise RuntimeError(f"attribute {need} did not pass through Break/Make: {passed}")
+    add = X(unreal.MaterialExpressionAdd, -150, 2500)
+    MEL.connect_material_expressions(br, "WorldPositionOffset", add, "A")
+    MEL.connect_material_expressions(off, "", add, "B")
+    if not MEL.connect_material_expressions(add, "", mk, "WorldPositionOffset"):
+        raise RuntimeError("could not set WorldPositionOffset on Make Material Attributes")
+    MEL.connect_material_property(mk, "", ma)
