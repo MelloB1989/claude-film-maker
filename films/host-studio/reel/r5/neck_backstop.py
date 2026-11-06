@@ -29,7 +29,8 @@ REACH = float(globals().get("REACH", 4.0))  # cm: a face vert this far under the
 RAMP = float(globals().get("RAMP", 3.0))  # cm under the collar edge to full shrink
 DILATE_CM = float(globals().get("DILATE_CM", 0.0))  # round 5b: uncovered face verts this close ABOVE the collar edge
 # also shrink, EDGE_W fading to 0 at DILATE_CM (a turn brings the neck out right at the line, where nothing was covered)
-EDGE_W = float(globals().get("EDGE_W", 0.0))  # the shrink weight AT the collar edge (round 5b: a turn exposes the
+EDGE_W = float(globals().get("EDGE_W", 0.0))
+DILATE_W = float(globals().get("DILATE_W", EDGE_W))  # the dilated band's weight at the line (visible skin: keep small)  # the shrink weight AT the collar edge (round 5b: a turn exposes the
 # neck right at the edge, where a 0 ramp start left it unshrunk; 0.3 = 30 % of SHRINK_CM there)
 SHRINK_CM = float(globals().get("SHRINK_CM", 1.5))
 SIZE = int(globals().get("SIZE", 1024))
@@ -137,7 +138,7 @@ def mask():
                 continue
             d = min((V[i] - e).length() for e in E)
             if d < DILATE_CM:
-                w[i] = EDGE_W * (1.0 - d / DILATE_CM)
+                w[i] = DILATE_W * (1.0 - d / DILATE_CM)
                 dil += 1
     val = [1.0 - w[i] if (cov[i] or w[i] > 0) else 1.0 for i in range(len(V))]
     img = bytearray([255] * (SIZE * SIZE))
