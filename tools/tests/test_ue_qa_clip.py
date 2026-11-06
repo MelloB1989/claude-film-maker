@@ -208,6 +208,10 @@ def test_collar_hugging_vs_floating_vs_rolled():
     rolled = GL.collar_stats(a + a2, r + r2, g + g2)
     assert rolled["spread_cm"] > GL.COLLAR_SPREAD_CM and rolled["roll"]
     assert GL.collar_stats([20.0], [5.0], [0.1])["n"] == 0  # outside the window
+    a, r, g = ring(6.0, 0.2)
+    stray = GL.collar_stats(a + [0.0], r + [1.1], g + [5.3])  # one vertex near the axis does not make the ring
+    assert stray["n"] == hug["n"] and stray["gap_cm"] == hug["gap_cm"]
+    assert GL.collar_stats([0.0], [1.1], [5.3]) == {"n": 0, "too_few": 1}
 
 
 def test_look_fails_a_floating_collar_hard():
