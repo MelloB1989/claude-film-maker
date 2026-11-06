@@ -825,6 +825,10 @@ def stability_issues(r: dict, label: str, fps: float, frame0: int) -> list:
     for c in r["checks"]:
         if c["pass"]:
             continue
+        if c.get("severity") == "warn":
+            out.append(issue(f"head.{c['name']}", "warn", c["why"], subject=label, value=c["metric"],
+                             expected=c["threshold"]))
+            continue
         w = max(r["blinks"], key=lambda b: abs(b["nod_deg"]), default=None)
         frame = (frame0 + round(w["t"] * fps)) if w and c["name"].startswith("blink") else None
         out.append(issue(f"head.{c['name']}", "fail", c["why"],
@@ -898,7 +902,7 @@ def head_stability(*, sequence: str, label: str, component: str = "Face", bone: 
                             f"no blink seen on {label} over f{frames[0]}-{frames[-1]} (blink curves {source}): the "
                             "blink checks did not run", fix="pass blinks=[[f0, f1], ...] (perf.py: blinks_<who>.json)",
                             subject=label))
-    res = _result(issues, {c["name"]: c["metric"] for c in r["checks"]}, blinks=r["blinks"], edge=r["edge"], bta=r["bta"],
+    res = _result(issues, {c["name"]: c["metric"] for c in r["checks"]}, blinks=r["blinks"], edge=r["edge"], turns=r["turns"], bta=r["bta"],
                   jitter=r["jitter"], axes=h.get("axes"), frames=[frames[0], frames[-1]], fps=fps,
                   blink_source=source, label=label, sequence=sequence)
     if out:

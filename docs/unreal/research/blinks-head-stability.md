@@ -133,6 +133,14 @@ smooth turn scores ~0.
 | `blink_locked` | blink-triggered average (−0.2…+0.5 s around onsets) peak | ≥ 0.3° **and** ≥ 2× the control average (onsets away from blinks) | catches a small nod on *every* blink that stays under 0.5° each |
 | `blink_speed` | median peak pitch speed in blink windows / outside | ≥ 2.5× and ≥ 6°/s | a jerk without much depth |
 | `head_buzz` | residual off a 0.2 s Savitzky–Golay cubic, any axis | RMS > 0.08° or any frame > 0.5° | follows a 32° turn in 0.39 s (perfkit's fastest) at 0; flags snapped keys and solver buzz |
+| `head_turn_dip` (warn) | pitch departure in a blink window whose head yaws ≥ 20° | > 2° | the gaze-evoked blink on a big turn is right (Evinger 1994); the pitch along the turn is the turn path, judged on its own (r5 box: his off-screen return turn dipped 2.9°) |
+
+What is judged:
+- **Turns:** blinks on a turn of 20° or more are listed under `turns`, not scored as nods.
+- **Edges:** blinks whose window runs off either end of the samples are listed under `edge`.
+- **Off screen:** the gate judges only the frames where that presenter is on screen in the cut (the shot table's
+  cast; `film-qa head-gate --seen` / `perf.py head`). Blinks elsewhere are listed under `unseen`. This is the
+  orchestrator's ruling in r5: the check's correct scope, not a waiver.
 
 Readers:
 - **Curves:** `perf.face` / `anim.check` reports (`metrics.report`).

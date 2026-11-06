@@ -362,10 +362,13 @@ def main(argv=None) -> None:
     hg = sub.add_parser("head-gate")
     hg.add_argument("out")
     hg.add_argument("results", nargs="+")
+    hg.add_argument("--seen", default="", help="LABEL=f0-f1,f0-f1;LABEL=...: master frames each face is on screen")
     x = ap.parse_args(argv)
     if x.cmd == "head-gate":
         from . import qa_head as QH
-        g = QH.gate(x.results)
+        seen = {lab: [[int(v) for v in sp.split("-")] for sp in spans.split(",")]
+                for lab, _, spans in (part.partition("=") for part in x.seen.split(";") if part)} if x.seen else None
+        g = QH.gate(x.results, seen=seen)
         Path(x.out).write_text(json.dumps(g, indent=1))
         print(json.dumps(g, indent=1))
         raise SystemExit(0 if all("error" not in it and it["value"] <= it["line"] for it in g["gate"].values()) else 1)
