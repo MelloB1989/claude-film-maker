@@ -77,6 +77,9 @@ def parse_args():
                     help="keep only the OUTER layer of a closed-shell garment's fitted slots, welded, small loose "
                          "pieces dropped: a cloth-simulation section (its material must be two-sided)")
     ap.add_argument("--min-island", type=int, default=50)
+    ap.add_argument("--keep-regions", default="", help="regions left at the garment's ORIGINAL shape (e.g. collar: "
+                    "the band hugs the neck as Epic made it), the fit ramping in over --keep-ramp-cm below them")
+    ap.add_argument("--keep-ramp-cm", type=float, default=3.0)
     ap.add_argument("--thickness", type=float, default=0.0, help="cm, Solidify on an open garment (0: none)")
     ap.add_argument("--only-slots", default="", help="comma list: fit only faces of material slots containing these")
     ap.add_argument("--collider", default="ref_body,face")
@@ -573,23 +576,30 @@ def main():
         rep["after_drape"] = GF.ease_report(signed(bvh, G)[0][active], region[active])
         log(f"after drape: {rep['after_drape'].get('all')}")
     nbrs = GF.neighbours(len(G), Tg)
-    fixed = ~active
+    kept = [r.strip() for r in a.keep_regions.split(",") if r.strip()]
+    kf = GF.keep_factor(G, region, kept, a.keep_ramp_cm) if kept else np.zeros(len(G))
+    fixed = ~active | (kf >= 0.999)
     for k in range(max(1, a.passes)):
         d, N = signed(bvh, G)
         d = np.where(np.isfinite(d), d, target + a.slack)
         mv = GF.fit_displacement(d, target, min_ease=a.min_ease, slack=a.slack, pull=a.pull)
         mv[fixed] = 0.0
-        mv = GF.smooth_field(mv, nbrs, iters=a.smooth_iters, pinned=fixed)
+        mv = GF.smooth_field(mv, nbrs, iters=a.smooth_iters, pinned=fixed) * (1.0 - kf)
         N = GF.smooth_field(N, nbrs, iters=2, pinned=fixed)
         N /= np.maximum(np.linalg.norm(N, axis=1, keepdims=True), 1e-9)
         G = G + mv[:, None] * N
         log(f"fit pass {k + 1}: moved median {np.median(np.abs(mv)):.2f} cm, max {np.abs(mv).max():.2f}")
     d, N = signed(bvh, G)  # the hard pass: nowhere closer than min ease
-    low = active & np.isfinite(d) & (d < a.min_ease)
+    low = active & (kf < 0.5) & np.isfinite(d) & (d < a.min_ease)
     G[low] += ((a.min_ease - d[low]) + 0.02)[:, None] * N[low]
     set_world_cm(sc.garment, G)
     d, _ = signed(bvh, G)
-    rep["after"] = GF.ease_report(d[active], region[active])
+    judged = active & (kf < 0.5)  # a kept band is Epic's shape: its neck clearance is the backstop's (§5b), not ease
+    rep["after"] = GF.ease_report(d[judged], region[judged])
+    if kept:
+        rep["kept"] = {"regions": kept, "verts": int((kf >= 0.5).sum()),
+                       "ease": GF.ease_report(d[active & (kf >= 0.5)], region[active & (kf >= 0.5)])}
+        log(f"kept at the original shape: {kept} ({rep['kept']['verts']} verts)")
     log(f"after: {rep['after'].get('all')}")
     if a.weights in ("transfer", "blend"):
         transfer(sc, a, region)
@@ -620,7 +630,8 @@ def main():
     attr.data.foreach_set("color", col.ravel())
     me.color_attributes.active_color = attr
     full = len(active) == len(sc.garment.data.vertices)
-    rep["poses"] = pose_tests(sc, a, active if full else None, region if full else None)
+    test_mask = active & (kf < 0.5) if (full and len(kf) == len(active)) else active
+    rep["poses"] = pose_tests(sc, a, test_mask if full else None, region if full else None)
     rep["face_mode"] = getattr(sc, "face_mode", None)
     problems = GF.fit_gate(rep["after"])
     problems += [f"pose test {k}: {v['inside']} garment verts inside the body at frame {v['frame']} "
