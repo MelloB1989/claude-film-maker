@@ -1,4 +1,4 @@
-"""Round 4 (agent-02): his tee's inflate rebuilt so it reaches the render, on the level as it stands (no rebuild).
+"""SUPERSEDED by neck_patch.py (its neckline term ballooned the collar and chest). Round 4 (agent-02): his tee's inflate rebuilt so it reaches the render, on the level as it stands (no rebuild).
 wpo_probe.py: his worn tee (/Game/FM/ClothOp) moved 0.0 cm even at FM_Inflate 4; wpo_probe2.py: why: MetaHuman's
 fabric master runs on Material Attributes, so the plain WPO pin it was wired to is ignored.
   1. his worn tee's chain (instances + master) is copied into neck_inflate.FOLDER (/Game/FM/ClothOp3), the master
