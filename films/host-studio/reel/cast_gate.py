@@ -205,6 +205,60 @@ def summary(rep: dict) -> dict:
     return s
 
 
+# ------------------------------------------------------------------------------------------------- lipgap (engine)
+# The frames' lips measure reads a moving head as a moving mouth: in a silence where the performance turns or lifts
+# the head (S13's head up, S17's glance, after S16's line) the pixels change as much as on the line. The lips' own
+# gap, upper to lower lip bone in cm on the evaluated face (seq.scrub, level.bone), moves only with the mouth.
+LIP_GAP = ("FACIAL_C_LipUpper", "FACIAL_C_LipLower")
+GAP_RATIO = 2.0   # the frames' line: the gap moves at least twice as much on the line as in the speaker's silence
+GAP_MIN_CM = 0.3  # and opens by at least this much on the line (a mouth that reads; a closed jaw jitters ~0.05)
+
+
+def lipgap(out: str, win: int = 24) -> dict:
+    from filmtools.unreal import client
+    sys.path.insert(0, str(HERE / "r4"))
+    from lip_stills import windows as stills_windows
+
+    def ok(res):
+        if not res.get("ok"):
+            raise SystemExit(res.get("stdout", "") + res.get("error", ""))
+        return res.get("result")
+    res = {}
+    for sid, d in stills_windows(win).items():
+        s = next(x for x in SHOTS if x.id == sid)
+        whos = [w for w in s.cast if any(a < s.end and b > s.start for _, a, b in windows(w))]
+        gaps = {w: {} for w in whos}
+        for f in d["frames"]:
+            ok(client.op("seq.scrub", path=SEQ, frame=f))
+            for w in whos:
+                b = ok(client.op("level.bone", label=CAST[w], component="Face", bones=list(LIP_GAP)))
+                u, lo = b[LIP_GAP[0]], b[LIP_GAP[1]]
+                gaps[w][f] = sum((x - y) ** 2 for x, y in zip(u, lo)) ** 0.5
+        for w in whos:
+            g = gaps[w]
+            act = lambda fs: [abs(g[f] - g[f - 1]) for f in fs if f in g and f - 1 in g]  # noqa: E731
+            sil = d["silence"].get(w)
+            off = act(range(sil[0], sil[1])) if sil else []
+            for k, a, b in windows(w):
+                if k not in d["lines"]:
+                    continue
+                lo_, hi_ = d["lines"][k]
+                on = act(range(lo_, hi_))
+                rng = [g[f] for f in range(lo_, hi_) if f in g]
+                m_on = sum(on) / len(on) if on else 0.0
+                m_off = sum(off) / len(off) if off else 0.0
+                r = m_on / max(m_off, 1e-3)
+                span = (max(rng) - min(rng)) if rng else 0.0
+                res[f"{sid}:{w} {k}"] = {"on_cm": round(m_on, 4), "off_cm": round(m_off, 4), "ratio": round(r, 2),
+                                         "open_cm": round(span, 3), "frames": [lo_, hi_], "silence": sil,
+                                         "pass": r >= GAP_RATIO and span >= GAP_MIN_CM}
+    rep = {"lines": res, "pass": bool(res) and all(v["pass"] for v in res.values()), "ratio_min": GAP_RATIO,
+           "open_min_cm": GAP_MIN_CM}
+    Path(out).parent.mkdir(parents=True, exist_ok=True)
+    Path(out).write_text(json.dumps(rep, indent=1))
+    return rep
+
+
 # ------------------------------------------------------------------------------------------------- lod0 (read-only)
 # build.py --lod0 pins the presenters to LOD 0 (LODSync forced_lod 0 drives the grooms; skeletal meshes
 # forced_lod_model 1). A blueprint re-instance leaves stale TRASH_* components on the actor, and a pin (or
@@ -641,8 +695,11 @@ def _rows(x):
     return []
 
 
-def _lips(fr: dict, eng: dict | None) -> dict:
+def _lips(fr: dict, eng: dict | None, gap: dict | None = None) -> dict:
+    """Per spoken line: the frames' ratio; a line the frames fail (or cannot read) passes on the lip bones' own gap
+    (lipgap: the head's move in the silence is not in it), and says so."""
     bad, per = [], {}
+    gl = (gap or {}).get("lines", {})
     lines = {k: (who, v) for who, p in ((eng or {}).get("people") or {}).items()
              for k, v in (p.get("lips") or {}).get("lines", {}).items()}
     spoken = {k for k, *_ in LINES}
@@ -656,6 +713,14 @@ def _lips(fr: dict, eng: dict | None) -> dict:
                                      "why": v.get("why")}
             else:
                 per[f"{key} {k}"] = {"frames": v["frames"], "ratio": v["ratio"], "pass": v["pass"]}
+            gv = gl.get(f"{key} {k}")
+            if not per[f"{key} {k}"]["pass"] and gv:
+                per[f"{key} {k}"] = {**per[f"{key} {k}"], "pass": bool(gv["pass"]), "by": "lipgap",
+                                     "gap_ratio": gv["ratio"], "gap_open_cm": gv["open_cm"]}
+                if not gv["pass"]:
+                    bad.append(f"{key} {k} f{v['frames'][0]}-{v['frames'][1]}: frames ratio {v.get('ratio')}, lip gap "
+                               f"ratio {gv['ratio']} (>= {GAP_RATIO}), opens {gv['open_cm']} cm (>= {GAP_MIN_CM})")
+                continue
             if not per[f"{key} {k}"]["pass"]:
                 bad.append(f"{key} {k} f{v['frames'][0]}-{v['frames'][1]}: " + (
                     f"frames ratio {v['ratio']} < {LIPS_RATIO}" if v.get("pass") is False else
@@ -850,7 +915,7 @@ def sign(a) -> dict:
     tx = lambda p: Path(p).read_text() if p else None  # noqa: E731
     eng, fr = rd(a.engine), rd(a.frames)
     items = {
-        "a.lips": _lips(fr or {}, eng) if fr else {"pass": False, "failed": ["no frames report"]},
+        "a.lips": _lips(fr or {}, eng, rd(a.lipgap)) if fr else {"pass": False, "failed": ["no frames report"]},
         "b.watch": _watch(eng),
         "c.hair_hue": _hue(rd(a.hue), fr),
         "d.head_turns": _turns(rd(a.turns)),
@@ -911,6 +976,7 @@ def main() -> None:
     g.add_argument("--engine", default="", help="engine --out (with the post-scrub watch)")
     g.add_argument("--frames", default="", help="frames --mouth's cast_gate_frames.json")
     g.add_argument("--hue", default="", help=f"hue --frames {','.join(map(str, HUE_FRAMES))}'s hue.json")
+    g.add_argument("--lipgap", default="", help="cast_gate.py lipgap's json: decides the lines the frames fail")
     g.add_argument("--turns", default="", help="agent-01's head-turn direction table (json)")
     g.add_argument("--clip", action="append", default=[], help="agent-02's clip.json, once per presenter "
                    "(r4/clip_pass.py); else the engine's qa.penetration")
@@ -921,6 +987,8 @@ def main() -> None:
     g.add_argument("--lod0", default="", help="cast_gate.py lod0's json")
     g.add_argument("--waive", action="append", default=[], help="item=reason, only on the orchestrator's word")
     g.add_argument("--out", required=True)
+    lg = sub.add_parser("lipgap", help="engine, read-only: the lip bones' gap on each line vs the speaker's silence")
+    lg.add_argument("--out", required=True)
     o = sub.add_parser("lod0", help="read-only: no TRASH_ on the presenters, every live LODSync/mesh pinned")
     o.add_argument("--out", required=True)
     a = ap.parse_args()
@@ -928,7 +996,9 @@ def main() -> None:
         rep = sign(a)
         print(sign_text(rep))
         sys.exit(0 if rep["verdict"] == "SIGN" else 1)
-    if a.cmd == "lod0":
+    if a.cmd == "lipgap":
+        r = lipgap(a.out)
+    elif a.cmd == "lod0":
         r = lod0(a.out)
     elif a.cmd == "hue":
         reg = {k: tuple(float(x) for x in v.split(",")) for k, v in (s.split("=", 1) for s in a.region)} or None

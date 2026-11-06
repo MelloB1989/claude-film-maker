@@ -109,7 +109,7 @@ def test_sign_refuses_and_waives(tmp_path):
                       "f1300": {"crown": {"a": 2, "b": 7, "C": 7, "green_px": 0.01}}}}
     lod = {"pass": True, "failed": []}
     a = Namespace(name="t", engine=w("e.json", eng), frames=w("f.json", fr), hue=w("h.json", hue),
-                  turns=w("t.json", [{"shot": "S15", "who": "him", "f0": 1128, "f1": 1316, "ok": True}]), clip=[], clip_before="",
+                  turns=w("t.json", [{"shot": "S15", "who": "him", "f0": 1128, "f1": 1316, "ok": True}]), clip=[], clip_before="", lipgap="",
                   cams=w("c.txt", "\n".join(f"{s} OK" for s in g.SHOTS_13)), framing=w("fr.txt", ""),
                   lod0=w("l.json", lod), waive=[], out=str(tmp_path / "gate.json"))
     rep = g.sign(a)
@@ -194,3 +194,13 @@ def test_lips_head_motion_is_not_speech(tmp_path):
         Image.fromarray(np.stack([a] * 3, -1)).save(tmp_path / f"{f:04d}.png")
     r = g.frames(str(tmp_path), None, str(tmp_path / "out"), {"S13:him": {"box": [0.47, 0.47, 0.54, 0.53]}})
     assert r["lips"]["S13:him"]["lines"]["L1"]["ratio"] > 3
+
+
+def test_lips_lipgap_decides_failed_lines():
+    fr = {"lips": {"S13:him": {"lines": {"L1": {"frames": [1020, 1065], "ratio": 1.03, "pass": False}}}}}
+    eng = {"people": {"him": {"lips": {"pass": True, "ratio": 3.8, "lines": {}}}}}
+    gap = {"lines": {"S13:him L1": {"ratio": 3.4, "open_cm": 0.9, "pass": True}}}
+    r = g._lips(fr, eng, gap)
+    assert r["lines"]["S13:him L1"]["pass"] and r["lines"]["S13:him L1"]["by"] == "lipgap"
+    gap["lines"]["S13:him L1"].update(ratio=1.2, open_cm=0.1, **{"pass": False})
+    assert any("lip gap ratio 1.2" in b for b in g._lips(fr, eng, gap)["failed"])
