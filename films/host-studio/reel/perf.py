@@ -13,6 +13,7 @@ and body made one skeleton, the eyes locked on each shot's lens or on the partne
     cd tools && uv run python ../films/host-studio/reel/perf.py calibrate_body --who her  # once per body skeleton
     cd tools && uv run python ../films/host-studio/reel/perf.py life --who her       # body life -> AS_reel_<who>_life
     cd tools && uv run python ../films/host-studio/reel/perf.py verify               # agent-09's gate: lip-sync, check
+    cd tools && uv run python ../films/host-studio/reel/perf.py head --seq /Game/Reel/SEQ_Reel  # r5: no nod with a blink
     cd tools && uv run python ../films/host-studio/reel/perf.py stage           # Test_ sequences, cameras, marks
     cd tools && uv run python ../films/host-studio/reel/perf.py sync|gaze|stills [--who him]
     cd tools && uv run python ../films/host-studio/reel/perf.py place --seq /Game/Reel/SEQ_Reel   # for R7
@@ -498,7 +499,9 @@ def naturalize(who: str, plot: bool = True) -> dict:
     theirs = json.loads(theirs_p.read_text()) if theirs_p.exists() else []
     avoid = [[round((a - START[who]) / FPS, 3), round((b - START[who]) / FPS, 3)] for a, b in theirs]
     args = {"anim": f"{ANIM}/AS_reel_{who}_solve", "out": f"{ANIM}/AS_reel_{who}_face",
-            "wav": _j(IMPORT, f"stem_{who}.wav"), "solver_head": "soften", "blink_mode": "replace",
+            # r5 (the operator on r4: "every time she blinks her head nods"): the solve's head is dropped (it comes out
+            # of the same predictor run as its blinks and dips with them) and no blink moves the head
+            "wav": _j(IMPORT, f"stem_{who}.wav"), "solver_head": "replace", "blink_head": "still", "blink_mode": "replace",
             "mouth_mix": 0.5, "seed": SEED[who], **e}
     if avoid:
         args["avoid_blinks"] = avoid
@@ -1370,10 +1373,39 @@ def place(path: str) -> list:
     return out
 
 
+def head_check(seq: str) -> dict:
+    """Round 5: does either head move with its blinks (or buzz) as SEQ_Reel plays? qa.head_stability on each
+    presenter's head bone over their screen time (the Face's own eyeBlink curves; the planned blinks of
+    OUT/blinks_<who>.json if the instance shows none), the results pulled to OUT/qa/, then gate v2's numbers file
+    OUT/qa/gate_head.json (head.blink_nod_deg <= 0.6, head.blink_locked_deg <= 0.3: film-qa head-gate)."""
+    from filmtools.unreal import qa_head as QH
+    got, local = {}, []
+    (OUT / "qa").mkdir(parents=True, exist_ok=True)
+    for who in ("her", "him"):
+        remote = _j(REMOTE_STILLS, f"head_{who}.json")
+        args = {"sequence": seq, "label": LABEL[who], "start": START[who], "end": END - 1, "out": remote}
+        r = ok(client.op("qa.head_stability", timeout=1800, **args))
+        mine = OUT / f"blinks_{who}.json"
+        if any(i["code"] == "head.no_blinks" for i in r["issues"]) and mine.exists():
+            r = ok(client.op("qa.head_stability", timeout=1800, blinks=json.loads(mine.read_text()), **args))
+        dst = OUT / "qa" / f"head_{who}.json"
+        client.pull(remote, str(dst))
+        local.append(str(dst))
+        got[who] = {"pass": r["pass"], "metrics": r["metrics"], "issues": [i["code"] for i in r["issues"]],
+                    "worst": max(r["blinks"], key=lambda b: abs(b["nod_deg"]), default=None)}
+    g = QH.gate(local)
+    (OUT / "qa" / "gate_head.json").write_text(json.dumps(g, indent=1))
+    got["gate"] = g["gate"]
+    got["pass"] = all(v.get("pass") for k, v in got.items() if k in ("her", "him")) and \
+        all("error" not in it and it["value"] <= it["line"] for it in g["gate"].values())
+    return got
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("cmd", choices=["push", "solve", "compose", "stage", "signs", "sync", "gaze", "stills", "cleanup", "drive_faces", "restage",
-                                       "place", "arm_axes", "gesture", "calibrate", "naturalize", "check", "calibrate_body", "life", "verify", "looks"])
+                                       "place", "arm_axes", "gesture", "calibrate", "naturalize", "check", "calibrate_body", "life", "verify", "looks",
+                                       "head"])
     ap.add_argument("--who", default="him,her")
     ap.add_argument("--seq", default="/Game/Reel/SEQ_Reel", help="place: the sequence")
     ap.add_argument("--frames", help="stills: master frames, comma-separated")
@@ -1410,6 +1442,10 @@ def main() -> None:
     elif a.cmd == "looks":
         r = looks(a.seq, a.measured)
         print(json.dumps(r))
+        sys.exit(0 if r["pass"] else 1)
+    elif a.cmd == "head":
+        r = head_check(a.seq)
+        print(json.dumps(r, default=str))
         sys.exit(0 if r["pass"] else 1)
     elif a.cmd == "cleanup":
         print(json.dumps(cleanup()))
