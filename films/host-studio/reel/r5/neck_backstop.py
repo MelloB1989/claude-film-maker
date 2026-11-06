@@ -6,8 +6,8 @@ still reads neck_px > 0. It needs a MetaHuman REBUILD (the map is applied at ass
 Verified on the 5.8.4 source: UMetaHumanSkeletalMeshEditorPipeline / UMetaHumanOutfitEditorPipeline
 HeadHiddenFaceMapTexture {Texture, Settings{MaxCullValue 0.1, MinKeepValue 0.9, MaxShrinkDistance 0}}; per skin
 vertex the map is sampled in its UV space (max of R, G, B); ComputeShrinkWeight = 1 - clamp((p - MaxCull) / (MinKeep -
-MaxCull)); a triangle fully under p <= MaxCull is REMOVED. So MaxCull is set to -0.01 (nothing is ever removed) and
-the band is drawn from p = 0 (full shrink) to 1 (white: untouched).
+MaxCull)); a triangle fully under p <= MaxCull is REMOVED, and MaxCull < 0 is INVALID (the whole assembly fails). So
+MaxCull is 0.0 and the band is drawn from p = 1/255 (full shrink, never culled) to 1 (white: untouched).
 
     STAGE='mask'  (read-only on the project): the face verts under the tee (a ray out along the skin normal meets
                   the Tee within REACH cm, rest pose), each weighted by its distance under the collar edge (0 at the
@@ -140,7 +140,8 @@ def mask():
                 l3 = 1 - l1 - l2
                 if min(l1, l2, l3) < -0.02:
                     continue
-                v = int(round(255 * max(0.0, min(1.0, l1 * av + l2 * bv + l3 * cv))))
+                # never 0: with MaxCullValue 0 a pixel at 0 CULLS; 1/255 still shrinks fully (weight 0.996)
+                v = max(1, int(round(255 * max(0.0, min(1.0, l1 * av + l2 * bv + l3 * cv)))))
                 j = y * SIZE + x
                 if v < img[j]:
                     img[j] = v
@@ -173,7 +174,10 @@ def apply():
     h = gp(ed, "head_hidden_face_map_texture")
     sp(h, "texture", tex)
     s = gp(h, "settings")
-    sp(s, "max_cull_value", -0.01)  # never remove: shrink only
+    # 0.0, not below: TryCombineHiddenFaceMaps rejects MaxCullValue < 0 as invalid and the WHOLE assembly fails
+    # (MetaHumanGeometryRemoval.cpp:45-52; box, 06 Nov: Body/Face/grooms came out empty). The mask never goes
+    # below 1/255, so nothing is culled
+    sp(s, "max_cull_value", 0.0)
     sp(s, "min_keep_value", 0.9)
     sp(s, "max_shrink_distance", SHRINK_CM)
     sp(h, "settings", s)
