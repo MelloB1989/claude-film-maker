@@ -131,6 +131,9 @@ max distance at ease + collision thickness. The backstop keeps the cloth from si
   `SetUpdateClothInEditor(true)`, tick enabled, `VisibilityBasedAnimTickOption` AlwaysTickPoseAndRefreshBones (the
   offscreen editor renders nothing, and cloth steps only when recently rendered or always ticking), then
   `RecreateClothingActors`. MRQ renders are game worlds and need none of it.
+- **`cloth.setup` edits the mesh asset, which re-creates a MetaHuman's components** (construction script): it re-leads every
+  garment last (`leaders` in the result; round 5 lost Tee AND Trousers). Run `mh.dress`/`dress_him` after it only if
+  `leaders` shows a garment not ok.
 - **`qa.cloth` changes the max distance scale while it runs** and restores it. Do not run it during a render.
 
 ## API_NOTES
