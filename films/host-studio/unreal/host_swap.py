@@ -51,6 +51,14 @@ NECK = globals().get("NECK") or {}  # e.g. {"FM_Neck": 2.8, "FM_NeckZ0": ..}: ne
 # the neckline term's amount (cm): his tee's front pushed out this much more from 14 cm under neck_01 (none) to 5 cm
 # under it and up (all), the front only; its heights and front from his bones. 0 = off (the re-rig is the root fix)
 NECK_CM = float(globals().get("NECK_CM", 0.0))
+# round 4's shipped values on his tee (neck_patch.py's patch3, the orchestrator's pass at 09:06 UTC, 06 Nov): a plain
+# 0.15 cm, a weak neckline arc and a LOCAL push where his face mesh pierces the tee (mesh space, reference pose, cm).
+# They hold while his body and garment are those of the build they were measured on; after a body or garment change
+# re-measure with props/his_outfit_ue/neck_patch.py (FIND_ONLY=True reads them, without it sets them).
+TEE_KNOBS = globals().get("TEE_KNOBS") or {
+    "FM_Inflate": 0.15, "FM_Neck": 0.75, "FM_NeckZ0": 144.75, "FM_NeckZ1": 147.75, "FM_NeckFront": 0.1,
+    "FM_NeckFrontBias": 0.5, "FM_Patch": 1.76, "FM_PatchX": -0.71, "FM_PatchY": 5.7, "FM_PatchZ": 148.68,
+    "FM_PatchR": 3.95, "FM_PatchF": 3.0}
 NECK_Z0_CM = float(globals().get("NECK_Z0_CM", 18.0))  # the ramp starts this far under neck_01 (round 4: 14 missed S15)
 
 
@@ -78,7 +86,7 @@ def finish():
         finally:
             if kw:
                 _act._add_inflate = plain
-        neck = dict(NECK)
+        neck = dict(NECK) if (NECK or NECK_CM > 0) else dict(TEE_KNOBS)
         if kw and NECK_CM > 0:  # the neckline term from his own bones (mesh space = component space, cm)
             b = his_part("Body")
             cs = unreal.RelativeTransformSpace.RTS_COMPONENT
