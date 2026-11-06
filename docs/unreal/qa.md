@@ -176,6 +176,8 @@ Every command prints JSON and exits 1 when a `fail` issue was found.
 | `qa.framing` | shot size, headroom, eyeline, joint/feet/limb cuts, look room, side | yes |
 | `qa.parts` | an actor's primitive components (for penetration's body/garments) | |
 | `qa.penetration` | skin through garments from depth captures (views around, or a camera) | yes |
+| `qa.clip` | per shot/frame, per (under, over) pair: clip px at intersection edges, `neck_px` under the collar band, silhouette ([garment.md](garment.md)) | yes |
+| `qa.garment_look` | the armor index: ease, thickness, WPO, silhouette, normal detail, motion ([garment.md](garment.md)) | yes |
 | `qa.floating` | gap under each actor (line traces) | |
 | `qa.overlaps` | interpenetrating bounds, share and depth | |
 | `qa.snapshot` / `qa.diff` | the level as JSON; what changed | |
