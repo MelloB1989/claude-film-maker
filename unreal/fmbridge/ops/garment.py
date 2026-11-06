@@ -771,18 +771,30 @@ def hide_under(*, label: str, garment: str, body: str = "Body", reach_cm: float 
 
 # --- MetaHuman's own hiding: the wardrobe item's hidden face maps -------------------------------------------------
 
+def _prop(obj, name):
+    """get_editor_property by the snake_case name, else the C++ one: an EditAnywhere-only UPROPERTY (the hidden face
+    maps, FHiddenFaceMapSettings) has no Python name, but the C++ name finds it (box, round 5)."""
+    err = None
+    for n in (name, "".join(w[:1].upper() + w[1:] for w in name.split("_"))):
+        try:
+            return obj.get_editor_property(n)
+        except Exception as e:  # noqa: BLE001
+            err = e
+    raise err
+
+
 def _hfm(pipe, which: str) -> dict:
     """One FHiddenFaceMapTexture (texture + settings) of an item's editor pipeline, as plain values."""
     try:
-        h = pipe.get_editor_property(f"{which}_hidden_face_map_texture")
+        h = _prop(pipe, f"{which}_hidden_face_map_texture")
     except Exception as e:  # noqa: BLE001
         return {"error": f"{type(pipe).__name__} has no {which}_hidden_face_map_texture ({e})"}
-    tex = h.get_editor_property("texture")
-    s = h.get_editor_property("settings")
+    tex = _prop(h, "texture")
+    s = _prop(h, "settings")
     return {"texture": tex.get_path_name() if tex else None,
-            "max_cull_value": float(s.get_editor_property("max_cull_value")),
-            "min_keep_value": float(s.get_editor_property("min_keep_value")),
-            "max_shrink_distance": float(s.get_editor_property("max_shrink_distance"))}
+            "max_cull_value": float(_prop(s, "max_cull_value")),
+            "min_keep_value": float(_prop(s, "min_keep_value")),
+            "max_shrink_distance": float(_prop(s, "max_shrink_distance"))}
 
 
 @op("garment.hidden_face_maps", mutates=False, idempotent=True, tags=["metahuman"])
@@ -802,10 +814,10 @@ def hidden_face_maps(*, item: str) -> dict:
     wi = EAL.load_asset(item)
     if wi is None:
         raise OpError(f"no asset {item}", code="not_found", hint="mh.palette / mh.wardrobe kind=Clothing list items")
-    pipe = wi.get_editor_property("pipeline")
+    pipe = _prop(wi, "pipeline")
     if pipe is None:
         raise OpError(f"{item} has no pipeline", code="not_found", hint="is it a MetaHuman wardrobe item (WI_)?")
-    ed = pipe.get_editor_property("editor_pipeline")
+    ed = _prop(pipe, "editor_pipeline")
     if ed is None:
         raise OpError(f"{item}'s pipeline has no editor pipeline", code="not_found",
                       hint="open the item once in the editor (SetDefaultEditorPipeline runs then)")
