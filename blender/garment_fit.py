@@ -80,6 +80,8 @@ def parse_args():
     ap.add_argument("--keep-regions", default="", help="regions left at the garment's ORIGINAL shape (e.g. collar: "
                     "the band hugs the neck as Epic made it), the fit ramping in over --keep-ramp-cm below them")
     ap.add_argument("--keep-ramp-cm", type=float, default=3.0)
+    ap.add_argument("--straight-regions", default="", help="regions pushed out HORIZONTALLY only (e.g. hem: along the "
+                    "hip's normal a hem flares out like a skirt; level, it hangs straight)")
     ap.add_argument("--thickness", type=float, default=0.0, help="cm, Solidify on an open garment (0: none)")
     ap.add_argument("--only-slots", default="", help="comma list: fit only faces of material slots containing these")
     ap.add_argument("--collider", default="ref_body,face")
@@ -579,6 +581,9 @@ def main():
     kept = [r.strip() for r in a.keep_regions.split(",") if r.strip()]
     kf = GF.keep_factor(G, region, kept, a.keep_ramp_cm) if kept else np.zeros(len(G))
     fixed = ~active | (kf >= 0.999)
+    sr = [r.strip() for r in a.straight_regions.split(",") if r.strip()]
+    straight = np.clip(GF.smooth_field(np.isin(region, [GF.REGIONS.index(r) for r in sr]).astype(float), nbrs,
+                                       iters=8), 0, 1) if sr else None
     for k in range(max(1, a.passes)):
         d, N = signed(bvh, G)
         d = np.where(np.isfinite(d), d, target + a.slack)
@@ -586,6 +591,8 @@ def main():
         mv[fixed] = 0.0
         mv = GF.smooth_field(mv, nbrs, iters=a.smooth_iters, pinned=fixed) * (1.0 - kf)
         N = GF.smooth_field(N, nbrs, iters=2, pinned=fixed)
+        if straight is not None:
+            N[:, 2] *= 1.0 - straight  # level the push (z up) on the straight regions, ramped
         N /= np.maximum(np.linalg.norm(N, axis=1, keepdims=True), 1e-9)
         G = G + mv[:, None] * N
         log(f"fit pass {k + 1}: moved median {np.median(np.abs(mv)):.2f} cm, max {np.abs(mv).max():.2f}")
