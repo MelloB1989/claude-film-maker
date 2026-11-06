@@ -123,3 +123,40 @@ Do the same for him on S13/S15/S17.
 - **Dropping the solve's head removes its speech-driven head motion.** perfkit's speech micro-motion
   (`speech_gain`), beat nods and breathing replace it, and round 4 already layered those. If a line now reads too
   still, the fix is `solver_head=clean` (its head kept at 50% with every blink window bridged), not `soften`.
+
+## Round 5b (agent-04, judge of item 2)
+
+**His S15 turn blink: FIXED.** Round 5 ended at blink_nod 1.41° (f1130-1133), the gaze blink sitting on the
+start of his 95° over-the-shoulder turn.
+- After the (iv) rebuild, `perf.calibrate turn_by=bones` (agent-01, 5e771ce9) found no Body axis that turns his
+  head ("no local axis of Body.head turns Host's head"). The Face did follow the Body (Face vs Body head and neck_01 at
+  f1170 equal to 0.001 cm), and HeadRoll read turn_strength 1.04 (round 5: ~0.34). Cause not found; round 6.
+- What ran: `film-ue op perf.calibrate label=Host turn_by=auto` (turn_on Face, yaw_gain 1.0, a fresh yaw_table;
+  the round-5 signs file is kept as `.r5`), then `perf.py naturalize --who him --no-turn-blinks` (NO_BLINK: no blink
+  in f1124-1172), then restage, sync, gaze, place.
+- Numbers: him blink_nod 0.0, blink_locked 0.084, worst on-screen nod 0.316 at f1384, looks +0.6 / +0.8; her 0.0 /
+  0.265; lips placed in sync. Gate v2 head items pass.
+- Do not reuse an old signs file after a rebuild: its yaw_gain and yaw_table belong to the old face's turn strength.
+
+**head_buzz: off-screen spikes are listed, not judged** (the orchestrator's ruling: the same on-screen scope as the
+blinks; core 8d5509ea). His one spike was 0.555° of yaw at f1292, the first frame of his return turn, inside her S16
+single.
+
+**Her S15 tilt-in (the "settle" item), round 6.** `place()` cross-faded each body from the idle into the baked body
+over 6 frames at START, and back to the idle at END. Since head_to_body the baked body carries the head turn and
+tilt and the idle does not, so the head eased in on screen. Round 4 placed the bodies the same way. On-screen blends
+found:
+- him f960-966 (S13);
+- her f1080-1086 (S15);
+- both f1554-1559 (S18).
+
+Fix: film b22f3372 (in 245a63d4). Each body's and face's first pose is held through the pre-roll (a section at
+HOLD_RATE 1e-4; Sequencer reads a rate of 0 as 1), and the idle starts at END, after the last frame.
+- NOT applied on the box: the wrap came first.
+- BEFORE samples are kept in private/ (`/srv/ue/reel/r5/qa/settle_before/`).
+- Round 6:
+  1. install, then `perf.py place`;
+  2. AFTER `seq.sample` of the Face's head and eyes at f954-968 (him), f1074-1090 (her) and f1546-1559 (both);
+  3. pass: no frame-to-frame step over 0.6° beyond the planned motion;
+  4. `perf.py head`, `lips.py check --stage placed`;
+  5. then re-render S13, S15 and S17+S18.
