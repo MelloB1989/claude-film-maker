@@ -216,11 +216,12 @@ def cmd_bias() -> dict:
     return out
 
 
-def cmd_compose(who: str, keep_base: float) -> dict:
+def cmd_compose(who: str, keep_base: float, fade_frames: float = 3.0) -> dict:
     parts = [{"anim": line_anim(u["key"]), "frame": u["file_frame"]} for u in units(who)]
     base = f"{P.SPEECH}/Anim/AS_{P.anim_name(who)}"  # round 4's whole-performance solve: only the canvas
     return P.ok(client.op("lipsync.compose", parts=parts, out=f"{P.ANIM}/AS_reel_{who}_solve", base=base,
                           start_frame=P.START[who], length_frames=LENGTH[who], fps=FPS, keep_base=keep_base,
+                          fade_frames=fade_frames,
                           timeout=1800))
 
 
@@ -285,11 +286,13 @@ def main() -> None:
     ap.add_argument("--stage", default="face", choices=["solve", "face", "final", "placed"])
     ap.add_argument("--words", default="auto", choices=["auto", "whisper", "estimate", "none"])
     ap.add_argument("--keep-base", type=float, default=0.0)
+    ap.add_argument("--fade-frames", type=float, default=3.0, help="compose: each line's fade in/out (a solve that "
+                    "opens the jaw at its WAV's start, L2, keeps it with 1)")
     a = ap.parse_args()
     if a.cmd == "check":
         cmd_check(a.who, a.stage)
     r = {"voice": lambda: cmd_voice(a.vocals), "cues": lambda: cmd_cues(a.words), "push": cmd_push, "probe": lambda: cmd_probe(a.who),
-         "solve": lambda: cmd_solve(a.only), "bias": cmd_bias, "compose": lambda: cmd_compose(a.who, a.keep_base),
+         "solve": lambda: cmd_solve(a.only), "bias": cmd_bias, "compose": lambda: cmd_compose(a.who, a.keep_base, a.fade_frames),
          "boxes": lambda: cmd_boxes(a.who), "refcurves": lambda: cmd_refcurves(a.who)}[a.cmd]()
     print(json.dumps(r, indent=1, default=str))
 
