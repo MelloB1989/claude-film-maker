@@ -124,6 +124,10 @@ max distance at ease + collision thickness. The backstop keeps the cloth from si
   set them on the running simulation through the Chaos clothing interactor (`config.interactor` in the result). They
   are lost when the component is re-created, so run `cloth.settings` after any respawn. `mass_mode` stays the
   engine's default, Density.
+- **The editor world does not simulate cloth by itself** (round 5). `qa.cloth`/`cloth.preroll` call `editor_cloth`:
+  `SetUpdateClothInEditor(true)`, tick enabled, `VisibilityBasedAnimTickOption` AlwaysTickPoseAndRefreshBones (the
+  offscreen editor renders nothing, and cloth steps only when recently rendered or always ticking), then
+  `RecreateClothingActors`. MRQ renders are game worlds and need none of it.
 - **`qa.cloth` changes the max distance scale while it runs** and restores it. Do not run it during a render.
 
 ## API_NOTES
@@ -147,6 +151,7 @@ shapes (GPU probes).
 | `KismetMathLibrary::ComposeTransforms` | Kismet/KismetMathLibrary.h:3957 | bones | ✓ |
 | Geometry Script `CopyMeshFromSkeletalMesh`, `GetMeshPerVertexColors`, `ConvertColorListToArray` | GeometryScripting/.../MeshAssetFunctions.h:408-416; MeshVertexColorFunctions.h:172; ListUtilityFunctions.h:293 | setup (colours, dry run) | ✓ (colour space: probe P-C2) |
 | `UChaosClothingInteractor` (per cloth, via `ClothingSimulationInteractor.GetClothingInteractor(name)`): `SetMaterialLinear(edge, bending, area)`, `SetLongRangeAttachmentLinear(tether_stiffness, tether_scale)`, `SetAnimDriveLinear(stiffness)`, `SetAerodynamics(drag, lift, wind)` (BlueprintCallable; floats, no struct) | Plugins/ChaosCloth/Source/ChaosCloth/Public/ChaosCloth/ChaosClothingSimulationInteractor.h:41-84; ClothingSimulationInteractor.h:164 | setup, settings (round 5: the weighted config values cannot be written on the asset from Python: FChaosClothWeightedValue and EClothMassMode have no Python type on the box) | ✓ |
+| `SetUpdateClothInEditor` (BlueprintCallable, DevelopmentOnly; `bUpdateClothInEditor` gates the cloth tick and the simulation's creation in an editor world), `VisibilityBasedAnimTickOption` (EVisibilityBasedAnimTickOption, BlueprintReadWrite: `TickClothing` steps only when recently rendered or always ticking the pose), `WasRecentlyRendered`, `IsComponentTickEnabled`, `SetComponentTickEnabled` | SkeletalMeshComponent.h:937-938, 1479-1480; SkeletalMeshComponentPhysics.cpp:83, 3146-3150, 3820-3845; SkinnedMeshComponent.h:96-104, 793-794; PrimitiveComponent.h:998-999 | qa.cloth, preroll (editor_cloth) | ✓ |
 | Python types `ChaosClothWeightedValue` (low, high), `ClothMassMode` (EClothMassMode: UNIFORM_MASS/TOTAL_MASS/DENSITY), `GeometryScriptCopyMeshFromAssetOptions`, `GeometryScript_AssetUtils` (ScriptName of the static mesh functions library), `ChaosCacheManager`, `ChaosCacheCollection` | ChaosClothConfig.h:12; ClothingSystemRuntimeCommon/Public/ClothConfig.h:16; GeometryScripting/.../MeshAssetFunctions.h:56, 230; CacheManagerActor.h:187-188; CacheCollection.h:11-12 | setup, cache | ✓ |
 | cloth dt cap `Min(dt, MaxPhysicsDelta)`, teleport above 1.5x (`p.Cloth.MaxDeltaTimeTeleportMultiplier`) | Runtime/ClothingSystemRuntimeCommon/Private/ClothingSimulation.cpp:17, 166-173 | docs | ✓ |
 | MetaHuman build keeps the outfit sim mesh (preview strips it) | Plugins/MetaHuman/MetaHumanCharacter/.../MetaHumanDefaultEditorPipelineBase.cpp:455, 499 | docs | ✓ |
