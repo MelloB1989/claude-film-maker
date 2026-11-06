@@ -24,7 +24,7 @@ import sys
 import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-from look_sheet import BODY_NOW, BODY_SLIM, BODY_SLIMMER, CHAR, THIN  # noqa: E402
+from look_sheet import BODY_NOW, BODY_SLIM, BODY_SLIMMER, CHAR, LANDMARKS, THIN, sculpt_deltas  # noqa: E402
 
 BODIES = {"now": BODY_NOW, "slim": BODY_SLIM, "slimmer": BODY_SLIMMER}
 
@@ -47,6 +47,8 @@ def main() -> None:
     ap.add_argument("--lips", default="", help="r,g,b linear: lips makeup 'Natural' in this colour (before the build)")
     ap.add_argument("--swap-set", action="append", default=[], metavar="NAME=PY",
                     help="a global for host_swap.py, e.g. NECK_MASTER=False (repeatable)")
+    ap.add_argument("--sculpt", default="", help="a look_sheet sculpt as JSON, e.g. S2 from r4/look/sculpt.json: "
+                    "'{\"tip\": [0.6, 0.3], \"chin\": [0.45, 0.15], \"jaw_in\": 0.2}' (drops the rig: re-rigs)")
     ap.add_argument("--rerig", action="store_true", help="re-rig on the body as it is (agent-02: the face's neck seam "
                     "fitted to the final body; round 3's record has chest 104 against bodies.py's 100)")
     ap.add_argument("--skip-build", action="store_true", help="only the character stage (a dry look)")
@@ -70,6 +72,12 @@ def main() -> None:
     body = BODIES.get(a.body) or (json.loads(a.body) if a.body else None)
     if body:
         g["BODY_SET"] = body
+    if a.sculpt:  # the face first: it drops the rig, which the rig step below makes again
+        head = f"PATH = {CHAR!r}\n"
+        lm = ok(client.exec_code(head + LANDMARKS), "landmarks")
+        d = sculpt_deltas(lm, json.loads(a.sculpt))
+        rep["sculpt"] = {"deltas": d, "face": ok(client.op("mh.face", path=CHAR, landmarks=d), "mh.face")}
+        a.rerig = True
     if a.lips:
         rep["lips"] = ok(client.op("mh.makeup", path=CHAR, settings={"lips": {"type": "Natural", "color": [
             float(x) for x in a.lips.split(",")]}}), "mh.makeup")
