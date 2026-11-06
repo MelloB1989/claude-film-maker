@@ -3703,7 +3703,7 @@
    "verb": "cache",
    "module": "fmbridge.ops.cloth",
    "file": "unreal/fmbridge/ops/cloth.py",
-   "line": 640,
+   "line": 651,
    "summary": "A Chaos Cache Manager for a character's cloth garments, so a render plays the cloth back instead of",
    "doc": "A Chaos Cache Manager for a character's cloth garments, so a render plays the cloth back instead of\nsimulating it: `record` (the next PIE/MRQ run of the shot writes the cache), then `play` (every later render of\nthat shot reads it: identical cloth in every chunk and every re-render), `off` (simulate live). Converges on one\nmanager actor per character. Needs the ChaosCaching plugin (experimental, off by default).\n\nRecord and play must start on the same frame (one MRQ job per shot, from its first frame): the cache's time is\nthe world's time since the job began. Check after `play` with qa.cloth or render.compare against the record pass.\nArgs: label: the character. mode: record | play | off. collection: the cache collection asset (default\n/Game/FM/ClothCache/CC_<label>). components: garment names (default every cloth garment). manager: the actor\nlabel (default ClothCache_<label>).\nReturns: {\"changed\", \"manager\", \"mode\", \"collection\", \"observed\": [names]}.\nExample: film-ue op cloth.cache label=Host mode=record",
    "params": [
@@ -3793,7 +3793,7 @@
    "verb": "preroll",
    "module": "fmbridge.ops.cloth",
    "file": "unreal/fmbridge/ops/cloth.py",
-   "line": 569,
+   "line": 579,
    "summary": "Settle the cloth in the live level before reading a frame (a still, qa.clip under simulation): reset the cloth,",
    "doc": "Settle the cloth in the live level before reading a frame (a still, qa.clip under simulation): reset the cloth,\nthen evaluate the sequence one tick per frame (hold: the frame itself `frames` times, as MRQ's warm-up does;\nplay: the `frames` frames before it, from `start` at the earliest) and land on `frame`. Multi-tick.\n\nArgs: sequence: the level sequence. frame: the frame to land on. labels: the characters (default: every actor\nwith cloth garments). frames: settle frames (0 = what the slowest preset needs, clothkit.preroll.need_frames).\nmode: hold | play. start: the cut's first frame (play never runs before it).\nReturns: {\"frame\", \"steps\", \"mode\", \"garments\": {label.component: simulating}}.\nExample: film-ue op cloth.preroll sequence=/Game/Reel/SEQ_Reel frame=1080 'labels=[\"Host\"]' mode=play start=960",
    "params": [
@@ -3943,7 +3943,7 @@
    "verb": "render_check",
    "module": "fmbridge.ops.cloth",
    "file": "unreal/fmbridge/ops/cloth.py",
-   "line": 618,
+   "line": 629,
    "summary": "Does a render plan give the cloth its settle frames before every chunk's first frame? Pure: feed it",
    "doc": "Does a render plan give the cloth its settle frames before every chunk's first frame? Pure: feed it\nrender.plan's chunks and the spec's warm-up counts. A chunk that starts on its cut holds the first frame for\nwarmup_engine + warmup_render frames; a chunk that starts mid-cut plays the cut's frames before it.\n\nArgs: chunks: render.plan's \"chunks\". warmup_engine/warmup_render: the spec's (resolved) counts. presets_used:\nthe cloth presets in the shots (default all: the slowest decides). fps: the sequence rate.\nReturns: {\"ok\", \"need\", \"warmup_engine\": what to set, \"chunks\": [{\"id\", \"mode\", \"frames\", \"ok\", \"fix\"}]}.\nExample: film-ue op cloth.render_check 'chunks=[{\"id\":\"c0\",\"cut_start\":1080,\"start\":1080,\"end\":1200,\"preroll\":0}]' warmup_render=8",
    "params": [
