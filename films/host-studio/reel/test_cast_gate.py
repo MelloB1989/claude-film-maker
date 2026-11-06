@@ -109,7 +109,7 @@ def test_sign_refuses_and_waives(tmp_path):
                       "f1300": {"crown": {"a": 2, "b": 7, "C": 7, "green_px": 0.01}}}}
     lod = {"pass": True, "failed": []}
     a = Namespace(name="t", engine=w("e.json", eng), frames=w("f.json", fr), hue=w("h.json", hue),
-                  turns=w("t.json", [{"shot": "S15", "who": "him", "f0": 1128, "f1": 1316, "ok": True}]), clip="",
+                  turns=w("t.json", [{"shot": "S15", "who": "him", "f0": 1128, "f1": 1316, "ok": True}]), clip=[],
                   cams=w("c.txt", "\n".join(f"{s} OK" for s in g.SHOTS_13)), framing=w("fr.txt", ""),
                   lod0=w("l.json", lod), waive=[], out=str(tmp_path / "gate.json"))
     rep = g.sign(a)
@@ -131,3 +131,18 @@ def test_turns_agent01_rule():
     assert not g._turns([{**her, "err_deg": 40.0}])["pass"]               # within reach but missing her face
     assert not g._turns([{**row, "head_yaw": 20.0}])["pass"]              # beyond reach, the head barely turns
     assert not g._turns([{**row, "stage": "shots.py"}])["pass"]           # the plan, not the level
+
+
+def test_clip_pass_json():
+    him = {"label": "Host", "shots": {sid: {"962": {"Body>tee": {"fraction": 0.001, "clusters": []}}}
+                                      for sid in ("S13", "S15", "S17", "S18")}}
+    her = {"label": "Presenter", "shots": {sid: {"1210": {"Body>Top": {"fraction": 0.0}, "albedo_warm": {"Top": 0.3}}}
+                                           for sid in ("S15", "S16", "S17", "S18")}}
+    assert g._clip([him, her], None)["pass"]
+    him["shots"]["S17"]["1330"] = {"Body>tee": {"fraction": 0.04, "clusters": [{"px": 120, "worst_cm": 1.2}]}}
+    r = g._clip([him, her], None)
+    assert not r["pass"] and r["failed"][0].startswith("Host S17 f1330 Body>tee: 0.04")
+    assert r["worst"]["Host Body>tee"] == {"fraction": 0.04, "at": "S17@1330"}
+    del her["shots"]["S16"]
+    her["shots"]["S18"] = {"error": "no camera cut S18"}
+    assert len(g._clip([her], None)["failed"]) == 2

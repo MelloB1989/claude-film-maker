@@ -604,8 +604,8 @@ def hue(paths: list, out: str, frames_: list | None = None, regions: dict | None
 # its frames. The orchestrator's by-eye review runs alongside; both must pass before the presenter finals.
 SHOTS_13 = ["V01", "V02", "V03", "V04", "V05", "S11", "S12", "N01", "S13", "S15", "S16", "S17", "S18"]
 HUE_FRAMES = (1236, 1300)  # S16, where the screen-left ends read green (night1, cast_op3/4: green_px ~0.24)
-# agent-02's clipping metric on him: the share of a garment's pixels with skin through, per sampled frame. Set in
-# _clip() from agent-02's clean vs clip numbers (see CLIP_WHY).
+# agent-02's clipping metric (r4/clip_pass.py): per (under>over) layer pair, the share of the over garment's pixels
+# where the under layer pokes 0.3-3 cm through it at an intersection edge (openings and arms in front drop out).
 CLIP_MAX = 0.01
 CLIP_WHY = "qa.penetration's own pass line (PEN_MAX); pending agent-02's clean-vs-clip numbers"
 
@@ -710,23 +710,48 @@ def _turns(t) -> dict:
             "beats": len(rows)}
 
 
-def _clip(c, eng: dict | None) -> dict:
-    rows = _rows(c) if c is not None else []
-    bad, src = [], "agent-02" if rows else "engine qa.penetration (him only: her necklines read as false positives)"
-    if rows:
-        for r in rows:
-            v = next((r[k] for k in ("fraction", "worst_fraction", "skin_fraction", "value") if k in r), None)
-            if v is None or v > CLIP_MAX:
-                bad.append(f"{r.get('shot')} f{r.get('frame')} {r.get('garment', '')}: {v}")
+CLIP_SHOTS = {"Host": ["S13", "S15", "S17", "S18"], "Presenter": ["S15", "S16", "S17", "S18"]}
+
+
+def _clip(cs: list, eng: dict | None) -> dict:
+    """agent-02's clip.json (r4/clip_pass.py, one per presenter): shots -> frame -> "under>over" -> {fraction, raw,
+    clusters}. A pair fails above CLIP_MAX; a shot with an error or missing from the pass refuses too."""
+    bad, worst = [], {}
+    cs = [c for c in cs or [] if c]
+    if cs:
+        src = "agent-02 clip_pass"
+        for c in cs:
+            lab = c.get("label", "?")
+            for sid in CLIP_SHOTS.get(lab, []):
+                if sid not in (c.get("shots") or {}):
+                    bad.append(f"{lab} {sid}: not in the clip pass")
+            for sid, per in (c.get("shots") or {}).items():
+                if not isinstance(per, dict) or "error" in per:
+                    bad.append(f"{lab} {sid}: {per.get('error') if isinstance(per, dict) else per}")
+                    continue
+                for f, fr_ in per.items():
+                    for pair, v in fr_.items():
+                        if not (isinstance(v, dict) and "fraction" in v):
+                            continue
+                        k = f"{lab} {pair}"
+                        if v["fraction"] >= worst.get(k, (-1,))[0]:
+                            worst[k] = (v["fraction"], f"{sid}@{f}")
+                        if v["fraction"] > CLIP_MAX:
+                            cl = max(v.get("clusters") or [{}], key=lambda x: x.get("px", 0))
+                            bad.append(f"{lab} {sid} f{f} {pair}: {v['fraction']} (worst cluster {cl.get('px')} px, "
+                                       f"{cl.get('worst_cm')} cm)")
     elif eng:
+        src = "engine qa.penetration (him only: her necklines read as false positives)"
         for sid, r in eng["shots"].items():
             for f, fr_ in r.items():
                 v = fr_.get("him")
                 if isinstance(v, dict) and (v.get("worst_fraction") or 0) > CLIP_MAX:
                     bad.append(f"{sid} f{f} him: {v['worst_fraction']}")
     else:
+        src = None
         bad.append("no clipping numbers")
-    return {"pass": not bad, "failed": bad, "threshold": CLIP_MAX, "why": CLIP_WHY, "source": src}
+    return {"pass": not bad, "failed": bad, "threshold": CLIP_MAX, "why": CLIP_WHY, "source": src,
+            "worst": {k: {"fraction": v[0], "at": v[1]} for k, v in sorted(worst.items())}}
 
 
 def _cams(txt: str | None, framing: str | None) -> dict:
@@ -757,7 +782,7 @@ def sign(a) -> dict:
         "b.watch": _watch(eng),
         "c.hair_hue": _hue(rd(a.hue), fr),
         "d.head_turns": _turns(rd(a.turns)),
-        "e.clipping": _clip(rd(a.clip), eng),
+        "e.clipping": _clip([rd(x) for x in a.clip], eng),
         "f.cameras_framing": _cams(tx(a.cams), tx(a.framing)),
         "g.lod0_live": (lambda r: {"pass": r["pass"], "failed": r["failed"]})(
             rd(a.lod0) if a.lod0 else {"pass": False, "failed": ["no lod0 probe"]}),
@@ -815,7 +840,8 @@ def main() -> None:
     g.add_argument("--frames", default="", help="frames --mouth's cast_gate_frames.json")
     g.add_argument("--hue", default="", help=f"hue --frames {','.join(map(str, HUE_FRAMES))}'s hue.json")
     g.add_argument("--turns", default="", help="agent-01's head-turn direction table (json)")
-    g.add_argument("--clip", default="", help="agent-02's clipping metric (json); else the engine's qa.penetration")
+    g.add_argument("--clip", action="append", default=[], help="agent-02's clip.json, once per presenter "
+                   "(r4/clip_pass.py); else the engine's qa.penetration")
     g.add_argument("--cams", default="", help="probe_cam.py <13 shots> --check's output (text)")
     g.add_argument("--framing", default="", help="framing.py's output (text)")
     g.add_argument("--lod0", default="", help="cast_gate.py lod0's json")
