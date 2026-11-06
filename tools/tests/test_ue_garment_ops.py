@@ -43,7 +43,10 @@ def host(ue, fmb, monkeypatch):
 
 def test_qa_clip_clean_then_poke(host, tmp_path):
     out = str(tmp_path / "clip")
-    r = run_op("qa.clip", label="Host", sequence="/Game/S", width_px=64, out_dir=out, stills=False)
+    r = run_op("qa.clip", label="Host", sequence="/Game/S", width_px=64, out_dir=out, stills=False, layer_masks=True)
+    from fmbridge.qa import image
+    m = image.read(os.path.join(out, "S1_0010_tee.png"))
+    assert m.size == (64, 36) and 0 < sum(1 for v in m.data if v) < 64 * 36
     assert r["pass"] and r["metrics"]["worst"]["Body>tee"]["fraction"] == 0.0
     assert os.path.isfile(os.path.join(out, "S1_0010_depth.bin")) and os.path.isfile(os.path.join(out, "clip.json"))
     body = next(c for c in host._components if c.get_name() == "Body")

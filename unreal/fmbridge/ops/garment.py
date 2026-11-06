@@ -20,6 +20,7 @@ import os
 import unreal
 
 from . import op
+from .assets import EAL
 from ..errors import OpError, not_found
 from ..qa import clip as _clip
 from ..qa import garment_look as _look
@@ -124,7 +125,8 @@ def _mask_image(d: dict, clipped: set, w: int, h: int):
 @op("qa.clip", mutates=False, idempotent=True, tags=["gpu", "slow", "metahuman"])
 def clip(*, label: str, sequence: str, shots: list | None = None, n: int = 6, extra: dict | None = None,
          width_px: int = 480, roles_map: dict | None = None, pairs: list | None = None, ref_dir: str = "",
-         before: str = "", out_dir: str = "", stills: bool = True, neck_over: str = "", tol_cm: float = 0.3,
+         before: str = "", out_dir: str = "", stills: bool = True, layer_masks: bool = False, neck_over: str = "",
+         tol_cm: float = 0.3,
          band_cm: float = 3.0, near_cm: float = 1.5, neck_margin_cm: float = 1.0, at_open_960: float = 5.0,
          pair_fraction: float = 0.001, neck_max_px: int = 0, silhouette_pct: float = 2.0):
     """Skin or an under-garment coming out through a garment, as the shot's camera sees it, per shot and frame.
@@ -141,7 +143,8 @@ def clip(*, label: str, sequence: str, shots: list | None = None, n: int = 6, ex
     per shot, `extra` {shot: [frames]} besides (twists, glances). roles_map {role: component} (default: roles()).
     pairs: [[under, over], ...] (default fmbridge.qa.clip.pairs). out_dir (on the box; face data stays there): per frame
     <shot>_<frame>_mask.png (body red, face orange, tee green, trousers blue, clip magenta), _depth.bin, with
-    `stills` _final.png. Gate knobs: pair_fraction, neck_max_px, silhouette_pct.
+    `stills` _final.png, with `layer_masks` <shot>_<frame>_<role>.png per part (grey, 255 where that part alone
+    covers the pixel, 0 elsewhere: occlusion by other parts NOT applied). Gate knobs: pair_fraction, neck_max_px, silhouette_pct.
     Returns: {"pass", "issues", "metrics": {"worst", "shots": {shot: {frame: {"U>G": {...}, "neck_px", "silhouette"}}}},
     "out_dir"}. Multi-tick (~10 s a frame at 480 px).
     Example: film-ue op qa.clip label=Host sequence=/Game/Reel/SEQ_Reel 'shots=["Reel_S15"]' out_dir=/srv/ue/qa/clip/now
@@ -187,6 +190,10 @@ def clip(*, label: str, sequence: str, shots: list | None = None, n: int = 6, ex
                 if base:
                     _image.write(_mask_image(d, mask, w, h), base + "_mask.png")
                     write_depth(base + "_depth.bin", w, h, fov, d)
+                    if layer_masks:
+                        for name, L in d.items():
+                            _image.write(_image.Image(w, h, 1, bytearray(255 if z < _clip.EMPTY else 0 for z in L)),
+                                         f"{base}_{name}.png")
                     if stills:
                         rt = yield from capture(info, 2 * w, 2 * h, "final", warmup=4)
                         _image.write(to_image(rt), base + "_final.png")
@@ -294,7 +301,7 @@ def _sample(seq, k: int) -> list:
 
 def _ref_body(a, mesh: str, body: str = "Body"):
     """A temporary actor wearing the uncut reference body, on leader pose to the character's body (it moves with it)."""
-    m = unreal.EditorAssetLibrary.load_asset(mesh)
+    m = EAL.load_asset(mesh)
     if not isinstance(m, unreal.SkeletalMesh):
         raise OpError(f"no skeletal mesh {mesh}", code="not_found",
                       hint="the UNCUT body of the same build (garment.export lists it as ref_body), on the body skeleton")
@@ -511,7 +518,7 @@ def export(*, label: str, out_dir: str, garments: list | None = None, ref_body: 
     a = find_actor(label)
     parts = roles(a)
     os.makedirs(out_dir, exist_ok=True)
-    EAL = unreal.EditorAssetLibrary
+
     body_m = parts["Body"].get_skeletal_mesh_asset()
     if not ref_body:
         folder = body_m.get_path_name().rsplit("/", 1)[0]
@@ -642,7 +649,7 @@ def hide_under(*, label: str, garment: str, body: str = "Body", reach_cm: float 
     if not hide:
         raise OpError("no body triangle is covered", code="not_found",
                       hint=f"is {garment} on the body in the reference pose? raise reach_cm (now {reach_cm})")
-    EAL = unreal.EditorAssetLibrary
+
     src = bm.get_path_name().split(".")[0]
     dest = dest or f"{src}_Under_{garment}"
     if EAL.does_asset_exist(dest):
@@ -694,7 +701,7 @@ def hidden_face_maps(*, item: str) -> dict:
     max_shrink_distance}, "body": {...}}.
     Example: film-ue op garment.hidden_face_maps item=/MetaHumanCharacter/Optional/Clothing/DefaultGarment/WI_DefaultGarment
     """
-    wi = unreal.EditorAssetLibrary.load_asset(item)
+    wi = EAL.load_asset(item)
     if wi is None:
         raise OpError(f"no asset {item}", code="not_found", hint="mh.palette / mh.wardrobe kind=Clothing list items")
     pipe = wi.get_editor_property("pipeline")
