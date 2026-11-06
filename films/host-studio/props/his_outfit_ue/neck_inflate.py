@@ -12,7 +12,8 @@ already drawn is ever recompiled.
 """
 import unreal
 
-FOLDER = "/Game/FM/ClothOp2"  # ClothOp: the first build, whose offset never reached the render (wpo_probe.py)
+FOLDER = "/Game/FM/ClothOp3"  # ClothOp: the dead first build (wpo_probe.py); ClothOp2: a crashed run's leftovers
+MARK = "FM_AttrWPO"  # on a master whose offset goes in through its material attributes (scales it; default 1)
 # MetaHuman's fabric master (M_fabric_simpler) runs on Material Attributes: its plain WPO pin is ignored, so the
 # offset goes in through Break/Make Material Attributes on the attributes pin (every other attribute passed through)
 MA_PINS = ("BaseColor", "Metallic", "Specular", "Roughness", "Anisotropy", "EmissiveColor", "Opacity", "OpacityMask",
@@ -33,19 +34,29 @@ def add_neck_inflate(master):
             raise RuntimeError(f"no {n} in this engine's Python")
     X = lambda cls, x, y: MEL.create_material_expression(master, cls, x, y)  # noqa: E731
     have = [str(n) for n in MEL.get_scalar_parameter_names(master)]
+    attrs = bool(master.get_editor_property("use_material_attributes"))
+    if attrs and MARK in have:
+        return  # built already
     p = {}
-    # MetaHuman's garment master may carry FM_Inflate's offset already (M_fabric_simpler did on the box): then that
-    # term stays as it is and only the neckline term is added, so the plain inflate is never applied twice
-    had_inflate = "FM_Inflate" in have
+    # MetaHuman's garment master may carry FM_Inflate's offset already (M_fabric_simpler did on the box): on the WPO
+    # pin that term stays as it is and only the neckline term is added, so the plain inflate is never applied twice.
+    # On Material Attributes that old term was never drawn: the whole offset is built afresh, and a parameter that
+    # already exists on a copy gets a second node of the same name and default (one parameter to the instance).
+    had_inflate = "FM_Inflate" in have and not attrs
     for i, (name, dv) in enumerate(PARAMS.items()):
         if name == "FM_Inflate" and had_inflate:
             continue
-        if name in have:
+        if name in have and not attrs:
             raise RuntimeError(f"{master.get_name()} already has {name}: build from the plugin master, not a copy")
         e = X(unreal.MaterialExpressionScalarParameter, -1700, 1400 + 90 * i)
         e.set_editor_property("parameter_name", name)
         e.set_editor_property("default_value", dv)
         p[name] = e
+    if attrs:
+        e = X(unreal.MaterialExpressionScalarParameter, -1700, 1400 + 90 * len(PARAMS))
+        e.set_editor_property("parameter_name", MARK)
+        e.set_editor_property("default_value", 1.0)
+        p[MARK] = e
 
     def op(cls, a, b, x, y):
         e = X(cls, x, y)
@@ -80,6 +91,8 @@ def add_neck_inflate(master):
     neck = op(unreal.MaterialExpressionMultiply, p["FM_Neck"],
               op(unreal.MaterialExpressionMultiply, t, f, -800, 2075), -650, 2000)
     amt = neck if had_inflate else op(unreal.MaterialExpressionAdd, p["FM_Inflate"], neck, -500, 1900)
+    if attrs:
+        amt = op(unreal.MaterialExpressionMultiply, amt, p[MARK], -420, 1900)
     n = X(unreal.MaterialExpressionVertexNormalWS, -500, 1800)
     off = op(unreal.MaterialExpressionMultiply, n, amt, -350, 1850)
     wpo = unreal.MaterialProperty.MP_WORLD_POSITION_OFFSET

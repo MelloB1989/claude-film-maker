@@ -1,16 +1,16 @@
 """Round 4 (agent-02): his tee's inflate rebuilt so it reaches the render, on the level as it stands (no rebuild).
-wpo_probe.py: his worn tee (/Game/FM/ClothOp) moved 0.0 cm even at FM_Inflate 4; wpo_probe2.py: why (Material
-Attributes on MetaHuman's fabric master). neck_inflate.py now feeds the offset in through the attributes, in a fresh
-folder (FOLDER, /Game/FM/ClothOp2), so nothing being drawn is recompiled:
-  1. his tee's Shirt slot goes back to MetaHuman's own instance (found by name: the worn copy is
-     <label>_<original>_Inflate), with the worn copy's colours;
-  2. mh.cloth_inflate with neck_inflate.add_neck_inflate builds the new chain and swaps it on; the worn copy's
-     FM_ knobs (FM_Inflate, FM_Neck, FM_NeckZ0/Z1/Front/FrontBias) are set on the new instance;
+wpo_probe.py: his worn tee (/Game/FM/ClothOp) moved 0.0 cm even at FM_Inflate 4; wpo_probe2.py: why: MetaHuman's
+fabric master runs on Material Attributes, so the plain WPO pin it was wired to is ignored.
+  1. his worn tee's chain (instances + master) is copied into neck_inflate.FOLDER (/Game/FM/ClothOp3), the master
+     copy gets neck_inflate.add_neck_inflate (the offset through its material attributes) and only the copies are
+     reparented or compiled (nothing being drawn); the FM_ knobs (the worn ones, or KNOBS) go on the new instance;
+  2. the new instance goes on his tee's Shirt slot;
   3. CHECK: his tee alone is depth-captured at FRAME through its camera, before and after: it must come nearer by
-     at least MIN_CM (median) and its base colour stay within MAX_COLOUR; if not, the worn copy goes back on and the result says so (ok False).
+     at least MIN_CM (median) and its base colour stay within MAX_COLOUR; if not (or on any error), the worn
+     instance goes back on and the result says so (ok False, error).
 Editor-side, multi-tick, numbers only. Run (box tree T):
     film-ue exec -c "CHECKOUT='$T'; exec(open(CHECKOUT + '/films/host-studio/props/his_outfit_ue/neck_fix.py').read())"
-A later host_swap.py (HOST op) builds the same chain from MetaHuman's instance on a fresh build (its NECK_MASTER).
+On a fresh build host_swap.py (HOST op, NECK_MASTER) builds the same offset from MetaHuman's own master.
 """
 import importlib.util
 import os
@@ -35,28 +35,42 @@ ni = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(ni)
 
 
-def original_of(worn):
-    """MetaHuman's own instance the worn copy was made from: <label>_<name>_Inflate -> <name>, under /Game."""
-    name = worn.get_name()
-    if name.startswith(LABEL + "_"):
-        name = name[len(LABEL) + 1:]
-    if name.endswith("_Inflate"):
-        name = name[:-len("_Inflate")]
-    ar = unreal.AssetRegistryHelpers.get_asset_registry()
-    hits = []
-    flt = unreal.ARFilter(package_paths=["/Game"], recursive_paths=True)
-    for a in ar.get_assets(flt):
-        if str(a.asset_name) == name and not str(a.package_name).startswith("/Game/FM/"):
-            hits.append(str(a.package_name))
-    pref = [h for h in hits if f"/{LABEL}_" in h or "/Host_Op/" in h] or hits
-    if not pref:
-        raise RuntimeError(f"no original instance named {name} under /Game")
-    return EAL.load_asset(sorted(pref)[0])
+def copy_chain(worn):
+    """His worn tee's chain copied into ni.FOLDER: the master (ni.add_neck_inflate on the copy: the offset through
+    its material attributes) and every instance above it, each copy parented on the one below; only the copies are
+    ever reparented or compiled (nothing being drawn). Returns the new worn instance."""
+    chain, x = [], worn
+    while isinstance(x, unreal.MaterialInstance):
+        chain.append(x)
+        x = x.get_editor_property("parent")
+    src_master = x
+    dst = f"{ni.FOLDER}/{src_master.get_name()}_N"
+    if not EAL.does_asset_exist(dst):
+        EAL.duplicate_asset(src_master.get_path_name().split(".")[0], dst)
+        m = EAL.load_asset(dst)
+        ni.add_neck_inflate(m)
+    m = EAL.load_asset(dst)
+    if ni.MARK not in [str(n) for n in MEL.get_scalar_parameter_names(m)]:
+        raise RuntimeError(f"{dst} has no {ni.MARK}: its offset is not on its material attributes")
+    made, parent = [dst], m
+    for mi in reversed(chain):
+        name = (f"{LABEL}_{mi.get_name()}_Inflate" if mi is worn and not mi.get_name().endswith("_Inflate")
+                else f"{mi.get_name()}_N")
+        path = f"{ni.FOLDER}/{name}"
+        if not EAL.does_asset_exist(path):
+            EAL.duplicate_asset(mi.get_path_name().split(".")[0], path)
+        c = EAL.load_asset(path)
+        if c.get_editor_property("parent") != parent:
+            MEL.set_material_instance_parent(c, parent)
+        made.append(path)
+        parent = c
+    for path in made:
+        EAL.save_asset(path)
+    return parent, made
 
 
 def fix():
     from fmbridge.ops import mh
-    import fmbridge.ops.mh.actor as act
     a = _ns["find_actor"](LABEL)
     yield from _ns["_scrub"](_ns["SEQ"], FRAME, 10)
     info = _ns["camera_info"](_ns["cut_camera"](_ns["SEQ"], FRAME), aspect=16 / 9)
@@ -85,31 +99,26 @@ def fix():
     rep["knobs_worn"] = dict(knobs)
     knobs.update({k: float(v) for k, v in KNOBS.items()})
     rep["knobs"] = knobs
-    orig = original_of(worn)
-    rep["original"] = orig.get_path_name()
-    master = orig
-    while isinstance(master, unreal.MaterialInstance):
-        master = master.get_editor_property("parent")
-    rep["original_master"] = master.get_path_name()
-    rep["use_material_attributes"] = bool(master.get_editor_property("use_material_attributes"))
     base = yield from depth()
     rep["colour_before"] = yield from colour()
     ok = False
     try:
-        orig.set_editor_property("vector_parameter_values", worn.get_editor_property("vector_parameter_values"))
-        MEL.update_material_instance(orig)
-        c.set_material(i, orig)
-        for _ in range(4):
+        new, made = copy_chain(worn)
+        rep["made"] = made
+        for k, v in knobs.items():
+            MEL.set_material_instance_scalar_parameter_value(new, k, v)
+        MEL.set_material_instance_scalar_parameter_value(new, ni.MARK, 1.0)
+        MEL.update_material_instance(new)
+        EAL.save_asset(new.get_path_name().split(".")[0])
+        for _ in range(2):
             yield
-        plain, act._add_inflate = act._add_inflate, ni.add_neck_inflate
-        try:
-            rep["inflated"] = {k: (v if isinstance(v, (int, float)) else list(v)) for k, v in (yield from mh.cloth_inflate(
-                LABEL, cm=knobs["FM_Inflate"], component=c.get_name(), which="Shirt", folder=ni.FOLDER)).items()}
-        finally:
-            act._add_inflate = plain
-        new = tee().get_materials()[slot(tee())]
+        unreal.AutomationUtilsBlueprintLibrary.finish_all_asset_compilation()
+        for _ in range(8):
+            yield
+        tee().set_material(slot(tee()), new)
+        for _ in range(6):
+            yield
         rep["new"] = new.get_path_name()
-        mh.garment(LABEL, "Shirt", component=tee().get_name(), scalars=knobs)
         for _ in range(8):
             yield
         for cc in a.get_components_by_class(unreal.SkeletalMeshComponent):
@@ -124,6 +133,8 @@ def fix():
         dc = max(abs(x - y) for x, y in zip(rep["colour_before"], rep["colour_after"]))
         rep["colour_drift"] = round(dc, 4)
         ok = med >= MIN_CM and dc <= MAX_COLOUR
+    except Exception as e:  # noqa: BLE001  (the worn tee goes back on below; the reason goes in the result)
+        rep["error"] = f"{type(e).__name__}: {e}"
     finally:
         if not ok:
             tee().set_material(slot(tee()), worn)
