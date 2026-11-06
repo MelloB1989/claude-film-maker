@@ -310,6 +310,29 @@ for c in a.get_components_by_class(unreal.SkinnedMeshComponent):
 result = done
 """
 
+# a lighter groom on the spawned copy, per instance: strand width x factor (and its shadow density), e.g. the beard
+# at ~40% (the orchestrator's "faint shadow" stubble). Returns {component: [width before, after]}
+THIN = r"""
+import importlib, unreal
+_b = importlib.import_module("fmbridge.ops.mh.build")
+G_ = importlib.import_module("fmbridge.ops.groom")
+a = _b._PREVIEWS[LABEL]
+out = {}
+for c in a.get_components_by_class(unreal.GroomComponent):
+    f = next((v for k, v in F.items() if c.get_name().lower().startswith(k.lower())), None)
+    if f is None:
+        continue
+    descs = list(c.get_editor_property("groom_groups_desc"))
+    if not descs:
+        out[c.get_name()] = "no groups"
+        continue
+    w = G_._desc(descs[0]).get("width_cm") or 0.0
+    w = w if w > 1e-5 else 0.006
+    G_._set_desc(c, -1, {"width_cm": max(0.0001, w * f), "shadow_density": max(0.05, f)})
+    out[c.get_name()] = [round(w, 5), round(w * f, 5)]
+result = out
+"""
+
 # --- client side ---------------------------------------------------------------------------------------------------
 
 def rot_axes(rot: dict):
@@ -461,6 +484,10 @@ def apply_look(look: dict, label: str, skip_eye: bool = False) -> dict:
         p = {"Iris Primary Color Hue": h, "Iris Primary Color Value": v, "Iris Secondary Color Hue": h,
              "Iris Secondary Color Value": v, **look["eye"].get("params", {})}
         done["eye"] = ex(EYE_SET, LABEL=label, P=p)
+    if look.get("makeup"):
+        done["makeup"] = op("mh.makeup", path=DUP, settings=look["makeup"]).get("changed")
+    if look.get("thin") and not skip_eye:  # per instance on the spawned build, like the eye
+        done["thin"] = ex(THIN, LABEL=label, F=look["thin"])
     if look.get("body"):
         done["body"] = op("mh.body", character=DUP, measurements=look["body"]).get("changed")
     return done
@@ -536,7 +563,7 @@ def render(a) -> None:
         first = {k: x for k, x in vs[0].items() if k != "label"}
         rep["first_applied"] = apply_look(first, PREVIEW, skip_eye=True)  # before the build (r4: A was built as the base)
         rep["first_build"] = build_spawn(a, merge(base, first) if a._need_tex else first, rep)
-        rep["base_eye"] = apply_look({"eye": base["eye"]}, PREVIEW) if base.get("eye") else None
+        rep["base_eye"] = None  # (the eye and thinning go on per row, after each spawn)
     else:
         op("mh.preview", path=DUP, label=PREVIEW, loc=LAB, yaw_deg=0.0)
         rep["base_applied"] = apply_look(base, PREVIEW)
@@ -558,7 +585,7 @@ def render(a) -> None:
             look = merge(base, change)
             if a.target == "build":
                 row = {"label": v["label"], "look": change}
-                if i > 0 and set(change) - {"eye"}:
+                if i > 0 and set(change) - {"eye", "thin"}:
                     row["applied"] = apply_look(change, PREVIEW, skip_eye=True)
                     row["build"] = build_spawn(a, change, rep)
                 elif i > 0:  # only the eye: the same build, its eye material changed
@@ -566,8 +593,9 @@ def render(a) -> None:
                 else:
                     row["applied"] = rep["first_applied"]
                     row["build"] = rep["first_build"]
-                if look.get("eye"):
-                    row["eye"] = apply_look({"eye": look["eye"]}, PREVIEW)
+                post = {k: look[k] for k in ("eye", "thin") if look.get(k)}
+                if post:
+                    row["post"] = apply_look(post, PREVIEW)
                 print(json.dumps({"built": v["label"], "s": row["build"].get("s")}), file=sys.stderr)
             else:
                 row = {"label": v["label"], "look": change, "applied": apply_look(change, PREVIEW)}
