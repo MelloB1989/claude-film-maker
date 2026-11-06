@@ -1,5 +1,24 @@
 {
  "_about": "Round 5's gate spec for qa/gate.py (film-qa gate --spec). complaints: what the operator complained about in round 4: no waiver on these areas. Tracks add their items/lines here (T1 agent-01 lips, T2 agent-04 head, T3a agent-02 garment, T3b agent-08 cloth, T4 agent-09 hair).",
- "complaints": ["lips", "head", "garment", "hair"],
- "items": {}
+ "complaints": [
+  "lips",
+  "head",
+  "garment",
+  "hair"
+ ],
+ "items": {},
+ "not_attempted": {
+  "garment.cloth_alive": {
+   "reason": "Orchestrator ruling (A), 06 Nov: no cloth sim this round on his closed-shell tee. A closed-shell sim is the same failure class as her overshirt's explosion. The refit (real ease, no WPO; armor_index 0.126 vs round 4's 0.538) removes the armour look; the proxy-sim path is round 6. Binding check: the orchestrator's eye on his first preview in motion; if the tee still reads stiff, revisit before the finals.",
+   "by": "cc-64d05f6e"
+  },
+  "garment.cloth_sound": {
+   "reason": "Orchestrator ruling (A), 06 Nov: no cloth sim this round on his closed-shell tee. A closed-shell sim is the same failure class as her overshirt's explosion. The refit (real ease, no WPO; armor_index 0.126 vs round 4's 0.538) removes the armour look; the proxy-sim path is round 6. Binding check: the orchestrator's eye on his first preview in motion; if the tee still reads stiff, revisit before the finals.",
+   "by": "cc-64d05f6e"
+  },
+  "garment.cloth_detail_ratio": {
+   "reason": "Orchestrator ruling (A), 06 Nov: no cloth sim this round on his closed-shell tee. A closed-shell sim is the same failure class as her overshirt's explosion. The refit (real ease, no WPO; armor_index 0.126 vs round 4's 0.538) removes the armour look; the proxy-sim path is round 6. Binding check: the orchestrator's eye on his first preview in motion; if the tee still reads stiff, revisit before the finals.",
+   "by": "cc-64d05f6e"
+  }
+ }
 }
