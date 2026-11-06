@@ -2508,7 +2508,7 @@
    "verb": "hide_under",
    "module": "fmbridge.ops.garment",
    "file": "unreal/fmbridge/ops/garment.py",
-   "line": 587,
+   "line": 619,
    "summary": "Hide the body where a garment covers it (MetaHuman does this for its own garments; a garment of your own",
    "doc": "Hide the body where a garment covers it (MetaHuman does this for its own garments; a garment of your own\nneeds it too): a body vertex is covered when a ray out along its normal meets the garment within reach_cm, a\ntriangle is hidden when all its corners are, less `rings` triangles round the border (cloth that moves off the\nbody never opens a gap). Measured in the reference pose (the meshes' own vertices), so it holds for every frame.\n\nWith apply=False (default) it only counts. With apply=True the triangles are deleted on a COPY of the body mesh\n(dest, default <body mesh>_Under_<garment>), set on the component, and leader pose re-applied (mh.leader).\nNever on the Face: its rig (DNA, morph targets) does not survive a mesh copy; refit the garment round the face\ninstead (garment.fit's collider takes the face).\nReturns: {\"vertices\", \"covered_vertices\", \"triangles\", \"hidden\", \"fraction\", \"mesh\" (with apply)}.\nExample: film-ue op body.hide_under label=Ava garment=Top apply=true",
    "params": [
@@ -6069,7 +6069,7 @@
    "verb": "export",
    "module": "fmbridge.ops.garment",
    "file": "unreal/fmbridge/ops/garment.py",
-   "line": 504,
+   "line": 536,
    "summary": "Export what the Blender fit (film-ue garment fit) needs, as FBX in cm on the body skeleton, to out_dir on the",
    "doc": "Export what the Blender fit (film-ue garment fit) needs, as FBX in cm on the body skeleton, to out_dir on the\nbox: body.fbx (the body as worn: cut under its garments), face.fbx (its lower neck is in the collider: a\nMetaHuman's face mesh runs ~10 cm below neck_01, to the clavicles), ref_body.fbx (the UNCUT body: weights and\nease come from it), garment_<name>.fbx per garment, anim_<name>.fbx for every animation the sequences play on\nthe character (the fit's pose tests). Read-only on the project.\n\nArgs: label: the character. garments: component names (default every garment role but shoes). ref_body: the\nuncut body mesh (default: another body mesh in the body's folder, e.g. SKM_<Name>_BodyMesh from an earlier\nbuild; refused when none: say which). sequences: level sequences whose skeletal animation sections count (default\nnone); anims: extra AnimSequence paths.\nReturns: {\"out_dir\", \"files\": {name: [asset, ok, bytes]}, \"ref_body\", \"manifest\"} (manifest.json beside them).\nExample: film-ue op garment.export label=Host out_dir=/srv/ue/fit/host 'sequences=[\"/Game/Reel/SEQ_Reel\"]'",
    "params": [
@@ -6130,7 +6130,7 @@
    "verb": "hidden_face_maps",
    "module": "fmbridge.ops.garment",
    "file": "unreal/fmbridge/ops/garment.py",
-   "line": 692,
+   "line": 724,
    "summary": "A MetaHuman wardrobe item's hidden face maps: what MetaHuman itself removes or SHRINKS of the head and body",
    "doc": "A MetaHuman wardrobe item's hidden face maps: what MetaHuman itself removes or SHRINKS of the head and body\nunder this garment at assembly (5.7+: UMetaHumanOutfitEditorPipeline and UMetaHumanSkeletalMeshEditorPipeline\nboth carry HeadHiddenFaceMapTexture and BodyHiddenFaceMapTexture; settings MaxCullValue 0.1, MinKeepValue 0.9,\nMaxShrinkDistance 0 by default, i.e. shrink OFF). Pixels <= max_cull are removed, between the two the skin is\nmoved in along -normal by up to max_shrink_distance (cm), >= min_keep untouched; the head map is sampled in the\nhead's UV space (the highest of R, G, B).\n\nArgs: item: the wardrobe item's asset path (mh.palette lists a character's; a WI_ asset).\nReturns: {\"item\", \"pipeline\", \"editor_pipeline\", \"head\": {texture, max_cull_value, min_keep_value,\nmax_shrink_distance}, \"body\": {...}}.\nExample: film-ue op garment.hidden_face_maps item=/MetaHumanCharacter/Optional/Clothing/DefaultGarment/WI_DefaultGarment",
    "params": [
@@ -13967,9 +13967,9 @@
    "verb": "garment_look",
    "module": "fmbridge.ops.garment",
    "file": "unreal/fmbridge/ops/garment.py",
-   "line": 350,
+   "line": 372,
    "summary": "Does the garment read as cloth or as ARMOR (fmbridge.qa.garment_look: the armor index)?",
-   "doc": "Does the garment read as cloth or as ARMOR (fmbridge.qa.garment_look: the armor index)?\n\nMeasured: `ease` (each sampled garment vertex's distance to the UNCUT reference body, posed: its spread and\nmedian), `thickness` (the garment's wall: a ray in along -normal to its own inside), `wpo` (inflate parameters on\nits materials: FM_Inflate/FM_Neck/FM_Patch), and from the shot's camera at `frames`: `silhouette` ((garment U\nbody) px / body px in the garment's rows) and `detail` (high-frequency energy of the garment's world normals); with\nmotion_frames > 1, `motion` (the garment's motion relative to the body under it, frame to frame, from motion_from).\n\nArgs: label: the character. garment: its garment component (default: the 'tee' role, qa.clip's roles).\nref_body: the uncut body mesh of the same build (needed for ease, silhouette, motion; without it they are skipped\nand reported missing). sequence + frames: where to look (default the sequence's first cut, middle). out_dir:\n_look_normal.png per frame (the garment's normals) on the box.\nReturns: {\"pass\", \"verdict\": cloth|borderline|armor, \"index\", \"terms\", \"issues\", \"missing\", \"metrics\"}.\nExample: film-ue op qa.garment_look label=Host ref_body=/Game/Host/Unpacked/Host/Body/SKM_Host_BodyMesh sequence=/Game/Reel/SEQ_Reel 'frames=[1082,1150]' motion_from=1140 motion_frames=12",
+   "doc": "Does the garment read as cloth or as ARMOR (fmbridge.qa.garment_look: the armor index)?\n\nMeasured: `ease` (each sampled garment vertex's distance to the UNCUT reference body, posed: its spread and\nmedian), `thickness` (the garment's wall: a ray in along -normal to its own inside), `wpo` (inflate parameters on\nits materials: FM_Inflate/FM_Neck/FM_Patch), and from the shot's camera at `frames`: `silhouette` ((garment U\nbody) px / body px in the garment's rows) and `detail` (high-frequency energy of the garment's world normals); with\nmotion_frames > 1, `motion` (the garment's motion relative to the body under it, frame to frame, from motion_from).\n\nArgs: label: the character. garment: its garment component (default: the 'tee' role, qa.clip's roles).\nref_body: the uncut body mesh of the same build (needed for ease, silhouette, motion; without it they are skipped\nand reported missing). sequence + frames: where to look (default the sequence's first cut, middle). out_dir:\n_look_normal.png per frame (the garment's normals) on the box.\nWith `collar` (default), per frame the COLLAR band round the neck (fmbridge.qa.garment_look.collar_stats): its\ngap to the skin and its radial spread; FAIL (hard) over 0.8 cm gap or any rolled frame (round 5: Fit5's collar\nfloated like a cowl while every other number passed).\nReturns: {\"pass\", \"verdict\": cloth|borderline|armor, \"index\", \"terms\", \"issues\", \"missing\", \"metrics\"}.\nExample: film-ue op qa.garment_look label=Host ref_body=/Game/Host/Unpacked/Host/Body/SKM_Host_BodyMesh sequence=/Game/Reel/SEQ_Reel 'frames=[1082,1150]' motion_from=1140 motion_frames=12",
    "params": [
     {
      "name": "label",
@@ -14054,6 +14054,13 @@
      "type": "dict | None",
      "required": false,
      "default": null
+    },
+    {
+     "name": "collar",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": true
     }
    ],
    "returns": null,

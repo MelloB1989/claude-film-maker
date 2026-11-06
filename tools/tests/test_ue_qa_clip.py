@@ -184,3 +184,37 @@ def test_box_calibration_round5():
     no_wpo = GL.look({**{"ease": {"n": 1500, "median": 0.775, "spread": 4.867}}, "thickness_cm": 0.336,
                       "detail": 0.04971})
     assert no_wpo["verdict"] == "borderline" and no_wpo["index"] >= 0.35  # the smooth shell alone, no WPO
+
+
+def ring(r0, gap, n=60, thick=0.3, axial=0.0):
+    """A collar ring round the neck axis: inner wall at radial r0 (its gap to the skin `gap`), outer wall `thick`
+    further out."""
+    ax, rad, gp = [], [], []
+    for k in range(n):
+        for w in (0.0, thick):
+            ax.append(axial)
+            rad.append(r0 + w)
+            gp.append(gap + w)
+    return ax, rad, gp
+
+
+def test_collar_hugging_vs_floating_vs_rolled():
+    hug = GL.collar_stats(*ring(6.0, 0.2))
+    assert hug["gap_cm"] <= 0.5 and hug["spread_cm"] <= 0.31 and not hug["roll"]
+    floating = GL.collar_stats(*ring(7.6, 1.8))
+    assert floating["gap_cm"] > 0.8 and floating["roll"]
+    a, r, g = ring(6.0, 0.3)
+    a2, r2, g2 = ring(7.8, 2.0, thick=0.4)  # a rolled lip standing out of the band
+    rolled = GL.collar_stats(a + a2, r + r2, g + g2)
+    assert rolled["spread_cm"] > GL.COLLAR_SPREAD_CM and rolled["roll"]
+    assert GL.collar_stats([20.0], [5.0], [0.1])["n"] == 0  # outside the window
+
+
+def test_look_fails_a_floating_collar_hard():
+    base = {"ease": GL.ease_stats([0.4 + 3.5 * (i / 399) ** 1.5 for i in range(400)]), "thickness_cm": 0.15,
+            "detail": 0.11, "wpo": {"FM_Inflate": 0.0}}
+    ok = GL.look({**base, "collar": {"frames": 3, "gap_cm": 0.4, "spread_cm": 0.4, "roll_frames": 0}}, "Host tee")
+    assert ok["pass"] and ok["terms"]["collar_gap"]["value"] == 0.4
+    bad = GL.look({**base, "collar": {"frames": 3, "gap_cm": 1.9, "spread_cm": 1.7, "roll_frames": 3}}, "Host tee")
+    assert not bad["pass"] and bad["verdict"] == "armor" and bad["issues"][0]["code"] == "garment.collar"
+    assert "--keep-regions collar" in bad["issues"][0]["fix"]
