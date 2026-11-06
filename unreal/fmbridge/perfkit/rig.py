@@ -138,11 +138,15 @@ class HeadSigns:
     def __init__(self, yaw: float = 1.0, pitch: float = 1.0, roll: float = 1.0, eye_deg: dict | None = None,
                  measured: bool = False, eye_flip: bool = False, curves: dict | None = None,
                  dead: list | None = None, yaw_bone: dict | None = None, turn_on: str = "Face",
-                 yaw_gain: float = 1.0):
+                 yaw_gain: float = 1.0, yaw_table: list | None = None):
         self.yaw, self.pitch, self.roll = yaw, pitch, roll
         # how far the turn curve turns the head per unit, as a fraction of a degree (perf.calibrate's turn_strength):
         # r4 (box), HeadRoll turns the 5.8 faces ~0.35 deg per unit, so to_rig writes the turn at 1/gain
         self.yaw_gain = yaw_gain
+        # the turn curve's measured response [[units, deg (+ = the character's left)], ...] at several amplitudes
+        # (perf.calibrate, r4): the box's HeadRoll is not linear (his turned 50 deg at 140 units and 11 at 185; hers
+        # 95 at 70 where a 10-unit probe said 0.46 deg per unit), so a turn is written through this table
+        self.yaw_table = sorted([float(u), float(d)] for u, d in yaw_table) if yaw_table else None
         # which head curve turns the head about each of the character's axes. The names need not say it: on the
         # reel's MetaHumans HeadYaw nods, HeadRoll turns and HeadPitch tilts (REEL_PERF.md, measured on the head bone)
         self.curves = {"yaw": "HeadYaw", "pitch": "HeadPitch", "roll": "HeadRoll", **(curves or {})}
@@ -168,11 +172,54 @@ class HeadSigns:
     def to_json(self) -> dict:
         return {"yaw": self.yaw, "pitch": self.pitch, "roll": self.roll, "eye_deg": dict(self.eye_deg),
                 "measured": self.measured, "eye_flip": self.eye_flip, "curves": dict(self.curves), "dead": list(self.dead),
-                "yaw_bone": self.yaw_bone, "turn_on": self.turn_on, "yaw_gain": self.yaw_gain}
+                "yaw_bone": self.yaw_bone, "turn_on": self.turn_on, "yaw_gain": self.yaw_gain,
+                "yaw_table": self.yaw_table}
 
     def axes(self):
         """(curve name, axis, sign) for the three head curves."""
         return [(self.curves[k], k, getattr(self, k)) for k in self.AXES]
+
+    def _branch(self, side: float) -> list:
+        """The table from 0 out to one side while the turn keeps growing that way: [(units, deg)], |deg| rising."""
+        pts = [p for p in self.yaw_table if p[0] * side > 0]
+        pts.sort(key=lambda p: abs(p[0]))
+        out = [(0.0, 0.0)]
+        for u, d in pts:
+            if d * side <= out[-1][1] * side:
+                break
+            out.append((u, d))
+        return out
+
+    def turn_units(self, deg: float) -> float:
+        """The turn curve's value for a head turn of `deg` (+ = left): through yaw_table (clamped to the most it
+        reached), else sign / gain."""
+        if not self.yaw_table:
+            return self.yaw * deg / self.gain("yaw")
+        for side in (1.0, -1.0):
+            br = self._branch(side)
+            if deg * side >= 0 and len(br) > 1 and br[-1][1] * side > 0:
+                if deg * side >= br[-1][1] * side:
+                    return br[-1][0]
+                for (u0, d0), (u1, d1) in zip(br, br[1:]):
+                    if deg * side <= d1 * side:
+                        return u0 + (u1 - u0) * (deg - d0) / (d1 - d0)
+        return 0.0
+
+    def turn_deg(self, units: float) -> float:
+        """The head turn (deg, + = left) a turn curve value gives: the inverse of turn_units."""
+        if not self.yaw_table:
+            return self.yaw * self.gain("yaw") * units
+        side = 1.0 if units >= 0 else -1.0
+        br = sorted(self._all_side(side), key=lambda p: abs(p[0]))
+        if abs(units) >= abs(br[-1][0]):
+            return br[-1][1]
+        for (u0, d0), (u1, d1) in zip(br, br[1:]):
+            if abs(units) <= abs(u1):
+                return d0 + (d1 - d0) * (units - u0) / (u1 - u0)
+        return 0.0
+
+    def _all_side(self, side: float) -> list:
+        return [(0.0, 0.0)] + [tuple(p) for p in self.yaw_table if p[0] * side > 0]
 
     def gain(self, key: str) -> float:
         """Degrees the head turns per unit of `key`'s curve (only the turn is measured; the others 1)."""
@@ -183,7 +230,7 @@ class HeadSigns:
         d = d or {}
         return cls(d.get("yaw", 1.0), d.get("pitch", 1.0), d.get("roll", 1.0), d.get("eye_deg"), d.get("measured", False),
                    d.get("eye_flip", False), d.get("curves"), d.get("dead"), d.get("yaw_bone"), d.get("turn_on", "Face"),
-                   d.get("yaw_gain", 1.0))
+                   d.get("yaw_gain", 1.0), d.get("yaw_table"))
 
 
 LIVE_CM = 0.05  # 10 degrees of head turn moves the eyes over a centimetre: under this a curve does nothing
