@@ -84,7 +84,8 @@ def frames_qa(root: Path) -> dict:
 
 
 def ffprobe(p: Path, ff: str) -> dict:
-    r = subprocess.run([ff.replace("ffmpeg", "ffprobe"), "-v", "error", "-print_format", "json", "-show_streams",
+    probe = str(Path(ff).with_name(Path(ff).name.replace("ffmpeg", "ffprobe")))  # the binary's name only: the
+    r = subprocess.run([probe, "-v",  # static build lives in .../ffmpeg/bin/ "error", "-print_format", "json", "-show_streams",
                         "-show_format", "-count_frames", str(p)], capture_output=True, text=True, check=True)
     return json.loads(r.stdout)
 
