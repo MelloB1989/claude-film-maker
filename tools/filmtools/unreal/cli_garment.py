@@ -24,7 +24,7 @@ ROOT = Path(__file__).resolve().parents[3]
 SCRIPT = ROOT / "blender" / "garment_fit.py"
 PASS_THROUGH = ("garment", "out", "ease", "min_ease", "slack", "pull", "smooth_iters", "passes", "drape_frames",
                 "weights", "thickness", "only_slots", "collider", "anim_samples", "morph_ref", "match_cm", "blend_regions", "single_layer", "min_island", "keep_regions",
-                "keep_ramp_cm", "straight_regions")
+                "keep_ramp_cm", "straight_regions", "neck_ring_cm", "collar_slack")
 
 
 def register(sub) -> None:
@@ -41,6 +41,9 @@ def register(sub) -> None:
     p.add_argument("--ease", default="", help='JSON {region: cm}: collar shoulder sleeve chest waist hem other')
     p.add_argument("--min-ease", type=float)
     p.add_argument("--slack", type=float)
+    p.add_argument("--neck-ring-cm", type=float,
+                   help="the neck opening by shape (qa.garment_look's ring, cm from the innermost) joins the collar")
+    p.add_argument("--collar-slack", type=float, help="--slack on the collar only (0: drawn in to its ease)")
     p.add_argument("--pull", type=float)
     p.add_argument("--smooth-iters", type=int)
     p.add_argument("--passes", type=int)
@@ -124,7 +127,11 @@ def gate_numbers(clip: dict | None, look: dict | None, first_pass: bool = False)
             miss("garment.armor_index", "qa.garment_look measured nothing")
         if "collar_gap" in t:
             g["garment.collar_gap_cm"] = {"value": t["collar_gap"]["value"], "where": "worst frame"}
-            g["garment.collar_roll"] = {"value": t["collar_roll"]["value"], "where": "frames rolled/folded"}
+            if t["collar_roll"]["value"] is None:
+                miss("garment.collar_roll", f"the collar's roll was not measured in "
+                                            f"{t['collar_roll'].get('unmeasured_frames')} frames (qa.garment_look)")
+            else:
+                g["garment.collar_roll"] = {"value": t["collar_roll"]["value"], "where": "frames rolled/folded"}
         else:
             miss("garment.collar_gap_cm", "qa.garment_look without the collar check (sequence + frames, collar=true)")
             miss("garment.collar_roll", "qa.garment_look without the collar check")
@@ -160,7 +167,7 @@ def command(a, blender: str) -> list:
     cmd = [blender, "-b", "--factory-startup", "--python-exit-code", "2", "-P", str(SCRIPT), "--", "--src", d["src"]]
     for k in PASS_THROUGH:
         v = d.get(k)
-        if v in (None, "", False):
+        if v is None or v is False or v == "":  # (not `v in (..., False)`: 0.0 == False dropped --collar-slack 0)
             continue
         cmd += ["--" + k.replace("_", "-")] + ([] if v is True else [str(v)])
     return cmd

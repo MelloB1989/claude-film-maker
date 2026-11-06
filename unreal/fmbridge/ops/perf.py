@@ -346,17 +346,24 @@ def _unit(v):
 
 @op("perf.calibrate", mutates=True, idempotent=True, tags=["slow"])
 def calibrate(*, label: str, face_component: str = "Face", body_component: str = "Body",
-              scratch: str = "/Game/_Perf/Calibrate", degrees: float = 10.0):
+              scratch: str = "/Game/_Perf/Calibrate", degrees: float = 10.0, turn_by: str = "auto"):
     """Measure, on the real rig, which of HeadYaw/HeadPitch/HeadRoll turns, nods and tilts the head (the names need not
     say: on the reel's MetaHumans HeadYaw nods), which way, and how far eyeLook* turns the
     eyes, and save it for this face skeleton (Saved/fmbridge/perf/signs_<skeleton>.json): perf.face and perf.apply
     then use it. Plays a scratch animation on the actor's face in a scratch sequence and samples the eye bones.
     Run once per face skeleton (the face must be driven by Sequencer: mh.drive_face). A multi-tick job, ~20 s.
 
+    turn_by: "auto" (the turn curve when it turns the head, else the neck bones) or "bones": the turn always goes on
+    the neck and head bones (the turn curve counted dead, the bones searched as for a dead one), about the
+    character's vertical (perf.turn_head). r5b: his live HeadRoll turns the head about the face rig's tilted axes and
+    head_to_body carries that pitch to the body (S15 turn-out blink_nod 1.41 deg).
+
     Returns: {"signs": {"yaw", "pitch", "roll", "eye_deg", "eye_flip", "measured", "curves": {axis: curve}}, "file",
     "raw": {...}}.
     Example: film-ue op perf.calibrate label=Presenter
     """
+    if turn_by not in ("auto", "bones"):
+        raise OpError(f"turn_by {turn_by!r}: auto or bones", code="bad_args")
     import math
     from .anim import _skeleton_path, _write, new as anim_new
     from .anim import _await_change
@@ -487,6 +494,9 @@ def calibrate(*, label: str, face_component: str = "Face", body_component: str =
     # the neck bones cannot carry it instead: on her 5.8 face the body's head bone moves nothing and its necks a sixth
     # (r4, box), so the curve is written stronger (HeadSigns.yaw_gain); a curve under WEAK_TURN_MIN is still dead
     yaw_gain = 1.0
+    if turn_by == "bones" and curves["yaw"] not in dead:
+        dead.append(curves["yaw"])
+        raw["turn_by"] = "bones"
     if curves["yaw"] not in dead and strength < 0.9:
         if strength < WEAK_TURN_MIN:
             dead.append(curves["yaw"])

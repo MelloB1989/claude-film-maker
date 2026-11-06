@@ -324,3 +324,39 @@ film-qa gate ... lips_gate.json                        # agent-09's gate v2 merg
    - Watch item (agent-04): component +Z is the vertical only while the animation's root is not pitched. That holds
      for standing presenters. A seated, leaning or lying performance needs the vertical from the world (the actor's
      up) instead.
+6. **His turns after the respawn (open: r5 ended with his S15/S17 looks -38/-24° off on the box as saved).**
+   Today's calibration (agent-06, ~11:58 and after the respawn alike) reads HeadRoll live, `turn_on: Face`, `dead: []`.
+   The turns worked this afternoon on exactly that, through the curve path:
+   - `sync` plays the face on the **Test_ copy** of the actor (`perf.py stage`) with head control on;
+   - `anim.head_to_body` copies the head's motion onto the body animation;
+   - the follow bake (head control off) then puts the shared skeleton back on the face.
+
+   After `mh.build` ×2 + `host_swap` (Host respawned) that chain gave no turn. The likely cause is the Test_ copy
+   and sequence being staged from the **pre-respawn** Host, never re-staged. A sign file is not the cause: the
+   snapshot's is the same.
+
+   Next session:
+   - `perf.py restage --who him` (`stage` again + the synced animations back on the test tracks), then `perf.py sync`
+     → gaze → place → `looks --measured` → `perf.py head` → `lips.py check --stage placed`.
+   - If the looks are still off: sample his head yaw at f1170 on the Test_ sequence after `head_to_body` (does the
+     body anim carry the turn?) before anything else.
+   - Rule for the docs/driver: **every respawn of a presenter needs `restage` before `sync`.** perf.py could check
+     that the Test_ copy's mesh matches Host's and refuse otherwise.
+   - The neck_01 vertical-turn fix (core ddc8eaec) only applies on the body-bone path (`turn_on: Body`). On these
+     faces' curve path the turn reaches the body through `head_to_body`, so his pitch bell there must be re-measured
+     too (agent-04).
+7. **Result at the wrap (agent-06):**
+   - `perf.py restage --who him` fixed his looks (S15 +0.6°, S17 +0.8° vs plan). The stale Test_ stage was the
+     cause.
+   - His S15 turn-out blink still reads 1.414° (line 0.6). On the curve path, `sync`'s turn step is skipped by design
+     ("this face turns its head itself"): the face rig's HeadRoll turn reaches the body through `anim.head_to_body`
+     with the rig's own tilted turn axis, so the vertical-axis fix never runs.
+   - Two options for next session:
+     - (a) **Level the copied turn.** In `head_to_body`, or a step right after it, remove the pitch/roll the turn adds:
+       per key, rotate the neck/head bones about the horizontal so the head keeps its rest elevation and roll while
+       its yaw is kept. Generic; works on either path.
+     - (b) **Pin `turn_on: Body`.** Make `perf.calibrate` able to find `yaw_bone` even when HeadRoll is live (today it
+       searches only when the curve is dead). Write the turn on the body with the vertical-axis turn and drop the
+       HeadRoll curve.
+     - (a) is smaller and keeps today's working path.
+   - Prove it with `perf.py head` (agent-04: blink_nod < 0.6, the bell flat to ~0.3°) and `looks --measured`.

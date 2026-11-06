@@ -16,6 +16,8 @@ def test_command_passes_only_given_knobs():
     assert tail == ["--garment", "tee", "--out", "/o", "--ease", '{"chest": 1.8}', "--drape-frames", "40"]
     cmd = G.command({"src": "/s", "morph_ref": True, "match_cm": 1.2}, "/b/blender")
     assert cmd[-3:] == ["--morph-ref", "--match-cm", "1.2"]
+    cmd = G.command({"src": "/s", "collar_slack": 0.0, "neck_ring_cm": 2.0}, "/b/blender")
+    assert cmd[-4:] == ["--neck-ring-cm", "2.0", "--collar-slack", "0.0"]  # a 0 knob is given, not dropped
 
 
 REP = {"before": {"all": {"median": 0.4, "spread": 0.3, "inside": 0.02}},
@@ -69,6 +71,9 @@ def test_gate_numbers_contract(tmp_path, monkeypatch):
     assert g["garment.wpo_cm"]["value"] == 2.66 and g["garment.armor_index"]["value"] == 0.71
     assert g["garment.collar_gap_cm"]["value"] == 1.9 and g["garment.collar_roll"]["value"] == 3
     assert g["garment.hem_flare_ratio"]["value"] == 1.21
+    unm = dict(look, terms=dict(look["terms"], collar_roll={"value": None, "unmeasured_frames": 2}))
+    r = G.gate_numbers(clip, unm)["gate"]["garment.collar_roll"]
+    assert r["value"] is None and "not measured in 2 frames" in r["error"]  # refused, never a silent 0
     nosil = {"metrics": {"worst": {k: v for k, v in clip["metrics"]["worst"].items() if k != "silhouette"}}}
     assert G.gate_numbers(nosil, look)["gate"]["garment.silhouette_pct"]["error"]
     assert G.gate_numbers(nosil, look, first_pass=True)["gate"]["garment.silhouette_pct"]["value"] == 0.0

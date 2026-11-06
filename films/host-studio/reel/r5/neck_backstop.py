@@ -18,6 +18,7 @@ MaxCull is 0.0 and the band is drawn from p = 1/255 (full shrink, never culled) 
                   Outfits slot, mh.build, and the re-dress chain.
     film-ue exec -c "STAGE='mask'; WI='<default garment WI_>'; exec(open('<tree>/films/host-studio/reel/r5/neck_backstop.py').read())"
 """
+import math
 import os
 
 import unreal
@@ -27,6 +28,17 @@ LABEL = globals().get("LABEL", "Host")
 TEE = globals().get("TEE", "Tee")  # the refit tee's component
 REACH = float(globals().get("REACH", 4.0))  # cm: a face vert this far under the cloth (along its normal) is covered
 RAMP = float(globals().get("RAMP", 3.0))  # cm under the collar edge to full shrink
+BOUND_CM = float(globals().get("BOUND_CM", 0.0))  # round 5b loop 5: the face mesh's OPEN edge (its seam to the body at
+# the neck base) and this far from it never shrink (ramping in): a shrunk edge pulls away from the body and opens a hole
+# (S13/S15 finals: a ragged lip at the face's lower edge, see-through below it)
+PAD_PX = int(globals().get("PAD_PX", 0))  # round 5b loop 4: grow the dark mask this many texels into the white round
+# it (texture padding): a covered vertex on a UV island's edge or seam sampled half-white texels and barely shrank
+# (loop 2: ~27 of 1160 covered verts moved < 0.5 cm while every covered one should move >= EDGE_W x SHRINK_CM)
+DILATE_CM = float(globals().get("DILATE_CM", 0.0))  # round 5b: uncovered face verts this close ABOVE the collar edge
+# also shrink, EDGE_W fading to 0 at DILATE_CM (a turn brings the neck out right at the line, where nothing was covered)
+EDGE_W = float(globals().get("EDGE_W", 0.0))
+DILATE_W = float(globals().get("DILATE_W", EDGE_W))  # the dilated band's weight at the line (visible skin: keep small)  # the shrink weight AT the collar edge (round 5b: a turn exposes the
+# neck right at the edge, where a 0 ramp start left it unshrunk; 0.3 = 30 % of SHRINK_CM there)
 SHRINK_CM = float(globals().get("SHRINK_CM", 1.5))
 SIZE = int(globals().get("SIZE", 1024))
 OUT = globals().get("OUT") or "/srv/ue/reel/r5/garment/neck_hidden.png"
@@ -84,7 +96,12 @@ def mask():
     host = next(a for a in unreal.get_editor_subsystem(unreal.EditorActorSubsystem).get_all_level_actors()
                 if a.get_actor_label() == LABEL)
     comps = {c.get_name(): c for c in host.get_components_by_class(unreal.SkeletalMeshComponent)}
-    face, tee = dm_of(comps["Face"].get_skeletal_mesh_asset()), dm_of(comps[TEE].get_skeletal_mesh_asset())
+    tee_c = comps.get(TEE) or next((c for n, c in comps.items() if n not in ("Face", "Body") and any(
+        "shirt" in (m.get_name().lower() if m else "") for m in c.get_materials())), None)
+    if tee_c is None:
+        raise RuntimeError(f"no {TEE} component and none with a shirt material: TEE=<the garment's component> "
+                           f"(components: {sorted(comps)})")
+    face, tee = dm_of(comps["Face"].get_skeletal_mesh_asset()), dm_of(tee_c.get_skeletal_mesh_asset())
     V = list(LU.convert_vector_list_to_array(pick(MQ.get_all_vertex_positions(face, False), "GeometryScriptVectorList")))
     N = list(LU.convert_vector_list_to_array(pick(unreal.GeometryScript_Normals.get_mesh_per_vertex_normals(face),
                                                   "GeometryScriptVectorList")))
@@ -120,13 +137,38 @@ def mask():
     for i, c in enumerate(cov):
         if c and E:
             d = min((V[i] - e).length() for e in E)
-            w[i] = max(0.0, min(1.0, d / RAMP))
+            w[i] = EDGE_W + (1.0 - EDGE_W) * max(0.0, min(1.0, d / RAMP))
+    dil = 0
+    if DILATE_CM > 0 and E:
+        for i, c in enumerate(cov):
+            if c or V[i].z > top:
+                continue
+            d = min((V[i] - e).length() for e in E)
+            if d < DILATE_CM:
+                w[i] = DILATE_W * (1.0 - d / DILATE_CM)
+                dil += 1
+    # the face's open edges (edges of one triangle): at the neck base it is stitched to the body by position
+    ec = {}
+    for a_, b_, c_ in tris:
+        for e in ((a_, b_), (b_, c_), (c_, a_)):
+            k = (min(e), max(e))
+            ec[k] = ec.get(k, 0) + 1
+    bverts = {i for k, n in ec.items() if n == 1 for i in k}
+    near = [i for i in range(len(V)) if w[i] > 0]
+    B = [V[i] for i in bverts if any((V[i] - V[j]).length() < 6.0 for j in near[::7])] if near else []
+    bound_hit = sum(1 for i in near if i in bverts)
+    if BOUND_CM > 0 and B:
+        for i in near:
+            d = min((V[i] - b).length() for b in B)
+            if d < BOUND_CM:
+                w[i] *= d / BOUND_CM
+    val = [1.0 - w[i] if (cov[i] or w[i] > 0) else 1.0 for i in range(len(V))]
     img = bytearray([255] * (SIZE * SIZE))
     drawn = 0
     for a, b, c in tris:
-        if not (cov[a] or cov[b] or cov[c]):
+        if min(val[a], val[b], val[c]) >= 1.0:
             continue
-        P = [(UV[i].x * SIZE, UV[i].y * SIZE, 1.0 - w[i] if cov[i] else 1.0) for i in (a, b, c)]
+        P = [(UV[i].x * SIZE, UV[i].y * SIZE, val[i]) for i in (a, b, c)]
         x0, x1 = int(max(0, min(p[0] for p in P))), int(min(SIZE - 1, max(p[0] for p in P) + 1))
         y0, y1 = int(max(0, min(p[1] for p in P))), int(min(SIZE - 1, max(p[1] for p in P) + 1))
         (ax, ay, av), (bx, by, bv), (cx, cy, cv) = P
@@ -146,10 +188,44 @@ def mask():
                 if v < img[j]:
                     img[j] = v
                     drawn += 1
+    if PAD_PX > 0 and drawn:
+        idx = [j for j in range(SIZE * SIZE) if img[j] < 255]
+        xs, ys = [j % SIZE for j in idx], [j // SIZE for j in idx]
+        x0, x1 = max(0, min(xs) - PAD_PX - 1), min(SIZE - 1, max(xs) + PAD_PX + 1)
+        y0, y1 = max(0, min(ys) - PAD_PX - 1), min(SIZE - 1, max(ys) + PAD_PX + 1)
+        for _ in range(PAD_PX):
+            src = bytes(img)
+            for y in range(y0, y1 + 1):
+                row = y * SIZE
+                for x in range(x0, x1 + 1):
+                    j = row + x
+                    if src[j] < 255:
+                        continue
+                    m = 255
+                    for k in ((j - 1) if x > 0 else -1, (j + 1) if x < SIZE - 1 else -1,
+                              (j - SIZE) if y > 0 else -1, (j + SIZE) if y < SIZE - 1 else -1):
+                        if k >= 0 and src[k] < m:
+                            m = src[k]
+                    if m < 255:
+                        img[j] = m
+    # what MetaHuman will sample per vertex (bilinear in UV 0): covered verts that would shrink less than the
+    # edge weight asks for are the ones a turn can still bring through the collar. 0 here before any build
+    def sample(u, v):
+        fx, fy = u * SIZE - 0.5, v * SIZE - 0.5
+        ix, iy = int(math.floor(fx)), int(math.floor(fy))
+        ax, ay = fx - ix, fy - iy
+        def px(x, y):
+            return img[min(SIZE - 1, max(0, y)) * SIZE + min(SIZE - 1, max(0, x))] / 255.0
+        return ((1 - ax) * (1 - ay) * px(ix, iy) + ax * (1 - ay) * px(ix + 1, iy) + (1 - ax) * ay * px(ix, iy + 1)
+                + ax * ay * px(ix + 1, iy + 1))
+    want = 1.0 - 0.9 * max(EDGE_W, 0.05)
+    weak = [i for i, c in enumerate(cov) if c and sample(UV[i].x, UV[i].y) > want]
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     I.write(I.Image(SIZE, SIZE, 1, img), OUT)
-    return {"face_verts": len(V), "covered": sum(cov), "edge_verts": len(edge), "full_shrink": sum(1 for x in w if x >= 1),
-            "px_drawn": drawn, "png": OUT, "uv_valid": bool(UV) and len(UV) == len(V)}
+    return {"tee_component": tee_c.get_name(), "face_verts": len(V), "covered": sum(cov), "edge_verts": len(edge), "dilated": dil, "full_shrink": sum(1 for x in w if x >= 1),
+            "px_drawn": drawn, "pad_px": PAD_PX, "open_edge_verts_near": len(B), "shrunk_on_open_edge": bound_hit,
+            "bound_cm": BOUND_CM, "weak_covered": len(weak),
+            "weak_z_cm": [round(min(V[i].z for i in weak), 1), round(max(V[i].z for i in weak), 1)] if weak else None, "png": OUT, "uv_valid": bool(UV) and len(UV) == len(V)}
 
 
 def apply():

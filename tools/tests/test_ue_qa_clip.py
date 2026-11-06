@@ -208,6 +208,67 @@ def test_collar_hugging_vs_floating_vs_rolled():
     rolled = GL.collar_stats(a + a2, r + r2, g + g2)
     assert rolled["spread_cm"] > GL.COLLAR_SPREAD_CM and rolled["roll"]
     assert GL.collar_stats([20.0], [5.0], [0.1])["n"] == 0  # outside the window
+    a, r, g = ring(6.0, 0.2)
+    stray = GL.collar_stats(a + [0.0], r + [1.1], g + [5.3])  # one vertex near the axis does not make the ring
+    assert stray["n"] == hug["n"] and stray["gap_cm"] == hug["gap_cm"]
+    assert GL.collar_stats([0.0], [1.1], [5.3]) == {"n": 0, "too_few": 1}
+    # a small band (30 v) among many shoulder verts further out: the ring is still the band
+    a, r, g = ring(6.0, 0.2, n=15)
+    a3, r3, g3 = ring(9.0, 2.6, n=600)
+    small = GL.collar_stats(a + a3 + [0.0], r + r3 + [1.1], g + g3 + [5.3])
+    assert small["n"] == 30 and small["gap_cm"] <= 0.5
+
+
+def band(rx=5.5, ry=7.5, gap=0.2, wall=0.34, heights=(0.0, -0.5, -1.0, -1.5, -2.0), n=72, lip=0.0, fold=0.0):
+    """An elliptic collar band (the neck is not round): inner + outer wall at each height and angle; `lip`: a rolled
+    lip standing that far out of the band at its top, all round; plus shoulders sloping out below the band."""
+    ax, rad, gp, ang = [], [], [], []
+    for h in heights:
+        for k in range(n):
+            t = 2 * math.pi * k / n
+            r0 = rx * ry / math.hypot(ry * math.cos(t), rx * math.sin(t))
+            walls = (0.0, wall) + ((lip, lip + wall) if lip and h == heights[0] else ()) + \
+                ((fold, fold + wall) if fold and h in (-0.5, -1.0) else ())
+            for w in walls:
+                ax.append(h)
+                rad.append(r0 + w)
+                gp.append(gap + w)
+                ang.append(math.degrees(t) % 360)
+    for k in range(n):  # the shoulders: below the band, sloping out
+        t = 2 * math.pi * k / n
+        for d in (1.0, 2.0, 3.0, 4.0):
+            ax.append(-2.5 - d)
+            rad.append(7.0 + 2 * d)
+            gp.append(1.0)
+            ang.append(math.degrees(t) % 360)
+    return ax, rad, gp, ang
+
+
+def test_collar_roll_is_local():
+    a, r, g, ang = band()
+    window = GL.collar_stats(a, r, g)
+    local = GL.collar_stats(a, r, g, angle=ang)
+    assert window["spread_cm"] > GL.COLLAR_SPREAD_CM and window["roll"]  # the old reading: a false roll
+    assert local["spread_cm"] < 0.8 and not local["roll"] and local["spread_cells"] > 0, local
+    a, r, g, ang = band(lip=1.8)  # a rolled lip at the same height and angle: still a roll
+    rolled = GL.collar_stats(a, r, g, angle=ang)
+    assert rolled["spread_cm"] > GL.COLLAR_SPREAD_CM and rolled["roll"]
+    a, r, g, ang = band(fold=1.6)  # a two-layer fold inside the band, below its top: a roll
+    folded = GL.collar_stats(a, r, g, angle=ang)
+    assert folded["spread_cm"] > GL.COLLAR_SPREAD_CM and folded["roll"] and folded["spread_where"]["below_top_cm"] > 0
+    a, r, g, ang = band(gap=2.447, lip=1.2)  # a cowl like Fit5 (its saved gap 2.447): fails
+    assert GL.collar_stats(a, r, g, angle=ang)["roll"]
+    a, r, g, ang = band(gap=1.8)  # a floating collar: the gap still fails it
+    assert GL.collar_stats(a, r, g, angle=ang)["roll"]
+    a, r, g, ang = band(n=12, heights=(0.0,))  # sparse (2 verts per 30 deg): no cell judged -> NOT measured, never 0
+    sparse = GL.collar_stats(a, r, g, angle=ang)
+    assert sparse["spread_cells"] == 0 and sparse["spread_cm"] is None and sparse["roll"] is None
+    a, r, g, ang = band(n=12, heights=(0.0,), gap=1.8)  # ... but a floating gap still fails it
+    assert GL.collar_stats(a, r, g, angle=ang)["roll"] is True
+    m = {"collar": {"frames": 2, "gap_cm": 0.5, "spread_cm": None, "roll_frames": 0, "roll_unmeasured": 1}}
+    look = GL.look(m, "Host")
+    assert look["terms"]["collar_roll"]["value"] is None
+    assert any(i["code"] == "garment.collar_roll" and i["severity"] == "fail" for i in look["issues"])
 
 
 def test_look_fails_a_floating_collar_hard():
