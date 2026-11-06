@@ -225,9 +225,18 @@ hair.cut_reach_pct 1.96 (12; every cut she is on screen, editor groom-only), **h
 **NOT ATTEMPTED** (the orchestrator's ruling): garment.cloth_alive / cloth_sound / cloth_detail_ratio.
 **INFO**: garment.silhouette_ratio 2.30 (an untrusted capture), shot.start_motion_ratio 12.33 (round 4 13.81).
 
-**Open at the end of round 5b, besides the table**: her grey patches on the white top (S17 f1350, both sides of her
-chest; S15). They are NOT her assets (all = round 4 by size); the render-side batch at S17 f1350 (H0 / overshirt hidden /
-hair hidden / hair shadow off / lock released) decides between garment geometry and her full-count hair.
+**Open at the end of round 5b, besides the table**: her grey patches on the white top (S17, both sides of her chest,
+inside the overshirt opening; S15). Found so far:
+- NOT her assets: every mesh/material/physics/clothing asset of hers = round 4 by size. Only Studio.umap and SEQ_Reel differ.
+- NOT hair: her hair ends above them (the orchestrator, by eye at f1437-1442). The hair-hidden, hair-shadow-off and
+  lock-released renders change nothing there.
+- JOB/TIME-DEPENDENT: located on 40 px cells (`patchcells.py`, numbers only). The S17+S18 FINAL's f1350 is darker than
+  round 4 at x1280 y760 (dL −15.3 on L 50.3), x1200 y760 (−5.8) and x1160 y800 (−5.2); f1386 at x1200 y760 (−11.1). A
+  fresh 1-frame render of the same frame (75-still, same pose and assets) is clean (|dL| 0.4).
+- So something stateful evolves over the long job: physics on her overshirt (physics-asset bodies on the lapels),
+  the warm-up ticking physics, or a velocity/temporal-sample effect. Round-6 test (the orchestrator): a SHORT job
+  S17 f1320-1350 with the final's exact settings, (a) as is and (b) with her overshirt's physics off, f1350 crops of
+  both beside the final frame.
 
 **What the gate learned this session (tools, all on r5-film-integrate)**
 
