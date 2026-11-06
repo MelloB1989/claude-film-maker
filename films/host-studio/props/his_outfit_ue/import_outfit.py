@@ -6,10 +6,12 @@ import os
 import unreal
 from fmbridge.ops import assets as A
 
-SRC = os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_saved_dir()), "Import", "his_outfit")
+SRC = os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_saved_dir()), "Import",
+                   globals().get("IMPORT_DIR", "his_outfit"))
 DEST = "/Game/Host/Host_Outfit"
 SKEL = "/MetaHumanCharacter/Female/Medium/NormalWeight/Body/metahuman_base_skel"   # his body's skeleton (shared)
-MESHES = {"his_trousers": "SKM_Host_Trousers"}
+# round 4: SUFFIX='_Op' imports the operator's fit beside Trey's (studio.py's his outfit block picks it for HOST op)
+MESHES = {"his_trousers": "SKM_Host_Trousers" + globals().get("SUFFIX", "")}
 
 
 def import_skm(fbx, name):
@@ -46,5 +48,6 @@ def import_skm(fbx, name):
 
 out = {k: import_skm(k, v) for k, v in MESHES.items()}
 texs = [os.path.join(SRC, f"T_HisTwill_{k}.png") for k in ("A", "N", "M")] + [os.path.join(SRC, "T_HisHidden.png")]
-out["textures"] = A.import_files([p for p in texs if os.path.exists(p)], DEST)
+if not globals().get("SUFFIX"):  # the textures are shared: a second fit keeps the ones in the project
+    out["textures"] = A.import_files([p for p in texs if os.path.exists(p)], DEST)
 result = out
