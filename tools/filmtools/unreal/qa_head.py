@@ -246,7 +246,8 @@ def gate(results: list, line: float = GATE_LINE_DEG, locked_line: float = GATE_L
         if abs(b["nod_deg"]) >= abs(worst):
             worst = b["nod_deg"]
             f = int(f0 + round(b["t"] * fps))
-            where = f"{who} f{f - 3}-{f + 9}"
+            fe = int(f0 + round(b.get("end", b["t"] + 0.3) * fps))
+            where = f"{who} f{f}-{fe} (the blink's frames)"
         pk = (d.get("bta") or {}).get("peak_deg", 0.0)
         if pk >= locked:
             locked = pk
