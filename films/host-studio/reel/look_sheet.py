@@ -447,13 +447,13 @@ def apply_look(look: dict, label: str, skip_eye: bool = False) -> dict:
     preview's groom components (the character's own colours need a built collection: docs/unreal/metahuman.md)."""
     done = {}
     for slot, item in (look.get("grooms") or {}).items():
-        r = op("mh.groom", character=DUP, slot=slot, item=item, save=False)
+        r = op("mh.groom", character=DUP, slot=slot, item=item)  # saved: the build reads the saved selection (r4: unsaved edits built as the old groom)
         done[slot] = r.get("changed") if isinstance(r, dict) else r
     if look.get("skin"):
-        done["skin"] = op("mh.skin", character=DUP, save=False, **look["skin"]).get("changed")
+        done["skin"] = op("mh.skin", character=DUP, **look["skin"]).get("changed")
     if look.get("iris"):
         u, v = look["iris"]["u"], look["iris"]["v"]
-        done["iris"] = op("mh.eyes", path=DUP, save=False, both={"iris": {
+        done["iris"] = op("mh.eyes", path=DUP, both={"iris": {
             "primary_color_u": u, "primary_color_v": v, "secondary_color_u": u, "secondary_color_v": v}}).get("changed")
     if look.get("eye") and not skip_eye:  # on a built Blueprint (--target bp|build): the eye material's parameters
         h, v = look["eye"]["hue"], look["eye"]["value"]
