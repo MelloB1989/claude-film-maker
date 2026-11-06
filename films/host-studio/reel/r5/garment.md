@@ -214,3 +214,65 @@ Round 6 core list (agent-02): qa.garment_look's reference-body capture (silhouet
 the box); a real collar fold detector (normals of the rim, not only the radial spread); the single-layer cloth proxy
 section with agent-08's FMCloth mapping; a garment-fit flag that refuses to export onto a skeleton other than the
 character's.
+
+## 9. Round 5b (06-07 Nov night): his neck HELD for round 6, what was learnt, the plan
+
+**Decision (orchestrator, 01:12 IST):** the neck holds. Epic's default garment (WPO 0, round 4's trousers, charcoal)
+passed by eye except the neck. The finals S13/S15/S17+S18 are rendered with **loop 2** (below) and the project is
+put back to that state. The tee itself is not the open item: the COLLAR does not match HIS neck.
+
+### The trade the mask cannot win
+- Epic's band without WPO hugs (collar_gap 0.15-0.20 cm), but on the S15 turn his neck comes through it:
+  neck_px 296, up to 1.79-1.87 cm deep (S15 f1082-1152; S13 ≤ 25 px; S17/S18 0).
+- The neck backstop (head hidden-face-map SHRINK) trades that poke for a gap:
+
+| loop | mask (neck_backstop.py) | SHRINK | neck_px (S15) | collar gap | by eye |
+|---|---|---|---|---|---|
+| 0 | none | - | 296 | 0.15-0.20 | skin through the band |
+| 1 | RAMP 1, EDGE_W 0.3 | 3.0 | 9 | - | - |
+| 2 | RAMP 1, EDGE_W 0.7, REACH 6 | 3.0 | 3 (≤ 0.5 cm) | 2.2-2.4 | ragged lip + dark crevice + a hole (S13/S15): the FINALS |
+| 3 | 2 + DILATE 1.5/0.3 (visible skin) | 3.0 | 19 | - | worse (rim lost) |
+| 5, 5b | RAMP 2.5, EDGE_W 0, BOUND 2.0 | 3.0 | = loop 2 | = loop 2 | the build did NOT re-bake (below) |
+| 6 | RAMP 1, EDGE_W 0, BOUND 2.0 | 1.2 | 113 | ~1.2 | poke back |
+
+  The gap is the collar's distance to the SKIN, and the shrink moves the skin: 3.0 opens a 2.3 cm crevice, 1.2 leaves
+  the poke. Shrink cannot fix a collar that sits up to ~1.9 cm inside the neck on a turn.
+
+### Causes found (measured)
+- **The tear (the ragged lip, the hole):** the face mesh's OPEN bottom edge (its stitch to the body at the neck base)
+  was inside the shrink: 92/92 open-edge verts near the neck shrunk (`shrunk_on_open_edge`, loop-2 params), moved
+  verts down to z 143.9. `BOUND_CM` (b07e8fd1) keeps the edge and 2 cm above it unshrunk: loop 6 lowest moved z 144.6.
+- **mh.build re-bakes the head hidden face map only when a WI SETTING changes**, not the texture: loops 5 and 5b
+  (new mask; 5b under a new texture name set on the WI) measured loop 2's face to the vertex (1133 moved, max 2.987,
+  z 144.1). Loop 6 also changed max_shrink_distance and took (max 1.195). `mask_diff.py` shows loop 5's PNG did
+  differ (97 positions, lowest shrunk z +0.8 cm). Round 6: after a mask change, nudge a WI setting (or test it: an
+  ALL-WHITE map must measure 0 moved) and prove every build with `shrink_live.py` (by_surface) before any pass.
+- **The mask stage's UV seams:** it rasterises with ONE UV per welded vertex, so a triangle across a UV seam is
+  drawn on the wrong island: 83 neck positions whose seam copies sample dark on one side and white on the other
+  (`mask_seams.py`, grouped by position). The offline redraw (per-corner UVs) brought it to 12, but darkened
+  positions outside the coverage (other face sections share UV 0) and the face.fbx export does not match the built
+  face (2440 predicted vs 1133 measured). Not used.
+- **qa.garment_look collar gap:** the stray-vertex fix (10th-smallest radius, bf43039f) is right, but tonight's 2.2-2.4
+  is REAL (the shrunk skin), not that bug. **Roll** (local spread, 07b841bf + d20daa7d): 3.1-3.9 cm on Epic's band,
+  worst cells 1-3 cm below the top: probably the depth reaching the shoulder line. Unvalidated on real data.
+- **neck_px's rim** needs the face above the collar to be nearer than the tee; a receding (shrunk) neck drops the rim
+  in those columns and the hugging band counts (loop 3's 19).
+
+### Round 6 plan (agent-02), in order
+1. **Fit the collar to HIS neck**, not the neck to the collar. Either:
+   - the Fit path with the round-5b tools: `garment-fit --neck-ring-cm 2 --collar-slack 0` (455c320f/4d1fcfc9: the
+     neck opening by shape joins the collar region; Fit9 R1/R2 reached collar ease 0.47/0.37 on CPU, never rendered),
+     on Epic's ASSEMBLED tee shape (export the resized garment: `--keep-regions` floated because garment.export
+     writes the asset's own shape, 5.3 cm off), with the collar band skinned to neck_01/neck_02 so it follows the S15
+     turn; the closed shell moved as ONE wall (Fit7's dark chest ovals: tee_layers.py to confirm);
+   - or a neck-ring-matched garment (a crew neck whose opening is cut to his neck girth at the S15 pose).
+   Gate: neck_px 0 with NO backstop, collar_gap ≤ 0.8, by eye at S13 f1040 / S15 f1085, f1128 vs round 4.
+2. **Backstop only as a ≤ 0.5 cm safety**: SHRINK ≤ 0.5, EDGE_W 0, BOUND_CM 2.0, the mask stage rasterising
+   per-triangle UVs of the SKIN section only, `mask_seams` SPLIT 0 before the build, and the re-bake proved
+   (`shrink_live` max = SHRINK).
+3. Metrics: collar roll depth/band from Epic's band geometry + a real-data must-fail (Fit5 re-dressed); neck_px's rim
+   from the tee's own top edge; the all-white build test as a pipeline check.
+
+Assets kept for round 6: T_Host_NeckHidden (loop 2, on the finals), T_Host_NeckHidden5, T_Host_NeckHidden6;
+/srv/ue/reel/r5/garment/neck_hidden.loop{2,4,5,6}.png. Her overshirt: round 5's cloth.remove left the clothing data
+in the asset (32 → 128 MB); restored from project_r4_snapshot.
