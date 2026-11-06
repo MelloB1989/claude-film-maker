@@ -393,10 +393,23 @@ def calibrate(*, label: str, face_component: str = "Face", body_component: str =
         _write(a, {**heads, **curves})
         EAL.save_asset(anim_path)
 
+    def settled(m, bone):
+        """`m` re-measured until `bone` holds still: the first change seen can be mid-swap, part of the way (r4, box:
+        eyeLookRight read 4.6 deg on the left eye, and her eyes then overshot her partner by 20)."""
+        for _ in range(12):
+            yield 0.25
+            m2 = yield from measure([frame])
+            still = max(abs(p - q) for p, q in zip(m2["bones"][bone][0][3:], m["bones"][bone][0][3:])) < 1e-4
+            m = m2
+            if still:
+                break
+        return m
+
     resp = {}  # curve -> {"yaw": sideways cm, "pitch": up cm, "roll": eye height difference cm}
     for name in ("HeadYaw", "HeadPitch", "HeadRoll"):
         apply({name: ([0.0, 2.0], [degrees, degrees])})
         m = yield from _await_change(measure, frame, "FACIAL_L_Eye", last["bones"]["FACIAL_L_Eye"][0])
+        m = yield from settled(m, "FACIAL_L_Eye")
         last = m
         l1, r1 = m["bones"]["FACIAL_L_Eye"][0], m["bones"]["FACIAL_R_Eye"][0]
         d = _sub(_mid(l1[:3], r1[:3]), mid0)
@@ -456,13 +469,7 @@ def calibrate(*, label: str, face_component: str = "Face", body_component: str =
         for u in TURN_PROBE:
             apply({curves["yaw"]: ([0.0, 2.0], [u, u])})
             m = yield from _await_change(measure, frame, "FACIAL_L_Eye", last["bones"]["FACIAL_L_Eye"][0], timeout=8.0)
-            for _ in range(12):  # until it holds still: a measure mid-swap reads part of the turn
-                yield 0.25
-                m2 = yield from measure([frame])
-                still = max(abs(a - b) for a, b in zip(m2["bones"]["head"][0][3:], m["bones"]["head"][0][3:])) < 1e-4
-                m = m2
-                if still:
-                    break
+            m = yield from settled(m, "head")
             last = m
             h1 = m["bones"]["head"][0]
             ax1 = [h1[3:6], h1[6:9], h1[9:12]]
@@ -531,6 +538,7 @@ def calibrate(*, label: str, face_component: str = "Face", body_component: str =
     for d in ("Left", "Right", "Up", "Down"):
         apply({f"CTRL_expressions_eyeLook{d}L": ([0.0, 2.0], [1.0, 1.0])})
         m = yield from _await_change(measure, frame, "FACIAL_L_Eye", last["bones"]["FACIAL_L_Eye"][0])
+        m = yield from settled(m, "FACIAL_L_Eye")
         last = m
         x = m["bones"]["FACIAL_L_Eye"][0]
         gaze_new = [gs * c for c in [x[3:6], x[6:9], x[9:12]][g]]
