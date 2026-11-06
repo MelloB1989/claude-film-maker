@@ -97,7 +97,10 @@ one skeleton (`anim.bake_follow` / `anim.head_to_body`), eyes on the lens (`anim
 [animation.md](animation.md)). Check: `seq.sample` bone positions, a still at a frame mid-line. **Lip sync is a timing
 check, not a look**: cues measured from the mix's stems (`film-ue lips cues`), one `process_mask=mouth` solve per
 line composed at its cue (`lipsync.compose`), then `lipsync.check` on the placed face (|lag| <= 1 frame, the mouth
-still in silences) and `film-ue lips render` on the render ([research/lipsync.md](research/lipsync.md)).
+still in silences) and `film-ue lips render` on the render ([research/lipsync.md](research/lipsync.md)). A face's
+head: `perf.face preset=presenter_calm` (the head is perfkit's, no blink moves it), then `film-ue op
+qa.head_stability sequence=... label=...` on the master: it fails a head that nods with the blinks or buzzes, and says what to do
+([research/blinks-head-stability.md](research/blinks-head-stability.md)).
 
 **Shots.** A `shot` spec (WP7: [cameras.md](cameras.md)): shots by size (`WS`, `MCU`, `CU`...), angle, side, lens; moves;
 focus on a subject; times in frames, seconds or dialogue lines. The solver frames from the real skeleton. Check:

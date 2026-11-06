@@ -13,6 +13,8 @@ runs the lot on an animation's curves ({name: (times, values)}) and adds a summa
 - asymmetry        the two sides of the face are not identical (|L - R| over the expression, > 3%)
 - expression_range the face moves at all beyond the mouth (brows/cheeks/eyes peak over 0.1)
 - gaze_shifts      the eyes move (some eye-look change over 2 deg every 10 s of a long shot)
+- blink_nod, blink_locked, blink_speed, head_buzz: the head stays still through the blinks and does not buzz
+  (stability.py; round 4: "every time she blinks her head nods a little down")
 """
 from __future__ import annotations
 
@@ -229,5 +231,20 @@ def report(curves: dict, signs: HeadSigns | None = None) -> dict:
     """Every check on an animation's curves, and {"pass": all passed, "failed": [names]}."""
     checks = [frozen_head(curves), head_linear(curves), head_jitter(curves), *blink_checks(curves),
               asymmetry(curves), expression_range(curves), gaze_activity(curves, signs)]
+    stab = head_stability(curves, signs)
+    checks += stab["checks"]
     failed = [c["name"] for c in checks if not c["pass"]]
-    return {"pass": not failed, "failed": failed, "checks": checks, "blinks": blink_stats(curves)}
+    return {"pass": not failed, "failed": failed, "checks": checks, "blinks": blink_stats(curves),
+            "head_stability": {k: stab[k] for k in ("blinks", "bta", "jitter") if k in stab}}
+
+
+def head_stability(curves: dict, signs: HeadSigns | None = None) -> dict:
+    """stability.check on an animation's own curves: blink_nod, blink_locked, blink_speed, head_buzz (no checks when
+    the animation has no head curves; blink ones only when it has blinks)."""
+    from . import stability as ST
+    if not any(n in curves for n in ("HeadYaw", "HeadPitch", "HeadRoll")):
+        return {"checks": []}
+    h = ST.from_curves(curves, signs)
+    if len(h["times"]) < 8:
+        return {"checks": []}
+    return ST.check(h["times"], h["pitch"], h["blinks"], h["yaw"], h["roll"], source="curves")

@@ -15,6 +15,7 @@ unit-tested); these ops gather what it needs from the editor (cameras, bones, bo
     qa.snapshot     the level as JSON (to diff later)
     qa.diff         what changed between two snapshots (or a snapshot and now)
     qa.review       all of it for a sequence or a camera: review.json + review.png
+    qa.head_stability  the head bone through the blinks as the sequence plays: nods with blinks, buzz
 """
 from __future__ import annotations
 
@@ -803,3 +804,107 @@ def hair_continuity(*, sequence: str, labels: list, frames: int = 4, every: int 
             json.dump(rep, fh, indent=1)
         rep["out"] = out
     return rep
+
+
+# --- head stability: the head bone through the blinks (round 5) ------------------------------------------------------
+
+BLINK_CURVES = ("CTRL_expressions_eyeBlinkL", "CTRL_expressions_eyeBlinkR")
+
+
+def _curve_now(comp, names) -> float:
+    """The largest of `names` on a skeletal mesh component's anim instance this tick (0 when it has none)."""
+    inst = comp.get_anim_instance()
+    if inst is None:
+        return 0.0
+    return max(float(inst.get_curve_value(n)) for n in names)
+
+
+def stability_issues(r: dict, label: str, fps: float, frame0: int) -> list:
+    """stability.check's failed checks as QA issues (the frames where they show)."""
+    out = []
+    for c in r["checks"]:
+        if c["pass"]:
+            continue
+        w = max(r["blinks"], key=lambda b: abs(b["nod_deg"]), default=None)
+        frame = (frame0 + round(w["t"] * fps)) if w and c["name"].startswith("blink") else None
+        out.append(issue(f"head.{c['name']}", "fail", c["why"],
+                         fix="perf.face blink_head=still solver_head=replace on the face animation, then re-check "
+                             "(docs/unreal/research/blinks-head-stability.md)",
+                         frame=frame, subject=label, value=c["metric"], expected=c["threshold"]))
+    return out
+
+
+@op("qa.head_stability", mutates=False, idempotent=True, tags=["sequencer", "slow"])
+def head_stability(*, sequence: str, label: str, component: str = "Face", bone: str = "head",
+                   start: int | None = None, end: int | None = None, every: int = 1, blinks: list | None = None,
+                   ticks: int = 2, limits: dict | None = None, out: str = ""):
+    """Does the head move with the blinks, or buzz, as the sequence plays it? Plays `sequence` frame by frame (each
+    settled `ticks` editor ticks), samples `bone` on `label`'s `component` in the world and the eyes' blink curves on
+    its anim instance, and runs perfkit.stability: blink_nod (share of blinks whose head pitch departs > 0.5 deg
+    from its chord), blink_locked (blink-triggered average > 0.3 deg and 2x the control), blink_speed (pitch speed
+    in blink windows vs outside) and head_buzz (residual off a 0.2 s cubic fit: RMS > 0.08 deg, or any > 0.5 deg).
+    Round 4: "every time she blinks her head nods a little down like a jitter"; the curve checks of perf.face could
+    not see the solver's head, the body's neck or the face AnimBP: this reads what renders. A multi-tick job.
+
+    Args: sequence, label (the actor), component (Face: what the camera sees; Body for the body's head),
+      bone (head). start/end: master frames (default the playback range); every: sample every n-th frame (1: blinks
+      last 6-9 frames at 24 fps). blinks: [[f0, f1], ...] master-frame spans to use instead of the live curves (a
+      face whose instance does not expose them; perf.py writes blinks_<who>.json). limits: stability.LIMITS
+      overrides. out: a JSON path on the box for the samples and the result (to re-check offline).
+    Returns: {"pass", "issues", "metrics": {checks by name}, "blinks": [{"t" (s from the first frame), "nod_deg"}],
+      "bta", "jitter", "axes", "frames": [first, last], "fps", "label"}. film-qa head-gate turns saved results
+      into gate v2's head.blink_nod_deg.
+    Example: film-ue op qa.head_stability sequence=/Game/Reel/SEQ_Reel label=Presenter start=1056 end=1584
+    """
+    from ..perfkit import stability as ST
+    from ._scrub import set_frame
+    from ._util import actor
+    from .seq import _xform, component_of
+    LSE = unreal.LevelSequenceEditorBlueprintLibrary
+    LSE.open_level_sequence(unreal.load_asset(sequence))
+    seq = LSE.get_current_level_sequence()
+    rate = seq.get_display_rate()
+    fps = rate.numerator / rate.denominator
+    f0 = int(seq.get_playback_start() if start is None else start)
+    f1 = int(seq.get_playback_end() - 1 if end is None else end)
+    frames = list(range(f0, f1 + 1, max(1, int(every))))
+    if len(frames) < 16:
+        raise OpError(f"{len(frames)} frames: too few to judge a head", code="bad_args", hint="give start/end over 1 s")
+    fwd = actor(label).get_actor_forward_vector()
+    samples, closure = [], []
+    set_frame(frames[0] + 1)
+    yield
+    for f in frames:
+        set_frame(f)
+        for _ in range(ticks):
+            yield
+        comp = component_of(label, component)  # afresh: a MetaHuman's components go stale
+        samples.append(_xform(comp, bone))
+        if blinks is None:
+            face = comp if component == "Face" else component_of(label, "Face")
+            closure.append(_curve_now(face, BLINK_CURVES))
+    h = ST.from_bones(frames, fps, samples, [fwd.x, fwd.y, fwd.z])
+    if blinks is not None:
+        spans = [((a - frames[0]) / fps, (b - frames[0]) / fps) for a, b in blinks]
+        source = "given"
+    else:
+        spans = ST.blink_windows(h["times"], closure)
+        source = "curves"
+    t = [x - h["times"][0] for x in h["times"]]
+    r = ST.check(t, h["pitch"], spans, h["yaw"], h["roll"], limits=limits, source="bones")
+    issues = stability_issues(r, label, fps, frames[0])
+    if not spans:
+        issues.append(issue("head.no_blinks", "warn",
+                            f"no blink seen on {label} over f{frames[0]}-{frames[-1]} (blink curves {source}): the "
+                            "blink checks did not run", fix="pass blinks=[[f0, f1], ...] (perf.py: blinks_<who>.json)",
+                            subject=label))
+    res = _result(issues, {c["name"]: c["metric"] for c in r["checks"]}, blinks=r["blinks"], bta=r["bta"],
+                  jitter=r["jitter"], axes=h.get("axes"), frames=[frames[0], frames[-1]], fps=fps,
+                  blink_source=source, label=label, sequence=sequence)
+    if out:
+        os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
+        with open(out, "w") as fh:
+            json.dump({**res, "samples": {"frames": frames, "fps": fps, "bone": samples, "closure": closure,
+                                          "forward": [fwd.x, fwd.y, fwd.z]}}, fh)
+        res["out"] = out
+    return res

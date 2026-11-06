@@ -344,11 +344,19 @@
     },
     "solver_head": {
      "enum": [
+      "replace",
+      "clean",
       "soften",
-      "keep",
-      "replace"
+      "keep"
      ],
-     "description": "the speech solver's head motion: soften (default), keep, replace (ours only)"
+     "description": "the speech solver's head motion: replace (default: dropped, ours only), clean (spikes removed, blink windows bridged, 1.5 Hz, 50%), soften (2 Hz, 60%: round 4's, it kept the solve's blink-nods), keep"
+    },
+    "blink_head": {
+     "enum": [
+      "still",
+      "free"
+     ],
+     "description": "still (default): no blink moves the head (round 4: her head nodded with every blink); free: whatever coincides stays"
     },
     "blink_mode": {
      "enum": [

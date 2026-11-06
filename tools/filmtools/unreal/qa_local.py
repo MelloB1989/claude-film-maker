@@ -21,6 +21,10 @@ the same checks as the editor's qa.* ops (unreal/fmbridge/qa, imported from the 
                                                  the review gate v2 (qa/gate.py): SIGN or REFUSE; NUMBERS files
                                                  are {item: value} or any op result with a "gate" dict
     film-qa gate --lines [--spec SPEC.json]      does every item's line fail the round-4 value it must catch?
+    film-qa head DIR --fps 24 [--box x0,y0,x1,y1] [--out R.json]   the head through the blinks, from the frames
+                                                 (face landmarks; needs `uv run --with mediapipe==0.10.21`)
+    film-qa head-samples QA_OUT.json             re-judge qa.head_stability's saved samples (out=), offline
+    film-qa head-gate OUT.json QA_OUT.json...     gate v2's head.blink_nod_deg + head.blink_locked_deg
 
 Every command prints JSON ({"pass", "issues", "metrics", ...}) and exits 1 when a "fail" issue was found, so a
 script (or Claude) can branch on it. JPEG and other formats need Pillow (`uv sync --extra anime` has it); PNG never
@@ -313,7 +317,36 @@ def main(argv=None) -> None:
     gp.add_argument("--by", default="", help="who waives (required for a waiver)")
     gp.add_argument("--lines", action="store_true", help="check the lines against round 4's values")
     gp.add_argument("--out", default="")
+    hd = sub.add_parser("head")
+    hd.add_argument("folder")
+    hd.add_argument("--fps", type=float, default=24.0)
+    hd.add_argument("--box", default="", help="x0,y0,x1,y1 (fractions): the face to judge in a two-shot")
+    hd.add_argument("--model", default="")
+    hd.add_argument("--out", default="")
+    hs = sub.add_parser("head-samples")
+    hs.add_argument("path")
+    hg = sub.add_parser("head-gate")
+    hg.add_argument("out")
+    hg.add_argument("results", nargs="+")
     x = ap.parse_args(argv)
+    if x.cmd == "head-gate":
+        from . import qa_head as QH
+        g = QH.gate(x.results)
+        Path(x.out).write_text(json.dumps(g, indent=1))
+        print(json.dumps(g, indent=1))
+        raise SystemExit(0 if all("error" not in it and it["value"] <= it["line"] for it in g["gate"].values()) else 1)
+    if x.cmd in ("head", "head-samples"):
+        from . import qa_head as QH
+        if x.cmd == "head":
+            tr = QH.track(QH.frames_in(x.folder), x.fps, [float(v) for v in x.box.split(",")] if x.box else None,
+                          x.model)
+            res = QH.judge(tr)
+            if x.out:
+                Path(x.out).write_text(json.dumps({**res, "track": tr}))
+        else:
+            res = QH.samples(x.path)
+        print(json.dumps(res, indent=1))
+        raise SystemExit(0 if res["pass"] else 1)
     if x.cmd == "image":
         subs = {k: [float(v) for v in b.split(",")] for k, _, b in (s_.partition("=") for s_ in x.subject)}
         res = image(x.still, subs or None, {"stops": x.expect_stops} if x.expect_stops else None)
