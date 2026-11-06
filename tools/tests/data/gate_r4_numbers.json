@@ -1,0 +1,13 @@
+{
+ "_about": "Round 4's gate numbers (06 Nov, cast_op5 = patch3 and the finals), from films/host-studio/reel/QA_HANDOFF.md and ROUND4.md, re-judged by gate v2. No frame data: numbers only.",
+ "spec": {"complaints": ["lips", "head", "garment", "hair"]},
+ "numbers": {
+  "lips.lead_in_cm": {"value": 0.33, "where": "S13 L1 silence f977-1001"},
+  "lips.onset_lead_ms": {"value": 600, "where": "S13 L1 mouth wide f1000-1008, audio f1020"},
+  "lips.cues_fresh": {"value": false, "where": "cues.json round 3 copy, words_lost=true"},
+  "garment.neck_px": {"value": 3, "where": "S15 f1082-1128"},
+  "garment.silhouette_pct": {"value": 2.23, "where": "S15 f1150-1198"},
+  "hair.lock": {"value": false, "where": "gate g never read the grooms"},
+  "hair.render_cvars": {"value": false, "where": "r3/30-final.yaml: no r.HairStrands.LODMode"}
+ }
+}
