@@ -46,14 +46,15 @@ IMAGE_EXT = (".png", ".jpg", ".jpeg")
 
 def qa():
     """fmbridge.qa as a standalone package `fmqa` (importing fmbridge itself would need the editor's `unreal`)."""
-    if "fmqa" in sys.modules:
-        return sys.modules["fmqa"]
-    spec = importlib.util.spec_from_file_location("fmqa", QA_DIR / "__init__.py", submodule_search_locations=[str(QA_DIR)])
-    mod = importlib.util.module_from_spec(spec)
-    sys.modules["fmqa"] = mod
-    spec.loader.exec_module(mod)
+    mod = sys.modules.get("fmqa")
+    if mod is None:
+        spec = importlib.util.spec_from_file_location("fmqa", QA_DIR / "__init__.py",
+                                                      submodule_search_locations=[str(QA_DIR)])
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules["fmqa"] = mod
+        spec.loader.exec_module(mod)
     for sub in ("image", "draw", "overlay", "sheet", "metrics", "compare", "framing", "geometry", "continuity", "review",
-                "baseline", "hair", "gate"):
+                "baseline", "hair", "gate", "scope"):
         __import__(f"fmqa.{sub}")
     return mod
 
