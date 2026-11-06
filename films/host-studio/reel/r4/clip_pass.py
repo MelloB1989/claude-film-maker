@@ -165,40 +165,12 @@ def judge(d, under, over) -> dict:
             "clusters": blobs[:6], "_mask": kept}
 
 
-_RIM = {}
-
-
-def rim_ids(tee_c, dm, LU, MQ) -> list:
-    """The vertex ids on the tee's open rims (edges of one triangle: collar, sleeves, hem), per mesh asset (cached)."""
-    from fmbridge.ops.mh.actor import _pick
-    mesh = tee_c.get_skeletal_mesh_asset().get_path_name()
-    if mesh not in _RIM:
-        tris = LU.convert_triangle_list_to_array(_pick(MQ.get_all_triangle_indices(dm, False),
-                                                       "GeometryScriptTriangleList"))
-        # render data splits a vertex at every UV seam: weld by position first, or each seam reads as a rim
-        pos = LU.convert_vector_list_to_array(_pick(MQ.get_all_vertex_positions(dm, False), "GeometryScriptVectorList"))
-        key, weld = {}, []
-        for p in pos:
-            weld.append(key.setdefault((round(p.x, 2), round(p.y, 2), round(p.z, 2)), len(key)))
-        ids = {}
-        for i, k in enumerate(weld):
-            ids.setdefault(k, []).append(i)
-        count = {}
-        for t in tris:
-            v = (weld[int(t.x)], weld[int(t.y)], weld[int(t.z)])
-            if len(set(v)) < 3:
-                continue
-            for e in ((v[0], v[1]), (v[1], v[2]), (v[2], v[0])):
-                e = (min(e), max(e))
-                count[e] = count.get(e, 0) + 1
-        _RIM[mesh] = sorted({i for e, n in count.items() if n == 1 for k in e for i in ids[k]})
-    return _RIM[mesh]
-
-
-def neck3d(face_c, tee_c, body_c, rim_cm: float = 1.5) -> dict:
-    """His face mesh out through the tee, on the posed meshes (render LOD 0): face verts within 6 cm of the tee and
-    below its collar top, outside the tee by > 0.1 cm (out_all), and of those the ones whose nearest tee point is
-    more than rim_cm from the tee's open rim (out): the rest are his throat beside the neckline's opening, no clip."""
+def neck3d(face_c, tee_c, body_c) -> dict:
+    """His face mesh out through the tee, on the posed meshes (render LOD 0). For each face vert below the tee's top,
+    within 6 cm of it and outside the cloth as rendered (its inflate added) by > 0.1 cm (out_all), a ray is cast from his neck/spine axis (the nearest point
+    on spine_05 -> neck_02) out to the vert: if it crosses the tee before reaching the vert, the vert came out
+    THROUGH the cloth (out); if not, it is his throat seen through the neckline's opening, no clip. (His tee is a
+    closed shell: it has no open rim to measure from.)"""
     SU, SP, MQ, LU = (unreal.GeometryScript_SceneUtils, unreal.GeometryScript_MeshSpatial,
                       unreal.GeometryScript_MeshQueries, unreal.GeometryScript_List)
     from fmbridge.ops.mh.actor import _pick
@@ -218,10 +190,45 @@ def neck3d(face_c, tee_c, body_c, rim_cm: float = 1.5) -> dict:
     tee, face = copy(tee_c), copy(face_c)
     bvh = _pick(SP.build_bvh_for_mesh(tee), "GeometryScriptDynamicMeshBVH")
     q = unreal.GeometryScriptSpatialQueryOptions()
-    tv = verts(tee)
-    top = max(p.z for p in tv)
-    neck = body_c.get_socket_location("neck_01")
-    rim = [tv[i] for i in rim_ids(tee_c, tee, LU, MQ) if i < len(tv) and (tv[i] - neck).length() < 30.0]
+    top = max(p.z for p in verts(tee))
+    a0, a1 = body_c.get_socket_location("spine_05"), body_c.get_socket_location("neck_02")
+    ax = a1 - a0
+    L2 = max(ax.dot(ax), 1e-6)
+
+    def crosses(p) -> bool:
+        t = max(0.0, min(1.0, (p - a0).dot(ax) / L2))
+        o = a0 + ax * t
+        d = p - o
+        dist = d.length()
+        if dist < 1e-3:
+            return False
+        hit = _pick(SP.find_nearest_ray_intersection_with_mesh(tee, bvh, o, d * (1.0 / dist), q),
+                    "GeometryScriptRayHitResult")
+        return bool(hit.get_editor_property("hit")) and float(hit.get_editor_property("ray_parameter")) < dist - 0.05
+
+    # the inflate is a World Position Offset (no geometry): the cloth as rendered stands out along its normal by
+    # FM_Inflate + FM_Neck x t x f (neck_inflate.py), read from his worn tee instance; t and f from the point's
+    # position in his body's component space (= mesh space, the pose aside: close enough over his upper chest)
+    mi = next((m for nm, m in zip(tee_c.get_material_slot_names(), tee_c.get_materials()) if "shirt" in str(nm).lower()),
+              None)
+    k = {}
+    for name in ("FM_Inflate", "FM_Neck", "FM_NeckZ0", "FM_NeckZ1", "FM_NeckFront", "FM_NeckFrontBias"):
+        try:
+            k[name] = float(unreal.MaterialEditingLibrary.get_material_instance_scalar_parameter_value(mi, name))
+        except Exception:
+            k[name] = 0.0
+    inv = body_c.get_world_transform()
+
+    def inflate(qp) -> float:
+        a = k["FM_Inflate"]
+        if k["FM_Neck"] <= 0:
+            return a
+        m = inv.inverse_transform_location(qp)
+        z0, z1 = k["FM_NeckZ0"], k["FM_NeckZ1"]
+        t = max(0.0, min(1.0, (m.z - z0) / (z1 - z0 if z1 != z0 else 1.0)))
+        f = max(0.0, min(1.0, m.y * k["FM_NeckFront"] + k["FM_NeckFrontBias"]))
+        return a + k["FM_Neck"] * t * f
+
     n = out_all = out = 0
     mx = 0.0
     for p in verts(face):
@@ -235,13 +242,14 @@ def neck3d(face_c, tee_c, body_c, rim_cm: float = 1.5) -> dict:
         if dv.length() > 6.0:
             continue
         n += 1
-        sd = dv.dot(_pick(MQ.get_triangle_face_normal(tee, tp.get_editor_property("triangle_id")), "Vector"))
+        sd = dv.dot(_pick(MQ.get_triangle_face_normal(tee, tp.get_editor_property("triangle_id")), "Vector")) - inflate(qp)
         if sd > 0.1:
             out_all += 1
-            if min(((r - qp).length() for r in rim), default=99.0) > rim_cm:
+            if crosses(p):
                 out += 1
                 mx = max(mx, sd)
-    return {"n": n, "out_all": out_all, "out": out, "max_out_cm": round(mx, 2), "rim_verts": len(rim)}
+    return {"n": n, "out_all": out_all, "out": out, "max_out_cm": round(mx, 2),
+            "inflate": {kk: round(v, 2) for kk, v in k.items() if v}}
 
 
 def mask_image(d, clip) -> "_image.Image":
