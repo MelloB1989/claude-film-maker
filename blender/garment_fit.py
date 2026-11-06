@@ -8,7 +8,9 @@
 In: garment.export's FBXs (cm, the body skeleton): ref_body.fbx (the UNCUT body: the collider, and the weights'
 source), face.fbx (a MetaHuman's face mesh runs ~10 cm below neck_01, to the clavicles: its lower neck is in the
 collider, or the collar fits the body and the face comes out through it, round 4's 'orange patch'), garment_<g>.fbx,
-anim_*.fbx (the pose tests). The garment keeps its topology, UVs and material slots: only its vertices move and its
+anim_*.fbx (the pose tests). With --morph-ref, ref_body.fbx may be ANOTHER person's uncut body of the same MetaHuman topology:
+it is morphed onto body.fbx (his worn, cut body) where they meet, the cut region filled smoothly (round 5: no uncut
+body of Host_Op existed in the project). The garment keeps its topology, UVs and material slots: only its vertices move and its
 weights change, so its materials (and their normal maps) still fit it.
 
 Steps (lib/garmentfit.py has the numbers, tested without Blender):
@@ -73,6 +75,10 @@ def parse_args():
     ap.add_argument("--only-slots", default="", help="comma list: fit only faces of material slots containing these")
     ap.add_argument("--collider", default="ref_body,face")
     ap.add_argument("--anim-samples", type=int, default=12)
+    ap.add_argument("--morph-ref", action="store_true",
+                    help="ref_body.fbx is ANOTHER person's uncut body (same MetaHuman topology): morph it onto this "
+                         "person's worn (cut) body.fbx, filling the cut region smoothly (no uncut body of his exists)")
+    ap.add_argument("--match-cm", type=float, default=1.5)
     return ap.parse_args(argv)
 
 
@@ -143,6 +149,9 @@ class Scene:
         objs = import_fbx(os.path.join(a.src, "ref_body.fbx"))
         self.arm = next(o for o in objs if o.type == "ARMATURE")
         self.body = next(o for o in objs if o.type == "MESH")
+        self.morph = None
+        if a.morph_ref:
+            self.morph = self._morph(a)
         self.face = None
         if "face" in a.collider and os.path.exists(os.path.join(a.src, "face.fbx")):
             fo = import_fbx(os.path.join(a.src, "face.fbx"))
@@ -167,6 +176,26 @@ class Scene:
         bind(self.garment, self.arm)
         log(f"body {len(self.body.data.vertices)} v, face {len(self.face.data.vertices) if self.face else 0} v, "
             f"garment {len(self.garment.data.vertices)} v, slots {[m.name if m else '' for m in self.garment.data.materials]}")
+
+    def _morph(self, a) -> dict:
+        """ref_body (another person, uncut) onto body.fbx (him, cut): lib/garmentfit.morph_onto."""
+        wo = import_fbx(os.path.join(a.src, "body.fbx"))
+        worn = next(o for o in wo if o.type == "MESH")
+        WX, WT = world_cm(worn)
+        bvh = BVHTree.FromPolygons(WX.tolist(), WT.tolist())
+        for o in wo:
+            bpy.data.objects.remove(o, do_unlink=True)
+
+        def nearest(p):
+            loc, nor, fi, dist = bvh.find_nearest(Vector(p))
+            return None if loc is None else loc[:]
+
+        RX, RT = world_cm(self.body)
+        M, known, st = GF.morph_onto(RX, RT, nearest, match_cm=a.match_cm, iters=1500)
+        set_world_cm(self.body, M)
+        log(f"morph: ref onto his worn body: matched {st['matched']:.1%}, the cut region moved median "
+            f"{st['fill_median_cm']} cm (max {st['fill_max_cm']})")
+        return st
 
     def _face_follow(self):
         """The face rides the body's head/neck bones (a child of neck_02 kept at its rest offset): close enough for
@@ -406,7 +435,7 @@ def main():
     G, Tg = world_cm(sc.garment)
     d0, _ = signed(bvh, G)
     rep = {"args": vars(a), "verts": len(G), "regions": {r: int((region == i).sum()) for i, r in enumerate(GF.REGIONS)},
-           "before": GF.ease_report(d0[active], region[active])}
+           "before": GF.ease_report(d0[active], region[active]), "morph": sc.morph}
     log(f"before: {rep['before'].get('all')}")
     if a.drape_frames > 0:
         G = drape(sc, a, pinned, active)
