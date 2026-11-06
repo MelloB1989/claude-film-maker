@@ -53,13 +53,53 @@ def num(rep, shot, f, pair):
     return f"{100 * v['fraction']:.2f}% ({v['px']} px)" if isinstance(v, dict) else "-"
 
 
+def diag(a):
+    rep = load(a.before)
+    cols = ("final", "mask", "nobody", "nogarment", "albedo_tee", "albedo_Trousers")
+    rows = []
+    for shot, per in rep["shots"].items():
+        for f in (per if isinstance(per, dict) else {}):
+            if os.path.exists(os.path.join(a.before, f"{shot}_{int(f):04d}_nobody.png")):
+                fr = per[f]
+                for pair, v in sorted(((k, v) for k, v in fr.items() if isinstance(v, dict) and v.get("clusters")),
+                                      key=lambda kv: -kv[1]["px"]):
+                    rows.append((shot, f, pair, v["clusters"][0], v))
+    head = 26
+    sheet = Image.new("RGB", (len(cols) * CELL + 260, head + len(rows) * (CELL + 4)), (18, 18, 18))
+    d = ImageDraw.Draw(sheet)
+    for i, t in enumerate(cols):
+        d.text((260 + i * CELL + 8, 6), t, fill=(230, 230, 230))
+    for r, (shot, f, pair, c, v) in enumerate(rows):
+        y = head + r * (CELL + 4)
+        d.text((8, y + 8), f"{shot} f{f}\n{pair}\n{100 * v['fraction']:.2f}% ({v['px']} px)\nworst {c['worst_cm']} cm\n"
+               f"box {c['box']}", fill=(230, 230, 230))
+        for k, suf in enumerate(cols):
+            sheet.paste(crop(os.path.join(a.before, f"{shot}_{int(f):04d}_{suf}.png"), c["box"]), (260 + k * CELL, y))
+    return save(sheet, a.out, {"rows": len(rows)})
+
+
+def save(sheet, out, info):
+    os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
+    q = 85
+    while True:
+        sheet.save(out, "JPEG", quality=q)
+        if os.path.getsize(out) < 3_000_000 or q <= 50:
+            break
+        q -= 10
+    print(json.dumps({"out": out, "bytes": os.path.getsize(out), **info}))
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("before")
-    ap.add_argument("after")
+    ap.add_argument("after", nargs="?", default="")
+    ap.add_argument("--diag", action="store_true", help="one dir: each shot's A/B stills round its worst cluster "
+                    "(scene, mask, body+face hidden, garments hidden, the tee's albedo alone)")
     ap.add_argument("--out", required=True)
     ap.add_argument("--rows", type=int, default=12)
     a = ap.parse_args()
+    if a.diag:
+        return diag(a)
     b, af = load(a.before), load(a.after)
     rows = places(b, a.rows)
     seen = {(s, p) for s, _, p, _ in rows}
@@ -76,15 +116,7 @@ def main():
                f"\n\nworst {c['worst_cm']} cm", fill=(230, 230, 230))
         for k, (dd, suf) in enumerate(((a.before, "final"), (a.before, "mask"), (a.after, "final"), (a.after, "mask"))):
             sheet.paste(crop(os.path.join(dd, f"{base}_{suf}.png"), c["box"]), (260 + k * CELL, y))
-    os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
-    q = 85
-    while True:
-        sheet.save(a.out, "JPEG", quality=q)
-        if os.path.getsize(a.out) < 3_000_000 or q <= 50:
-            break
-        q -= 10
-    print(json.dumps({"out": a.out, "rows": len(rows), "bytes": os.path.getsize(a.out),
-                      "worst_before": b.get("worst"), "worst_after": af.get("worst")}))
+    save(sheet, a.out, {"rows": len(rows), "worst_before": b.get("worst"), "worst_after": af.get("worst")})
 
 
 if __name__ == "__main__":
