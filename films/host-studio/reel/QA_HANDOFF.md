@@ -77,6 +77,11 @@ peak <= -1 dBTP; every caption line within 2 frames of its first VO word (cues.j
   head cannot be lined up by a shift, so the frames cannot certify those lines. Added `cast_gate.py lipgap` (engine,
   read-only): the upper-to-lower lip bone gap in cm on the evaluated face, on vs the same silence; `sign --lipgap`
   decides the lines the frames fail (ratio >= 2.0 and opens >= 0.3 cm), and says so per line.
+- 08:47 lipgap (engine, lip bone gap; line motion / silence motion, opens on the line): S15 L2 31.4x 2.02 cm, S15 L3a
+  40.6x 0.98, S16 L3b 23.3x 1.11, S17 L4a 66.3x 2.98, S17 L4b 28.6x 1.57; S13 L1 opens 3.22 cm but its silence f977-1001
+  moves 0.33 cm/frame (others 0.003-0.009): real lip motion before the line, flagged for the orchestrator's eye. Item a
+  SIGNED on the orchestrator's rule: S13 L1, S15 L2, S16 L3b by eye; L3a/L4a/L4b on lipgap (S17 also by eye on the
+  final re-render). Tee silhouette (orchestrator): Host_fix vs Host_after +6..+15% -> gate e now checks +-2% (S15/S17/S18).
 - neck patch (agent-02 neck_px, before4 -> after, worst px per shot): S13 169 -> 172, S15 709 -> 649, S17 91 -> 93,
   S18 39 -> 34: NOT fixed; the gate refuses e until 0.
 
