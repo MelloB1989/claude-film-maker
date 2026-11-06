@@ -83,13 +83,20 @@ on the diag sheet: the Face>tee blob is the orange patch left of his neckline, T
    /Game/FM/ClothOp) wired is ignored. Measured (reel/r4/wpo_probe.py, wpo_probe2.py): FM_Inflate 4 cm moved his
    tee 0.0 cm; a bare WPO material on the same tee moved it 4.5 cm. The same holds for any MetaHuman default
    garment studio.py's finish() inflated (Trey's tee too): their inflate was never drawn.
-   Fix: `props/his_outfit_ue/neck_inflate.py` adds the offset through Break/Make Material Attributes (every other
-   attribute passed through) in a fresh folder, /Game/FM/ClothOp2; the offset is normal x (FM_Inflate + FM_Neck x t
-   x f), t ramping over the tee's reference-pose height FM_NeckZ0..Z1, f weighting the front.
-   `props/his_outfit_ue/neck_fix.py` applies it on the level as it stands (his tee back on MetaHuman's own instance,
-   the new chain built and swapped on) and keeps it only if his tee comes >= 0.2 cm nearer and its base colour stays
-   within 0.02. host_swap.py builds the same chain on a fresh build (HOST op, NECK_MASTER). Values on the box:
-   INFLATE_CM 0.5, NECK_CM 3.0, NECK_Z0_CM 18 (FM_NeckZ0 = neck_01 - 18 = 133.06, Z1 = neck_01 - 5).
+   Fix, take 1 (neck_fix.py, ClothOp3): the offset through Break/Make Material Attributes, with a broad neckline
+   term (3 cm over 13 cm): the patch went, but the orchestrator on cast_op5: the collar read as a mock-neck and the
+   chest padded (silhouette +15%). REJECTED.
+   **Fix, shipped (props/his_outfit_ue/neck_patch.py, /Game/FM/ClothOp4, "patch3"):** the push only where his face
+   pierces the tee. At 7 frames (S13-S18) the face verts that pierce the posed tee (geometry, reached from his neck
+   axis only through the cloth) are mapped to a reference-pose copy of the tee (the space the material's pre-skinned
+   position reads): they lie along the whole front collar arc, mostly 0.1-0.6 cm, and deeper (to 0.96 cm) in one
+   place at the throat front. neck_inflate.add_patch: WPO += normal x FM_Patch x a spherical falloff (full inside
+   FM_PatchR, none FM_PatchF further) round that deep cluster; the shallow arc gets a weak, narrow neckline term; the
+   plain inflate everywhere is 0.15 cm. Values: FM_Inflate 0.15, FM_Neck 0.75 (Z0 144.75, Z1 147.75, front 0.1, bias
+   0.5), FM_Patch 1.76 at (-0.71, 5.7, 148.68), R 3.95, F 3.0. host_swap.py applies them (TEE_KNOBS) on a fresh build
+   (its NECK_MASTER chain, /Game/FM/ClothOp5, carries the patch term); after a body or garment change re-measure with
+   neck_patch.py (FIND_ONLY=True to read). Do NOT run host_swap on the current level (it wears the ClothOp4 chain:
+   cloth_inflate would try to reparent drawn instances); there, neck_patch.py re-tunes values in place.
 2. The hip two-tone: his trousers were fitted (props/his_outfit.py) to TREY's body and tee, so on Host_Op their
    waistband stood through the tee's hem. Re-fit to his own body and tee on the box: `props/his_outfit_ue/r4_fit_op.sh`
    -> `SKM_Host_Trousers_Op` (imported 04:23 UTC), which studio.py's his outfit block picks for HOST op (Trey keeps
@@ -106,17 +113,20 @@ orchestrator's ruling on clip_host_fix.jpg: the residual hugging the collar the 
 Gate (agent-09, item e): neck_px.px == 0 per frame. The 3D vertex check (`neck`) is info only: it modelled an offset
 that was never drawn.
 
-**Numbers (worst per shot, neck_px.px with the final rule):**
+**Numbers (worst per shot):**
 
-| | S13 | S15 | S17 | S18 |
-|---|---|---|---|---|
-| before4 (cast_op4 state) | 24 | 355 | 10 | 3 |
-| fix (08:21 UTC, ClothOp3 inflate) | 0 | 0 | 0 | 0 |
+| | S13 | S15 | S17 | S18 | tee silhouette vs pre-check |
+|---|---|---|---|---|---|
+| before4 (cast_op4 state) neck_px | 24 | 355 | 10 | 3 | (reference) |
+| take 1, ballooned (Host_fix) | 0 | 0 | 0 | 0 | +15% |
+| patch2 (plain inflate 0.5) | 0 | 20 | 0 | 0 | +4.5% |
+| **patch3, shipped (Host_final 09:05 UTC)** | 0 | 3 | 0 | 0 | +1.2-1.7%, S15 twist hold +2.2% |
 
-Face>tee fraction 0.032 -> 0.0049 (the rest is the collar strip); Trousers>tee 0.0067 -> 0; Body>tee 0 -> 0.00012
-(<= 0.001); Body>Trousers 0. The orchestrator on the after sheets: hip two-tone fixed, neck patch gone, the tee does
-not read bulky (the collar sits a little higher and fuller). Her (Presenter_after vs before, per shot and pair): all
-within +0.01 (most fell), watch and collar per agent-09's gate.
+Silhouette: reel/r4/tee_silhouette.py (his tee's depth-layer pixels at the same frame and camera vs Host_after, whose
+tee is its real shape: the dead inflate; gate 2% in S15/S17/S18). The orchestrator passed patch3 by eye (09:06) and
+agent-09 signed the gate on it, waiving item e's last 1-3 px (S15 f1082-1128) and the +2.2%. Face>tee 0.032 ->
+0.0071; Trousers>tee 0.0067 -> 0; Body>tee 0; Body>Trousers 0. Her (Presenter_final vs before): Body>Top 0.0001,
+Face>Top 0.00077, Top>Overshirt 0.188 (her open overshirt, as before): within +0.01 everywhere.
 
 **Her:** her pass reads high (Body>Top 0.10-0.19, Top>Overshirt 0.03-0.19) from her scoop neckline and the open
 overshirt (qa.penetration read 0.34 there): her check is before vs after unchanged, with the watch and collar as
