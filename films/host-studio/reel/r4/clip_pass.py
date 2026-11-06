@@ -171,18 +171,28 @@ _RIM = {}
 def rim_ids(tee_c, dm, LU, MQ) -> list:
     """The vertex ids on the tee's open rims (edges of one triangle: collar, sleeves, hem), per mesh asset (cached)."""
     from fmbridge.ops.mh.actor import _pick
-    key = tee_c.get_skeletal_mesh_asset().get_path_name()
-    if key not in _RIM:
+    mesh = tee_c.get_skeletal_mesh_asset().get_path_name()
+    if mesh not in _RIM:
         tris = LU.convert_triangle_list_to_array(_pick(MQ.get_all_triangle_indices(dm, False),
                                                        "GeometryScriptTriangleList"))
+        # render data splits a vertex at every UV seam: weld by position first, or each seam reads as a rim
+        pos = LU.convert_vector_list_to_array(_pick(MQ.get_all_vertex_positions(dm, False), "GeometryScriptVectorList"))
+        key, weld = {}, []
+        for p in pos:
+            weld.append(key.setdefault((round(p.x, 2), round(p.y, 2), round(p.z, 2)), len(key)))
+        ids = {}
+        for i, k in enumerate(weld):
+            ids.setdefault(k, []).append(i)
         count = {}
         for t in tris:
-            v = (int(t.x), int(t.y), int(t.z))
+            v = (weld[int(t.x)], weld[int(t.y)], weld[int(t.z)])
+            if len(set(v)) < 3:
+                continue
             for e in ((v[0], v[1]), (v[1], v[2]), (v[2], v[0])):
                 e = (min(e), max(e))
                 count[e] = count.get(e, 0) + 1
-        _RIM[key] = sorted({i for e, n in count.items() if n == 1 for i in e})
-    return _RIM[key]
+        _RIM[mesh] = sorted({i for e, n in count.items() if n == 1 for k in e for i in ids[k]})
+    return _RIM[mesh]
 
 
 def neck3d(face_c, tee_c, body_c, rim_cm: float = 1.5) -> dict:
