@@ -198,6 +198,20 @@ def collar_stats(axial: list, radial: list, gap: list, *, window=(-8.0, 4.0), ri
     return out
 
 
+HEM_FLARE_RATIO = 1.15  # gate v2 (agent-09): hem radius / hip radius in the same height band
+
+
+def hem_stats(hem_r: list, ref_r: list, ref: str = "body") -> dict:
+    """The hem's flare at one frame: hem_r = the garment's radii (horizontal distance from the body's vertical axis)
+    in its lowest band, ref_r = the reference's radii in the same height band (the uncut body's hip, or the trousers'
+    when no body). Returns {n, hem_r, ref_r, ease_cm, ratio, ref}: medians; ratio = hem / ref."""
+    if not hem_r or not ref_r:
+        return {"n": 0, "ref": ref}
+    h, r = percentile(hem_r, 0.5), percentile(ref_r, 0.5)
+    return {"n": len(hem_r), "hem_r": round(h, 2), "ref_r": round(r, 2), "ease_cm": round(h - r, 2),
+            "ratio": round(h / r, 4) if r > 0 else None, "ref": ref}
+
+
 def wpo_inflate_cm(params: dict) -> float:
     """The largest push a garment material's inflate parameters make (cm): FM_Inflate + FM_Neck + FM_Patch, as
     mh.cloth_inflate and the round-4 neck patch named them."""
@@ -273,6 +287,18 @@ def look(m: dict, subject: str = "", *, ramps: dict | None = None, wpo_max_cm: f
                                 "collar) and clear the neck with the head hidden-face-map shrink (neck_backstop), "
                                 "never with collar ease", subject=subject, value=col["gap_cm"],
                                 expected=COLLAR_GAP_CM))
+    hem = m.get("hem") or {}
+    if hem.get("frames"):
+        terms["hem_flare"] = {"value": hem["ratio"], "score": None, "weight": 0.0, "cloth": 1.08,
+                              "armor": HEM_FLARE_RATIO, "ease_cm": hem.get("ease_cm"), "ref": hem.get("ref")}
+        if hem["ratio"] is not None and hem["ratio"] > HEM_FLARE_RATIO:
+            hard = True
+            issues.append(issue("garment.hem_flare", "fail",
+                                f"{subject}: the hem stands off like a skirt: radius {hem['ratio']}x the "
+                                f"{hem.get('ref')}'s at the same height ({hem.get('ease_cm')} cm), limit "
+                                f"{HEM_FLARE_RATIO}", "less hem ease, pushed level (garment-fit --ease hem 1.5-2.0 "
+                                "--straight-regions hem); the waistband under it needs the trousers inside",
+                                subject=subject, value=hem["ratio"], expected=HEM_FLARE_RATIO))
     verdict = "armor" if hard or (index is not None and index >= fail_at) else \
         "borderline" if index is not None and index >= warn_at else "cloth"
     if verdict == "armor" and not hard:

@@ -352,6 +352,27 @@ def _collar(a, parts, gv, body: str = "Body") -> dict:
     return _look.collar_stats(axial, radial, gap)
 
 
+def _hem(parts, gv, rc, body: str = "Body") -> dict:
+    """fmbridge.qa.garment_look.hem_stats at this pose: radii from the vertical axis through the pelvis of the
+    garment's verts in its lowest 3 cm, and of the uncut reference body's (rc) verts in that band (else the
+    Trousers')."""
+    b = parts.get(body) or parts.get("Body")
+    if b is None or not gv:
+        return {"n": 0}
+    c = b.get_socket_location("pelvis")
+    zlo = min(p.z for p in gv)
+
+    def radii(vs):
+        return [((p.x - c.x) ** 2 + (p.y - c.y) ** 2) ** 0.5 for p in vs if zlo <= p.z <= zlo + 3.0]
+
+    ref, name = None, "body"
+    if rc is not None:
+        ref = radii(_verts(_posed(rc)))
+    if not ref and "Trousers" in parts:
+        ref, name = radii(_verts(_posed(parts["Trousers"]))), "trousers"
+    return _look.hem_stats(radii(gv), ref or [], name)
+
+
 def _wpo_params(comp) -> dict:
     """The inflate parameters on the component's material instances (largest per name)."""
     out = {}
@@ -372,7 +393,8 @@ def _wpo_params(comp) -> dict:
 @op("qa.garment_look", mutates=False, idempotent=True, tags=["gpu", "slow", "metahuman", "experimental"])
 def garment_look(*, label: str, garment: str = "", ref_body: str = "", sequence: str = "", frames: list | None = None,
                  motion_from: int | None = None, motion_frames: int = 0, width_px: int = 480, samples: int = 1500,
-                 body: str = "Body", out_dir: str = "", ramps: dict | None = None, collar: bool = True):
+                 body: str = "Body", out_dir: str = "", ramps: dict | None = None, collar: bool = True,
+                 hem: bool = True):
     """Does the garment read as cloth or as ARMOR (fmbridge.qa.garment_look: the armor index)?
 
     Measured: `ease` (each sampled garment vertex's distance to the UNCUT reference body, posed: its spread and
@@ -387,7 +409,8 @@ def garment_look(*, label: str, garment: str = "", ref_body: str = "", sequence:
     _look_normal.png per frame (the garment's normals) on the box.
     With `collar` (default), per frame the COLLAR band round the neck (fmbridge.qa.garment_look.collar_stats): its
     gap to the skin and its radial spread; FAIL (hard) over 0.8 cm gap or any rolled frame (round 5: Fit5's collar
-    floated like a cowl while every other number passed).
+    floated like a cowl while every other number passed). With `hem` (default), the hem's flare: its radius from the
+    pelvis axis in its lowest 3 cm vs the uncut body's (else the trousers') in that band; FAIL over 1.15.
     Returns: {"pass", "verdict": cloth|borderline|armor, "index", "terms", "issues", "missing", "metrics"}.
     Example: film-ue op qa.garment_look label=Host ref_body=/Game/Host/Unpacked/Host/Body/SKM_Host_BodyMesh sequence=/Game/Reel/SEQ_Reel 'frames=[1082,1150]' motion_from=1140 motion_frames=12
     """
@@ -432,6 +455,9 @@ def garment_look(*, label: str, garment: str = "", ref_body: str = "", sequence:
             yield
             if collar:
                 fr["collar"] = _collar(a, parts, gv, body)
+                yield
+            if hem:
+                fr["hem"] = _hem(parts, gv, rc, body)
                 yield
             if rc is not None:
                 bs = _Surface(_posed(rc))
@@ -500,6 +526,10 @@ def garment_look(*, label: str, garment: str = "", ref_body: str = "", sequence:
     if cols:
         m["collar"] = {"frames": len(cols), "gap_cm": max(c["gap_cm"] for c in cols),
                        "spread_cm": max(c["spread_cm"] for c in cols), "roll_frames": sum(1 for c in cols if c["roll"])}
+    hems = [v["hem"] for v in vals if v.get("hem", {}).get("n") and v["hem"].get("ratio")]
+    if hems:
+        w = max(hems, key=lambda h: h["ratio"])
+        m["hem"] = {"frames": len(hems), "ratio": w["ratio"], "ease_cm": w["ease_cm"], "ref": w["ref"]}
     if isinstance(m.get("motion"), dict):
         m["motion"] = m["motion"].get("ratio")
         if m["motion"] is None:

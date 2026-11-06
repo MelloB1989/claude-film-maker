@@ -218,3 +218,13 @@ def test_look_fails_a_floating_collar_hard():
     bad = GL.look({**base, "collar": {"frames": 3, "gap_cm": 1.9, "spread_cm": 1.7, "roll_frames": 3}}, "Host tee")
     assert not bad["pass"] and bad["verdict"] == "armor" and bad["issues"][0]["code"] == "garment.collar"
     assert "--keep-regions collar" in bad["issues"][0]["fix"]
+
+
+def test_hem_flare():
+    st = GL.hem_stats([19.4] * 40, [16.0] * 40)
+    assert st["ratio"] == pytest.approx(1.2125) and st["ease_cm"] == 3.4
+    assert GL.hem_stats([], [16.0])["n"] == 0
+    base = {"detail": 0.11, "wpo": {}, "thickness_cm": 0.15}
+    bad = GL.look({**base, "hem": {"frames": 2, "ratio": 1.21, "ease_cm": 3.4, "ref": "body"}})
+    assert not bad["pass"] and any(i["code"] == "garment.hem_flare" for i in bad["issues"])
+    assert GL.look({**base, "hem": {"frames": 2, "ratio": 1.11, "ease_cm": 1.8, "ref": "body"}})["pass"]
