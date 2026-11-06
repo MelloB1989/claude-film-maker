@@ -100,10 +100,23 @@ on the diag sheet: the Face>tee blob is the orange patch left of his neckline, T
 1 cm (projected at the rim's depth) below the tee's front collar rim. The rim, per image column, is the tee's
 front-surface top edge: a tee pixel whose pixel above has no tee, or tee more than 4 cm further (its inside back), with
 his face present and nearer than the tee there; a column without one takes the nearest rim column's within 24 px.
-The thin band of his neck correctly in front of the collar's inner lip sits inside that 1 cm; the patch does not.
-Gate (agent-09): neck_px.px == 0 per frame. The 3D vertex check (`neck`) is info only: it modelled an offset that was
-never drawn. Before4 -> AFTER (inflate dead): S13 169 -> 172, S15 709 -> 649, S17 91 -> 93, S18 39 -> 34 px.
-Body>tee, Body>Trousers, Trousers>tee <= 0.001 per frame (AFTER: 7e-05, 0, 0).
+Of those, a pixel within 5 px at 960 wide (3 at the 480 captures) of the OPENING (his face with no tee in front, or
+the tee's inside more than BAND behind) is his neck at the collar's edge: `at_opening`, not counted (the
+orchestrator's ruling on clip_host_fix.jpg: the residual hugging the collar the neckline term moved out is no clip).
+Gate (agent-09, item e): neck_px.px == 0 per frame. The 3D vertex check (`neck`) is info only: it modelled an offset
+that was never drawn.
+
+**Numbers (worst per shot, neck_px.px with the final rule):**
+
+| | S13 | S15 | S17 | S18 |
+|---|---|---|---|---|
+| before4 (cast_op4 state) | 24 | 355 | 10 | 3 |
+| fix (08:21 UTC, ClothOp3 inflate) | 0 | 0 | 0 | 0 |
+
+Face>tee fraction 0.032 -> 0.0049 (the rest is the collar strip); Trousers>tee 0.0067 -> 0; Body>tee 0 -> 0.00012
+(<= 0.001); Body>Trousers 0. The orchestrator on the after sheets: hip two-tone fixed, neck patch gone, the tee does
+not read bulky (the collar sits a little higher and fuller). Her (Presenter_after vs before, per shot and pair): all
+within +0.01 (most fell), watch and collar per agent-09's gate.
 
 **Her:** her pass reads high (Body>Top 0.10-0.19, Top>Overshirt 0.03-0.19) from her scoop neckline and the open
 overshirt (qa.penetration read 0.34 there): her check is before vs after unchanged, with the watch and collar as
