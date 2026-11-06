@@ -111,14 +111,15 @@ def _pearson(a: list, b: list) -> float:
     return sab / math.sqrt(saa * sbb)
 
 
-def xcorr(audio: list, mouth: list, rate: float, max_lag_s: float = 1.0) -> dict:
-    """Normalised cross-correlation of two equally sampled signals over lags of +-max_lag_s. The lag is the shift
-    of the mouth against the audio at the best correlation: mouth(t + lag) ~ audio(t), so lag < 0 = the mouth
-    moves EARLY. Sub-sample by a parabola through the peak. {"lag_s", "corr", "curve": [(lag_s, r)]}."""
+def xcorr(audio: list, mouth: list, rate: float, max_lag_s: float = 1.0, center_s: float = 0.0) -> dict:
+    """Normalised cross-correlation of two equally sampled signals over lags of center_s +- max_lag_s. The lag is
+    the shift of the mouth against the audio at the best correlation: mouth(t + lag) ~ audio(t), so lag < 0 = the
+    mouth moves EARLY. Sub-sample by a parabola through the peak. {"lag_s", "corr", "curve": [(lag_s, r)]}."""
     n = len(audio)
     k = int(round(max_lag_s * rate))
+    c = int(round(center_s * rate))
     curve = []
-    for d in range(-k, k + 1):
+    for d in range(c - k, c + k + 1):
         if d >= 0:
             a, b = audio[:n - d], mouth[d:]
         else:
@@ -248,6 +249,8 @@ def check(env, curves: dict, lines: list, fps: float = 24.0, limits: dict | None
     mouth_raw = aperture(curves, times)
     aud = bandpass(aud_raw, rate)
     mth = bandpass(mouth_raw, rate)
+    slow_a = bandpass(aud_raw, rate, 0.25, 2.5)
+    slow_m = bandpass(mouth_raw, rate, 0.25, 2.5)
     frame = 1.0 / fps
     spans = vad(env.values, env.rate, env.offset_s)
 
@@ -261,7 +264,11 @@ def check(env, curves: dict, lines: list, fps: float = 24.0, limits: dict | None
     for ln in lines:
         lid, t0, t1 = ln["id"], float(ln["t0"]), float(ln["t1"])
         i0, i1 = window(t0 - max_lag_s, t1 + max_lag_s)
-        x = xcorr(aud[i0:i1], mth[i0:i1], rate, max_lag_s)
+        # two stages: the words' envelope (0.25-2.5 Hz) finds the lag over +-max_lag_s without locking onto a
+        # neighbouring syllable (round-5 P1: real solves read r 0.4-0.5 in the syllable band, and its peak jumped
+        # 5-11 frames); the syllable band then refines it within +-0.15 s of that
+        xc = xcorr(slow_a[i0:i1], slow_m[i0:i1], rate, max_lag_s)
+        x = xcorr(aud[i0:i1], mth[i0:i1], rate, 0.15, center_s=xc["lag_s"])
         lag = x["lag_s"] - expected_lag_s
         # the mouth's own onset: first rise above the rest by a quarter of the line's opening
         j0, j1 = window(t0 - max_lag_s, t1)
@@ -278,6 +285,7 @@ def check(env, curves: dict, lines: list, fps: float = 24.0, limits: dict | None
         speed_on.extend(abs(v) for v in d)
         rec = {"t0": round(t0, 3), "t1": round(t1, 3), "lag_s": round(lag, 4), "lag_frames": round(lag / frame, 2),
                "raw_lag_s": round(x["lag_s"], 4), "corr": round(x["corr"], 3),
+               "coarse_lag_frames": round(xc["lag_s"] / frame, 2), "coarse_corr": round(xc["corr"], 3),
                "onset_lead_s": round(lead, 3) if lead is not None else None,
                "open_range": round(peak - rest_v, 3)}
         fails = []

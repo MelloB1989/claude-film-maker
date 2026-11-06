@@ -441,3 +441,52 @@ def test_one_wav_split_into_two_lines_at_its_pause(tmp_path):
     assert abs(a["voice_frame"] - 1157.0) < 2.5 and a["end_frame"] < b["voice_frame"]
     assert abs(b["voice_frame"] - (1157.0 + 1.4 * fps)) < 3
     assert [w["w"] for w in a["words"]] == ["Nice", "try."] and a["mood"] == "HAPPINESS"
+
+
+def test_a_regular_syllable_rate_does_not_alias_the_lag():
+    """Evenly spaced syllables (a 4 Hz chant): the syllable band alone peaks at every 0.25 s; the words' envelope
+    pins the right one."""
+    lines = [(2.5, 4.0), (6.0, 6.8)]
+    rate = 100.0
+    vals = []
+    for i in range(int(10 * rate)):
+        t = i / rate
+        on = any(a <= t <= b for a, b in lines)
+        vals.append(max(0.0, math.sin(2 * math.pi * 4.0 * t)) if on else 0.0)
+    env = AU.Envelope(vals, rate)
+    for shift in (-0.25, -0.5, 0.25):
+        m = mouth_from(env, shift)
+        r = LS.check(env, m, [{"id": "a", "t0": 2.5, "t1": 4.0}, {"id": "b", "t0": 6.0, "t1": 6.8}], fps=FPS)
+        for v in r["lines"].values():
+            assert abs(v["lag_frames"] - shift * FPS) < 1.0, (shift, v)
+
+
+def test_the_take_the_mix_holds_wins_over_a_stale_line_wav(tmp_path):
+    """Round 5: the line WAVs on hand were not the ones mixed; the mix's line is one of the raw takes, trimmed and
+    levelled by vo.py build. cues finds it, places it where the mix has it, and hands it on as the WAV to solve."""
+    from filmtools.unreal import cli_lipsync as CL
+    sr, fps = 48000, 24.0
+    rnd = np.random.default_rng(11)
+    (tmp_path / "vo").mkdir()
+    sf.write(tmp_path / "vo" / "L1.wav", (0.3 * rnd.normal(0, 1, sr)).astype(np.float32), sr, subtype="PCM_24")
+    (tmp_path / "takes" / "L1").mkdir(parents=True)
+    takes = {}
+    for i in range(3):
+        raw = np.concatenate([np.zeros(int(0.4 * sr), np.float32), _speech(sr, 1.0, 20 + i),
+                              np.zeros(int(0.5 * sr), np.float32)]) + rnd.normal(0, 1e-4, int(1.9 * sr)).astype(np.float32)
+        takes[i] = raw
+        sf.write(tmp_path / "takes" / "L1" / f"tarun-{i + 1}.wav", raw, sr, subtype="PCM_24")
+    y, a = CL.prepare_take(takes[1], sr)
+    assert 0.3 < a < 0.4
+    mix = tmp_path / "mix.wav"
+    sf.write(mix, _place(sr, 50.0, [(1021.0 / fps, 0.7 * y)], music=0.05), sr)
+    lines = {"lines": {"L1": {"who": "him", "text": "Took you long enough.", "wav": "L1.wav", "file_frame": 1018.8,
+                              "voice_frame": 1020, "slot_end": 1065, "take": "tarun-4"}}}
+    doc = CL.cues_from_mix(lines, tmp_path / "vo", mix, tmp_path / "stems", None, fps, "none", tmp_path / "takes")
+    assert not [i for i in doc["issues"] if i["severity"] == "fail"], doc["issues"]
+    l1 = doc["lines"]["L1"]
+    assert l1["take"] == "tarun-2" and abs(l1["file_frame"] - 1021.0) < 0.05 and l1["mix_score"] > 0.5
+    assert l1["candidates"]["line"] < 0.2
+    assert doc["line_dir"].endswith("stems/lines") and (tmp_path / "stems" / "lines" / "L1.wav").exists()
+    none = CL.cues_from_mix(lines, tmp_path / "vo", mix, tmp_path / "s2", None, fps, "none")  # no takes: fails
+    assert [i["code"] for i in none["issues"] if i["severity"] == "fail"] == ["not_in_mix"]
