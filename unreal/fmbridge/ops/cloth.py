@@ -309,27 +309,61 @@ def _preset(name: str, overrides=None) -> dict:
                       hint="cloth.presets lists the presets, their zones and config keys") from None
 
 
+# Config keys Python cannot write on the asset in 5.8.4: FChaosClothWeightedValue and EClothMassMode have no Python
+# type (round 5: "Cannot nativize float as StructBase" on drag). The weighted ones go through the per-cloth
+# UChaosClothingInteractor at runtime (ChaosClothingSimulationInteractor.h:41-84); mass_mode stays the engine's
+# default, Density.
+INTERACTOR_KEYS = ("edge_stiffness_weighted", "bending_stiffness_weighted", "area_stiffness_weighted",
+                   "tether_stiffness", "tether_scale", "anim_drive_stiffness", "drag", "lift", "mass_mode")
+
+
+def apply_interactor(comp, cloth_name: str, config: dict) -> dict:
+    """The weighted config values a preset sets, through the component's Chaos clothing interactor (runtime: they
+    live on the simulation, not the asset, so cloth.settings re-applies them after a respawn). Returns what it set or
+    {"error": ...}."""
+    it = _call(comp, "get_clothing_simulation_interactor")
+    ci = _call(it, "get_clothing_interactor", cloth_name) if it is not None else None
+    if ci is None:
+        return {"error": f"no clothing interactor for {cloth_name} (is the cloth simulating? cloth.describe)"}
+    c = config
+    out = {}
+    try:
+        ci.set_material_linear(float(c["edge_stiffness_weighted"]), float(c["bending_stiffness_weighted"]),
+                               float(c["area_stiffness_weighted"]))
+        out["material"] = [c["edge_stiffness_weighted"], c["bending_stiffness_weighted"], c["area_stiffness_weighted"]]
+        ci.set_long_range_attachment_linear(float(c["tether_stiffness"]), float(c["tether_scale"]))
+        out["long_range_attachment"] = [c["tether_stiffness"], c["tether_scale"]]
+        ci.set_anim_drive_linear(float(c["anim_drive_stiffness"]))
+        out["anim_drive"] = c["anim_drive_stiffness"]
+        ci.set_aerodynamics(float(c["drag"]), float(c["lift"]), unreal.Vector(0, 0, 0))
+        out["aerodynamics"] = [c["drag"], c["lift"]]
+    except Exception as e:  # noqa: BLE001 - report it with what did get set
+        out["error"] = f"{type(e).__name__}: {e}"
+    return out
+
+
 def write_config(asset, config: dict) -> dict:
     """Write a preset's config onto the clothing asset's config objects (cloth_configs: Chaos + shared); a number
     for a weighted value sets low = high. Returns {"set": {key: value read back}, "missing": [keys no config has]}."""
     cfgs = list((_get(asset, "cloth_configs", {}) or {}).values())
     done, missing = {}, []
     for k, v in config.items():
+        if k in INTERACTOR_KEYS:
+            continue
         target = next((c for c in cfgs if _get(c, k) is not None), None)
         if target is None:
             missing.append(k)
             continue
         cur = _get(target, k)
-        if hasattr(cur, "low") and hasattr(cur, "high") and isinstance(v, (int, float)):
-            val = unreal.ChaosClothWeightedValue(low=float(v), high=float(v))
-        elif isinstance(v, list) and len(v) == 3:
+        if isinstance(v, list) and len(v) == 3:
             val = type(cur)(*[float(x) for x in v]) if cur is not None else unreal.Vector(*v)
-        elif isinstance(v, str) and k == "mass_mode":
-            val = getattr(unreal.ClothMassMode, v)
         else:
             val = v
-        target.set_editor_property(k, val)
-        done[k] = _plain(_get(target, k))
+        try:
+            target.set_editor_property(k, val)
+            done[k] = _plain(_get(target, k))
+        except Exception as e:  # noqa: BLE001 - one refused key must not stop the rest
+            missing.append(f"{k}: {type(e).__name__}: {e}")
     return {"set": done, "missing": missing}
 
 
@@ -400,6 +434,7 @@ def setup(*, label: str, component: str, preset: str, overrides: dict | None = N
     cfg = write_config(cloth, p["config"])
     settings_done = _apply_component(garment(label, component))
     _call(garment(label, component), "recreate_clothing_actors")
+    cfg["interactor"] = apply_interactor(garment(label, component), cloth.get_name(), p["config"])
     EAL.set_metadata_tag(mesh, "FMClothPreset", preset)   # qa.cloth reads it
     if save:
         EAL.save_loaded_asset(mesh)
@@ -466,7 +501,16 @@ def settings(*, label: str, component: str = "") -> dict:
     """
     comps = {component: garment(label, component)} if component else \
         {n: c for n, c in _components(label).items() if n not in SKIP}
-    out = {n: _apply_component(c) for n, c in comps.items() if clothing_assets(c.get_skeletal_mesh_asset())}
+    out = {}
+    for n, c in comps.items():
+        mesh = c.get_skeletal_mesh_asset()
+        assets = clothing_assets(mesh)
+        if not assets:
+            continue
+        out[n] = _apply_component(c)
+        tag = EAL.get_metadata_tag(mesh, "FMClothPreset")
+        if tag:   # the weighted values live on the simulation, not the asset: a respawn loses them
+            out[n]["interactor"] = apply_interactor(c, assets[0].get_name(), _presets.get(tag)["config"])
     return {"changed": bool(out), "garments": out}
 
 

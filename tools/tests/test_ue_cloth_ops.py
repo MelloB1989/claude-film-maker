@@ -73,11 +73,16 @@ def test_setup_paints_configures_and_converges(ue, host):
     assert r["maps"]["torso"]["max_cm"] == pytest.approx(3.0) and r["readback_max_cm"] == pytest.approx(3.0)
     assert r["config"]["missing"] == []
     assert r["config"]["set"]["density"] == 0.15
-    assert r["config"]["set"]["bending_stiffness_weighted"] == {"low": 0.08, "high": 0.08}
+    assert "bending_stiffness_weighted" not in r["config"]["set"]          # no Python type for weighted values:
+    assert r["config"]["interactor"]["material"] == [1.0, 0.08, 1.0]      # set through the clothing interactor
+    assert ue.called("ChaosClothingInteractor.set_material_linear")[-1][0] == (1.0, 0.08, 1.0)
+    assert r["config"]["interactor"]["aerodynamics"] == [0.035, 0.035] and "error" not in r["config"]["interactor"]
     assert r["config"]["set"]["iteration_count"] == 2
     assert r["settings"]["teleport_distance_threshold"] == 50.0 and r["settings"]["reset_after_teleport"] is True
     run_op("cloth.setup", label="Host", component="Tee", preset="cotton_tee")
     assert len(ue.called("FMCloth.create")) == 1                       # converged: one clothing asset
+    st = run_op("cloth.settings", label="Host")                          # a respawn: the interactor values again
+    assert st["garments"]["Tee"]["interactor"]["material"] == [1.0, 0.08, 1.0]
     mesh = ue.assets["/Game/H/SKM_Tee"]
     assert len(mesh._props["mesh_clothing_assets"]) == 1
     assert ue.EditorAssetLibrary.get_metadata_tag(mesh, "FMClothPreset") == "cotton_tee"
