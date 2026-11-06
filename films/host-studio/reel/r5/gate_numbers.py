@@ -128,6 +128,7 @@ def hair(check: str, yaml_path: str, qa_paths: list) -> dict:
         bad = [f"{k}={have.get(k)!r} (want {v})" for k, v in want.items()
                if k not in have or float(have[k]) != float(v)]
         g["hair.render_cvars"] = {"value": int(not bad), "where": Path(yaml_path).name, "mismatch": bad}
+    judged, popped = [], []  # every cut each result judged, so the gate output shows them (the orchestrator's check)
     for p in qa_paths:
         d = json.loads(_read(p) or "null")
         if d is None:
@@ -136,6 +137,12 @@ def hair(check: str, yaml_path: str, qa_paths: list) -> dict:
             continue
         if isinstance(d.get("result"), dict):  # film-ue op's {"ok", "result": {...}}
             d = d["result"]
+        src = "editor" if "characters" in d else "render"
+        rows = [c for r in (d.get("characters") or {"": d}).values() for c in (r.get("cuts") or [])
+                if isinstance(c, dict) and "from" in c]
+        judged += [f"{src} {c['from']}->{c['to']} f{c.get('frame')} {c['reach'][2] * 100:+.2f}%" for c in rows]
+        popped += [f"{c['from']}->{c['to']} f{c.get('cut')} x{c['ratio']}" if "ratio" in c else
+                   f"{c['from']}->{c['to']} missing {c.get('missing')}" for c in d.get("cut_pops") or []]
         for k, v in (d.get("gate") or {}).items():
             # several results (render-side film-qa hair, the editor's qa.hair_continuity): a measured number beats
             # an error (the render matte saturates at night: hair.matte_saturated), and the worst number wins
@@ -145,7 +152,36 @@ def hair(check: str, yaml_path: str, qa_paths: list) -> dict:
             bad_old = old is None or ov is None or (isinstance(old, dict) and bool(old.get("error")))
             if old is None or (bad_old and not bad_new) or (not bad_old and not bad_new and vv > ov):
                 g[k] = v
+    for k, extra in (("hair.cut_reach_pct", {"cuts_judged": judged}), ("hair.cut_pop_ratio", {"pop_cuts": popped})):
+        if k in g and qa_paths:
+            g[k] = {**(g[k] if isinstance(g[k], dict) else {"value": g[k]}), **extra}
     return g
+
+
+def settle(frames: str, spec: str, shot: str, first: int = 4, rest: int = 12, line: float = 1.8) -> dict:
+    """The hair settle at a shot's start, on rendered frames (the editor's qa.hair_continuity has no warm-up, so its
+    pops at a shot's first frames may be the editor's own): head-box frame differences (qa/hair.py box_diff, no
+    matte: the night matte saturates) of the first `first` frame pairs over the median of the next `rest` pairs.
+    A settling hair simulation moves several times more than the shot's own motion; the render's warm-up (32 render
+    + 22 engine frames in r3/30-final) should remove it."""
+    from filmtools.unreal import qa_local
+    qa_local.qa()
+    im, h = sys.modules["fmqa.image"], sys.modules["fmqa.hair"]
+    sp = json.loads(Path(spec).read_text())
+    box = (sp.get("boxes") or {}).get(shot)
+    a0 = next((c[1] for c in sp.get("cuts") or [] if c[0] == shot), None)
+    if not box or a0 is None:
+        return {"error": f"no box/cut for {shot} in {spec}"}
+    have = _frames(frames)
+    need = range(a0, a0 + first + rest + 1)
+    if any(f not in have for f in need):
+        return {"error": f"frames missing in {frames}: {[f for f in need if f not in have][:8]}"}
+    imgs = {f: im.read(have[f]) for f in need}
+    d = [round(h.box_diff(imgs[f], imgs[f + 1], box), 3) for f in range(a0, a0 + first + rest)]
+    base = sorted(d[first:])[len(d[first:]) // 2]
+    ratio = round(max(d[:first]) / max(base, 0.5), 3)
+    return {"shot": shot, "box": box, "diffs": d, "start_max": max(d[:first]), "median_after": base,
+            "ratio": ratio, "line": line, "pass": ratio <= line}
 
 
 def main(argv=None) -> int:
@@ -166,7 +202,18 @@ def main(argv=None) -> int:
     h.add_argument("--yaml", required=True, help="the finals' render spec")
     h.add_argument("--qa", action="append", default=[], help="film-qa hair --out json (repeatable)")
     h.add_argument("--out", required=True)
+    st = sub.add_parser("settle", help="the hair settle at a shot's first frames, on the rendered frames")
+    st.add_argument("--frames", required=True)
+    st.add_argument("--spec", required=True, help="hair_spec.py's json (its boxes and cuts)")
+    st.add_argument("--shot", default="S15")
+    st.add_argument("--out", required=True)
     a = ap.parse_args(argv)
+    if a.cmd == "settle":
+        r = settle(a.frames, a.spec, a.shot)
+        Path(a.out).parent.mkdir(parents=True, exist_ok=True)
+        Path(a.out).write_text(json.dumps(r, indent=1))
+        print(json.dumps(r, indent=1))
+        return 0 if r.get("pass") else 1
     if a.cmd == "shot":
         g = shot_cams(a.probe, a.framing)
     elif a.cmd == "ssim":
