@@ -199,10 +199,12 @@ def hair(check: str, yaml_path: str, qa_paths: list, pop_paths: list | None = No
 def settle(frames: str, spec: str, shot: str, first: int = 4, rest: int = 12, line: float = 1.8,
            box: list | None = None) -> dict:
     """Head + hair motion at a shot's start, on rendered frames: head-box frame differences (qa/hair.py box_diff, no
-    matte) of the first `first` frame pairs over the median of the next `rest` pairs. It catches a hair simulation
-    settling AND a head snapping into its pose at the cut (round 5b: her S15 head swung ~30-40 deg in f1080-1084).
-    A DIAGNOSTIC, not a gate line: shot starts may move by design (S16 reads 2.8), so compare with round 4's frames
-    (the same command on final_d). `box`: frame fractions, else the spec's box for the shot (hair_spec.py builds the
+    matte) of the first `first` frame pairs over the median of the next `rest` pairs. Anything that moves or changes
+    in the box at the start reads: a hair simulation settling, a head snapping into its pose, but also a render job's
+    own start (exposure adaptation, temporal history) and planned motion. A DIAGNOSTIC, not a gate line: round 5b's
+    S15 read 12.3 with round 4's final_d reading the same shape (13.8), while the eye saw her head snap only in round
+    5, so the number did not separate them on a large box. Compare with round 4 (the same command on final_d), on a
+    TIGHT box around the head. `box`: frame fractions, else the spec's box for the shot (hair_spec.py builds the
     FIRST shot's box from its END frames: pass --box from a projection at the shot's start when the head moves)."""
     from filmtools.unreal import qa_local
     qa_local.qa()
