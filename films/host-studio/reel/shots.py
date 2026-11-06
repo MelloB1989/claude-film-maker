@@ -21,10 +21,10 @@ SIGN = (WALL + 4, SLAT_Y, 228.0)  # the sign's centre: 120 cm across, ~36 cm tal
 MARK_HIM, MARK_HER = (30.0, 40.0, 0.0), (-50.0, -55.0, 0.0)
 # him (round 3): the operator's MetaHuman (Host_Op, 180 cm), measured by agent-04 on the built body on his mark: eyes
 # 168.7, knee 49.4 (the calf joint); the top of the head ~180.5 is an estimate (the buzz cut)
-EYES_HIM, EYES_HER = 166.5, 158.0
+EYES_HIM, EYES_HER = 168.8, 158.0
 # Standing height (bodies.py's Height, the top of the head) and the knee's centre, cm: framing.py checks that every
 # presenter shot cuts above the knee and keeps the head. The knee is ~0.28 of the height until the bodies are measured.
-TOP_HIM, TOP_HER = 180.7, 168.0
+TOP_HIM, TOP_HER = 181.7, 168.0
 KNEE_HIM, KNEE_HER = 49.2, TOP_HER * 0.28
 # His shots were framed (v2) for eyes at 174 cm; they follow his eyes up or down (lifted()) for another body.
 EYES_HIM_V2 = 174.0
