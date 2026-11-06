@@ -640,3 +640,43 @@ def test_render_gate_against_the_solve_passes_in_place_and_fails_round4(lips):
     assert all(v["against"] == "solve" and abs(v["lag_frames"]) <= 1 and v["sensitive"] for v in ok["lines"].values())
     bad = CL.render_check(stem, stem, doc, "him", box=box, frames_override=frames(-14), reference=ref)
     assert bad["verdict"] == "fail" and all(i["code"] == "render_lag" for i in bad["issues"])
+
+
+def test_render_box_search_finds_a_mouth_the_projected_box_misses(lips):
+    """r5: her projected boxes were off and read inconclusive; the search tries scales x offsets around them."""
+    CL, stem, lines, fps, tmp = lips
+    doc = CL.build_cues(lines, {"him": stem}, fps, words="none")
+    x, sr = sf.read(stem, dtype="float32")
+    env = CL.envelope(x, sr)
+    frames = {}
+    for k, c in doc["lines"].items():
+        f0 = int(math.floor(c["voice_frame"] - fps))
+        f1 = int(math.ceil(c["end_frame"] + fps))
+        frames[k] = _frames_for(env, f0, f1 - f0, fps)  # the mouth sits at the frame's centre
+    off = [0.7, 0.2, 0.97, 0.8]  # projected too far right: misses the mouth (x 0.375-0.625)
+    plain = CL.render_check(stem, stem, doc, "him", box=off, frames_override=frames, search=False)
+    found = CL.render_check(stem, stem, doc, "him", box=off, frames_override=frames)
+    assert found["verdict"] == "pass", found
+    assert all(v["box_transform"]["dx"] < 0 for v in found["lines"].values())
+    assert plain["verdict"] != "pass"
+
+
+def test_render_a_mouth_that_talks_but_not_its_solve_is_a_fail_not_inconclusive(lips):
+    """r5 on round 4's cut: her L3b/L4b mouth (solved from v1-script words) moved on the lines but nothing in the v2
+    solve lines up with it, so the control could not move the lag. A crop that plainly sees a talking mouth makes
+    that a FAIL (render_mismatch), not inconclusive."""
+    CL, stem, lines, fps, tmp = lips
+    doc = CL.build_cues(lines, {"him": stem}, fps, words="none")
+    x, sr = sf.read(stem, dtype="float32")
+    env = CL.envelope(x, sr)
+    frames = {}
+    for k, c in doc["lines"].items():
+        f0 = int(math.floor(c["voice_frame"] - fps))
+        f1 = int(math.ceil(c["end_frame"] + fps))
+        frames[k] = _frames_for(env, f0, f1 - f0, fps)  # the mouth talks on the line
+    ts = [40.0 + i / 30 for i in range(30 * 10)]
+    silent_solve = {JAW: (ts, [0.0] * len(ts))}  # the solve the face should play does nothing here
+    r = CL.render_check(stem, stem, doc, "him", box=[0.3, 0.2, 0.7, 0.8], frames_override=frames, search=False,
+                        reference=silent_solve)
+    assert r["verdict"] == "fail" and {i["code"] for i in r["issues"]} == {"render_mismatch"}
+    assert all(v["activity_ratio"] >= 1.5 for v in r["lines"].values())
