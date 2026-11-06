@@ -1,0 +1,66 @@
+"""gate_numbers.py on synthetic inputs (no box): every item is a number or an error, never silently missing."""
+import json
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import gate_numbers as GN  # noqa: E402
+
+PROBE_OK = "\n".join(f"{s} OK" for s in GN.SHOTS_13)
+
+
+def test_shot_cams_all_ok(tmp_path):
+    (tmp_path / "p.txt").write_text(PROBE_OK)
+    (tmp_path / "f.txt").write_text("S13 MCU fine\n")
+    g = GN.shot_cams(str(tmp_path / "p.txt"), str(tmp_path / "f.txt"))
+    assert g["shot.cameras_ok"]["value"] == 1
+
+
+def test_shot_cams_problem_and_missing(tmp_path):
+    (tmp_path / "p.txt").write_text(PROBE_OK.replace("S15 OK", "S15 OFF 2.1 cm"))
+    (tmp_path / "f.txt").write_text("PROBLEM S17 head cut\n")
+    g = GN.shot_cams(str(tmp_path / "p.txt"), str(tmp_path / "f.txt"))
+    assert g["shot.cameras_ok"]["value"] == 0 and len(g["shot.cameras_ok"]["failed"]) == 2
+    assert GN.shot_cams(str(tmp_path / "none.txt"), str(tmp_path / "f.txt"))["shot.cameras_ok"]["error"]
+
+
+def test_hair_lock_cvars_and_qa(tmp_path):
+    chk = {"check": {"pass": True, "problems": []}, "render_cvars": {"r.HairStrands.LODMode": 0}}
+    chk["check"]["render_cvars"] = {"r.HairStrands.LODMode": 0, "r.HairStrands.AutoLOD.Bias": 1.0,
+                                    "r.HairStrands.UseCardsInsteadOfStrands": 0}
+    (tmp_path / "c.json").write_text(json.dumps(chk))
+    (tmp_path / "ok.yaml").write_text('cvars: {"r.SSS.Quality": 1, "r.HairStrands.LODMode": 0, '
+                                      '"r.HairStrands.AutoLOD.Bias": 1.0, "r.HairStrands.UseCardsInsteadOfStrands": 0}\n')
+    (tmp_path / "bad.yaml").write_text('cvars: {"r.SSS.Quality": 1}\n')
+    (tmp_path / "q1.json").write_text(json.dumps({"gate": {"hair.cut_reach_pct": 1.0, "hair.cut_pop_ratio": 1.2}}))
+    (tmp_path / "q2.json").write_text(json.dumps({"gate": {"hair.cut_reach_pct": 3.0, "hair.cut_pop_ratio": 1.1}}))
+    g = GN.hair(str(tmp_path / "c.json"), str(tmp_path / "ok.yaml"), [str(tmp_path / "q1.json"), str(tmp_path / "q2.json")])
+    assert g["hair.lock"]["value"] == 1 and g["hair.render_cvars"]["value"] == 1
+    assert g["hair.cut_reach_pct"] == 3.0 and g["hair.cut_pop_ratio"] == 1.2  # the worst of the two
+    g = GN.hair(str(tmp_path / "c.json"), str(tmp_path / "bad.yaml"), [str(tmp_path / "missing.json")])
+    assert g["hair.render_cvars"]["value"] == 0 and g["hair.cut_pop_ratio"]["error"]
+
+
+def test_hair_real_final_yaml_carries_lock_cvars(tmp_path):
+    (tmp_path / "c.json").write_text(json.dumps({"pass": False, "problems": ["x"]}))
+    g = GN.hair(str(tmp_path / "c.json"), str(GN.REEL / "r3" / "30-final.yaml"), [])
+    assert g["hair.lock"]["value"] == 0 and g["hair.render_cvars"]["value"] == 1
+
+
+def test_ssim_min_and_unmeasured(tmp_path):
+    from filmtools.unreal import qa_local
+    qa_local.qa()
+    im = sys.modules["fmqa.image"]
+    import numpy as np
+    s16 = next(s for s in GN.SHOTS if s.id == "S16")
+    rng = np.random.default_rng(0)
+    (tmp_path / "r").mkdir(), (tmp_path / "a").mkdir()
+    for k, f in enumerate((s16.start, s16.start + 1)):
+        base = (rng.random((72, 128, 3)) * 255).astype("uint8")
+        im.write(im.Image.from_array(base), str(tmp_path / "r" / f"x.{f:04d}.png"))
+        out = base if k == 0 else (255 - base)
+        im.write(im.Image.from_array(out), str(tmp_path / "a" / f"x.{f:04d}.png"))
+    g = GN.ssim([str(tmp_path / "a")], str(tmp_path / "r"), ["S16"])["shot.render_matches_r4"]
+    assert g["value"] < 0.5 and g["where"] == f"S16 f{s16.start + 1}"
+    g = GN.ssim([str(tmp_path / "a")], str(tmp_path / "r"), ["S16", "S17"])["shot.render_matches_r4"]
+    assert "S17" in g["error"]
