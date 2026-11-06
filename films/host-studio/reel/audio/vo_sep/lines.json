@@ -1,0 +1,76 @@
+{
+ "lines": {
+  "L1": {
+   "who": "him",
+   "text": "Took you long enough.",
+   "mood": "CONFIDENCE",
+   "intensity": 0.7,
+   "slot_end": 1065,
+   "wav": "L1.wav",
+   "file_frame": 1018.56,
+   "voice_frame": 1019.76,
+   "voice_frame_planned": 1020,
+   "f0_hz": 110.2
+  },
+  "L2": {
+   "who": "him",
+   "text": "Ask her what's next.",
+   "mood": "HAPPINESS",
+   "intensity": 0.6,
+   "slot_end": 1133,
+   "wav": "L2.wav",
+   "file_frame": 1093.2,
+   "voice_frame": 1094.4,
+   "voice_frame_planned": 1095,
+   "f0_hz": 121.7
+  },
+  "L3a": {
+   "who": "her",
+   "text": "Nice try.",
+   "mood": "HAPPINESS",
+   "intensity": 0.6,
+   "slot_end": 1185,
+   "wav": "L3a.wav",
+   "file_frame": 1156.32,
+   "voice_frame": 1157.52,
+   "voice_frame_planned": 1158,
+   "f0_hz": 235.2
+  },
+  "L3b": {
+   "who": "her",
+   "text": "Some things you have to see for yourself.",
+   "mood": "CONFIDENCE",
+   "intensity": 0.8,
+   "slot_end": 1290,
+   "wav": "L3b.wav",
+   "file_frame": 1213.68,
+   "voice_frame": 1214.88,
+   "voice_frame_planned": 1215,
+   "f0_hz": 212.5
+  },
+  "L4a": {
+   "who": "him",
+   "text": "What goes around\u2026",
+   "mood": "HAPPINESS",
+   "intensity": 0.6,
+   "slot_end": 1377,
+   "wav": "L4a.wav",
+   "file_frame": 1349.04,
+   "voice_frame": 1350.24,
+   "voice_frame_planned": 1350,
+   "f0_hz": 140.0
+  },
+  "L4b": {
+   "who": "her",
+   "text": "\u2026comes around. That's karma.",
+   "mood": "HAPPINESS",
+   "intensity": 0.8,
+   "slot_end": 1433,
+   "wav": "L4b.wav",
+   "file_frame": 1383.6,
+   "voice_frame": 1384.8,
+   "voice_frame_planned": 1386,
+   "f0_hz": 204.2
+  }
+ }
+}
