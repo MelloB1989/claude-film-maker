@@ -28,6 +28,7 @@ FRAMES = globals().get("FRAMES") or [("Reel_S13", 1078), ("Reel_S15", 1105), ("R
 INFLATE = float(globals().get("INFLATE", 0.2))
 PATCH = globals().get("PATCH") or {}
 FIND_ONLY = bool(globals().get("FIND_ONLY", False))
+CLUSTER = globals().get("CLUSTER", "largest")  # which cluster of pierce points gets the push (index, or the largest)
 MEL = unreal.MaterialEditingLibrary
 EAL = unreal.EditorAssetLibrary
 
@@ -81,7 +82,7 @@ def find(L, ref):
     a0, a1 = body_c.get_socket_location("spine_05"), body_c.get_socket_location("neck_02")
     ax = a1 - a0
     L2 = max(ax.dot(ax), 1e-6)
-    ids, deep, n = set(), 0.0, 0
+    ids, deep, n = {}, 0.0, 0
     for p in _verts(_copy(face_c, True)):
         if p.z > top:
             continue
@@ -108,8 +109,31 @@ def find(L, ref):
         n += 1
         deep = max(deep, sd)
         tri = _pick(MQ.get_triangle_indices(tee, tid), "IntVector")
-        ids.update((tri.x, tri.y, tri.z))
+        for k in (tri.x, tri.y, tri.z):
+            ids[k] = max(ids.get(k, 0.0), sd)
     return ids, deep, n
+
+
+def clusters(ref, ids, link=2.5):
+    """The pierce points (tee vert ids -> depth) in single-link clusters (link cm, reference pose), largest first:
+    [(ids, centre, radius, deepest)]. His neck meets the collar in more than one place; the patch is one of them."""
+    left, out = set(ids), []
+    while left:
+        seed = left.pop()
+        group, stack = [seed], [seed]
+        while stack:
+            i = stack.pop()
+            near = [j for j in left if (ref[i] - ref[j]).length() <= link]
+            for j in near:
+                left.discard(j)
+                group.append(j)
+                stack.append(j)
+        pts = [ref[i] for i in group]
+        c = [sum(p.x for p in pts) / len(pts), sum(p.y for p in pts) / len(pts), sum(p.z for p in pts) / len(pts)]
+        rad = max(((p.x - c[0]) ** 2 + (p.y - c[1]) ** 2 + (p.z - c[2]) ** 2) ** 0.5 for p in pts)
+        out.append((group, c, rad, max(ids[i] for i in group)))
+    out.sort(key=lambda g: -len(g[0]))
+    return out
 
 
 def copy_chain(worn):
@@ -149,20 +173,23 @@ def run():
     asset = L["tee"].get_skeletal_mesh_asset()
     ref = ref_tee(asset)
     rep = {"frames": {}, "ref_verts": len(ref)}
-    ids, deep = set(), 0.0
+    ids, deep = {}, 0.0
     for shot, f in FRAMES:
         yield from _ns["_scrub"](_ns["SEQ"], int(f), 10)
         got, d, n = find(_ns["layers"](a), ref)
         rep["frames"][f"{shot}@{f}"] = {"face_verts_out": n, "deepest_cm": round(d, 2), "tee_verts": len(got)}
-        ids |= got
+        for k, v in got.items():
+            ids[k] = max(ids.get(k, 0.0), v)
         deep = max(deep, d)
         yield
     if not ids:
         rep["error"] = "no face vert pierces his tee at FRAMES"
         return rep
-    pts = [ref[i] for i in ids]
-    cx, cy, cz = (sum(p.x for p in pts) / len(pts), sum(p.y for p in pts) / len(pts), sum(p.z for p in pts) / len(pts))
-    r = max(((p.x - cx) ** 2 + (p.y - cy) ** 2 + (p.z - cz) ** 2) ** 0.5 for p in pts)
+    cl = clusters(ref, ids)
+    rep["clusters"] = [{"verts": len(c), "centre": [round(v, 2) for v in ctr], "radius": round(rad, 2),
+                        "deepest_cm": round(dp, 2)} for c, ctr, rad, dp in cl]
+    pick = cl[int(CLUSTER)] if str(CLUSTER).isdigit() else cl[0]  # default: the largest
+    _, (cx, cy, cz), r, deep = pick
     knobs = {"FM_Inflate": INFLATE, "FM_Neck": 0.0, "FM_Patch": round(min(3.0, max(1.5, deep + 0.8)), 2),
              "FM_PatchX": round(cx, 2), "FM_PatchY": round(cy, 2), "FM_PatchZ": round(cz, 2),
              "FM_PatchR": round(r + 1.0, 2), "FM_PatchF": 3.0}
@@ -192,6 +219,18 @@ def run():
         return hit
 
     rep["colour_before"] = yield from colour()
+    if worn.get_path_name().startswith(FOLDER + "/") and "FM_Patch" in [
+            str(k) for k in MEL.get_scalar_parameter_names(worn)]:  # built already: new values only (safe while drawn)
+        for k, v in knobs.items():
+            MEL.set_material_instance_scalar_parameter_value(worn, k, float(v))
+        EAL.save_asset(worn.get_path_name().split(".")[0])
+        for _ in range(8):
+            yield
+        rep["colour_after"] = yield from colour()
+        rep.update(retuned=True, ok=True, slots_now=[m.get_path_name().rsplit("/", 1)[-1] if m else None
+                                                     for m in _ns["layers"](a)["tee"].get_materials()])
+        _ns["remove_rig"]()
+        return rep
     ok, new = False, None
     try:
         new, made = copy_chain(worn)
