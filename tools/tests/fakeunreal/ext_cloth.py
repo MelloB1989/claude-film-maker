@@ -194,6 +194,31 @@ def install(fake):
             return list(cloth.maps.get(target, []))
 
         @staticmethod
+        def set_config_value(cloth, name, low, high):
+            for cfg in cloth._props["cloth_configs"].values():
+                for k in cfg._DEFAULTS:
+                    camel = "".join(w[:1].upper() + w[1:] for w in k.split("_"))
+                    if camel.lower() == str(name).lower():
+                        cur = cfg._props[k]
+                        if hasattr(cur, "low"):
+                            cur.set_editor_property("low", low)
+                            cur.set_editor_property("high", high)
+                        else:
+                            cfg._props[k] = low
+                        return ""
+            return f"no config property {name}"
+
+        @staticmethod
+        def get_config_value(cloth, name):
+            for cfg in cloth._props["cloth_configs"].values():
+                for k in cfg._DEFAULTS:
+                    camel = "".join(w[:1].upper() + w[1:] for w in k.split("_"))
+                    if camel.lower() == str(name).lower():
+                        cur = cfg._props[k]
+                        return f"(Low={cur.low:.6f},High={cur.high:.6f})" if hasattr(cur, "low") else str(cur)
+            return ""
+
+        @staticmethod
         def simulated_positions(comp):
             mesh = comp.get_skeletal_mesh_asset()
             if mesh is None or not mesh._props.get("mesh_clothing_assets"):
