@@ -96,7 +96,8 @@ def test_round4_numbers_refuse_and_name_each_blocker():
         assert k in failed, k
     # and what round 4 never measured fails as "not measured", not silently
     rows = {row["id"]: row for row in r["rows"]}
-    assert rows["head.blink_nod_deg"]["state"] == "FAIL" and "not measured" in rows["head.blink_nod_deg"]["reason"]
+    assert rows["head.blink_nod_deg"]["state"] == "FAIL" and "1.61" in rows["head.blink_nod_deg"]["reason"]
+    assert rows["head.blink_locked_deg"]["state"] == "FAIL" and "not measured" in rows["head.blink_locked_deg"]["reason"]
 
 
 def test_round4_waivers_are_refused_on_complaints():
@@ -129,7 +130,7 @@ def test_clean_numbers_sign():
             "lips.lag_frames": 0, "lips.silence_open": 0.03, "lips.silence_busy": 0.1, "lips.render_lag_frames": 1,
             "lips.render_conclusive": True, "garment.wpo_cm": 0.0, "garment.armor_index": 0.3,
             "garment.pair_fraction": 0.0, "garment.silhouette_ratio": 1.05,
-            "head.blink_nod_deg": 0.2, "garment.neck_px": 0, "garment.silhouette_pct": 0.8,
+            "head.blink_nod_deg": 0.2, "head.blink_locked_deg": 0.1, "garment.neck_px": 0, "garment.silhouette_pct": 0.8,
             "garment.cloth_detail": 0.3, "hair.cut_reach_pct": 3.1, "hair.pop_reach_pct": 1.2, "hair.lock": 1,
             "hair.render_cvars": 1}
     r = gate.judge(good, spec={"items": {"garment.cloth_detail": {"line": 0.2}}})

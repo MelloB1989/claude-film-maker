@@ -48,6 +48,10 @@
   "garment.pair_fraction": {
    "value": 0.0067,
    "where": "Trousers>tee cast_op4"
+  },
+  "head.blink_nod_deg": {
+   "value": 1.61,
+   "where": "Presenter S17 f1380 (perfkit alone)"
   }
  }
 }
