@@ -51,6 +51,7 @@ NECK = globals().get("NECK") or {}  # e.g. {"FM_Neck": 2.8, "FM_NeckZ0": ..}: ne
 # the neckline term's amount (cm): his tee's front pushed out this much more from 14 cm under neck_01 (none) to 5 cm
 # under it and up (all), the front only; its heights and front from his bones. 0 = off (the re-rig is the root fix)
 NECK_CM = float(globals().get("NECK_CM", 0.0))
+NECK_Z0_CM = float(globals().get("NECK_Z0_CM", 18.0))  # the ramp starts this far under neck_01 (round 4: 14 missed S15)
 
 
 def finish():
@@ -83,7 +84,7 @@ def finish():
             cs = unreal.RelativeTransformSpace.RTS_COMPONENT
             nz = b.get_socket_transform("neck_01", cs).translation.z
             fy = b.get_socket_transform("ball_l", cs).translation.y - b.get_socket_transform("foot_l", cs).translation.y
-            neck = {"FM_Neck": NECK_CM, "FM_NeckZ0": nz - 14.0, "FM_NeckZ1": nz - 5.0,
+            neck = {"FM_Neck": NECK_CM, "FM_NeckZ0": nz - NECK_Z0_CM, "FM_NeckZ1": nz - 5.0,
                     "FM_NeckFront": 0.1 if fy > 0 else -0.1, "FM_NeckFrontBias": 0.5, **neck}
         if neck and kw:  # the neckline term's knobs (only on HOST op's master)
             mh.garment("Host", "Shirt", component=his_garment().get_name(), scalars=neck)
