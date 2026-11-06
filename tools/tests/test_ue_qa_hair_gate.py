@@ -237,3 +237,20 @@ def test_info_item_never_blocks():
     r = gate.judge({}, only=["garment.silhouette_ratio"])
     assert r["verdict"] == "SIGN" and r["rows"][0]["state"] == "INFO"
     assert good
+
+
+def test_scope_by_cast():
+    scope = __import__("fmqa.scope", fromlist=["scope"])
+    shots = [{"id": "S15", "start": 1080, "end": 1200, "cast": ["him", "her"]},
+             {"id": "S16", "start": 1200, "end": 1320, "cast": ["her"]},
+             {"id": "S17", "start": 1320, "end": 1440, "cast": ["him", "her"]},
+             {"id": "S18", "start": 1440, "end": 1560, "cast": ["him", "her"]}]
+    him = scope.visible_ranges(shots, "him")
+    assert him == [[1080, 1200], [1320, 1560]]
+    assert scope.visible_ranges(shots, "her") == [[1080, 1560]]
+    # round 5: his blink nod at f1294-1306 is inside S16, her close-up: out of scope
+    assert not scope.window_in(1294, 1306, him) and scope.window_in(1395, 1407, him)
+    assert not scope.window_in(1195, 1205, him)  # a window across the cut into S16 is not wholly visible
+    kept, dropped = scope.split({1100: 0.2, 1300: 2.89, 1400: 0.3}, him)
+    assert set(kept) == {1100, 1400} and set(dropped) == {1300}
+    assert scope.narrow(him, [1100, 1101, 1102, 1300, 1400]) == [[1100, 1103], [1400, 1401]]
