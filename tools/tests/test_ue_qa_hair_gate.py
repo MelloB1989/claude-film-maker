@@ -92,7 +92,7 @@ def test_round4_numbers_refuse_and_name_each_blocker():
     # every operator blocker of round 4 that has a round-4 number fails on it
     for k in ("lips.lead_in_cm", "lips.onset_lead_ms", "lips.lag_frames", "lips.cues_fresh", "garment.neck_px",
               "garment.wpo_cm", "garment.pair_fraction", "garment.cloth_alive", "garment.cloth_sound",
-              "garment.cloth_detail_ratio", "hair.cut_pop_ratio",
+              "garment.cloth_detail_ratio", "hair.cut_pop_ratio", "garment.armor_index",  # a guard: still blocks
               "garment.silhouette_pct", "hair.lock", "hair.render_cvars"):
         assert k in failed, k
     # and what round 4 never measured fails as "not measured", not silently
@@ -228,3 +228,12 @@ def test_cut_pop_quiet_cut():
     r = hair.cut_pop(frames, 1440, [0, 0, 1, 1])
     assert r["ratio"] <= 1.01
     assert hair.cut_pop({1439: a}, 1440, [0, 0, 1, 1])["missing"] == [1438, 1440, 1441]
+
+
+def test_info_item_never_blocks():
+    good = {k: None for k in gate.ITEMS}
+    r = gate.judge({"garment.silhouette_ratio": 2.30}, only=["garment.silhouette_ratio"])
+    assert r["verdict"] == "SIGN" and r["rows"][0]["state"] == "INFO" and "info only" in r["rows"][0]["reason"]
+    r = gate.judge({}, only=["garment.silhouette_ratio"])
+    assert r["verdict"] == "SIGN" and r["rows"][0]["state"] == "INFO"
+    assert good

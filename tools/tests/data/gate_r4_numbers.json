@@ -72,6 +72,10 @@
   "head.blink_locked_deg": {
    "value": 0.416,
    "where": "Presenter f1080-1559, 12 blinks (box)"
+  },
+  "garment.armor_index": {
+   "value": 0.538,
+   "where": "box G3 (2da3ce99)"
   }
  }
 }
