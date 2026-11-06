@@ -60,6 +60,9 @@ def sample(P, u, v):
         ax * ay * c(ix + 1, iy + 1)
 
 
+LO0 = None  # the as-is mask's darkest copy per position: covered = <= 0.4 there
+
+
 def judge(P, tag):
     s = sample(P, uv[:, 0], uv[:, 1])
     lo = np.full(ng, 9.0)
@@ -68,10 +71,35 @@ def judge(P, tag):
     np.maximum.at(hi, loops_g, s)
     dark = lo <= 0.4
     split = dark & (hi - lo > 0.3)
+    cov0 = (LO0 <= 0.4) if LO0 is not None else dark
+    newly = (~cov0) & (lo < 0.999)
     print(f"{tag}: face verts {len(me.vertices)} ({ng} positions), dark (any copy <= 0.4) {int(dark.sum())}, SPLIT "
-          f"(copies disagree > 0.3) {int(split.sum())}, worst copy gap "
-          f"{float((hi - lo)[dark].max()) if dark.any() else 0:.2f}")
+          f"(copies disagree > 0.3) {int(split.sum())} [covered {int((split & cov0).sum())}, boundary "
+          f"{int((split & ~cov0).sum())}], worst copy gap {float((hi - lo)[dark].max()) if dark.any() else 0:.2f}; "
+          f"uncovered-in-as-is now shrinking: {int(newly.sum())} (darkest {float(lo[newly].min()) if newly.any() else 1:.2f})")
     return lo
+
+
+def consistent(P, rounds=8):
+    """Every copy of a split position takes its darkest copy's value on its own 2x2 footprint, until none split."""
+    for k in range(rounds):
+        s = sample(P, uv[:, 0], uv[:, 1])
+        lo = np.full(ng, 9.0)
+        hi = np.full(ng, -9.0)
+        np.minimum.at(lo, loops_g, s)
+        np.maximum.at(hi, loops_g, s)
+        bad = (lo <= 0.4) & (hi - lo > 0.3)
+        if not bad.any():
+            return P, k
+        for li in np.where(bad[loops_g])[0]:
+            v = max(lo[loops_g[li]], 1 / 255)
+            fx, fy = uv[li, 0] * W - 0.5, uv[li, 1] * H - 0.5
+            ix, iy = int(np.floor(fx)), int(np.floor(fy))
+            for yy in (iy, iy + 1):
+                for xx in (ix, ix + 1):
+                    if 0 <= xx < W and 0 <= yy < H:
+                        P[yy, xx] = min(P[yy, xx], v)
+    return P, rounds
 
 
 def rasterise(val_g):
@@ -113,6 +141,7 @@ def rasterise(val_g):
 
 
 lo = judge(pix, "mask as is")
+LO0 = lo
 P = pix.copy()
 if redraw:
     P = rasterise(np.where(lo <= 0.999, lo, 1.0))
@@ -129,7 +158,10 @@ if pad > 0:
         Q[white] = n[white]
         P = Q
     judge(P, f"padded {pad} px")
-if out and (pad > 0 or redraw):
+if "--consistent" in a:
+    P, k = consistent(P)
+    judge(P, f"consistent after {k} round(s)")
+if out and (pad > 0 or redraw or "--consistent" in a):
     if True:
         full = np.array(img.pixels[:], np.float32).reshape(H, W, img.channels)
         for ch in range(min(3, img.channels)):
