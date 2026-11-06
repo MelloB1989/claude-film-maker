@@ -57,6 +57,7 @@ W = int(globals().get("W", 480))
 H = round(W * 9 / 16)
 BAND, TOL, NEAR = float(globals().get("BAND", 3.0)), float(globals().get("TOL", 0.3)), float(globals().get("NEAR", 1.5))
 DIAG = bool(globals().get("DIAG", True))
+NECK_ONLY = bool(globals().get("NECK_ONLY", False))  # only the 3D neck check per frame (no captures: ~1 min)
 # frames always measured besides the spread ones: his torso-twisting looks at her (agent-01, round 4): S15's hold at
 # ~+65 deg neck with a 30 deg torso twist, S17's glance (neck ~+49, torso 12)
 EXTRA = globals().get("EXTRA") or {"Reel_S15": [1150, 1220, 1290], "Reel_S17": [1390, 1397, 1404]}
@@ -164,8 +165,30 @@ def judge(d, under, over) -> dict:
             "clusters": blobs[:6], "_mask": kept}
 
 
-def neck3d(face_c, tee_c, body_c) -> dict:
-    """His face mesh out through the tee under the collar, on the posed meshes (render LOD 0)."""
+_RIM = {}
+
+
+def rim_ids(tee_c, dm, LU, MQ) -> list:
+    """The vertex ids on the tee's open rims (edges of one triangle: collar, sleeves, hem), per mesh asset (cached)."""
+    from fmbridge.ops.mh.actor import _pick
+    key = tee_c.get_skeletal_mesh_asset().get_path_name()
+    if key not in _RIM:
+        tris = LU.convert_triangle_list_to_array(_pick(MQ.get_all_triangle_indices(dm, False),
+                                                       "GeometryScriptTriangleList"))
+        count = {}
+        for t in tris:
+            v = (int(t.x), int(t.y), int(t.z))
+            for e in ((v[0], v[1]), (v[1], v[2]), (v[2], v[0])):
+                e = (min(e), max(e))
+                count[e] = count.get(e, 0) + 1
+        _RIM[key] = sorted({i for e, n in count.items() if n == 1 for i in e})
+    return _RIM[key]
+
+
+def neck3d(face_c, tee_c, body_c, rim_cm: float = 1.5) -> dict:
+    """His face mesh out through the tee, on the posed meshes (render LOD 0): face verts within 6 cm of the tee and
+    below its collar top, outside the tee by > 0.1 cm (out_all), and of those the ones whose nearest tee point is
+    more than rim_cm from the tee's open rim (out): the rest are his throat beside the neckline's opening, no clip."""
     SU, SP, MQ, LU = (unreal.GeometryScript_SceneUtils, unreal.GeometryScript_MeshSpatial,
                       unreal.GeometryScript_MeshQueries, unreal.GeometryScript_List)
     from fmbridge.ops.mh.actor import _pick
@@ -185,24 +208,30 @@ def neck3d(face_c, tee_c, body_c) -> dict:
     tee, face = copy(tee_c), copy(face_c)
     bvh = _pick(SP.build_bvh_for_mesh(tee), "GeometryScriptDynamicMeshBVH")
     q = unreal.GeometryScriptSpatialQueryOptions()
-    top = max(p.z for p in verts(tee))
-    n = out = 0
+    tv = verts(tee)
+    top = max(p.z for p in tv)
+    neck = body_c.get_socket_location("neck_01")
+    rim = [tv[i] for i in rim_ids(tee_c, tee, LU, MQ) if i < len(tv) and (tv[i] - neck).length() < 30.0]
+    n = out_all = out = 0
     mx = 0.0
     for p in verts(face):
-        if p.z > top - 2.0:
+        if p.z > top:
             continue
         tp = _pick(SP.find_nearest_point_on_mesh(tee, bvh, p, q), "GeometryScriptTrianglePoint")
         if not tp.get_editor_property("valid"):
             continue
-        dv = p - tp.get_editor_property("position")
+        qp = tp.get_editor_property("position")
+        dv = p - qp
         if dv.length() > 6.0:
             continue
         n += 1
         sd = dv.dot(_pick(MQ.get_triangle_face_normal(tee, tp.get_editor_property("triangle_id")), "Vector"))
         if sd > 0.1:
-            out += 1
-            mx = max(mx, sd)
-    return {"n": n, "out": out, "max_out_cm": round(mx, 2)}
+            out_all += 1
+            if min(((r - qp).length() for r in rim), default=99.0) > rim_cm:
+                out += 1
+                mx = max(mx, sd)
+    return {"n": n, "out_all": out_all, "out": out, "max_out_cm": round(mx, 2), "rim_verts": len(rim)}
 
 
 def mask_image(d, clip) -> "_image.Image":
@@ -244,6 +273,10 @@ def run():
                 global FOV
                 FOV = float(info["fov"])
                 L = layers(a)  # fetched each frame: a component may have been re-created
+                if NECK_ONLY:
+                    per[f] = {"neck": neck3d(L["Face"], L["tee"], L["Body"])}
+                    yield
+                    continue
                 d = {}
                 for n, c in L.items():
                     rt = yield from capture(info, W, H, "depth", show_only=[c], warmup=1)
