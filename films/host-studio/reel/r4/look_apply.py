@@ -24,7 +24,7 @@ import sys
 import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-from look_sheet import BODY_NOW, BODY_SLIM, BODY_SLIMMER, CHAR, LANDMARKS, THIN, sculpt_deltas  # noqa: E402
+from look_sheet import BODY_NOW, BODY_SLIM, BODY_SLIMMER, CHAR, LANDMARKS, THIN, WAIT_COMPILE, sculpt_deltas  # noqa: E402
 
 BODIES = {"now": BODY_NOW, "slim": BODY_SLIM, "slimmer": BODY_SLIMMER}
 
@@ -49,6 +49,7 @@ def main() -> None:
                     help="a global for host_swap.py, e.g. NECK_MASTER=False (repeatable)")
     ap.add_argument("--sculpt", default="", help="a look_sheet sculpt as JSON, e.g. S2 from r4/look/sculpt.json: "
                     "'{\"tip\": [0.6, 0.3], \"chin\": [0.45, 0.15], \"jaw_in\": 0.2}' (drops the rig: re-rigs)")
+    ap.add_argument("--hair-length", type=float, default=0.0, help="the hair's length_scale on the placed Host")
     ap.add_argument("--rerig", action="store_true", help="re-rig on the body as it is (agent-02: the face's neck seam "
                     "fitted to the final body; round 3's record has chest 104 against bodies.py's 100)")
     ap.add_argument("--skip-build", action="store_true", help="only the character stage (a dry look)")
@@ -107,7 +108,13 @@ def main() -> None:
     rep["host_swap"] = {"ok": res.get("ok"), "s": round(time.time() - t0),
                         "stdout": (res.get("stdout") or "")[-1500:]}
     ok(res, "host_swap")
+    t0 = time.time()  # the new build's groom bindings, before anything reads or renders the grooms
+    ok(client.exec_code(WAIT_COMPILE, timeout=1800), "compile wait")
+    rep["compile_wait_s"] = round(time.time() - t0)
     rep["groom"] = ok(client.op("groom.set", label="Host", melanin=a.melanin, redness=a.redness), "groom.set")["changed"]
+    if a.hair_length:
+        rep["hair_length"] = ok(client.op("groom.set", label="Host", component="Hair", length_scale=a.hair_length),
+                                "hair length")["changed"]
     if a.beard_thin:  # THIN reads the actor from mh.build's _PREVIEWS: point it at the placed Host
         put = ("import importlib, unreal\n_b = importlib.import_module('fmbridge.ops.mh.build')\n"
                "_b._PREVIEWS['Host'] = [x for x in unreal.get_editor_subsystem(unreal.EditorActorSubsystem)"
