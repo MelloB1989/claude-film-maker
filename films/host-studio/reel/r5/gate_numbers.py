@@ -196,17 +196,19 @@ def hair(check: str, yaml_path: str, qa_paths: list, pop_paths: list | None = No
     return g
 
 
-def settle(frames: str, spec: str, shot: str, first: int = 4, rest: int = 12, line: float = 1.8) -> dict:
-    """The hair settle at a shot's start, on rendered frames (the editor's qa.hair_continuity has no warm-up, so its
-    pops at a shot's first frames may be the editor's own): head-box frame differences (qa/hair.py box_diff, no
-    matte: the night matte saturates) of the first `first` frame pairs over the median of the next `rest` pairs.
-    A settling hair simulation moves several times more than the shot's own motion; the render's warm-up (32 render
-    + 22 engine frames in r3/30-final) should remove it."""
+def settle(frames: str, spec: str, shot: str, first: int = 4, rest: int = 12, line: float = 1.8,
+           box: list | None = None) -> dict:
+    """Head + hair motion at a shot's start, on rendered frames: head-box frame differences (qa/hair.py box_diff, no
+    matte) of the first `first` frame pairs over the median of the next `rest` pairs. It catches a hair simulation
+    settling AND a head snapping into its pose at the cut (round 5b: her S15 head swung ~30-40 deg in f1080-1084).
+    A DIAGNOSTIC, not a gate line: shot starts may move by design (S16 reads 2.8), so compare with round 4's frames
+    (the same command on final_d). `box`: frame fractions, else the spec's box for the shot (hair_spec.py builds the
+    FIRST shot's box from its END frames: pass --box from a projection at the shot's start when the head moves)."""
     from filmtools.unreal import qa_local
     qa_local.qa()
     im, h = sys.modules["fmqa.image"], sys.modules["fmqa.hair"]
     sp = json.loads(Path(spec).read_text())
-    box = (sp.get("boxes") or {}).get(shot)
+    box = box or (sp.get("boxes") or {}).get(shot)
     a0 = next((c[1] for c in sp.get("cuts") or [] if c[0] == shot), None)
     if not box or a0 is None:
         return {"error": f"no box/cut for {shot} in {spec}"}
@@ -218,7 +220,7 @@ def settle(frames: str, spec: str, shot: str, first: int = 4, rest: int = 12, li
     d = [round(h.box_diff(imgs[f], imgs[f + 1], box), 3) for f in range(a0, a0 + first + rest)]
     base = sorted(d[first:])[len(d[first:]) // 2]
     ratio = round(max(d[:first]) / max(base, 0.5), 3)
-    return {"shot": shot, "box": box, "diffs": d, "start_max": max(d[:first]), "median_after": base,
+    return {"what": "head+hair motion at the shot start (diagnostic)", "shot": shot, "box": box, "diffs": d, "start_max": max(d[:first]), "median_after": base,
             "ratio": ratio, "line": line, "pass": ratio <= line}
 
 
@@ -243,14 +245,15 @@ def main(argv=None) -> int:
     h.add_argument("--qa-pop", action="append", default=[], help="film-qa hair on NIGHT renders: only its "
                    "hair.cut_pop_ratio is taken (the luma matte reads dark clothing as hair: reach is not a measure)")
     h.add_argument("--out", required=True)
-    st = sub.add_parser("settle", help="the hair settle at a shot's first frames, on the rendered frames")
+    st = sub.add_parser("settle", help="head+hair motion at a shot's first frames, on the rendered frames (diagnostic)")
+    st.add_argument("--box", default="", help="x0,y0,x1,y1 frame fractions (default: the spec's box for the shot)")
     st.add_argument("--frames", required=True)
     st.add_argument("--spec", required=True, help="hair_spec.py's json (its boxes and cuts)")
     st.add_argument("--shot", default="S15")
     st.add_argument("--out", required=True)
     a = ap.parse_args(argv)
     if a.cmd == "settle":
-        r = settle(a.frames, a.spec, a.shot)
+        r = settle(a.frames, a.spec, a.shot, box=[float(v) for v in a.box.split(",")] if a.box else None)
         Path(a.out).parent.mkdir(parents=True, exist_ok=True)
         Path(a.out).write_text(json.dumps(r, indent=1))
         print(json.dumps(r, indent=1))
