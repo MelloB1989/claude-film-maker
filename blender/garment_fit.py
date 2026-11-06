@@ -37,7 +37,6 @@ from __future__ import annotations
 import argparse
 import glob
 import json
-import math
 import os
 import sys
 import time
@@ -273,7 +272,7 @@ def drape(sc, a, pinned, active):
     for c in (sc.body, sc.face):
         if c is None:
             continue
-        col = c.modifiers.new("Collision", "COLLISION")
+        c.modifiers.new("Collision", "COLLISION")
         c.collision.thickness_outer = max(0.001, a.min_ease / 100.0)
         c.collision.cloth_friction = 5.0
     cl = ob.modifiers.new("Cloth", "CLOTH")
@@ -404,11 +403,11 @@ def pose_tests(sc, a, active=None, region=None) -> dict:
                 G, R = G[active], R[active]
             G, R = G[::2], R[::2]
             hits = {}
-            for p, r in zip(G, R):
-                loc, nor, fi, dist = bvh.find_nearest(Vector(p))
+            for pt, r in zip(G, R):  # not `p`: that is the anim's path (round 5 run #4 crashed on the shadowing)
+                loc, nor, fi, dist = bvh.find_nearest(Vector(pt))
                 if loc is None or dist >= 6.0:
                     continue
-                sd = float((np.array(p) - np.array(loc[:])) @ np.array(nor[:]))
+                sd = float((np.array(pt) - np.array(loc[:])) @ np.array(nor[:]))
                 if sd >= -0.1:
                     continue
                 # a sleeve's underside pressed against the TORSO when the arm comes down: cloth squeezed in the

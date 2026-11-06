@@ -73,6 +73,8 @@ def test_setup_paints_configures_and_converges(ue, host):
     assert r["maps"]["torso"]["max_cm"] == pytest.approx(3.0) and r["readback_max_cm"] == pytest.approx(3.0)
     assert r["config"]["missing"] == []
     assert r["config"]["set"]["density"] == 0.15
+    assert r["config"]["set"]["collision_thickness"] == 0.4 and r["config"]["set"]["use_ccd"] is False  # C++ names
+    assert r["config"]["set"]["linear_velocity_scale"] is not None and r["config"]["set"]["damping_coefficient"] == 0.06
     assert "bending_stiffness_weighted" not in r["config"]["set"]          # no Python type for weighted values:
     assert r["config"]["interactor"]["material"] == [1.0, 0.08, 1.0]      # set through the clothing interactor
     assert ue.called("ChaosClothingInteractor.set_material_linear")[-1][0] == (1.0, 0.08, 1.0)
