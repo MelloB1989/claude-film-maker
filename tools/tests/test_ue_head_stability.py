@@ -362,12 +362,17 @@ def test_bone_samples_from_a_late_frame_find_the_blinks():
                                                 "forward": [1.0, 0.0, 0.0]}}))
         r = QH.samples(str(path))
         g = QH.gate([str(path)])["gate"]  # the gate re-judges saved samples (the box's first files had no blinks)
+        # agent-09's scope.json keys are who, the file is head_<who>.json: the first blink's frames off screen
+        sc = QH.gate([str(path)], seen={"samples": [[1080 + 30, 1560]]})
+        none = QH.gate([str(path)], seen={"someone_else": [[0, 10]]})
     finally:
         path.unlink()
     assert len(r["blinks"]) == len(ONSETS)
     assert "blink_nod" in r["failed"]
     assert "error" not in g["head.blink_nod_deg"] and g["head.blink_nod_deg"]["value"] > 1.0
     assert g["head.blink_nod_deg"]["where"].startswith("_tmp_head_samples f1")
+    assert len(sc["out_of_scope"]) == 1 and 1095 <= sc["out_of_scope"][0]["frame"] <= 1102
+    assert "error" in none["gate"]["head.blink_nod_deg"]
 
 
 def test_a_blink_cut_by_the_end_of_the_samples_is_not_judged():

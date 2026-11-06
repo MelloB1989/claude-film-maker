@@ -24,7 +24,7 @@ the same checks as the editor's qa.* ops (unreal/fmbridge/qa, imported from the 
     film-qa head DIR --fps 24 [--box x0,y0,x1,y1] [--out R.json]   the head through the blinks, from the frames
                                                  (face landmarks; needs `uv run --with mediapipe==0.10.21`)
     film-qa head-samples QA_OUT.json             re-judge qa.head_stability's saved samples (out=), offline
-    film-qa head-gate OUT.json QA_OUT.json...     gate v2's head.blink_nod_deg + head.blink_locked_deg
+    film-qa head-gate OUT.json QA_OUT.json... [--scope scope.json]   gate v2's head items, on-screen blinks only
 
 Every command prints JSON ({"pass", "issues", "metrics", ...}) and exits 1 when a "fail" issue was found, so a
 script (or Claude) can branch on it. JPEG and other formats need Pillow (`uv sync --extra anime` has it); PNG never
@@ -329,11 +329,15 @@ def main(argv=None) -> None:
     hg.add_argument("out")
     hg.add_argument("results", nargs="+")
     hg.add_argument("--seen", default="", help="LABEL=f0-f1,f0-f1;LABEL=...: master frames each face is on screen")
+    hg.add_argument("--scope", default="", help="a scope JSON {who: [[f0, f1], ...]} (agent-09's r5/cast_scope.py)")
     x = ap.parse_args(argv)
     if x.cmd == "head-gate":
         from . import qa_head as QH
         seen = {lab: [[int(v) for v in sp.split("-")] for sp in spans.split(",")]
                 for lab, _, spans in (part.partition("=") for part in x.seen.split(";") if part)} if x.seen else None
+        if x.scope:
+            sc = json.loads(Path(x.scope).read_text())
+            seen = {**(seen or {}), **{k: v for k, v in sc.items() if isinstance(v, list) and k != "shots"}}
         g = QH.gate(x.results, seen=seen)
         Path(x.out).write_text(json.dumps(g, indent=1))
         print(json.dumps(g, indent=1))
