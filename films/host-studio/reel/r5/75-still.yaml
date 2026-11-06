@@ -1,0 +1,33 @@
+# Round 5: one FINAL-quality frame for an A/B (the orchestrator's face-luminance check, S16 f1270), with the finals'
+# settings (r3/30-final.yaml: preset final, AA none 4x8, shutter open, SSS + hair cvars, 32 + 22 warm-up frames).
+#   film-ue apply films/host-studio/reel/r5/75-still.yaml --set variant=a
+#   ... --set variant=b --set 'cvars={"r.SSS.Quality": 1, "r.SSS.HalfRes": 0, "r.HairStrands.LODMode": 1, "r.HairStrands.AutoLOD.Bias": 0.1}'
+# Frames stay on the box (/srv/ue/reel/r5/stills/<variant>/<frame>.png); compare with film-qa image --subject.
+kind: include
+files: [../r3/vars.yaml]
+---
+kind: vars
+vars:
+  variant: a
+  shots: [Reel_S16]
+  frames: [1270, 1271]
+  cvars: {"r.SSS.Quality": 1, "r.SSS.HalfRes": 0, "r.HairStrands.LODMode": 0, "r.HairStrands.AutoLOD.Bias": 1.0,
+          "r.HairStrands.UseCardsInsteadOfStrands": 0}
+---
+kind: render
+version: 1
+name: "r5_still_${variant}"
+sequence: "${seq}"
+level: "${level}"
+out_dir: "/srv/ue/reel/r5/stills/${variant}"
+preset: final
+shots: ${shots}
+frames: ${frames}
+chunking: shot
+preroll: cut
+warmup_engine: 22
+aa_method: none
+spatial: 4
+shutter_timing: open
+overwrite: true
+cvars: ${cvars}
