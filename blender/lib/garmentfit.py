@@ -186,3 +186,70 @@ def fit_gate(report: dict, *, max_inside: float = 0.0, max_tight: float = 0.02, 
     if a.get("spread") is not None and a["spread"] < min_spread:
         out.append(f"the ease is even (spread {a['spread']} < {min_spread}): a shell; drape it (--drape-frames)")
     return out
+
+
+def edges_of(tris: np.ndarray) -> np.ndarray:
+    """Unique undirected edges (m, 2) of a triangle list."""
+    t = np.asarray(tris, int)
+    e = np.concatenate([t[:, [0, 1]], t[:, [1, 2]], t[:, [2, 0]]])
+    e.sort(axis=1)
+    return np.unique(e, axis=0)
+
+
+def harmonic_fill(values: np.ndarray, known: np.ndarray, edges: np.ndarray, iters: int = 400) -> np.ndarray:
+    """Fill a per-vertex field where `known` is False by repeated neighbour averaging (Jacobi on the graph
+    Laplacian), the known vertices held: the smooth interpolation of a displacement into a region it was not
+    measured in. Vectorised over edges (30k-vertex bodies in seconds)."""
+    v = np.array(values, float)
+    known = np.asarray(known, bool)
+    n = len(v)
+    deg = np.zeros(n)
+    np.add.at(deg, edges[:, 0], 1)
+    np.add.at(deg, edges[:, 1], 1)
+    deg = np.maximum(deg, 1)[:, None] if v.ndim > 1 else np.maximum(deg, 1)
+    if (~known).any() and known.any():
+        start = v[known].mean(0)
+        v[~known] = start
+    for _ in range(max(0, iters)):
+        acc = np.zeros_like(v)
+        np.add.at(acc, edges[:, 0], v[edges[:, 1]])
+        np.add.at(acc, edges[:, 1], v[edges[:, 0]])
+        nv = acc / deg
+        v = np.where(known[:, None] if v.ndim > 1 else known, v, nv)
+    return v
+
+
+def vertex_normals(X: np.ndarray, T: np.ndarray) -> np.ndarray:
+    """Area-weighted vertex normals (unit)."""
+    t = np.asarray(T, int)
+    fn = np.cross(X[t[:, 1]] - X[t[:, 0]], X[t[:, 2]] - X[t[:, 0]])
+    vn = np.zeros_like(X, float)
+    for k in range(3):
+        np.add.at(vn, t[:, k], fn)
+    return vn / np.maximum(np.linalg.norm(vn, axis=1, keepdims=True), 1e-12)
+
+
+def morph_onto(ref_x: np.ndarray, ref_t: np.ndarray, nearest, match_cm: float = 1.5, iters: int = 400,
+               tangent_cm: float = 0.5) -> tuple:
+    """Another person's UNCUT body (ref_x, ref_t) moved onto a cut body of the person wanted: where a ref vertex
+    has the cut body within match_cm (nearest(p) -> closest point on the cut body, or None), it moves there; the
+    rest (the region the cut removed: under the garment) moves by the harmonic fill of those displacements.
+    A match that is mostly a slide along the skin (tangential part over tangent_cm) is the hole's edge seen from
+    inside the hole: left to the fill. Returns (morphed vertices, known mask, stats)."""
+    disp = np.zeros_like(ref_x, float)
+    known = np.zeros(len(ref_x), bool)
+    N = vertex_normals(np.asarray(ref_x, float), ref_t)
+    for i, p in enumerate(ref_x):
+        q = nearest(p)
+        if q is None:
+            continue
+        d = np.asarray(q, float) - p
+        tang = d - (d @ N[i]) * N[i]  # a slide along the skin: the nearest point is the cut's edge, not a match
+        if np.linalg.norm(d) <= match_cm and np.linalg.norm(tang) <= tangent_cm:
+            disp[i] = d
+            known[i] = True
+    filled = harmonic_fill(disp, known, edges_of(ref_t), iters)
+    mag = np.linalg.norm(filled, axis=1)
+    return ref_x + filled, known, {"matched": round(float(known.mean()), 4),
+                                   "fill_median_cm": round(float(np.median(mag[~known])), 3) if (~known).any() else 0.0,
+                                   "fill_max_cm": round(float(mag[~known].max()), 3) if (~known).any() else 0.0}

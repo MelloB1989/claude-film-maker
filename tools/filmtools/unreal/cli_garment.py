@@ -23,7 +23,7 @@ NAMES = ("garment-fit", "garment-gate")
 ROOT = Path(__file__).resolve().parents[3]
 SCRIPT = ROOT / "blender" / "garment_fit.py"
 PASS_THROUGH = ("garment", "out", "ease", "min_ease", "slack", "pull", "smooth_iters", "passes", "drape_frames",
-                "weights", "thickness", "only_slots", "collider", "anim_samples")
+                "weights", "thickness", "only_slots", "collider", "anim_samples", "morph_ref", "match_cm")
 
 
 def register(sub) -> None:
@@ -49,6 +49,9 @@ def register(sub) -> None:
     p.add_argument("--only-slots", default="")
     p.add_argument("--collider", default="")
     p.add_argument("--anim-samples", type=int)
+    p.add_argument("--morph-ref", action="store_true",
+                   help="ref_body is another person's uncut body: morph it onto his worn body (no uncut body of his)")
+    p.add_argument("--match-cm", type=float)
     p.add_argument("--blender", default="", help="the Blender binary (default $BLENDER, /srv/ue/tools/blender-*)")
     p.add_argument("--report", default="", help="only judge this fit_report.json")
     p.add_argument("--json", action="store_true")
@@ -135,9 +138,9 @@ def command(a, blender: str) -> list:
     cmd = [blender, "-b", "--factory-startup", "--python-exit-code", "2", "-P", str(SCRIPT), "--", "--src", d["src"]]
     for k in PASS_THROUGH:
         v = d.get(k)
-        if v in (None, ""):
+        if v in (None, "", False):
             continue
-        cmd += ["--" + k.replace("_", "-"), str(v)]
+        cmd += ["--" + k.replace("_", "-")] + ([] if v is True else [str(v)])
     return cmd
 
 
@@ -145,6 +148,10 @@ def judge(rep: dict) -> dict:
     """Plain words from a fit report: {"pass", "lines": [...], "next": [...]}."""
     lines, nxt = [], []
     b, a = rep.get("before", {}).get("all", {}), rep.get("after", {}).get("all", {})
+    if rep.get("morph"):
+        m = rep["morph"]
+        lines.append(f"ref body morphed onto his: matched {100 * m['matched']:.1f}%, the cut region moved median "
+                     f"{m['fill_median_cm']} cm (max {m['fill_max_cm']})")
     if b and a:
         lines.append(f"ease median {b.get('median')} -> {a.get('median')} cm, spread {b.get('spread')} -> "
                      f"{a.get('spread')}, inside the body {100 * b.get('inside', 0):.2f}% -> {100 * a.get('inside', 0):.2f}%")
