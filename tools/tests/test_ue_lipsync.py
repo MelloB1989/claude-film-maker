@@ -490,3 +490,9 @@ def test_the_take_the_mix_holds_wins_over_a_stale_line_wav(tmp_path):
     assert doc["line_dir"].endswith("stems/lines") and (tmp_path / "stems" / "lines" / "L1.wav").exists()
     none = CL.cues_from_mix(lines, tmp_path / "vo", mix, tmp_path / "s2", None, fps, "none")  # no takes: fails
     assert [i["code"] for i in none["issues"] if i["severity"] == "fail"] == ["not_in_mix"]
+
+
+def test_a_line_wav_that_is_missing_is_a_failure_not_a_silent_none(lips):
+    CL, stem, lines, fps, tmp = lips
+    doc = CL.build_cues(lines, {"him": stem}, fps, words="none", line_dir=tmp)  # no L1.wav / L2.wav in tmp
+    assert {i["code"] for i in doc["issues"] if i["severity"] == "fail"} == {"no_wav"}

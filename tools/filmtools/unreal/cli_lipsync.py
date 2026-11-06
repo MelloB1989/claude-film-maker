@@ -203,6 +203,11 @@ def build_cues(lines_doc: dict, stems: dict, fps: float = 24.0, words: str = "au
         end = max(c.get("end_frame") or 0, c.get("slot_end") or 0) + post_s * fps
         loc = {}
         lw = Path(line_dir) / c["wav"] if line_dir and c.get("wav") else None
+        if lw is not None and not lw.exists():
+            issues.append({"code": "no_wav", "line": k, "severity": "fail",
+                           "message": f"{k}: {lw} does not exist, so the line was not located (mix_score None)",
+                           "fix": "one WAV holding several lines (L3 = L3a + L3b) is one entry with \"split\" "
+                           "(r5/lips.py plan_lines does it); or name the WAV that exists"})
         if lw is not None and lw.exists():
             y, ysr = read_wav(lw)
             t, sc = locate(y, x, ysr, sr)
