@@ -16,6 +16,24 @@ NOT RUN YET. The orchestrator runs this in the ONE GPU session, in the order bel
 - Gate g PASSED: LODSync forced_lod 0 and no TRASH_. But it never read a groom, and it never read whether the
   Hair component is in LODSync's list.
 
+## Round-5 probe result: the step at 01:00 is the hair SIMULATION restarting (06 Nov, agent-06's probes)
+
+- P1: LODSync already reached her Hair in round 4 (listed, live_lod 0, STRANDS); only the two Auto-LOD cvars differ.
+  Her Hair asset is DEFAULT, so it follows the cvar.
+- P3 (the matte) read flat across f1440: reach 2.16 = the box bottom. At night, L*<40 joins her dark clothing to the
+  hair, so the matte measured the box. `film-qa hair` now flags `hair.matte_saturated` and voids those numbers.
+- The frame differences in her head box show the step (agent-06, round 4's final_d). MAD at 1439->1440 is 2.57,
+  against 0.88 / 1.00 beside it and 0.87-1.14 elsewhere. The dark (hair) mass drops 2.4% at f1440 and STAYS.
+- S18 is S17's end, locked off: same camera, same screen size, so LOD cannot step there. What changes at f1440 is
+  the render JOB. Each shot was its own MRQ job (`chunking: shot`), and a new job means a new PIE world, which
+  restarts the groom simulation (UE 5.8.4 `GroomComponent.cpp`: init, hidden->visible or a bone teleport; a camera
+  cut alone does not reset it). S18's hair starts from a fresh sim, at an unchanged camera.
+- Fix: render **S17 + S18 as ONE job**:
+  `--set batch=S17S18 --set 'shots=["Reel_S17","Reel_S18"]' --set chunking=none`. The skeleton is continuous
+  1439 -> 1440, so the sim carries over. Keep the hair lock: Auto LOD still thins her hair through S17's crane-out.
+- Check: `film-qa hair` on the r5 frames, `gate.hair.cut_pop_ratio` <= 1.8 (round 4: 2.57, so the line fails
+  round 4). Core: `fleet/agent-09/r5-hair-cutpop` (qa/hair.py `cut_pop`, gate item `hair.cut_pop_ratio`).
+
 ## Fix steps (on the box, after the level is open and the presenters are dressed, before ANY presenter render)
 
 `G=/srv/ue/reel/r5/hair`, from `tools/` in the box tree:
@@ -33,7 +51,8 @@ NOT RUN YET. The orchestrator runs this in the ONE GPU session, in the order bel
 3. `film-ue op level.save`.
 4. `film-ue op qa.hair_continuity sequence=/Game/Reel/SEQ_Reel 'labels=["Presenter"]' 'shots=["Reel_S15","Reel_S16","Reel_S17","Reel_S18"]' out=$G/editor_after.json`
    - **Expect:** `pass: true` and `gate.hair.cut_reach_pct` < 12 (S17->S18 under ~5).
-5. Render the presenter shots with `r3/30-final.yaml`. Its cvars now carry the three hair cvars.
+5. Render the presenter shots with `r3/30-final.yaml`. Its cvars now carry the three hair cvars. **S17 and S18
+   go in ONE job** (`--set 'shots=["Reel_S17","Reel_S18"]' --set chunking=none`): see the probe result above.
    - Lock first (step 2) EVERY time the editor restarts or the presenters are respawned. `persist=true` writes
      the cvars to DefaultEngine.ini, but the LODSync list and pins are level state.
 6. On the finals, read with the shot cameras' bone projections (no frame leaves the box):
