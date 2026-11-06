@@ -229,9 +229,20 @@ ITEMS: dict = {
                 "0.05 mm) AND framing.py prints no PROBLEM, read right before the render",
         "where": "the 13 shots", "how": "r3/probe_cam.py ... --check; framing.py (r3/CAMERAS.md)",
         "r4": [None, "round 4 passed it (13/13)"],
-        "must_fail": [0, "round 5's S15 preview f1080-1140 rendered through a wide camera instead of the over-the-"
-                         "shoulder close (orchestrator by eye)"],
+        "must_fail": [0, "a camera off its plan (probe_cam's own tolerances). NOTE: round 5's S15 wrong view passed "
+                         "this probe (13/13): shot.render_matches_r4 is the item that catches it"],
         "why": "every other number is meaningless through the wrong camera"},
+    "shot.render_matches_r4": {
+        "area": "camera", "track": "T4", "op": ">=", "line": 0.5, "unit": "ssim",
+        "what": "min over every rendered presenter-shot frame of SSIM vs round 4's SAME frame (final_d, same camera "
+                "expected; scaled to the same size). A shot whose camera the round changed on purpose is listed in the "
+                "spec's items override with its own reference",
+        "where": "S13, S15, S16, S17, S18: every rendered frame", "how": "agent-06's render guard on each preview/final",
+        "r4": [None, "round 4 is the reference itself"],
+        "must_fail": [0.19, "round 5's S15 preview f1080-1140: SSIM 0.18-0.19 vs round 4 (it matched round 4's S17 "
+                            "wide best, 0.35), while probe_cam read 13/13 OK and an S15 still matched (0.837): the "
+                            "probe cannot see a render job that renders the wrong view"],
+        "why": "the render, not the plan, is what the operator sees; matching previews read 0.93-0.95"},
     # --- T4: hair
     "hair.cut_reach_pct": {
         "area": "hair", "track": "T4", "op": "<=", "line": 12.0, "unit": "%",
