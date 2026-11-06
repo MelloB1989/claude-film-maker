@@ -23,7 +23,8 @@ NAMES = ("garment-fit", "garment-gate")
 ROOT = Path(__file__).resolve().parents[3]
 SCRIPT = ROOT / "blender" / "garment_fit.py"
 PASS_THROUGH = ("garment", "out", "ease", "min_ease", "slack", "pull", "smooth_iters", "passes", "drape_frames",
-                "weights", "thickness", "only_slots", "collider", "anim_samples", "morph_ref", "match_cm", "blend_regions", "single_layer", "min_island")
+                "weights", "thickness", "only_slots", "collider", "anim_samples", "morph_ref", "match_cm", "blend_regions", "single_layer", "min_island", "keep_regions",
+                "keep_ramp_cm", "straight_regions")
 
 
 def register(sub) -> None:
@@ -56,6 +57,9 @@ def register(sub) -> None:
     p.add_argument("--single-layer", action="store_true",
                    help="only the outer layer of the fitted slots, welded (a cloth-sim section; two-sided material)")
     p.add_argument("--min-island", type=int)
+    p.add_argument("--keep-regions", default="", help="regions kept at the garment's original shape (e.g. collar)")
+    p.add_argument("--keep-ramp-cm", type=float)
+    p.add_argument("--straight-regions", default="", help="regions pushed out horizontally only (e.g. hem: no flare)")
     p.add_argument("--blender", default="", help="the Blender binary (default $BLENDER, /srv/ue/tools/blender-*)")
     p.add_argument("--report", default="", help="only judge this fit_report.json")
     p.add_argument("--json", action="store_true")
@@ -118,12 +122,25 @@ def gate_numbers(clip: dict | None, look: dict | None, first_pass: bool = False)
                 g["garment.armor_index"]["note"] = "terms not measured: " + ", ".join(look["missing"])
         else:
             miss("garment.armor_index", "qa.garment_look measured nothing")
+        if "collar_gap" in t:
+            g["garment.collar_gap_cm"] = {"value": t["collar_gap"]["value"], "where": "worst frame"}
+            g["garment.collar_roll"] = {"value": t["collar_roll"]["value"], "where": "frames rolled/folded"}
+        else:
+            miss("garment.collar_gap_cm", "qa.garment_look without the collar check (sequence + frames, collar=true)")
+            miss("garment.collar_roll", "qa.garment_look without the collar check")
+        if "hem_flare" in t:
+            g["garment.hem_flare_ratio"] = {"value": t["hem_flare"]["value"],
+                                            "where": f"worst frame vs the {t['hem_flare'].get('ref')} "
+                                                     f"({t['hem_flare'].get('ease_cm')} cm)"}
+        else:
+            miss("garment.hem_flare_ratio", "qa.garment_look without the hem check (hem=true, ref_body or Trousers)")
         if "silhouette" in t:
             g["garment.silhouette_ratio"] = {"value": t["silhouette"]["value"], "where": "worst frame"}
         else:
             miss("garment.silhouette_ratio", "qa.garment_look without ref_body/sequence")
     else:
-        for k in ("garment.wpo_cm", "garment.armor_index", "garment.silhouette_ratio"):
+        for k in ("garment.wpo_cm", "garment.armor_index", "garment.silhouette_ratio", "garment.collar_gap_cm",
+                  "garment.collar_roll", "garment.hem_flare_ratio"):
             miss(k, "no qa.garment_look result given (--look)")
     return {"gate": g}
 
