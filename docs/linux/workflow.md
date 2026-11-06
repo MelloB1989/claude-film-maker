@@ -61,6 +61,27 @@ and MRQ lifts the cap; `render.mrq` refuses the process executor with unsaved pa
 with a timeout instead of blocking the game thread; `mh.build` raises when nothing was built; the VNC password is a
 root-only file on the box.
 
+## Box lessons (round 4, 2026-11-06, g6.4xlarge)
+
+- **Never put /srv/ue on the instance store.** A g6.4xlarge has a 600 GB local NVMe ("Amazon EC2 NVMe Instance
+  Storage"). `setup.sh volume` used to format and mount the first empty disk, which was that one. When the box was
+  stopped during a power cut, the stop wiped it: the engine, the project with the day's unsynced work and every
+  render on the box were gone. What survived was only what had been synced to `private/` minutes before.
+  - `setup.sh volume` now skips instance-store disks and, with no EBS data volume, makes `/srv/ue` a directory on
+    the root EBS. A 300 GB root holds the engine (25 GB), the project (~6 GB), the DDC (~4 GB) and a day of renders.
+  - **Sync before ANY stop** (`film-ue sync dir up` for renders, `sync project up`, `sync ddc save`). A stop, a
+    hibernate or `instanceInitiatedShutdownBehavior=terminate` all end the local disk.
+  - A box restored from S3 has no `Saved/` (`sync project` excludes it): the perf calibration files and the VO
+    stems are gone, so re-run `perf.py push` and the calibrations before any performance step.
+- **The driver step can install modules for the wrong kernel.** `ubuntu-drivers install` pulled
+  `linux-modules-nvidia-580-server` for kernel 6.8.0-1069 while the box ran 1066, so `nvidia-smi` failed and Vulkan fell
+  back to llvmpipe. `setup.sh driver` now installs `linux-modules-nvidia-<branch>-$(uname -r)` when no GPU answers, and
+  it diverts the Vulkan ICD to `libEGL_nvidia` (headless), which only `ue-gpu-setup.sh` used to do. Check
+  `film-ue check` for `vulkan: NVIDIA L4` (not llvmpipe) before starting the editor.
+- **Two GPU faults** in MRQ renders of one set shot (Reel_V03): an editor hang with `Xid 109 CTX SWITCH TIMEOUT`, then
+  `FVulkanDynamicRHI.TerminateOnGPUCrash`. The third try rendered cleanly. Save the level before each batch, since a
+  GPU fault restarts the editor from disk (`level.save`, then the render).
+
 ## 0. Verdict
 
 - **The bridge is already almost platform-neutral.** Of ~2,700 lines, the Windows-only parts are `fmbridge/gui.py`
