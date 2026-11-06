@@ -1404,8 +1404,11 @@ def cleanup() -> dict:
 
 # The body's idle around the performance (seq.anim's idle -> line -> idle): from PRE_ROLL frames before START (both
 # are hidden until their first shot; the pre-roll covers the handles and a render's warm-up) to POST_ROLL after END,
-# phased so the idle is where the baked body starts and ends, cross-faded over BLEND frames.
+# phased so the idle is where the baked body starts and ends, cross-faded over BLEND frames. r5b: no cross-fade on
+# screen (place): before START the body's own first pose is held, and the idle starts at END, after the last frame;
+# the baked body carries the head turn, which the idle does not.
 PRE_ROLL, POST_ROLL, BLEND = 240, 48, 6
+HOLD_RATE = 1e-4  # a held pose: 240 frames of pre-roll move 0.001 s into the animation
 # OFF: placed as an additive over the body AFTER sync, the life moves the body (pelvis shift, spine, torso follow)
 # while the face (the head and neck geometry) plays its own baked pose: a seam at the neck and collar. It must be in
 # the body before sync bakes the face from it (round 3, agent-01: being changed).
@@ -1437,14 +1440,19 @@ def place(path: str) -> list:
             print(f"warning: {ANIM}/AS_reel_{who}_life is missing: {LABEL[who]}'s body placed without the life layer "
                   f"(perf.py calibrate_body + life --who {who})", file=sys.stderr)
         out.append(ok(client.op("seq.anim", path=path, label=LABEL[who], component="Face",
-                                sections=[{"anim": final_face(who), "start": s0, "end": s1 + POST_ROLL,
+                                sections=[{"anim": final_face(who), "start": s0 - PRE_ROLL, "end": s0,
+                                           "rate": HOLD_RATE, "loop": False},  # r5b: its first pose, as the body's
+                                          {"anim": final_face(who), "start": s0, "end": s1 + POST_ROLL,
                                            "loop": False}])))
+        # r5b (the orchestrator on her S15 final: a ~10 deg head tilt-in at f1080-1083, settle 12.3): the turn lives in the
+        # body animation (head_to_body, sync), so a cross-fade from the idle at START swung the head from the idle's
+        # front to the planned look on screen (round 4 had the same tilt-in). The body's own first pose is held
+        # through the pre-roll instead (a section at HOLD_RATE: Sequencer reads a rate of 0 as 1), no blend at START.
         out.append(ok(client.op("seq.anim", path=path, label=LABEL[who], component="Body", sections=[
-            {"anim": idle, "start": s0 - PRE_ROLL, "end": s0 + BLEND, "offset": phase(s0 - PRE_ROLL),
-             "blend_out": BLEND},
-            {"anim": body, "start": s0, "end": s1, "blend_in": BLEND, "blend_out": BLEND, "loop": False},
-            {"anim": idle, "start": s1 - BLEND, "end": s1 + POST_ROLL, "offset": phase(s1 - BLEND),
-             "blend_in": BLEND},
+            {"anim": body, "start": s0 - PRE_ROLL, "end": s0, "rate": HOLD_RATE, "loop": False},
+            # and at END (the film's last frame is END - 1, both in S18) the idle takes over off screen, uncross-faded
+            {"anim": body, "start": s0, "end": s1, "loop": False},
+            {"anim": idle, "start": s1, "end": s1 + POST_ROLL, "offset": phase(s1)},
             # round 3: the body life additive over all of it, on its own row
             *([{"anim": f"{ANIM}/AS_reel_{who}_life", "start": s0, "end": s1 + POST_ROLL, "loop": False,
                 "blend_in": BLEND, "row": 2}] if use_life else [])])))
