@@ -199,14 +199,17 @@ def samples(path: str, limits: dict | None = None) -> dict:
 
 
 GATE_LINE_DEG = 0.6  # head.blink_nod_deg: the worst blink's pitch departure, both presenters, every shot
+GATE_LOCKED_DEG = 0.3  # head.blink_locked_deg: the blink-triggered average's peak (a small nod on every blink)
 
 
-def gate(results: list, line: float = GATE_LINE_DEG) -> dict:
+def gate(results: list, line: float = GATE_LINE_DEG, locked_line: float = GATE_LOCKED_DEG) -> dict:
     """agent-09's gate v2 numbers file from qa.head_stability results (their out= JSON, or the op's return saved
-    as JSON; one per presenter and shot range): {"gate": {"head.blink_nod_deg": {"value", "where"}}}, the value
-    the worst |nod_deg| over every blink of every result. A result with no blinks, or that failed to load, is an
-    error (the gate fails a number it cannot measure)."""
+    as JSON; one per presenter and shot range): {"gate": {"head.blink_nod_deg": {"value", "where"},
+    "head.blink_locked_deg": {"value", "where"}}}: the worst |nod_deg| over every blink of every result, and the
+    worst blink-triggered average peak. A result with no blinks, or that failed to load, is an error on both (the
+    gate fails a number it cannot measure)."""
     worst, where, errors = 0.0, "", []
+    locked, lwhere = 0.0, ""
     for p in results:
         try:
             d = json.loads(Path(p).read_text())
@@ -218,12 +221,18 @@ def gate(results: list, line: float = GATE_LINE_DEG) -> dict:
             errors.append(f"{Path(p).name}: no blinks measured")
             continue
         f0, fps = (d.get("frames") or [0])[0], d.get("fps") or 24.0
+        who = d.get("label", Path(p).stem)
         b = max(blinks, key=lambda x: abs(x["nod_deg"]))
         if abs(b["nod_deg"]) >= abs(worst):
             worst = b["nod_deg"]
             f = int(f0 + round(b["t"] * fps))
-            where = f"{d.get('label', Path(p).stem)} f{f - 3}-{f + 9}"
-    item = {"value": round(abs(worst), 3), "where": where, "line": line, "signed_deg": round(worst, 3)}
+            where = f"{who} f{f - 3}-{f + 9}"
+        pk = (d.get("bta") or {}).get("peak_deg", 0.0)
+        if pk >= locked:
+            locked = pk
+            lwhere = f"{who} f{f0}-{(d.get('frames') or [0, 0])[-1]} ({len(blinks)} blinks)"
+    nod = {"value": round(abs(worst), 3), "where": where, "line": line, "signed_deg": round(worst, 3)}
+    lk = {"value": round(locked, 3), "where": lwhere, "line": locked_line}
     if errors:
-        item["error"] = "; ".join(errors)
-    return {"gate": {"head.blink_nod_deg": item}}
+        nod["error"] = lk["error"] = "; ".join(errors)
+    return {"gate": {"head.blink_nod_deg": nod, "head.blink_locked_deg": lk}}

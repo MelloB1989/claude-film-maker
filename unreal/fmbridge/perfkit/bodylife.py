@@ -1,7 +1,8 @@
 """Body life: the small motions that keep a standing body from reading as a mannequin, as bone offsets over time.
 
 - Breathing: on each inhale the upper spine extends a little and the clavicles lift (rate by mood: calm ~12/min,
-  talking ~15, nervous ~22); exhales are longer than inhales.
+  talking ~15, nervous ~22); exhales are longer than inhales. No two breaths alike: people vary breath to breath by
+  ~21% in period and ~33% in depth (Tobin et al. 1988); a metronome breath reads as a machine (`breath_cv`).
 - Weight shifts: every 6-14 s the pelvis drifts a centimetre or two toward one leg and tilts a degree; the spine
   bends back the other way so the head stays over the feet.
 - Torso follow: when the head turns far, the chest follows a little (10-20% of the head's yaw, a beat later), the
@@ -34,16 +35,46 @@ def breath_wave(t: float, hz: float, phase: float) -> float:
     return 1.0 - C.smoothstep((u - 0.4) / 0.6)
 
 
+class Breaths:
+    """Irregular breathing: cycles whose period varies by `cv` (std/mean) and depth by `depth_cv` around a mean rate
+    `hz`, each with an inhale of 35-45% of the cycle. `at(t)` is the lung fill 0..~1.3 (a deep breath fills more)."""
+
+    def __init__(self, t0: float, t1: float, hz: float, rnd, cv: float = 0.2, depth_cv: float = 0.25):
+        self.cycles = []
+        t = t0 - rnd.uniform(0.0, 1.0 / hz)
+        while t < t1:
+            period = max(0.45 / hz, rnd.gauss(1.0, cv) / hz) if cv > 0 else 1.0 / hz
+            depth = max(0.4, rnd.gauss(1.0, depth_cv)) if depth_cv > 0 else 1.0
+            self.cycles.append((t, period, depth, rnd.uniform(0.35, 0.45) if cv > 0 else 0.4))
+            t += period
+
+    def at(self, t: float) -> float:
+        for c0, period, depth, inhale in reversed(self.cycles):
+            if c0 <= t:
+                u = (t - c0) / period
+                if u >= 1.0:
+                    return 0.0
+                return depth * (C.smoothstep(u / inhale) if u < inhale else 1.0 - C.smoothstep((u - inhale) / (1 - inhale)))
+        return 0.0
+
+    def cv(self) -> float:
+        p = [c[1] for c in self.cycles]
+        m = sum(p) / len(p)
+        return math.sqrt(sum((x - m) ** 2 for x in p) / len(p)) / m if len(p) > 1 else 0.0
+
+
 def plan(t0: float, t1: float, state: str = "rest", breath_deg: float = 0.6, clavicle_deg: float = 1.0,
          shift_cm: float = 1.5, shift_every_s=(6.0, 14.0), follow: float = 0.15, head_yaw=None, seed: int = 0,
-         rate: float = 30.0) -> dict:
+         rate: float = 30.0, breath_cv: float = 0.2, breath_depth_cv: float = 0.25) -> dict:
     """Body life from t0 to t1: {"times", "bones": {bone: {"flex", "side", "twist"}: [deg per sample]},
     "pelvis_shift_cm": [cm per sample, + = toward the character's left], "breaths_per_min"}.
-    `head_yaw`: t -> the head's yaw (deg, character frame) for torso follow (None: no follow)."""
+    `head_yaw`: t -> the head's yaw (deg, character frame) for torso follow (None: no follow). `breath_cv`,
+    `breath_depth_cv`: breath-to-breath variation of period and depth (0, 0: round 4's metronome)."""
     rnd = random.Random(seed)
     times = C.grid(t0, t1, rate)
     hz = BREATHS_PER_MIN.get(state, 13.0) / 60.0 * rnd.uniform(0.92, 1.08)
     phase = rnd.random()
+    breaths = Breaths(t0, t1, hz, random.Random(seed + 97), breath_cv, breath_depth_cv)
     # weight shifts: a target that moves every few seconds, eased
     shifts, t, side = [], t0, rnd.choice((-1.0, 1.0))
     while t < t1:
@@ -65,7 +96,7 @@ def plan(t0: float, t1: float, state: str = "rest", breath_deg: float = 0.6, cla
     bones = {b: {"flex": [], "side": [], "twist": []} for b in SPINE + ("clavicle_l", "clavicle_r", "pelvis")}
     pelvis = []
     for x in times:
-        br = breath_wave(x, hz, phase)
+        br = breaths.at(x) if breath_cv or breath_depth_cv else breath_wave(x, hz, phase)
         s = shift_at(x) + 0.25 * shift_cm * sway.at(x)
         pelvis.append(s)
         tilt = -0.7 * s  # the pelvis drops on the unloaded side: degrees per cm
@@ -85,6 +116,7 @@ def plan(t0: float, t1: float, state: str = "rest", breath_deg: float = 0.6, cla
         bones["pelvis"]["side"].append(tilt)
         bones["pelvis"]["twist"].append(0.0)
     return {"times": times, "bones": bones, "pelvis_shift_cm": pelvis, "breaths_per_min": round(hz * 60.0, 2),
+            "breath_cv": round(breaths.cv(), 3) if breath_cv else 0.0,
             "shifts": [{"t": round(a, 3), "dur_s": round(d, 3), "cm": round(c, 3)} for a, d, c in shifts]}
 
 

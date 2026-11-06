@@ -105,7 +105,7 @@ def build(t0: float, t1: float, *, base: dict | None = None, shifts: list = (), 
     sh = [_shift(s) for s in shifts]
     plan = G.GazePlan(sh, start=start_gaze, lead=lead, head_gain=style.gain, energy=energy, seed=seed)
     nod_list = [_nod(n) for n in nods]
-    if "nods" in layers and emphasis:
+    if "nods" in layers and emphasis and beat_every > 0:  # beat_every 0: no beat nods (a listener)
         nod_list += H.beats_from_emphasis(emphasis, seed=seed, every=beat_every)
     tilt_list = [_tilt(t) for t in tilts]
     out: dict = {}

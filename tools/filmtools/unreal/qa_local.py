@@ -15,7 +15,7 @@ the same checks as the editor's qa.* ops (unreal/fmbridge/qa, imported from the 
     film-qa head DIR --fps 24 [--box x0,y0,x1,y1] [--out R.json]   the head through the blinks, from the frames
                                                  (face landmarks; needs `uv run --with mediapipe==0.10.21`)
     film-qa head-samples QA_OUT.json             re-judge qa.head_stability's saved samples (out=), offline
-    film-qa head-gate OUT.json QA_OUT.json...     gate v2's head.blink_nod_deg from qa.head_stability results
+    film-qa head-gate OUT.json QA_OUT.json...     gate v2's head.blink_nod_deg + head.blink_locked_deg
 
 Every command prints JSON ({"pass", "issues", "metrics", ...}) and exits 1 when a "fail" issue was found, so a
 script (or Claude) can branch on it. JPEG and other formats need Pillow (`uv sync --extra anime` has it); PNG never
@@ -254,9 +254,8 @@ def main(argv=None) -> None:
         from . import qa_head as QH
         g = QH.gate(x.results)
         Path(x.out).write_text(json.dumps(g, indent=1))
-        it = g["gate"]["head.blink_nod_deg"]
         print(json.dumps(g, indent=1))
-        raise SystemExit(0 if "error" not in it and it["value"] <= it["line"] else 1)
+        raise SystemExit(0 if all("error" not in it and it["value"] <= it["line"] for it in g["gate"].values()) else 1)
     if x.cmd in ("head", "head-samples"):
         from . import qa_head as QH
         if x.cmd == "head":

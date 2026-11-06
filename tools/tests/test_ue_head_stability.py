@@ -296,9 +296,41 @@ def test_head_gate_reports_the_worst_blink_and_errors_on_missing_numbers(tmp_pat
     from filmtools.unreal import qa_head as QH
     a = tmp_path / "her.json"
     a.write_text(json.dumps({"label": "Presenter", "frames": [1056, 1584], "fps": 24.0,
-                             "blinks": [{"t": 1.0, "nod_deg": -0.2}, {"t": 2.0, "nod_deg": -1.4}]}))
+                             "blinks": [{"t": 1.0, "nod_deg": -0.2}, {"t": 2.0, "nod_deg": -1.4}],
+                             "bta": {"peak_deg": 0.62}}))
     b = tmp_path / "him.json"
     b.write_text(json.dumps({"label": "Host", "frames": [960, 1584], "fps": 24.0, "blinks": []}))
     g = QH.gate([str(a)])["gate"]["head.blink_nod_deg"]
     assert g["value"] == 1.4 and g["where"].startswith("Presenter f1101") and g["value"] > QH.GATE_LINE_DEG
-    assert "error" in QH.gate([str(a), str(b)])["gate"]["head.blink_nod_deg"]
+    lk = QH.gate([str(a)])["gate"]["head.blink_locked_deg"]
+    assert lk["value"] == 0.62 and lk["value"] > QH.GATE_LOCKED_DEG
+    both = QH.gate([str(a), str(b)])["gate"]
+    assert "error" in both["head.blink_nod_deg"] and "error" in both["head.blink_locked_deg"]
+
+
+# --- natural-motion presets and body life --------------------------------------------------------------------------
+
+def test_presets_fill_under_what_is_given():
+    from perfkit import presets as PR
+    a = PR.face_args("listener", {"energy": 1.3, "head": {"micro_deg": 0.4}})
+    assert a["energy"] == 1.3 and a["blink_state"] == "listen" and a["beat_every"] == 0
+    assert a["head"]["micro_deg"] == 0.4 and a["head"]["speech_gain"] == 0.0
+    assert all(p["face"]["blink_head"] == "still" and p["face"]["solver_head"] == "replace"
+               for p in PR.PRESETS.values())
+    with pytest.raises(ValueError, match="presenter_calm"):
+        PR.face_args("robot", {})
+
+
+def test_no_beat_nods_for_a_listener():
+    r = F.build(0, 8, emphasis=[(1, 1), (3, 1), (5, 1)], beat_every=0, seed=1)
+    assert not [n for n in r["plan"]["nods"] if n["kind"] == "beat"]
+
+
+def test_breathing_is_never_a_metronome():
+    from perfkit import bodylife as BL
+    life = BL.plan(0, 60, state="talk", seed=3)
+    assert 0.1 <= life["breath_cv"] <= 0.35
+    old = BL.plan(0, 60, state="talk", seed=3, breath_cv=0.0, breath_depth_cv=0.0)
+    assert old["breath_cv"] == 0.0
+    flex = life["bones"]["spine_05"]["flex"]
+    assert min(flex) < -0.1 and max(flex) <= 1e-9  # extension on the inhale, back to rest

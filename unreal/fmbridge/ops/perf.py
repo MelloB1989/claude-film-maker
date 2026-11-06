@@ -22,6 +22,7 @@ from .assets import EAL, free, load
 from ..errors import OpError, not_found
 from ..perfkit import audio as AU
 from ..perfkit import blinks as BL
+from ..perfkit.presets import PRESETS
 from ..perfkit import curves as C
 from ..perfkit import body as BD
 from ..perfkit import expressions as X
@@ -77,7 +78,7 @@ def vocab() -> dict:
             "nods": list(HD.Nod.KINDS), "layers": list(FACE.LAYERS), "blink_states": BL.RATE_PER_MIN,
             "scan": ["face", "lens", "still", None], "lead": ["eyes", "head"],
             "solver_head": list(FACE.SOLVER_HEAD), "blink_mode": ["replace", "keep", "max"],
-            "blink_head": list(FACE.BLINK_HEAD)}
+            "blink_head": list(FACE.BLINK_HEAD), "presets": PRESETS}
 
 
 @op("perf.analyze_audio", mutates=False, idempotent=True)
@@ -109,7 +110,8 @@ def face(*, anim: str, out: str = "", wav: str = "", gaze: list | None = None, s
          mood: str = "", moods: list | None = None, expressions: list | None = None, emphasis=None,
          layers: list | None = None, solver_head: str = "replace", blink_mode: str = "replace", blink_state: str = "talk",
          energy: float = 1.0, mouth_mix: float = 0.5, brow_chance: float = 0.55, signs: dict | None = None,
-         seed: int = 0, plot: str = "", avoid_blinks: list | None = None, blink_head: str = "still") -> dict:
+         seed: int = 0, plot: str = "", avoid_blinks: list | None = None, blink_head: str = "still",
+         preset: str = "", beat_every: int = 1) -> dict:
     """Make a face animation (a speech solve, or any MetaHuman face animation) read as alive: write a copy whose head
     turns follow the gaze (eyes lead, the head eases with overshoot and settles), with nods and brow flashes on the
     stressed words, irregular asymmetric blinks (with big gaze shifts and at phrase ends), fixational eye darts, a
@@ -135,11 +137,27 @@ def face(*, anim: str, out: str = "", wav: str = "", gaze: list | None = None, s
       plot: a PNG path on the box: the result's curves drawn as strips (perf.plot) to look at.
       avoid_blinks: [[t0, t1], ...] spans (s, this animation's time) with no blink: another face's blinks in the
       same shot (two people blinking on the same frame reads as a glitch).
+      preset: presenter_calm|presenter_lively|listener|still_portrait (perfkit.presets: head style, blink state,
+      energy, beat nods, brows; any of those given here other than its default wins). beat_every: a beat nod on 1
+      in n stressed words (0: none).
     Returns: {"out", "changed", "plan": {shifts, nods, blinks, expressions, ...}, "report": naturalness checks,
     "curves": n, "plot"?: {"path", "width", "height"}}.
     Example: film-ue op perf.face anim=/Game/Speech/Anim/AS_line1 wav=/home/ue/Audio/line1.wav mood=warm 'gaze=[{"t":0,"yaw":0,"scan":"lens"},{"t":2.5,"yaw":25,"pitch":-5}]'
     """
     from .anim import _anim, _skeleton_path, _write, read_all
+    if preset:
+        from ..perfkit import presets as PR
+        mine = {"blink_state": blink_state, "solver_head": solver_head, "blink_head": blink_head, "energy": energy,
+                "beat_every": beat_every, "brow_chance": brow_chance, "head": head}
+        defaults = {"blink_state": "talk", "solver_head": "replace", "blink_head": "still", "energy": 1.0,
+                    "beat_every": 1, "brow_chance": 0.55, "head": None}
+        try:
+            got = PR.face_args(preset, {k: v for k, v in mine.items() if v != defaults[k]})
+        except ValueError as e:
+            raise OpError(str(e), code="bad_args", hint="perf.vocab lists the presets") from None
+        blink_state, solver_head, blink_head, energy = (got["blink_state"], got["solver_head"], got["blink_head"],
+                                                        got["energy"])
+        beat_every, brow_chance, head = got["beat_every"], got["brow_chance"], got["head"]
     a = _anim(anim)
     out = out or f"{anim.split('.')[0]}_perf"
     length = float(unreal.AnimationLibrary.get_sequence_length(a))
@@ -162,7 +180,7 @@ def face(*, anim: str, out: str = "", wav: str = "", gaze: list | None = None, s
                        blink_mode=blink_mode, blink_state=blink_state,
                        signs=signs_for(_skeleton_path(a), signs), energy=energy, mouth_mix=mouth_mix,
                        brow_chance=brow_chance, seed=seed, avoid_blinks=[tuple(x) for x in (avoid_blinks or [])],
-                       blink_head=blink_head)
+                       blink_head=blink_head, beat_every=beat_every)
     except ValueError as e:
         raise OpError(str(e), code="bad_args", hint="perf.vocab lists presets, moods, nods and layers") from None
     if out != anim.split(".")[0]:

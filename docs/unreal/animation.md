@@ -144,6 +144,21 @@ film-ue op anim.write_curves anim=/Game/Perf/AS_face mode=add 'curves={"CTRL_exp
 film-ue op anim.new path=/Game/Perf/AS_blank skeleton=/Game/MetaHumans/Ada/Face/Ada_FaceMesh length_s=5
 ```
 
+**A head that never moves with a blink** (round 5: "every time she blinks her head nods"). perf.face's defaults do
+it (`solver_head=replace`: the speech solve's head rotation and translation are dropped, the head is perfkit's;
+`blink_head=still`: no chin dip under a gaze blink, no blink on a nod, and a last pass bridges any pitch/roll
+departure inside a blink window). A preset sets the rest of the life (`presenter_calm`, `presenter_lively`,
+`listener`, `still_portrait`; perfkit/presets.py has the numbers):
+```bash
+film-ue op perf.face anim=/Game/Speech/Anim/AS_l1 wav=/home/ue/Audio/l1.wav preset=presenter_calm
+film-ue op qa.head_stability sequence=/Game/Shots/S010 label=Ada start=0 end=480 out=/srv/ue/qa/head_ada.json
+```
+Check: `report` has `blink_nod`, `blink_locked`, `blink_speed`, `head_buzz` all passing and `plan.blink_guard` small;
+then `qa.head_stability` on the sequence passes (it reads the head BONE as it renders: the body's neck, the face
+AnimBP and Sequencer included). From frames: `film-qa head DIR --fps 24`. Keep the solve's head only with
+`solver_head=clean` (its blink windows are bridged too); never `soften`/`keep` under replaced blinks. Why and the
+numbers: [research/blinks-head-stability.md](research/blinks-head-stability.md).
+
 ## Op reference
 
 `film-ue describe anim` and `film-ue describe perf` list them with arguments; each docstring has an Example.
@@ -230,6 +245,10 @@ of their WAV, mood and intensity. Change a mood and only that line re-solves.
 - **Head curve signs are a property of the rig.** Until `perf.calibrate` has run for a face skeleton, perfkit
   assumes HeadYaw + turns to the character's left, HeadPitch + looks up, HeadRoll + tilts the top of the head left,
   eyeLook* at 1.0 = 35/35/25/30 deg (left/right/up/down). Calibrate before judging a still.
+- **A blink never moves the head.** A speech solve's head comes out of the same predictor run as its blinks (5.8.4
+  Speech2FaceInternal::RunPredictor) and moves with them; replacing the blinks while keeping its head (round 4:
+  `solver_head=soften`) left dips where the solve had blinked, and ours landed there. Defaults are now
+  `solver_head=replace`, `blink_head=still`; the report fails `blink_nod`/`blink_locked` when it happens again.
 - **HeadControlSwitch** must be 1 for the face rig to turn the head from HeadYaw/Pitch/Roll; perf writes it.
   MetaHumanPerformanceExportUtils writes it 0 when head movement is off at export.
 - **A face played by Sequencer needs ANIMATION_SINGLE_NODE** and then does not copy the body (unreal/README.md);

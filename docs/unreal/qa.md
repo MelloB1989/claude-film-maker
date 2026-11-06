@@ -135,6 +135,22 @@ uv run film-qa framing camera.json bones.json --expect-size MCU   # camera.json 
 ```
 Every command prints JSON and exits 1 when a `fail` issue was found.
 
+**Does the head nod with the blinks?** (round 5; the operator on round 4: "every time she blinks her head nods a
+little down like a jitter"). In the editor, from the head bone as the sequence plays:
+```bash
+film-ue op qa.head_stability sequence=/Game/Reel/SEQ_Reel label=Presenter start=1080 end=1559 out=/srv/ue/reel/r5/qa/head_her.json
+film-qa head-gate /srv/ue/reel/r5/qa/gate_head.json /srv/ue/reel/r5/qa/head_her.json /srv/ue/reel/r5/qa/head_him.json
+```
+From pulled frames (MediaPipe landmarks; pitch from rigid landmarks by solvePnP):
+```bash
+uv run --with mediapipe==0.10.21 film-qa head /tmp/frames/S17 --fps 24 --box 0.5,0,1,1
+```
+Check: `pass`; issues `head.blink_nod` (a share of blinks move the head over 0.5 deg), `head.blink_locked` (the
+blink-triggered average over 0.3 deg), `head.blink_speed`, `head.head_buzz` each say what to do; `head.no_blinks` (warn)
+means the blink checks did not run (pass `blinks=`); `head.tracker_artifact` (info, render only) means MediaPipe's
+own matrix nods but the rigid landmarks do not. Gate v2 lines: `head.blink_nod_deg` <= 0.6, `head.blink_locked_deg`
+<= 0.3. Numbers and sources: [research/blinks-head-stability.md](research/blinks-head-stability.md).
+
 ## Op reference
 
 `film-ue ops view` / `film-ue ops qa` (or `film-ue describe qa`) give the full docstrings.
@@ -157,6 +173,7 @@ Every command prints JSON and exits 1 when a `fail` issue was found.
 | `qa.overlaps` | interpenetrating bounds, share and depth | |
 | `qa.snapshot` / `qa.diff` | the level as JSON; what changed | |
 | `qa.review` | all of it for a sequence or a camera: review.json + review.png (`baseline=<suite>` too) | yes |
+| `qa.head_stability` | the head bone through the blinks as the sequence plays: blink nods, blink-locked average, buzz | yes |
 | `qa.baseline_save` / `_compare` / `_check` / `_list` / `_remove` | golden stills by suite/name; regress against them | |
 | `groom.describe` | grooms on an actor: per-group instance overrides, hair material params, the sky cvar | |
 | `groom.set` | per instance: width_cm, root/tip scale, shadow density, LOD bias, length; melanin, redness, roughness, white, light, dye, any param; strand_fraction (asset, opt-in); before/after | yes |

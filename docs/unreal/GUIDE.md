@@ -89,7 +89,10 @@ stage 1). Needs the Epic sign-in on the box (`film-ue selftest --list` shows `ep
 
 **A performance.** A voice line to a face (`speech.to_face`), body animation sections (`seq.anim`), face and body as
 one skeleton (`anim.bake_follow` / `anim.head_to_body`), eyes on the lens (`anim.gaze_lock`) (WP4:
-[animation.md](animation.md)). Check: `seq.sample` bone positions, a still at a frame mid-line.
+[animation.md](animation.md)). Check: `seq.sample` bone positions, a still at a frame mid-line. A face: `perf.face
+preset=presenter_calm` (the head is perfkit's, no blink moves it), then `film-ue op qa.head_stability sequence=...
+label=...` on the master: it fails a head that nods with the blinks or buzzes, and says what to do
+([research/blinks-head-stability.md](research/blinks-head-stability.md)).
 
 **Shots.** A `shot` spec (WP7: [cameras.md](cameras.md)): shots by size (`WS`, `MCU`, `CU`...), angle, side, lens; moves;
 focus on a subject; times in frames, seconds or dialogue lines. The solver frames from the real skeleton. Check:
