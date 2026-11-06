@@ -718,8 +718,8 @@ CLIP_HER_DRIFT = 0.01  # her pairs read 0.03-0.19 on clean frames (the scoop nec
 
 def _clip(cs: list, eng: dict | None, before: dict | None = None) -> dict:
     """agent-02's clip.json (r4/clip_pass.py, one per presenter): shots -> frame -> "under>over" -> {fraction, raw,
-    clusters}, and for him "neck" (the 3D test on the posed meshes). Him: CLIP_GATED pairs <= CLIP_MAX, neck.out == 0;
-    Face>tee is information only (depth cannot tell the collar's clean neck band from a patch). Her: per (shot, pair)
+    clusters}. Him: CLIP_GATED pairs <= CLIP_MAX, and "neck_px" (Face>tee pixels under the collar band's lower edge)
+    0 every frame; Face>tee as a whole and the 3D "neck" are information only. Her: per (shot, pair)
     the worst fraction no more than CLIP_HER_DRIFT over `before` (her cast_op4 pass). A missing or errored shot
     refuses."""
     bad, worst, info = [], {}, {}
@@ -767,14 +767,19 @@ def _clip(cs: list, eng: dict | None, before: dict | None = None) -> dict:
                                        f"{cl.get('px')} px, {cl.get('worst_cm')} cm)")
                         elif pair not in CLIP_GATED["Host"]:
                             info[f"Host {pair}"] = max(info.get(f"Host {pair}", 0), v["fraction"])
-                    n = fr_.get("neck")
+                    # the orchestrator's line (06 Nov): the PIXEL patch under his collar band, 0 px every frame; the
+                    # 3D vertex count missed what the after renders still show, so it is information only
+                    n = fr_.get("neck_px")
                     if isinstance(n, dict):
                         necks += 1
-                        if n.get("out", 1) != 0:
-                            bad.append(f"Host {sid} f{f} neck: {n.get('out')} face verts outside the tee "
-                                       f"(max {n.get('max_out_cm')} cm)")
+                        if n.get("px", 1) != 0:
+                            bad.append(f"Host {sid} f{f} neck patch: {n.get('px')} px of face through the tee under "
+                                       f"the collar band" + (f" (clusters {n.get('clusters')})" if n.get("clusters") else ""))
+                    n3 = fr_.get("neck")
+                    if isinstance(n3, dict):
+                        info["Host neck 3D out (verts)"] = max(info.get("Host neck 3D out (verts)", 0), n3.get("out", 0))
             if not necks:
-                bad.append("Host: no 'neck' 3D test in the clip pass")
+                bad.append("Host: no 'neck_px' (the pixel patch under the collar band) in the clip pass")
         elif lab == "Presenter":
             if not before:
                 bad.append("Presenter: no before pass to compare with (--clip-before)")

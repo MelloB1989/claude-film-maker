@@ -137,7 +137,8 @@ def test_clip_pass_json():
     def him_shots(**over):
         return {"label": "Host", "shots": {sid: {"962": {"Body>tee": {"fraction": 0.0, "clusters": []},
                                                           "Face>tee": {"fraction": 0.03},
-                                                          "neck": {"n": 400, "out": 0, "max_out_cm": 0.0}}}
+                                                          "neck": {"n": 400, "out": 0, "max_out_cm": 0.0},
+                                                          "neck_px": {"px": 0, "clusters": []}}}
                                            for sid in ("S13", "S15", "S17", "S18")}}
     her_b = {"label": "Presenter", "shots": {sid: {"1210": {"Body>Top": {"fraction": 0.15}}}
                                              for sid in ("S15", "S16", "S17", "S18")}}
@@ -147,13 +148,22 @@ def test_clip_pass_json():
     assert r["pass"], r["failed"]
     assert r["info_only"]["Host Face>tee"] == 0.03          # reported, not gated
     him["shots"]["S17"]["1330"] = {"Trousers>tee": {"fraction": 0.0047, "clusters": [{"px": 21, "worst_cm": 1.2}]}}
-    him["shots"]["S15"]["962"]["neck"] = {"out": 227, "max_out_cm": 2.46}
+    him["shots"]["S15"]["962"]["neck"] = {"out": 227, "max_out_cm": 2.46}   # 3D: info only
+    him["shots"]["S15"]["962"]["neck_px"] = {"px": 85, "clusters": [{"px": 85}]}
     her["shots"]["S16"]["1210"]["Body>Top"]["fraction"] = 0.155
     her["shots"]["S17"]["1210"]["Body>Top"]["fraction"] = 0.30
     r = g._clip([him, her], None, her_b)
-    assert [f.split(":")[0] for f in r["failed"]] == ["Host S15 f962 neck", "Host S17 f1330 Trousers>tee",
+    assert [f.split(":")[0] for f in r["failed"]] == ["Host S15 f962 neck patch", "Host S17 f1330 Trousers>tee",
                                                       "Presenter S17 f1210 Body>Top"]
     assert not g._clip([her], None, None)["pass"]           # her needs her before pass
     del her_b["shots"]["S16"]
     her["shots"]["S18"] = {"error": "no camera cut S18"}
     assert len(g._clip([her], None, her_b)["failed"]) == 3   # S18 errored, S16 has no before, S17 0.30
+
+
+def test_clip_neck_px_required():
+    him = {"label": "Host", "shots": {sid: {"962": {"Body>tee": {"fraction": 0.0},
+                                                     "neck": {"out": 0, "max_out_cm": 0.0}}}
+                                      for sid in ("S13", "S15", "S17", "S18")}}
+    r = g._clip([him], None)
+    assert not r["pass"] and "neck_px" in r["failed"][-1]   # a clean 3D count is not enough
