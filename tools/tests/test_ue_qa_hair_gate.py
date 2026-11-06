@@ -140,3 +140,48 @@ def test_every_line_fails_its_round4_value():
     res = gate.lines_fail()
     assert all(v is not False for v in res.values()), res
     assert sum(1 for v in res.values() if v) >= 7
+
+
+# ---------------------------------------------------------------------------------------------------- film-qa
+
+def test_film_qa_gate_round4_refuses(capsys, tmp_path):
+    import pytest
+    from filmtools.unreal import qa_local
+    p = os.path.join(DATA, "gate_r4_numbers.json")
+    with pytest.raises(SystemExit) as e:
+        qa_local.main(["gate", p, "--spec", p, "--waive", "garment.neck_px=1-3 px by eye", "--by", "cc-64d05f6e",
+                       "--out", str(tmp_path / "g.json")])
+    assert e.value.code == 1
+    r = json.loads(capsys.readouterr().out)
+    assert r["verdict"] == "REFUSE" and r["refused_waivers"][0]["id"] == "garment.neck_px"
+    assert json.load(open(tmp_path / "g.json"))["verdict"] == "REFUSE"
+    qa_local.main(["gate", "--lines"])
+    assert json.loads(capsys.readouterr().out)["pass"] is True
+
+
+def _frame(path, hair_bottom, w=96, h=54):
+    img = image.solid(w, h, (180, 170, 160))
+    for y in range(8, hair_bottom):
+        for x in range(40, 56):
+            img.put(x, y, (12, 10, 9))
+    image.write(img, str(path))
+
+
+def test_film_qa_hair_on_frames(capsys, tmp_path):
+    import pytest
+    from filmtools.unreal import qa_local
+    for f in range(1436, 1440):
+        _frame(tmp_path / f"reel_S17.{f:05d}.png", 40)
+    for f in range(1440, 1444):
+        _frame(tmp_path / f"reel_S18.{f:05d}.png", 26)  # the wide: same anchors, hair ends higher
+    anchors = {str(f): [0.2, 0.6] for f in range(1436, 1444)}
+    spec = {"character": "Presenter", "cuts": [["S17", 1392, 1440], ["S18", 1440, 1560]],
+            "frames_glob": str(tmp_path / "*.png"), "boxes": {"S17": [0.3, 0.0, 0.7, 1.0], "S18": [0.3, 0.0, 0.7, 1.0]},
+            "anchors": anchors}
+    sp = tmp_path / "spec.json"
+    sp.write_text(json.dumps(spec))
+    with pytest.raises(SystemExit):
+        qa_local.main(["hair", str(sp)])
+    r = json.loads(capsys.readouterr().out)
+    assert r["metrics"]["frames_measured"] == 8 and r["gate"]["hair.cut_reach_pct"] > 12
+    assert r["issues"][0]["code"] == "hair.cut_jump" and r["issues"][0]["frame"] == 1440

@@ -74,7 +74,7 @@ def luma_mask(img, box, max_luma: float = 40.0) -> tuple:
     [x0, y0, x1, y1]) darker than `max_luma` (0-255, Rec.709 on the 8-bit values). Black/dark hair over a lighter
     set and skin; the box (the character's head and shoulders, from the bones) keeps dark set pieces out.
     Returns (mask, width, height) of the WHOLE frame (False outside the box), so the rows stay frame rows."""
-    w, h, c = img.width, img.height, img.channels
+    w, h, c = img.w, img.h, img.c
     x0, y0 = int(box[0] * w), int(box[1] * h)
     x1, y1 = int(round(box[2] * w)), int(round(box[3] * h))
     d = img.data

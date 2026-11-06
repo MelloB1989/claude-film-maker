@@ -12,6 +12,15 @@ the same checks as the editor's qa.* ops (unreal/fmbridge/qa, imported from the 
     film-qa baseline check DIR SUITE STILL...    stills against local baselines DIR/SUITE/<stem>.png (offline;
                                                  --mode auto|compare|update: auto creates missing ones)
     film-qa baseline list DIR [--suite S]        what DIR holds
+    film-qa hair SPEC.json [--out OUT.json]      hair continuity across cuts on rendered frames (a dark-hair matte
+                                                 in a box per shot): SPEC {"character", "cuts": [[shot, first,
+                                                 end]], "frames_glob" | "frames": {frame: path}, "boxes": {shot:
+                                                 [x0,y0,x1,y1]}, "anchors"?: {frame: [head_v, chest_v]},
+                                                 "max_luma"?, "thresholds"?}
+    film-qa gate NUMBERS.json... [--spec SPEC.json] [--waive ITEM=REASON] [--by NAME] [--out OUT.json]
+                                                 the review gate v2 (qa/gate.py): SIGN or REFUSE; NUMBERS files
+                                                 are {item: value} or any op result with a "gate" dict
+    film-qa gate --lines [--spec SPEC.json]      does every item's line fail the round-4 value it must catch?
 
 Every command prints JSON ({"pass", "issues", "metrics", ...}) and exits 1 when a "fail" issue was found, so a
 script (or Claude) can branch on it. JPEG and other formats need Pillow (`uv sync --extra anime` has it); PNG never
@@ -40,7 +49,7 @@ def qa():
     sys.modules["fmqa"] = mod
     spec.loader.exec_module(mod)
     for sub in ("image", "draw", "overlay", "sheet", "metrics", "compare", "framing", "geometry", "continuity", "review",
-                "baseline"):
+                "baseline", "hair", "gate"):
         __import__(f"fmqa.{sub}")
     return mod
 
@@ -182,6 +191,66 @@ def baseline_check(local_dir: str, suite: str, stills: list, mode: str = "auto",
     return {"pass": q.worst(issues) != "fail", "issues": issues, "metrics": {"stills": out}}
 
 
+def hair(spec: dict) -> dict:
+    """Hair continuity on rendered frames (qa/hair.py): per frame a dark-pixel matte inside the shot's box (the
+    character's head and shoulders), measured against the head/chest rows when `anchors` gives them."""
+    import glob
+    import re
+    qa()
+    h, im = sys.modules["fmqa.hair"], sys.modules["fmqa.image"]
+    frames = {int(k): v for k, v in (spec.get("frames") or {}).items()}
+    if spec.get("frames_glob"):
+        for p in sorted(glob.glob(spec["frames_glob"])):
+            m = re.findall(r"\d+", Path(p).stem)
+            if m:
+                frames.setdefault(int(m[-1]), p)
+    cuts = [[str(c[0]), int(c[1]), int(c[2])] for c in spec["cuts"]]
+    k = int((spec.get("thresholds") or {}).get("k", h.THRESHOLDS["k"]))
+    want = set()  # only the frames next to a cut, unless "all": true
+    for i, (_, a0, a1) in enumerate(cuts):
+        want |= set(range(a0, a1)) if spec.get("all") else set(range(a0, min(a1, a0 + k))) | set(range(max(a0, a1 - k), a1))
+    anchors = {int(f): v for f, v in (spec.get("anchors") or {}).items()}
+    series = {}
+    for f in sorted(want & set(frames)):
+        shot = next((s for s, a0, a1 in cuts if a0 <= f < a1), None)
+        box = (spec.get("boxes") or {}).get(shot)
+        if not box:
+            continue
+        mask, w, hh = h.luma_mask(im.read(frames[f]), box, float(spec.get("max_luma", 40.0)))
+        hv, cv = anchors.get(f, (None, None))
+        series[f] = h.mask_stats(mask, w, hh, head_v=hv, chest_v=cv)
+    r = h.judge(series, cuts, spec.get("character", ""), spec.get("thresholds"))
+    cut_pct = max([abs(c["reach"][2]) * 100 for c in r["cuts"]] or [0.0])
+    pop_pct = max([abs(p["reach"]) * 100 for p in r["pops"]] or [0.0])
+    r["gate"] = {"hair.cut_reach_pct": round(cut_pct, 2), "hair.pop_reach_pct": round(pop_pct, 2)}
+    r["metrics"] = {"frames_measured": len(series), "frames_found": len(frames)}
+    if not series:
+        r["pass"] = False
+        r["issues"].append({"code": "hair.no_frames", "severity": "fail", "message": "no frame next to a cut was "
+                            "measured: check frames_glob/frames and that every shot has a box"})
+    return r
+
+
+def gate(paths: list, spec_path: str = "", waive: list | None = None, by: str = "") -> dict:
+    """The review gate v2 over merged number files."""
+    qa()
+    g = sys.modules["fmqa.gate"]
+    numbers = {}
+    for p in paths:
+        d = json.loads(Path(p).read_text())
+        numbers.update(d.get("gate", d.get("numbers", d)) if isinstance(d, dict) else {})
+    spec = json.loads(Path(spec_path).read_text()) if spec_path else None
+    if spec and "spec" in spec and "items" not in spec:
+        spec = spec["spec"]
+    w = {}
+    for item in waive or []:
+        k, _, reason = item.partition("=")
+        w[k.strip()] = (reason.strip(), by)
+    r = g.judge(numbers, waivers=w, spec=spec)
+    r["pass"] = r["verdict"] == "SIGN"
+    return r
+
+
 def _client():
     from . import client
     return client
@@ -234,6 +303,16 @@ def main(argv=None) -> None:
     bp.add_argument("--suite", default="")
     bp.add_argument("--mode", default="auto", choices=("auto", "compare", "update"))
     bp.add_argument("--diff-dir", default="")
+    hp = sub.add_parser("hair")
+    hp.add_argument("spec")
+    hp.add_argument("--out", default="")
+    gp = sub.add_parser("gate")
+    gp.add_argument("numbers", nargs="*")
+    gp.add_argument("--spec", default="")
+    gp.add_argument("--waive", action="append", default=[], help="ITEM=REASON (refused on complaint items)")
+    gp.add_argument("--by", default="", help="who waives (required for a waiver)")
+    gp.add_argument("--lines", action="store_true", help="check the lines against round 4's values")
+    gp.add_argument("--out", default="")
     x = ap.parse_args(argv)
     if x.cmd == "image":
         subs = {k: [float(v) for v in b.split(",")] for k, _, b in (s_.partition("=") for s_ in x.subject)}
@@ -258,11 +337,26 @@ def main(argv=None) -> None:
             res = baseline_check(x.dir, x.rest[0], x.rest[1:], x.mode, x.diff_dir)
     elif x.cmd == "review":
         res = review(x.folder, x.out, x.reference, x.title)
+    elif x.cmd == "hair":
+        res = hair(json.loads(Path(x.spec).read_text()))
+    elif x.cmd == "gate":
+        if x.lines:
+            qa()
+            sp = json.loads(Path(x.spec).read_text()) if x.spec else None
+            fails = sys.modules["fmqa.gate"].lines_fail(spec=sp)
+            res = {"pass": all(v is not False for v in fails.values()), "lines_fail_round4": fails}
+        else:
+            if not x.numbers:
+                raise SystemExit("film-qa gate NUMBERS.json... (or --lines)")
+            res = gate(x.numbers, x.spec, x.waive, x.by)
     else:
         cam = json.loads(Path(x.camera_json).read_text())
         cam = cam.get("camera", cam)  # view.camera's whole result works too
         res = framing(cam, json.loads(Path(x.bones_json).read_text()), x.subject,
                       {"size": x.expect_size} if x.expect_size else None)
+    if getattr(x, "out", "") and x.cmd in ("hair", "gate"):
+        Path(x.out).parent.mkdir(parents=True, exist_ok=True)
+        Path(x.out).write_text(json.dumps(res, indent=1, default=str))
     print(json.dumps(res, indent=1, default=str))
     if isinstance(res, dict) and res.get("pass") is False:
         raise SystemExit(1)

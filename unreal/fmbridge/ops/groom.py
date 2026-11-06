@@ -433,6 +433,266 @@ def _decimate(comps, fraction: float) -> dict:
     return {"assets": done, "changed": changed, "note": "saved only with assets.save (the groom asset is shared)"}
 
 
+# --- the LOD lock (round 5: her hair shortened at the cut to a wide shot) ---------------------------------------
+# What decides how much hair a groom draws (UE 5.8.4 source, HairStrandsCore):
+# - the LOD index: LODSync's ForcedLOD reaches a groom only if the groom's NAME is in LODSync.ComponentsToSync
+#   (resolved to live components on register: LODSyncComponent.cpp InitializeSyncComponents); else the groom picks
+#   its LOD from screen size (GroomManager.cpp GetHairInstanceLODIndex) and MetaHuman grooms go to cards/helmet
+#   meshes on a small screen size. UGroomComponent::SetForcedLOD is not a UFUNCTION: LODSync is the only Python path.
+# - Auto LOD (r.HairStrands.LODMode, default 1 = Auto, RenderUtils.cpp; per asset GroomAsset.LODMode Default/Manual/
+#   Auto): even at a forced LOD 0 the strands draw RestCurveCount x clamp(screen size + bias) curves
+#   (GroomManager.cpp ComputeActiveCurveCount), shuffled, so a wide shot thins the hair to a fraction and its
+#   sparse long ends vanish: SHORTER hair. bAutoLOD is read once per groom in InitResources (register), so the mode
+#   cvar must be set BEFORE the render world registers its grooms (MRQ's PIE world does, after this op);
+#   r.HairStrands.AutoLOD.Bias is read every frame, and 1.0 keeps every curve whatever the mode.
+# - MRQ's "Use LOD Zero" (game overrides) sets r.ForceLOD / r.SkeletalMeshLODBias only: never the grooms.
+LOCK_CVARS = {"r.HairStrands.LODMode": 0, "r.HairStrands.AutoLOD.Bias": 1.0, "r.HairStrands.UseCardsInsteadOfStrands": 0}
+GEOMETRY = ("STRANDS", "CARDS", "MESHES")
+
+
+def _cvar_num(name: str):
+    try:
+        return float(unreal.SystemLibrary.get_console_variable_float_value(name))
+    except Exception:
+        return _cvar(name)
+
+
+def _enum_name(v) -> str:
+    s = str(getattr(v, "name", v))
+    return s.split(".")[-1].upper()
+
+
+def _asset_lods(asset, lod: int) -> dict:
+    """The groom asset's LOD setup: mode, bias, and per group the geometry drawn at `lod` (+ visible)."""
+    out = {"lod_mode": None, "auto_lod_bias": None, "groups": []}
+    if not isinstance(asset, unreal.Object):
+        return out
+    for k in ("lod_mode", "auto_lod_bias"):
+        try:
+            v = asset.get_editor_property(k)
+            out[k] = _enum_name(v) if k == "lod_mode" else round(float(v), 4)
+        except Exception:
+            pass
+    try:
+        for g in asset.get_editor_property("hair_groups_lod"):
+            lods = list(_lods(g))
+            row = {"lods": len(lods)}
+            if lod < len(lods):
+                s = lods[lod]
+                row.update(geometry=_enum_name(s.get_editor_property("geometry_type")),
+                           visible=bool(s.get_editor_property("visible")),
+                           screen_size=round(float(s.get_editor_property("screen_size")), 4),
+                           curve_decimation=round(float(s.get_editor_property("curve_decimation")), 4))
+            out["groups"].append(row)
+    except Exception as e:  # noqa: BLE001 - report what could not be read
+        out["error"] = f"{type(e).__name__}: {e}"[:160]
+    return out
+
+
+def _lods(group) -> list:
+    """FHairGroupsLOD.LODs: Python spells it `lo_ds` (UE's snake case of "LODs", the 5.6 API pages); `lods` too."""
+    for k in ("lo_ds", "lods"):
+        try:
+            return group.get_editor_property(k)
+        except Exception:
+            continue
+    raise OpError("FHairGroupsLOD has neither lo_ds nor lods", code="engine",
+                  hint="film-ue exec -c 'print(dir(unreal.HairGroupsLOD))' and fix groom._lods")
+
+
+def _sync_debug(c) -> dict:
+    """LODSync's own view of what it drives: {component name: rendered LOD} (GetLODSyncDebugText, the only
+    readback of a groom's forced LOD from Python)."""
+    out = {}
+    try:
+        text = str(c.get_lod_sync_debug_text())
+    except Exception:
+        return out
+    for line in text.splitlines():
+        if " : " in line:
+            name, rest = line.split(" : ", 1)
+            try:
+                out[name.strip()] = int(rest.split()[0])
+            except (ValueError, IndexError):
+                continue
+    return out
+
+
+def _lock_state(label: str, lod: int) -> dict:
+    """What the render will draw for one character's grooms, read afresh, with every problem and its fix."""
+    a = find_actor(label)
+    comps = list(a.get_components_by_class(unreal.ActorComponent))
+    trash = [c.get_name() for c in comps if c.get_name().startswith("TRASH_")]
+    syncs = []
+    for c in comps:
+        if c.get_class().get_name() != "LODSyncComponent" or c.get_name().startswith("TRASH_"):
+            continue
+        listed = [str(s.get_editor_property("name")) for s in c.get_editor_property("components_to_sync")]
+        syncs.append({"name": c.get_name(), "forced_lod": int(c.get_editor_property("forced_lod")),
+                      "listed": listed, "live": _sync_debug(c)})
+    grooms = []
+    for c in _grooms(a):
+        if c.get_name().startswith("TRASH_"):
+            continue
+        n = c.get_name()
+        g = {"name": n, "visible": bool(c.is_visible()), "asset": _path(c.get_editor_property("groom_asset")),
+             "use_cards": bool(c.get_editor_property("use_cards")),
+             "listed": any(n in s["listed"] for s in syncs),
+             "length_scale": [d.get("length_scale") for d in (_desc(x) for x in c.get_editor_property("groom_groups_desc"))
+                              if d.get("length_scale_override")],
+             "live_lod": next((s["live"][n] for s in syncs if n in s["live"]), None)}
+        g.update(_asset_lods(c.get_editor_property("groom_asset"), lod))
+        grooms.append(g)
+    skel = [{"name": c.get_name(), "forced_lod_model": int(c.get_editor_property("forced_lod_model"))}
+            for c in a.get_components_by_class(unreal.SkeletalMeshComponent) if not c.get_name().startswith("TRASH_")]
+    problems, notes = [], []
+    if trash:
+        problems.append(f"{label}: stale TRASH_ components {trash}: a lock on them does nothing. Fix: level.save, "
+                        "level.open, then respawn/re-dress the character and lock again")
+    if not syncs:
+        problems.append(f"{label}: no live LODSync component: nothing forces the grooms' LOD. Fix: recreate it on "
+                        "the Blueprint (a copied MetaHuman BP can lose it) or rebuild the character (mh.build)")
+    for s in syncs:
+        if s["forced_lod"] != lod:
+            problems.append(f"{label}: {s['name']} forced_lod {s['forced_lod']} (want {lod}). Fix: groom.lock")
+    for g in grooms:
+        if not g["visible"]:
+            continue
+        n = g["name"]
+        if not g["listed"]:
+            problems.append(f"{label}: groom {n} is not in LODSync's components_to_sync, so the forced LOD never "
+                            f"reaches it (screen size picks cards on a wide shot). Fix: groom.lock (adds it)")
+        elif syncs and g["live_lod"] is None:
+            notes.append(f"{label}: {n} is listed but LODSync has not resolved it yet (it does on register: the "
+                         "render's world will; level.save + level.open shows it here)")
+        elif g["live_lod"] is not None and g["live_lod"] != lod:
+            problems.append(f"{label}: groom {n} renders LOD {g['live_lod']} (want {lod})")
+        short = [v for v in g["length_scale"] if v is not None and v < 0.999]
+        if short:
+            notes.append(f"{label}: groom {n} has hair_length_scale overrides {short} (shorter strands by design: "
+                         "the same in every shot, unless a sequence keys it)")
+        if g["use_cards"]:
+            problems.append(f"{label}: groom {n} use_cards is on (cards, not strands). Fix: groom.lock")
+        for i, grp in enumerate(g["groups"]):
+            if "geometry" not in grp:
+                problems.append(f"{label}: groom {n} group {i} has {grp.get('lods')} LODs, no LOD {lod}")
+            elif grp["geometry"] != "STRANDS" or not grp["visible"]:
+                problems.append(f"{label}: groom {n} group {i} LOD {lod} is {grp['geometry']}"
+                                f"{'' if grp['visible'] else ' (hidden)'}, not strands: lock a strands LOD")
+        if g.get("lod_mode") == "AUTO":
+            notes.append(f"{label}: {n}'s asset is in Auto LOD mode itself (r.HairStrands.LODMode does not change "
+                         "it): r.HairStrands.AutoLOD.Bias 1 keeps its curves")
+    for s in skel:
+        if s["forced_lod_model"] != lod + 1:
+            problems.append(f"{label}: {s['name']} forced_lod_model {s['forced_lod_model']} (want {lod + 1} = "
+                            f"LOD {lod}). Fix: groom.lock")
+    return {"label": label, "trash": trash, "lodsync": syncs, "grooms": grooms, "skeletal": skel,
+            "problems": problems, "notes": notes}
+
+
+def _cvar_problems(want: dict) -> list:
+    out = []
+    for k, v in want.items():
+        got = _cvar_num(k)
+        if got is None or abs(float(got) - float(v)) > 1e-6:
+            out.append(f"cvar {k} is {got} (want {v}). Fix: groom.lock; and pass render_cvars to the render spec")
+    return out
+
+
+@op("groom.lock_check", mutates=False, idempotent=True)
+def lock_check(*, labels: list, lod: int = 0) -> dict:
+    """Read-only: will these characters' hair render the same in every shot? For each: no TRASH_ components, a
+    live LODSync forcing `lod`, every visible groom in its components_to_sync (and, where LODSync has resolved it,
+    rendering `lod`), strands (not cards/meshes, not hidden) at that LOD in every group, use_cards off, skeletal
+    meshes pinned; plus the hair LOD cvars (r.HairStrands.LODMode 0, r.HairStrands.AutoLOD.Bias 1,
+    r.HairStrands.UseCardsInsteadOfStrands 0) live in the editor.
+
+    Args: labels: the characters' actor labels. lod: the LOD that must render (0).
+    Returns: {"pass", "problems": [str], "notes": [str], "actors": {label: state}, "cvars": {...},
+    "render_cvars"}. The review gate's hair.lock item is this op's pass.
+    Example: film-ue op groom.lock_check 'labels=["Host","Presenter"]'
+    """
+    if not labels:
+        raise OpError("labels: the characters to check", code="bad_args")
+    states = {lab: _lock_state(lab, int(lod)) for lab in labels}
+    problems = [p for s in states.values() for p in s["problems"]] + _cvar_problems(LOCK_CVARS)
+    return {"pass": not problems, "problems": problems, "notes": [n for s in states.values() for n in s["notes"]],
+            "actors": states, "cvars": {k: _cvar_num(k) for k in LOCK_CVARS}, "render_cvars": dict(LOCK_CVARS)}
+
+
+@op("groom.lock", mutates=True, idempotent=True)
+def lock(*, labels: list, lod: int = 0, persist: bool = False, release: bool = False):
+    """Lock characters' hair (and bodies) to one LOD for rendering, so a wide shot draws the same hair as a close
+    one: each live LODSync's forced_lod = `lod`, every visible groom added to its components_to_sync (Passive) if
+    missing, use_cards off, skeletal meshes forced_lod_model = lod + 1; the hair LOD cvars set live
+    (r.HairStrands.LODMode 0: manual LODs; r.HairStrands.AutoLOD.Bias 1: no screen-size curve thinning;
+    r.HairStrands.UseCardsInsteadOfStrands 0). Then it reads everything back (groom.lock_check).
+
+    Pass `render_cvars` from the result into the render spec's cvars, and lock BEFORE the render starts: a groom
+    reads its LOD mode when it registers. Save the level after (level.save) so the pins persist.
+
+    Args: labels: actor labels. lod: 0 (the full groom). persist: also write the cvars into the project's
+    DefaultEngine.ini [SystemSettings] (editor.project_setting) so every editor start has them. release: undo the
+    pins (LODSync -1, skeletal 0, cvars back to the engine defaults 1 / 0.1); components added to the sync list stay.
+    Returns: {"changed": [str], "check": groom.lock_check's result, "pass", "render_cvars"}. Multi-tick.
+    Example: film-ue op groom.lock 'labels=["Host","Presenter"]'
+    """
+    if not labels:
+        raise OpError("labels: the characters to lock", code="bad_args")
+    lod = int(lod)
+    sync_lod, skel_lod = (-1, 0) if release else (lod, lod + 1)
+    want_cvars = {"r.HairStrands.LODMode": 1, "r.HairStrands.AutoLOD.Bias": 0.1} if release else LOCK_CVARS
+    changed = []
+    for lab in labels:
+        a = find_actor(lab)
+        comps = list(a.get_components_by_class(unreal.ActorComponent))
+        if any(c.get_name().startswith("TRASH_") for c in comps) and not release:
+            raise OpError(f"{lab} has stale TRASH_ components: a lock would land on dead copies", code="failed",
+                          hint="level.save, level.open, then respawn/re-dress the character, then groom.lock again")
+        groom_names = [c.get_name() for c in _grooms(a) if c.is_visible()]
+        syncs = [c for c in comps if c.get_class().get_name() == "LODSyncComponent"]
+        for c in syncs:
+            if int(c.get_editor_property("forced_lod")) != sync_lod:
+                c.set_editor_property("forced_lod", sync_lod)
+                changed.append(f"{lab}.{c.get_name()}.forced_lod={sync_lod}")
+            if release:
+                continue
+            lst = list(c.get_editor_property("components_to_sync"))
+            have = {str(s.get_editor_property("name")) for s in lst}
+            add = [n for n in groom_names if n not in have]
+            if add:
+                for n in add:
+                    lst.append(unreal.ComponentSync(name=n, sync_option=unreal.SyncOption.PASSIVE))
+                c.set_editor_property("components_to_sync", lst)
+                changed.append(f"{lab}.{c.get_name()}.components_to_sync+={add}")
+        if not release:
+            for c in _grooms(a):
+                if c.get_editor_property("use_cards"):
+                    c.set_editor_property("use_cards", False)
+                    changed.append(f"{lab}.{c.get_name()}.use_cards=False")
+        for c in a.get_components_by_class(unreal.SkeletalMeshComponent):
+            if int(c.get_editor_property("forced_lod_model")) != skel_lod:
+                c.set_editor_property("forced_lod_model", skel_lod)
+                changed.append(f"{lab}.{c.get_name()}.forced_lod_model={skel_lod}")
+        a.modify()
+    for k, v in want_cvars.items():
+        got = _cvar_num(k)
+        if got is None or abs(float(got) - float(v)) > 1e-6:
+            unreal.SystemLibrary.execute_console_command(None, f"{k} {v}")
+            changed.append(f"{k}={v}")
+    if persist:
+        from . import call
+        for k, v in want_cvars.items():
+            call("editor.project_setting", file="Engine", section="SystemSettings", key=k, value=v)
+        changed.append("DefaultEngine.ini [SystemSettings]")
+    for _ in range(3):
+        yield
+    if release:
+        return {"changed": changed, "pass": True, "released": labels}
+    check = lock_check(labels=labels, lod=lod)
+    return {"changed": changed, "check": check, "pass": check["pass"], "render_cvars": dict(LOCK_CVARS)}
+
+
 @op("groom.sky_lighting", mutates=True, idempotent=True)
 def sky_lighting(*, enable: bool = False, measure_label: str = "", measure_views: int = 1, out_dir: str = ""):
     """The hair sky-lighting guard (unreal/README.md: indoors, hair takes the sky light unoccluded and reads white):

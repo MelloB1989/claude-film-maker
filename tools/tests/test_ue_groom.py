@@ -106,3 +106,93 @@ def test_sky_lighting_guard(ada, ue):
     assert r["render_cvars"] == {"r.HairStrands.SkyLighting": 0}
     again = run_op("groom.sky_lighting", enable=False, measure_label="Ada")
     assert again["changed"] is False and "delta" in again["measure"]
+
+
+# --- R5: groom.lock / groom.lock_check (her hair shortened at the S17 -> S18 cut) --------------------------------
+
+@pytest.fixture
+def her(ue):
+    a = ue.spawn("SkeletalMeshActor", "Presenter", location=ue.Vector(0, 0, 90), extent=(25, 25, 90))
+    a.add_component(ue.SkeletalMeshComponent, "Body")
+    a.add_component(ue.SkeletalMeshComponent, "Face")
+    ue.groom(a, "Hair", groups=1)
+    ue.groom(a, "Eyebrows")
+    # round 4's state: LODSync pinned to 0 (gate g passed) but the hair component is not one LODSync knows
+    # (re-created under another name by a re-dress), and the engine's auto LOD cvars as shipped
+    ue.lodsync(a, names=("Body", "Face", "Eyebrows"))
+    sync = next(c for c in a.get_components_by_class(ue.ActorComponent) if c.get_name() == "LODSync")
+    sync.set_editor_property("forced_lod", 0)
+    return a
+
+
+def test_lock_check_catches_round4(her):
+    r = run_op("groom.lock_check", labels=["Presenter"])
+    assert r["pass"] is False
+    txt = "\n".join(r["problems"])
+    assert "groom Hair is not in LODSync's components_to_sync" in txt
+    assert "r.HairStrands.LODMode is 1.0 (want 0)" in txt and "r.HairStrands.AutoLOD.Bias" in txt
+    assert "forced_lod_model 0 (want 1" in txt
+    hair = next(g for g in r["actors"]["Presenter"]["grooms"] if g["name"] == "Hair")
+    assert hair["groups"][0]["geometry"] == "STRANDS" and hair["lod_mode"] == "DEFAULT"
+    brows = next(g for g in r["actors"]["Presenter"]["grooms"] if g["name"] == "Eyebrows")
+    assert brows["live_lod"] == 0
+
+
+def test_lock_then_check_passes(her, ue):
+    r = run_op("groom.lock", labels=["Presenter"])
+    assert any("components_to_sync+=['Hair']" in c for c in r["changed"])
+    assert r["pass"], r["check"]["problems"]
+    assert r["render_cvars"] == {"r.HairStrands.LODMode": 0, "r.HairStrands.AutoLOD.Bias": 1.0,
+                                 "r.HairStrands.UseCardsInsteadOfStrands": 0}
+    # LODSync resolves the added name only on register (the render's world): a note, not a pass on faith
+    assert any("not resolved it yet" in n for n in r["check"]["notes"])
+    again = run_op("groom.lock", labels=["Presenter"])
+    assert again["changed"] == []
+    sync = next(c for c in her.get_components_by_class(ue.ActorComponent) if c.get_name() == "LODSync")
+    sync.register()
+    assert run_op("groom.lock_check", labels=["Presenter"])["actors"]["Presenter"]["grooms"][0]["live_lod"] == 0
+
+
+def test_lock_refuses_trash_and_cards_lod(her, ue):
+    her.add_component(ue.LODSyncComponent, "TRASH_LODSync_0")
+    from fmbridge.errors import OpError
+    with pytest.raises(OpError) as e:
+        run_op("groom.lock", labels=["Presenter"])
+    assert "TRASH_" in e.value.message and "level.open" in e.value.hint
+    r = run_op("groom.lock_check", labels=["Presenter"], lod=2)
+    assert any("LOD 2 is CARDS, not strands" in p for p in r["problems"])
+
+
+def test_lock_release(her):
+    run_op("groom.lock", labels=["Presenter"])
+    r = run_op("groom.lock", labels=["Presenter"], release=True)
+    assert r["pass"] and "r.HairStrands.LODMode=1" in r["changed"]
+
+
+def test_hair_continuity_flags_the_cut(ada, ue, fmb, monkeypatch, tmp_path):
+    from test_ue_qa_ops import cine
+    cine(ue, "CamMed", [260, 0, 160], [0, 0, 150], focal=35)
+    cine(ue, "CamWide", [450, 0, 130], [0, 0, 120], focal=35)
+    hair = next(c for c in ada.get_components_by_class(ue.GroomComponent) if c.get_name() == "Hair")
+    long_, short = ([-2, 0, 160], [12, 11, 22]), ([-2, 0, 168], [12, 11, 14])  # ends at the chest vs above the neck
+    state = {"short_after": None}
+
+    def scrub(path, frame):
+        hair._props["fake_bounds"] = short if state["short_after"] is not None and frame >= state["short_after"] \
+            else long_
+        return frame
+    monkeypatch.setitem(fmb._OPS, "seq.cuts", lambda path: [["CamMed", 0, 48], ["CamWide", 48, 96]])
+    monkeypatch.setitem(fmb._OPS, "seq.scrub", scrub)
+    ok = run_op("qa.hair_continuity", sequence="/Game/Reel/SEQ_Reel", labels=["Ada"], frames=2, width_px=480,
+                height_px=270)
+    assert ok["pass"], (ok["issues"], ok["characters"]["Ada"]["series"], ok["characters"]["Ada"]["cuts"])
+    row = ok["characters"]["Ada"]["cuts"][0]
+    assert row["from"] == "CamMed" and row["to"] == "CamWide" and abs(row["reach"][2]) < 0.12
+    assert ok["characters"]["Ada"]["series"]["47"]["norm"] == "bones"
+    state["short_after"] = 48  # the wide shot draws shorter hair (an LOD switch)
+    out = str(tmp_path / "hair.json")
+    bad = run_op("qa.hair_continuity", sequence="/Game/Reel/SEQ_Reel", labels=["Ada"], frames=2, width_px=480,
+                 height_px=270, out=out)
+    assert not bad["pass"] and bad["gate"]["hair.cut_reach_pct"] > 12
+    assert any(i["code"] == "hair.cut_jump" and i["frame"] == 48 and "SHORTER" in i["message"] for i in bad["issues"])
+    assert os.path.isfile(out) and ue.actor("FMQA_Capture") is None
