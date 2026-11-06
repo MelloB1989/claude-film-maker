@@ -49,3 +49,14 @@ face_data=yes), the kali tree is agent-06's worktree `fleet/agent-06/r4-integrat
 | 06:13 | **Power cut**: fleet down; the orchestrator STOPPED the box at 06:33 (operator's request) after syncing /srv/ue/reel/r4 → private/renders/r4/box_r4, final_d → private/renders/r4/final_d, the project on disk → private/project_r4_snapshot/HostStudio |
 | 07:35 | Back. **/srv/ue was on the instance-store NVMe (nvme1n1): the stop wiped it.** Lesson: on g6 put /srv/ue on the root EBS (or an EBS data volume), never on instance store, and sync before ANY stop |
 | 07:44-07:52 | Re-provisioned on the root EBS (fstab ue-data line commented; /srv/ue a dir on /): engine 274 s, project from project_r4_snapshot (5.9 GB), rhi, service; final_d and box_r4 restored; box tree 202fabae |
+| 07:52-08:00 | DDC restored, editor + bridge, shaders 10 s, level.open; agent-04's look_check ALL ok (S3, hair 0.85, S_Full, no beard, skin/iris), no TRASH_, probe 13/13 |
+| 08:01 | glow noise floor; agent-09: V02/V04/V05/S12 differ from the pre-glow finals (dE 2.2-5.0, local) |
+| 08:04-08:18 | **set re-render V02/V04/V05/S12** into final_d (batch d_set4, 480 frames; pre-glow frames kept in final_d_preglow). agent-09 QA: all 8 set shots PASS |
+| 08:19 | agent-02 neck_fix (WPO through Material Attributes, ClothOp3): tee 1.6 cm nearer; patch gone, but the orchestrator found the tee BALLOONED |
+| 08:21-08:34 | agent-01's loop on a clean restore (stems pushed, solves, calibrate with yaw + eye tables after the stale-curve fix 4102938e, calibrate_body, naturalize, 0, 4, place, dressing, verify): **step 7 PASS**: heads within 4.2° of plan, her gaze error 5.8°/0.7° (was ~20°), his torso turn ~31° |
+| 08:34-08:41 | lip stills (agent-09); cast_op5 S13/S15/S17/S18 re-render (then S16 for her L3b gain); gate reads; lipgap |
+| 08:47-09:02 | agent-02's localised neck patch (ClothOp4): patch → patch2 → **patch3** (plain inflate 0.15 cm, push only on the deep cluster); cast_op5 re-rendered on patch3 (09:02) |
+| 08:50-08:56 | **S16 1080p final** into final_d (her only) |
+| 09:05-09:09 | Orchestrator by-eye PASS on patch3; agent-09 **gate SIGNED** on patch3 (a: S13 L1 lips waived on the orchestrator's eye; e: neck_px 1-3 px at S15 f1082-1128 and silhouette +2.2% at the S15 hold waived). A crossing patch4 retune was rendered (preview only) and then reverted: patch3's values re-applied, verified identical, saved 09:09:36 |
+| 09:10 | **Presenter finals** S13, S15, S17, S18 at 1080p into final_d (one batch per shot, probe before each) → final_check → cut check (13 shots) → 65 s → 45 s |
+| | Core (main 85ce6b84): setup.sh `volume` skips instance store (falls back to a dir on the root EBS), `driver` installs the running kernel's nvidia modules + the EGL ICD divert; docs/linux "Box lessons (round 4)". Merged into film/host-studio 45b8e70d |
