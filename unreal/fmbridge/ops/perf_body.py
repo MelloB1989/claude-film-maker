@@ -228,7 +228,7 @@ def body_life(*, out: str, body_mesh: str, length_s: float, state: str = "rest",
                      if AL.does_curve_exist(fa, n, unreal.RawCurveTrackTypes.RCT_FLOAT)), None)
         if name:
             ht, hv = _keys(fa, name)
-            sg = hs.yaw
+            sg = hs.yaw * (hs.gain("yaw") if name != PLANNED_TURN else 1.0)  # the curve's units in degrees
             head_yaw = (lambda t: sg * C.at(ht, hv, t))
     anim_new(path=out, skeleton=body_mesh, length_s=length_s, fps=30, replace=True)
     a = load(out)
