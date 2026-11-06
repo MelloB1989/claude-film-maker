@@ -5,7 +5,9 @@ tracking it, a head nod on each blink, an armour-like tee clipping at the neck, 
 gate had either no number for them, a number it never read (the grooms' own LOD), or a failing number that was
 waived. v2's rules:
 
-1. An item is a measured number, a comparison and a line (ITEMS). It says where to look (shots, frames), which
+1. An item is a measured number, a comparison and a line (ITEMS); a `guard` item protects against a new failure
+   (a fix overshooting) and need not fail round 4.
+   It says where to look (shots, frames), which
    command produces the number, and the round-4 value that the line must fail (`r4`), so a line that would have
    passed round 4 is visible in review.
 2. A missing number FAILS ("not measured" is not a pass); so does an error.
@@ -46,28 +48,51 @@ ITEMS: dict = {
         "area": "lips", "track": "T1", "op": "<=", "line": 0.05, "unit": "cm/frame",
         "what": "worst lip-gap motion in the 1.0 s before each line's audio onset (the speaker silent)",
         "where": "every line, the 24 frames before its first word",
-        "how": "cast_gate.py lipgap (silence window = onset-24..onset-1)",
+        "how": "cast_gate.py lipgap (silence window = onset-24..onset-1); T1 has no cm measure, so it stays T4's",
         "r4": [0.33, "S13 L1 silence f977-1001 (QA_HANDOFF 08:47), waived as a smirk"],
         "why": "clean silences read 0.003-0.009; the mouth opening before L1 read 0.33"},
     "lips.onset_lead_ms": {
-        "area": "lips", "track": "T1", "op": "<=", "line": 120, "unit": "ms",
-        "what": "how early the mouth first opens (gap >= 0.3 cm) before the line's audio onset",
+        "area": "lips", "track": "T1", "op": "<=", "line": 250, "unit": "ms",
+        "what": "how early the mouth first opens before the line's audio onset (worst line)",
         "where": "every line's first word",
-        "how": "cast_gate.py lipgap: first open frame vs cues.json onset",
+        "how": "film-ue lips gate (agent-01, T1)",
         "r4": [600, "S13 L1: mouth wide f1000-1008 vs audio f1020 (orchestrator, ~0.6-0.8 s)"],
-        "why": "a viewer reads > ~100 ms of lead as out of sync; 120 ms = 3 frames at 24 fps"},
+        "why": "natural anticipation is 100-300 ms (Chandrasekaran 2009); 600-800 ms is out of sync"},
+    "lips.lag_frames": {
+        "area": "lips", "track": "T1", "op": "<=", "line": 1, "unit": "frames",
+        "what": "max |lag| over lines: cross-correlation of the syllable-band voice envelope vs mouth aperture",
+        "where": "every spoken line", "how": "film-ue lips gate (T1)",
+        "r4": [17, "agent-01's estimate of round 4's S13 L1 lead"], "why": "a frame of lag is the limit"},
     "lips.track_r": {
-        "area": "lips", "track": "T1", "op": ">=", "line": 0.5, "unit": "r",
-        "what": "per line, correlation of the lip gap with the line's speech envelope (min over lines)",
-        "where": "every spoken line",
-        "how": "T1's lipsync check (perfkit)",
-        "r4": [None, "not measured; the operator: no lip sync during his lines"],
-        "why": "T1 sets the line from round 1's good sync and round 4's failure"},
+        "area": "lips", "track": "T1", "op": ">=", "line": 0.35, "unit": "r",
+        "what": "min over lines of the correlation at the best lag (voice envelope vs mouth aperture)",
+        "where": "every spoken line", "how": "film-ue lips gate (T1)",
+        "r4": [None, "measured in T1's probe on round 4's face; the operator: no lip sync during his lines"],
+        "why": "synthetic good sync 0.9+, wrong words < 0.3"},
+    "lips.silence_open": {
+        "area": "lips", "track": "T1", "op": "<=", "line": 0.10, "unit": "jawOpen",
+        "what": "p95 jaw opening above rest outside the voice activity (+-0.25 s)",
+        "where": "every silence of each speaker", "how": "film-ue lips gate (T1)",
+        "r4": [None, "T1's probe; round 4 opened before L1"], "why": "a closed mouth in silence"},
+    "lips.silence_busy": {
+        "area": "lips", "track": "T1", "op": "<=", "line": 0.25, "unit": "ratio",
+        "what": "mouth speed in silence / mouth speed on lines", "where": "every speaker",
+        "how": "film-ue lips gate (T1)", "r4": [None, "T1's probe"], "why": "talking reads ~1.0"},
+    "lips.render_lag_frames": {
+        "area": "lips", "track": "T1", "op": "<=", "line": 1, "unit": "frames",
+        "what": "lag of the RENDERED mouth crop vs the voice", "where": "every spoken line",
+        "how": "film-ue lips gate --render (T1)", "r4": [None, "T1's probe on round 4's finals"],
+        "why": "the curves can be right and the render still wrong"},
+    "lips.render_conclusive": {
+        "area": "lips", "track": "T1", "op": "==", "line": 1, "unit": "bool",
+        "what": "the render lag beats a 6-frame shifted-audio control", "where": "every spoken line",
+        "how": "film-ue lips gate --render (T1)", "r4": [None, "T1's probe"],
+        "why": "an inconclusive measure cannot sign"},
     "lips.cues_fresh": {
         "area": "lips", "track": "T1", "op": "==", "line": 1, "unit": "bool",
         "what": "cues.json rebuilt from this round's stems with real word times (words_lost false)",
         "where": "out/host-studio/reel/cues.json",
-        "how": "vo.py cues; the gate reads words_lost and the stems' hashes",
+        "how": "film-ue lips gate (T1): measured word times, stem sha256 match, no words_lost",
         "r4": [0, "cues.json was round 3's copy, words_lost=true"],
         "why": "lip sync and captions key off the word times; estimated times cannot be in sync"},
     # --- T2: her head nods on blinks
@@ -88,11 +113,35 @@ ITEMS: dict = {
         "why": "the operator saw it: any pixel is a clip"},
     "garment.silhouette_pct": {
         "area": "garment", "track": "T3a", "op": "<=", "line": 2.0, "unit": "%",
-        "what": "tee silhouette growth over the body's (inflated shell), worst frame",
+        "what": "tee silhouette change vs the ACCEPTED round-5 fit's own first pass (render-to-render stability)",
         "where": "S15 hold, S17, S18",
-        "how": "r4/tee_silhouette.py",
+        "how": "r4/tee_silhouette.py against the accepted fit's reference pass (not round 4's Host_after: the refit "
+               "adds real ease and would read +4..+8% against it)",
         "r4": [2.23, "S15 f1150-1198 +2.1..+2.23%, waived"],
-        "why": "the operator: 'heavy armor inside'"},
+        "why": "a later render must not drift from the fit the orchestrator accepted"},
+    "garment.wpo_cm": {
+        "area": "garment", "track": "T3a", "op": "<=", "line": 0.2, "unit": "cm",
+        "what": "the material inflate push on his tee (FM_Inflate + FM_Neck + FM_Patch): the rigid-shell cause",
+        "where": "his tee's materials", "how": "film-ue garment-gate (agent-02, T3a)",
+        "r4": [2.66, "0.15 + 0.75 + 1.76 cm (patch3)"], "why": "the operator: 'heavy armor inside'"},
+    "garment.armor_index": {
+        "area": "garment", "track": "T3a", "op": "<=", "line": 0.5, "unit": "index",
+        "what": "qa.garment_look: ease spread vs the uncut body, wall thickness, wpo, silhouette ratio, normal "
+                "detail, motion",
+        "where": "S15 f1082/1150, S17 f1397", "how": "film-ue garment-gate --look (T3a)",
+        "r4": [None, "probe G3 on the r4 state before the refit (agent-02 expects ~0.7)"],
+        "why": "the operator: a smooth, thick, rigid shell"},
+    "garment.pair_fraction": {
+        "area": "garment", "track": "T3a", "op": "<=", "line": 0.001, "unit": "fraction",
+        "what": "worst under>over clip fraction over the non-face pairs (Body>tee, Body>Trousers, Trousers>tee)",
+        "where": "S13, S15, S17, S18", "how": "film-ue op qa.clip (T3a)",
+        "r4": [0.0067, "Trousers>tee at cast_op4"], "why": "~4 px of a garment"},
+    "garment.silhouette_ratio": {
+        "area": "garment", "track": "T3a", "op": "<=", "line": 1.12, "unit": "ratio", "guard": True,
+        "what": "(garment U body) / uncut body px in the garment's rows: the balloon guard for the refit",
+        "where": "S15, S17", "how": "qa.garment_look (T3a)",
+        "r4": [None, "a guard, not a regression line: round 4 did not balloon (probe G3 gives its value)"],
+        "why": "08:19 round 4: the tee BALLOONED once"},
     "garment.cloth_detail": {
         "area": "garment", "track": "T3b", "op": ">=", "line": None, "unit": "",
         "what": "cloth behaviour: fold/shading detail on the tee's chest (T3b's metric)",
@@ -210,7 +259,7 @@ def lines_fail(round_values: dict | None = None, spec: dict | None = None) -> di
     out = {}
     for k, it in items(spec).items():
         v = (round_values or {}).get(k, (it.get("r4") or [None])[0])
-        if v is None or it.get("line") is None:
+        if v is None or it.get("line") is None or it.get("guard"):  # a guard catches a new failure, not round 4's
             out[k] = None
         else:
             out[k] = not OPS[it["op"]](v, it["line"])

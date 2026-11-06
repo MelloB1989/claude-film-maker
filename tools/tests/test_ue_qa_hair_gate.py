@@ -90,7 +90,8 @@ def test_round4_numbers_refuse_and_name_each_blocker():
     assert r["verdict"] == "REFUSE"
     failed = {row["id"] for row in r["rows"] if row["state"] == "FAIL"}
     # every operator blocker of round 4 that has a round-4 number fails on it
-    for k in ("lips.lead_in_cm", "lips.onset_lead_ms", "lips.cues_fresh", "garment.neck_px",
+    for k in ("lips.lead_in_cm", "lips.onset_lead_ms", "lips.lag_frames", "lips.cues_fresh", "garment.neck_px",
+              "garment.wpo_cm", "garment.pair_fraction",
               "garment.silhouette_pct", "hair.lock", "hair.render_cvars"):
         assert k in failed, k
     # and what round 4 never measured fails as "not measured", not silently
@@ -124,7 +125,10 @@ def test_waiver_needs_reason_and_name_and_works_off_complaints():
 
 
 def test_clean_numbers_sign():
-    good = {"lips.lead_in_cm": 0.008, "lips.onset_lead_ms": 40, "lips.track_r": 0.71, "lips.cues_fresh": True,
+    good = {"lips.lead_in_cm": 0.008, "lips.onset_lead_ms": 140, "lips.track_r": 0.71, "lips.cues_fresh": True,
+            "lips.lag_frames": 0, "lips.silence_open": 0.03, "lips.silence_busy": 0.1, "lips.render_lag_frames": 1,
+            "lips.render_conclusive": True, "garment.wpo_cm": 0.0, "garment.armor_index": 0.3,
+            "garment.pair_fraction": 0.0, "garment.silhouette_ratio": 1.05,
             "head.blink_nod_deg": 0.2, "garment.neck_px": 0, "garment.silhouette_pct": 0.8,
             "garment.cloth_detail": 0.3, "hair.cut_reach_pct": 3.1, "hair.pop_reach_pct": 1.2, "hair.lock": 1,
             "hair.render_cvars": 1}
