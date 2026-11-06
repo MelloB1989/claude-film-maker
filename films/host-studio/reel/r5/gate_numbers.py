@@ -113,7 +113,37 @@ def _yaml_cvars(path: str) -> dict:
 POP_ONLY = ("hair.cut_pop_ratio",)
 
 
-def hair(check: str, yaml_path: str, qa_paths: list, pop_paths: list | None = None) -> dict:
+def _pop_exclude(g: dict, qa_paths: list, excludes: list) -> None:
+    """hair.pop_reach_pct again from the full results' pop rows, without the windows a ruling in the round's spec
+    names (`hair_pop_exclude`: [{"shot", "frames": [f0, f1], "reason", "by"}]: a measure-scope decision, e.g. her
+    planned motion at a shot's start, proved on the render against round 4; never a waiver). Every pop it drops is
+    listed in the item."""
+    for e in excludes:
+        if not (str(e.get("reason") or "").strip() and str(e.get("by") or "").strip()):
+            g["hair.pop_reach_pct"] = _err(f"hair_pop_exclude {e} needs a reason and who decided it")
+            return
+    kept, dropped = [], []
+    for p in qa_paths:
+        d = json.loads(_read(p) or "null") or {}
+        d = d["result"] if isinstance(d.get("result"), dict) else d
+        for r in (d.get("characters") or {"": d}).values():
+            for pop in r.get("pops") or []:
+                hit = next((e for e in excludes if f"Reel_{e['shot']}" in (pop.get("shot"), f"Reel_{pop.get('shot')}")
+                            or e["shot"] == pop.get("shot")), None)
+                if hit and hit["frames"][0] <= pop["frame"] <= hit["frames"][1]:
+                    dropped.append({**pop, "by": hit["by"], "reason": hit["reason"]})
+                else:
+                    kept.append(pop)
+    if not dropped:
+        return
+    worst = max(kept, key=lambda q: abs(q["reach"]), default=None)
+    g["hair.pop_reach_pct"] = {"value": round(abs(worst["reach"]) * 100, 2) if worst else 0.0,
+                               "where": f"{worst['shot']} f{worst['frame']}" if worst else "no pop over the line",
+                               "excluded_by_ruling": dropped}
+
+
+def hair(check: str, yaml_path: str, qa_paths: list, pop_paths: list | None = None,
+         excludes: list | None = None) -> dict:
     g = {}
     c = json.loads(_read(check)) if _read(check) else None
     if c is None:
@@ -158,6 +188,8 @@ def hair(check: str, yaml_path: str, qa_paths: list, pop_paths: list | None = No
             bad_old = old is None or ov is None or (isinstance(old, dict) and bool(old.get("error")))
             if old is None or (bad_old and not bad_new) or (not bad_old and not bad_new and vv > ov):
                 g[k] = v
+    if excludes and qa_paths:
+        _pop_exclude(g, qa_paths, excludes)
     for k, extra in (("hair.cut_reach_pct", {"cuts_judged": judged}), ("hair.cut_pop_ratio", {"pop_cuts": popped})):
         if k in g and (qa_paths or pop_paths):
             g[k] = {**(g[k] if isinstance(g[k], dict) else {"value": g[k]}), **extra}
@@ -207,6 +239,7 @@ def main(argv=None) -> int:
     h.add_argument("--check", required=True, help="groom.lock_check (or groom.lock) result json")
     h.add_argument("--yaml", required=True, help="the finals' render spec")
     h.add_argument("--qa", action="append", default=[], help="film-qa hair / qa.hair_continuity json (repeatable)")
+    h.add_argument("--spec", default="", help="the round's gate spec: its hair_pop_exclude rulings, if any")
     h.add_argument("--qa-pop", action="append", default=[], help="film-qa hair on NIGHT renders: only its "
                    "hair.cut_pop_ratio is taken (the luma matte reads dark clothing as hair: reach is not a measure)")
     h.add_argument("--out", required=True)
@@ -227,7 +260,8 @@ def main(argv=None) -> int:
     elif a.cmd == "ssim":
         g = ssim(a.frames, a.ref, [x for x in a.shots.split(",") if x], a.step)
     else:
-        g = hair(a.check, a.yaml, a.qa, a.qa_pop)
+        ex = (json.loads(Path(a.spec).read_text()).get("hair_pop_exclude") or []) if a.spec else []
+        g = hair(a.check, a.yaml, a.qa, a.qa_pop, ex)
     out = {"gate": g}
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
     Path(a.out).write_text(json.dumps(out, indent=1))
