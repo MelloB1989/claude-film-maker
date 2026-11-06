@@ -807,10 +807,33 @@ CLIP_GATED = {"Host": ("Body>tee", "Body>Trousers", "Trousers>tee")}  # his scre
 # pixel with no tee above it, or tee > 4 cm further: its inside back, and his face nearer there); the band is 1.0 cm
 # under the rim at the rim's depth (a column without a rim takes the nearest within 24 px); neck_px counts the Face>tee
 # clip pixels below the band. The clean neck seen above the collar stays out; the patch under it counts.
-CLIP_HER_DRIFT = 0.01  # her pairs read 0.03-0.19 on clean frames (the scoop neck, the open overshirt): after vs before
+CLIP_HER_DRIFT = 0.01
+# his tee's silhouette (the orchestrator, 06 Nov: the 08:41 neck fix ballooned the tee): its pixels per frame
+# (clip_pass's Body>tee g_px) within 2% of the pre-check pass (Host_after) in these shots
+SIL_SHOTS, SIL_TOL = ("S15", "S17", "S18"), 0.02  # her pairs read 0.03-0.19 on clean frames (the scoop neck, the open overshirt): after vs before
 
 
-def _clip(cs: list, eng: dict | None, before: dict | None = None) -> dict:
+def _silhouette(c: dict, ref: dict | None) -> list:
+    """His tee's pixels per (shot, frame) against the reference pass's: a fix that balloons the tee fails here."""
+    if not ref:
+        return ["Host: no silhouette reference pass (--clip-ref, the pre-check Host_after)"]
+    tee = lambda x: {(sid.removeprefix("Reel_"), f): fr.get("Body>tee", {}).get("g_px")  # noqa: E731
+                     for sid, per in (x.get("shots") or {}).items() if isinstance(per, dict) and "error" not in per
+                     for f, fr in per.items() if isinstance(fr, dict)}
+    a, b = tee(c), tee(ref)
+    bad, n = [], 0
+    for (sid, f), px in sorted(a.items()):
+        r0 = b.get((sid, f))
+        if sid not in SIL_SHOTS or not px or not r0:
+            continue
+        n += 1
+        d = px / r0 - 1
+        if abs(d) > SIL_TOL:
+            bad.append(f"Host {sid} f{f} tee silhouette {px} px vs {r0} pre-check ({d:+.1%}, > +-{SIL_TOL:.0%})")
+    return bad if n else ["Host: no frame shared with the silhouette reference in " + "/".join(SIL_SHOTS)]
+
+
+def _clip(cs: list, eng: dict | None, before: dict | None = None, ref: dict | None = None) -> dict:
     """agent-02's clip.json (r4/clip_pass.py, one per presenter): shots -> frame -> "under>over" -> {fraction, raw,
     clusters}. Him: CLIP_GATED pairs <= CLIP_MAX, and "neck_px" (Face>tee pixels under the collar band's lower edge)
     0 every frame; Face>tee as a whole and the 3D "neck" are information only. Her: per (shot, pair)
@@ -876,6 +899,7 @@ def _clip(cs: list, eng: dict | None, before: dict | None = None) -> dict:
                         info["Host neck 3D out (verts)"] = max(info.get("Host neck 3D out (verts)", 0), n3.get("out", 0))
             if not necks:
                 bad.append("Host: no 'neck_px' (the pixel patch under the collar band) in the clip pass")
+            bad += _silhouette(c, ref)
         elif lab == "Presenter":
             if not before:
                 bad.append("Presenter: no before pass to compare with (--clip-before)")
@@ -919,7 +943,7 @@ def sign(a) -> dict:
         "b.watch": _watch(eng),
         "c.hair_hue": _hue(rd(a.hue), fr),
         "d.head_turns": _turns(rd(a.turns)),
-        "e.clipping": _clip([rd(x) for x in a.clip], eng, rd(a.clip_before)),
+        "e.clipping": _clip([rd(x) for x in a.clip], eng, rd(a.clip_before), rd(a.clip_ref)),
         "f.cameras_framing": _cams(tx(a.cams), tx(a.framing)),
         "g.lod0_live": (lambda r: {"pass": r["pass"], "failed": r["failed"]})(
             rd(a.lod0) if a.lod0 else {"pass": False, "failed": ["no lod0 probe"]}),
@@ -982,6 +1006,8 @@ def main() -> None:
                    "(r4/clip_pass.py); else the engine's qa.penetration")
     g.add_argument("--clip-before", default="", help="her clip.json before (cast_op4): her pairs are judged "
                    "against it")
+    g.add_argument("--clip-ref", default="", help="his pre-check clip.json (Host_after): the tee's silhouette "
+                   "reference")
     g.add_argument("--cams", default="", help="probe_cam.py <13 shots> --check's output (text)")
     g.add_argument("--framing", default="", help="framing.py's output (text)")
     g.add_argument("--lod0", default="", help="cast_gate.py lod0's json")
