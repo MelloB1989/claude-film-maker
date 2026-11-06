@@ -49,3 +49,46 @@ face_data=yes), the kali tree is agent-06's worktree `fleet/agent-06/r4-integrat
 | 06:13 | **Power cut**: fleet down; the orchestrator STOPPED the box at 06:33 (operator's request) after syncing /srv/ue/reel/r4 → private/renders/r4/box_r4, final_d → private/renders/r4/final_d, the project on disk → private/project_r4_snapshot/HostStudio |
 | 07:35 | Back. **/srv/ue was on the instance-store NVMe (nvme1n1): the stop wiped it.** Lesson: on g6 put /srv/ue on the root EBS (or an EBS data volume), never on instance store, and sync before ANY stop |
 | 07:44-07:52 | Re-provisioned on the root EBS (fstab ue-data line commented; /srv/ue a dir on /): engine 274 s, project from project_r4_snapshot (5.9 GB), rhi, service; final_d and box_r4 restored; box tree 202fabae |
+| 07:52-08:00 | DDC restored, editor + bridge, shaders 10 s, level.open; agent-04's look_check ALL ok (S3, hair 0.85, S_Full, no beard, skin/iris), no TRASH_, probe 13/13 |
+| 08:01 | glow noise floor; agent-09: V02/V04/V05/S12 differ from the pre-glow finals (dE 2.2-5.0, local) |
+| 08:04-08:18 | **set re-render V02/V04/V05/S12** into final_d (batch d_set4, 480 frames; pre-glow frames kept in final_d_preglow). agent-09 QA: all 8 set shots PASS |
+| 08:19 | agent-02 neck_fix (WPO through Material Attributes, ClothOp3): tee 1.6 cm nearer; patch gone, but the orchestrator found the tee BALLOONED |
+| 08:21-08:34 | agent-01's loop on a clean restore (stems pushed, solves, calibrate with yaw + eye tables after the stale-curve fix 4102938e, calibrate_body, naturalize, 0, 4, place, dressing, verify): **step 7 PASS**: heads within 4.2° of plan, her gaze error 5.8°/0.7° (was ~20°), his torso turn ~31° |
+| 08:34-08:41 | lip stills (agent-09); cast_op5 S13/S15/S17/S18 re-render (then S16 for her L3b gain); gate reads; lipgap |
+| 08:47-09:02 | agent-02's localised neck patch (ClothOp4): patch → patch2 → **patch3** (plain inflate 0.15 cm, push only on the deep cluster); cast_op5 re-rendered on patch3 (09:02) |
+| 08:50-08:56 | **S16 1080p final** into final_d (her only) |
+| 09:05-09:09 | Orchestrator by-eye PASS on patch3; agent-09 **gate SIGNED** on patch3 (a: S13 L1 lips waived on the orchestrator's eye; e: neck_px 1-3 px at S15 f1082-1128 and silhouette +2.2% at the S15 hold waived). A crossing patch4 retune was rendered (preview only) and then reverted: patch3's values re-applied, verified identical, saved 09:09:36 |
+| 09:10 | **Presenter finals** S13, S15, S17, S18 at 1080p into final_d (one batch per shot, probe before each) → final_check → cut check (13 shots) → 65 s → 45 s |
+| | Core (main 85ce6b84): setup.sh `volume` skips instance store (falls back to a dir on the root EBS), `driver` installs the running kernel's nvidia modules + the EGL ICD divert; docs/linux "Box lessons (round 4)". Merged into film/host-studio 45b8e70d |
+| 09:10-09:30 | **Presenter finals** S13 (09:14), S15 (09:20), S17 (09:25), S18 (09:30) into final_d on patch3; final_check clean (all 13 shots, 1584 frames, no missing/black/jumps); agent-09 finals QA PASS (S15 pops of round 3 gone; hair green_px 0.000 at 1080p) |
+| 09:32 | First cut attempt failed: `filmtools.paths` needs the repo marker `app/package.json`, which the box-tree archive left out (pushed it). The failing step still returned rc 0 through a pipe: the cut chain now greps for Traceback/Error and counts the outputs |
+| 09:33-09:40 | **Cuts**: 65 s (1560 frames, -14.0 LUFS, -1.7 dBTP), 45 s (1080 frames, -14.1 LUFS, -1.7 dBTP), each as ProRes 4444 textless, H.264 with captions, clean H.264, srt/vtt, cut.json. Captions from round 3's known-good cues.json (not rebuilt on this box) |
+| 09:40-09:43 | **Wrap**: final_d → private/renders/r4/final_d (1606 = 1606), /srv/ue/reel/r4 → private/renders/r4/box_r4, deliverables → private/renders/r4/final (21 = 21, every file head-object aws:kms and size = local); assets + level saved (nothing dirty), project → private/project/HostStudio (1568 = 1568, aws:kms), editor stopped (Epic sign-in saved), DDC → private/ddc/5.8.4 (50,211). idle-guard keepalive touched during the syncs |
+
+## STATE AT END OF ROUND 4 (06 Nov, ~09:45 UTC)
+
+**Deliverables** (private only, KMS; Host_Op is in them): `s3://rf-render-788655295054-aps1/ue-linux/private/renders/r4/final/`
+- `karma-reel-1080p-h264.mp4`, `-clean-h264.mp4`, `-textless-prores4444.mov`, `karma-reel.srt/.vtt`, `cut.json` (65 s)
+- `karma-reel-45s-1080p-h264.mp4`, `-clean-h264.mp4`, `-textless-prores4444.mov`, `karma-reel-45s.srt/.vtt`, `cut-45s.json` (45 s)
+- Frames: `private/renders/r4/final_d/` (all 13 shots, 1080p at pick C); review copy `private/renders/r4/review/cast_op5.mp4` (patch3)
+
+**What's in them:**
+- Host_Op's look: hair S_SideSweptFringe (length 0.85), M_SlightArch brows, S_Full mustache, no beard, iris 0.92/0.12, skin 0.30/0.45, S3 sculpt.
+- His tee: a localised patch (ClothOp4, patch3); his trousers re-fit to his body.
+- agent-01's turns: heads within 4.2° of the plan, the right way in every camera. Her eyes are on him (error 0.7-5.8°), the torso turns, and lip gain x1.7 on his lines, x1.1 on her L3b.
+- Her hair's teal ends are fixed: TerminalGlow attenuation 120 cm.
+- Set shots: V02/V04/V05/S12 re-rendered after the glow fix.
+
+**Gate:** agent-09 SIGNED on patch3 with two waivers on the orchestrator's eye:
+- a, lips: S13 L1 by measure only.
+- e, clipping: neck_px 1-3 isolated pixels at S15 f1082-1128, and the tee silhouette +2.1-2.2% at the S15 hold, vs a 2% line.
+
+**Saved:** project/HostStudio (today's), ddc/5.8.4, renders/r4/{final_d, box_r4, final, review}; project_r4_snapshot (06:21) is still there too.
+
+**Left / known:**
+- His lips in S13 L1 read weak by the frame and lip-gap metrics. They passed by eye.
+- agent-02's patch4 (INFLATE 0.05, FM_Patch 2.1) would clear the two hair-width e numbers. It's in the code but not in the finals.
+- The face-rig's HeadPitch curve is dead on both presenters. Nods come only from the body.
+- The perf calibration and VO stems live in Saved/, which no sync keeps: re-run `perf.py push` and the calibrations on any restored box.
+- Two GPU faults on Reel_V03 render starts this morning (Xid 109, then TerminateOnGPUCrash). Not investigated.
+- Core change merged to main (85ce6b84): no instance store for /srv/ue, driver modules for the running kernel, EGL ICD divert.

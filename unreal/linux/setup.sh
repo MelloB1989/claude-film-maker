@@ -39,10 +39,18 @@ step_volume() {
     if mountpoint -q "$mnt"; then echo "volume: $mnt already mounted"; return; fi
     root="$(lsblk -no PKNAME "$(findmnt -no SOURCE /)")"
     # the data disk: a whole disk, not the root disk, with no partitions (EBS volumes show as nvme*n1 on Nitro)
+    # never the instance store (g6/g5 local NVMe, model "Amazon EC2 NVMe Instance Storage"): a stop or a hibernate
+    # wipes it, and /srv/ue then loses the engine, the project and every render (round 4, 06 Nov)
     dev="$(lsblk -dpno NAME,TYPE | awk '$2=="disk"{print $1}' | while read -r d; do
         [ "$(basename "$d")" = "$root" ] && continue
+        case "$(cat "/sys/block/$(basename "$d")/device/model" 2>/dev/null)" in *"Instance Storage"*) continue ;; esac
         [ "$(lsblk -no NAME "$d" | wc -l)" -eq 1 ] && echo "$d"; done | head -1)"
-    [ -n "$dev" ] || { echo "volume: no empty data disk found" >&2; exit 1; }
+    if [ -z "$dev" ]; then
+        # no EBS data volume: a plain directory on the root EBS, which survives a stop
+        mkdir -p "$mnt"; chown "$UE_USER:$UE_USER" "$mnt"
+        echo "volume: no EBS data disk; $mnt is a directory on the root disk ($(df -h --output=avail / | tail -1 | tr -d ' ') free)"
+        return
+    fi
     blkid "$dev" >/dev/null 2>&1 || mkfs.ext4 -q -L ue-data "$dev"
     mkdir -p "$mnt"
     grep -q "LABEL=ue-data" /etc/fstab || echo "LABEL=ue-data $mnt ext4 defaults,noatime,nofail 0 2" >> /etc/fstab
@@ -63,6 +71,17 @@ step_driver() {
         echo "driver: nvidia $branch installed; reboot needed"
     fi
     apt-get install -y -qq libvulkan1 vulkan-tools xdg-user-dirs >/dev/null
+    # the modules must match the RUNNING kernel: ubuntu-drivers can pull modules for a newer kernel only (round 4:
+    # modules for 6.8.0-1069 on a box still booted into 1066, so no GPU until linux-modules-nvidia-*-$(uname -r))
+    nvidia-smi >/dev/null 2>&1 || apt-get install -y -qq "linux-modules-nvidia-$branch-$(uname -r)" >/dev/null 2>&1 && modprobe nvidia 2>/dev/null || true
+    # headless: the packaged Vulkan ICD points at libGLX_nvidia, which fails without an X server
+    # (ERROR_INCOMPATIBLE_DRIVER, the editor falls back to llvmpipe); the EGL library carries the same driver
+    local icd=/usr/share/vulkan/icd.d/nvidia_icd.json
+    if grep -q libGLX_nvidia "$icd" 2>/dev/null; then
+        dpkg-divert --quiet --local --rename --add "$icd"
+        sed 's/libGLX_nvidia.so.0/libEGL_nvidia.so.0/' "$icd.distrib" > "$icd"
+        echo "driver: Vulkan ICD diverted to libEGL_nvidia (headless)"
+    fi
     # the editor's shared libraries a minimal server image lacks (an installed or source-built Linux engine links
     # Slate/CEF against them: without libpango/libcairo UnrealEditor exits 127 before writing a log)
     apt-get install -y -qq libpango-1.0-0 libpangocairo-1.0-0 libcairo2 libgtk-3-0 libnss3 libxcomposite1 \
