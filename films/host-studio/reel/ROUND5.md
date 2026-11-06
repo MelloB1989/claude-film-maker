@@ -90,3 +90,61 @@ Times marked ~ were written from memory, not read off a clock (corrected at 12:1
 | 14:20 | Restart checklist: health, doctor (371 ops), install, ops.broken {}, FMCloth True, Studio open, no TRASH_, lock pass, probe_cam 13/13. agent-04's tilt probe (Host f1120-1160) |
 | 14:21 | **Fit6 imported** (ease 1.831; waist 2.63, hem 2.10 p90 2.47, chest 1.71, sleeve 1.47, collar kept 743 v) + **SKM_Host_Trousers_R5**; dressed; `dress_him.py` dropped Tee/Trousers leaders → re-dress → leaders OK; saved |
 | 14:23 | Backstop mask: `neck_backstop.py` line 63 used `get_mesh_per_vertex_uvs` (5.8.4: `get_mesh_per_vertex_u_vs`; patched in a copy). Mask: covered 1207, full_shrink 928, uv_valid, `neck_hidden.png` |
+| 14:24 | qa.clip/look on Fit6 + Trousers R5 (before the backstop): collar_gap 5.47, roll 6/6, Trousers>tee 0.7 % (2.8 cm, S17/S18), neck 32 px. **Cause (agent-02, 868ef94e): `--morph-ref` bound/exported the tee on the REFERENCE person's skeleton**, so Unreal skinned it with the other person's joint offsets (Fit3-6's floating collar and trousers) |
+| 14:30 | Head after agent-01's neck_01 guard (ddc8eaec): sync says "this face turns its head itself" (turn step skipped); blink_nod 1.41 still |
+| 14:34 | Orchestrator (iv): Epic's own default garment, no WPO, + the backstop. Mask on Epic's tee (covered 1160); apply (C++-name fix 58bfebe2); `mh.add_item Outfits=WI_Host_DefaultGarment_Neck` + `mh.build` (102 s) + host_swap → **Host's Body/Face meshes and every groom EMPTY**. Cause (agent-02, 5.8.4 MetaHumanGeometryRemoval.cpp:45-52): MaxCullValue < 0 (the −0.01 "never cull") is rejected and the whole outfit assembly fails. Backstop OUT for tonight |
+| 14:39 | **Recovered by rebuilding with the original `WI_DefaultGarment`** (105 s) + host_swap: Body, Face, all grooms, default garment back. groom.set (melanin 1.0, redness 0.08; Hair length 0.85), groom.lock, drive_faces, **look_check ok on every item**, saved. (No snapshot restore needed) |
+| 14:50 | **Fit7 = out13, the refit on HIS skeleton** ("morph: the skeleton is HIS"): collar 1.22, waist 2.63, hem 2.10, chest 1.68, sleeve 1.47 |
+| 14:57 | Post-respawn head chain: lips placed in sync for both; **his looks broke (S15 −38.4°, S17 −24.4°)**; head blink_nod 1.03 |
+| 15:00 | **Fit7 + Trousers R5**: neck_px **0 without any backstop**, armor **0.006**, wpo 0, hem angle 6.1°; FAIL collar_gap 1.62 / roll 6/6 and Trousers>tee 0.6-0.7 % (≤ 2.8 cm) |
+| 15:01 | **Fit7 + round 4's SKM_Host_Trousers_Op** (S17/S18): **Trousers>tee 0.0**, Body>tee 0.00034, neck 0. Saved as the state on disk. **Orchestrator: HOLD** (the tee won't pass gate + eye by 15:45): bank, wrap, power off |
+| 15:03 | `perf.py calibrate --who him` (twice, drive_faces between): **turn_on 'Face', yaw_bone null**: his turn stays off after the respawn; open (agent-01) |
+| 15:04-15:10 | **Her S16 1080p final** (r3/30-final, batch S16, warmup_engine 22, hair cvars) into `/srv/ue/reel/r5/final`: 120 frames, 377 s; SSIM vs round 4's same frames 0.83-0.89 (same camera). The signs file was restored from the 14:09 snapshot (same content: turn_on Face both; the bad copy kept as `.bad-1503`) |
+| 15:10-15:16 | `perf.py restage --who him` (the Test_ staging was stale after the respawn) → sync → gaze → place: **looks all on plan again** (him S15 +0.6, S17 +0.8; her +0.2, +0.9); lips placed in sync both; head: her PASS (0.0 / 0.265), **him blink_nod 1.414° at f1130-1133 FAIL** (locked 0.19 passes). sync still skips the turn ("this face turns its head itself"), so the vertical-axis turn (ddc8eaec) was never exercised. Saved |
+| 15:17-15:19 | assets.save_all + level.save (no dirty packages); editor stopped. **Synced to private/ (KMS), counts = local**: `renders/r5/box_r5` 2250 = 2250, `project/HostStudio` (with Saved/, minus Logs/Crashes/Intermediate/DDC) 4514 = 4514, `r5tree_end` 1763 = 1763, `renders/r5/final_d` (S16) 122 = 122; head-object aws:kms on final_d/1200.png, SKM_Host_Tee_Fit7.uasset, signs_Face_Archetype_Skeleton.json, gate_garment.json, .tree-rev. DDC → `private/ddc/5.8.4` (ddc-s3 set to the private prefix: face_data refuses a public one) |
+
+## STATE AT END OF ROUND 5 (06 Nov, HOLD, ~15:30 UTC)
+
+**Decision (orchestrator, 15:01): HOLD the finals for the next session.** No tee passed the gate and the eye by
+21:15 IST. Everything is synced to private/ and the box is powered off (`film-ue down`).
+
+### What is done and proved
+- **Lips (T1), the operator's "no lip sync"**: round 4's faces were solved from the v1-script audio while the delivered
+  mix plays v2 (the stems on disk were v1; the mix's own VO was gone). **Option D**: the v2 voice separated from the
+  committed mix (demucs htdemucs), cut per line (`audio/vo_sep/`, voice.json provenance); cues from it pass at mix
+  score 1.0 on all 6 lines (L1 1019.76, L2 1094.4, L3a 1157.76, L3b 1214.88, L4a 1350.0, L4b 1385.52). 6 mouth-only
+  solves (AS_reel5_L1…L4b), composed per presenter: **in sync against each line's own solve at its mix place at every
+  stage** (solve/face/final/placed; ref lag ≤ 0.8 f, r ≥ 0.97, silences ≤ 0.001). Render check (`lips render
+  --reference`, activity-picked crop) **fails round 4's 65 s cut on all 6 lines** (worst |28.8| f).
+- **Her (T2/T4)**: blink_nod 0.0, blink_locked 0.265 (round 4: 2.70 / 0.416); looks on plan; S16 final banked;
+  orchestrator by eye: face, overshirt (round 4's, no cloth) and hair PASS at f1270. The hair lock (LODMode 0,
+  Bias 1.0, persisted) passes; **S17 + S18 must render as ONE MRQ job** (the hair sim restarts on a new job: round 4's
+  "short at 01:00" is that step, measured 2.6× the neighbours' frame difference).
+- **His tee (T3a)**: the root causes of the floating collar and the trousers were found (the fit exported on the
+  reference person's skeleton: agent-02 868ef94e). **Fit7** (`SKM_Host_Tee_Fit7`, his skeleton; collar 1.22 / chest
+  1.68 / waist 2.63 / hem 2.10 / sleeve 1.47 cm) + round 4's **`SKM_Host_Trousers_Op`** is what he wears on disk:
+  **neck_px 0 without any backstop, Trousers>tee 0, Body>tee 0.00034, armor 0.006 (round 4 0.538), wpo 0, hem angle
+  6.1°**. Open: **collar_gap 1.62 cm, collar_roll 6/6** (line 0.8 / 0).
+- Cameras: probe_cam 13/13; the render-side guard `shot.render_matches_r4` (SSIM vs round 4's frame) is in gate v2.
+
+### Open (next session)
+1. **His collar**: Fit8 = Fit7 with a tighter collar (agent-02: the band's ease vs the neck), re-measure collar_gap /
+   roll; keep `SKM_Host_Trousers_Op`. Never WPO. The neck backstop is NOT needed with Fit7 (neck_px 0); if it ever
+   is: MaxCullValue must be ≥ 0 (agent-02 6646f917), or the MetaHuman assembly comes out empty.
+2. **His head**: blink_nod 1.41° at f1130-1133 (S15 turn-out); his turn goes through the face-curve path, so the
+   vertical-axis fix is not exercised (agent-01/agent-04). After any respawn: `perf.py restage --who him` first.
+3. **The S15 preview anomaly**: a 70-preview job of S15 f1080-1140 rendered a wide view (SSIM 0.18 vs round 4) while a
+   single S15 still matched (0.84); not explained. Every render is now checked with `shot.render_matches_r4`.
+4. Then: his S13/S15/S17 previews (final quality, `r5/70-preview.yaml`) → the orchestrator's eye → presenter finals
+   S13, S15, **S17+S18 as one job** (S16 is banked) → final_check/final_qa → hair (cut_pop_ratio), heads, lips
+   render (9.5) → cuts (captions from the vo_sep cues.json) → gate v2 (`--spec r5/gate_spec.json`; garment.cloth_*
+   NOT_ATTEMPTED per the orchestrator) → the orchestrator's eye.
+5. On a fresh kali: `lips.py cues` regenerates out/…/vo (deterministic from vo_sep); copy vo_sep L*.wav into vo/ for
+   perf.py push; `lips.py push`, `perf.py push`.
+
+### Where things are
+- Box disk (root EBS) = the saved project; also `s3://…/ue-linux/private/project/HostStudio` (with Saved/, minus
+  Logs/Crashes/Intermediate/DDC), `private/renders/r5/box_r5` (all of /srv/ue/reel/r5: probes, clip/look passes,
+  stills, previews, S16 final), `private/r5tree_end` (the box tree), `private/renders/r5/review/` (the previews and the
+  S16 still), the orchestrator's outage snapshots (`project_r5_snapshot`, `renders/r5/box_r5_snap`, `r5tree_snapshot`).
+- Kali probes: `/tmp/fleet-agent-06-ue/r5/probes/` (also copied in part to the shared t1-probes folder).
