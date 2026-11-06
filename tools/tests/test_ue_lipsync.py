@@ -314,3 +314,34 @@ def test_render_gate_is_inconclusive_on_a_static_mouth(lips):
              for k, c in doc["lines"].items()}
     r = CL.render_check(stem, stem, doc, "him", box=[0.3, 0.2, 0.7, 0.8], frames_override=still)
     assert r["verdict"] == "inconclusive" and not r["pass"]
+
+
+def test_words_the_mouth_holds_through_fail():
+    env = voice(LINES, 15.0)
+    m = mouth_from(env)
+    t, v = m[JAW]
+    held = [0.3 if 6.0 <= x <= 7.4 else y for x, y in zip(t, v)]  # L2: the jaw parked open over every word
+    words = [[6.0 + 0.35 * i, 6.0 + 0.35 * i + 0.3] for i in range(4)]
+    lines = cue_lines()
+    lines[1]["words"] = words
+    r = LS.check(env, {JAW: (t, held)}, lines, fps=FPS)
+    assert r["lines"]["L2"]["words_moving"] < 0.8 and "words" in {i["code"] for i in r["issues"]}
+    lines_ok = cue_lines()
+    lines_ok[1]["words"] = words
+    assert LS.check(env, m, lines_ok, fps=FPS)["lines"]["L2"]["words_moving"] >= 0.8
+
+
+def test_gate_numbers_round4_fails_every_line_it_should(lips):
+    CL, stem, lines, fps, tmp = lips
+    cues = CL.build_cues(lines, {"him": stem}, fps, words="none")
+    x, sr = sf.read(stem, dtype="float32")
+    env = CL.envelope(x, sr)
+    ts = [40.0 + i / 30 for i in range(30 * 10)]
+    early = {JAW: ([t - 40.0 - 0.7 for t in ts if t >= 40.7], [0.6 * env.at(t) for t in ts if t >= 40.7])}
+    rep = CL.curve_check(early, 960, stem, cues, "him", fps)
+    g = CL.gate_numbers({"him": rep}, {}, cues, {"him": stem})["gate"]
+    assert g["lips.lag_frames"]["value"] > 15 and g["lips.onset_lead_ms"]["value"] > 500
+    assert g["lips.silence_open"]["value"] > 0.10 or g["lips.silence_busy"]["value"] > 0.25
+    assert g["lips.cues_fresh"]["value"] == 1 and "error" in g["lips.render_lag_frames"]
+    cues["lines"]["L1"]["words_lost"] = True
+    assert CL.gate_numbers({"him": rep}, {}, cues, {"him": stem})["gate"]["lips.cues_fresh"]["value"] == 0

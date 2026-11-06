@@ -40,7 +40,10 @@ def _lines(lines, cues: str, who: str, fps: float) -> list:
         for k, c in doc["lines"].items():
             if who and c.get("who") != who:
                 continue
-            out.append({"id": k, "t0": c["voice_frame"] / fps, "t1": c["end_frame"] / fps})
+            rec = {"id": k, "t0": c["voice_frame"] / fps, "t1": c["end_frame"] / fps}
+            if c.get("words") and c.get("words_source") not in (None, "estimate", "none"):
+                rec["words"] = [[w["start"] / fps, w["end"] / fps] for w in c["words"]]
+            out.append(rec)
     for x in lines or []:
         if "t0" in x:
             out.append({"id": x["id"], "t0": float(x["t0"]), "t1": float(x["t1"])})

@@ -19,7 +19,8 @@ every gate passed, because they measured how MUCH the jaw moved on the line, nev
 
 Conventions: times in seconds on one timeline (the master's, frame 0 = 0 s); curves {name: (times, values)} on that
 same timeline (a placed animation's keys shifted by its section start: see `place`); lines [{"id", "t0", "t1"}] are
-speech onset/offset from cues.json (measured from the placed audio, never the slot the line was written for).
+speech onset/offset from cues.json (measured from the placed audio, never the slot the line was written for), optionally
+with "words": [[t0, t1], ...] (aligned words, s) for the per-word check.
 """
 from __future__ import annotations
 
@@ -58,6 +59,9 @@ LIMITS = {
     # silence: the mouth's movement (mean |d aperture/dt|) as a share of its movement on the lines: talking in a
     # silence is as busy as a line (~1.0); a breath or a slow smile is a few percent
     "silence_busy": 0.25,
+    # words (when cues carry aligned ones): the mouth's range inside a word, and the share of words that must move
+    "word_move": 0.04,
+    "min_words_moving": 0.8,
 }
 
 
@@ -304,6 +308,20 @@ def check(env, curves: dict, lines: list, fps: float = 24.0, limits: dict | None
             fails.append(_issue("flat", lid, f"{lid}: the mouth barely opens on the line (range {rec['open_range']})",
                                 "the solve is missing or muted here (speech gain, mood, a mask)",
                                 open_range=rec["open_range"]))
+        if ln.get("words"):  # aligned words: the mouth must move within each (a held mouth over a word is a miss)
+            moving = 0
+            for w0, w1 in ln["words"]:
+                a, b = window(w0 + lag, w1 + lag)
+                seg_w = mouth_raw[a:b]
+                if seg_w and max(seg_w) - min(seg_w) >= lim["word_move"]:
+                    moving += 1
+            share = moving / len(ln["words"])
+            rec["words_moving"] = round(share, 3)
+            if share < lim["min_words_moving"]:
+                fails.append(_issue("words", lid, f"{lid}: the mouth moves in {share:.0%} of its words "
+                                    f"(limit {lim['min_words_moving']:.0%})",
+                                    "the solve does not articulate these words: re-solve the line alone (its own WAV, "
+                                    "mood), or check a gain/clamp that holds the jaw", words_moving=rec["words_moving"]))
         rec["pass"] = not fails
         issues += fails
         out_lines[lid] = rec

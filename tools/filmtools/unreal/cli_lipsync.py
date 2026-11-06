@@ -194,8 +194,14 @@ def curve_check(curves: dict, start_frame: float, wav: Path, cues: dict, who: st
     x, sr = read_wav(wav)
     env = envelope(x, sr, offset_s=wav_frame / fps)
     cur = LS.place({n: (list(tv[0]), list(tv[1])) for n, tv in curves.items()}, start_frame / fps)
-    lines = [{"id": k, "t0": c["voice_frame"] / fps, "t1": c["end_frame"] / fps}
-             for k, c in cues["lines"].items() if c["who"] == who]
+    lines = []
+    for k, c in cues["lines"].items():
+        if c["who"] != who:
+            continue
+        rec = {"id": k, "t0": c["voice_frame"] / fps, "t1": c["end_frame"] / fps}
+        if c.get("words") and c.get("words_source") not in (None, "estimate", "none"):  # estimated words prove nothing
+            rec["words"] = [[w["start"] / fps, w["end"] / fps] for w in c["words"]]
+        lines.append(rec)
     return LS.check(env, cur, lines, fps=fps, expected_lag_s=expected_lag_s)
 
 
@@ -394,6 +400,57 @@ def syncnet(video: Path, wav: Path, cues: dict, who: str, boxes, box, syncnet_di
     return out
 
 
+# --- gate v2 numbers (agent-09's film-qa gate) -------------------------------------------------------------------
+
+def gate_numbers(curve_reports: dict, render_reports: dict, cues: dict | None, stems: dict) -> dict:
+    """{"gate": {item: {"value", "where", "error"?}}} for film-qa gate from lipsync.check reports per speaker
+    ({who: report}), render reports ({who: report}) and the cues + stems (freshness). Worst case over speakers and
+    lines; a missing measure is an "error" (the gate fails it)."""
+    g = {}
+
+    def worst(items, key, pick):
+        best = None
+        for who, rep in items:
+            for lid, rec in (rep.get("lines") or {}).items():
+                v = rec.get(key)
+                if v is None:
+                    continue
+                if best is None or pick(v, best[0]):
+                    best = (v, f"{who} {lid} f{round(rec.get('t0', 0) * rep.get('fps', 24))}" if "t0" in rec
+                            else f"{who} {lid} f{rec.get('frames', ['?'])[0]}")
+        return best
+
+    def put(item, got, conv=lambda v: v):
+        g[item] = {"value": conv(got[0]), "where": got[1]} if got else {"value": None, "error": "not measured"}
+
+    cur = list(curve_reports.items())
+    put("lips.lag_frames", worst(cur, "lag_frames", lambda v, b: abs(v) > abs(b)), lambda v: round(abs(v), 2))
+    put("lips.track_r", worst(cur, "corr", lambda v, b: v < b))
+    put("lips.onset_lead_ms", worst(cur, "onset_lead_s", lambda v, b: v > b), lambda v: round(v * 1000))
+    sil = [(who, s) for who, rep in cur for s in rep.get("silences", [])]
+    for item, key in (("lips.silence_open", "open"), ("lips.silence_busy", "busy")):
+        if sil:
+            who, s = max(sil, key=lambda ws: ws[1][key])
+            g[item] = {"value": s[key], "where": f"{who} f{s['frames'][0]}-{s['frames'][1]}"}
+        else:
+            g[item] = {"value": None, "error": "no silences measured"}
+    ren = list(render_reports.items())
+    if ren:
+        put("lips.render_lag_frames", worst(ren, "lag_frames", lambda v, b: abs(v) > abs(b)),
+            lambda v: round(abs(v), 2))
+        inc = [f"{who} {k}" for who, rep in ren for k in rep.get("inconclusive", [])]
+        g["lips.render_conclusive"] = {"value": not inc, "where": ", ".join(inc) or "all lines"}
+    else:
+        g["lips.render_lag_frames"] = {"value": None, "error": "no render check (film-ue lips render)"}
+    if cues is None:
+        g["lips.cues_fresh"] = {"value": 0, "where": "cues.json", "error": "no cues.json"}
+    else:
+        fresh = bool(cues.get("measured")) and not stale(cues, stems) and not any(
+            c.get("words_lost") for c in cues["lines"].values())
+        g["lips.cues_fresh"] = {"value": int(fresh), "where": "cues.json"}
+    return {"gate": g}
+
+
 # --- CLI ----------------------------------------------------------------------------------------------------------
 
 def _kv(items: list) -> dict:
@@ -422,6 +479,12 @@ def register(sub) -> None:
     k.add_argument("--who", required=True)
     k.add_argument("--fps", type=float, default=24.0)
     k.add_argument("--expected-lag-s", type=float, default=0.0)
+    gp = s.add_parser("gate", help="gate v2 numbers (film-qa gate) from the curve/render reports")
+    gp.add_argument("--curve", action="append", default=[], help="who=lipsync.check JSON (repeat per speaker)")
+    gp.add_argument("--render", action="append", default=[], help="who=film-ue lips render JSON")
+    gp.add_argument("--cues", type=Path, required=True)
+    gp.add_argument("--stem", action="append", default=[], help="who=the stem the mix plays")
+    gp.add_argument("--out", type=Path, required=True)
     r = s.add_parser("render", help="the video gate on a rendered MP4")
     r.add_argument("--video", type=Path, required=True)
     r.add_argument("--wav", type=Path, required=True, help="the voice (a stem or the mix), frame 0 = sample 0")
@@ -456,6 +519,17 @@ def dispatch(a) -> bool:
         cur = json.loads(a.curves.read_text())
         cur = cur.get("result", cur)
         _done(curve_check(cur, a.start_frame, a.wav, cues, a.who, a.fps, a.wav_frame, a.expected_lag_s))
+    elif a.lipsync_cmd == "gate":
+        def load(kv):
+            out = {}
+            for who, p in _kv(kv).items():
+                d = json.loads(Path(p).read_text())
+                out[who] = d.get("result", d)
+            return out
+        cues = json.loads(a.cues.read_text()) if a.cues.exists() else None
+        doc = gate_numbers(load(a.curve), load(a.render), cues, _kv(a.stem))
+        a.out.write_text(json.dumps(doc, indent=1))
+        print(json.dumps(doc, indent=1))
     elif a.lipsync_cmd == "render":
         cues = json.loads(a.cues.read_text())
         boxes = json.loads(a.boxes.read_text()) if a.boxes else None
