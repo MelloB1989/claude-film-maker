@@ -131,7 +131,8 @@ def gate_numbers(clip: dict | None, look: dict | None, first_pass: bool = False)
         if "hem_flare" in t:
             g["garment.hem_flare_ratio"] = {"value": t["hem_flare"]["value"],
                                             "where": f"worst frame vs the {t['hem_flare'].get('ref')} "
-                                                     f"({t['hem_flare'].get('ease_cm')} cm)"}
+                                                     f"({t['hem_flare'].get('ease_cm')} cm; hem angle "
+                                                     f"{t['hem_flare'].get('angle_deg')} deg)"}
         else:
             miss("garment.hem_flare_ratio", "qa.garment_look without the hem check (hem=true, ref_body or Trousers)")
         if "silhouette" in t:

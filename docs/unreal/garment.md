@@ -116,6 +116,7 @@ Python names are the snake_case of the reflected names. ✓ = read in the header
 | `unreal.GeometryScriptCopyMeshFromAssetOptions`, `unreal.GeometryScriptCopyMeshToAssetOptions` | structs | MeshAssetFunctions.h:56, :111 | ✓ |
 | `unreal.GeometryScriptMeshReadLOD`, `unreal.GeometryScriptMeshWriteLOD` | structs | GeometryScriptTypes.h:86, :99 | ✓ |
 | `unreal.GeometryScript_MeshEdits.delete_triangles_from_mesh` | DeleteTrianglesFromMesh (ScriptName GeometryScript_MeshEdits, not MeshBasicEdits) | MeshBasicEditFunctions.h:112, :236 | ✓ |
+| `unreal.GeometryScript_Materials.get_all_triangle_material_i_ds` | GetAllTriangleMaterialIDs (ScriptName GeometryScript_Materials); a skinned component's copy gives each triangle its section's material SLOT index | MeshMaterialFunctions.h:16, :125; Engine/Plugins/Runtime/MeshModelingToolset/Source/ModelingComponents/Private/ConversionUtils/SkinnedMeshToDynamicMesh.cpp:302-309, :480 | ✓ |
 | `unreal.AssetExportTask` | UAssetExportTask | Engine/Source/Runtime/Engine/Public/AssetExportTask.h:14 | ✓ |
 | `unreal.Exporter.run_asset_export_task` | UExporter::RunAssetExportTask (BlueprintCallable, static) | Engine/Source/Runtime/Engine/Classes/Exporters/Exporter.h:255 | ✓ |
 | `unreal.FbxExportOption` (ascii, vertex_color, level_of_detail, collision, export_morph_targets, map_skeletal_motion_to_root) | UFbxExportOption bASCII, VertexColor, LevelOfDetail, Collision, bExportMorphTargets, MapSkeletalMotionToRoot | Engine/Source/Editor/UnrealEd/Classes/Exporters/FbxExportOption.h:74-111 | ✓ |

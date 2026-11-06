@@ -201,15 +201,19 @@ def collar_stats(axial: list, radial: list, gap: list, *, window=(-8.0, 4.0), ri
 HEM_FLARE_RATIO = 1.15  # gate v2 (agent-09): hem radius / hip radius in the same height band
 
 
-def hem_stats(hem_r: list, ref_r: list, ref: str = "body") -> dict:
+def hem_stats(hem_r: list, ref_r: list, ref: str = "body", upper_r: list | None = None, rise_cm: float = 9.5) -> dict:
     """The hem's flare at one frame: hem_r = the garment's radii (horizontal distance from the body's vertical axis)
     in its lowest band, ref_r = the reference's radii in the same height band (the uncut body's hip, or the trousers'
     when no body). Returns {n, hem_r, ref_r, ease_cm, ratio, ref}: medians; ratio = hem / ref."""
+    out = {"n": len(hem_r), "ref": ref}
+    if hem_r and upper_r:  # the hem's own outward angle: its radius at the hem vs rise_cm higher on the same garment
+        h = percentile(hem_r, 0.5)
+        out["angle_deg"] = round(math.degrees(math.atan2(h - percentile(upper_r, 0.5), rise_cm)), 1)
     if not hem_r or not ref_r:
-        return {"n": 0, "ref": ref}
+        return {**out, "n": 0} if "angle_deg" not in out else out
     h, r = percentile(hem_r, 0.5), percentile(ref_r, 0.5)
-    return {"n": len(hem_r), "hem_r": round(h, 2), "ref_r": round(r, 2), "ease_cm": round(h - r, 2),
-            "ratio": round(h / r, 4) if r > 0 else None, "ref": ref}
+    return {**out, "hem_r": round(h, 2), "ref_r": round(r, 2), "ease_cm": round(h - r, 2),
+            "ratio": round(h / r, 4) if r > 0 else None}
 
 
 def wpo_inflate_cm(params: dict) -> float:
@@ -288,9 +292,10 @@ def look(m: dict, subject: str = "", *, ramps: dict | None = None, wpo_max_cm: f
                                 "never with collar ease", subject=subject, value=col["gap_cm"],
                                 expected=COLLAR_GAP_CM))
     hem = m.get("hem") or {}
-    if hem.get("frames"):
+    if hem.get("frames") and hem.get("ratio") is not None:
         terms["hem_flare"] = {"value": hem["ratio"], "score": None, "weight": 0.0, "cloth": 1.08,
-                              "armor": HEM_FLARE_RATIO, "ease_cm": hem.get("ease_cm"), "ref": hem.get("ref")}
+                              "armor": HEM_FLARE_RATIO, "ease_cm": hem.get("ease_cm"), "ref": hem.get("ref"),
+                              "angle_deg": hem.get("angle_deg")}
         if hem["ratio"] is not None and hem["ratio"] > HEM_FLARE_RATIO:
             hard = True
             issues.append(issue("garment.hem_flare", "fail",
