@@ -330,6 +330,32 @@ def _drop_ref():
             eas.destroy_actor(x)
 
 
+def _shown_verts(comp, dm, skip=("short", "hidden")):
+    """Vertex ids of the triangles whose material slot is drawn: slots whose name or material has a `skip` word
+    (round 5: the refit Tee still carries Epic's shorts, hidden; the hem check measured the shorts' hem) are left
+    out. None when the mesh has no material ids (then every vertex counts)."""
+    MQ, LU, MAT = unreal.GeometryScript_MeshQueries, unreal.GeometryScript_List, unreal.GeometryScript_Materials
+    names = [str(n).lower() for n in comp.get_material_slot_names()]
+    mats = [(m.get_name().lower() if m else "") for m in comp.get_materials()]
+    bad = {i for i in range(len(names)) if any(w in names[i] or (i < len(mats) and w in mats[i]) for w in skip)}
+    if not bad:
+        return None
+    fn = getattr(MAT, "get_all_triangle_material_i_ds", None) or getattr(MAT, "get_all_triangle_material_ids")
+    res = fn(dm)
+    ids = list(LU.convert_index_list_to_array(_pick(res, "GeometryScriptIndexList")))
+    if not ids:  # no material ids on the copied mesh
+        return None
+    keep = set()
+    for t, mid in enumerate(ids):
+        if mid < 0 or mid in bad:
+            continue
+        iv = _pick(MQ.get_triangle_indices(dm, t), "IntVector")
+        keep.update((iv.x, iv.y, iv.z))
+    n = len(_verts(dm))
+    # a mapping that drops most of the garment is not slot -> material id as assumed: measure everything instead
+    return sorted(keep) if keep and len(keep) >= 0.3 * n else None
+
+
 def _collar(a, parts, gv, body: str = "Body") -> dict:
     """fmbridge.qa.garment_look.collar_stats at this pose: the garment's verts in the neck's frame (neck_01 ->
     head axis of the Body) and their distance to the skin (the Face's lower neck, or the Body)."""
@@ -394,7 +420,7 @@ def _wpo_params(comp) -> dict:
 def garment_look(*, label: str, garment: str = "", ref_body: str = "", sequence: str = "", frames: list | None = None,
                  motion_from: int | None = None, motion_frames: int = 0, width_px: int = 480, samples: int = 1500,
                  body: str = "Body", out_dir: str = "", ramps: dict | None = None, collar: bool = True,
-                 hem: bool = True):
+                 hem: bool = True, skip_slots: list | None = None):
     """Does the garment read as cloth or as ARMOR (fmbridge.qa.garment_look: the armor index)?
 
     Measured: `ease` (each sampled garment vertex's distance to the UNCUT reference body, posed: its spread and
@@ -410,11 +436,13 @@ def garment_look(*, label: str, garment: str = "", ref_body: str = "", sequence:
     With `collar` (default), per frame the COLLAR band round the neck (fmbridge.qa.garment_look.collar_stats): its
     gap to the skin and its radial spread; FAIL (hard) over 0.8 cm gap or any rolled frame (round 5: Fit5's collar
     floated like a cowl while every other number passed). With `hem` (default), the hem's flare: its radius from the
-    pelvis axis in its lowest 3 cm vs the uncut body's (else the trousers') in that band; FAIL over 1.15.
+    pelvis axis in its lowest 3 cm vs the uncut body's (else the trousers') in that band; FAIL over 1.15. Only the
+    garment's DRAWN slots are measured (skip_slots: slot or material names with these words, default short/hidden).
     Returns: {"pass", "verdict": cloth|borderline|armor, "index", "terms", "issues", "missing", "metrics"}.
     Example: film-ue op qa.garment_look label=Host ref_body=/Game/Host/Unpacked/Host/Body/SKM_Host_BodyMesh sequence=/Game/Reel/SEQ_Reel 'frames=[1082,1150]' motion_from=1140 motion_frames=12
     """
     a = find_actor(label)
+    skip_slots = tuple(skip_slots or ("short", "hidden"))
     parts = roles(a, {"tee": garment} if garment else None)
     g_role = "tee" if "tee" in parts else next((k for k in parts if k not in SKIN), None)
     if g_role is None:
@@ -437,8 +465,11 @@ def garment_look(*, label: str, garment: str = "", ref_body: str = "", sequence:
             gc = parts[g_role]
             gdm = _posed(gc)
             gv = _verts(gdm)
+            keep = _shown_verts(gc, gdm, skip_slots)
+            if keep is not None:  # only what is drawn: a MetaHuman default garment's hidden shorts are still mesh
+                gv = [gv[i] for i in keep if i < len(gv)]
             gs = _Surface(gdm)
-            fr = {}
+            fr = {"shown_verts": len(gv)}
             pick = _sample(gv, samples)
             # thickness: from an outer point, a ray in along -normal to the garment's own inner wall
             walls = []
