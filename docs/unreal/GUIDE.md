@@ -84,6 +84,11 @@ floating --json`, `film-ue qa overlaps --json`; a still from a camera.
 stage 1). Needs the Epic sign-in on the box (`film-ue selftest --list` shows `epic_login`). Check:
 `film-ue view turntable --target Host --out-dir ...` and `film-ue qa penetration ...` for clothes.
 
+**A garment that fits, and reads as cloth** ([garment.md](garment.md)): `garment.export` → `film-ue garment-fit`
+(headless Blender on the box: regional ease, the face in the collider, weights from the uncut body) →
+`mh.import_garment` → `mh.dress`. Never a WPO inflate. Check: `qa.clip` (pairs ≤ 0.001, `neck_px` 0) and
+`qa.garment_look` (not `armor`), in the shots' own cameras and frames.
+
 **Light and look.** Lights by label, fog, post (WP5: [look.md](look.md)). Check exposure with numbers, not taste:
 `film-ue qa image --image still.png --json` (clipping, mean stops) on a still through the shot's camera.
 
@@ -142,6 +147,8 @@ fit the 24 GB L4. Check: `film-ue render status`, or the report at `<out_dir>/_r
 - **Cloth needs pre-roll**: `render.job` pre-rolls any chunk that starts mid-shot from its cut start automatically
   (`preroll: cut`); judge a cut's first frame on its own.
 - **Path tracing OOMs on the 24 GB L4.** Use deferred (Lumen) renders.
+- **A WPO inflate is not a fit**: it grows the garment evenly (armor), and shadows, collision and cloth never see it.
+  Refit the geometry (`film-ue garment-fit`); `qa.garment_look` fails any inflate over 0.2 cm.
 - **Never change a material while it is drawn** (an assert takes the editor down): ops that do it are multi-tick for
   a reason.
 - **The editor may come up on an Untitled level**: a spec's `level` document opens the right one first.
