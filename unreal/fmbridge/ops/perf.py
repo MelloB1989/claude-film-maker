@@ -394,11 +394,30 @@ def calibrate(*, label: str, face_component: str = "Face", body_component: str =
     try:
         curves = head_axes(resp)
     except ValueError as e:
-        apply({})
-        raise OpError(f"{label}'s head curves: {e} (cm at the eyes for {degrees} each: {raw})", code="failed",
-                      details={"raw": raw},
-                      hint="drive the face from Sequencer with mh.drive_face, and check its Anim Blueprint reads "
-                           "HeadYaw/HeadPitch/HeadRoll with HeadControlSwitch=1") from None
+        live = [c for c in resp if max(abs(v) for v in resp[c].values()) >= LIVE_CM]
+        eye_moves = 0.0
+        if not live:  # no head curve moves: a face that takes its whole neck and head from the body (r4: the rebuilt
+            # Host_Op), or a face Sequencer does not drive at all. Its eyes tell the two apart.
+            apply({"CTRL_expressions_eyeLookLeftL": ([0.0, 2.0], [1.0, 1.0])})
+            m = yield from _await_change(measure, frame, "FACIAL_L_Eye", last["bones"]["FACIAL_L_Eye"][0], timeout=8.0)
+            x0, x1 = last["bones"]["FACIAL_L_Eye"][0], m["bones"]["FACIAL_L_Eye"][0]
+            eye_moves = max(math.degrees(math.acos(max(-1.0, min(1.0, _dot(_unit(x0[3 + 3 * i:6 + 3 * i]),
+                                                                           _unit(x1[3 + 3 * i:6 + 3 * i]))))))
+                            for i in range(3))
+            last = m
+            raw["eyeLookLeftL_probe_deg"] = round(eye_moves, 2)
+        if not live and eye_moves >= 2.0:  # driven, but the head is all the body's: every turn goes on the neck bones
+            # (the bone search below puts the eye back to rest first)
+            curves = {"yaw": "HeadRoll", "pitch": "HeadYaw", "roll": "HeadPitch"}  # the reel's 5.8 names (REEL_PERF)
+        else:
+            apply({})
+            if not live:
+                e = ValueError(f"no head curve moves the head and eyeLookLeftL turns the eye {eye_moves:.1f} deg: "
+                               f"Sequencer does not drive this face")
+            raise OpError(f"{label}'s head curves: {e} (cm at the eyes for {degrees} each: {raw})", code="failed",
+                          details={"raw": raw},
+                          hint="drive the face from Sequencer with mh.drive_face, and check its Anim Blueprint reads "
+                               "HeadYaw/HeadPitch/HeadRoll with HeadControlSwitch=1") from None
     dead = [c for c in resp if max(abs(v) for v in resp[c].values()) < LIVE_CM]
     signs = {k: (1.0 if resp[c][k] > 0 else -1.0) if c not in dead else 1.0 for k, c in curves.items()}
     yaw_bone, turn_on = None, "Face"
