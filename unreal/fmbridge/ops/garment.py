@@ -41,11 +41,17 @@ def _result(issues: list, metrics: dict | None = None, **extra) -> dict:
 def roles(a, given: dict | None = None) -> dict:
     """The actor's visible skeletal mesh parts by ROLE: Body, Face, its garments by component name, a MetaHuman's
     default garment (component "SkeletalMesh", or the one left over) as 'tee', a mesh with shoe/feet in its name as
-    'shoes'. `given` {role: component name} overrides (and adds). Grooms are left out: hair lies over a collar
-    legitimately."""
+    'shoes'; a component named Tee or Shirt (a refit dressed with mh.dress) is the 'tee' first, and the default
+    garment then keeps its own name. `given` {role: component name} overrides (and adds). Grooms are left out: hair
+    lies over a collar legitimately."""
     comps = {c.get_name(): c for c in a.get_components_by_class(unreal.SkeletalMeshComponent) if c.is_visible()}
     out = {}
+    tee = next((n for n in comps if n.lower() in ("tee", "shirt")), None)  # a refit dressed as its own component
+    if tee:
+        out["tee"] = comps[tee]
     for n, c in comps.items():
+        if n == tee:
+            continue
         m = c.get_skeletal_mesh_asset()
         mesh = m.get_name().lower() if m else ""
         if n in SKIN or n in NAMED:

@@ -60,6 +60,10 @@ def test_roles_picks_the_default_garment_as_tee(host):
     assert sorted(G.roles(host)) == ["Body", "tee"]
     with pytest.raises(Exception):
         G.roles(host, {"tee": "Nope"})
+    import unreal
+    host.add_component(unreal.SkeletalMeshComponent, "Tee")  # the refit, dressed beside the default garment
+    r = G.roles(host)
+    assert r["tee"].get_name() == "Tee" and "SkeletalMesh" in r
 
 
 def test_depth_file_roundtrip(fmb, tmp_path):
