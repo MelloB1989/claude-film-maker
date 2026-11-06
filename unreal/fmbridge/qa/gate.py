@@ -15,6 +15,10 @@ waived. v2's rules:
 3. A waiver needs a written reason and a name, and is REFUSED for an item marked `complaint` (the operator
    complained about it) or for any item whose `area` the round lists in `complaints`: what the operator saw cannot
    be signed away by the people who missed it.
+4. NOT ATTEMPTED is a scope decision, not a waiver: only a `deferrable` item (a fix the round decided not to try,
+   while hard lines in its area still gate the complaint), only from the round's spec (`not_attempted: {id:
+   {reason, by}}`), and the verdict's `summary` names every one. Round 5: the cloth sim on his closed-shell tee
+   (orchestrator); armor_index, wpo_cm, neck_px and pair_fraction stay hard lines.
 
     numbers = {"lips.lead_in_cm": {"value": 0.33, "where": "S13 f977-1001"}, ...}
     rep = gate.judge(numbers, waivers={"garment.silhouette_pct": ("by eye: no balloon", "cc-64d05f6e")})
@@ -166,19 +170,19 @@ ITEMS: dict = {
                      "(2.30 / 966 px, agent-02); garment.silhouette_pct and the orchestrator's eye cover a balloon"],
         "why": "08:19 round 4: the tee BALLOONED once"},
     "garment.cloth_alive": {
-        "area": "garment", "track": "T3b", "op": ">=", "line": 0.30, "unit": "cm",
+        "area": "garment", "track": "T3b", "deferrable": True, "op": ">=", "line": 0.30, "unit": "cm",
         "what": "min over his tee in S13 and S15 of qa.cloth zones.hem.motion_cm: p75 over the hem's sample vertices "
                 "of the temporal std of (simulated - skinned) over a gesture's frames; an error if not simulating",
         "where": "S13, S15 gesture frames", "how": "film-ue op qa.cloth per shot -> r5/cloth_gate.py (agent-08, T3b)",
         "r4": [0.0, "his tee had no clothing data (cloth.no_clothing)"],
         "why": "the operator: no cloth behaviour; qa.cloth warns under 0.30 and fails under 0.15"},
     "garment.cloth_sound": {
-        "area": "garment", "track": "T3b", "op": "==", "line": 1, "unit": "bool",
+        "area": "garment", "track": "T3b", "deferrable": True, "op": "==", "line": 1, "unit": "bool",
         "what": "no cloth.explosion / velocity_spike / cold_start issue in any shot's qa.cloth",
         "where": "S13, S15, S17, S18", "how": "film-ue op qa.cloth (T3b)",
         "r4": [0, "no simulation at all"], "why": "a live but broken sim is worse than none"},
     "garment.cloth_detail_ratio": {
-        "area": "garment", "track": "T3b", "op": ">=", "line": 1.25, "unit": "ratio",
+        "area": "garment", "track": "T3b", "deferrable": True, "op": ">=", "line": 1.25, "unit": "ratio",
         "what": "fold/shading detail on his tee's front chest (RMS of a DoG band-pass, sigma 1.5-4 px at 1080p, of "
                 "luminance / its mean, in the band 8-30 cm below the collar) OVER round 4's at the same frames and "
                 "camera (round 4 measured on the box first)",
@@ -275,11 +279,21 @@ def judge(numbers: dict, waivers: dict | None = None, spec: dict | None = None, 
     Returns {"verdict": SIGN|REFUSE, "rows", "issues", "refused_waivers"}."""
     its = items(spec)
     complaints = set((spec or {}).get("complaints", []))
+    deferred = (spec or {}).get("not_attempted") or {}
     rows, issues, refused = [], [], []
     for k, it in its.items():
         if only and k not in only:
             continue
         row = check(k, it, numbers.get(k))
+        d = deferred.get(k)
+        if d is not None and row["state"] == "FAIL":
+            why_not = ("only a `deferrable` item can be not attempted (a hard line cannot)" if not it.get("deferrable")
+                       else "not_attempted needs a reason" if not str(d.get("reason") or "").strip()
+                       else "not_attempted needs who decided it" if not str(d.get("by") or "").strip() else "")
+            if why_not:
+                refused.append({"id": k, "reason": d.get("reason"), "by": d.get("by"), "refused": why_not})
+            else:
+                row.update(state="NOT_ATTEMPTED", decision={"reason": d["reason"], "by": d["by"]})
         w = (waivers or {}).get(k)
         if w and row["state"] == "FAIL":
             reason, by = (w if isinstance(w, (list, tuple)) else (w, ""))[:2]
@@ -300,8 +314,12 @@ def judge(numbers: dict, waivers: dict | None = None, spec: dict | None = None, 
         issues.append(issue("gate.waiver_refused", "fail", f"waiver on {r['id']} refused: {r['refused']}",
                             "fix the item; it cannot be waived", subject=r["id"]))
     verdict = "SIGN" if not any(r["state"] == "FAIL" for r in rows) and not refused else "REFUSE"
+    not_attempted = [{"id": r["id"], **r["decision"]} for r in rows if r["state"] == "NOT_ATTEMPTED"]
     return {"verdict": verdict, "rows": rows, "issues": issues, "refused_waivers": refused,
-            "complaints": sorted(complaints)}
+            "not_attempted": not_attempted, "complaints": sorted(complaints),
+            "summary": f"{verdict}" + (f" with {len(not_attempted)} item(s) NOT ATTEMPTED by decision: "
+                                       + ", ".join(f"{x['id']} ({x['by']})" for x in not_attempted)
+                                       if not_attempted else "")}
 
 
 def lines_fail(round_values: dict | None = None, spec: dict | None = None) -> dict:
