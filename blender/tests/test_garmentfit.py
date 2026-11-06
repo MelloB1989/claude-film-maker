@@ -36,8 +36,12 @@ def test_neck_ring_by_shape():
     a = np.linspace(0, 2 * np.pi, 16, endpoint=False)
     ring = lambda r, z: np.c_[r * np.cos(a), r * np.sin(a), np.full(16, z)]
     X = np.r_[ring(6.0, 0.0), ring(7.0, -2.0), ring(12.0, -6.0), ring(6.0, 10.0)]
-    m = GF.neck_ring(X, np.zeros(3), np.array([0, 0, 10.0]), ring_cm=2.0)
-    assert m[:32].all() and not m[32:].any()
+    m, st = GF.neck_ring(X, np.zeros(3), np.array([0, 0, 10.0]), ring_cm=2.0)
+    assert m[:32].all() and not m[32:].any() and st["ring"] == 32
+    # one stray vertex near the axis does not set the innermost radius
+    Xs = np.r_[X, [[0.2, 0, 1.0]]]
+    m, st = GF.neck_ring(Xs, np.zeros(3), np.array([0, 0, 10.0]), ring_cm=2.0)
+    assert m[:32].all() and st["r_min"] == 0.2
 
 
 def grid(n=6):
