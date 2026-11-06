@@ -102,14 +102,15 @@ ITEMS: dict = {
                 "-0.1 s to lid open +0.12 s, de-trended by the chord between the window edges",
         "where": "every blink of each presenter (her f1080-1559, him from f960)",
         "how": "film-ue op qa.head_stability + film-qa head-gate (agent-04, T2)",
-        "r4": [1.61, "her S17 f1380 glance blink, perfkit alone (before the solver's head); also 1.23 f1397, 0.83 f1145"],
+        "r4": [2.696, "Presenter f1395-1407 on the box (round 5 probe, agent-04's edge fix d4485bf4); perfkit "
+                      "alone offline read 1.61 at f1380"],
         "why": "the operator: 'every time she blinks her head nods a little down'"},
     "head.blink_locked_deg": {
         "area": "head", "track": "T2", "op": "<=", "line": 0.3, "unit": "deg",
         "what": "blink-triggered average of the de-trended head pitch: small nods on EVERY blink that each stay "
                 "under the per-blink line",
         "where": "all blinks of each presenter", "how": "film-qa head-gate (T2)",
-        "r4": [None, "T2's probe on round 4's face anims"], "why": "the operator saw it on every blink"},
+        "r4": [0.416, "Presenter f1080-1559, 12 blinks (round 5 probe)"], "why": "the operator saw it on every blink"},
     # --- T3a/T3b: garments
     "garment.neck_px": {
         "area": "garment", "track": "T3a", "op": "<=", "line": 0, "unit": "px",
@@ -136,7 +137,8 @@ ITEMS: dict = {
         "what": "qa.garment_look: ease spread vs the uncut body, wall thickness, wpo, silhouette ratio, normal "
                 "detail, motion",
         "where": "S15 f1082/1150, S17 f1397", "how": "film-ue garment-gate --look (T3a)",
-        "r4": [None, "probe G3 on the r4 state before the refit (agent-02 expects ~0.7)"],
+        "r4": [None, "probe G3 read 0.283, which PASSES this line, but agent-02 found the silhouette/motion terms "
+                     "broken on the box: re-measure after the recalibration; the line must fail round 4"],
         "why": "the operator: a smooth, thick, rigid shell"},
     "garment.pair_fraction": {
         "area": "garment", "track": "T3a", "op": "<=", "line": 0.001, "unit": "fraction",

@@ -97,8 +97,9 @@ def test_round4_numbers_refuse_and_name_each_blocker():
         assert k in failed, k
     # and what round 4 never measured fails as "not measured", not silently
     rows = {row["id"]: row for row in r["rows"]}
-    assert rows["head.blink_nod_deg"]["state"] == "FAIL" and "1.61" in rows["head.blink_nod_deg"]["reason"]
-    assert rows["head.blink_locked_deg"]["state"] == "FAIL" and "not measured" in rows["head.blink_locked_deg"]["reason"]
+    assert rows["head.blink_nod_deg"]["state"] == "FAIL" and "2.696" in rows["head.blink_nod_deg"]["reason"]
+    assert rows["head.blink_locked_deg"]["state"] == "FAIL" and "0.416" in rows["head.blink_locked_deg"]["reason"]
+    assert rows["lips.track_r"]["state"] == "FAIL" and "not measured" in rows["lips.track_r"]["reason"]
 
 
 def test_round4_waivers_are_refused_on_complaints():
