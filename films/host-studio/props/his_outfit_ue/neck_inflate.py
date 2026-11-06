@@ -20,6 +20,11 @@ PARAMS = {"FM_Inflate": 0.0, "FM_Neck": 0.0, "FM_NeckZ0": 0.0, "FM_NeckZ1": 1.0,
 def add_neck_inflate(master):
     """mh.cloth_inflate's _add_inflate, with the neckline term (on a fresh master copy only)."""
     MEL = unreal.MaterialEditingLibrary
+    for n in ("MaterialExpressionScalarParameter", "MaterialExpressionSaturate", "MaterialExpressionComponentMask",
+              "MaterialExpressionDivide", "MaterialExpressionSubtract", "MaterialExpressionMultiply",
+              "MaterialExpressionAdd", "MaterialExpressionVertexNormalWS"):
+        if not hasattr(unreal, n):
+            raise RuntimeError(f"no {n} in this engine's Python")
     X = lambda cls, x, y: MEL.create_material_expression(master, cls, x, y)  # noqa: E731
     have = [str(n) for n in MEL.get_scalar_parameter_names(master)]
     p = {}
@@ -42,7 +47,11 @@ def add_neck_inflate(master):
         MEL.connect_material_expressions(a, "", e, "")
         return e
 
-    psl = X(unreal.MaterialExpressionPreSkinnedLocalPosition, -1700, 2000)
+    cls = next((getattr(unreal, n) for n in ("MaterialExpressionPreSkinnedPosition",
+                                             "MaterialExpressionPreSkinnedLocalPosition") if hasattr(unreal, n)), None)
+    if cls is None:
+        raise RuntimeError("no pre-skinned position material expression in this engine's Python")
+    psl = X(cls, -1700, 2000)
     masks = {}
     for ch, y in (("b", 2000), ("g", 2100)):
         m = X(unreal.MaterialExpressionComponentMask, -1500, y)

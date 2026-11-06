@@ -24,7 +24,7 @@ mkdir -p "$WORK/src" "$WORK/out" "$PROJ/Saved/Import/his_outfit_op"
 cp "$EXP"/his_outfit_op/*.fbx "$WORK/src/"
 [ -f "$EXP/his_outfit_alt/body_alt.fbx" ] && cp "$EXP/his_outfit_alt/body_alt.fbx" "$WORK/src/"
 # scipy for Blender's own Python (his_outfit.py: ndimage, cKDTree), matched to its version and numpy
-if ! "$BLENDER" -b --factory-startup --python-expr "import sys; sys.path.append('$PYLIB'); import scipy" >/dev/null 2>&1; then
+if ! "$BLENDER" -b --factory-startup --python-exit-code 1 --python-expr "import sys; sys.path.append('$PYLIB'); import scipy" >/dev/null 2>&1; then
     pyv=$("$BLENDER" -b --factory-startup --python-expr "import sys; print('PYV', '%d.%d' % sys.version_info[:2])" 2>/dev/null | awk '/^PYV/ {print $2}')
     npv=$("$BLENDER" -b --factory-startup --python-expr "import numpy; print('NPV', numpy.__version__)" 2>/dev/null | awk '/^NPV/ {print $2}')
     echo "installing scipy for Blender's Python $pyv (numpy $npv) into $PYLIB"
