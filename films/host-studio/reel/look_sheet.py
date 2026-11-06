@@ -41,12 +41,14 @@ BG = "/Game/FM/Materials/MI_LookLab_Bg"
 BASE = {"grooms": {"Hair": "WI_Hair_S_SlickBack", "Eyebrows": "WI_Eyebrows_M_Full", "Mustache": "WI_Mustache_M_Stubble",
                    "Beard": "none"},
         "hair_color": {"melanin": 1.0, "redness": 0.08}, "skin": {"u": 0.62, "v": 0.58}, "iris": {"u": 0.92, "v": 0.12}}
-# his body now (bodies.py "op") and the slim one the photos show: 180 cm, narrow shoulders, lean, not muscular
+# his body now (bodies.py "op") and the slim one the photos show: 180 cm, narrow shoulders, lean, not muscular. The
+# neck stays (40/38): the face mesh's neck already stands 0.4-2.3 cm out of the tee below the collar (agent-02, r4), so
+# a narrower body neck would widen that step
 BODY_NOW = {"Height": 180, "Across Shoulder": 45, "Front Interscye Length": 40, "Chest": 100, "Waist": 75,
             "High Hip": 80, "Hip": 92, "Neck Base": 40, "Neck": 38, "Bicep": 31.5, "Forearm": 27.5, "Thigh": 56,
             "Knee": 34, "Calf": 37, "Fat": -1.4, "Muscularity": 0.7, "Masculine/Feminine": -1.5}
 BODY_SLIM = {**BODY_NOW, "Across Shoulder": 41, "Front Interscye Length": 37, "Chest": 92, "Waist": 72, "High Hip": 78,
-             "Hip": 89, "Neck Base": 37, "Neck": 35, "Bicep": 27, "Forearm": 25, "Thigh": 50, "Knee": 33, "Calf": 34,
+             "Hip": 89, "Bicep": 27, "Forearm": 25, "Thigh": 50, "Knee": 33, "Calf": 34,
              "Fat": -1.2, "Muscularity": -0.3}
 BODY_SLIMMER = {**BODY_SLIM, "Across Shoulder": 40, "Chest": 89, "Waist": 70, "Bicep": 25.5, "Thigh": 48,
                 "Muscularity": -0.8}
@@ -76,15 +78,16 @@ def ex(code: str, **g):
     return ok(client().exec_code(head + code))
 
 
-def op(name, **args):
-    return ok(client().op(name, timeout=1800, **args))
+def op(op_name, /, **args):
+    return ok(client().op(op_name, timeout=1800, **args))
 
 
 # --- editor side ---------------------------------------------------------------------------------------------------
 
 GEO = r"""
 import unreal
-from fmbridge.ops.mh import build as _b
+import importlib
+_b = importlib.import_module("fmbridge.ops.mh.build")  # (fmbridge.ops.mh re-exports a build function)
 a = _b._PREVIEWS.get(LABEL)
 if a is None:
     raise RuntimeError("no preview " + LABEL + ": run look_sheet.py render (it spawns it)")
@@ -227,7 +230,8 @@ if os.path.exists(STATE):
                     got["shown"] += 1
     os.rename(STATE, STATE + ".restored")
     got["expected"] = len(st["vis"])
-from fmbridge.ops.mh import build as _b
+import importlib
+_b = importlib.import_module("fmbridge.ops.mh.build")  # (fmbridge.ops.mh re-exports a build function)
 p = _b._PREVIEWS.pop(LABEL, None)
 if p is not None:
     try:
@@ -235,15 +239,15 @@ if p is not None:
         got["removed"].append(LABEL)
     except Exception:
         pass
-from fmbridge.ops import view
-view.remove_rig()
+importlib.import_module("fmbridge.ops.view").remove_rig()
 result = got
 """
 
 HAIR_COLOR = r"""
 import unreal
-from fmbridge.ops.mh import build as _b
-from fmbridge.ops import groom as G_
+import importlib
+_b = importlib.import_module("fmbridge.ops.mh.build")  # (fmbridge.ops.mh re-exports a build function)
+G_ = importlib.import_module("fmbridge.ops.groom")
 a = _b._PREVIEWS[LABEL]
 out = {}
 for c in a.get_components_by_class(unreal.GroomComponent):
