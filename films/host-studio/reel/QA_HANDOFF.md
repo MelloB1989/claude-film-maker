@@ -77,6 +77,22 @@ peak <= -1 dBTP; every caption line within 2 frames of its first VO word (cues.j
   head cannot be lined up by a shift, so the frames cannot certify those lines. Added `cast_gate.py lipgap` (engine,
   read-only): the upper-to-lower lip bone gap in cm on the evaluated face, on vs the same silence; `sign --lipgap`
   decides the lines the frames fail (ratio >= 2.0 and opens >= 0.3 cm), and says so per line.
+- 08:47 lipgap (engine, lip bone gap; line motion / silence motion, opens on the line): S15 L2 31.4x 2.02 cm, S15 L3a
+  40.6x 0.98, S16 L3b 23.3x 1.11, S17 L4a 66.3x 2.98, S17 L4b 28.6x 1.57; S13 L1 opens 3.22 cm but its silence f977-1001
+  moves 0.33 cm/frame (others 0.003-0.009): real lip motion before the line, flagged for the orchestrator's eye. Item a
+  SIGNED on the orchestrator's rule: S13 L1, S15 L2, S16 L3b by eye; L3a/L4a/L4b on lipgap (S17 also by eye on the
+  final re-render). Tee silhouette (orchestrator): Host_fix vs Host_after +6..+15% -> gate e now checks +-2% (S15/S17/S18).
+- orchestrator by eye: S13 f977-1017 is the planned smirk/grin (lips part, teeth in a smile), not mouthing; a.lips is
+  WAIVED for S13 L1 only (`--waive a.lips=...`), checked on each run that S13 L1 is the item's only failure.
+- 09:1x GATE SIGNED on cast_op5 = patch3 (gate_signed.json on the box): b c d f g PASS; a WAIVED (S13 L1, by eye); e
+  WAIVED on the orchestrator's eye (no balloon, no hole): residue neck_px 1-3 single px S15 f1082-1128, tee silhouette
+  +2.1..+2.2% S15 f1150-1198 (agent-02's tee_silhouette.py agrees, worst +2.23%). Presenter finals released.
+- 09:3x FINALS QA final_d (patch3): PASS. 1584 frames, 13 shots complete, 9 render reports ok, 1920x1080, no black/
+  white/unreadable, no luma jump (S15's old pops gone); hair at 1080p green_px 0.000 (f1236/f1300).
+- 09:4x CUTS QA /srv/ue/reel/r4/final: PASS. 65 s: h264, clean h264, ProRes 4444, 1560 fr, 65.0 s, -14.0 LUFS / -1.7
+  dBTP; 45 s: 1080 fr, 45.0 s, -14.1 LUFS / -1.7 dBTP; captions 6/6 lines 0 frames off in both, no filled frames.
+  Caveat: cues.json is round 3's known-good copy with ESTIMATED word times (vo.py cues), so the sync check proves the
+  captions follow the cues through the EDLs, not that they meet the spoken words to the frame: an ear check remains.
 - neck patch (agent-02 neck_px, before4 -> after, worst px per shot): S13 169 -> 172, S15 709 -> 649, S17 91 -> 93,
   S18 39 -> 34: NOT fixed; the gate refuses e until 0.
 
