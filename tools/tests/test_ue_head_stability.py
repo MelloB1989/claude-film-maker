@@ -409,3 +409,14 @@ def test_off_screen_blinks_are_listed_not_judged():
     assert not ST.check(t, pitch, spans)["pass"]
     r = ST.check(t, pitch, spans, seen=[(0.0, 4.5), (7.5, 10.5)])
     assert r["pass"] and len(r["unseen"]) == 2 and r["unseen"][0]["nod_deg"] < -1.5
+
+
+def test_off_screen_spikes_are_listed_not_judged():
+    t = C.grid(0, 10.5, RATE)
+    yaw = [0.8 if abs(x - 6.0) < 0.5 / RATE else 0.0 for x in t]  # one frame snapped 0.8 deg
+    r = ST.check(t, [0.0] * len(t), [], yaw=yaw)
+    assert "head_buzz" in r["failed"]
+    r = ST.check(t, [0.0] * len(t), [], yaw=yaw, seen=[(0.0, 4.5), (7.5, 10.5)])
+    assert r["pass"] and r["jitter"]["yaw"]["unseen_spikes"] and not r["jitter"]["yaw"]["spikes"]
+    r = ST.check(t, [0.0] * len(t), [], yaw=yaw, seen=[(0.0, 10.5)])
+    assert "head_buzz" in r["failed"]
