@@ -253,6 +253,17 @@ inside the overshirt opening; S15). Found so far:
 - Round 6: find WHAT editor state did it (the 18:08 overshirt restore ran in that session before the finals; the 19:09
   restart reloaded her assets), and render finals only from a freshly started editor.
 
+**The delivered candidate (02:18 IST, the orchestrator's wrap)**: `private/renders/r5/review/candidate_unsigned_2/`
+(65 s + 45 s, S15/S16/S17+S18 re-rendered in a fresh editor state; S13 and the set shots as before) goes to the operator
+**UNSIGNED**. The orchestrator's eye on it:
+- lips in sync on L1, L2, L3b, L4a, L4b (L3a is occluded by her hair);
+- her white top clean in S15/S16/S17/S18 (checked old vs new);
+- her hair intact across 01:00 (S17 -> S18).
+The neck HELD for round 6: loop 6 proved it a FIT problem (Epic's collar vs his neck; the backstop trades poke for gap).
+Gate v2 on it REFUSES on the garment rows above and on lips.render_lag (an invalid measure); the hair.pop_reach row
+stands, since agent-04's place fix was not rendered. The re-rendered S17+S18's hair.cut_pop_ratio was not reported
+before the wrap; the earlier S17+S18 job read 1.372 and the orchestrator's eye confirms the length.
+
 **What the gate learned this session (tools, all on r5-film-integrate)**
 
 - Four items had no producer, so the sign would have refused them as "not measured": `r5/gate_numbers.py` writes
