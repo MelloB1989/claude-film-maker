@@ -23,7 +23,7 @@ NAMES = ("garment-fit", "garment-gate")
 ROOT = Path(__file__).resolve().parents[3]
 SCRIPT = ROOT / "blender" / "garment_fit.py"
 PASS_THROUGH = ("garment", "out", "ease", "min_ease", "slack", "pull", "smooth_iters", "passes", "drape_frames",
-                "weights", "thickness", "only_slots", "collider", "anim_samples", "morph_ref", "match_cm")
+                "weights", "thickness", "only_slots", "collider", "anim_samples", "morph_ref", "match_cm", "blend_regions")
 
 
 def register(sub) -> None:
@@ -44,7 +44,8 @@ def register(sub) -> None:
     p.add_argument("--smooth-iters", type=int)
     p.add_argument("--passes", type=int)
     p.add_argument("--drape-frames", type=int)
-    p.add_argument("--weights", choices=("transfer", "keep"))
+    p.add_argument("--weights", choices=("transfer", "keep", "blend"))
+    p.add_argument("--blend-regions", default="", help="with --weights blend (default collar,shoulder,chest,sleeve)")
     p.add_argument("--thickness", type=float)
     p.add_argument("--only-slots", default="")
     p.add_argument("--collider", default="")

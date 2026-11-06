@@ -253,3 +253,25 @@ def morph_onto(ref_x: np.ndarray, ref_t: np.ndarray, nearest, match_cm: float = 
     return ref_x + filled, known, {"matched": round(float(known.mean()), 4),
                                    "fill_median_cm": round(float(np.median(mag[~known])), 3) if (~known).any() else 0.0,
                                    "fill_max_cm": round(float(mag[~known].max()), 3) if (~known).any() else 0.0}
+
+
+def blend_weights(W_a: np.ndarray, groups_a: list, W_b: np.ndarray, groups_b: list, alpha: np.ndarray,
+                  max_inf: int = 8) -> tuple:
+    """Per-vertex mix of two skinnings over the union of their bones: alpha * A + (1 - alpha) * B, limited to max_inf
+    influences and normalized. Round 5: the body-transferred weights (A) where the collar must follow the neck, a
+    garment's own (B) at the hem, where under-garments were skinned to copy them."""
+    names = list(dict.fromkeys(list(groups_a) + list(groups_b)))
+    ix = {g: i for i, g in enumerate(names)}
+    out = np.zeros((len(alpha), len(names)))
+    al = np.clip(np.asarray(alpha, float), 0, 1)[:, None]
+    for W, groups, f in ((W_a, groups_a, al), (W_b, groups_b, 1 - al)):
+        for gi, g in enumerate(groups):
+            out[:, ix[g]] += f[:, 0] * W[:, gi]
+    return limit_normalize(out, max_inf), names
+
+
+def region_alpha(region: np.ndarray, transfer_regions, nbrs: list, smooth_iters: int = 15) -> np.ndarray:
+    """1 on the vertices of transfer_regions (names), 0 elsewhere, smoothed over the mesh so the two skinnings
+    meet without a seam."""
+    on = np.isin(region, [REGIONS.index(r) for r in transfer_regions]).astype(float)
+    return np.clip(smooth_field(on, nbrs, iters=smooth_iters, lam=0.5), 0, 1)
