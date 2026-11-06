@@ -69,7 +69,9 @@ def parse_args():
     ap.add_argument("--smooth-iters", type=int, default=12)
     ap.add_argument("--passes", type=int, default=3)
     ap.add_argument("--drape-frames", type=int, default=0)
-    ap.add_argument("--weights", choices=("transfer", "keep"), default="transfer")
+    ap.add_argument("--weights", choices=("transfer", "keep", "blend"), default="transfer",
+                    help="blend: transferred on --blend-regions, the garment's own elsewhere (smoothed between)")
+    ap.add_argument("--blend-regions", default="collar,shoulder,chest,sleeve")
     ap.add_argument("--thickness", type=float, default=0.0, help="cm, Solidify on an open garment (0: none)")
     ap.add_argument("--only-slots", default="", help="comma list: fit only faces of material slots containing these")
     ap.add_argument("--collider", default="ref_body,face")
@@ -304,9 +306,11 @@ def drape(sc, a, pinned, active):
     return X
 
 
-def transfer(sc, a):
-    """Weights from the ref body (Data Transfer, nearest face interpolated), smoothed, limited to 8, normalized."""
+def transfer(sc, a, region=None):
+    """Weights from the ref body (Data Transfer, nearest face interpolated), smoothed, limited to 8, normalized.
+    With --weights blend: those on --blend-regions, the garment's own elsewhere (a smoothed per-vertex mix)."""
     ob = sc.garment
+    W_own, g_own = weights_of(ob)
     for g in list(ob.vertex_groups):
         ob.vertex_groups.remove(g)
     for g in sc.body.vertex_groups:
@@ -328,6 +332,13 @@ def transfer(sc, a):
     lap = GF.neighbours(len(W), world_cm(ob)[1])
     W = GF.smooth_field(W, lap, iters=4, lam=0.5)
     W = GF.limit_normalize(W, 8)
+    if a.weights == "blend" and region is not None and len(region) == len(W):
+        al = GF.region_alpha(region, [r.strip() for r in a.blend_regions.split(",") if r.strip()], lap)
+        W, groups = GF.blend_weights(W, groups, W_own, g_own, al)
+        for g in groups:
+            if g not in ob.vertex_groups:
+                ob.vertex_groups.new(name=g)
+        log(f"weights blend: transferred on {a.blend_regions} ({int((al > 0.5).sum())} verts), own elsewhere")
     for gi, name in enumerate(groups):
         vg = ob.vertex_groups[name]
         nz = np.nonzero(W[:, gi])[0]
@@ -514,8 +525,8 @@ def main():
     d, _ = signed(bvh, G)
     rep["after"] = GF.ease_report(d[active], region[active])
     log(f"after: {rep['after'].get('all')}")
-    if a.weights == "transfer":
-        transfer(sc, a)
+    if a.weights in ("transfer", "blend"):
+        transfer(sc, a, region)
     open_edges = is_open(sc.garment)
     rep["open_edges"] = open_edges
     if a.thickness > 0 and open_edges:
