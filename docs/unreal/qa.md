@@ -97,6 +97,29 @@ Check: `metrics.status` = created | match | differs (warn) | different (fail) | 
 carry its own `thresholds.min_ssim` for a noisy shot (`qa.baseline_save min_ssim=0.9`). The selftest harness checks
 every `t.still` against `selftest/<area>/<name>` (mode auto: the first GPU run creates them).
 
+**Hair that keeps its length in every shot (R5: `groom.lock`, `qa.hair_continuity`)**
+
+A MetaHuman's hair drew SHORTER on a wide shot in round 4, although LODSync was pinned to LOD 0: the engine's Auto
+hair LOD (`r.HairStrands.LODMode 1`, the default) thins the curves by screen size even at a forced LOD, and LODSync
+reaches a groom only if its name is in `components_to_sync`. The why, with sources: `research/hair-lod.md`.
+```bash
+film-ue op groom.lock 'labels=["Host","Presenter"]'        # pins + adds missing grooms to LODSync + the hair cvars; reads back
+film-ue op groom.lock_check 'labels=["Host","Presenter"]'  # read-only: the gate's hair.lock (pass + problems with fixes)
+film-ue op qa.hair_continuity sequence=/Game/Reel/SEQ_Reel 'labels=["Presenter"]' 'shots=["Reel_S17","Reel_S18"]' out=/srv/qa/hair.json
+film-qa hair spec.json                                      # the same judge on rendered frames (dark-hair matte per shot box)
+film-qa gate hair.json lips.json head.json garment.json --spec round.json   # the review gate v2: SIGN or REFUSE
+```
+Check: `groom.lock` returns `pass` and `render_cvars` (`r.HairStrands.LODMode 0`, `r.HairStrands.AutoLOD.Bias 1`,
+`r.HairStrands.UseCardsInsteadOfStrands 0`): put them in the render spec's `cvars`, lock BEFORE the render (a groom
+reads its LOD mode when it registers) and `level.save` after. `persist=true` also writes them to DefaultEngine.ini.
+A problem names its fix: a TRASH_ component (save, open, respawn), a groom missing from LODSync (groom.lock adds it),
+a cards/meshes LOD, use_cards. `qa.hair_continuity` measures **reach** (how far the hair falls below the head, in
+head-to-chest units, from a groom-only capture and the projected bones: zoom-free) and area at each cut, FAILS on a
+reach jump > 12% across a cut or > 8% frame to frame, and returns `gate` numbers (`hair.cut_reach_pct`,
+`hair.pop_reach_pct`). The gate (`unreal/fmbridge/qa/gate.py`): every item is a number with a line and the round-4
+value it must fail; a missing number fails; `--waive ITEM=REASON --by NAME` is refused on any item the operator
+complained about (`complaints` in the spec). `film-qa gate --lines` proves each line fails its round-4 value.
+
 **Hair: tune and measure it (B28: `groom.*`)**
 ```bash
 film-ue op groom.describe label=Ada                       # components, per-group overrides, hair params, the cvar
@@ -295,6 +318,12 @@ names are the snake_case of the reflected names. Paths are relative to `Engine/S
 | `r.HairStrands.SkyLighting` (cvar), `SystemLibrary.get_console_variable_int_value` | Runtime/Renderer/Private/HairStrands/HairStrandsEnvironment.cpp:38; KismetSystemLibrary.h:630-631 | yes |
 | `Actor.get_actor_forward_vector` | Runtime/Engine/Classes/GameFramework/Actor.h (K2 BlueprintCallable; used by every area) | yes (in use) |
 | `EditorActorSubsystem.get_all_level_actors / spawn_actor_from_class / destroy_actor`, `SystemLibrary.get_engine_version`, `EditorAssetLibrary.*` | used by every area; proven on the box (unreal/README.md) | yes (in use) |
+| `unreal.LODSyncComponent` `.forced_lod` (EditAnywhere, BlueprintReadWrite, interp), `.num_lods`, `.min_lod`, `.components_to_sync`, `.custom_lod_mapping` (groom.lock) | Runtime/Engine/Classes/Components/LODSyncComponent.h:69-91 | yes |
+| `unreal.ComponentSync(name, sync_option)` (FComponentSync: Name, SyncOption), `unreal.SyncOption.DRIVE/PASSIVE/DISABLED` (ESyncOption) | LODSyncComponent.h:25-44 | yes |
+| `LODSyncComponent.get_lod_sync_debug_text()` (UFUNCTION BlueprintCallable): "Name : renderedLOD" per resolved sub component; names resolve only in OnRegister (no PostEditChange) | LODSyncComponent.h:94-95; Runtime/Engine/Private/Components/LODSyncComponent.cpp:24-28, GetLODSyncDebugText | yes |
+| `GroomComponent.use_cards` (bUseCards, EditAnywhere BlueprintReadWrite); SetForcedLOD/GetForcedLOD are C++ only (not UFUNCTION) | Engine/Plugins/Runtime/HairStrands/Source/HairStrandsCore/Public/GroomComponent.h:257-277 | yes |
+| `GroomAsset.lod_mode` (EGroomLODMode Default/Manual/Auto, EditAnywhere private), `.auto_lod_bias`, `.hair_groups_lod[g]` (FHairGroupsLOD: `auto_lod_bias`, LODs -> Python `lo_ds` per the 5.6 API pages; the op tries `lods` too: probe P2) with FHairLODSettings `geometry_type` (EGroomGeometryType STRANDS/CARDS/MESHES), `visible`, `screen_size`, `curve_decimation` | HairStrandsCore/Public/GroomAsset.h:480-485, :521-522; GroomAssetInterpolation.h:32-37, :64-110, :227-236 | yes (C++), `lo_ds` Python name: probe |
+| cvars `r.HairStrands.LODMode` (default 1 = Auto; read per groom in UGroomComponent::InitResources), `r.HairStrands.AutoLOD.Bias` (default 0.1, read per frame), `r.HairStrands.UseCardsInsteadOfStrands` | Runtime/RenderCore/Private/RenderUtils.cpp:2019-2023; HairStrandsCore/Private/GroomManager.cpp:50, :69-80, :2644-2652; GroomComponent.cpp:3045 | yes |
 
 ## Selftest
 

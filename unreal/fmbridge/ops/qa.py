@@ -703,3 +703,103 @@ def review(*, out_dir: str, sequence: str = "", frames: list | None = None, per_
     return {"pass": rep["verdict"] != "fail", "verdict": rep["verdict"], "counts": rep["counts"],
             "summary": rep["summary"], "issues": rep["issues"], "metrics": {"frames": per_frame},
             "report": rep["json"], "image": rep["image"], "changed": True}
+
+
+# --- hair continuity across cuts (R5: "at 01:00 her hair again becomes short!") -----------------------------------
+
+def _hair_frame(label: str, camera: str, width: int, height: int, groom: str = "Hair"):
+    """One frame's hair numbers for `label` through `camera`: a groom-only depth capture (the hair mask) and the
+    head / upper-chest bones projected for the zoom-free scale (qa/hair.py). None when the head is not in frame."""
+    from ..qa import hair as _hair
+    a = find_actor(label)
+    grooms = [c for c in a.get_components_by_class(unreal.GroomComponent)
+              if c.is_visible() and c.get_name() == groom]
+    if not grooms:
+        raise OpError(f"{label} has no visible groom component {groom!r} (the scalp hair)", code="not_found",
+                      hint="groom.describe lists its grooms; pass groom= with the scalp hair's component name")
+    cam = camera_info(camera, aspect=width / height)
+    model = _framing.Camera.from_dict(cam)
+    bones, _ = bones_of(label)
+    head, chest = bones.get("head"), bones.get("spine_05") or bones.get("spine_04") or bones.get("neck_01")
+    hv = cv = None
+    if head and chest:
+        uh, hv, dh = model.project(head)
+        uc, cv, dc = model.project(chest)
+        if not (dh > 0 and -0.2 <= uh <= 1.2 and -0.2 <= hv <= 1.2):
+            return None
+    rt = yield from capture(cam, width, height, "depth", show_only=grooms, warmup=1)
+    mask = [d < 1.0e7 for d in read_pixels(rt, "r")[0]]
+    return _hair.mask_stats(mask, width, height, head_v=hv, chest_v=cv if hv is not None else None)
+
+
+@op("qa.hair_continuity", mutates=False, idempotent=True, tags=["gpu", "slow"])
+def hair_continuity(*, sequence: str, labels: list, frames: int = 4, every: int = 0, width_px: int = 960,
+                    height_px: int = 540, groom: str = "Hair", shots: list | None = None, out: str = "",
+                    cut_reach: float = 0.12, pop_reach: float = 0.08):
+    """Does each character's hair keep its length across the cuts (and inside shots)? Per cut of the sequence's
+    camera cut track, the last `frames` frames of the outgoing shot and the first `frames` of the incoming one are
+    scrubbed; at each, a groom-only depth capture through the cut's camera gives the hair mask, and the head and
+    upper-chest bones projected through it give a zoom-free scale; qa/hair.py judges the jump. The numbers do not
+    depend on what the operator calls "short": reach (how far the hair falls below the head, in head units) and
+    area both drop when a groom switches to cards or thins under Auto LOD on a wide shot.
+
+    Lock the grooms first (groom.lock) for the editor's captures to read like the render.
+
+    Args: sequence: the level sequence (e.g. /Game/Reel/SEQ_Reel). labels: the characters. frames: per side of
+    each cut. every: also sample every N frames inside each shot for pops (0: cuts only). width_px/height_px: the
+    capture (keep the render's aspect). groom: the scalp hair component's name. shots: only cuts touching these
+    cameras. out: write the JSON report there. cut_reach/pop_reach: the lines (fractions).
+    Returns: {"pass", "characters": {label: hair.judge(...)}, "gate": {"hair.cut_reach_pct", "hair.pop_reach_pct"},
+    "issues"}. Multi-tick (one capture per frame per character).
+    Example: film-ue op qa.hair_continuity sequence=/Game/Reel/SEQ_Reel 'labels=["Presenter"]' 'shots=["Reel_S17","Reel_S18"]'
+    """
+    from ..qa import hair as _hair
+    from . import call
+    cuts = [list(c) for c in call("seq.cuts", path=sequence)]
+    if not cuts:
+        raise OpError(f"{sequence} has no camera cuts", code="not_found", hint="seq.cuts lists them")
+    if shots:
+        keep = set(shots)
+        idx = {i for i, c in enumerate(cuts) if c[0] in keep}
+        idx |= {i + 1 for i in idx if i + 1 < len(cuts)} | {i - 1 for i in idx if i > 0}
+        cuts = [c for i, c in enumerate(cuts) if i in idx]
+    want = set()
+    for i, (cam, a0, a1) in enumerate(cuts):
+        if i > 0:
+            want |= set(range(a0, min(a1, a0 + frames)))
+        if i + 1 < len(cuts):
+            want |= set(range(max(a0, a1 - frames), a1))
+        if every > 0:
+            want |= set(range(a0, a1, every))
+    series = {lab: {} for lab in labels}
+    try:
+        for f in sorted(want):
+            cam = next(c for c, a0, a1 in cuts if a0 <= f < a1)
+            call("seq.scrub", path=sequence, frame=f + 1)
+            yield
+            call("seq.scrub", path=sequence, frame=f)
+            for _ in range(3):
+                yield
+            for lab in labels:
+                s = yield from _hair_frame(lab, cam, width_px, height_px, groom)
+                if s is not None:
+                    series[lab][f] = s
+    finally:
+        from .view import remove_rig
+        remove_rig()
+    t = {"cut_reach": cut_reach, "pop_reach": pop_reach, "k": frames}
+    chars = {lab: _hair.judge(series[lab], cuts, lab, t) for lab in labels}
+    for lab, r in chars.items():
+        r["series"] = {str(f): {k: v for k, v in s.items() if k in ("pixels", "reach", "area", "norm")}
+                       for f, s in sorted(series[lab].items())}
+    cut_pct = max([abs(c["reach"][2]) * 100 for r in chars.values() for c in r["cuts"]] or [0.0])
+    pop_pct = max([abs(p["reach"]) * 100 for r in chars.values() for p in r["pops"]] or [0.0])
+    rep = {"pass": all(r["pass"] for r in chars.values()), "characters": chars, "cuts": cuts,
+           "gate": {"hair.cut_reach_pct": round(cut_pct, 2), "hair.pop_reach_pct": round(pop_pct, 2)},
+           "issues": [i for r in chars.values() for i in r["issues"]]}
+    if out:
+        os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
+        with open(out, "w") as fh:
+            json.dump(rep, fh, indent=1)
+        rep["out"] = out
+    return rep

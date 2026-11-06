@@ -248,6 +248,11 @@ def _render(fake, core, comp):
                             col[i] = act._props.get("fake_color") or _color_for(act.get_actor_label())
             continue
         o, e = act.get_actor_bounds(False)
+        own = [p._props["fake_bounds"] for p in prims if show_only is not None and p._props.get("fake_bounds")]
+        if own:  # show-only components with their own bounds (a groom): draw those, not the whole actor
+            lo = [min(b[0][k] - b[1][k] for b in own) for k in range(3)]
+            hi = [max(b[0][k] + b[1][k] for b in own) for k in range(3)]
+            o, e = [(lo[k] + hi[k]) / 2 for k in range(3)], [(hi[k] - lo[k]) / 2 for k in range(3)]
         sb = framing.screen_box(cam, framing.bounds_corners(list(o), list(e)))
         if not sb["box"] or sb["behind"]:
             continue
