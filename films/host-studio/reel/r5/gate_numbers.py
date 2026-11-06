@@ -9,9 +9,11 @@ for `film-qa gate`. No frame leaves the box (face rule): it runs there, from too
     # shot.render_matches_r4: every rendered presenter frame vs round 4's same frame (min SSIM)
     uv run python ../films/host-studio/reel/r5/gate_numbers.py ssim --frames /srv/ue/reel/r5/final \
         --ref /srv/ue/reel/r3/final_d --shots S13,S15,S16,S17,S18 --out $R/gate_ssim.json
-    # hair.lock + hair.render_cvars (+ film-qa hair's own hair.* numbers carried over)
+    # hair.lock + hair.render_cvars (+ the hair.* numbers of film-qa hair on the finals and of the editor's
+    # qa.hair_continuity: a measured number beats an error, the worst number wins)
     uv run python ../films/host-studio/reel/r5/gate_numbers.py hair --check $G/check_after.json \
-        --yaml ../films/host-studio/reel/r3/30-final.yaml --qa $G/her_final.json --out $G/hair_gate.json
+        --yaml ../films/host-studio/reel/r3/30-final.yaml --qa $G/her_final.json --qa $G/editor_after.json \
+        --out $G/hair_gate.json
 
 A missing input writes the item with an error, so the gate FAILS it as "the check errored" rather than passing.
 """
@@ -114,6 +116,7 @@ def hair(check: str, yaml_path: str, qa_paths: list) -> dict:
     if c is None:
         g["hair.lock"] = _err(f"no groom.lock_check result at {check!r}")
     else:
+        c = c.get("result", c) if isinstance(c.get("result"), dict) else c  # film-ue op's wrapper
         c = c.get("check", c)  # groom.lock's result carries lock_check's under "check"
         g["hair.lock"] = {"value": int(bool(c.get("pass"))), "where": "the level, before the render",
                           "problems": c.get("problems", [])}
@@ -131,13 +134,16 @@ def hair(check: str, yaml_path: str, qa_paths: list) -> dict:
             for k in ("hair.cut_reach_pct", "hair.pop_reach_pct", "hair.cut_pop_ratio"):
                 g.setdefault(k, _err(f"no film-qa hair result at {p!r}"))
             continue
+        if isinstance(d.get("result"), dict):  # film-ue op's {"ok", "result": {...}}
+            d = d["result"]
         for k, v in (d.get("gate") or {}).items():
-            # the worst over several results (one per presenter / cut set): errors win, then the larger value
+            # several results (render-side film-qa hair, the editor's qa.hair_continuity): a measured number beats
+            # an error (the render matte saturates at night: hair.matte_saturated), and the worst number wins
             old = g.get(k)
-            vv = v.get("value") if isinstance(v, dict) else v
-            ov = old.get("value") if isinstance(old, dict) else old
-            if old is None or (isinstance(v, dict) and v.get("error")) or (
-                    vv is not None and ov is not None and not (isinstance(old, dict) and old.get("error")) and vv > ov):
+            vv, ov = (x.get("value") if isinstance(x, dict) else x for x in (v, old))
+            bad_new = vv is None or (isinstance(v, dict) and bool(v.get("error")))
+            bad_old = old is None or ov is None or (isinstance(old, dict) and bool(old.get("error")))
+            if old is None or (bad_old and not bad_new) or (not bad_old and not bad_new and vv > ov):
                 g[k] = v
     return g
 

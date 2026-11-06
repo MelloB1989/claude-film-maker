@@ -16,7 +16,8 @@ the same checks as the editor's qa.* ops (unreal/fmbridge/qa, imported from the 
                                                  in a box per shot): SPEC {"character", "cuts": [[shot, first,
                                                  end]], "frames_glob" | "frames": {frame: path}, "boxes": {shot:
                                                  [x0,y0,x1,y1]}, "anchors"?: {frame: [head_v, chest_v]},
-                                                 "max_luma"?, "thresholds"?}
+                                                 "max_luma"?, "thresholds"?, "pop_cuts"?: [[from, to]]: the
+                                                 cuts whose camera holds, the only ones the cut pop reads}
     film-qa gate NUMBERS.json... [--spec SPEC.json] [--waive ITEM=REASON] [--by NAME] [--out OUT.json]
                                                  the review gate v2 (qa/gate.py): SIGN or REFUSE; NUMBERS files
                                                  are {item: value} or any op result with a "gate" dict
@@ -235,9 +236,12 @@ def hair(spec: dict) -> dict:
     # the cut pop: frame differences in the head box (no matte), at each cut both sides of which have a box
     line = float((spec.get("thresholds") or {}).get("cut_pop", h.THRESHOLDS["cut_pop"]))
     pops = []
+    # only cuts whose camera holds (S17 -> S18): across a camera change the head box changes by design. A spec without
+    # "pop_cuts" reads every cut (round 5's first probes passed only S17,S18)
+    held = {tuple(p) for p in spec["pop_cuts"]} if "pop_cuts" in spec else None
     for (sa, _, _), (sb, b0, _) in zip(cuts, cuts[1:]):
         ba, bb = (spec.get("boxes") or {}).get(sa), (spec.get("boxes") or {}).get(sb)
-        if not (ba and bb):
+        if not (ba and bb) or (held is not None and (sa, sb) not in held):
             continue
         box = [min(ba[0], bb[0]), min(ba[1], bb[1]), max(ba[2], bb[2]), max(ba[3], bb[3])]
         imgs = {f: im.read(frames[f]) for f in range(b0 - 2, b0 + 2) if f in frames}
