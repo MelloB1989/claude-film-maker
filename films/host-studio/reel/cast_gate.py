@@ -713,6 +713,10 @@ def _turns(t) -> dict:
 
 CLIP_SHOTS = {"Host": ["S13", "S15", "S17", "S18"], "Presenter": ["S15", "S16", "S17", "S18"]}
 CLIP_GATED = {"Host": ("Body>tee", "Body>Trousers", "Trousers>tee")}  # his screen pairs with an absolute line
+# neck_px (agent-02, r4-clip 0b4347ed): per image column the collar rim is the tee's front-surface top edge (a tee
+# pixel with no tee above it, or tee > 4 cm further: its inside back, and his face nearer there); the band is 1.0 cm
+# under the rim at the rim's depth (a column without a rim takes the nearest within 24 px); neck_px counts the Face>tee
+# clip pixels below the band. The clean neck seen above the collar stays out; the patch under it counts.
 CLIP_HER_DRIFT = 0.01  # her pairs read 0.03-0.19 on clean frames (the scoop neck, the open overshirt): after vs before
 
 
