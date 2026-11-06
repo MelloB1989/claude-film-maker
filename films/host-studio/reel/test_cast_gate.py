@@ -109,7 +109,7 @@ def test_sign_refuses_and_waives(tmp_path):
                       "f1300": {"crown": {"a": 2, "b": 7, "C": 7, "green_px": 0.01}}}}
     lod = {"pass": True, "failed": []}
     a = Namespace(name="t", engine=w("e.json", eng), frames=w("f.json", fr), hue=w("h.json", hue),
-                  turns=w("t.json", [{"shot": "S15", "who": "him", "f0": 1128, "f1": 1316, "ok": True}]), clip=[], clip_before="", lipgap="",
+                  turns=w("t.json", [{"shot": "S15", "who": "him", "f0": 1128, "f1": 1316, "ok": True}]), clip=[], clip_before="", clip_ref="", lipgap="",
                   cams=w("c.txt", "\n".join(f"{s} OK" for s in g.SHOTS_13)), framing=w("fr.txt", ""),
                   lod0=w("l.json", lod), waive=[], out=str(tmp_path / "gate.json"))
     rep = g.sign(a)
@@ -138,7 +138,7 @@ def test_turns_agent01_rule():
 
 def test_clip_pass_json():
     def him_shots(**over):
-        return {"label": "Host", "shots": {sid: {"962": {"Body>tee": {"fraction": 0.0, "clusters": []},
+        return {"label": "Host", "shots": {sid: {"962": {"Body>tee": {"fraction": 0.0, "clusters": [], "g_px": 9000},
                                                           "Face>tee": {"fraction": 0.03},
                                                           "neck": {"n": 400, "out": 0, "max_out_cm": 0.0},
                                                           "neck_px": {"px": 0, "clusters": []}}}
@@ -147,7 +147,8 @@ def test_clip_pass_json():
                                              for sid in ("S15", "S16", "S17", "S18")}}
     her = json.loads(json.dumps(her_b))
     him = him_shots()
-    r = g._clip([him, her], None, her_b)
+    ref = json.loads(json.dumps(him))
+    r = g._clip([him, her], None, her_b, ref)
     assert r["pass"], r["failed"]
     assert r["info_only"]["Host Face>tee"] == 0.03          # reported, not gated
     him["shots"]["S17"]["1330"] = {"Trousers>tee": {"fraction": 0.0047, "clusters": [{"px": 21, "worst_cm": 1.2}]}}
@@ -155,7 +156,7 @@ def test_clip_pass_json():
     him["shots"]["S15"]["962"]["neck_px"] = {"px": 85, "clusters": [{"px": 85}]}
     her["shots"]["S16"]["1210"]["Body>Top"]["fraction"] = 0.155
     her["shots"]["S17"]["1210"]["Body>Top"]["fraction"] = 0.30
-    r = g._clip([him, her], None, her_b)
+    r = g._clip([him, her], None, her_b, ref)
     assert [f.split(":")[0] for f in r["failed"]] == ["Host S15 f962 neck patch", "Host S17 f1330 Trousers>tee",
                                                       "Presenter S17 f1210 Body>Top"]
     assert not g._clip([her], None, None)["pass"]           # her needs her before pass
@@ -169,15 +170,15 @@ def test_clip_neck_px_required():
                                                      "neck": {"out": 0, "max_out_cm": 0.0}}}
                                       for sid in ("S13", "S15", "S17", "S18")}}
     r = g._clip([him], None)
-    assert not r["pass"] and "neck_px" in r["failed"][-1]   # a clean 3D count is not enough
+    assert not r["pass"] and any("neck_px" in f for f in r["failed"])   # a clean 3D count is not enough
 
 
 def test_clip_reel_prefix():
-    him = {"label": "Host", "shots": {f"Reel_{sid}": {"962": {"Body>tee": {"fraction": 0.0}, "neck_px": {"px": 0}}}
+    him = {"label": "Host", "shots": {f"Reel_{sid}": {"962": {"Body>tee": {"fraction": 0.0, "g_px": 900}, "neck_px": {"px": 0}}}
                                       for sid in ("S13", "S15", "S17", "S18")}}
     her_b = {"label": "Presenter", "shots": {f"Reel_{sid}": {"1210": {"Body>Top": {"fraction": 0.15}}}
                                              for sid in ("S15", "S16", "S17", "S18")}}
-    assert g._clip([him, json.loads(json.dumps(her_b))], None, her_b)["pass"]
+    assert g._clip([him, json.loads(json.dumps(her_b))], None, her_b, him)["pass"]
 
 
 def test_lips_head_motion_is_not_speech(tmp_path):
@@ -204,3 +205,14 @@ def test_lips_lipgap_decides_failed_lines():
     assert r["lines"]["S13:him L1"]["pass"] and r["lines"]["S13:him L1"]["by"] == "lipgap"
     gap["lines"]["S13:him L1"].update(ratio=1.2, open_cm=0.1, **{"pass": False})
     assert any("lip gap ratio 1.2" in b for b in g._lips(fr, eng, gap)["failed"])
+
+
+def test_silhouette():
+    def host(scale):
+        return {"label": "Host", "shots": {f"Reel_{sid}": {"1400": {"Body>tee": {"fraction": 0.0, "g_px": round(4000 * scale)},
+                                                                     "neck_px": {"px": 0}}}
+                                           for sid in ("S13", "S15", "S17", "S18")}}
+    assert g._clip([host(1.015)], None, None, host(1.0))["pass"]
+    r = g._clip([host(1.09)], None, None, host(1.0))
+    assert not r["pass"] and len(r["failed"]) == 3 and "+9.0%" in r["failed"][0]   # S15/S17/S18, not S13
+    assert not g._clip([host(1.0)], None, None, None)["pass"]                      # no reference: refuse
