@@ -816,8 +816,12 @@ def gate_numbers(curve_reports: dict, render_reports: dict, cues: dict | None, s
         g[item] = {"value": conv(got[0]), "where": got[1]} if got else {"value": None, "error": "not measured"}
 
     cur = list(curve_reports.items())
-    put("lips.lag_frames", worst(cur, "lag_frames", lambda v, b: abs(v) > abs(b)), lambda v: round(abs(v), 2))
-    put("lips.track_r", worst(cur, "corr", lambda v, b: v < b))
+    # against the line's own solve when the check had one (the strict measure), else against the voice
+    with_ref = any("ref_lag_frames" in rec for _, rep in cur for rec in (rep.get("lines") or {}).values())
+    put("lips.lag_frames", worst(cur, "ref_lag_frames" if with_ref else "lag_frames", lambda v, b: abs(v) > abs(b)),
+        lambda v: round(abs(v), 2))
+    put("lips.track_r", worst(cur, "ref_corr" if with_ref else "corr", lambda v, b: v < b))
+    g["lips.measured_against"] = {"value": int(with_ref), "where": "1 = each line's own solve, 0 = the voice"}
     put("lips.onset_lead_ms", worst(cur, "onset_lead_s", lambda v, b: v > b), lambda v: round(v * 1000))
     sil = [(who, s) for who, rep in cur for s in rep.get("silences", [])]
     for item, key in (("lips.silence_open", "open"), ("lips.silence_busy", "busy")):

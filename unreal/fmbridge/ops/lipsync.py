@@ -110,7 +110,8 @@ def _audio_sections(seq) -> list:
 @op("lipsync.check", mutates=False, idempotent=True, tags=["qa"])
 def check(*, wav: str, lines: list | None = None, cues: str = "", who: str = "", anim: str = "", sequence: str = "",
           label: str = "", component: str = "Face", wav_frame: float = 0.0, anim_frame: float = 0.0, fps: float = 0.0,
-          expected_lag_s: float = 0.0, limits: dict | None = None, span_frames: list | None = None) -> dict:
+          expected_lag_s: float = 0.0, limits: dict | None = None, span_frames: list | None = None,
+          reference: list | None = None) -> dict:
     """Lip-sync of one face against its voice: per line the lag between the voice's syllable rhythm and the mouth's
     opening (frames; < 0 = the mouth is EARLY), their correlation, how early the mouth starts, and the mouth in the
     silences. FAILS on |lag| > 1 frame, r < 0.35, an opening more than 0.25 s ahead of the first sound, or talking
@@ -122,6 +123,9 @@ def check(*, wav: str, lines: list | None = None, cues: str = "", who: str = "",
         offset and play rate): the placed face, as the render will show it. Also lists the sequence's audio sections.
       anim: an animation alone, its t=0 on master frame `anim_frame` (a solve right after speech.to_face: anim_frame =
         wav_frame, so the solver's own lag is measured; pass it as expected_lag_s to later checks).
+    reference: [{"anim", "frame"}]: each line's own speech solve and the master frame its WAV starts on (the cue's
+      file_frame). The STRICT gate: the face's mouth against the solve's (r ~1 in place; |lag| > 1 frame or r < 0.8
+      fails); the voice-vs-mouth lag is then reported, not judged. Always pass it when the solves exist.
     wav: the voice on the box, its first sample on master frame `wav_frame` (a 65 s stem from frame 0: 0; a line's WAV:
       its cue's file_frame). lines: [{"id", "f0", "f1"}] speech onset/offset frames, or cues=<cues.json on the box>
       who=<who> (it must be a measured one: film-ue lips cues). fps: default the sequence's, else 24.
@@ -148,7 +152,7 @@ def check(*, wav: str, lines: list | None = None, cues: str = "", who: str = "",
         for s in secs:
             cur = _anim_curves(load(s["anim"]))
             t0, t1 = s["f0"] / fps, s["f1"] / fps
-            placed.append((t0, t1, LS.place(cur, t0, s["offset_s"], s["rate"] or 1.0, end_s=t1)))
+            placed.append((t0, t1, LS.place(cur, t0, s["offset_s"], s["rate"] or 1.0, end_s=t1, rest_outside=True)))
         curves = LS.merge_sections(placed)
         res["sections"] = secs
         res["audio"] = _audio_sections(seq)
@@ -159,13 +163,24 @@ def check(*, wav: str, lines: list | None = None, cues: str = "", who: str = "",
         if not EAL.does_asset_exist(anim.split(".")[0]):
             raise not_found("animation", anim)
         fps = fps or 24.0
-        curves = LS.place(_anim_curves(load(anim)), anim_frame / fps)
+        curves = LS.place(_anim_curves(load(anim)), anim_frame / fps, rest_outside=True)
     else:
         raise OpError("give sequence+label or anim", code="bad_args")
     env = AU.Envelope.from_wav(wav, offset_s=wav_frame / fps)
     ls = _lines(lines, cues, who, fps)
     span = (span_frames[0] / fps, span_frames[1] / fps) if span_frames else None
-    rep = LS.check(env, curves, ls, fps=fps, limits=limits, expected_lag_s=expected_lag_s, span=span)
+    ref = None
+    if reference:
+        parts = []
+        for r in reference:
+            if not EAL.does_asset_exist(r["anim"].split(".")[0]):
+                raise not_found("reference solve", r["anim"], hint="lips.py solve makes AS_reel5_<line>")
+            t0 = float(r["frame"]) / fps
+            cur = LS.place(_anim_curves(load(r["anim"])), t0, rest_outside=True)
+            t1 = max((t[-1] for t, _ in cur.values()), default=t0)
+            parts.append((t0 - 0.01, t1 + 0.01, cur))
+        ref = LS.merge_sections(parts)
+    rep = LS.check(env, curves, ls, fps=fps, limits=limits, expected_lag_s=expected_lag_s, span=span, reference=ref)
     return {**rep, **res, "fps": fps, "wav": wav, "wav_frame": wav_frame}
 
 
