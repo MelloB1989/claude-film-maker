@@ -152,7 +152,11 @@ def check(times: list, pitch: list, blinks: list, yaw: list | None = None, roll:
     check says what to do about a failure. `source` (curves|bones|render) only words the messages."""
     L = {**LIMITS, **(limits or {})}
     checks, per = [], []
-    blinks = [(float(a), float(b)) for a, b in blinks if b > times[0] and a < times[-1]]
+    given = list(blinks)
+    blinks = [(float(a), float(b)) for a, b in given if b > times[0] and a < times[-1]]
+    if given and not blinks:  # r5 box: the blinks on another clock than the samples: never judge that as "no nods"
+        raise ValueError(f"none of the {len(given)} blinks ({given[0][0]:.2f}-{given[-1][1]:.2f} s) falls inside the "
+                         f"samples ({times[0]:.2f}-{times[-1]:.2f} s): give both on the same clock")
     fix = ("perf.face blink_head='still' (the default) and solver_head='replace' (the default): the head is then "
            "perfkit's alone and no blink window carries a nod; then re-check")
     if blinks:
