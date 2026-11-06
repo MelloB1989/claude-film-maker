@@ -218,7 +218,7 @@
    "file": "unreal/fmbridge/ops/perf_body.py",
    "line": 194,
    "summary": "An additive animation of body life for a body skeleton: breathing (spine extension and clavicle lift on each",
-   "doc": "An additive animation of body life for a body skeleton: breathing (spine extension and clavicle lift on each\ninhale, at a rate by `state`: calm, rest, listen, talk, focus, nervous), slow weight shifts (`shift_cm` of pelvis,\nthe spine bending back over the feet) and, with `face_anim`, the torso following the head's turns (`follow` of\nits yaw, a beat later). Layer it over any idle: seq.anim with replace=false, or a spec's character.body_life.\nNeeds perf.calibrate_body for this skeleton.\n\nArgs: out: the additive animation's path (re-made). body_mesh: the body SkeletalMesh. length_s: seconds.\nface_anim: a face animation whose HeadYaw the torso follows. Others: amplitudes in degrees / cm.\nReturns: {\"out\", \"changed\", \"breaths_per_min\", \"shifts\", \"bones\"}.\nExample: film-ue op anim.body_life out=/Game/Perf/AS_life body_mesh=/Game/MetaHumans/Ada/Body/m_med_nrw_body length_s=12 state=talk",
+   "doc": "An additive animation of body life for a body skeleton: breathing (spine extension and clavicle lift on each\ninhale, at a rate by `state`: calm, rest, listen, talk, focus, nervous), slow weight shifts (`shift_cm` of pelvis,\nthe spine bending back over the feet) and, with `face_anim`, the torso following the head's turns (`follow` of\nits yaw, a beat later). Layer it over any idle: seq.anim with replace=false, or a spec's character.body_life.\nNeeds perf.calibrate_body for this skeleton.\n\nArgs: out: the additive animation's path (re-made). body_mesh: the body SkeletalMesh. length_s: seconds.\nface_anim: a face animation whose HeadYaw the torso follows. breath_cv/breath_depth_cv: breath-to-breath\nvariation of period and depth (people: ~0.21/0.33; 0/0 is round 4's metronome). Others: amplitudes in degrees /\ncm. perfkit.presets has the body numbers per preset (presenter_calm, presenter_lively, listener, still_portrait).\nReturns: {\"out\", \"changed\", \"breaths_per_min\", \"shifts\", \"bones\"}.\nExample: film-ue op anim.body_life out=/Game/Perf/AS_life body_mesh=/Game/MetaHumans/Ada/Body/m_med_nrw_body length_s=12 state=talk",
    "params": [
     {
      "name": "out",
@@ -289,6 +289,20 @@
      "type": "int",
      "required": false,
      "default": 0
+    },
+    {
+     "name": "breath_cv",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 0.2
+    },
+    {
+     "name": "breath_depth_cv",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 0.25
     }
    ],
    "returns": "dict",
@@ -2503,6 +2517,75 @@
    ]
   },
   {
+   "name": "body.hide_under",
+   "area": "body",
+   "verb": "hide_under",
+   "module": "fmbridge.ops.garment",
+   "file": "unreal/fmbridge/ops/garment.py",
+   "line": 585,
+   "summary": "Hide the body where a garment covers it (MetaHuman does this for its own garments; a garment of your own",
+   "doc": "Hide the body where a garment covers it (MetaHuman does this for its own garments; a garment of your own\nneeds it too): a body vertex is covered when a ray out along its normal meets the garment within reach_cm, a\ntriangle is hidden when all its corners are, less `rings` triangles round the border (cloth that moves off the\nbody never opens a gap). Measured in the reference pose (the meshes' own vertices), so it holds for every frame.\n\nWith apply=False (default) it only counts. With apply=True the triangles are deleted on a COPY of the body mesh\n(dest, default <body mesh>_Under_<garment>), set on the component, and leader pose re-applied (mh.leader).\nNever on the Face: its rig (DNA, morph targets) does not survive a mesh copy; refit the garment round the face\ninstead (garment.fit's collider takes the face).\nReturns: {\"vertices\", \"covered_vertices\", \"triangles\", \"hidden\", \"fraction\", \"mesh\" (with apply)}.\nExample: film-ue op body.hide_under label=Ava garment=Top apply=true",
+   "params": [
+    {
+     "name": "label",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "garment",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "body",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "Body"
+    },
+    {
+     "name": "reach_cm",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 4.0
+    },
+    {
+     "name": "rings",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 2
+    },
+    {
+     "name": "apply",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": false
+    },
+    {
+     "name": "dest",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": true,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "metahuman",
+    "experimental"
+   ]
+  },
+  {
    "name": "bridge.health",
    "area": "bridge",
    "verb": "health",
@@ -3612,6 +3695,426 @@
    "idempotent": true,
    "tags": [
     "camera"
+   ]
+  },
+  {
+   "name": "cloth.cache",
+   "area": "cloth",
+   "verb": "cache",
+   "module": "fmbridge.ops.cloth",
+   "file": "unreal/fmbridge/ops/cloth.py",
+   "line": 535,
+   "summary": "A Chaos Cache Manager for a character's cloth garments, so a render plays the cloth back instead of",
+   "doc": "A Chaos Cache Manager for a character's cloth garments, so a render plays the cloth back instead of\nsimulating it: `record` (the next PIE/MRQ run of the shot writes the cache), then `play` (every later render of\nthat shot reads it: identical cloth in every chunk and every re-render), `off` (simulate live). Converges on one\nmanager actor per character. Needs the ChaosCaching plugin (experimental, off by default).\n\nRecord and play must start on the same frame (one MRQ job per shot, from its first frame): the cache's time is\nthe world's time since the job began. Check after `play` with qa.cloth or render.compare against the record pass.\nArgs: label: the character. mode: record | play | off. collection: the cache collection asset (default\n/Game/FM/ClothCache/CC_<label>). components: garment names (default every cloth garment). manager: the actor\nlabel (default ClothCache_<label>).\nReturns: {\"changed\", \"manager\", \"mode\", \"collection\", \"observed\": [names]}.\nExample: film-ue op cloth.cache label=Host mode=record",
+   "params": [
+    {
+     "name": "label",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "mode",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "collection",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "components",
+     "kind": "keyword",
+     "type": "list | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "manager",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "cloth",
+    "render",
+    "experimental"
+   ]
+  },
+  {
+   "name": "cloth.describe",
+   "area": "cloth",
+   "verb": "describe",
+   "module": "fmbridge.ops.cloth",
+   "file": "unreal/fmbridge/ops/cloth.py",
+   "line": 170,
+   "summary": "Which garments of a placed character simulate cloth, and how: per garment its clothing data (config values as",
+   "doc": "Which garments of a placed character simulate cloth, and how: per garment its clothing data (config values as\nthe solver has them, physics asset), the component's teleport/LOD settings, and the solver's live numbers.\n\nA garment with `\"clothing\": []` is skinned only: it moves like armour. `simulating` false with clothing data\nmeans it is disabled, suspended or has no dynamic particles (all painted 0).\nArgs: label: the actor. component: one garment (else every skeletal mesh component but Body and Face).\nReturns: {\"label\", \"garments\": {name: {\"mesh\", \"leader\", \"clothing\", \"settings\", \"max_distance_scale\",\n\"suspended\", \"forced_lod\", \"solver\", \"simulating\"}}, \"skinned_only\": [names]}.\nExample: film-ue op cloth.describe label=Host",
+   "params": [
+    {
+     "name": "label",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "component",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "cloth",
+    "metahuman"
+   ]
+  },
+  {
+   "name": "cloth.preroll",
+   "area": "cloth",
+   "verb": "preroll",
+   "module": "fmbridge.ops.cloth",
+   "file": "unreal/fmbridge/ops/cloth.py",
+   "line": 466,
+   "summary": "Settle the cloth in the live level before reading a frame (a still, qa.clip under simulation): reset the cloth,",
+   "doc": "Settle the cloth in the live level before reading a frame (a still, qa.clip under simulation): reset the cloth,\nthen evaluate the sequence one tick per frame (hold: the frame itself `frames` times, as MRQ's warm-up does;\nplay: the `frames` frames before it, from `start` at the earliest) and land on `frame`. Multi-tick.\n\nArgs: sequence: the level sequence. frame: the frame to land on. labels: the characters (default: every actor\nwith cloth garments). frames: settle frames (0 = what the slowest preset needs, clothkit.preroll.need_frames).\nmode: hold | play. start: the cut's first frame (play never runs before it).\nReturns: {\"frame\", \"steps\", \"mode\", \"garments\": {label.component: simulating}}.\nExample: film-ue op cloth.preroll sequence=/Game/Reel/SEQ_Reel frame=1080 'labels=[\"Host\"]' mode=play start=960",
+   "params": [
+    {
+     "name": "sequence",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "frame",
+     "kind": "keyword",
+     "type": "int",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "labels",
+     "kind": "keyword",
+     "type": "list | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "frames",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 0
+    },
+    {
+     "name": "mode",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "hold"
+    },
+    {
+     "name": "start",
+     "kind": "keyword",
+     "type": "int | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "fps",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 24.0
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "cloth",
+    "sequencer"
+   ]
+  },
+  {
+   "name": "cloth.presets",
+   "area": "cloth",
+   "verb": "presets",
+   "module": "fmbridge.ops.cloth",
+   "file": "unreal/fmbridge/ops/cloth.py",
+   "line": 154,
+   "summary": "The fabric presets cloth.setup takes: each one's solver config, zones (where it is anchored and where it hangs",
+   "doc": "The fabric presets cloth.setup takes: each one's solver config, zones (where it is anchored and where it hangs\nfree, with max distances in cm) and settle time. Offline facts, no engine.\n\nArgs: name: one preset (else all).\nReturns: {name: {\"about\", \"config\", \"zones\", \"free\", \"pinned\", \"settle_s\", \"max_cm\"}}.\nExample: film-ue op cloth.presets name=cotton_tee",
+   "params": [
+    {
+     "name": "name",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "cloth"
+   ]
+  },
+  {
+   "name": "cloth.remove",
+   "area": "cloth",
+   "verb": "remove",
+   "module": "fmbridge.ops.cloth",
+   "file": "unreal/fmbridge/ops/cloth.py",
+   "line": 392,
+   "summary": "Take the cloth off a garment section again (it is skinned only: the A side of an A/B). Idempotent.",
+   "doc": "Take the cloth off a garment section again (it is skinned only: the A side of an A/B). Idempotent.\n\nReturns: {\"changed\", \"section\"}.\nExample: film-ue op cloth.remove label=Host component=Torso",
+   "params": [
+    {
+     "name": "label",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "component",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "lod",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 0
+    },
+    {
+     "name": "section",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": -1
+    },
+    {
+     "name": "save",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": true
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "cloth",
+    "metahuman"
+   ]
+  },
+  {
+   "name": "cloth.render_check",
+   "area": "cloth",
+   "verb": "render_check",
+   "module": "fmbridge.ops.cloth",
+   "file": "unreal/fmbridge/ops/cloth.py",
+   "line": 513,
+   "summary": "Does a render plan give the cloth its settle frames before every chunk's first frame? Pure: feed it",
+   "doc": "Does a render plan give the cloth its settle frames before every chunk's first frame? Pure: feed it\nrender.plan's chunks and the spec's warm-up counts. A chunk that starts on its cut holds the first frame for\nwarmup_engine + warmup_render frames; a chunk that starts mid-cut plays the cut's frames before it.\n\nArgs: chunks: render.plan's \"chunks\". warmup_engine/warmup_render: the spec's (resolved) counts. presets_used:\nthe cloth presets in the shots (default all: the slowest decides). fps: the sequence rate.\nReturns: {\"ok\", \"need\", \"warmup_engine\": what to set, \"chunks\": [{\"id\", \"mode\", \"frames\", \"ok\", \"fix\"}]}.\nExample: film-ue op cloth.render_check 'chunks=[{\"id\":\"c0\",\"cut_start\":1080,\"start\":1080,\"end\":1200,\"preroll\":0}]' warmup_render=8",
+   "params": [
+    {
+     "name": "chunks",
+     "kind": "keyword",
+     "type": "list",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "warmup_engine",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 0
+    },
+    {
+     "name": "warmup_render",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 0
+    },
+    {
+     "name": "presets_used",
+     "kind": "keyword",
+     "type": "list | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "fps",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 24.0
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "cloth",
+    "render"
+   ]
+  },
+  {
+   "name": "cloth.settings",
+   "area": "cloth",
+   "verb": "settings",
+   "module": "fmbridge.ops.cloth",
+   "file": "unreal/fmbridge/ops/cloth.py",
+   "line": 438,
+   "summary": "Give a character's cloth garments the component settings cloth needs on a presenter: teleport thresholds",
+   "doc": "Give a character's cloth garments the component settings cloth needs on a presenter: teleport thresholds\n(30 cm / 30 deg) with reset-after-teleport (a cut that re-places them must not fling the cloth), no environment\ncollision, the max distance at full scale, and the cloth bound to the leader's pose. Run it after any respawn\n(mh.dress, a host swap): component settings live on the placed actor, not the asset.\n\nReturns: {\"changed\", \"garments\": {name: {setting: value}}}.\nExample: film-ue op cloth.settings label=Host",
+   "params": [
+    {
+     "name": "label",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "component",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "cloth",
+    "metahuman"
+   ]
+  },
+  {
+   "name": "cloth.setup",
+   "area": "cloth",
+   "verb": "setup",
+   "module": "fmbridge.ops.cloth",
+   "file": "unreal/fmbridge/ops/cloth.py",
+   "line": 325,
+   "summary": "Make a skeletal-mesh garment Chaos cloth from a fabric preset: clothing data on its LOD-0 section, the max",
+   "doc": "Make a skeletal-mesh garment Chaos cloth from a fabric preset: clothing data on its LOD-0 section, the max\ndistance painted by rule (0 at the collar/shoulder seams or the waistband, ramping to the preset's cm at the hem\nand sleeve ends; the fit's vertex colours pin and cap it), the preset's solver config, the body's physics asset\nfor collision, and the component settings cloth needs (cloth.settings). Converges: re-running repaints and\nre-configures the same clothing data. Needs the FMCloth plugin (dry_run does not).\n\nArgs: label: the placed character. component: the garment component (cloth.describe lists them). preset:\ncotton_tee | overshirt_light | trousers (cloth.presets). overrides: {\"config\": {key: value}, \"zones\": {zone:\n{\"to_cm\": cm}}, \"settle_s\": s}. physics_asset: collision shapes (default: the Body's physics asset).\nlod/section: the garment section to simulate (-1 = the largest). use_colours: read the fit's vertex colours\n(R ease, G pinned). dry_run: paint the garment's render vertices and return the stats; write nothing.\nReturns: {\"changed\", \"cloth\", \"points\", \"maps\": {zone: {\"n\", \"min_cm\", \"max_cm\", \"mean_cm\"}}, \"colours\",\n\"config\": {\"set\", \"missing\"}, \"settings\", \"physics_asset\", \"readback_max_cm\"}.\nExample: film-ue op cloth.setup label=Host component=Torso preset=cotton_tee",
+   "params": [
+    {
+     "name": "label",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "component",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "preset",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "overrides",
+     "kind": "keyword",
+     "type": "dict | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "physics_asset",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "lod",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 0
+    },
+    {
+     "name": "section",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": -1
+    },
+    {
+     "name": "use_colours",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": true
+    },
+    {
+     "name": "dry_run",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": false
+    },
+    {
+     "name": "save",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": true
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "cloth",
+    "metahuman",
+    "experimental"
    ]
   },
   {
@@ -5995,6 +6498,93 @@
    ]
   },
   {
+   "name": "garment.export",
+   "area": "garment",
+   "verb": "export",
+   "module": "fmbridge.ops.garment",
+   "file": "unreal/fmbridge/ops/garment.py",
+   "line": 502,
+   "summary": "Export what the Blender fit (film-ue garment fit) needs, as FBX in cm on the body skeleton, to out_dir on the",
+   "doc": "Export what the Blender fit (film-ue garment fit) needs, as FBX in cm on the body skeleton, to out_dir on the\nbox: body.fbx (the body as worn: cut under its garments), face.fbx (its lower neck is in the collider: a\nMetaHuman's face mesh runs ~10 cm below neck_01, to the clavicles), ref_body.fbx (the UNCUT body: weights and\nease come from it), garment_<name>.fbx per garment, anim_<name>.fbx for every animation the sequences play on\nthe character (the fit's pose tests). Read-only on the project.\n\nArgs: label: the character. garments: component names (default every garment role but shoes). ref_body: the\nuncut body mesh (default: another body mesh in the body's folder, e.g. SKM_<Name>_BodyMesh from an earlier\nbuild; refused when none: say which). sequences: level sequences whose skeletal animation sections count (default\nnone); anims: extra AnimSequence paths.\nReturns: {\"out_dir\", \"files\": {name: [asset, ok, bytes]}, \"ref_body\", \"manifest\"} (manifest.json beside them).\nExample: film-ue op garment.export label=Host out_dir=/srv/ue/fit/host 'sequences=[\"/Game/Reel/SEQ_Reel\"]'",
+   "params": [
+    {
+     "name": "label",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "out_dir",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "garments",
+     "kind": "keyword",
+     "type": "list | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "ref_body",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "anims",
+     "kind": "keyword",
+     "type": "list | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "sequences",
+     "kind": "keyword",
+     "type": "list | None",
+     "required": false,
+     "default": null
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "metahuman"
+   ]
+  },
+  {
+   "name": "garment.hidden_face_maps",
+   "area": "garment",
+   "verb": "hidden_face_maps",
+   "module": "fmbridge.ops.garment",
+   "file": "unreal/fmbridge/ops/garment.py",
+   "line": 690,
+   "summary": "A MetaHuman wardrobe item's hidden face maps: what MetaHuman itself removes or SHRINKS of the head and body",
+   "doc": "A MetaHuman wardrobe item's hidden face maps: what MetaHuman itself removes or SHRINKS of the head and body\nunder this garment at assembly (5.7+: UMetaHumanOutfitEditorPipeline and UMetaHumanSkeletalMeshEditorPipeline\nboth carry HeadHiddenFaceMapTexture and BodyHiddenFaceMapTexture; settings MaxCullValue 0.1, MinKeepValue 0.9,\nMaxShrinkDistance 0 by default, i.e. shrink OFF). Pixels <= max_cull are removed, between the two the skin is\nmoved in along -normal by up to max_shrink_distance (cm), >= min_keep untouched; the head map is sampled in the\nhead's UV space (the highest of R, G, B).\n\nArgs: item: the wardrobe item's asset path (mh.palette lists a character's; a WI_ asset).\nReturns: {\"item\", \"pipeline\", \"editor_pipeline\", \"head\": {texture, max_cull_value, min_keep_value,\nmax_shrink_distance}, \"body\": {...}}.\nExample: film-ue op garment.hidden_face_maps item=/MetaHumanCharacter/Optional/Clothing/DefaultGarment/WI_DefaultGarment",
+   "params": [
+    {
+     "name": "item",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "metahuman"
+   ]
+  },
+  {
    "name": "groom.describe",
    "area": "groom",
    "verb": "describe",
@@ -6010,6 +6600,82 @@
      "type": "str",
      "required": true,
      "default": null
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": []
+  },
+  {
+   "name": "groom.lock",
+   "area": "groom",
+   "verb": "lock",
+   "module": "fmbridge.ops.groom",
+   "file": "unreal/fmbridge/ops/groom.py",
+   "line": 623,
+   "summary": "Lock characters' hair (and bodies) to one LOD for rendering, so a wide shot draws the same hair as a close",
+   "doc": "Lock characters' hair (and bodies) to one LOD for rendering, so a wide shot draws the same hair as a close\none: each live LODSync's forced_lod = `lod`, every visible groom added to its components_to_sync (Passive) if\nmissing, use_cards off, skeletal meshes forced_lod_model = lod + 1; the hair LOD cvars set live\n(r.HairStrands.LODMode 0: manual LODs; r.HairStrands.AutoLOD.Bias 1: no screen-size curve thinning;\nr.HairStrands.UseCardsInsteadOfStrands 0). Then it reads everything back (groom.lock_check).\n\nPass `render_cvars` from the result into the render spec's cvars, and lock BEFORE the render starts: a groom\nreads its LOD mode when it registers. Save the level after (level.save) so the pins persist.\n\nArgs: labels: actor labels. lod: 0 (the full groom). persist: also write the cvars into the project's\nDefaultEngine.ini [SystemSettings] (editor.project_setting) so every editor start has them. release: undo the\npins (LODSync -1, skeletal 0, cvars back to the engine defaults 1 / 0.1); components added to the sync list stay.\nReturns: {\"changed\": [str], \"check\": groom.lock_check's result, \"pass\", \"render_cvars\"}. Multi-tick.\nExample: film-ue op groom.lock 'labels=[\"Host\",\"Presenter\"]'",
+   "params": [
+    {
+     "name": "labels",
+     "kind": "keyword",
+     "type": "list",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "lod",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 0
+    },
+    {
+     "name": "persist",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": false
+    },
+    {
+     "name": "release",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": false
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": true,
+   "idempotent": true,
+   "tags": []
+  },
+  {
+   "name": "groom.lock_check",
+   "area": "groom",
+   "verb": "lock_check",
+   "module": "fmbridge.ops.groom",
+   "file": "unreal/fmbridge/ops/groom.py",
+   "line": 602,
+   "summary": "Read-only: will these characters' hair render the same in every shot? For each: no TRASH_ components, a",
+   "doc": "Read-only: will these characters' hair render the same in every shot? For each: no TRASH_ components, a\nlive LODSync forcing `lod`, every visible groom in its components_to_sync (and, where LODSync has resolved it,\nrendering `lod`), strands (not cards/meshes, not hidden) at that LOD in every group, use_cards off, skeletal\nmeshes pinned; plus the hair LOD cvars (r.HairStrands.LODMode 0, r.HairStrands.AutoLOD.Bias 1,\nr.HairStrands.UseCardsInsteadOfStrands 0) live in the editor.\n\nArgs: labels: the characters' actor labels. lod: the LOD that must render (0).\nReturns: {\"pass\", \"problems\": [str], \"notes\": [str], \"actors\": {label: state}, \"cvars\": {...},\n\"render_cvars\"}. The review gate's hair.lock item is this op's pass.\nExample: film-ue op groom.lock_check 'labels=[\"Host\",\"Presenter\"]'",
+   "params": [
+    {
+     "name": "labels",
+     "kind": "keyword",
+     "type": "list",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "lod",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 0
     }
    ],
    "returns": "dict",
@@ -6237,7 +6903,7 @@
    "verb": "sky_lighting",
    "module": "fmbridge.ops.groom",
    "file": "unreal/fmbridge/ops/groom.py",
-   "line": 436,
+   "line": 696,
    "summary": "The hair sky-lighting guard (unreal/README.md: indoors, hair takes the sky light unoccluded and reads white):",
    "doc": "The hair sky-lighting guard (unreal/README.md: indoors, hair takes the sky light unoccluded and reads white):\nset r.HairStrands.SkyLighting in the editor, and give the cvar to pass to renders.\n\nArgs: enable: false (the guard: 0) or true (1). measure_label: a character to measure (groom.measure) before\nand after, so the effect is a number.\nReturns: {\"changed\", \"before\", \"after\", \"render_cvars\": {\"r.HairStrands.SkyLighting\": 0|1} (pass to render.*\ncvars), \"measure\"?: {\"before\", \"after\", \"delta\"}}. Multi-tick.\nExample: film-ue op groom.sky_lighting enable=false measure_label=Ada",
    "params": [
@@ -8564,6 +9230,281 @@
    "idempotent": true,
    "tags": [
     "lighting"
+   ]
+  },
+  {
+   "name": "lipsync.check",
+   "area": "lipsync",
+   "verb": "check",
+   "module": "fmbridge.ops.lipsync",
+   "file": "unreal/fmbridge/ops/lipsync.py",
+   "line": 110,
+   "summary": "Lip-sync of one face against its voice: per line the lag between the voice's syllable rhythm and the mouth's",
+   "doc": "Lip-sync of one face against its voice: per line the lag between the voice's syllable rhythm and the mouth's\nopening (frames; < 0 = the mouth is EARLY), their correlation, how early the mouth starts, and the mouth in the\nsilences. FAILS on |lag| > 1 frame, r < 0.35, an opening more than 0.25 s ahead of the first sound, or talking\nin a silence (open > 0.10 or busier than 25% of the lines). Each issue says what to do; `diagnosis` says whether\nit is one offset (misplaced section/audio), a drift (a frame-rate mismatch) or per line.\n\nWhat it reads (one of):\n  sequence + label: what the sequence PLAYS on label.component (every skeletal animation section, with its start,\n    offset and play rate): the placed face, as the render will show it. Also lists the sequence's audio sections.\n  anim: an animation alone, its t=0 on master frame `anim_frame` (a solve right after speech.to_face: anim_frame =\n    wav_frame, so the solver's own lag is measured; pass it as expected_lag_s to later checks).\nwav: the voice on the box, its first sample on master frame `wav_frame` (a 65 s stem from frame 0: 0; a line's WAV:\n  its cue's file_frame). lines: [{\"id\", \"f0\", \"f1\"}] speech onset/offset frames, or cues=<cues.json on the box>\n  who=<who> (it must be a measured one: film-ue lips cues). fps: default the sequence's, else 24.\n\nReturns {\"pass\", \"lines\": {id: {lag_frames, corr, onset_lead_s, ...}}, \"silences\", \"issues\", \"diagnosis\",\n\"sections\"?, \"audio\"?}.\nExample: film-ue op lipsync.check sequence=/Game/Reel/SEQ_Reel label=Host wav=/srv/ue/vo/vo_him.wav cues=/srv/ue/vo/cues.json who=him",
+   "params": [
+    {
+     "name": "wav",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "lines",
+     "kind": "keyword",
+     "type": "list | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "cues",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "who",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "anim",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "sequence",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "label",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "component",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "Face"
+    },
+    {
+     "name": "wav_frame",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 0.0
+    },
+    {
+     "name": "anim_frame",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 0.0
+    },
+    {
+     "name": "fps",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 0.0
+    },
+    {
+     "name": "expected_lag_s",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 0.0
+    },
+    {
+     "name": "limits",
+     "kind": "keyword",
+     "type": "dict | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "span_frames",
+     "kind": "keyword",
+     "type": "list | None",
+     "required": false,
+     "default": null
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "qa"
+   ]
+  },
+  {
+   "name": "lipsync.compose",
+   "area": "lipsync",
+   "verb": "compose",
+   "module": "fmbridge.ops.lipsync",
+   "file": "unreal/fmbridge/ops/lipsync.py",
+   "line": 172,
+   "summary": "A performance's mouth from per-line solves, each at its cue: one timebase, no talking in the silences.",
+   "doc": "A performance's mouth from per-line solves, each at its cue: one timebase, no talking in the silences.\n\nparts: [{\"anim\": a line's speech.to_face result, \"frame\": the master frame its WAV starts on (cues' file_frame)}].\nThe animation `out` runs from master frame `start_frame` for `length_frames`: a copy of `base` (the performance\nthe head/eyes/blinks are layered on: perf.face runs after this) with its speech curves (jaw, lips, tongue; not\nthe smile layer) replaced, or a new animation on `skeleton`. Between lines the mouth rests (keep_base > 0 keeps\nthat share of base's own mouth there, for breaths); each line fades in/out over `fade_frames` at its WAV's ends\n(a line WAV starts ~50 ms before its first sound, vo.py). Run lipsync.check on the result before layering.\n\nReturns {\"out\", \"curves\", \"parts\": [[anim, frame, seconds]], \"changed\"}.\nExample: film-ue op lipsync.compose out=/Game/Reel/Perf/AS_reel_him_mouth base=/Game/Speech/Anim/AS_reel_him start_frame=960 length_frames=624 'parts=[{\"anim\":\"/Game/Speech/Anim/AS_reel_L1\",\"frame\":1018.8}]'",
+   "params": [
+    {
+     "name": "parts",
+     "kind": "keyword",
+     "type": "list",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "out",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "length_frames",
+     "kind": "keyword",
+     "type": "float",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "start_frame",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 0.0
+    },
+    {
+     "name": "fps",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 24.0
+    },
+    {
+     "name": "base",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "keep_base",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 0.0
+    },
+    {
+     "name": "fade_frames",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 3.0
+    },
+    {
+     "name": "skeleton",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "slow"
+   ]
+  },
+  {
+   "name": "lipsync.mouth_boxes",
+   "area": "lipsync",
+   "verb": "mouth_boxes",
+   "module": "fmbridge.ops.lipsync",
+   "file": "unreal/fmbridge/ops/lipsync.py",
+   "line": 220,
+   "summary": "Where `label`'s mouth is in the picture, per frame: through `camera` or (default) the camera the edit shows on",
+   "doc": "Where `label`'s mouth is in the picture, per frame: through `camera` or (default) the camera the edit shows on\nthat frame, the mouth's corner/lip/jaw bones projected (cam.project's lens model) to a square box (0..1 from the\ntop left) padded by `pad` x its size, for the video check's crop (film-ue lips render --boxes). A multi-tick\njob. Bones default to the MetaHuman face's FACIAL_C_Jaw, FACIAL_L/R_LipCorner, FACIAL_C_LipUpper/LipLower.\n\nReturns {\"frames\": {frame: {\"camera\", \"box\": [x0, y0, x1, y1], \"visible\"}}}.\nExample: film-ue op lipsync.mouth_boxes sequence=/Game/Reel/SEQ_Reel label=Host 'frames=[1000,1001]'",
+   "params": [
+    {
+     "name": "sequence",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "label",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "frames",
+     "kind": "keyword",
+     "type": "list",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "component",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "Face"
+    },
+    {
+     "name": "camera",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "bones",
+     "kind": "keyword",
+     "type": "list | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "pad",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 0.6
+    },
+    {
+     "name": "ticks",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 2
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "qa",
+    "slow"
    ]
   },
   {
@@ -11857,7 +12798,7 @@
    "verb": "analyze_audio",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 82,
+   "line": 84,
    "summary": "A voice file's timing for a performance, with no engine work: duration, stressed syllables (emphasis: beat",
    "doc": "A voice file's timing for a performance, with no engine work: duration, stressed syllables (emphasis: beat\nnods and brow flashes land there), pauses and phrase ends (blinks), and a 25 Hz loudness envelope.\n\nArgs: wav: a PCM WAV path on the editor's machine. top: keep only the strongest n emphases (0 = all).\nReturns: {\"duration_s\", \"emphasis\": [[t, strength]], \"pauses\": [[t0, t1]], \"phrase_ends\": [t], \"talking\":\n[[t0, t1]], \"envelope\": {\"rate\": 25, \"values\": [...]}}.\nExample: film-ue op perf.analyze_audio wav=/home/ue/Audio/line1.wav",
    "params": [
@@ -11888,7 +12829,7 @@
    "verb": "apply",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 881,
+   "line": 785,
    "summary": "Converge the editor on a PERFORMANCE spec (kind: performance): speech-solve the lines whose audio or mood",
    "doc": "Converge the editor on a PERFORMANCE spec (kind: performance): speech-solve the lines whose audio or mood\nchanged, compose the face, key the body and the actor's moves in the sequence; re-run safely (a converged spec\ndoes nothing). `dry_run` returns the plan only. A multi-tick job (speech solves take seconds per line).\n\nReturns: {\"converged\", \"rounds\", \"ran\": [{\"op\", \"why\", \"result\"}], \"report\": the face's naturalness checks}.\nExample: film-ue op perf.apply spec=@films/demo/perf/intro.yaml",
    "params": [
@@ -11928,7 +12869,7 @@
    "verb": "calibrate",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 320,
+   "line": 330,
    "summary": "Measure, on the real rig, which of HeadYaw/HeadPitch/HeadRoll turns, nods and tilts the head (the names need not",
    "doc": "Measure, on the real rig, which of HeadYaw/HeadPitch/HeadRoll turns, nods and tilts the head (the names need not\nsay: on the reel's MetaHumans HeadYaw nods), which way, and how far eyeLook* turns the\neyes, and save it for this face skeleton (Saved/fmbridge/perf/signs_<skeleton>.json): perf.face and perf.apply\nthen use it. Plays a scratch animation on the actor's face in a scratch sequence and samples the eye bones.\nRun once per face skeleton (the face must be driven by Sequencer: mh.drive_face). A multi-tick job, ~20 s.\n\nReturns: {\"signs\": {\"yaw\", \"pitch\", \"roll\", \"eye_deg\", \"eye_flip\", \"measured\", \"curves\": {axis: curve}}, \"file\",\n\"raw\": {...}}.\nExample: film-ue op perf.calibrate label=Presenter",
    "params": [
@@ -12036,7 +12977,7 @@
    "verb": "check",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 288,
+   "line": 298,
    "summary": "Will this face read as alive? Same as anim.check (naturalness numbers with pass/fail and why).",
    "doc": "Will this face read as alive? Same as anim.check (naturalness numbers with pass/fail and why).\nExample: film-ue op perf.check anim=/Game/Speech/Anim/AS_line1_perf",
    "params": [
@@ -12067,7 +13008,7 @@
    "verb": "compose",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 782,
+   "line": 686,
    "summary": "Compose a performance spec into the sequence: one continuous face animation (every line's lip-sync placed at",
    "doc": "Compose a performance spec into the sequence: one continuous face animation (every line's lip-sync placed at\nits time, with the head, eyes, blinks, moods and expressions of perfkit over the whole timeline, so nothing\njumps between lines) on the face track, the body's idle/gesture/walk sections, and the actor's transform keys.\nperf.apply calls it after the speech solves; call it yourself to re-key without re-solving.\nReturns: {\"face_anim\", \"fingerprint\", \"frames\", \"report\", \"timeline\", \"body_sections\", \"notes\", \"changed\"}.\nExample: film-ue op perf.compose spec=@examples/unreal/performance/listener.yaml",
    "params": [
@@ -12091,7 +13032,7 @@
    "verb": "describe",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 915,
+   "line": 819,
    "summary": "An actor's performance in a sequence: the animation sections on its face and body tracks, the face",
    "doc": "An actor's performance in a sequence: the animation sections on its face and body tracks, the face\nanimation's perf metadata (which spec, its fingerprint), and its transform keys.\nExample: film-ue op perf.describe sequence=/Game/Shots/S010 label=Presenter",
    "params": [
@@ -12136,9 +13077,9 @@
    "verb": "face",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 105,
+   "line": 107,
    "summary": "Make a face animation (a speech solve, or any MetaHuman face animation) read as alive: write a copy whose head",
-   "doc": "Make a face animation (a speech solve, or any MetaHuman face animation) read as alive: write a copy whose head\nturns follow the gaze (eyes lead, the head eases with overshoot and settles), with nods and brow flashes on the\nstressed words, irregular asymmetric blinks (with big gaze shifts and at phrase ends), fixational eye darts, a\nmood's baseline expression, and micro-motion in every hold; the solver's own head motion is softened under it\nand the lip-sync is kept.\n\nArgs (times in seconds from the animation's start, angles in degrees in the CHARACTER's frame: yaw + = their\nleft, pitch + = up):\n  anim: the source animation. out: where to write (default <anim>_perf); re-written on each call.\n  wav: the line's audio, for automatic emphasis and phrase ends (perf.analyze_audio).\n  gaze: shifts [{\"t\", \"yaw\", \"pitch\", \"scan\": face|lens|still, \"dist_cm\", \"head\": share 0..1}]; default: hold\n  straight ahead on a lens. start_gaze: [yaw, pitch] at t=0. lead: eyes|head.\n  head: style {\"gain\", \"rest_roll_deg\", \"rest_pitch_deg\", \"micro_deg\", \"breath_deg\", \"lean\", \"speech_gain\"}.\n  nods: [{\"t\", \"kind\": yes|beat|up|no, \"depth_deg\", \"count\"}]. tilts: [{\"t\", \"until\", \"roll_deg\"}].\n  mood: one mood over the whole clip, or moods: [{\"t0\", \"t1\", \"mood\", \"intensity\"}] (perf.vocab lists them).\n  expressions: [{\"preset\", \"t\", \"until\", \"intensity\", \"asym\"}]. emphasis: [[t, strength]] or \"auto\" (from wav).\n  layers: subset of head, eyes, blinks, expressions, brows, nods. solver_head: soften|keep|replace.\n  blink_mode: replace|keep|max. blink_state: talk|listen|rest|focus|nervous|calm. energy: >1 brisker head.\n  mouth_mix: smile strength on a talking mouth (0..1). signs: rig signs (default perf.calibrate's, else guesses).\n  plot: a PNG path on the box: the result's curves drawn as strips (perf.plot) to look at.\n  avoid_blinks: [[t0, t1], ...] spans (s, this animation's time) with no blink: another face's blinks in the\n  same shot (two people blinking on the same frame reads as a glitch).\n  speech_gain: [[t0, t1, gain], ...] spans (s) whose mouth curves (jaw, lips) are scaled by gain, clamped 0..1:\n  for a rig that gives little mouth travel (r4: Host_Op).\nReturns: {\"out\", \"changed\", \"plan\": {shifts, nods, blinks, expressions, ...}, \"report\": naturalness checks,\n\"curves\": n, \"plot\"?: {\"path\", \"width\", \"height\"}}.\nExample: film-ue op perf.face anim=/Game/Speech/Anim/AS_line1 wav=/home/ue/Audio/line1.wav mood=warm 'gaze=[{\"t\":0,\"yaw\":0,\"scan\":\"lens\"},{\"t\":2.5,\"yaw\":25,\"pitch\":-5}]'",
+   "doc": "Make a face animation (a speech solve, or any MetaHuman face animation) read as alive: write a copy whose head\nturns follow the gaze (eyes lead, the head eases with overshoot and settles), with nods and brow flashes on the\nstressed words, irregular asymmetric blinks (with big gaze shifts and at phrase ends), fixational eye darts, a\nmood's baseline expression, and micro-motion in every hold; the head is perfkit's alone (the solver's head is\ndropped: it nods with the solve's own blinks) and no blink moves it; the lip-sync is kept.\n\nArgs (times in seconds from the animation's start, angles in degrees in the CHARACTER's frame: yaw + = their\nleft, pitch + = up):\n  anim: the source animation. out: where to write (default <anim>_perf); re-written on each call.\n  wav: the line's audio, for automatic emphasis and phrase ends (perf.analyze_audio).\n  gaze: shifts [{\"t\", \"yaw\", \"pitch\", \"scan\": face|lens|still, \"dist_cm\", \"head\": share 0..1}]; default: hold\n  straight ahead on a lens. start_gaze: [yaw, pitch] at t=0. lead: eyes|head.\n  head: style {\"gain\", \"rest_roll_deg\", \"rest_pitch_deg\", \"micro_deg\", \"breath_deg\", \"lean\", \"speech_gain\"}.\n  nods: [{\"t\", \"kind\": yes|beat|up|no, \"depth_deg\", \"count\"}]. tilts: [{\"t\", \"until\", \"roll_deg\"}].\n  mood: one mood over the whole clip, or moods: [{\"t0\", \"t1\", \"mood\", \"intensity\"}] (perf.vocab lists them).\n  expressions: [{\"preset\", \"t\", \"until\", \"intensity\", \"asym\"}]. emphasis: [[t, strength]] or \"auto\" (from wav).\n  layers: subset of head, eyes, blinks, expressions, brows, nods. solver_head: replace (default: the solve's\n  head rotation and translation dropped) | clean (spike-free, blink windows bridged, 1.5 Hz, 50%, under ours) |\n  soften (round 4's: 2 Hz, 60%; it kept the solve's blink-nods) | keep. blink_head: still (default: no blink\n  moves the head; report checks blink_nod, blink_locked, blink_speed, head_buzz) | free.\n  blink_mode: replace|keep|max. blink_state: talk|listen|rest|focus|nervous|calm. energy: >1 brisker head.\n  mouth_mix: smile strength on a talking mouth (0..1). signs: rig signs (default perf.calibrate's, else guesses).\n  plot: a PNG path on the box: the result's curves drawn as strips (perf.plot) to look at.\n  avoid_blinks: [[t0, t1], ...] spans (s, this animation's time) with no blink: another face's blinks in the\n  same shot (two people blinking on the same frame reads as a glitch).\n  preset: presenter_calm|presenter_lively|listener|still_portrait (perfkit.presets: head style, blink state,\n  energy, beat nods, brows; any of those given here other than its default wins). beat_every: a beat nod on 1\n  in n stressed words (0: none).\nReturns: {\"out\", \"changed\", \"plan\": {shifts, nods, blinks, expressions, ...}, \"report\": naturalness checks,\n\"curves\": n, \"plot\"?: {\"path\", \"width\", \"height\"}}.\nExample: film-ue op perf.face anim=/Game/Speech/Anim/AS_line1 wav=/home/ue/Audio/line1.wav mood=warm 'gaze=[{\"t\":0,\"yaw\":0,\"scan\":\"lens\"},{\"t\":2.5,\"yaw\":25,\"pitch\":-5}]'",
    "params": [
     {
      "name": "anim",
@@ -12243,7 +13184,7 @@
      "kind": "keyword",
      "type": "str",
      "required": false,
-     "default": "soften"
+     "default": "replace"
     },
     {
      "name": "blink_mode",
@@ -12309,11 +13250,25 @@
      "default": null
     },
     {
-     "name": "speech_gain",
+     "name": "blink_head",
      "kind": "keyword",
-     "type": "list | None",
+     "type": "str",
      "required": false,
-     "default": null
+     "default": "still"
+    },
+    {
+     "name": "preset",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "beat_every",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 1
     }
    ],
    "returns": "dict",
@@ -12328,7 +13283,7 @@
    "verb": "gestures",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 1042,
+   "line": 946,
    "summary": "Gestures timed to their beats: each {\"anim\" | \"name\", \"at_s\" (the beat: the stressed word), \"stroke_s\" (where",
    "doc": "Gestures timed to their beats: each {\"anim\" | \"name\", \"at_s\" (the beat: the stressed word), \"stroke_s\" (where\nthe stroke falls in the clip; default 40% in), \"hold_s\", \"intensity\"}; the clip starts so its stroke lands\n`lead_s` before the beat. Overlaps are moved or dropped (see notes). Adds the sections to the body track.\nExample: film-ue op perf.gestures sequence=/Game/Shots/S010 label=Presenter 'gestures=[{\"anim\":\"/Game/Anim/AS_OpenPalms\",\"at_s\":2.1,\"stroke_s\":0.7}]'",
    "params": [
@@ -12387,7 +13342,7 @@
    "verb": "head_curves",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 1068,
+   "line": 972,
    "summary": "Preview organic head motion with no engine and no animation: the HeadYaw/Pitch/Roll curves (character frame,",
    "doc": "Preview organic head motion with no engine and no animation: the HeadYaw/Pitch/Roll curves (character frame,\ndegrees) perfkit makes for these gaze shifts, nods and tilts, with the plan and the head checks. For trying\nstyles before writing them (perf.face).\nExample: film-ue op perf.head_curves duration_s=6 'gaze=[{\"t\":1,\"yaw\":30},{\"t\":3.5,\"yaw\":-10,\"pitch\":-5}]' 'nods=[{\"t\":4.5,\"kind\":\"nod\"}]'",
    "params": [
@@ -12460,7 +13415,7 @@
    "verb": "idle",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 1023,
+   "line": 927,
    "summary": "An idle that never loops visibly on an actor's body track: segments of 4-9 s from the given idle clips at",
    "doc": "An idle that never loops visibly on an actor's body track: segments of 4-9 s from the given idle clips at\nrandom offsets and play rates 0.92-1.08, cross-fading into each other; split around `gaps` [[start, end]]\nframes (where gestures play). end 0 = the sequence's end.\nExample: film-ue op perf.idle sequence=/Game/Shots/S010 label=Presenter 'clips=[\"/MetaHumanCharacter/Optional/Animation/TemplateAnimations/Technical_Loops/Idle/mhc_mh001_fmn_b_idle\"]'",
    "params": [
@@ -12540,7 +13495,7 @@
    "verb": "lock_eyes",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 869,
+   "line": 773,
    "summary": "Measured eye contact with the spec's camera over the composed face (anim.gaze_lock: the eye curves solved",
    "doc": "Measured eye contact with the spec's camera over the composed face (anim.gaze_lock: the eye curves solved\nfrom the eye bones' real pose on the lines that look at the camera). A multi-tick job.\nExample: film-ue op perf.lock_eyes spec=@examples/unreal/performance/presenter_intro.yaml",
    "params": [
@@ -12566,7 +13521,7 @@
    "verb": "plan",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 706,
+   "line": 610,
    "summary": "What perf.apply would do for a performance spec, without doing it: {\"steps\": [{\"op\", \"args\", \"why\"}],",
    "doc": "What perf.apply would do for a performance spec, without doing it: {\"steps\": [{\"op\", \"args\", \"why\"}],\n\"compiled\": timeline, body sections and notes}. Empty steps = converged.\nExample: film-ue op perf.plan spec=@performance.yaml",
    "params": [
@@ -12590,7 +13545,7 @@
    "verb": "plot",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 270,
+   "line": 280,
    "summary": "Draw a face animation's performance as a PNG (head yaw/pitch/roll, the left eye in the head, blinks, upper",
    "doc": "Draw a face animation's performance as a PNG (head yaw/pitch/roll, the left eye in the head, blinks, upper\nface, mouth, on one time axis): look at it to judge motion without rendering. Straight ramps and flat holds in the\nhead strip are robotic; eased S-curves with a small overshoot and a slight wobble are alive.\n\nArgs: anim: a face AnimSequence. out: PNG path on the box. signs: rig signs (default the calibration).\nt0_s/t1_s: the time window (default the whole animation).\nReturns: {\"path\", \"width\", \"height\", \"changed\": true}.\nExample: film-ue op perf.plot anim=/Game/Speech/Anim/AS_l1_perf out=/tmp/l1_perf.png",
    "params": [
@@ -12644,7 +13599,7 @@
    "verb": "solve",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 725,
+   "line": 629,
    "summary": "A line's speech solve (speech.to_face) tagged with the key of what it was made from, so perf.plan knows when",
    "doc": "A line's speech solve (speech.to_face) tagged with the key of what it was made from, so perf.plan knows when\nit is up to date. A multi-tick job.\nExample: film-ue op perf.solve wav=/home/ue/Audio/l1.wav name=intro_l1 face_mesh=/Game/MetaHumans/Ada/Face/Ada_FaceMesh mood=HAPPINESS",
    "params": [
@@ -12712,7 +13667,7 @@
    "verb": "state",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 632,
+   "line": 536,
    "summary": "What a performance spec depends on, read from the editor (the planner's input): the sequence's rate, the",
    "doc": "What a performance spec depends on, read from the editor (the planner's input): the sequence's rate, the\nactor's position/facing/head height and face mesh, every target's position, clip lengths, each line's audio\nanalysis and speech-solve key, and the composed face animation's fingerprint.\nExample: film-ue op perf.state spec=@performance.yaml",
    "params": [
@@ -12736,7 +13691,7 @@
    "verb": "turn_head",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 227,
+   "line": 237,
    "summary": "Put a face animation's planned head turn on a body animation's neck and head bones, for a MetaHuman whose face",
    "doc": "Put a face animation's planned head turn on a body animation's neck and head bones, for a MetaHuman whose face\ntakes its neck from the body and has no curve that turns the head (5.8: perf.calibrate says turn_on \"Body\"). The\nturn is what perf.face planned (the dead turn curve's values); the body animation must start where the face does.\nNot idempotent: run it once on a body animation that has no turn yet (sync's AS_..._body is made afresh).\n\nArgs: anim: the body animation (written in place, or copied to `out`). face_anim: the perf.face result.\nReturns: {\"out\", \"bones\": {bone: [axis, sign]}, \"keys\", \"max_deg\", \"changed\"}.\nExample: film-ue op perf.turn_head anim=/Game/Reel/Perf/AS_reel_her_body face_anim=/Game/Reel/Perf/AS_reel_her_face",
    "params": [
@@ -12783,7 +13738,7 @@
    "verb": "turn_to",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 999,
+   "line": 903,
    "summary": "Turn an actor in place to face a target (a point, an actor, \"Label:Component:bone\") or a yaw (degrees),",
    "doc": "Turn an actor in place to face a target (a point, an actor, \"Label:Component:bone\") or a yaw (degrees),\neased with a skewed min-jerk over 0.45 s + 0.5 s per 90 deg (/ speed); keys its transform (replacing the\ntransform track, so give a whole route to perf.walk_to or a spec instead when there are several moves).\nExample: film-ue op perf.turn_to sequence=/Game/Shots/S020 label=Presenter target=Guest at_frame=48",
    "params": [
@@ -12842,7 +13797,7 @@
    "verb": "vocab",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 69,
+   "line": 70,
    "summary": "The words a performance understands: expression presets (with their curves), moods (and the speech solver",
    "doc": "The words a performance understands: expression presets (with their curves), moods (and the speech solver\nmood each maps to), nod kinds, face layers, blink states, gaze scan modes.\nExample: film-ue op perf.vocab",
    "params": [],
@@ -12858,7 +13813,7 @@
    "verb": "walk_to",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 958,
+   "line": 862,
    "summary": "Walk an actor to a point in a sequence: turn in place if needed, accelerate, follow `path` waypoints, brake,",
    "doc": "Walk an actor to a point in a sequence: turn in place if needed, accelerate, follow `path` waypoints, brake,\noptionally turn to face `end_facing`; the actor's transform is keyed (replacing its transform track) and the walk\nloop is added on the body track at the play rate that matches its own speed (`clip_speed_cm_s`, default\nspeed_cm_s: rate 1).\n\nArgs: to: [x, y, z] cm, or a target (actor label, \"Label:Component:bone\"). at_frame: when it sets off.\nspeed_cm_s: cruise speed (people: 110-150). facing_offset_deg: the actor's forward vs its mesh's (MetaHumans: 0).\nReturns: {\"changed\", \"keys\", \"frames\": [start, stop], \"distance_cm\", \"walk\": the walk section, \"slide\": check}.\nExample: film-ue op perf.walk_to sequence=/Game/Shots/S020 label=Presenter 'to=[300,120,0]' walk_anim=/MetaHumanCharacter/Optional/Animation/UEFNAnimPreset/Locomotion/AS_MH_Neutral_Walk_Loop_F at_frame=24",
    "params": [
@@ -13151,7 +14106,7 @@
    "verb": "baseline_check",
    "module": "fmbridge.ops.qa",
    "file": "unreal/fmbridge/ops/qa.py",
-   "line": 551,
+   "line": 552,
    "summary": "What a test does per still: compare with the baseline, or make it the baseline when there is none.",
    "doc": "What a test does per still: compare with the baseline, or make it the baseline when there is none.\n\nArgs: suite/name/image: as qa.baseline_compare. mode: auto (compare, or create when missing), compare (never\ncreate), update (replace: accept the new look), off. diff_out: heatmap when it differs. meta: stored on create.\nReturns: {\"pass\", \"issues\", \"metrics\": {\"status\": created|updated|match|differs|different|no_baseline|off, ...}}.\nExample: film-ue op qa.baseline_check suite=selftest/look name=key image=/srv/st/look_key.png",
    "params": [
@@ -13210,7 +14165,7 @@
    "verb": "baseline_compare",
    "module": "fmbridge.ops.qa",
    "file": "unreal/fmbridge/ops/qa.py",
-   "line": 535,
+   "line": 536,
    "summary": "A still against its baseline: SSIM, PSNR, changed cells, exposure shift, a diff heatmap when it moved.",
    "doc": "A still against its baseline: SSIM, PSNR, changed cells, exposure shift, a diff heatmap when it moved.\n\nArgs: suite/name: the baseline. image: the new still (PNG on the box). diff_out: write the heatmap there when it\ndiffers. min_ssim: override the match threshold (default the baseline's own, else 0.95).\nReturns: {\"pass\", \"issues\", \"metrics\": {\"status\": match|differs|different|no_baseline, \"ssim\", \"psnr\",\n\"changed\", \"stops_shift\", \"mean_shift\", \"diff\"?}}. no_baseline passes (with an info issue).\nExample: film-ue op qa.baseline_compare suite=film/s010 name=00048 image=/srv/qa/new/00048.png diff_out=/srv/qa/d.png",
    "params": [
@@ -13262,7 +14217,7 @@
    "verb": "baseline_list",
    "module": "fmbridge.ops.qa",
    "file": "unreal/fmbridge/ops/qa.py",
-   "line": 570,
+   "line": 571,
    "summary": "The baselines on the box (all, or one suite and its sub-suites).",
    "doc": "The baselines on the box (all, or one suite and its sub-suites).\n\nReturns: {\"root\", \"baselines\": [{\"suite\", \"name\", \"updated\", \"size\", \"png\", \"json\", \"rel\"}]}; `rel` is the PNG's\npath under root (film-qa baseline pull mirrors it).\nExample: film-ue op qa.baseline_list suite=selftest",
    "params": [
@@ -13286,7 +14241,7 @@
    "verb": "baseline_remove",
    "module": "fmbridge.ops.qa",
    "file": "unreal/fmbridge/ops/qa.py",
-   "line": 582,
+   "line": 583,
    "summary": "Delete one baseline (nothing there is fine).",
    "doc": "Delete one baseline (nothing there is fine).\n\nReturns: {\"changed\": bool}.\nExample: film-ue op qa.baseline_remove suite=film/s010 name=00048",
    "params": [
@@ -13317,7 +14272,7 @@
    "verb": "baseline_save",
    "module": "fmbridge.ops.qa",
    "file": "unreal/fmbridge/ops/qa.py",
-   "line": 514,
+   "line": 515,
    "summary": "Keep a still as the golden baseline suite/name (with its exposure/colour numbers).",
    "doc": "Keep a still as the golden baseline suite/name (with its exposure/colour numbers).\n\nArgs: suite: a group (\"selftest/look\", \"film/s010\"; slashes make folders). name: the still's name in it.\nimage: PNG path on the box. overwrite: replace an existing baseline (accept a change); otherwise an existing one\nis kept. meta: anything to remember (camera, frame, commit). min_ssim: this baseline's own match threshold (a\nnoisy shot).\nReturns: {\"suite\", \"name\", \"png\", \"json\", \"size\", \"metrics\", \"changed\"}.\nExample: film-ue op qa.baseline_save suite=film/s010 name=00048 image=/srv/qa/s010/00048.png",
    "params": [
@@ -13371,12 +14326,272 @@
    "tags": []
   },
   {
+   "name": "qa.clip",
+   "area": "qa",
+   "verb": "clip",
+   "module": "fmbridge.ops.garment",
+   "file": "unreal/fmbridge/ops/garment.py",
+   "line": 125,
+   "summary": "Skin or an under-garment coming out through a garment, as the shot's camera sees it, per shot and frame.",
+   "doc": "Skin or an under-garment coming out through a garment, as the shot's camera sees it, per shot and frame.\n\nEach part (Body, Face, each garment) is depth-captured ALONE from the shot's camera; every (under, over) pair is\njudged by fmbridge.qa.clip: a pixel clips where the under layer is nearer by tol_cm..band_cm AND its blob meets an\nintersection edge (an arm in front of the cloth does not count). For a face under an upper garment the gate is\n`neck_px`: Face pixels through the garment more than neck_margin_cm under its collar rim and not hugging the\nopening. With `ref_dir` (an earlier qa.clip out_dir) each frame's over-garments' covered pixels are compared with\nthe same frame there: `silhouette` (a balloon reads +%). With `before` (an earlier clip.json) a pair is judged\nagainst its own worst there + 0.01 (an open neckline that reads high on clean frames).\n\nArgs: label: the character. sequence: the level sequence; shots: camera-cut names (default all); n frames spread\nper shot, `extra` {shot: [frames]} besides (twists, glances). roles_map {role: component} (default: roles()).\npairs: [[under, over], ...] (default fmbridge.qa.clip.pairs). out_dir (on the box; face data stays there): per frame\n<shot>_<frame>_mask.png (body red, face orange, tee green, trousers blue, clip magenta), _depth.bin, with\n`stills` _final.png, with `layer_masks` <shot>_<frame>_<role>.png per part (grey, 255 where that part alone\ncovers the pixel, 0 elsewhere: occlusion by other parts NOT applied). Gate knobs: pair_fraction, neck_max_px, silhouette_pct.\nReturns: {\"pass\", \"issues\", \"metrics\": {\"worst\", \"shots\": {shot: {frame: {\"U>G\": {...}, \"neck_px\", \"silhouette\"}}}},\n\"out_dir\"}. Multi-tick (~10 s a frame at 480 px).\nExample: film-ue op qa.clip label=Host sequence=/Game/Reel/SEQ_Reel 'shots=[\"Reel_S15\"]' out_dir=/srv/ue/qa/clip/now",
+   "params": [
+    {
+     "name": "label",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "sequence",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "shots",
+     "kind": "keyword",
+     "type": "list | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "n",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 6
+    },
+    {
+     "name": "extra",
+     "kind": "keyword",
+     "type": "dict | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "width_px",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 480
+    },
+    {
+     "name": "roles_map",
+     "kind": "keyword",
+     "type": "dict | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "pairs",
+     "kind": "keyword",
+     "type": "list | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "ref_dir",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "before",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "out_dir",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "stills",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": true
+    },
+    {
+     "name": "layer_masks",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": false
+    },
+    {
+     "name": "neck_over",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "tol_cm",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 0.3
+    },
+    {
+     "name": "band_cm",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 3.0
+    },
+    {
+     "name": "near_cm",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 1.5
+    },
+    {
+     "name": "neck_margin_cm",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 1.0
+    },
+    {
+     "name": "at_open_960",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 5.0
+    },
+    {
+     "name": "pair_fraction",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 0.001
+    },
+    {
+     "name": "neck_max_px",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 0
+    },
+    {
+     "name": "silhouette_pct",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 2.0
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "gpu",
+    "slow",
+    "metahuman"
+   ]
+  },
+  {
+   "name": "qa.cloth",
+   "area": "qa",
+   "verb": "cloth",
+   "module": "fmbridge.ops.qa_cloth",
+   "file": "unreal/fmbridge/ops/qa_cloth.py",
+   "line": 32,
+   "summary": "Judge a garment's cloth over frames [start, end) of a sequence: sound (no explosion, NaN, velocity spikes,",
+   "doc": "Judge a garment's cloth over frames [start, end) of a sequence: sound (no explosion, NaN, velocity spikes,\nanchor slip, jitter, cold start) and ALIVE (the hem and sleeves move relative to the body while it moves: not\narmour). Multi-tick; ~2 x (end - start + settle) ticks. Needs the FMCloth plugin (simulated positions).\n\nArgs: label/component: the garment (cloth.describe). sequence: the level sequence. start/end: frames (one shot,\nor a gesture inside it: alive needs the body to move >= 2 cm). preset: the garment's cloth preset (default: the\none cloth.setup tagged on the mesh). samples: vertices read per frame. settle: pre-roll frames (0 = the preset's).\nthresholds: any fmbridge.qa.cloth.DEFAULTS key (alive_min_cm=0.15, spike_cm_s=120, ...).\nReturns: {\"pass\", \"verdict\", \"issues\", \"metrics\": {\"zones\": {zone: {\"drape_cm\", \"motion_cm\", \"slip_cm\",\n\"body_path_cm\", \"jitter_cm\"}}, \"max_disp_cm\", \"max_speed_cm_s\", ...}, \"solver\"}.\nExample: film-ue op qa.cloth label=Host component=Torso sequence=/Game/Reel/SEQ_Reel start=1000 end=1060",
+   "params": [
+    {
+     "name": "label",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "component",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "sequence",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "start",
+     "kind": "keyword",
+     "type": "int",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "end",
+     "kind": "keyword",
+     "type": "int",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "preset",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "samples",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 1500
+    },
+    {
+     "name": "settle",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 0
+    },
+    {
+     "name": "fps",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 24.0
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "cloth",
+    "qa",
+    "slow",
+    "experimental"
+   ]
+  },
+  {
    "name": "qa.compare",
    "area": "qa",
    "verb": "compare",
    "module": "fmbridge.ops.qa",
    "file": "unreal/fmbridge/ops/qa.py",
-   "line": 141,
+   "line": 142,
    "summary": "A PNG against a reference PNG: SSIM, PSNR, which cells changed, mean colour shift, and a diff heatmap.",
    "doc": "A PNG against a reference PNG: SSIM, PSNR, which cells changed, mean colour shift, and a diff heatmap.\n\nArgs: image, reference: PNG paths (same aspect; sizes may differ). out_diff: write the heatmap there (\"\" skips).\nmin_ssim: below this the check fails/warns. width_px: compare size. grid: [cols, rows] for the change map.\nReturns: {\"pass\", \"issues\", \"metrics\": {\"ssim\", \"psnr\", \"grid\", \"changed\", \"mean_shift\", \"verdict\"},\n\"diff\"?: path}.\nExample: film-ue op qa.compare image=/tmp/qa/new/00048.png reference=/tmp/qa/ref/00048.png out_diff=/tmp/qa/d.png",
    "params": [
@@ -13435,7 +14650,7 @@
    "verb": "diff",
    "module": "fmbridge.ops.qa",
    "file": "unreal/fmbridge/ops/qa.py",
-   "line": 475,
+   "line": 476,
    "summary": "What changed between two snapshots (files from qa.snapshot), or between one and the level now.",
    "doc": "What changed between two snapshots (files from qa.snapshot), or between one and the level now.\n\nArgs: before: snapshot path. after: snapshot path (\"\" = now). ignore: labels or prefixes (\"Light*\") to skip.\nseverity: \"info\" when versions are expected to differ, \"warn\" when they should match. tolerance: {\"loc_cm\",\n\"rot_deg\", \"scale\", \"prop\"}.\nReturns: {\"pass\", \"issues\", \"metrics\": {\"added\", \"removed\", \"changed\", \"summary\"}}.\nExample: film-ue op qa.diff before=/tmp/qa/before.json 'ignore=[\"FMQA_*\"]'",
    "params": [
@@ -13487,7 +14702,7 @@
    "verb": "exposure",
    "module": "fmbridge.ops.qa",
    "file": "unreal/fmbridge/ops/qa.py",
-   "line": 121,
+   "line": 122,
    "summary": "Exposure of a PNG: histogram, luma mean/median/percentiles, clipped and crushed %, stops from mid grey, per",
    "doc": "Exposure of a PNG: histogram, luma mean/median/percentiles, clipped and crushed %, stops from mid grey, per\nregion, and a verdict against a target range.\n\nArgs: image: PNG path. target_stops: [lo, hi] the mean should land in (stops from 18% grey; default -2.5..+1.5).\nregions: {name: [x0,y0,x1,y1]} (0..1) measured separately, e.g. a face box from qa.framing.\nReturns: {\"pass\", \"issues\", \"metrics\": {\"exposure\", \"histogram\" (32 bins of luma), \"regions\"}}.\nExample: film-ue op qa.exposure image=/tmp/qa/a.png 'target_stops=[-2,-0.5]'",
    "params": [
@@ -13525,7 +14740,7 @@
    "verb": "floating",
    "module": "fmbridge.ops.qa",
    "file": "unreal/fmbridge/ops/qa.py",
-   "line": 358,
+   "line": 359,
    "summary": "Actors hovering above the surface under them: a line trace down from the bottom of each one's bounds (its",
    "doc": "Actors hovering above the surface under them: a line trace down from the bottom of each one's bounds (its\nown collision ignored) measures the gap.\n\nArgs: labels: the actors (default every visible mesh actor but cameras and lights). ignore: labels to skip\n(things meant to hang: lamps, pictures). tolerance_cm: a gap over this is floating. max_check_cm: how far down to look.\nReturns: {\"pass\", \"issues\", \"metrics\": {\"gaps\": {label: cm or None}}}. Needs collision on what is underneath\n(an object over a floor without collision reads as unsupported).\nExample: film-ue op qa.floating 'ignore=[\"Pendant\"]'",
    "params": [
@@ -13570,7 +14785,7 @@
    "verb": "framing",
    "module": "fmbridge.ops.qa",
    "file": "unreal/fmbridge/ops/qa.py",
-   "line": 192,
+   "line": 193,
    "summary": "How subjects sit in a camera's frame, measured from their bones (characters) or bounds (anything else).",
    "doc": "How subjects sit in a camera's frame, measured from their bones (characters) or bounds (anything else).\n\nArgs: subjects: actor labels. camera: a camera label; \"\" with sequence+frame: the cut's camera at that frame\n(the sequence is scrubbed there first so animated cameras and bodies are where the shot has them).\nexpect: intent per subject or for all: {\"size\": \"MCU\"|[\"MS\",\"MCU\"], \"headroom\": [lo, hi], \"side\":\n\"left\"|\"right\"|\"center\", \"in_frame\": 1.0}, or {\"Ada\": {...}, \"Ben\": {...}}. width_px/height_px: the output\naspect. still_out: also capture a still there with each subject's box and the problems drawn.\nReturns: {\"pass\", \"issues\", \"metrics\": {\"camera\", \"subjects\": {label: {size, box, headroom, eyes, looks,\nlook_room}}}, \"still\"?}. Multi-tick when sequence or still_out is given.\nExample: film-ue op qa.framing 'subjects=[\"Ada\"]' camera=CamA 'expect={\"size\":\"MCU\"}'",
    "params": [
@@ -13638,12 +14853,312 @@
    "tags": []
   },
   {
+   "name": "qa.garment_look",
+   "area": "qa",
+   "verb": "garment_look",
+   "module": "fmbridge.ops.garment",
+   "file": "unreal/fmbridge/ops/garment.py",
+   "line": 348,
+   "summary": "Does the garment read as cloth or as ARMOR (fmbridge.qa.garment_look: the armor index)?",
+   "doc": "Does the garment read as cloth or as ARMOR (fmbridge.qa.garment_look: the armor index)?\n\nMeasured: `ease` (each sampled garment vertex's distance to the UNCUT reference body, posed: its spread and\nmedian), `thickness` (the garment's wall: a ray in along -normal to its own inside), `wpo` (inflate parameters on\nits materials: FM_Inflate/FM_Neck/FM_Patch), and from the shot's camera at `frames`: `silhouette` ((garment U\nbody) px / body px in the garment's rows) and `detail` (high-frequency energy of the garment's world normals); with\nmotion_frames > 1, `motion` (the garment's motion relative to the body under it, frame to frame, from motion_from).\n\nArgs: label: the character. garment: its garment component (default: the 'tee' role, qa.clip's roles).\nref_body: the uncut body mesh of the same build (needed for ease, silhouette, motion; without it they are skipped\nand reported missing). sequence + frames: where to look (default the sequence's first cut, middle). out_dir:\n_look_normal.png per frame (the garment's normals) on the box.\nReturns: {\"pass\", \"verdict\": cloth|borderline|armor, \"index\", \"terms\", \"issues\", \"missing\", \"metrics\"}.\nExample: film-ue op qa.garment_look label=Host ref_body=/Game/Host/Unpacked/Host/Body/SKM_Host_BodyMesh sequence=/Game/Reel/SEQ_Reel 'frames=[1082,1150]' motion_from=1140 motion_frames=12",
+   "params": [
+    {
+     "name": "label",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "garment",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "ref_body",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "sequence",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "frames",
+     "kind": "keyword",
+     "type": "list | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "motion_from",
+     "kind": "keyword",
+     "type": "int | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "motion_frames",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 0
+    },
+    {
+     "name": "width_px",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 480
+    },
+    {
+     "name": "samples",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 1500
+    },
+    {
+     "name": "body",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "Body"
+    },
+    {
+     "name": "out_dir",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "ramps",
+     "kind": "keyword",
+     "type": "dict | None",
+     "required": false,
+     "default": null
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "gpu",
+    "slow",
+    "metahuman",
+    "experimental"
+   ]
+  },
+  {
+   "name": "qa.hair_continuity",
+   "area": "qa",
+   "verb": "hair_continuity",
+   "module": "fmbridge.ops.qa",
+   "file": "unreal/fmbridge/ops/qa.py",
+   "line": 736,
+   "summary": "Does each character's hair keep its length across the cuts (and inside shots)? Per cut of the sequence's",
+   "doc": "Does each character's hair keep its length across the cuts (and inside shots)? Per cut of the sequence's\ncamera cut track, the last `frames` frames of the outgoing shot and the first `frames` of the incoming one are\nscrubbed; at each, a groom-only depth capture through the cut's camera gives the hair mask, and the head and\nupper-chest bones projected through it give a zoom-free scale; qa/hair.py judges the jump. The numbers do not\ndepend on what the operator calls \"short\": reach (how far the hair falls below the head, in head units) and\narea both drop when a groom switches to cards or thins under Auto LOD on a wide shot.\n\nLock the grooms first (groom.lock) for the editor's captures to read like the render.\n\nArgs: sequence: the level sequence (e.g. /Game/Reel/SEQ_Reel). labels: the characters. frames: per side of\neach cut. every: also sample every N frames inside each shot for pops (0: cuts only). width_px/height_px: the\ncapture (keep the render's aspect). groom: the scalp hair component's name. shots: only cuts touching these\ncameras. out: write the JSON report there. cut_reach/pop_reach: the lines (fractions).\nReturns: {\"pass\", \"characters\": {label: hair.judge(...)}, \"gate\": {\"hair.cut_reach_pct\", \"hair.pop_reach_pct\"},\n\"issues\"}. Multi-tick (one capture per frame per character).\nExample: film-ue op qa.hair_continuity sequence=/Game/Reel/SEQ_Reel 'labels=[\"Presenter\"]' 'shots=[\"Reel_S17\",\"Reel_S18\"]'",
+   "params": [
+    {
+     "name": "sequence",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "labels",
+     "kind": "keyword",
+     "type": "list",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "frames",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 4
+    },
+    {
+     "name": "every",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 0
+    },
+    {
+     "name": "width_px",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 960
+    },
+    {
+     "name": "height_px",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 540
+    },
+    {
+     "name": "groom",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "Hair"
+    },
+    {
+     "name": "shots",
+     "kind": "keyword",
+     "type": "list | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "out",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "cut_reach",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 0.12
+    },
+    {
+     "name": "pop_reach",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 0.08
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "gpu",
+    "slow"
+   ]
+  },
+  {
+   "name": "qa.head_stability",
+   "area": "qa",
+   "verb": "head_stability",
+   "module": "fmbridge.ops.qa",
+   "file": "unreal/fmbridge/ops/qa.py",
+   "line": 837,
+   "summary": "Does the head move with the blinks, or buzz, as the sequence plays it? Plays `sequence` frame by frame (each",
+   "doc": "Does the head move with the blinks, or buzz, as the sequence plays it? Plays `sequence` frame by frame (each\nsettled `ticks` editor ticks), samples `bone` on `label`'s `component` in the world and the eyes' blink curves on\nits anim instance, and runs perfkit.stability: blink_nod (share of blinks whose head pitch departs > 0.5 deg\nfrom its chord), blink_locked (blink-triggered average > 0.3 deg and 2x the control), blink_speed (pitch speed\nin blink windows vs outside) and head_buzz (residual off a 0.2 s cubic fit: RMS > 0.08 deg, or any > 0.5 deg).\nRound 4: \"every time she blinks her head nods a little down like a jitter\"; the curve checks of perf.face could\nnot see the solver's head, the body's neck or the face AnimBP: this reads what renders. A multi-tick job.\n\nArgs: sequence, label (the actor), component (Face: what the camera sees; Body for the body's head),\n  bone (head). start/end: master frames (default the playback range); every: sample every n-th frame (1: blinks\n  last 6-9 frames at 24 fps). blinks: [[f0, f1], ...] master-frame spans to use instead of the live curves (a\n  face whose instance does not expose them; perf.py writes blinks_<who>.json). limits: stability.LIMITS\n  overrides. out: a JSON path on the box for the samples and the result (to re-check offline).\nReturns: {\"pass\", \"issues\", \"metrics\": {checks by name}, \"blinks\": [{\"t\" (s from the first frame), \"nod_deg\"}],\n  \"bta\", \"jitter\", \"axes\", \"frames\": [first, last], \"fps\", \"label\"}. film-qa head-gate turns saved results\n  into gate v2's head.blink_nod_deg.\nExample: film-ue op qa.head_stability sequence=/Game/Reel/SEQ_Reel label=Presenter start=1056 end=1584",
+   "params": [
+    {
+     "name": "sequence",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "label",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "component",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "Face"
+    },
+    {
+     "name": "bone",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "head"
+    },
+    {
+     "name": "start",
+     "kind": "keyword",
+     "type": "int | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "end",
+     "kind": "keyword",
+     "type": "int | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "every",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 1
+    },
+    {
+     "name": "blinks",
+     "kind": "keyword",
+     "type": "list | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "ticks",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 2
+    },
+    {
+     "name": "limits",
+     "kind": "keyword",
+     "type": "dict | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "out",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "sequencer",
+    "slow"
+   ]
+  },
+  {
    "name": "qa.image",
    "area": "qa",
    "verb": "image",
    "module": "fmbridge.ops.qa",
    "file": "unreal/fmbridge/ops/qa.py",
-   "line": 102,
+   "line": 103,
    "summary": "Exposure, clipping, colour and focus of a PNG on the box, as numbers and issues.",
    "doc": "Exposure, clipping, colour and focus of a PNG on the box, as numbers and issues.\n\nArgs: image: PNG path. subjects: {name: [x0,y0,x1,y1]} boxes (0..1; qa.framing returns them) for per-subject\nbrightness and focus. expect: intent, so a mood is not flagged: {\"stops\": [-3, -1]} mean exposure range in stops\nfrom mid grey, {\"cast\": \"warm\"|\"cool\"|\"neutral\"}. limits: override thresholds (fmbridge.qa.metrics.LIMITS).\nwidth_px: analysis size.\nReturns: {\"pass\", \"issues\", \"metrics\": {\"exposure\", \"color\", \"regions\", \"subjects\", \"size\"}}.\nExample: film-ue op qa.image image=/tmp/qa/a.png 'expect={\"stops\":[-2,0]}'",
    "params": [
@@ -13695,7 +15210,7 @@
    "verb": "overlaps",
    "module": "fmbridge.ops.qa",
    "file": "unreal/fmbridge/ops/qa.py",
-   "line": 401,
+   "line": 402,
    "summary": "Actors whose bounds interpenetrate (a chair sunk into a table, two props in one place).",
    "doc": "Actors whose bounds interpenetrate (a chair sunk into a table, two props in one place).\n\nArgs: labels: the actors (default every visible mesh actor but cameras and lights). ignore: labels to skip\n(the floor, walls, the set's shell). ignore_pairs: [[a, b]] that may overlap (a book on a shelf). min_fraction: the share of the\nsmaller box that counts. touching_cm: resting contact allowed.\nReturns: {\"pass\", \"issues\", \"metrics\": {\"pairs\": [[a, b, fraction, depth_cm]]}}. Axis-aligned bounds: confirm a hit\nwith a still.\nExample: film-ue op qa.overlaps 'ignore=[\"Floor\",\"Walls\"]'",
    "params": [
@@ -13747,7 +15262,7 @@
    "verb": "parts",
    "module": "fmbridge.ops.qa",
    "file": "unreal/fmbridge/ops/qa.py",
-   "line": 249,
+   "line": 250,
    "summary": "An actor's primitive components (names, classes, meshes, bounds): what to pass as body/garments.",
    "doc": "An actor's primitive components (names, classes, meshes, bounds): what to pass as body/garments.\n\nReturns: {\"label\", \"components\": [{\"name\", \"class\", \"mesh\", \"visible\", \"bounds\": [origin, extent]}]}.\nExample: film-ue op qa.parts label=Ada",
    "params": [
@@ -13771,7 +15286,7 @@
    "verb": "penetration",
    "module": "fmbridge.ops.qa",
    "file": "unreal/fmbridge/ops/qa.py",
-   "line": 272,
+   "line": 273,
    "summary": "Body showing through clothes, measured as the viewer would see it: two depth captures from each view (the",
    "doc": "Body showing through clothes, measured as the viewer would see it: two depth captures from each view (the\nbody parts alone, the garments alone); where a garment covers a pixel and the body is nearer by more than\n`tolerance_cm`, skin pokes through.\n\nArgs: label: the character. body/garments: component names (default a MetaHuman's Body+Face / Torso+Legs+Feet;\nqa.parts lists them), or labels of other actors whose meshes form that layer. camera: look from this camera (with sequence+frame: the shot's camera and pose); views: N\nviews around the character instead (or as well), at elevation_deg. size_px: capture size (square for views;\nthe camera's aspect otherwise). out_dir: write a still per view with the penetrating pixels painted magenta.\nReturns: {\"pass\", \"issues\", \"metrics\": {\"views\": {name: {fraction, pixels, worst_cm, box}}, \"worst_fraction\"}}.\nMulti-tick.\nExample: film-ue op qa.penetration label=Ada views=6 out_dir=/tmp/qa/pen",
    "params": [
@@ -13867,7 +15382,7 @@
    "verb": "review",
    "module": "fmbridge.ops.qa",
    "file": "unreal/fmbridge/ops/qa.py",
-   "line": 603,
+   "line": 604,
    "summary": "Everything wrong with a shot, a sequence or a set, in one JSON and one picture.",
    "doc": "Everything wrong with a shot, a sequence or a set, in one JSON and one picture.\n\nFor each frame (sequence: `frames`, or `per_shot` per camera cut; no sequence: one still through `camera`) it\ntakes a still, measures exposure and colour, frames every subject (headroom, cuts, size), compares with\n`reference_dir`/{frame:05d}.png when given, and (with \"penetration\") checks garments from the shot's camera;\nonce for the scene it checks floating and overlapping props; across cuts it checks exposure/colour continuity.\n\nArgs: out_dir: where frames, review.json and review.png go. sequence/frames/per_shot/camera: what to look at.\nsubjects: characters/props to frame (default every visible character). expect: per-subject or global intent\nfor qa.framing, plus {\"image\": {...}} for qa.image (e.g. {\"image\": {\"stops\": [-3,-1]}}). checks: a subset of\nimage, framing, penetration, floating, overlaps, continuity, reference (default all but penetration).\nignore: labels skipped by floating/overlaps (floor, walls). mode: still mode (view.still). baseline: a baseline\nsuite: each frame's still is checked against <suite>/<frame> (qa.baseline_check, `baseline_mode` auto: the first\nrun makes the baselines, later runs regress against them).\nReturns: {\"pass\", \"verdict\", \"counts\", \"summary\": [lines, worst first], \"issues\", \"metrics\": {\"frames\"},\n\"report\": review.json path, \"image\": review.png path}. Multi-tick; ~1 s a frame with mode=capture.\nExample: film-ue op qa.review sequence=/Game/Seq/S010 out_dir=/tmp/qa/s010 per_shot=2",
    "params": [
@@ -14006,7 +15521,7 @@
    "verb": "snapshot",
    "module": "fmbridge.ops.qa",
    "file": "unreal/fmbridge/ops/qa.py",
-   "line": 440,
+   "line": 441,
    "summary": "The level's state as JSON for later diffs: every actor's class, transform, bounds, visibility, materials,",
    "doc": "The level's state as JSON for later diffs: every actor's class, transform, bounds, visibility, materials,\nmeshes, light and lens settings.\n\nArgs: out: also write it to this file. labels: only these actors.\nReturns: {\"actors\": {label: {class, loc, rot, scale, bounds, hidden, mesh, materials, props}}, \"meta\"}.\nExample: film-ue op qa.snapshot out=/tmp/qa/before.json",
    "params": [
@@ -17145,9 +18660,9 @@
    "verb": "to_face",
    "module": "fmbridge.ops.speech",
    "file": "unreal/fmbridge/ops/speech.py",
-   "line": 114,
+   "line": 176,
    "summary": "Import `wav` (a path on the workstation), solve it with MetaHuman Animator's audio solver in `mood` at",
-   "doc": "Import `wav` (a path on the workstation), solve it with MetaHuman Animator's audio solver in `mood` at\n`intensity`, and export an animation on `face_mesh`'s skeleton at {folder}/Anim/AS_{name}. A multi-tick job.\nThen make it alive with perf.face (head, eyes, blinks, brows over the lip-sync).\n\nLonger than `max_chunk_s` seconds: cut in pauses into chunks, each solved on its own (under {folder}/Chunks), and\nstitched into the one animation. `timeout_s` per solve (0 = 60 s + 20 x the audio's length). A solve that fails\nraises an OpError (code engine/timeout, with the reason) unless `fallback`: then that part becomes a lip flap\ndriven by the voice's loudness and the result says {\"fallback\": true, \"errors\": [...]}: re-solve when the solver\nworks.\nReturns: {\"sound\", \"performance\", \"anim\", \"pipeline\", \"frames\", \"seconds\", \"chunks\", \"fallback\", \"errors\"}.\nExample: film-ue op speech.to_face wav=/home/ue/Audio/line1.wav name=line1 face_mesh=/Game/MetaHumans/Ada/Face/Ada_FaceMesh mood=CONFIDENCE",
+   "doc": "Import `wav` (a path on the workstation), solve it with MetaHuman Animator's audio solver in `mood` at\n`intensity`, and export an animation on `face_mesh`'s skeleton at {folder}/Anim/AS_{name}. A multi-tick job.\nThen make it alive with perf.face (head, eyes, blinks, brows over the lip-sync).\n\nLonger than `max_chunk_s` seconds: cut in pauses into chunks, each solved on its own (under {folder}/Chunks), and\nstitched into the one animation. `timeout_s` per solve (0 = 60 s + 20 x the audio's length). A solve that fails\nraises an OpError (code engine/timeout, with the reason) unless `fallback`: then that part becomes a lip flap\ndriven by the voice's loudness and the result says {\"fallback\": true, \"errors\": [...]}: re-solve when the solver\nworks.\nFor a line whose face perfkit makes (head, eyes, blinks, brows): process_mask=\"mouth\" head=false blinks=false,\none solve per line WAV, then lipsync.compose places each at its cue and lipsync.check proves the timing.\n`timing` in the result: the animation's length against the WAV's (t=0 is the WAV's first sample; a mismatch is\nflagged). `options`: what was set on the performance; `missing_options`: what this plugin version lacks.\nReturns: {\"sound\", \"performance\", \"anim\", \"pipeline\", \"frames\", \"seconds\", \"chunks\", \"fallback\", \"errors\",\n\"options\", \"timing\"}.\nExample: film-ue op speech.to_face wav=/home/ue/Audio/line1.wav name=line1 face_mesh=/Game/MetaHumans/Ada/Face/Ada_FaceMesh mood=CONFIDENCE",
    "params": [
     {
      "name": "wav",
@@ -17225,6 +18740,13 @@
      "type": "float",
      "required": false,
      "default": 0.0
+    },
+    {
+     "name": "process_mask",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": "full"
     }
    ],
    "returns": null,
@@ -17998,18 +19520,22 @@
   "anim": "Animation curves: read and write a sequence's float curves, and lock a talking face's gaze on the camera.",
   "assets": "Assets (WP2): the content browser by code.",
   "audio": "Audio in Unreal: WAVs in as SoundWaves, sounds onto named Sequencer audio tracks with their timing, and the audio of a sequence read back.",
+  "body": "Garments on a MetaHuman, measured and fitted the way round 4 of the karma reel had to learn (docs/unreal/garment.md, docs/unreal/research/garment-fit.md):",
   "bridge": "The bridge itself, as an op (the same answers as GET /health, for clients that only speak /op).",
   "cam": "Cameras: cine cameras by label (filmback, lens, aperture, focus), the framing solver on real subjects, camera moves keyed into Sequencer, rail and crane rigs, a scene's coverage, framing feedback (where points land in the frame, optics and ",
+  "cloth": "Chaos cloth on a presenter's garments: describe what simulates, set a garment up from a fabric preset, pre-roll the live level, and check that a render plan gives the cloth its settle frames.",
   "editor": "The editor itself: what it is and how it is doing (describe), console variables and commands, the idle frame cap of an offscreen editor, waiting for shader/asset compilation to finish, and garbage collection.",
   "env": "Environments: sun and moon by time of day and place, physical sky (atmosphere, volumetric clouds, sky light), HDRI skies, height and volumetric fog, exposure (manual by EV100, physical camera, auto), colour grading, Lumen/VSM/HWRT quality, ",
   "fab": "Fab (WP2): Epic's asset store by code, with no Fab window.",
   "foliage": "Foliage by code: seeded scatters of meshes (grass, rocks, trees, litter) as foliage instances (one InstancedFoliage actor draws them all as hierarchical instanced static meshes, never thousands of actors), placed on the ground by line trace",
+  "garment": "Garments on a MetaHuman, measured and fitted the way round 4 of the karma reel had to learn (docs/unreal/garment.md, docs/unreal/research/garment-fit.md):",
   "groom": "Hair (grooms) by numbers, on any actor with GroomComponents (a built MetaHuman's Hair/Eyebrows/Beard/...): read it (`groom.describe`), tune it per instance (`groom.set`: strand width, root/tip scale, shadow density, LOD bias, length, and th",
   "jobs": "The bridge's jobs as ops (the same as GET /jobs, GET /job, POST /job/cancel, for clients that only speak /op).",
   "journal": "The op journal (BACKLOG B32): every op that changes something is appended, with its arguments, how long it took and what it returned, to Saved/fmbridge/journal.jsonl on the box.",
   "layout": "Layout and set dressing: rest things on what is under them, place one actor relative to another, lay out rows, grids, circles and seeded scatters of an asset, align and distribute.",
   "level": "Levels and actors: new/open/save, find and describe, spawn (shapes, assets, classes), move, aim, set, delete.",
   "light": "Lights by spec: one light that converges (light.add), rigs relative to a subject and camera with intensities from target lux and ratios (light.rig), practical fixtures by type (light.practical), the lights' state as numbers (light.describe)",
+  "lipsync": "Lip-sync in the editor: measure WHEN a face's mouth moves against its voice (perfkit.lipsync), on an animation or on what a sequence actually plays; build a performance's mouth from per-line solves placed at their cues; and project a speake",
   "look": "The look: materials (surface, emissive, glass), lights (rect, spot, point), atmosphere (volumetric fog), post-process and cine cameras, plus quick stills through a camera for checking a frame without a render.",
   "mat": "Materials (WP2): a library of master materials built by code, instances converged from a dict of parameters, PBR materials from a texture set, presets (glass, chrome, emissive in nits...), any material from a node-graph spec, and numbers to",
   "mh": "An assembled MetaHuman in a level (the Blueprint mh.build made, placed as an actor): its components, the face driven by Sequencer, garments of your own on its body (skeletal FBX garments on the MetaHuman skeleton, posed by the body through ",

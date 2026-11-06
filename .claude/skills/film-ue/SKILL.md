@@ -55,5 +55,5 @@ errors with "did you mean". Plan offline with `--state state.json`. Example of e
 
 No modal dialogs ever (free paths before creating). Multi-tick ops must be `yield from`-ed. A face played by
 Sequencer stops following the body (`anim.bake_follow`). Hair goes white indoors (`r.HairStrands.SkyLighting 0`).
-Cloth needs pre-roll from the shot start. Path tracing OOMs on a 24 GB L4. Never change a material while it is drawn.
+Cloth needs pre-roll from the shot start (`cloth.render_check` sizes the warm-up); a garment that should move needs clothing data (`cloth.setup`, check with `qa.cloth`: docs/unreal/cloth.md). Path tracing OOMs on a 24 GB L4. Never change a material while it is drawn.
 Nothing film-specific outside `films/<id>/`. No secrets anywhere.

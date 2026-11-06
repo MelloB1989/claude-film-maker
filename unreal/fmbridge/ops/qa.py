@@ -15,6 +15,7 @@ unit-tested); these ops gather what it needs from the editor (cameras, bones, bo
     qa.snapshot     the level as JSON (to diff later)
     qa.diff         what changed between two snapshots (or a snapshot and now)
     qa.review       all of it for a sequence or a camera: review.json + review.png
+    qa.head_stability  the head bone through the blinks as the sequence plays: nods with blinks, buzz
 """
 from __future__ import annotations
 
@@ -703,3 +704,207 @@ def review(*, out_dir: str, sequence: str = "", frames: list | None = None, per_
     return {"pass": rep["verdict"] != "fail", "verdict": rep["verdict"], "counts": rep["counts"],
             "summary": rep["summary"], "issues": rep["issues"], "metrics": {"frames": per_frame},
             "report": rep["json"], "image": rep["image"], "changed": True}
+
+
+# --- hair continuity across cuts (R5: "at 01:00 her hair again becomes short!") -----------------------------------
+
+def _hair_frame(label: str, camera: str, width: int, height: int, groom: str = "Hair"):
+    """One frame's hair numbers for `label` through `camera`: a groom-only depth capture (the hair mask) and the
+    head / upper-chest bones projected for the zoom-free scale (qa/hair.py). None when the head is not in frame."""
+    from ..qa import hair as _hair
+    a = find_actor(label)
+    grooms = [c for c in a.get_components_by_class(unreal.GroomComponent)
+              if c.is_visible() and c.get_name() == groom]
+    if not grooms:
+        raise OpError(f"{label} has no visible groom component {groom!r} (the scalp hair)", code="not_found",
+                      hint="groom.describe lists its grooms; pass groom= with the scalp hair's component name")
+    cam = camera_info(camera, aspect=width / height)
+    model = _framing.Camera.from_dict(cam)
+    bones, _ = bones_of(label)
+    head, chest = bones.get("head"), bones.get("spine_05") or bones.get("spine_04") or bones.get("neck_01")
+    hv = cv = None
+    if head and chest:
+        uh, hv, dh = model.project(head)
+        uc, cv, dc = model.project(chest)
+        if not (dh > 0 and -0.2 <= uh <= 1.2 and -0.2 <= hv <= 1.2):
+            return None
+    rt = yield from capture(cam, width, height, "depth", show_only=grooms, warmup=1)
+    mask = [d < 1.0e7 for d in read_pixels(rt, "r")[0]]
+    return _hair.mask_stats(mask, width, height, head_v=hv, chest_v=cv if hv is not None else None)
+
+
+@op("qa.hair_continuity", mutates=False, idempotent=True, tags=["gpu", "slow"])
+def hair_continuity(*, sequence: str, labels: list, frames: int = 4, every: int = 0, width_px: int = 960,
+                    height_px: int = 540, groom: str = "Hair", shots: list | None = None, out: str = "",
+                    cut_reach: float = 0.12, pop_reach: float = 0.08):
+    """Does each character's hair keep its length across the cuts (and inside shots)? Per cut of the sequence's
+    camera cut track, the last `frames` frames of the outgoing shot and the first `frames` of the incoming one are
+    scrubbed; at each, a groom-only depth capture through the cut's camera gives the hair mask, and the head and
+    upper-chest bones projected through it give a zoom-free scale; qa/hair.py judges the jump. The numbers do not
+    depend on what the operator calls "short": reach (how far the hair falls below the head, in head units) and
+    area both drop when a groom switches to cards or thins under Auto LOD on a wide shot.
+
+    Lock the grooms first (groom.lock) for the editor's captures to read like the render.
+
+    Args: sequence: the level sequence (e.g. /Game/Reel/SEQ_Reel). labels: the characters. frames: per side of
+    each cut. every: also sample every N frames inside each shot for pops (0: cuts only). width_px/height_px: the
+    capture (keep the render's aspect). groom: the scalp hair component's name. shots: only cuts touching these
+    cameras. out: write the JSON report there. cut_reach/pop_reach: the lines (fractions).
+    Returns: {"pass", "characters": {label: hair.judge(...)}, "gate": {"hair.cut_reach_pct", "hair.pop_reach_pct"},
+    "issues"}. Multi-tick (one capture per frame per character).
+    Example: film-ue op qa.hair_continuity sequence=/Game/Reel/SEQ_Reel 'labels=["Presenter"]' 'shots=["Reel_S17","Reel_S18"]'
+    """
+    from ..qa import hair as _hair
+    from . import call
+    cuts = [list(c) for c in call("seq.cuts", path=sequence)]
+    if not cuts:
+        raise OpError(f"{sequence} has no camera cuts", code="not_found", hint="seq.cuts lists them")
+    if shots:
+        keep = set(shots)
+        idx = {i for i, c in enumerate(cuts) if c[0] in keep}
+        idx |= {i + 1 for i in idx if i + 1 < len(cuts)} | {i - 1 for i in idx if i > 0}
+        cuts = [c for i, c in enumerate(cuts) if i in idx]
+    want = set()
+    for i, (cam, a0, a1) in enumerate(cuts):
+        if i > 0:
+            want |= set(range(a0, min(a1, a0 + frames)))
+        if i + 1 < len(cuts):
+            want |= set(range(max(a0, a1 - frames), a1))
+        if every > 0:
+            want |= set(range(a0, a1, every))
+    series = {lab: {} for lab in labels}
+    try:
+        for f in sorted(want):
+            cam = next(c for c, a0, a1 in cuts if a0 <= f < a1)
+            call("seq.scrub", path=sequence, frame=f + 1)
+            yield
+            call("seq.scrub", path=sequence, frame=f)
+            for _ in range(3):
+                yield
+            for lab in labels:
+                s = yield from _hair_frame(lab, cam, width_px, height_px, groom)
+                if s is not None:
+                    series[lab][f] = s
+    finally:
+        from .view import remove_rig
+        remove_rig()
+    t = {"cut_reach": cut_reach, "pop_reach": pop_reach, "k": frames}
+    chars = {lab: _hair.judge(series[lab], cuts, lab, t) for lab in labels}
+    for lab, r in chars.items():
+        r["series"] = {str(f): {k: v for k, v in s.items() if k in ("pixels", "reach", "area", "norm")}
+                       for f, s in sorted(series[lab].items())}
+    cut_pct = max([abs(c["reach"][2]) * 100 for r in chars.values() for c in r["cuts"]] or [0.0])
+    pop_pct = max([abs(p["reach"]) * 100 for r in chars.values() for p in r["pops"]] or [0.0])
+    rep = {"pass": all(r["pass"] for r in chars.values()), "characters": chars, "cuts": cuts,
+           "gate": {"hair.cut_reach_pct": round(cut_pct, 2), "hair.pop_reach_pct": round(pop_pct, 2)},
+           "issues": [i for r in chars.values() for i in r["issues"]]}
+    if out:
+        os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
+        with open(out, "w") as fh:
+            json.dump(rep, fh, indent=1)
+        rep["out"] = out
+    return rep
+
+
+# --- head stability: the head bone through the blinks (round 5) ------------------------------------------------------
+
+BLINK_CURVES = ("CTRL_expressions_eyeBlinkL", "CTRL_expressions_eyeBlinkR")
+
+
+def _curve_now(comp, names) -> float:
+    """The largest of `names` on a skeletal mesh component's anim instance this tick (0 when it has none)."""
+    inst = comp.get_anim_instance()
+    if inst is None:
+        return 0.0
+    return max(float(inst.get_curve_value(n)) for n in names)
+
+
+def stability_issues(r: dict, label: str, fps: float, frame0: int) -> list:
+    """stability.check's failed checks as QA issues (the frames where they show)."""
+    out = []
+    for c in r["checks"]:
+        if c["pass"]:
+            continue
+        w = max(r["blinks"], key=lambda b: abs(b["nod_deg"]), default=None)
+        frame = (frame0 + round(w["t"] * fps)) if w and c["name"].startswith("blink") else None
+        out.append(issue(f"head.{c['name']}", "fail", c["why"],
+                         fix="perf.face blink_head=still solver_head=replace on the face animation, then re-check "
+                             "(docs/unreal/research/blinks-head-stability.md)",
+                         frame=frame, subject=label, value=c["metric"], expected=c["threshold"]))
+    return out
+
+
+@op("qa.head_stability", mutates=False, idempotent=True, tags=["sequencer", "slow"])
+def head_stability(*, sequence: str, label: str, component: str = "Face", bone: str = "head",
+                   start: int | None = None, end: int | None = None, every: int = 1, blinks: list | None = None,
+                   ticks: int = 2, limits: dict | None = None, out: str = ""):
+    """Does the head move with the blinks, or buzz, as the sequence plays it? Plays `sequence` frame by frame (each
+    settled `ticks` editor ticks), samples `bone` on `label`'s `component` in the world and the eyes' blink curves on
+    its anim instance, and runs perfkit.stability: blink_nod (share of blinks whose head pitch departs > 0.5 deg
+    from its chord), blink_locked (blink-triggered average > 0.3 deg and 2x the control), blink_speed (pitch speed
+    in blink windows vs outside) and head_buzz (residual off a 0.2 s cubic fit: RMS > 0.08 deg, or any > 0.5 deg).
+    Round 4: "every time she blinks her head nods a little down like a jitter"; the curve checks of perf.face could
+    not see the solver's head, the body's neck or the face AnimBP: this reads what renders. A multi-tick job.
+
+    Args: sequence, label (the actor), component (Face: what the camera sees; Body for the body's head),
+      bone (head). start/end: master frames (default the playback range); every: sample every n-th frame (1: blinks
+      last 6-9 frames at 24 fps). blinks: [[f0, f1], ...] master-frame spans to use instead of the live curves (a
+      face whose instance does not expose them; perf.py writes blinks_<who>.json). limits: stability.LIMITS
+      overrides. out: a JSON path on the box for the samples and the result (to re-check offline).
+    Returns: {"pass", "issues", "metrics": {checks by name}, "blinks": [{"t" (s from the first frame), "nod_deg"}],
+      "bta", "jitter", "axes", "frames": [first, last], "fps", "label"}. film-qa head-gate turns saved results
+      into gate v2's head.blink_nod_deg.
+    Example: film-ue op qa.head_stability sequence=/Game/Reel/SEQ_Reel label=Presenter start=1056 end=1584
+    """
+    from ..perfkit import stability as ST
+    from ._scrub import set_frame
+    from ._util import actor
+    from .seq import _xform, component_of
+    LSE = unreal.LevelSequenceEditorBlueprintLibrary
+    LSE.open_level_sequence(unreal.load_asset(sequence))
+    seq = LSE.get_current_level_sequence()
+    rate = seq.get_display_rate()
+    fps = rate.numerator / rate.denominator
+    f0 = int(seq.get_playback_start() if start is None else start)
+    f1 = int(seq.get_playback_end() - 1 if end is None else end)
+    frames = list(range(f0, f1 + 1, max(1, int(every))))
+    if len(frames) < 16:
+        raise OpError(f"{len(frames)} frames: too few to judge a head", code="bad_args", hint="give start/end over 1 s")
+    fwd = actor(label).get_actor_forward_vector()
+    samples, closure = [], []
+    set_frame(frames[0] + 1)
+    yield
+    for f in frames:
+        set_frame(f)
+        for _ in range(ticks):
+            yield
+        comp = component_of(label, component)  # afresh: a MetaHuman's components go stale
+        samples.append(_xform(comp, bone))
+        if blinks is None:
+            face = comp if component == "Face" else component_of(label, "Face")
+            closure.append(_curve_now(face, BLINK_CURVES))
+    h = ST.from_bones(frames, fps, samples, [fwd.x, fwd.y, fwd.z])
+    if blinks is not None:
+        spans = [((a - frames[0]) / fps, (b - frames[0]) / fps) for a, b in blinks]
+        source = "given"
+    else:
+        spans = ST.blink_windows(h["times"], closure)
+        source = "curves"
+    t = [x - h["times"][0] for x in h["times"]]
+    r = ST.check(t, h["pitch"], spans, h["yaw"], h["roll"], limits=limits, source="bones")
+    issues = stability_issues(r, label, fps, frames[0])
+    if not spans:
+        issues.append(issue("head.no_blinks", "warn",
+                            f"no blink seen on {label} over f{frames[0]}-{frames[-1]} (blink curves {source}): the "
+                            "blink checks did not run", fix="pass blinks=[[f0, f1], ...] (perf.py: blinks_<who>.json)",
+                            subject=label))
+    res = _result(issues, {c["name"]: c["metric"] for c in r["checks"]}, blinks=r["blinks"], bta=r["bta"],
+                  jitter=r["jitter"], axes=h.get("axes"), frames=[frames[0], frames[-1]], fps=fps,
+                  blink_source=source, label=label, sequence=sequence)
+    if out:
+        os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
+        with open(out, "w") as fh:
+            json.dump({**res, "samples": {"frames": frames, "fps": fps, "bone": samples, "closure": closure,
+                                          "forward": [fwd.x, fwd.y, fwd.z]}}, fh)
+        res["out"] = out
+    return res

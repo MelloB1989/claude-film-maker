@@ -39,6 +39,25 @@ Check: `perf.face` returns `report.pass` true (or only `expression_range` failin
 and `plan.shifts` / `plan.blinks` show what it did. `film-ue op perf.check anim=/Game/Speech/Anim/AS_l1` on the
 raw solve shows what was wrong before. Angles are in the CHARACTER's frame: yaw + = their left, pitch + = up.
 
+**Lip sync that is provably in time (R5: [research/lipsync.md](research/lipsync.md)).** One timebase: the lines'
+onsets measured from the audio the mix plays, one mouth-only solve per line placed at its WAV's start, a gate on the
+curves before rendering and on the pixels after.
+```bash
+film-ue lips cues --lines cues.json --stem him=vo_him.wav --stem her=vo_her.wav --out cues.json   # measured, words, stem hashes
+film-ue op speech.to_face wav=/srv/ue/vo/L1.wav name=reel_L1 face_mesh=<face> mood=CONFIDENCE intensity=0.7 process_mask=mouth head=false blinks=false
+film-ue op lipsync.check anim=/Game/Speech/Anim/AS_reel_L1 wav=/srv/ue/vo/L1.wav wav_frame=1018.8 anim_frame=1018.8 'lines=[{"id":"L1","f0":1020.6,"f1":1043.2}]'
+film-ue op lipsync.compose out=/Game/Reel/Perf/AS_reel_him_solve start_frame=960 length_frames=624 base=<whole performance anim> 'parts=[{"anim":"/Game/Speech/Anim/AS_reel_L1","frame":1018.8}, ...]'
+film-ue op perf.face anim=/Game/Reel/Perf/AS_reel_him_solve ...          # head, eyes, blinks, brows over the mouth
+film-ue op lipsync.check sequence=/Game/Reel/SEQ_Reel label=Host wav=/srv/ue/vo/vo_him.wav cues=/srv/ue/vo/cues.json who=him
+film-ue lips render --video S13.mp4 --wav vo_him.wav --cues cues.json --who him --boxes boxes.json [--syncnet-dir DIR]
+film-ue lips gate --curve him=check_him.json --render him=render_him.json --cues cues.json --stem him=vo_him.wav --out lips_gate.json
+```
+Check: every `lipsync.check` has `pass` true: per line |`lag_frames`| <= 1, `corr` >= 0.35, `onset_lead_s` <= 0.25,
+no `silence` issue; `diagnosis` "in sync". A failing check says what to do (`issues[].fix`); `diagnosis` "offset"
+= a section/audio misplaced by that many frames, "drift" = a frame-rate mismatch. `speech.to_face` returns
+`timing.ok` (the animation as long as its WAV) and `options` (what the plugin accepted). `film-ue lips render` exits
+0 pass, 1 fail, 2 inconclusive (its shifted-audio control did not move: the crop cannot see the mouth; fix the box).
+
 **Look at a performance without rendering** (a PNG of head, eyes, blinks, upper face and mouth on one time axis).
 ```bash
 film-ue op perf.plot anim=/Game/Speech/Anim/AS_l1_perf out=/tmp/l1_perf.png
@@ -144,6 +163,21 @@ film-ue op anim.write_curves anim=/Game/Perf/AS_face mode=add 'curves={"CTRL_exp
 film-ue op anim.new path=/Game/Perf/AS_blank skeleton=/Game/MetaHumans/Ada/Face/Ada_FaceMesh length_s=5
 ```
 
+**A head that never moves with a blink** (round 5: "every time she blinks her head nods"). perf.face's defaults do
+it (`solver_head=replace`: the speech solve's head rotation and translation are dropped, the head is perfkit's;
+`blink_head=still`: no chin dip under a gaze blink, no blink on a nod, and a last pass bridges any pitch/roll
+departure inside a blink window). A preset sets the rest of the life (`presenter_calm`, `presenter_lively`,
+`listener`, `still_portrait`; perfkit/presets.py has the numbers):
+```bash
+film-ue op perf.face anim=/Game/Speech/Anim/AS_l1 wav=/home/ue/Audio/l1.wav preset=presenter_calm
+film-ue op qa.head_stability sequence=/Game/Shots/S010 label=Ada start=0 end=480 out=/srv/ue/qa/head_ada.json
+```
+Check: `report` has `blink_nod`, `blink_locked`, `blink_speed`, `head_buzz` all passing and `plan.blink_guard` small;
+then `qa.head_stability` on the sequence passes (it reads the head BONE as it renders: the body's neck, the face
+AnimBP and Sequencer included). From frames: `film-qa head DIR --fps 24`. Keep the solve's head only with
+`solver_head=clean` (its blink windows are bridged too); never `soften`/`keep` under replaced blinks. Why and the
+numbers: [research/blinks-head-stability.md](research/blinks-head-stability.md).
+
 ## Op reference
 
 `film-ue describe anim` and `film-ue describe perf` list them with arguments; each docstring has an Example.
@@ -161,7 +195,8 @@ film-ue op anim.new path=/Game/Perf/AS_blank skeleton=/Game/MetaHumans/Ada/Face/
 | `anim.rig_controls` / `anim.rig_keys` | Control Rig controls in a sequence; batched keys (float, rotator, transform) |
 | `anim.gaze_lock` | eyes on the lens, solved from the eye bones' measured pose |
 | `anim.bake_pose` / `anim.bake_follow` / `anim.head_to_body` | face and body as one skeleton |
-| `speech.to_face` / `speech.moods` | MetaHuman Animator's audio solver |
+| `speech.to_face` / `speech.moods` | MetaHuman Animator's audio solver (`process_mask` full/mouth, `head`, `blinks`; `timing`) |
+| `lipsync.check` / `lipsync.compose` / `lipsync.mouth_boxes` | lip-sync timing gate, per-line mouths at their cues, the mouth's box in each frame |
 | `perf.face` | make one face animation alive (head, eyes, blinks, brows, moods, expressions) |
 | `perf.check` | = anim.check |
 | `perf.plot` | the performance as a PNG of strips (head, eyes, blinks, upper face, mouth) |
@@ -197,7 +232,7 @@ library:
   idle: [/MetaHumanCharacter/Optional/Animation/TemplateAnimations/Technical_Loops/Idle/mhc_mh001_fmn_b_idle]
   walk: {anim: /MetaHumanCharacter/Optional/Animation/UEFNAnimPreset/Locomotion/AS_MH_Neutral_Walk_Loop_F, speed_cm_s: 145}
   gestures: {open_palms: {anim: /Game/Anim/AS_OpenPalms, stroke_s: 0.7}}
-face: {solver_head: soften, blink_mode: replace, mouth_mix: 0.5, camera_lock: false}
+face: {solver_head: replace, blink_head: still, blink_mode: replace, mouth_mix: 0.5, camera_lock: false}
 lines:
   - id: l1
     audio: /home/ue/Audio/presenter_intro_l1.wav      # solved with the line's mood; emphasis found in it
@@ -230,6 +265,10 @@ of their WAV, mood and intensity. Change a mood and only that line re-solves.
 - **Head curve signs are a property of the rig.** Until `perf.calibrate` has run for a face skeleton, perfkit
   assumes HeadYaw + turns to the character's left, HeadPitch + looks up, HeadRoll + tilts the top of the head left,
   eyeLook* at 1.0 = 35/35/25/30 deg (left/right/up/down). Calibrate before judging a still.
+- **A blink never moves the head.** A speech solve's head comes out of the same predictor run as its blinks (5.8.4
+  Speech2FaceInternal::RunPredictor) and moves with them; replacing the blinks while keeping its head (round 4:
+  `solver_head=soften`) left dips where the solve had blinked, and ours landed there. Defaults are now
+  `solver_head=replace`, `blink_head=still`; the report fails `blink_nod`/`blink_locked` when it happens again.
 - **HeadControlSwitch** must be 1 for the face rig to turn the head from HeadYaw/Pitch/Roll; perf writes it.
   MetaHumanPerformanceExportUtils writes it 0 when head movement is off at export.
 - **A face played by Sequencer needs ANIMATION_SINGLE_NODE** and then does not copy the body (unreal/README.md);

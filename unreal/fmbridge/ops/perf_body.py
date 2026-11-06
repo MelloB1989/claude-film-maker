@@ -194,7 +194,7 @@ def calibrate_body(*, label: str, component: str = "Body", scratch: str = "/Game
 @op("anim.body_life", mutates=True, idempotent=True)
 def body_life(*, out: str, body_mesh: str, length_s: float, state: str = "rest", face_anim: str = "",
               follow: float = 0.15, breath_deg: float = 0.6, clavicle_deg: float = 1.0, shift_cm: float = 1.5,
-              seed: int = 0) -> dict:
+              seed: int = 0, breath_cv: float = 0.2, breath_depth_cv: float = 0.25) -> dict:
     """An additive animation of body life for a body skeleton: breathing (spine extension and clavicle lift on each
     inhale, at a rate by `state`: calm, rest, listen, talk, focus, nervous), slow weight shifts (`shift_cm` of pelvis,
     the spine bending back over the feet) and, with `face_anim`, the torso following the head's turns (`follow` of
@@ -202,7 +202,9 @@ def body_life(*, out: str, body_mesh: str, length_s: float, state: str = "rest",
     Needs perf.calibrate_body for this skeleton.
 
     Args: out: the additive animation's path (re-made). body_mesh: the body SkeletalMesh. length_s: seconds.
-    face_anim: a face animation whose HeadYaw the torso follows. Others: amplitudes in degrees / cm.
+    face_anim: a face animation whose HeadYaw the torso follows. breath_cv/breath_depth_cv: breath-to-breath
+    variation of period and depth (people: ~0.21/0.33; 0/0 is round 4's metronome). Others: amplitudes in degrees /
+    cm. perfkit.presets has the body numbers per preset (presenter_calm, presenter_lively, listener, still_portrait).
     Returns: {"out", "changed", "breaths_per_min", "shifts", "bones"}.
     Example: film-ue op anim.body_life out=/Game/Perf/AS_life body_mesh=/Game/MetaHumans/Ada/Body/m_med_nrw_body length_s=12 state=talk
     """
@@ -236,7 +238,8 @@ def body_life(*, out: str, body_mesh: str, length_s: float, state: str = "rest",
     a = load(out)
     n_keys = model_keys(a)
     life = BL.plan(0.0, length_s, state=state, breath_deg=breath_deg, clavicle_deg=clavicle_deg, shift_cm=shift_cm,
-                   follow=follow, head_yaw=head_yaw, seed=seed)
+                   follow=follow, head_yaw=head_yaw, seed=seed, breath_cv=breath_cv,
+                   breath_depth_cv=breath_depth_cv)
     # the first frame is the rest pose (the additive's base): every offset relative to its value there
     for comps in life["bones"].values():
         for k, vals in comps.items():

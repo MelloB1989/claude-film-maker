@@ -84,12 +84,23 @@ floating --json`, `film-ue qa overlaps --json`; a still from a camera.
 stage 1). Needs the Epic sign-in on the box (`film-ue selftest --list` shows `epic_login`). Check:
 `film-ue view turntable --target Host --out-dir ...` and `film-ue qa penetration ...` for clothes.
 
+**A garment that fits, and reads as cloth** ([garment.md](garment.md)): `garment.export` → `film-ue garment-fit`
+(headless Blender on the box: regional ease, the face in the collider, weights from the uncut body) →
+`mh.import_garment` → `mh.dress`. Never a WPO inflate. Check: `qa.clip` (pairs ≤ 0.001, `neck_px` 0) and
+`qa.garment_look` (not `armor`), in the shots' own cameras and frames.
+
 **Light and look.** Lights by label, fog, post (WP5: [look.md](look.md)). Check exposure with numbers, not taste:
 `film-ue qa image --image still.png --json` (clipping, mean stops) on a still through the shot's camera.
 
 **A performance.** A voice line to a face (`speech.to_face`), body animation sections (`seq.anim`), face and body as
 one skeleton (`anim.bake_follow` / `anim.head_to_body`), eyes on the lens (`anim.gaze_lock`) (WP4:
-[animation.md](animation.md)). Check: `seq.sample` bone positions, a still at a frame mid-line.
+[animation.md](animation.md)). Check: `seq.sample` bone positions, a still at a frame mid-line. **Lip sync is a timing
+check, not a look**: cues measured from the mix's stems (`film-ue lips cues`), one `process_mask=mouth` solve per
+line composed at its cue (`lipsync.compose`), then `lipsync.check` on the placed face (|lag| <= 1 frame, the mouth
+still in silences) and `film-ue lips render` on the render ([research/lipsync.md](research/lipsync.md)). A face's
+head: `perf.face preset=presenter_calm` (the head is perfkit's, no blink moves it), then `film-ue op
+qa.head_stability sequence=... label=...` on the master: it fails a head that nods with the blinks or buzzes, and
+says what to do ([research/blinks-head-stability.md](research/blinks-head-stability.md)).
 
 **Shots.** A `shot` spec (WP7: [cameras.md](cameras.md)): shots by size (`WS`, `MCU`, `CU`...), angle, side, lens; moves;
 focus on a subject; times in frames, seconds or dialogue lines. The solver frames from the real skeleton. Check:
@@ -107,6 +118,12 @@ film-ue apply /tmp/interview.pipeline.yaml
 Check: the render report says ok with no missing chunks, each review.json passes, a second plan is empty; then
 `film-ue op shot.check ...` for the framing numbers.
 
+**Cloth.** A garment that should move gets Chaos cloth from a preset (`cloth.setup label=Host component=Tee
+preset=cotton_tee`; needs the FMCloth plugin, [cloth.md](cloth.md)). After any respawn: `cloth.settings`. Check:
+`film-ue op qa.cloth label=Host component=Tee sequence=... start=S end=E` must pass, with `zones.hem.motion_cm >= 0.3`
+over a gesture (a skinned garment fails `cloth.no_clothing`/`cloth.dead`: the round-4 "armour"). Before a render:
+`cloth.render_check` on the plan's chunks, and set the `warmup_engine` it returns.
+
 **Review.** `film-ue qa review --sequence ... --out-dir ...`: one JSON (`pass`, `summary` worst first, `issues` each
 with a `fix`) and one picture. Fix the fails, re-apply, review again (WP10: [qa.md](qa.md)).
 
@@ -116,6 +133,55 @@ fit the 24 GB L4. Check: `film-ue render status`, or the report at `<out_dir>/_r
 `render.job` resumes: re-running the spec is the fix for an interrupted render.
 
 **Deliver.** Pull the frames (`film-ue pull-dir`), then `film-post` with a `delivery` spec (WP12: [post.md](post.md)).
+
+## Before you deliver a character shot
+
+Round 4 shipped five faults that passed every numeric gate: lips 0.7 s early, a tee like armour, a neck clip, a nod
+on every blink, and hair that went short at a cut. Each check below would have caught one of them. Run them in this
+order: each step assumes the one before it passed. A check you skip is a fail, not a pass. The why and the sources
+are in [research/README.md](research/README.md).
+
+1. **The cast is clean.** `film-ue op qa.parts` and `film-ue op groom.lock_check 'labels=[...]'`: no `TRASH_`
+   component on any character.
+   After a respawn or a Blueprint re-instance, re-dress before anything else: every check below reads the live
+   components.
+2. **The garments fit.**
+   - The fit is real geometry, from `film-ue garment-fit`, never a WPO inflate.
+   - The skin under the collar is hidden or shrunk: `garment.hidden_face_maps`, `body.hide_under`.
+   - `film-ue op qa.garment_look` is not `armor` (index < 0.5, no WPO > 0.2 cm).
+   - `film-ue op qa.clip` in each shot's camera and frames: `neck_px == 0`, pairs <= 0.001, silhouette within
+     +-2% ([garment.md](garment.md)).
+3. **The cloth moves.**
+   - `cloth.describe` shows no `skinned_only` garment that should move. `cloth.setup` from a preset.
+   - `film-ue op qa.cloth label=... component=... sequence=... start=S end=E` passes (no `no_clothing`/`dead`).
+   - The hem moves >= 0.3 cm over a gesture.
+   - Re-run `qa.clip` after `cloth.preroll`, on the same frames ([cloth.md](cloth.md)).
+4. **The lips are on time.**
+   - Cues come from `film-ue lips cues`, measured on the stems the mix plays. Never reuse an old `cues.json`.
+   - Each line is a `speech.to_face process_mask=mouth head=false blinks=false` solve, placed by
+     `lipsync.compose`.
+   - `film-ue op lipsync.check` passes for every line: |lag| <= 1 frame, corr >= 0.35, onset lead <= 0.25 s, the
+     mouth still in the silences ([animation.md](animation.md)).
+5. **The head does not ride the blinks.** `perf.face` with `blink_head=still solver_head=replace` (the defaults and
+   presets). Then `film-ue op qa.head_stability sequence=... label=...` on the master passes:
+   `head.blink_nod_deg <= 0.6`, `head.blink_locked_deg <= 0.3`, no buzz.
+6. **The hair is locked.**
+   - `film-ue op groom.lock 'labels=[...]'` passes its own read-back (`groom.lock_check`).
+   - Its `render_cvars` are in the render spec's `cvars`.
+   - `film-ue op qa.hair_continuity sequence=... labels=[...]`: reach changes <= 12% across every cut and <= 8%
+     frame to frame ([qa.md](qa.md)).
+7. **The render is set up for it.** `cloth.render_check` on the plan's chunks, and its `warmup_engine` set (32
+   frames for `final`; `preview` is too short for an overshirt). Lock the hair before the render starts: a groom
+   reads its LOD mode when it registers.
+8. **The frames agree.** On the rendered frames:
+   - `film-ue lips render`: the mouth crop against the voice, with the shifted-audio control;
+   - `film-qa head DIR`;
+   - `film-qa hair SPEC.json`.
+
+   The editor checks read the scene, and these read what actually rendered.
+9. **The gate signs.** `film-qa gate NUMBERS.json... --spec SPEC.json` (gate v2, [qa.md](qa.md)) is SIGN, with
+   every item a number and none missing. Don't waive anything the operator complained about: the gate refuses it.
+   Only then look by eye, and only then deliver.
 
 ## Reading failures
 
@@ -139,9 +205,15 @@ fit the 24 GB L4. Check: `film-ue render status`, or the report at `<out_dir>/_r
 - **Multi-tick ops are generators**: in exec'd code `yield from op(...)` inside a generator; a bare call does nothing.
 - **A face played by Sequencer** stops following the body: bake them together (`anim.bake_follow`).
 - **Hair goes white indoors in daylight**: `r.HairStrands.SkyLighting 0`.
+- **Hair gets shorter on a wide shot** (Auto hair LOD thins curves by screen size even at a forced LOD 0; LODSync
+  reaches a groom only by name): `film-ue op groom.lock labels=[...]` before every render, its `render_cvars` in the
+  spec, and `qa.hair_continuity` at the cuts (qa.md; research/hair-lod.md).
 - **Cloth needs pre-roll**: `render.job` pre-rolls any chunk that starts mid-shot from its cut start automatically
-  (`preroll: cut`); judge a cut's first frame on its own.
+  (`preroll: cut`); a chunk on its cut start only gets the warm-up hold, which `cloth.render_check` sizes. **A garment
+  without clothing data never moves** (armour): `cloth.describe` lists `skinned_only`.
 - **Path tracing OOMs on the 24 GB L4.** Use deferred (Lumen) renders.
+- **A WPO inflate is not a fit**: it grows the garment evenly (armor), and shadows, collision and cloth never see it.
+  Refit the geometry (`film-ue garment-fit`); `qa.garment_look` fails any inflate over 0.2 cm.
 - **Never change a material while it is drawn** (an assert takes the editor down): ops that do it are multi-tick for
   a reason.
 - **The editor may come up on an Untitled level**: a spec's `level` document opens the right one first.
