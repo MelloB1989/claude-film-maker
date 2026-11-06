@@ -75,7 +75,9 @@ def cloth(*, label: str, component: str, sequence: str, start: int, end: int, pr
     comp.set_editor_property("wait_for_parallel_cloth_task", True)
     # the editor world ticks cloth only when asked (bUpdateClothInEditor: SkeletalMeshComponentPhysics.cpp:83, 3148);
     # without it the simulation data never changes (round 5: not_simulating, body_path 0)
-    comp.set_update_cloth_in_editor(True)
+    C.editor_cloth(comp)
+    for _ in range(3):
+        yield
     scale0 = comp.get_cloth_max_distance_scale()
     runs = {}
     try:
