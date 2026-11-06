@@ -152,7 +152,8 @@ def locate(needle: np.ndarray, hay: np.ndarray, sr: int, hay_sr: int | None = No
 
 def build_cues(lines_doc: dict, stems: dict, fps: float = 24.0, words: str = "auto", pre_s: float = 0.5,
                post_s: float = 0.5, line_dir: Path | None = None, mix: Path | None = None,
-               min_score: float = 0.6, min_mix_score: float = 0.3, max_mismatch_frames: float = 0.5) -> dict:
+               min_score: float = 0.6, min_mix_score: float = 0.8, max_mismatch_frames: float = 0.5,
+               mix_voice: Path | None = None, mix_meta: dict | None = None) -> dict:
     """A measured cues.json from the line list (an earlier cues.json: who, text, wav, file_frame, slot_end per line)
     and the speakers' stems as the mix places them (frame 0 = sample 0). Per line: the VAD onset/offset in the window
     from file_frame - pre_s to its file's end (or slot_end) + post_s; words aligned in that span (`words`: auto |
@@ -164,7 +165,9 @@ def build_cues(lines_doc: dict, stems: dict, fps: float = 24.0, words: str = "au
     in the mix too and FAILS when the mix plays it more than `max_mismatch_frames` away from the stem (round 4: the
     face was solved from stems whose L1 sat ~14 frames before the mix's), or not at all."""
     loaded = {who: read_wav(Path(p)) for who, p in stems.items()}
-    mixed = read_wav(Path(mix), mono=True) if mix else None
+    # the lines are located in the mix's own voice stem when there is one (mix.py writes stem-voice.wav: the voice
+    # as it went into the master, so the same samples score ~1.0); else in the mix itself (music under it)
+    mixed = read_wav(Path(mix_voice or mix), mono=True) if (mix or mix_voice) else None
     out = {}
     issues = []
     def finish_line(k, rec, text):
@@ -277,11 +280,53 @@ def build_cues(lines_doc: dict, stems: dict, fps: float = 24.0, words: str = "au
                     parts.append((sub["id"], r, sub.get("text", "")))
         for k, rec, text in parts:
             finish_line(k, rec, text)
+    if mix_meta is not None:  # the CLI passes {} when --mix has no --mix-json: unproven fails
+        issues += same_vo({who: Path(p) for who, p in stems.items()}, Path(mix) if mix else None, mix_voice, mix_meta,
+                          line_dir)
     doc = {"fps": fps, "frames": lines_doc.get("frames"), "measured": True, "lines": out,
            "stems": {who: {"path": str(p), "sha256": sha256(Path(p))} for who, p in stems.items()},
            "mix": {"path": str(mix), "sha256": sha256(Path(mix))} if mix else None,
+           "mix_voice": {"path": str(mix_voice), "sha256": sha256(Path(mix_voice))} if mix_voice else None,
            "line_dir": str(line_dir) if line_dir else None, "issues": issues}
     return doc
+
+
+def same_vo(stems: dict, mix: Path | None, mix_voice: Path | None, meta: dict | None,
+            line_dir: Path | None = None) -> list:
+    """The round-4 bug as a check: the voice the MIX was built from must be the voice the FACES are solved from.
+    Proven by provenance, not by ear: mix.json (mix.py) records the sha256 of the voice stems it read
+    ("voice_sha256": {who: sha}), of the voice stem it wrote ("stem_voice_sha256") and of mix.wav ("mix_sha256");
+    every one must equal the files here. A mix without those records cannot be proven: it fails too."""
+    out = []
+
+    def bad(code, msg, fix):
+        out.append({"code": code, "line": "", "severity": "fail", "message": msg, "fix": fix})
+    remix = "re-mix from the solve's stems (mix.py --vo-dir <the stems' dir>), then rebuild the cues"
+    if meta and meta.get("source") == "separated":  # the line WAVs were cut from this very mix's voice
+        if mix is not None and meta.get("mix_sha256") != sha256(mix):
+            bad("vo_not_mixed", f"the line WAVs were separated from another mix ({str(meta.get('mix_sha256'))[:12]}),"
+                f" not {mix.name} ({sha256(mix)[:12]})", "separate again from the delivered mix (lips.py separate)")
+        for name, sha in (meta.get("lines_sha256") or {}).items():
+            p = Path(line_dir) / name if line_dir else None
+            if p is None or not p.exists() or sha256(p) != sha:
+                bad("vo_not_mixed", f"{name} is not the WAV cut from the mix's voice", "cut it again (lips.py lines)")
+        return out
+    if not meta:
+        bad("vo_unproven", "no mix.json: nothing says which voice the mix was built from", remix)
+        return out
+    want = meta.get("voice_sha256") or {}
+    if not want:
+        bad("vo_unproven", "mix.json records no voice_sha256 (a mix.py from before round 5)", remix)
+    for who, p in stems.items():
+        got = sha256(p)
+        if want and want.get(who) != got:
+            bad("vo_not_mixed", f"the {who} stem the faces are solved from ({p.name}, {got[:12]}) is not the one the "
+                f"mix was built from ({str(want.get(who))[:12]})", remix)
+    if mix is not None and meta.get("mix_sha256") and meta["mix_sha256"] != sha256(mix):
+        bad("mix_changed", f"{mix.name} is not the mix.json's mix (re-mixed or replaced since)", remix)
+    if mix_voice is not None and meta.get("stem_voice_sha256") and meta["stem_voice_sha256"] != sha256(mix_voice):
+        bad("mix_changed", f"{mix_voice.name} is not the mix.json's voice stem", remix)
+    return out
 
 
 def prepare_take(x: np.ndarray, sr: int, floor_db: float = -42.0, pre_s: float = 0.05, post_s: float = 0.25) -> tuple:
@@ -318,7 +363,7 @@ def _takes_for(takes_dir: Path | None, key: str) -> list:
 
 
 def stems_from_mix(lines_doc: dict, line_dir: Path, mix: Path, out_dir: Path, fps: float = 24.0,
-                   min_mix_score: float = 0.3, takes_dir: Path | None = None) -> tuple:
+                   min_mix_score: float = 0.8, takes_dir: Path | None = None) -> tuple:
     """The delivered mix is canonical (the viewer hears it): each line is located in the mix by cross-correlation,
     and each speaker's voice stem is rebuilt with every line at exactly that place (frame 0 = sample 0, the mix's
     length). The line is the line WAV in `line_dir`, or, when `takes_dir` is given, whichever of it and the line's raw
@@ -389,6 +434,141 @@ def cues_from_mix(lines_doc: dict, line_dir: Path, mix: Path, stems_dir: Path, o
         doc["old_stems"] = {"stems": old["stems"], "issues": [i for i in old["issues"] if i["severity"] == "fail"],
                             "pass": not [i for i in old["issues"] if i["severity"] == "fail"]}
     return doc
+
+
+def stems_from_lines(lines_doc: dict, line_dir: Path, out_dir: Path, frames: int, fps: float = 24.0) -> tuple:
+    """Voice stems from the line WAVs (the ones the faces are solved from), each placed so its first sound (VAD)
+    lands on the line's planned voice_frame (a split WAV: its first part's). Returns ({who: path}, {line: file_frame},
+    issues). Mix from these stems (mix.py --vo-dir out_dir) and the mix's voice IS the solve's."""
+    import soundfile as sf
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    stems, placed, issues, sr0 = {}, {}, [], None
+    for k, c in sorted(lines_doc["lines"].items(), key=lambda kc: kc[1].get("voice_frame", 0)):
+        y, sr = read_wav(Path(line_dir) / c["wav"])
+        sr0 = sr0 or sr
+        if sr != sr0:
+            raise SystemExit(f"{c['wav']}: {sr} Hz, the other lines {sr0} Hz")
+        env = envelope(y, sr)
+        sp = LS.vad(env.values, env.rate)
+        if not sp:
+            issues.append({"code": "silent", "line": k, "severity": "fail", "message": f"{c['wav']} has no voice",
+                           "fix": "replace the WAV"})
+            continue
+        if c.get("place") == "file_frame":  # a WAV whose place is known (cut from the mix): exactly there
+            ff = c["file_frame"]
+        else:
+            target = (c["split"][0].get("voice_frame") if c.get("split") else None) or c["voice_frame"]
+            ff = target - sp[0][0] * fps
+        st = stems.setdefault(c["who"], np.zeros(int(round(frames / fps * sr)), np.float32))
+        i0 = int(round(ff / fps * sr))
+        if i0 < 0:
+            raise SystemExit(f"{k}: would start before frame 0")
+        st[i0:i0 + len(y)] += y[:max(0, len(st) - i0)]
+        placed[k] = round(ff, 2)
+    paths = {}
+    for who, st in stems.items():
+        paths[who] = out_dir / f"vo_{who}.wav"
+        sf.write(paths[who], st, sr0, subtype="PCM_24")
+    return paths, placed, issues
+
+
+def median_f0(x: np.ndarray, sr: int, lo: float = 70.0, hi: float = 400.0) -> float | None:
+    """The median pitch (Hz) of a voice's loud frames, by autocorrelation (40 ms frames): him ~100-150, her ~180-260."""
+    if x.ndim > 1:
+        x = x.mean(axis=1)
+    n, hop = int(0.04 * sr), int(0.01 * sr)
+    if len(x) < n:
+        return None
+    fr = np.stack([x[i:i + n] for i in range(0, len(x) - n, hop)])
+    e = (fr ** 2).mean(axis=1)
+    loud = fr[e > np.percentile(e, 60)]
+    f0s = []
+    for f in loud:
+        f = f - f.mean()
+        ac = np.correlate(f, f, "full")[n - 1:]
+        a, b = int(sr / hi), int(sr / lo)
+        if ac[0] <= 0 or b >= len(ac):
+            continue
+        k = a + int(np.argmax(ac[a:b]))
+        if ac[k] / ac[0] > 0.4:
+            f0s.append(sr / k)
+    return float(np.median(f0s)) if f0s else None
+
+
+def lines_from_voice(vocals: Path, plan: dict, out_dir: Path, mix: Path, fps: float = 24.0, model: str = "",
+                     split_f0_hz: float = 165.0, pre_s: float = 0.05, post_s: float = 0.25) -> tuple:
+    """Per-line WAVs cut from a voice separated from the delivered mix (demucs vocals): per planned line (plan lines
+    {id: {who, text, voice_frame, slot_end}}), the voice is found by VAD between 0.6 s before its planned start and
+    the next line's planned start, cut from `pre_s` before its first sound to `post_s` after its last (as vo.py made
+    line WAVs), levelled to -20 dBFS voiced RMS. Each line's speaker is checked by pitch (under `split_f0_hz` = him).
+    Writes out_dir/<id>.wav and out_dir/voice.json (the provenance: the mix's sha256, the model, every WAV's sha256).
+    Returns (lines {id: {..., wav, file_frame, f0_hz}}, issues, manifest)."""
+    import soundfile as sf
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    v, sr = read_wav(Path(vocals), mono=True)
+    env = envelope(v, sr)
+    vals = np.array(env.values)
+    p20, p98 = np.percentile(vals, 20), np.percentile(vals, 98)
+    on, off = p20 + 0.45 * (p98 - p20), p20 + 0.25 * (p98 - p20)  # over the separation's own floor (leakage)
+    order = sorted(plan["lines"].items(), key=lambda kc: kc[1]["voice_frame"])
+    lines, issues, manifest = {}, [], {"source": "separated", "mix_sha256": sha256(Path(mix)), "model": model,
+                                       "vocals_sha256": sha256(Path(vocals)), "lines_sha256": {}}
+    windows = []
+    for i, (k, c) in enumerate(order):
+        a = c["voice_frame"] - 0.6 * fps
+        b = order[i + 1][1]["voice_frame"] - 0.15 * fps if i + 1 < len(order) else (c.get("slot_end") or a) + 2 * fps
+        i0, i1 = max(0, int(a / fps * env.rate)), min(len(vals), int(b / fps * env.rate))
+        sp = LS.vad(list(vals[i0:i1]), env.rate, i0 / env.rate, on=on, off=off)
+        if not sp:
+            issues.append({"code": "silent", "line": k, "severity": "fail",
+                           "message": f"{k}: no voice in the separated vocals between f{a:.0f} and f{b:.0f}",
+                           "fix": "the separation lost it, or the line is elsewhere: check the mix by ear"})
+            continue
+        t0, t1 = sp[0][0], sp[-1][1]
+        c0, c1 = max(0.0, t0 - pre_s), min(len(v) / sr, t1 + post_s)
+        y = v[int(c0 * sr):int(c1 * sr)].astype(np.float32).copy()
+        fade = int(0.01 * sr)
+        y[:fade] *= np.linspace(0, 1, fade)
+        y[-fade:] *= np.linspace(1, 0, fade)
+        h = sr // 100
+        rms = np.sqrt(np.mean(np.stack([y[j:j + 2 * h] for j in range(0, max(1, len(y) - 2 * h), h)]) ** 2, axis=1))
+        act = rms[rms > rms.max() * 0.1]
+        y *= min(10 ** (-20 / 20) / np.sqrt(np.mean(act ** 2)), 10 ** (-1 / 20) / np.abs(y).max())
+        f0 = median_f0(y, sr)
+        who = "him" if f0 is not None and f0 < split_f0_hz else "her"
+        if f0 is None or who != c["who"]:
+            issues.append({"code": "speaker", "line": k, "severity": "fail",
+                           "message": f"{k}: the voice at f{t0 * fps:.0f} reads as {who} (median f0 {f0 or 0:.0f} Hz), the "
+                           f"plan says {c['who']}", "fix": "the window caught the other presenter: check the plan's "
+                           "frames against the mix"})
+        p = out_dir / f"{k}.wav"
+        sf.write(p, y, sr, subtype="PCM_24")
+        manifest["lines_sha256"][p.name] = sha256(p)
+        windows.append((t0, t1))
+        lines[k] = {**{kk: c[kk] for kk in ("who", "text", "mood", "intensity", "slot_end") if kk in c},
+                    "wav": p.name, "file_frame": round(c0 * fps, 2), "voice_frame": round(t0 * fps, 2),
+                    "voice_frame_planned": c["voice_frame"], "f0_hz": round(f0, 1) if f0 else None}
+    # leakage: the vocals' level between the lines (from the first to the last), against their level on the lines
+    if windows:
+        span = (windows[0][0], windows[-1][1])
+        mask_line = np.zeros(len(vals), bool)
+        for t0, t1 in windows:
+            mask_line[int(t0 * env.rate):int(t1 * env.rate)] = True
+        idx = np.arange(int(span[0] * env.rate), min(len(vals), int(span[1] * env.rate)))
+        n_hop = max(1, int(sr / env.rate))
+        rms_db = lambda m: 10 * np.log10(np.mean(np.concatenate([v[j * n_hop:(j + 1) * n_hop] ** 2 for j in m]) + 1e-12))  # noqa: E731
+        gaps, onl = idx[~mask_line[idx]], idx[mask_line[idx]]
+        if len(gaps) and len(onl):
+            manifest["leak_db"] = round(float(rms_db(gaps) - rms_db(onl)), 1)
+            if manifest["leak_db"] > -25:
+                issues.append({"code": "leak", "line": "", "severity": "warn",
+                               "message": f"the separated vocals are only {-manifest['leak_db']:.0f} dB quieter between "
+                               "the lines than on them: music may reach the solver",
+                               "fix": "lips.py bias decides (corr >= 0.5); else regenerate the takes (vo.py)"})
+    (out_dir / "voice.json").write_text(json.dumps({**manifest, "issues": issues}, indent=1))
+    return lines, issues, manifest
 
 
 def stale(cues: dict, stems: dict) -> list:
@@ -680,6 +860,9 @@ def register(sub) -> None:
     c.add_argument("--words", default="auto", choices=["auto", "whisper", "estimate", "none"])
     c.add_argument("--line-dir", type=Path, help="the line WAVs the face is solved from: each is located in its stem")
     c.add_argument("--mix", type=Path, help="the audio the cut plays: each line must sit there where the stem has it")
+    c.add_argument("--mix-voice", type=Path, help="the mix's own voice stem (mix.py's stem-voice.wav): lines are "
+                   "located there (score ~1.0 when it is their voice)")
+    c.add_argument("--mix-json", type=Path, help="mix.py's mix.json: proves the mix was built from these stems")
     c.add_argument("--takes", type=Path, help="raw takes DIR/<line>/*.wav: with --from-mix, the take the mix holds wins")
     c.add_argument("--from-mix", type=Path, metavar="STEMS_DIR",
                    help="the mix is canonical: locate each line in --mix, rebuild the voice stems there into "
@@ -696,6 +879,13 @@ def register(sub) -> None:
     k.add_argument("--who", required=True)
     k.add_argument("--fps", type=float, default=24.0)
     k.add_argument("--expected-lag-s", type=float, default=0.0)
+    vp = s.add_parser("voice", help="per-line WAVs cut from a voice separated from the mix (demucs vocals)")
+    vp.add_argument("--vocals", type=Path, required=True)
+    vp.add_argument("--plan", type=Path, required=True, help="the planned lines (cues_v2.json: who, text, voice_frame)")
+    vp.add_argument("--mix", type=Path, required=True, help="the mix the vocals were separated from")
+    vp.add_argument("--model", default="htdemucs")
+    vp.add_argument("--fps", type=float, default=24.0)
+    vp.add_argument("--out", type=Path, required=True)
     gp = s.add_parser("gate", help="gate v2 numbers (film-qa gate) from the curve/render reports")
     gp.add_argument("--curve", action="append", default=[], help="who=lipsync.check JSON (repeat per speaker)")
     gp.add_argument("--render", action="append", default=[], help="who=film-ue lips render JSON")
@@ -730,7 +920,9 @@ def dispatch(a) -> bool:
                 raise SystemExit("--from-mix needs --line-dir and --mix")
             doc = cues_from_mix(lines_doc, a.line_dir, a.mix, a.from_mix, _kv(a.stem), a.fps, a.words, a.takes)
         else:
-            doc = build_cues(lines_doc, _kv(a.stem), a.fps, a.words, line_dir=a.line_dir, mix=a.mix)
+            doc = build_cues(lines_doc, _kv(a.stem), a.fps, a.words, line_dir=a.line_dir, mix=a.mix,
+                             mix_voice=a.mix_voice,
+                             mix_meta=json.loads(a.mix_json.read_text()) if a.mix_json else ({} if a.mix else None))
         a.out.write_text(json.dumps(doc, indent=1))
         _done({"pass": not [i for i in doc["issues"] if i["severity"] == "fail"], "out": str(a.out),
                "issues": doc["issues"], "lines": {k: [v["voice_frame"], v["end_frame"], v["words_source"]]
@@ -742,6 +934,10 @@ def dispatch(a) -> bool:
         cur = json.loads(a.curves.read_text())
         cur = cur.get("result", cur)
         _done(curve_check(cur, a.start_frame, a.wav, cues, a.who, a.fps, a.wav_frame, a.expected_lag_s))
+    elif a.lipsync_cmd == "voice":
+        lines, issues, man = lines_from_voice(a.vocals, json.loads(a.plan.read_text()), a.out, a.mix, a.fps, a.model)
+        _done({"pass": not [i for i in issues if i["severity"] == "fail"], "lines": lines, "issues": issues,
+               "leak_db": man.get("leak_db"), "manifest": str(a.out / "voice.json")})
     elif a.lipsync_cmd == "gate":
         def load(kv):
             out = {}
