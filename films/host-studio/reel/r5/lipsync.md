@@ -44,28 +44,31 @@ GPU session, after core is merged into film/host-studio and the box tree is upda
 - Install the bridge: `film-ue install`.
 - `film-ue op ops.broken` must return `[]`, and `film-ue describe lipsync.check` must work.
 
-### 1. Measured cues (local, no box, ~1 min)
+### 1. Cues from the delivered mix (local, no box, ~1 min)
+
+The orchestrator's decision (r5): the delivered `audio/mix/mix.wav` is canonical, because it is what the viewer hears.
 
 ```
-uv pip install stable-ts            # optional: real word timings (CPU); without it words are estimated and flagged
+uv pip install stable-ts            # optional: real word timings (CPU); without it, words are estimated and flagged
 uv run python ../films/host-studio/reel/r5/lips.py cues
 ```
 
-- It reads `out/host-studio/reel/vo/vo_him.wav` and `vo_her.wav`, the stems the mix was made from.
-- It writes `out/host-studio/reel/vo/cues.json` with `measured: true` and the stems' sha256.
+What it does:
+
+- It finds each line WAV in `out/host-studio/reel/vo/` (L1, L2, L3, L4a, L4b) inside `mix.wav` by
+  cross-correlation. That position is the line's `file_frame`.
+- It rebuilds `vo_him.wav` and `vo_her.wav` with every line at exactly that position.
+  - Round 4's stems are kept in `vo/r4_stems/`.
+- It measures onset, offset and words on the rebuilt stems.
+- It splits L3 into L3a and L3b at its pause.
+- It verifies every line against the mix again.
 
 Expect:
 
-- `voice_frame` within ±2 frames of the plan: L1 ≈ 1020, L2 ≈ 1095, L3a ≈ 1158, L3b ≈ 1215, L4a ≈ 1350, L4b ≈ 1400
-  (the `voice_frame_planned` column).
-- No `silent` issue.
-- `words_source: whisper` if stable-ts is installed.
-- If a `moved` warning appears, the measured frame is the truth.
-
-Then:
-
-- **Captions** (agent-06's cut) read this file. Rebuild them from it, never from round 3's copy.
-- `film-ue lips gate` will give `lips.cues_fresh` = 1.
+- `pass: true`, with `mix_score` ≥ 0.3 per line.
+- `file_frame` about f1019 for L1, near the mix's f1021 voice.
+- `old_stems.pass: false`, with `mix_mismatch` on L1 about 14 frames EARLY. That is round 4's root cause, now caught.
+- The L3a and L3b entries share `wav: L3.wav`.
 
 ### 2. Push (box)
 
@@ -73,7 +76,8 @@ Then:
 uv run python ../films/host-studio/reel/r5/lips.py push
 ```
 
-This puts vo_him.wav, vo_her.wav, cues.json and L1…L4b.wav into `<project>/Saved/Import/reel/`.
+This puts the rebuilt vo_him.wav and vo_her.wav, cues.json, and each line WAV once (L3.wav, not L3a/L3b) into
+`<project>/Saved/Import/reel/`. perf.py push now also sends each WAV once.
 
 ### 3. P1 — the probe: where round 4's lag entered (read-only, ~3 min per presenter)
 
@@ -101,7 +105,7 @@ Expect:
   column in gate v2.
 - If stage 6 is fine but the render was early, the render or the mux moved the audio. Then P3 decides.
 
-### 4. Solve each line alone, mouth only (~1-2 min per line, 6 lines)
+### 4. Solve each line WAV alone, mouth only (~1-2 min each, 5 WAVs: L3 whole, in L3b's mood)
 
 ```
 uv run python ../films/host-studio/reel/r5/lips.py solve
