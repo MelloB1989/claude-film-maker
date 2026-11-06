@@ -152,9 +152,18 @@ def check(times: list, pitch: list, blinks: list, yaw: list | None = None, roll:
     check says what to do about a failure. `source` (curves|bones|render) only words the messages."""
     L = {**LIMITS, **(limits or {})}
     checks, per = [], []
-    blinks = [(float(a), float(b)) for a, b in blinks if b > times[0] and a < times[-1]]
+    given = list(blinks)
+    blinks = [(float(a), float(b)) for a, b in given if b > times[0] and a < times[-1]]
+    if given and not blinks:  # r5 box: the blinks on another clock than the samples: never judge that as "no nods"
+        raise ValueError(f"none of the {len(given)} blinks ({given[0][0]:.2f}-{given[-1][1]:.2f} s) falls inside the "
+                         f"samples ({times[0]:.2f}-{times[-1]:.2f} s): give both on the same clock")
     fix = ("perf.face blink_head='still' (the default) and solver_head='replace' (the default): the head is then "
            "perfkit's alone and no blink window carries a nod; then re-check")
+    # a blink whose window runs off either end of the samples has no chord to judge against (r5 box: his last blink,
+    # cut by the end of his screen time, scored 5.8 deg): listed as "edge", never judged
+    cut = [{"t": round(a, 3), "nod_deg": round(nod_depth(times, pitch, a, b), 3)} for a, b in blinks
+            if a - PRE < times[0] or b + POST > times[-1]]
+    blinks = [(a, b) for a, b in blinks if a - PRE >= times[0] and b + POST <= times[-1]]
     if blinks:
         for a, b in blinks:
             per.append({"t": round(a, 3), "nod_deg": round(nod_depth(times, pitch, a, b), 3)})
@@ -206,7 +215,7 @@ def check(times: list, pitch: list, blinks: list, yaw: list | None = None, roll:
             f"{L['spike_deg']} deg (first {spikes[:5]}): a solver's buzz or a snapped key. perf.face "
             "solver_head='replace' (or 'clean': spike removal and a low-pass), and no beat nods faster than 0.15 s"))
     failed = [c["name"] for c in checks if not c["pass"]]
-    return {"pass": not failed, "failed": failed, "checks": checks, "source": source, "blinks": per,
+    return {"pass": not failed, "failed": failed, "checks": checks, "source": source, "blinks": per, "edge": cut,
             "bta": {"lags": [round(x, 3) for x in lags][::3], "mean_deg": [round(x, 3) for x in bta][::3],
                     "peak_deg": round(bta_dev, 3), "control_deg": round(ctl_dev, 3)},
             "jitter": jit}

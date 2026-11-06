@@ -195,7 +195,8 @@ def samples(path: str, limits: dict | None = None) -> dict:
     spans = ST.blink_windows(t, s["closure"]) if s.get("closure") else []
     r = ST.check(t, h["pitch"], spans, h["yaw"], h["roll"], limits=limits, source="bones")
     return {"pass": r["pass"], "failed": r["failed"], "metrics": {c["name"]: c["metric"] for c in r["checks"]},
-            "checks": r["checks"], "blinks": r["blinks"], "bta": r["bta"]}
+            "checks": r["checks"], "blinks": r["blinks"], "edge": r["edge"], "bta": r["bta"],
+            "jitter": r["jitter"]}
 
 
 GATE_LINE_DEG = 0.6  # head.blink_nod_deg: the worst blink's pitch departure, both presenters, every shot
@@ -216,6 +217,10 @@ def gate(results: list, line: float = GATE_LINE_DEG, locked_line: float = GATE_L
         except (OSError, ValueError) as e:
             errors.append(f"{p}: {e}")
             continue
+        if d.get("samples"):  # qa.head_stability's out=: judge its samples afresh (the r5 box's first files
+            r = samples(p)    # carried no blinks from the op's clock bug; the samples were right)
+            fr = d["samples"]["frames"]
+            d = {**d, "blinks": r["blinks"], "bta": r["bta"], "frames": [fr[0], fr[-1]], "fps": d["samples"]["fps"]}
         blinks = d.get("blinks") or []
         if not blinks:
             errors.append(f"{Path(p).name}: no blinks measured")

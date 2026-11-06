@@ -884,21 +884,21 @@ def head_stability(*, sequence: str, label: str, component: str = "Face", bone: 
             face = comp if component == "Face" else component_of(label, "Face")
             closure.append(_curve_now(face, BLINK_CURVES))
     h = ST.from_bones(frames, fps, samples, [fwd.x, fwd.y, fwd.z])
+    t = [x - h["times"][0] for x in h["times"]]  # every time from here on is from the first sampled frame
     if blinks is not None:
         spans = [((a - frames[0]) / fps, (b - frames[0]) / fps) for a, b in blinks]
         source = "given"
-    else:
-        spans = ST.blink_windows(h["times"], closure)
+    else:  # r5 box: detected on the sequence's clock while judged from 0, every blink fell outside and was dropped
+        spans = ST.blink_windows(t, closure)
         source = "curves"
-    t = [x - h["times"][0] for x in h["times"]]
     r = ST.check(t, h["pitch"], spans, h["yaw"], h["roll"], limits=limits, source="bones")
     issues = stability_issues(r, label, fps, frames[0])
-    if not spans:
+    if not r["blinks"]:
         issues.append(issue("head.no_blinks", "warn",
                             f"no blink seen on {label} over f{frames[0]}-{frames[-1]} (blink curves {source}): the "
                             "blink checks did not run", fix="pass blinks=[[f0, f1], ...] (perf.py: blinks_<who>.json)",
                             subject=label))
-    res = _result(issues, {c["name"]: c["metric"] for c in r["checks"]}, blinks=r["blinks"], bta=r["bta"],
+    res = _result(issues, {c["name"]: c["metric"] for c in r["checks"]}, blinks=r["blinks"], edge=r["edge"], bta=r["bta"],
                   jitter=r["jitter"], axes=h.get("axes"), frames=[frames[0], frames[-1]], fps=fps,
                   blink_source=source, label=label, sequence=sequence)
     if out:
