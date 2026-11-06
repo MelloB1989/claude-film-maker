@@ -60,8 +60,10 @@ def mask():
     V = list(LU.convert_vector_list_to_array(pick(MQ.get_all_vertex_positions(face, False), "GeometryScriptVectorList")))
     N = list(LU.convert_vector_list_to_array(pick(unreal.GeometryScript_Normals.get_mesh_per_vertex_normals(face),
                                                   "GeometryScriptVectorList")))
-    UV = list(LU.convert_uv_list_to_array(pick(unreal.GeometryScript_UVs.get_mesh_per_vertex_uvs(face, 0),
-                                               "GeometryScriptUVList")))
+    # GetMeshPerVertexUVs: UE's camel-case splitter makes it get_mesh_per_vertex_u_vs (box, 06 Nov); either spelling
+    uvs = getattr(unreal.GeometryScript_UVs, "get_mesh_per_vertex_u_vs", None) or \
+        getattr(unreal.GeometryScript_UVs, "get_mesh_per_vertex_uvs")
+    UV = list(LU.convert_uv_list_to_array(pick(uvs(face, 0), "GeometryScriptUVList")))
     all_ids = getattr(MQ, "get_all_triangle_i_ds", None) or getattr(MQ, "get_all_triangle_ids")
     tids = list(LU.convert_index_list_to_array(pick(all_ids(face), "GeometryScriptIndexList")))
     tris = []
