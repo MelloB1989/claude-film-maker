@@ -212,6 +212,11 @@ def test_collar_hugging_vs_floating_vs_rolled():
     stray = GL.collar_stats(a + [0.0], r + [1.1], g + [5.3])  # one vertex near the axis does not make the ring
     assert stray["n"] == hug["n"] and stray["gap_cm"] == hug["gap_cm"]
     assert GL.collar_stats([0.0], [1.1], [5.3]) == {"n": 0, "too_few": 1}
+    # a small band (30 v) among many shoulder verts further out: the ring is still the band
+    a, r, g = ring(6.0, 0.2, n=15)
+    a3, r3, g3 = ring(9.0, 2.6, n=600)
+    small = GL.collar_stats(a + a3 + [0.0], r + r3 + [1.1], g + g3 + [5.3])
+    assert small["n"] == 30 and small["gap_cm"] <= 0.5
 
 
 def test_look_fails_a_floating_collar_hard():
