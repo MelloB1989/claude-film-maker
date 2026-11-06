@@ -43,6 +43,10 @@ def test_hair_lock_cvars_and_qa(tmp_path):
     for order in (("sat.json", "ed.json"), ("ed.json", "sat.json")):  # the editor's number beats the render's error
         g = GN.hair(str(tmp_path / "c.json"), str(tmp_path / "ok.yaml"), [str(tmp_path / n) for n in order])
         assert g["hair.cut_reach_pct"] == 1.07 and g["hair.cut_pop_ratio"] == 1.3 and g["hair.pop_reach_pct"] == 2.0
+    (tmp_path / "w.json").write_text(json.dumps({"ok": True, "result": {"gate": {"hair.pop_reach_pct": 4.0}}}))
+    (tmp_path / "cw.json").write_text(json.dumps({"ok": True, "result": {"pass": True, "problems": []}}))
+    g = GN.hair(str(tmp_path / "cw.json"), str(tmp_path / "ok.yaml"), [str(tmp_path / "w.json")])
+    assert g["hair.pop_reach_pct"] == 4.0 and g["hair.lock"]["value"] == 1  # film-ue op's wrapper unwrapped
     (tmp_path / "e2.json").write_text(json.dumps({"gate": {"hair.pop_reach_pct": {"value": None, "error": "x"}}}))
     g = GN.hair(str(tmp_path / "c.json"), str(tmp_path / "ok.yaml"), [str(tmp_path / "e2.json")])
     assert g["hair.pop_reach_pct"]["error"]  # an error alone stays an error

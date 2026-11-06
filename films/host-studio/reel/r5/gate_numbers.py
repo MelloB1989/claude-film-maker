@@ -116,6 +116,7 @@ def hair(check: str, yaml_path: str, qa_paths: list) -> dict:
     if c is None:
         g["hair.lock"] = _err(f"no groom.lock_check result at {check!r}")
     else:
+        c = c.get("result", c) if isinstance(c.get("result"), dict) else c  # film-ue op's wrapper
         c = c.get("check", c)  # groom.lock's result carries lock_check's under "check"
         g["hair.lock"] = {"value": int(bool(c.get("pass"))), "where": "the level, before the render",
                           "problems": c.get("problems", [])}
@@ -133,6 +134,8 @@ def hair(check: str, yaml_path: str, qa_paths: list) -> dict:
             for k in ("hair.cut_reach_pct", "hair.pop_reach_pct", "hair.cut_pop_ratio"):
                 g.setdefault(k, _err(f"no film-qa hair result at {p!r}"))
             continue
+        if isinstance(d.get("result"), dict):  # film-ue op's {"ok", "result": {...}}
+            d = d["result"]
         for k, v in (d.get("gate") or {}).items():
             # several results (render-side film-qa hair, the editor's qa.hair_continuity): a measured number beats
             # an error (the render matte saturates at night: hair.matte_saturated), and the worst number wins
