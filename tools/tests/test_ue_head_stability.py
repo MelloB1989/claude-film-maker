@@ -378,3 +378,25 @@ def test_a_blink_cut_by_the_end_of_the_samples_is_not_judged():
     r = ST.check(t, [(-8.0 * (x - 10.2) if x > 10.2 else 0.0) for x in t], ST.blink_windows(t, clos))
     assert r["pass"], r["failed"]
     assert len(r["edge"]) == 1 and len(r["blinks"]) == len(ONSETS)
+
+
+def test_a_blink_on_a_big_turn_is_the_turns_not_a_nod():
+    """r5 box: his return turn (-94 -> 0 deg in 16 frames) carried its gaze blink and dipped 2.9 deg in pitch, his face
+    flat: judged as the turn's path (head_turn_dip, a warning over 2 deg), not as a blink nod."""
+    t = C.grid(0, 10.5, RATE)
+    yaw = lambda x: C.move(x, 5.15, 0.6, -90.0, 0.0)  # noqa: E731
+    pitch = lambda x: dip(x, [5.15], 4.0, 0.6)  # noqa: E731
+    r, _ = judge(pitch, yaw_fn=yaw)
+    c = by_name(r)
+    assert c["blink_nod"]["pass"] and c["blink_locked"]["pass"], r["blinks"]
+    assert len(r["turns"]) == 1 and not c["head_turn_dip"]["pass"] and c["head_turn_dip"]["severity"] == "warn"
+    assert r["pass"]  # a warning does not fail
+
+
+def test_off_screen_blinks_are_listed_not_judged():
+    t = C.grid(0, 10.5, RATE)
+    spans = ST.blink_windows(t, [blink_closure(x, ONSETS) for x in t])
+    pitch = [dip(x, ONSETS[3:5], 2.0) for x in t]
+    assert not ST.check(t, pitch, spans)["pass"]
+    r = ST.check(t, pitch, spans, seen=[(0.0, 4.5), (7.5, 10.5)])
+    assert r["pass"] and len(r["unseen"]) == 2 and r["unseen"][0]["nod_deg"] < -1.5
