@@ -174,6 +174,30 @@ def secondary_motion(garment_frames: list, body_frames: list) -> dict:
     return {"n": n, "ratio": round(math.sqrt(num / den), 4), "body_rms_cm": round(math.sqrt(den / n), 4)}
 
 
+COLLAR_GAP_CM = 0.8   # the orchestrator, round 5: Fit5's collar stood off his neck like a cowl
+COLLAR_SPREAD_CM = 1.5  # a hugging band is one wall thick (~0.3 cm) radially; a rolled/folded ring much more
+
+
+def collar_stats(axial: list, radial: list, gap: list, *, window=(-8.0, 4.0), ring_cm: float = 2.0,
+                 band_cm: float = 4.0) -> dict:
+    """The collar band round the neck at one frame. Per garment vertex: `axial` = its height along the neck axis
+    from neck_01 (cm, + towards the head), `radial` = its distance from that axis, `gap` = its distance to the skin
+    (face or body). In the axial window, the RING is the innermost garment (radial within ring_cm of the smallest)
+    and the BAND everything within band_cm of it. Returns {n, gap_cm: the ring's p75 distance to the skin,
+    spread_cm: the band's radial p90 - p10 (a rolled or folded collar is thick), roll: gap over COLLAR_GAP_CM or
+    spread over COLLAR_SPREAD_CM}."""
+    pts = [(r, g) for a, r, g in zip(axial, radial, gap) if window[0] <= a <= window[1] and g == g]
+    if not pts:
+        return {"n": 0}
+    rmin = min(r for r, _ in pts)
+    ring = [g for r, g in pts if r <= rmin + ring_cm]
+    band = [r for r, _ in pts if r <= rmin + band_cm]
+    out = {"n": len(ring), "gap_cm": round(percentile(ring, 0.75), 3),
+           "spread_cm": round(percentile(band, 0.9) - percentile(band, 0.1), 3)}
+    out["roll"] = bool(out["gap_cm"] > COLLAR_GAP_CM or out["spread_cm"] > COLLAR_SPREAD_CM)
+    return out
+
+
 def wpo_inflate_cm(params: dict) -> float:
     """The largest push a garment material's inflate parameters make (cm): FM_Inflate + FM_Neck + FM_Patch, as
     mh.cloth_inflate and the round-4 neck patch named them."""
@@ -234,6 +258,21 @@ def look(m: dict, subject: str = "", *, ramps: dict | None = None, wpo_max_cm: f
                                 f"{subject}: {k} {t['value']:g} reads as armor (cloth {t['cloth']}, armor "
                                 f"{t['armor']}; score {t['score']})", FIX[k], subject=subject, value=t["value"],
                                 expected=t["cloth"]))
+    col = m.get("collar") or {}
+    if col.get("frames"):
+        terms["collar_gap"] = {"value": col["gap_cm"], "score": None, "weight": 0.0, "cloth": 0.3,
+                               "armor": COLLAR_GAP_CM}
+        terms["collar_roll"] = {"value": col["roll_frames"], "score": None, "weight": 0.0, "cloth": 0, "armor": 1}
+        if col["gap_cm"] > COLLAR_GAP_CM or col["roll_frames"] > 0:
+            hard = True
+            issues.append(issue("garment.collar", "fail",
+                                f"{subject}: the collar stands off the neck: gap {col['gap_cm']} cm (limit "
+                                f"{COLLAR_GAP_CM}), rolled/folded in {col['roll_frames']} of {col['frames']} frames "
+                                f"(band spread worst {col.get('spread_cm')} cm, limit {COLLAR_SPREAD_CM})",
+                                "keep the collar band at the garment's original shape (garment-fit --keep-regions "
+                                "collar) and clear the neck with the head hidden-face-map shrink (neck_backstop), "
+                                "never with collar ease", subject=subject, value=col["gap_cm"],
+                                expected=COLLAR_GAP_CM))
     verdict = "armor" if hard or (index is not None and index >= fail_at) else \
         "borderline" if index is not None and index >= warn_at else "cloth"
     if verdict == "armor" and not hard:
