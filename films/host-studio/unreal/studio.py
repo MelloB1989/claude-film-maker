@@ -524,7 +524,7 @@ if unreal.EditorAssetLibrary.does_asset_exist(HIS_TROUSERS):
     his_part("Trousers").set_editor_property("lighting_channels", his_part("Body").get_editor_property("lighting_channels"))
     def his_garment():  # the default garment (tee + shorts): "SkeletalMesh" on Trey, by elimination on another build
         return his_part("SkeletalMesh") or next((c for c in L.actor("Host").get_components_by_class(
-            unreal.SkeletalMeshComponent) if c.get_name() not in ("Body", "Face", "Trousers")), None)
+            unreal.SkeletalMeshComponent) if c.get_name() not in ("Body", "Face", "Trousers", "Tee")), None)
 
     if his_garment() is not None:
         for i, slot_ in enumerate(his_garment().get_material_slot_names()):  # the shorts: four slots, one name

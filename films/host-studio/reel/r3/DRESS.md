@@ -144,3 +144,9 @@ agent-09's gate measures them.
 6. `clip_pass.py` with TAG='after' for Host and Presenter (DIAG=False), then on the box
    `uv run --with pillow python clip_sheet.py <Host_before4> <Host_after> --out /srv/ue/reel/r4/review/clip_host.jpg`
    -> s3 private/renders/r4/review/ (KMS).
+
+## Round 5 (agent-02): the WPO tee is replaced
+
+The operator read the ClothOp4 tee as "heavy armor". Round 5 refits the tee's geometry (real ease, his face in the
+collider, no WPO) and dresses it as its own `Tee` component: `reel/r5/garment.md`. `host_swap.py` now defaults to
+INFLATE_CM 0; studio.py's default-garment lookup skips `Tee`.
