@@ -390,8 +390,15 @@ def calibrate(*, label: str, face_component: str = "Face", body_component: str =
     raw = {}
     last = rest
 
+    written = set()
+
     def apply(curves):
-        _write(a, {**heads, **curves})
+        # every curve an earlier probe wrote goes back to 0: _write only replaces the curves it is given, and the eye
+        # loop left eyeLook{Left,Right,Up,Down}L all at 1.0, cancelling each other (r4, box: Right read 4.6 deg,
+        # Down 11.5, and the eye table's left eye came out offset by a full turn)
+        zero_rest = {n: ([0.0, 2.0], [0.0, 0.0]) for n in written - set(curves) - set(heads)}
+        written.update(curves)
+        _write(a, {**heads, **zero_rest, **curves})
         EAL.save_asset(anim_path)
 
     def settled(m, bone):
