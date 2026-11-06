@@ -71,6 +71,9 @@ def test_gate_numbers_contract(tmp_path, monkeypatch):
     assert g["garment.wpo_cm"]["value"] == 2.66 and g["garment.armor_index"]["value"] == 0.71
     assert g["garment.collar_gap_cm"]["value"] == 1.9 and g["garment.collar_roll"]["value"] == 3
     assert g["garment.hem_flare_ratio"]["value"] == 1.21
+    unm = dict(look, terms=dict(look["terms"], collar_roll={"value": None, "unmeasured_frames": 2}))
+    r = G.gate_numbers(clip, unm)["gate"]["garment.collar_roll"]
+    assert r["value"] is None and "not measured in 2 frames" in r["error"]  # refused, never a silent 0
     nosil = {"metrics": {"worst": {k: v for k, v in clip["metrics"]["worst"].items() if k != "silhouette"}}}
     assert G.gate_numbers(nosil, look)["gate"]["garment.silhouette_pct"]["error"]
     assert G.gate_numbers(nosil, look, first_pass=True)["gate"]["garment.silhouette_pct"]["value"] == 0.0

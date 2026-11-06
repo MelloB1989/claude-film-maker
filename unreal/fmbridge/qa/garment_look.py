@@ -237,8 +237,11 @@ def collar_stats(axial: list, radial: list, gap: list, *, window=(-8.0, 4.0), ri
         top = max(a for a, r, _ in inw if rmin - 0.5 <= r <= rmin + ring_cm)  # the ring's top: the collar's edge
         sp, cells, where = local_spread([a for a, _, _ in inw], [r for _, r, _ in inw], [g for _, _, g in inw], top,
                                         band_cm=band_cm)
-        out.update({"spread_window_cm": out["spread_cm"], "spread_cm": round(sp, 3), "spread_cells": cells,
-                    "spread_where": where})
+        out.update({"spread_window_cm": out["spread_cm"], "spread_cm": round(sp, 3) if cells else None,
+                    "spread_cells": cells, "spread_where": where})
+        if not cells:  # no place on the band had enough verts: NOT measured (never a silent 0 that passes)
+            out["roll"] = True if out["gap_cm"] > COLLAR_GAP_CM else None
+            return out
     out["roll"] = bool(out["gap_cm"] > COLLAR_GAP_CM or out["spread_cm"] > COLLAR_SPREAD_CM)
     return out
 
@@ -325,7 +328,16 @@ def look(m: dict, subject: str = "", *, ramps: dict | None = None, wpo_max_cm: f
     if col.get("frames"):
         terms["collar_gap"] = {"value": col["gap_cm"], "score": None, "weight": 0.0, "cloth": 0.3,
                                "armor": COLLAR_GAP_CM}
-        terms["collar_roll"] = {"value": col["roll_frames"], "score": None, "weight": 0.0, "cloth": 0, "armor": 1}
+        unm = col.get("roll_unmeasured") or 0
+        terms["collar_roll"] = {"value": None if unm else col["roll_frames"], "score": None, "weight": 0.0, "cloth": 0,
+                                "armor": 1, "unmeasured_frames": unm}
+        if unm:
+            hard = True
+            issues.append(issue("garment.collar_roll", "fail",
+                                f"{subject}: the collar's roll was NOT measured in {unm} of {col['frames']} frames (no "
+                                f"place on the band's top {COLLAR_ROLL_DEPTH_CM} cm had 4 garment verts)",
+                                "check the collar band is where qa.garment_look looks (neck_01 -> head axis), or the "
+                                "garment's vertex density there", subject=subject, value=None, expected=0))
         if col["gap_cm"] > COLLAR_GAP_CM or col["roll_frames"] > 0:
             hard = True
             issues.append(issue("garment.collar", "fail",
