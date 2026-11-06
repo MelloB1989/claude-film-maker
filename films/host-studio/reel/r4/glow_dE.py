@@ -36,7 +36,7 @@ result = c.get_editor_property("attenuation_radius")
 """
 
 
-def render(out: str, width: int) -> dict:
+def render(out: str, width: int, tags: list) -> dict:
     from filmtools.unreal import client
 
     def ok(res):
@@ -45,7 +45,8 @@ def render(out: str, width: int) -> dict:
         return res.get("result")
     rep = {}
     try:
-        for tag, r in RADII.items():
+        for tag in tags:  # "old", "new", or "new_a"/"new_b" for the noise floor (the same light twice)
+            r = RADII[tag.split("_")[0]]
             got = ok(client.exec_code(f"R = {r}\n" + RADIUS))
             for s in SET:
                 f = (s.start + s.end) // 2
@@ -69,12 +70,12 @@ def lab(rgb):
     return np.stack([116 * f[..., 1] - 16, 500 * (f[..., 0] - f[..., 1]), 200 * (f[..., 1] - f[..., 2])], -1)
 
 
-def compare(d: str) -> dict:
+def compare(d: str, a_tag: str = "old", b_tag: str = "new") -> dict:
     import numpy as np
     from PIL import Image
     res = {}
-    for old in sorted(Path(d).glob("*_old.png")):
-        new = old.with_name(old.name.replace("_old", "_new"))
+    for old in sorted(Path(d).glob(f"*_{a_tag}.png")):
+        new = old.with_name(old.name.replace(f"_{a_tag}.png", f"_{b_tag}.png"))
         if not new.exists():
             continue
         a = lab(np.asarray(Image.open(old).convert("RGB"), np.float32))
@@ -90,7 +91,7 @@ def compare(d: str) -> dict:
                     "visible": bool(blk.max() > VISIBLE)}
     out = {"shots": res, "rerender": [k for k, v in res.items() if v["visible"]], "block_px": BLOCK,
            "visible_dE": VISIBLE}
-    (Path(d) / "dE.json").write_text(json.dumps(out, indent=1))
+    (Path(d) / f"dE_{a_tag}_{b_tag}.json").write_text(json.dumps(out, indent=1))
     return out
 
 
@@ -100,10 +101,13 @@ def main() -> None:
     r = sub.add_parser("render")
     r.add_argument("--out", required=True)
     r.add_argument("--width", type=int, default=1920)
+    r.add_argument("--tags", default="old,new", help="new_a,new_b: the same light twice, the render's own noise")
     c = sub.add_parser("compare")
     c.add_argument("dir")
+    c.add_argument("--pair", default="old,new")
     a = ap.parse_args()
-    print(json.dumps(render(a.out, a.width) if a.cmd == "render" else compare(a.dir), indent=1))
+    print(json.dumps(render(a.out, a.width, a.tags.split(",")) if a.cmd == "render"
+                     else compare(a.dir, *a.pair.split(",")), indent=1))
 
 
 if __name__ == "__main__":
