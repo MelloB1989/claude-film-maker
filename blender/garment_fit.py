@@ -589,9 +589,13 @@ def main():
     if a.neck_ring_cm > 0:
         G0, _ = world_cm(sc.garment)
         neck, head = (bone_cm(sc.arm, b) for b in ("neck_01", "head"))
-        ring = GF.neck_ring(G0, neck, head, ring_cm=a.neck_ring_cm) & fit_mask(sc.garment, a.only_slots)
+        ring, rst = GF.neck_ring(G0, neck, head, ring_cm=a.neck_ring_cm, mask=fit_mask(sc.garment, a.only_slots))
         log(f"neck ring: {int(ring.sum())} verts join the collar region "
-            f"(the bone-weight collar had {int((region == GF.REGIONS.index('collar')).sum())})")
+            f"(the bone-weight collar had {int((region == GF.REGIONS.index('collar')).sum())}); neck_01 "
+            f"{np.round(neck, 1).tolist()} head {np.round(head, 1).tolist()} cm, {rst}")
+        if ring.sum() < 50:
+            raise SystemExit(f"--neck-ring-cm: only {int(ring.sum())} verts in the neck ring ({rst}): the neck axis "
+                             f"does not run through the garment's opening (bones vs garment space?)")
         region = np.where(ring, GF.REGIONS.index("collar"), region)
     target = GF.targets(region, ease_over)
     slack = a.slack if a.collar_slack is None else np.where(region == GF.REGIONS.index("collar"), a.collar_slack,

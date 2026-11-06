@@ -163,7 +163,7 @@ def command(a, blender: str) -> list:
     cmd = [blender, "-b", "--factory-startup", "--python-exit-code", "2", "-P", str(SCRIPT), "--", "--src", d["src"]]
     for k in PASS_THROUGH:
         v = d.get(k)
-        if v in (None, "", False):
+        if v is None or v is False or v == "":  # (not `v in (..., False)`: 0.0 == False dropped --collar-slack 0)
             continue
         cmd += ["--" + k.replace("_", "-")] + ([] if v is True else [str(v)])
     return cmd

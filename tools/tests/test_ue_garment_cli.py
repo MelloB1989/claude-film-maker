@@ -16,6 +16,8 @@ def test_command_passes_only_given_knobs():
     assert tail == ["--garment", "tee", "--out", "/o", "--ease", '{"chest": 1.8}', "--drape-frames", "40"]
     cmd = G.command({"src": "/s", "morph_ref": True, "match_cm": 1.2}, "/b/blender")
     assert cmd[-3:] == ["--morph-ref", "--match-cm", "1.2"]
+    cmd = G.command({"src": "/s", "collar_slack": 0.0, "neck_ring_cm": 2.0}, "/b/blender")
+    assert cmd[-4:] == ["--neck-ring-cm", "2.0", "--collar-slack", "0.0"]  # a 0 knob is given, not dropped
 
 
 REP = {"before": {"all": {"median": 0.4, "spread": 0.3, "inside": 0.02}},
