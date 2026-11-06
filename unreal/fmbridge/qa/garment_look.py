@@ -175,6 +175,7 @@ def secondary_motion(garment_frames: list, body_frames: list) -> dict:
 
 
 COLLAR_GAP_CM = 0.8   # the orchestrator, round 5: Fit5's collar stood off his neck like a cowl
+COLLAR_MIN_N = 10  # a ring of fewer garment verts is not a collar band (a stray vertex): the frame is not judged
 COLLAR_SPREAD_CM = 1.5  # a hugging band is one wall thick (~0.3 cm) radially; a rolled/folded ring much more
 
 
@@ -189,9 +190,13 @@ def collar_stats(axial: list, radial: list, gap: list, *, window=(-8.0, 4.0), ri
     pts = [(r, g) for a, r, g in zip(axial, radial, gap) if window[0] <= a <= window[1] and g == g]
     if not pts:
         return {"n": 0}
-    rmin = min(r for r, _ in pts)
-    ring = [g for r, g in pts if r <= rmin + ring_cm]
-    band = [r for r, _ in pts if r <= rmin + band_cm]
+    # the innermost radius from the 2nd percentile, not the min: one stray vertex near the axis made a 1-vert "ring"
+    # (round 5b, Epic's tee at f960: n 1, gap 5.289 while every other frame read 0.15-0.20)
+    rmin = percentile([r for r, _ in pts], 0.02)
+    ring = [g for r, g in pts if rmin - 0.5 <= r <= rmin + ring_cm]
+    if len(ring) < COLLAR_MIN_N:
+        return {"n": 0, "too_few": len(ring)}
+    band = [r for r, _ in pts if rmin - 0.5 <= r <= rmin + band_cm]
     out = {"n": len(ring), "gap_cm": round(percentile(ring, 0.75), 3),
            "spread_cm": round(percentile(band, 0.9) - percentile(band, 0.1), 3)}
     out["roll"] = bool(out["gap_cm"] > COLLAR_GAP_CM or out["spread_cm"] > COLLAR_SPREAD_CM)
