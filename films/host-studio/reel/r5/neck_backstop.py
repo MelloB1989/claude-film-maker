@@ -43,6 +43,8 @@ SHRINK_CM = float(globals().get("SHRINK_CM", 1.5))
 SIZE = int(globals().get("SIZE", 1024))
 OUT = globals().get("OUT") or "/srv/ue/reel/r5/garment/neck_hidden.png"
 DEST = "/Game/Host/Fit"
+TEX_NAME = globals().get("TEX_NAME", "T_Host_NeckHidden")  # round 5b loop 5: a re-import over the same texture was
+# not seen by mh.build (the result equalled loop 2's to the vertex); a NEW name, set on the WI, forces it
 WI = globals().get("WI", "")
 
 AU, SP, MQ, LU = (unreal.GeometryScript_AssetUtils, unreal.GeometryScript_MeshSpatial, unreal.GeometryScript_MeshQueries,
@@ -234,14 +236,14 @@ def apply():
     t = unreal.AssetImportTask()
     t.set_editor_property("filename", OUT)
     t.set_editor_property("destination_path", DEST)
-    t.set_editor_property("destination_name", "T_Host_NeckHidden")
+    t.set_editor_property("destination_name", TEX_NAME)
     for k in ("automated", "replace_existing", "save"):
         t.set_editor_property(k, True)
     unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks([t])
-    tex = EAL.load_asset(f"{DEST}/T_Host_NeckHidden")
+    tex = EAL.load_asset(f"{DEST}/{TEX_NAME}")
     tex.set_editor_property("srgb", False)
     tex.set_editor_property("compression_settings", unreal.TextureCompressionSettings.TC_GRAYSCALE)
-    EAL.save_asset(f"{DEST}/T_Host_NeckHidden")
+    EAL.save_asset(f"{DEST}/{TEX_NAME}")
     dst = f"{DEST}/WI_Host_DefaultGarment_Neck"
     if not EAL.does_asset_exist(dst):
         EAL.duplicate_asset(WI, dst)

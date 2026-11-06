@@ -148,3 +148,151 @@ Times marked ~ were written from memory, not read off a clock (corrected at 12:1
   stills, previews, S16 final), `private/r5tree_end` (the box tree), `private/renders/r5/review/` (the previews and the
   S16 still), the orchestrator's outage snapshots (`project_r5_snapshot`, `renders/r5/box_r5_snap`, `r5tree_snapshot`).
 - Kali probes: `/tmp/fleet-agent-06-ue/r5/probes/` (also copied in part to the shared t1-probes folder).
+
+## Round 5b (06 Nov, the finishing GPU session)
+
+Box driver: agent-06. Orchestrator: cc-64d05f6e. Box i-0284d544cdf14905e as **gr6.4xlarge** (L4, 128 GB; no g6.4xlarge
+capacity), up 16:08 UTC (orchestrator), self-terminate 20:10. Trees `cb3109b6` (film/host-studio 4b8f6463 +
+r5-film-integrate d8d5b26e), driven from kali as in round 5 (branch `fleet/agent-06/r5b`).
+
+| UTC | What |
+|---|---|
+| 16:10 | Trees → cb3109b6 (full archive to kali + `/srv/ue/r5tree`). doctor OK (5.8.4, Vulkan SM6, 371 ops, 163 GB free); `install` 157 files; `ops.broken` `{}`; FMCloth True |
+| 16:12 | **Fit8 A** (collar ease 0.4) and **Fit8 B** (`--keep-regions collar --keep-ramp-cm 3`, collar out of blend) in Blender on the box in parallel (Fit7's args from out13's report). `garment-fit` must run ON the box (reads --src locally): `python3 -c 'from filmtools.unreal.cli import main' garment-fit …` from `/srv/ue/r5tree/tools` (no uv there) |
+| 16:15 | Studio open: look_check ok (no fix), lock_check pass, Host wears SKM_Host_Tee_Fit7 + SKM_Host_Trousers_Op. **Leaders had dropped** (Tee/Trousers leader None after the editor start): mh.dress + dress_him → leaders OK (Body), saved |
+| 16:17 | probe_cam --check **13/13 OK**; framing.py rc 0 (kept in kali `b/probe_check.txt`, `b/framing.txt`) |
+| 16:18 | Fit8 A: rest in range (ease 1.749; **collar median 0.96**, p10 0.58 / p90 1.35; chest 1.68, waist 2.63, hem 2.10, sleeve 1.47); Fit8 B: ease 1.831, collar kept, collar@face 0 in every anim. **Both FAIL the static pose test only** (armpit/chest/sleeve 66-114 v ≤ 2.3 cm, the same set as Fit7, also `pass: false`). agent-02 + orchestrator: import both (round-5 deviation; qa.clip on the render is the judge) |
+| 16:22 | Snapshot `/Game/Host/Snap/BP_Host_Op_r5b_preFit8` + on disk `/srv/ue/reel/r5/b/snap/BP_Host_Op.preFit8.uasset`. Imported **SKM_Host_Tee_Fit8B** (bounds 32.5/20.3/43.7) then **_Fit8A** (32.5/20.3/45.0); new assets, Fit7 untouched. Spare A2 (collar 0.0, min-ease 0.3 → out14A2) on CPU |
+| 16:25 | **Fit8B gate: FAIL**: collar_gap 5.289, roll 6/6, **neck_px 77 (S15 f1128**; S13 1-7 px, S15 29-77 px at every frame), Face>tee 0.025, Trousers>tee 0, Body>tee 0.00046, armor 0.267, wpo 0, hem 6.1°. Dropped, no backstop (agent-02: the kept band stays in the export's space, not his skeleton: Fit6's 5.47 again) |
+| 16:27 | **Fit8A gate: FAIL** collar_gap **1.616** (= Fit7 to the mm), roll 6/6; neck_px 0, Trousers>tee 0, Body>tee 0.00046, armor 0.237 (Fit7 read 0.006; agent-02: the ref-body capture, under the < 0.5 line), wpo 0, hem 6.1°. A2 (collar 0.0, min-ease 0.3) finished rc 1, not imported (superseded by A3) |
+| 16:30 | Trees → 0a47c564 (r5-film-integrate 144024a5: gate_numbers.py, naturalize `--no-turn-blinks`); install 157, ops.broken {}. Head chain waits for agent-01's turn_by=bones (5e771ce9) |
+| 16:35 | slotdiff Fit7 vs Fit8A: the 803-v innermost neck ring (all slot 0 Shirt) moved 0.006 cm median: the fit's "collar" region (n 291) is not the ring qa.garment_look measures. **Fit8A3** (`--slack 0 --passes 8`, other regions pinned at Fit7's medians): collar median 1.07 (looser than A), pose tests FAIL as before; imported as SKM_Host_Tee_Fit8A3 and gated |
+| 16:31 | **Fit8A3 gate: FAIL**: collar_gap 1.733, roll 6/6, **neck_px 3 (S15 f1150)**, Body>tee 0.00021, Trousers>tee 0, armor 0.254, wpo 0, hem 6.2°. Host re-dressed in **Fit7** + Trousers_Op (leaders OK, saved) |
+| 16:32 | **Orchestrator: preview S13/S15/S17 now in Fit7** (to judge the 1.62 cm / roll 6/6 collar by eye; his S15 head turn is the old one, known open) |
+| 16:33-16:36 | S13 preview f1000-1059 (final quality, 161 s): probe_cam 13/13, framing ok, leaders OK, groom.lock pass before it. `film-ue apply` says "NOT converged: 60 frames left" although all 60 frames are written (frames = [A, B) end-exclusive): the runner now counts the PNGs instead (`b/post.sh` on the box: count → `gate_numbers ssim` (box `~/.local/bin/uv`) → mp4 with mix.wav at A/24 s → private/review, KMS) |
+| 16:35 | Fit9 R1/R2 (agent-02 455c320f, `--neck-ring-cm 2 --collar-slack 0`): **"neck ring: 1 verts"** and `collar_slack None` in the report (not passed through) → R1 = R2, collar med 1.02; inner ring moved 0.066 cm. Stopped, not imported; back to agent-02 |
+| 16:46 | Fit7 previews done (as above): render_matches_r4 S13 0.938, S15 0.766, S17 0.892 (line 0.5) → `private/renders/r5/review/S1{3,5,7}_f…_preview.mp4`. Fit9 R2 gate (fixed ring, 683 v, collar med 0.37): gap 0.637, roll 6/6, neck_px 5 (S15 f1150) |
+| 16:48 | **Orchestrator: Fit7 FAILS by eye** (two dark ovals on his chest, a hood-like collar, a near-white tee): the Blender-fit tee is out for tonight. **Path (iv)**: MetaHuman's own default garment, WPO 0, + the neck backstop (6646f917) in ONE add_item + ONE build; Fit9 skipped |
+| 16:49 | Snapshots `/Game/Host/Snap/{BP_Host_Op,Host_Op}_snap_r5b` + `.uasset` copies (`/srv/ue/reel/r5/b/snap2`). The 14:34 mask (Epic's tee, covered 1160) had **79,431 px at 0** (MaxCull 0 would CULL them): floored to 1/255 as 6646f917 draws it (original `neck_hidden.r5-1435.png`). apply read_back: max_cull 0.0, min_keep 0.9, shrink 1.5 |
+| 16:50-16:53 | `mh.add_item Outfits=WI_Host_DefaultGarment_Neck` + `mh.build` (129 s, ok); **the editor CRASHED in host_swap** (texture streaming on a stale skinned asset: `KnownSkinnedAsset == CurrentSkinnedAsset` ensure, then an Array index assert). After the restart: BP has Body, Face, Host_Op_Outfits, grooms Hair/Eyebrows/Fuzz/Eyelashes/Mustache (Beard none); the stale Fit9R2 `Tee` component removed; the default garment's Shirt slots were still `M_FM_Hidden` (old hide_slots) → set back to the assembled MI; host_swap (INFLATE 0, op colour), leaders pass |
+| 16:58 | `perf.py calibrate --who him` (turn_by=bones, b2356cf0): **"no local axis of Body.head turns Host's head"** (every Body bone axis ~2.3-3.0° pitch, ~0 yaw). The Face IS led (Face/Body head + neck_01 equal to 0.001 cm at f1170; same setup as hers). agent-01/04: curve path |
+| 17:05 | **Garment gate (iv)**: collar gap 0.15-0.20 at f1000-1397 (5.289 at f960 = one stray rim vert, fixed by agent-02 923d8b6a), roll 6/6 (band spread), wpo 0, Body>tee 7e-05, Trousers>tee 0, armor 0.329, hem 7.8°; **neck_px 296 (S15 f1128)**. **Cause: the 16:52 build was never saved** (crash): BP_Host_Op, the face mesh and Host_Op_Outfits on disk are 15:17's; only Host_Op (character, with the Neck WI) saved at 16:53 → no shrink live |
+| 17:06-17:12 | `film-ue op perf.calibrate label=Host turn_by=auto`: turn_on Face, yaw_gain 1.0, **turn_strength 1.041** (round 5: ~0.34), fresh yaw_table (old file `.r5`). naturalize `--no-turn-blinks` → restage → sync → gaze → place: **looks pass** (him S15 +0.6, S17 +0.8; her +0.2, +1.0); **head: him blink_nod 0.0, blink_locked 0.084, head_buzz 0.047 flagged**; her 0.0 / 0.265; lips placed in sync. dress_him, leaders, lock, saved |
+| 17:13 | Orchestrator: render S13/S15/S17 previews AS-IS (judge all but the neck); neck fix in parallel (agent-02 50f8566a: RAMP 1, EDGE_W 0.3, REACH 5, SHRINK 3.0; build, save the assets BEFORE level work) |
+| 17:13-17:24 | **(iv) previews AS-IS** (`…/review/S1{3,5,7}_f…_preview_iv.mp4`; render_matches_r4 S13 0.972, S15 0.798, S17 0.978). **Orchestrator: PASS by eye except the small patch at the left of his neckline** (charcoal cotton crew-neck, collar right, no armour/flare; hair, mustache, her good) |
+| 17:23 | Neck fix (agent-02 50f8566a): mask TEE='SkeletalMesh' RAMP 1.0 EDGE_W 0.3 REACH 5 → covered 1160, edge 89, full_shrink 1049; apply SHRINK 3.0 (read_back ok). **mh.build SKIPPED** ("changed": false: it thinks the BP is up to date) → `mh.build force=true` 128 s; `assets.save folder=/Game/Host` BEFORE any level step, level.open, host_swap: **no crash** this time |
+| 17:27-17:35 | shrink_live by_surface (agent-02 52f502d8): **LIVE**, 1129 face verts moved > 0.5 cm, max 2.99, z 143.9-153.2 (by index: the build reorders the face's verts). Restage → sync → gaze → place → looks (unchanged) → head (unchanged) → lips in sync → dress_him, lock, save. **Editor neck pass: neck_px 296 → 9**: S13/S17/S18 0; S15 4-9 px ≤ 0.91 cm at f1082/1128/1175/1198 (the collar edge, where EDGE_W 0.3 × 3 cm = 0.9 cm). Collar: agent-02's 923d8b6a misreads the band (2.6, n ~185); the real reading is 0.15-0.20 |
+| 17:35 | 8 set shots (f0000-0959) copied from `r3/final_d` into `r5/final` (1080 frames with S16) |
+| 17:40 | Neck loop 2 (agent-02): EDGE_W 0.7, REACH 6.0, SHRINK 3.0, RAMP 1.0 → build force → save → reopen → swap → restage chain → pass |
+| 17:44-17:46 | Neck loop 2 (EDGE_W 0.7, REACH 6): **neck_px 3** (S15 f1150 1, f1152 3, f1175 3 px ≤ 0.5 cm); S13/S17/S18 0. S15 preview (whole shot, loop 2) + 400 % crops → orchestrator: no skin through by eye |
+| 17:56-18:04 | Loop 3 (DILATE 1.5/0.3): **worse**, neck_px 19 (the shrunk visible skin above the line loses its rim columns). Loop 2's mask kept (`neck_hidden.loop2.png`) |
+| 17:55 | **Orchestrator: her GREY PATCH** on her white top (S15 f1166-1199). Editor-side stills could not isolate it: `75-still.yaml` loads Studio from disk and the sequence drives visibility, so editor visibility / hidden-in-game toggles (and later a saved-level toggle) never reach the render (pixel-identical outputs). Her `SKM_Presenter_Overshirt` was 127.7 MB (round 5's cloth data still inside) vs 32.3 MB in `project_r4_snapshot` |
+| 18:08 | Restore window: level saved, `film-ue editor stop`, round-4 overshirt asset copied in (r5 copy kept at `/srv/ue/reel/r5/b/snap4`), loop 2's mask back, editor start, lock, her leaders; cloth.describe: Overshirt clothing [] (was Cloth_Overshirt), all skinned_only. His loop-2 build + re-dress + head chain: neck_px 3 reproduced |
+| 18:09-18:23 | Loop 4 (agent-02 mask_seams, CPU): 83 neck verts split across UV seams (confirmed), but redraw/pad/consistent/scale 4 either left 12-13 split or shrank 934-1494 visible verts: NO-GO. S15 goes with loop 2 |
+| 18:20-18:51 | **Finals** (r3/30-final, out `/srv/ue/reel/r5/final`, probe 13/13 + framing + leaders + groom.lock/lock_check before each job): S16 re-render 389 s, S13 301 s, S15 407 s (warmup_engine 64), **S17+S18 ONE job** 703 s. Trap: S16's `overwrite=true` DELETED every other frame in final/ (the copied set shots): **tool item: a final render must never delete frames outside its range**; set shots + V01's 12 handle frames re-copied from r3/final_d (1584 frames = round 4's) |
+| 18:44 | S15 final neck crops (fixed box, nearest x4) r5 vs r4 → orchestrator: no skin through, BUT a ragged lip + dark crevice at the neck's lower edge in his sharp frames (f1085/1100/1128); S13 too (a see-through gap at the collar opening). S15/S13 do not pass as rendered |
+| 18:52-19:10 | Post-finals on the box CPU (`b/postfinals_box.sh`): the box needs its own film-ue config for editor-driven tools (`/srv/ue/reel/r5/b/conf/film-ue.json`, `transport: local`). final_qa with the cut PASS; shot.cameras_ok 1 (13/13); render_matches_r4 0.806; hair: cut_pop_ratio **1.372** (round 4 2.57; S17+S18 as one job fixed the 01:00 pop), cut_reach 1.96, pop_reach 8.93 (editor S15 f1082, pre-existing start tilt, ruled not a blocker); settle S15 12.3 = round 4's 13.8 (her start tilt-in is pre-existing; agent-04's place fix b22f3372 removes it). **Candidate cuts** 65 s + 45 s (captions on the vo_sep cues) → `private/renders/r5/review/candidate_unsigned/` (UNSIGNED) |
+| 18:53 | Open-edge check (b07e8fd1): **shrunk_on_open_edge 92/92**: the shrink pulls the face mesh's open lower edge off the body = the tear. Loop 5 (BOUND 2.0, RAMP 2.5, EDGE_W 0) and 5b (new texture name) builds ran but the face = loop 2 (1133 moved, z 144); mask_diff: the loop-5 PNG ≈ loop 2 (BOUND not in the PNG) |
+| 19:10 | Garment re-run with the collar roll fix (main b8631197) and silhouette vs round 4's `r4/clip/Host_after`: silhouette_pct 2.66, collar gap 2.2-2.4 on every frame, roll 6/6: the 3 cm shrink pulls the neck ~2.3 cm off the collar (orchestrator) |
+| 19:24-19:38 | **Loop 6** (agent-02 mask RAMP 1, EDGE_W 0, BOUND 2.0 + the orchestrator's SHRINK 1.2, texture T_Host_NeckHidden6): the build took (shrink_live max 1.195, lowest z 144.6) but **neck_px 113** (S15 f1128; S15 37-113 px ≤ 1.39 cm; S13/S17/S18 0), collar gap 1.21-1.38, roll 6/6. **Neck HOLD for round 6** (the root fix is the fit) |
+| 19:16-19:20 | Lips render on the candidate cut (box, agent-01's steps): **all 6 lines fail** (him L1 +14.6, L2 +3.9, L4a +12.3; her L3a −7.6, L3b +3.3, L4b −15.5 f), and the round-4 control fails too (L1 +6.6, L2 +17.0, L4a +12.4); curve gate items pass (lag 0.8, track_r 0.972, silence 0.001). The orchestrator's eye: onsets 0-2 f. With agent-01 |
+| 19:13 | Her asset diff vs round 4 (size): only Studio.umap and SEQ_Reel differ; every mesh/material/physics/clothing asset of hers = round 4. **Her grey patch persists in the candidate (S17 f1350, both sides of her chest)**: render-side batch (sequence visibility keys) at S17 f1350 |
+
+### Gate v2 at the end of round 5b (agent-09): the candidate REFUSES; its failing rows are round 6's start list
+
+The candidate (loop-2 finals in `/srv/ue/reel/r5/final`, cuts in `private/renders/r5/review/candidate_unsigned/`) is
+**UNSIGNED**: gate v2 (`r5/gate_spec.json`) REFUSES it. Numbers come from the box's post-finals and the garment re-run at
+19:10 (main b8631197 + film 3aa77b73). No waiver is written on any row, and none is possible: lips, head, garment and
+hair are complaint areas.
+
+**FAIL (round 6 starts here)**
+
+| item | value | line | where | cause / round-6 work |
+|---|---|---|---|---|
+| garment.neck_px | 3 px | 0 | S15 f1152/f1175 (soft frames; his sharp frames read 0) | Epic's collar does not fit HIS neck. The backstop trades poke for gap: SHRINK 3.0 tears the face's open lower edge (shrunk_on_open_edge 92/92) and leaves a 2.3 cm gap; SHRINK 1.2 pokes 113 px. Fit the collar to his neck (agent-02, r5/garment.md); backstop only as a ≤ 0.5 cm safety. The S15 sharp/soft split draft was never committed |
+| garment.collar_gap_cm | 2.2-2.4 | 0.8 | every frame | the same: the shrink pulls the visible neck ~2.3 cm off the collar (orchestrator, by eye in the S13 crops: a dark ring and a see-through gap) |
+| garment.collar_roll | 6/6 | 0 | every frame | the same band; re-read after the fit |
+| garment.silhouette_pct | 2.66 % | 2.0 | vs round 4's `r4/clip/Host_after` | WORSE than round 4 (2.23) on the same garment. Re-measure after the fit |
+| lips.render_lag_frames | worst 15.5 f | 1 | all 6 lines (him L1 +14.6, L2 +3.9, L4a +12.3; her L3a −7.6, L3b +3.3, L4b −15.5) | **the render lip measure is invalid** (agent-01): the round-4 control fails too (L1 +6.64, L2 +16.95, L4a +12.38); the scatter is random in sign while every curve item passes (lag 0.8 f, track_r 0.97, silences 0.001) and the orchestrator's eye reads onsets 0-2 f on L1, L2, L4; not repeatable (round 4 L1 −1.36 → +6.64 with new boxes); the 6 f "sensitive" control is tautological for any cross-correlation. Round 6 (agent-01, r5/lipsync.md on `fleet/agent-01/r5b-head`): a landmark-based mouth opening (mediapipe) vs the reference curves, with a real null control, validated on round 4 L1 (~−17 f) and a +6 f shifted mux before it gates |
+| hair.pop_reach_pct | 8.93 % | 8 | S15 f1082 (editor) | her start tilt-in f1080-1083, the same in round 4 (start motion 13.8 vs 12.3). Cause: `place()` cross-fades idle→baked on screen; fix on `fleet/agent-04/r5b-film-settle` (b475dfe5, b22f3372), NOT rendered (S15 was not re-rendered once the neck held). The conditional exclusion (`hair_pop_exclude`) was not committed: the fix makes it unnecessary |
+
+**PASS**: head.blink_nod_deg (him 0.316, her 0.0; line 0.6), head.blink_locked_deg (0.265; 0.3), garment.wpo_cm 0,
+garment.armor_index 0.329 (0.5), garment.pair_fraction 7e-05 (0.001), garment.hem_flare_ratio 0.557 (1.15),
+shot.cameras_ok 1 (13/13), shot.render_matches_r4 0.806 (0.5; S15 f1152), hair.lock 1, hair.render_cvars 1,
+hair.cut_reach_pct 1.96 (12; every cut she is on screen, editor groom-only), **hair.cut_pop_ratio 1.372** (1.8; round 4
+2.57: S17+S18 as ONE job fixed the operator's "short at 01:00"), the lips curve items. final_qa with the cut: PASS.
+
+**NOT ATTEMPTED** (the orchestrator's ruling): garment.cloth_alive / cloth_sound / cloth_detail_ratio.
+**INFO**: garment.silhouette_ratio 2.30 (an untrusted capture), shot.start_motion_ratio 12.33 (round 4 13.81).
+
+**Open at the end of round 5b, besides the table**: her grey patches on the white top (S17, both sides of her chest,
+inside the overshirt opening; S15). Found so far:
+- NOT her assets: every mesh/material/physics/clothing asset of hers = round 4 by size. Only Studio.umap and SEQ_Reel differ.
+- NOT hair: her hair ends above them (the orchestrator, by eye at f1437-1442). The hair-hidden, hair-shadow-off and
+  lock-released renders change nothing there.
+- JOB/TIME-DEPENDENT: located on 40 px cells (`patchcells.py`, numbers only). The S17+S18 FINAL's f1350 is darker than
+  round 4 at x1280 y760 (dL −15.3 on L 50.3), x1200 y760 (−5.8) and x1160 y800 (−5.2); f1386 at x1200 y760 (−11.1). A
+  fresh 1-frame render of the same frame (75-still, same pose and assets) is clean (|dL| 0.4).
+- S18 f1500 (the same wide framing) carries it too, weaker: x1120 y760 dL −6.8 (round 4 L 43.9). The close shots
+  (S15, S16) cannot be compared cell for cell (her pose differs from round 4).
+- **Cause narrowed to editor STATE at the time of the finals** (agent-06's test, after the 19:09 restart): the same frame
+  with the finals' exact spec renders CLEAN, both as 1 frame (L* 50.6 | 33.6 | 16.0 in the three cells) and as a
+  30-frame run from S17's start (f1350: 48.9 | 33.3 | 16.0). Round 4 reads 50.3 | 33.8 | 16.0; the S17 final reads
+  35.0 | 28.0 | 10.8. Not the final spec or motion blur, and not a build-up along the shot. Test frames:
+  `/srv/ue/reel/r5/patch_final{,2}/` on the box.
+- **Fixed by re-rendering in a fresh editor state** (~01:30 IST, the orchestrator's GO): S17+S18 as ONE job again
+  (724 s, probe 13/13, lock_check pass). f1350 cells now 48.9 | 33.3 | 16.0 (round 4 50.3 | 33.8 | 16.0); f1386 matches
+  round 4 as well. S16 and S15 (warm-up 64) were re-rendered too. A fresh-still-vs-final check (agent-09's suggestion) is
+  invalid in close shots: the still and final specs differ by −45..−54 there even when both are clean. The valid
+  control, OLD final vs NEW final with the same spec (old frames hard-linked in `final_cand`), reads the old ones
+  23-27 L* DARKER on bright cells at the frame bottom where her white top is, in all 4 frames (S15 f1176/f1190
+  x1480 y880; S16 f1270/f1300 x640-1120 y1040). That is the patch signature, so the re-render was needed. Caveat: dark
+  cells (hair, background) also moved by about +25 in mixed places, so old vs new is not noise-free; the consistent sign on
+  the white top is the evidence. S13 has no pre-19:09 twin: it stands, not proven either way.
+
+- Round 6: find WHAT editor state did it (the 18:08 overshirt restore ran in that session before the finals; the 19:09
+  restart reloaded her assets), and render finals only from a freshly started editor.
+
+**The delivered candidate (02:18 IST, the orchestrator's wrap)**: `private/renders/r5/review/candidate_unsigned_2/`
+(65 s + 45 s, S15/S16/S17+S18 re-rendered in a fresh editor state; S13 and the set shots as before) goes to the operator
+**UNSIGNED**. The orchestrator's eye on it:
+- lips in sync on L1, L2, L3b, L4a, L4b (L3a is occluded by her hair);
+- her white top clean in S15/S16/S17/S18 (checked old vs new);
+- her hair intact across 01:00 (S17 -> S18).
+The neck HELD for round 6: loop 6 proved it a FIT problem (Epic's collar vs his neck; the backstop trades poke for gap).
+Gate v2 on it REFUSES on the garment rows above and on lips.render_lag (an invalid measure); the hair.pop_reach row
+stands, since agent-04's place fix was not rendered. On the delivered frames (all presenter shots but S13 rendered after
+19:09; `hair_gate2.json`): **hair.cut_pop_ratio 1.375** (line 1.8, round 4 2.57: the 01:00 fix holds on the re-render),
+hair.lock 1, render_cvars 1, cut_reach 1.96 (editor), pop_reach 8.93 (editor, S15 f1082: FAIL, her pre-existing start
+tilt); the render matte's cut_reach 160.26 is excluded (`--qa-pop`); shot.start_motion_ratio 13.65 (INFO);
+shot.render_matches_r4 0.8125 (S15 f1140, line 0.5).
+
+**What the gate learned this session (tools, all on r5-film-integrate)**
+
+- Four items had no producer, so the sign would have refused them as "not measured": `r5/gate_numbers.py` writes
+  shot.cameras_ok, shot.render_matches_r4, hair.lock and hair.render_cvars (ba43f60b).
+- The pixel cut pop ran on EVERY cut, so camera changes read as pops: it now reads only held-camera cuts (`pop_cuts`,
+  854b0d71).
+- The night luma matte read cut_reach 156.5 % without flagging saturation: night renders feed only the pixel pop
+  (`--qa-pop`, 51a36628), and the editor's groom-only reach stands.
+- neck_px cannot see a torn skin edge ABOVE the collar (the orchestrator's eye did). Whole-crop SSIM vs round 4 did not
+  separate it either (ragged 0.835-0.871 vs clean 0.839-0.863), so it is not proposed as a line. Round 6 needs a
+  neckline-edge measure, or the eye stays the only judge of the tear.
+- The settle measure on a large box moved the same in round 4 and round 5, so it is a diagnostic (INFO), never a line.
+
+### Integration (agent-10): what went to main and film/host-studio in round 5b
+Every merge went through the full gate (dx gen, the whole tools suite, the ue suite, the reel tests; nothing pushed on
+red; the 25 tools failures + 1 error are the known no-ffmpeg/cv2 ones on the integrating container).
+- **main** 8bca76cd → b8631197 (via `fleet/agent-10/r5-integrate`): round 5's core work that had gone to film only,
+  ported by path (agent-01's perf.calibrate/perfkit commits, 5e771ce9's turn_by=auto|bones; the orchestrator: every core
+  feature goes to main); agent-02's garment-fit `--neck-ring-cm`/`--collar-slack` (455c320f, 4d1fcfc9) and
+  qa.garment_look collar (923d8b6a + its fix bf43039f; local roll 07b841bf + d20daa7d: no cell judged = NOT measured,
+  refused at the gate, the orchestrator's condition); agent-04's unseen_spikes (8d5509ea, approved); 854b0d71's core
+  half (qa_local hair pop_cuts).
+- **film/host-studio** 4b8f6463 → 245a63d4, then this log: agent-09 gate_numbers (cameras_ok, render_matches_r4,
+  hair.lock/render_cvars, pop_cuts, --qa-pop, hair_pop_exclude, settle, start_motion_ratio, reach), neck_crops,
+  gate_spec path (iv); agent-04 `--no-turn-blinks`, place without an on-screen cross-fade; agent-01 TURN_BY (bones,
+  then back to auto); agent-02 neck_backstop (EDGE_W, DILATE, PAD_PX, BOUND_CM, TEX_NAME), tee_layers, shrink_live,
+  mask_seams, mask_diff, garment.md §9.
+- Held back once: 923d8b6a alone (its percentile misread Epic's band); no fast-forward was asked for a sha with it
+  before bf43039f.
