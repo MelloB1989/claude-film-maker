@@ -210,9 +210,15 @@ def hair(spec: dict) -> dict:
                 frames.setdefault(int(m[-1]), p)
     cuts = [[str(c[0]), int(c[1]), int(c[2])] for c in spec["cuts"]]
     k = int((spec.get("thresholds") or {}).get("k", h.THRESHOLDS["k"]))
-    want = set()  # only the frames next to a cut, unless "all": true
+    want = set()  # only the frames next to a cut (inner sides only), unless "all": true
     for i, (_, a0, a1) in enumerate(cuts):
-        want |= set(range(a0, a1)) if spec.get("all") else set(range(a0, min(a1, a0 + k))) | set(range(max(a0, a1 - k), a1))
+        if spec.get("all"):
+            want |= set(range(a0, a1))
+            continue
+        if i > 0:
+            want |= set(range(a0, min(a1, a0 + k)))
+        if i + 1 < len(cuts):
+            want |= set(range(max(a0, a1 - k), a1))
     anchors = {int(f): v for f, v in (spec.get("anchors") or {}).items()}
     series = {}
     for f in sorted(want & set(frames)):
@@ -223,10 +229,37 @@ def hair(spec: dict) -> dict:
         mask, w, hh = h.luma_mask(im.read(frames[f]), box, float(spec.get("max_luma", 40.0)))
         hv, cv = anchors.get(f, (None, None))
         series[f] = h.mask_stats(mask, w, hh, head_v=hv, chest_v=cv)
+        series[f]["saturated"] = h.saturated(series[f], box, hh)
     r = h.judge(series, cuts, spec.get("character", ""), spec.get("thresholds"))
+    # the cut pop: frame differences in the head box (no matte), at each cut both sides of which have a box
+    line = float((spec.get("thresholds") or {}).get("cut_pop", h.THRESHOLDS["cut_pop"]))
+    pops = []
+    for (sa, _, _), (sb, b0, _) in zip(cuts, cuts[1:]):
+        ba, bb = (spec.get("boxes") or {}).get(sa), (spec.get("boxes") or {}).get(sb)
+        if not (ba and bb):
+            continue
+        box = [min(ba[0], bb[0]), min(ba[1], bb[1]), max(ba[2], bb[2]), max(ba[3], bb[3])]
+        imgs = {f: im.read(frames[f]) for f in range(b0 - 2, b0 + 2) if f in frames}
+        row = dict(h.cut_pop(imgs, b0, box), **{"from": sa, "to": sb})
+        pops.append(row)
+        if "ratio" in row and row["ratio"] > line:
+            r["pass"] = False
+            r["issues"].append({"code": "hair.cut_pop", "severity": "fail", "frame": b0, "subject": r["character"],
+                                "message": f"{r['character']}: the head box changes {row['ratio']:.1f}x more across "
+                                           f"the cut {sa} -> {sb} at f{b0} than inside either shot (line {line})",
+                                "fix": "if the camera holds across the cut, render both shots as ONE job (or the "
+                                       "second with preroll_from the first's frames) so the hair simulation does "
+                                       "not restart; and groom.lock"})
+    r["cut_pops"] = pops
     cut_pct = max([abs(c["reach"][2]) * 100 for c in r["cuts"]] or [0.0])
     pop_pct = max([abs(p["reach"]) * 100 for p in r["pops"]] or [0.0])
     r["gate"] = {"hair.cut_reach_pct": round(cut_pct, 2), "hair.pop_reach_pct": round(pop_pct, 2)}
+    ratios = [p["ratio"] for p in pops if "ratio" in p]
+    if ratios:
+        r["gate"]["hair.cut_pop_ratio"] = max(ratios)
+    if any(i["code"] == "hair.matte_saturated" for i in r["issues"]):  # not a measure: the gate must not pass it
+        for k2 in ("hair.cut_reach_pct", "hair.pop_reach_pct"):
+            r["gate"][k2] = {"value": None, "error": "the hair matte saturated (hair.matte_saturated)"}
     r["metrics"] = {"frames_measured": len(series), "frames_found": len(frames)}
     if not series:
         r["pass"] = False

@@ -64,6 +64,10 @@
   "garment.cloth_detail_ratio": {
    "value": 1.0,
    "where": "r4 vs itself"
+  },
+  "hair.cut_pop_ratio": {
+   "value": 2.57,
+   "where": "final_d head box 1439->1440"
   }
  }
 }
