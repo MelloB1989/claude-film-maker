@@ -156,7 +156,7 @@ Component settings (all garments): teleport 50 cm / 45°, reset after teleport, 
 ## 4. Known pitfalls
 
 - **Cloth is LOD 0 only** in our setup. A garment drawn at LOD 1+ is skinned. Renders force LOD 0 (MRQ game
-  overrides); `cloth.describe` reports `forced_lod`.
+  overrides); `cloth.describe` reports `drawn_lod` (from `forced_lod_model`: 0 = auto, N = LOD N-1).
 - **Leader pose:** cloth on a follower component simulates in its own space. `BindClothToLeaderPoseComponent`
   (`SkeletalMeshComponent.h:1425-1426`) [src]. A respawn (host swap, `mh.dress`) re-creates components, which lose
   their settings: run `cloth.settings` after any respawn.
