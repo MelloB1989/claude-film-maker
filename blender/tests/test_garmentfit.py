@@ -24,6 +24,22 @@ def test_targets_and_displacement():
     assert d[0] == pytest.approx(1.3) and d[1] == 0 and d[2] == pytest.approx(1.0) and d[3] == pytest.approx(-2.0)
 
 
+def test_displacement_per_vertex_slack():
+    t = np.array([0.4, 0.4])
+    d = GF.fit_displacement(np.array([1.4, 1.4]), t, min_ease=0.3, slack=np.array([0.0, 3.0]), pull=0.5)
+    assert d[0] == pytest.approx(-0.5) and d[1] == 0  # the collar (slack 0) is drawn in; the rest left
+
+
+def test_neck_ring_by_shape():
+    # a tube of radius 6 round the z axis (the neck opening) and a wider one of radius 12 (the chest), both
+    # within the window; one ring far above the window
+    a = np.linspace(0, 2 * np.pi, 16, endpoint=False)
+    ring = lambda r, z: np.c_[r * np.cos(a), r * np.sin(a), np.full(16, z)]
+    X = np.r_[ring(6.0, 0.0), ring(7.0, -2.0), ring(12.0, -6.0), ring(6.0, 10.0)]
+    m = GF.neck_ring(X, np.zeros(3), np.array([0, 0, 10.0]), ring_cm=2.0)
+    assert m[:32].all() and not m[32:].any()
+
+
 def grid(n=6):
     xs, ys = np.meshgrid(np.arange(n), np.arange(n))
     X = np.c_[xs.ravel(), ys.ravel(), np.zeros(n * n)].astype(float)
