@@ -9240,7 +9240,7 @@
    "file": "unreal/fmbridge/ops/lipsync.py",
    "line": 110,
    "summary": "Lip-sync of one face against its voice: per line the lag between the voice's syllable rhythm and the mouth's",
-   "doc": "Lip-sync of one face against its voice: per line the lag between the voice's syllable rhythm and the mouth's\nopening (frames; < 0 = the mouth is EARLY), their correlation, how early the mouth starts, and the mouth in the\nsilences. FAILS on |lag| > 1 frame, r < 0.35, an opening more than 0.25 s ahead of the first sound, or talking\nin a silence (open > 0.10 or busier than 25% of the lines). Each issue says what to do; `diagnosis` says whether\nit is one offset (misplaced section/audio), a drift (a frame-rate mismatch) or per line.\n\nWhat it reads (one of):\n  sequence + label: what the sequence PLAYS on label.component (every skeletal animation section, with its start,\n    offset and play rate): the placed face, as the render will show it. Also lists the sequence's audio sections.\n  anim: an animation alone, its t=0 on master frame `anim_frame` (a solve right after speech.to_face: anim_frame =\n    wav_frame, so the solver's own lag is measured; pass it as expected_lag_s to later checks).\nwav: the voice on the box, its first sample on master frame `wav_frame` (a 65 s stem from frame 0: 0; a line's WAV:\n  its cue's file_frame). lines: [{\"id\", \"f0\", \"f1\"}] speech onset/offset frames, or cues=<cues.json on the box>\n  who=<who> (it must be a measured one: film-ue lips cues). fps: default the sequence's, else 24.\n\nReturns {\"pass\", \"lines\": {id: {lag_frames, corr, onset_lead_s, ...}}, \"silences\", \"issues\", \"diagnosis\",\n\"sections\"?, \"audio\"?}.\nExample: film-ue op lipsync.check sequence=/Game/Reel/SEQ_Reel label=Host wav=/srv/ue/vo/vo_him.wav cues=/srv/ue/vo/cues.json who=him",
+   "doc": "Lip-sync of one face against its voice: per line the lag between the voice's syllable rhythm and the mouth's\nopening (frames; < 0 = the mouth is EARLY), their correlation, how early the mouth starts, and the mouth in the\nsilences. FAILS on |lag| > 1 frame, r < 0.35, an opening more than 0.25 s ahead of the first sound, or talking\nin a silence (open > 0.10 or busier than 25% of the lines). Each issue says what to do; `diagnosis` says whether\nit is one offset (misplaced section/audio), a drift (a frame-rate mismatch) or per line.\n\nWhat it reads (one of):\n  sequence + label: what the sequence PLAYS on label.component (every skeletal animation section, with its start,\n    offset and play rate): the placed face, as the render will show it. Also lists the sequence's audio sections.\n  anim: an animation alone, its t=0 on master frame `anim_frame` (a solve right after speech.to_face: anim_frame =\n    wav_frame, so the solver's own lag is measured; pass it as expected_lag_s to later checks).\nreference: [{\"anim\", \"frame\"}]: each line's own speech solve and the master frame its WAV starts on (the cue's\n  file_frame). The STRICT gate: the face's mouth against the solve's (r ~1 in place; |lag| > 1 frame or r < 0.8\n  fails); the voice-vs-mouth lag is then reported, not judged. Always pass it when the solves exist.\nwav: the voice on the box, its first sample on master frame `wav_frame` (a 65 s stem from frame 0: 0; a line's WAV:\n  its cue's file_frame). lines: [{\"id\", \"f0\", \"f1\"}] speech onset/offset frames, or cues=<cues.json on the box>\n  who=<who> (it must be a measured one: film-ue lips cues). fps: default the sequence's, else 24.\n\nReturns {\"pass\", \"lines\": {id: {lag_frames, corr, onset_lead_s, ...}}, \"silences\", \"issues\", \"diagnosis\",\n\"sections\"?, \"audio\"?}.\nExample: film-ue op lipsync.check sequence=/Game/Reel/SEQ_Reel label=Host wav=/srv/ue/vo/vo_him.wav cues=/srv/ue/vo/cues.json who=him",
    "params": [
     {
      "name": "wav",
@@ -9339,6 +9339,13 @@
      "type": "list | None",
      "required": false,
      "default": null
+    },
+    {
+     "name": "reference",
+     "kind": "keyword",
+     "type": "list | None",
+     "required": false,
+     "default": null
     }
    ],
    "returns": "dict",
@@ -9355,7 +9362,7 @@
    "verb": "compose",
    "module": "fmbridge.ops.lipsync",
    "file": "unreal/fmbridge/ops/lipsync.py",
-   "line": 172,
+   "line": 187,
    "summary": "A performance's mouth from per-line solves, each at its cue: one timebase, no talking in the silences.",
    "doc": "A performance's mouth from per-line solves, each at its cue: one timebase, no talking in the silences.\n\nparts: [{\"anim\": a line's speech.to_face result, \"frame\": the master frame its WAV starts on (cues' file_frame)}].\nThe animation `out` runs from master frame `start_frame` for `length_frames`: a copy of `base` (the performance\nthe head/eyes/blinks are layered on: perf.face runs after this) with its speech curves (jaw, lips, tongue; not\nthe smile layer) replaced, or a new animation on `skeleton`. Between lines the mouth rests (keep_base > 0 keeps\nthat share of base's own mouth there, for breaths); each line fades in/out over `fade_frames` at its WAV's ends\n(a line WAV starts ~50 ms before its first sound, vo.py). Run lipsync.check on the result before layering.\n\nReturns {\"out\", \"curves\", \"parts\": [[anim, frame, seconds]], \"changed\"}.\nExample: film-ue op lipsync.compose out=/Game/Reel/Perf/AS_reel_him_mouth base=/Game/Speech/Anim/AS_reel_him start_frame=960 length_frames=624 'parts=[{\"anim\":\"/Game/Speech/Anim/AS_reel_L1\",\"frame\":1018.8}]'",
    "params": [
@@ -9437,7 +9444,7 @@
    "verb": "mouth_boxes",
    "module": "fmbridge.ops.lipsync",
    "file": "unreal/fmbridge/ops/lipsync.py",
-   "line": 220,
+   "line": 235,
    "summary": "Where `label`'s mouth is in the picture, per frame: through `camera` or (default) the camera the edit shows on",
    "doc": "Where `label`'s mouth is in the picture, per frame: through `camera` or (default) the camera the edit shows on\nthat frame, the mouth's corner/lip/jaw bones projected (cam.project's lens model) to a square box (0..1 from the\ntop left) padded by `pad` x its size, for the video check's crop (film-ue lips render --boxes). A multi-tick\njob. Bones default to the MetaHuman face's FACIAL_C_Jaw, FACIAL_L/R_LipCorner, FACIAL_C_LipUpper/LipLower.\n\nReturns {\"frames\": {frame: {\"camera\", \"box\": [x0, y0, x1, y1], \"visible\"}}}.\nExample: film-ue op lipsync.mouth_boxes sequence=/Game/Reel/SEQ_Reel label=Host 'frames=[1000,1001]'",
    "params": [

@@ -583,3 +583,60 @@ def test_a_line_window_never_reaches_into_the_line_before(tmp_path):
     lines, issues, _ = CL.lines_from_voice(tmp_path / "vocals.wav", plan, tmp_path / "sep", mix, fps)
     assert not [i for i in issues if i["severity"] == "fail"], issues
     assert abs(lines["L4b"]["voice_frame"] - 1384.0) < 1.5 and lines["L4b"]["f0_hz"] > 200
+
+
+def test_against_its_own_solve_a_placement_error_is_exact_even_when_the_voice_says_little():
+    """r5 P2: on short real lines loudness and jaw diverge (r 0.25-0.55); the solve itself, placed at the line's
+    place in the mix, is the reference: in place r ~1, 14 frames off is 14 frames."""
+    env = voice(LINES, 15.0)
+    rnd = random.Random(4)
+    ts = [i / 30 for i in range(30 * 15)]
+    # a jaw that is NOT the loudness (a real solve's shape), but the same in both
+    base = [0.4 * abs(math.sin(2 * math.pi * 3.1 * t + rnd.random() * 0.2)) * (1 if any(a <= t <= b for a, b in LINES)
+                                                                              else 0) for t in ts]
+    ref = {JAW: (ts, base)}
+    r = LS.check(env, ref, cue_lines(), fps=FPS, reference=ref)
+    assert r["pass"], r["issues"]
+    assert all(abs(v["ref_lag_frames"]) < 0.2 and v["ref_corr"] > 0.99 for v in r["lines"].values())
+    early = {JAW: ([t - 14 / FPS for t in ts], base)}
+    r = LS.check(env, early, cue_lines(), fps=FPS, reference=ref)
+    codes = {i["code"] for i in r["issues"]}
+    assert "ref_lag" in codes and "corr" not in codes
+    assert all(-14.5 < v["ref_lag_frames"] < -13.5 for v in r["lines"].values())
+    assert r["diagnosis"].startswith("offset")
+
+
+def test_render_gate_against_the_solve_passes_in_place_and_fails_round4(lips):
+    """The end-to-end proof the orchestrator asked for: the rendered mouth against the solve's mouth (not the voice);
+    a jaw shape unlike the loudness, so the voice measure would be weak; in place it passes, 14 frames early fails."""
+    CL, stem, lines, fps, tmp = lips
+    doc = CL.build_cues(lines, {"him": stem}, fps, words="none")
+    ts = [40.0 + i / 30 for i in range(30 * 10)]
+    rnd = random.Random(2)
+    phase = [rnd.random() for _ in range(40)]
+    jaw = [0.5 * abs(math.sin(2 * math.pi * 2.7 * t + phase[int(t * 3) % 40])) *
+           (1 if any(c["voice_frame"] / fps - 0.05 <= t <= c["end_frame"] / fps for c in doc["lines"].values()) else 0)
+           for t in ts]
+    ref = {JAW: (ts, jaw)}
+
+    class Ref:  # the rendered mouth opens as the solve says, shifted
+        def __init__(self, shift):
+            self.shift = shift
+
+        def at(self, t):
+            from perfkit import curves as C
+            return C.at(ts, jaw, t - self.shift / fps) * 2
+
+    def frames(shift):
+        out = {}
+        for k, c in doc["lines"].items():
+            f0 = int(math.floor(c["voice_frame"] - fps))
+            f1 = int(math.ceil(c["end_frame"] + fps))
+            out[k] = _frames_for(Ref(shift), f0, f1 - f0, fps)
+        return out
+    box = [0.3, 0.2, 0.7, 0.8]
+    ok = CL.render_check(stem, stem, doc, "him", box=box, frames_override=frames(0), reference=ref)
+    assert ok["verdict"] == "pass", ok
+    assert all(v["against"] == "solve" and abs(v["lag_frames"]) <= 1 and v["sensitive"] for v in ok["lines"].values())
+    bad = CL.render_check(stem, stem, doc, "him", box=box, frames_override=frames(-14), reference=ref)
+    assert bad["verdict"] == "fail" and all(i["code"] == "render_lag" for i in bad["issues"])
