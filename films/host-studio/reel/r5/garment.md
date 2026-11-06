@@ -90,7 +90,7 @@ respawn/host_swap/re-place, run step 3's dress + dress_him again.
 
 ```bash
 film-ue op qa.clip label=Host sequence=/Game/Reel/SEQ_Reel 'shots=["Reel_S13","Reel_S15","Reel_S17","Reel_S18"]' \
-    'extra={"Reel_S15":[1082,1104,1128,1150,1220,1290],"Reel_S17":[1390,1397,1404]}' out_dir=$G/clip
+    'extra={"Reel_S15":[1082,1104,1128,1150,1220,1290],"Reel_S17":[1390,1397,1404]}' out_dir=$G/clip layer_masks=true
 film-ue op qa.garment_look label=Host ref_body=/Game/Host/Unpacked/Host/Body/SKM_Host_BodyMesh \
     sequence=/Game/Reel/SEQ_Reel 'frames=[1082,1150,1397]' motion_from=1140 motion_frames=12 out_dir=$G/look > $G/look.json
 film-ue garment-gate --clip $G/clip/clip.json --look $G/look.json --out $G/gate_garment.json --first-pass
