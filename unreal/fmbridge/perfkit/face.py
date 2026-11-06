@@ -15,7 +15,7 @@ from . import gaze as G
 from . import head as H
 from . import metrics as M
 from . import stability as ST
-from .rig import BLINKS, HEAD_POS, HEAD_ROT, HeadSigns
+from .rig import BLINKS, HEAD_POS, HEAD_ROT, MOUTH, HeadSigns
 
 LAYERS = ("head", "eyes", "blinks", "expressions", "brows", "nods")
 SOLVER_HEAD = ("replace", "clean", "soften", "keep")
@@ -72,7 +72,7 @@ def build(t0: float, t1: float, *, base: dict | None = None, shifts: list = (), 
           layers=LAYERS, solver_head: str = "replace", blink_mode: str = "replace", blink_state="talk",
           signs: HeadSigns | None = None, energy: float = 1.0, mouth_mix: float = 0.5, brow_chance: float = 0.55,
           beat_every: int = 1, seed: int = 0, rate: float = 60.0, tol: float = 0.003,
-          avoid_blinks: list = (), blink_head: str = "still") -> dict:
+          avoid_blinks: list = (), speech_gain: list = (), blink_head: str = "still") -> dict:
     """Compose a face performance from t0 to t1 (s). See the module docstring; arguments:
 
     base: the animation's own curves (a speech solve). shifts: gaze shifts [{"t", "yaw", "pitch", "dist_cm", "scan",
@@ -184,6 +184,8 @@ def build(t0: float, t1: float, *, base: dict | None = None, shifts: list = (), 
             else:
                 tt, vv = t, v
             out[name] = C.reduce(tt, vv, tol)
+    if speech_gain:
+        out.update(gain_mouth({**base, **out}, speech_gain))
     final = {**base, **out}
     plan_json = {"shifts": plan.events, "nods": [{"t": round(n.t, 3), "kind": n.kind, "depth_deg": round(n.depth_deg, 2)}
                                                  for n in nod_list],
@@ -194,3 +196,24 @@ def build(t0: float, t1: float, *, base: dict | None = None, shifts: list = (), 
                  if solver else None, "solver": solver_info, "blink_head": blink_head, "blink_guard": guard,
                  "signs": signs.to_json()}
     return {"curves": out, "plan": plan_json, "report": M.report(final, signs)}
+
+
+GAIN_RAMP_S = 0.1  # a speech gain eases in and out over this at each span's edges
+
+
+def gain_mouth(curves: dict, spans: list) -> dict:
+    """The mouth's curves (jaw, lips, tongue, teeth: rig.MOUTH) scaled by a gain inside each span [(t0, t1, gain)]
+    (s), eased in and out at the edges and clamped to the rig's 0..1: a face whose rig gives little mouth travel per
+    unit (r4: Host_Op's lips read 1.02 on agent-09's metric where Trey passed). Silences keep their own values."""
+    def g(t):
+        k = 1.0
+        for a, b, gain in spans:
+            if a - GAIN_RAMP_S < t < b + GAIN_RAMP_S:
+                w = min(1.0, (t - (a - GAIN_RAMP_S)) / GAIN_RAMP_S, ((b + GAIN_RAMP_S) - t) / GAIN_RAMP_S)
+                k = max(k, 1.0 + (gain - 1.0) * w) if gain >= 1.0 else min(k, 1.0 + (gain - 1.0) * w)
+        return k
+    out = {}
+    for name, (t, v) in curves.items():
+        if name in MOUTH:
+            out[name] = (list(t), [max(0.0, min(1.0, x * g(tt))) for tt, x in zip(t, v)])
+    return out

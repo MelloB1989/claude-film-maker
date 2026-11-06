@@ -694,6 +694,67 @@ def test_blinks_keep_out_of_the_other_faces_blinks():
         assert len(his) >= len(B.plan(0.0, 20.0, "listen", phrase_ends=ends, seed=seed)) - 3  # mostly moved, not dropped
 
 
+def test_a_weak_turn_curve_is_written_stronger():
+    """r4 (box): HeadRoll turned the 5.8 faces ~0.35 deg per unit; perf.calibrate saves it as yaw_gain and to_rig
+    writes the turn at 1/gain (nods and tilts unchanged), from_rig reads it back in degrees."""
+    s = R.HeadSigns(yaw=1.0, pitch=-1.0, roll=1.0, curves={"yaw": "HeadRoll", "pitch": "HeadYaw", "roll": "HeadPitch"},
+                    dead=["HeadPitch"], yaw_gain=0.35)
+    head = {"times": [0.0, 1.0], "yaw": [0.0, 35.0], "pitch": [0.0, 5.0], "roll": [0.0, 2.0]}
+    rig = H.to_rig(head, s, tol_deg=0.0)
+    assert abs(rig["HeadRoll"][1][1] - 100.0) < 1e-6 and rig["HeadYaw"][1][1] == -5.0
+    assert abs(H.from_rig(rig, s)["yaw"][1][1] - 35.0) < 1e-6
+    assert R.HeadSigns.from_json(s.to_json()).yaw_gain == 0.35
+    assert R.HeadSigns(curves=s.curves, dead=["HeadRoll"], yaw_gain=0.35).gain("yaw") == 1.0  # a dead curve: bones
+
+
+def test_a_turn_curve_is_written_through_its_measured_table():
+    """r4 (box): HeadRoll's response is not linear (his: 50 deg at 140 units, 11 at 185). perf.calibrate measures
+    yaw_table; to_rig inverts it on the part that keeps growing and clamps there, from_rig reads it back."""
+    tab = [[-200, -40.0], [-100, -60.0], [-50, -30.0], [50, 20.0], [100, 45.0], [140, 50.0], [185, 11.0]]
+    s = R.HeadSigns(yaw=1.0, pitch=-1.0, roll=1.0, curves={"yaw": "HeadRoll", "pitch": "HeadYaw", "roll": "HeadPitch"},
+                    dead=["HeadPitch"], yaw_table=tab)
+    assert abs(s.turn_units(20.0) - 50.0) < 1e-6 and abs(s.turn_units(47.5) - 120.0) < 1e-6
+    assert s.turn_units(90.0) == 140.0  # the most it turns: never past the fold at 185
+    assert abs(s.turn_units(-45.0) - -75.0) < 1e-6 and s.turn_units(-80.0) == -100.0
+    head = {"times": [0.0, 1.0], "yaw": [0.0, 32.5], "pitch": [0.0, 5.0], "roll": [0.0, 0.0]}
+    rig = H.to_rig(head, s, tol_deg=0.0)
+    assert abs(rig["HeadRoll"][1][1] - 75.0) < 1e-6 and rig["HeadYaw"][1][1] == -5.0
+    assert abs(H.from_rig(rig, s)["yaw"][1][1] - 32.5) < 1e-6
+    assert R.HeadSigns.from_json(s.to_json()).yaw_table == s.yaw_table
+
+
+def test_speech_gain_scales_only_the_mouth_inside_its_spans():
+    """r4: Host_Op's rig gives little mouth travel; perf.face's speech_gain scales jaw and lips on the spoken lines,
+    eased at the edges, clamped to 0..1, and leaves the silences and every other curve alone."""
+    from perfkit import face as F
+    jaw, brow = "CTRL_expressions_jawOpen", "CTRL_expressions_browRaiseInL"
+    t = [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
+    curves = {jaw: (t, [0.3, 0.3, 0.3, 0.7, 0.3, 0.3, 0.3]), brow: (t, [0.2] * 7)}
+    out = F.gain_mouth(curves, [(1.0, 2.0, 1.7)])
+    assert brow not in out
+    v = out[jaw][1]
+    assert v[0] == 0.3 and v[1] == 0.3 and v[-1] == 0.3  # silences untouched
+    assert abs(v[2] - 0.51) < 1e-6 and v[3] == 1.0  # inside: x1.7, clamped at 1
+
+
+def test_eyes_are_written_through_their_measured_table():
+    """r4 (box): a left-eye-alone probe at 1.0 read eyeLookRight as 4.6 deg and her eyes overshot by 20. perf.calibrate
+    now measures each direction on both eyes at several values (eye_table); to_rig inverts it per eye, clamped."""
+    from perfkit import eyes as E
+    tab = {sd: {"Left": [[0.25, 8.0], [0.5, 18.0], [0.75, 26.0], [1.0, 30.0]],
+                "Right": [[0.25, -10.0], [0.5, -20.0], [0.75, -30.0], [1.0, -40.0]],
+                "Up": [[0.5, 10.0], [1.0, 20.0]], "Down": [[0.5, -15.0], [1.0, -30.0]]} for sd in ("L", "R")}
+    s = R.HeadSigns(eye_table=tab)
+    c = s.eye_curves("L", -15.0, 5.0)
+    assert abs(c["Right"] - 0.375) < 1e-6 and c["Left"] == 0.0 and abs(c["Up"] - 0.25) < 1e-6 and c["Down"] == 0.0
+    assert s.eye_curves("L", 45.0, 0.0)["Left"] == 1.0  # beyond the most it turns: clamped
+    out = E.to_rig({"times": [0.0], "L": [(-15.0, 5.0)], "R": [(-15.0, 5.0)]}, s, tol=0.0)
+    assert abs(out["CTRL_expressions_eyeLookRightL"][1][0] - 0.375) < 1e-6
+    back = E.angles_from_rig(out, s)
+    assert abs(back["L"][0][0] - -15.0) < 1e-6 and abs(back["L"][0][1] - 5.0) < 1e-6
+    assert R.HeadSigns.from_json(s.to_json()).eye_table == s.eye_table
+
+
 def test_turn_bones_about_the_true_vertical_keeps_the_head_level():
     """r5: his neck/head local turn axes sit ~8 deg off vertical, so a 90 deg turn pitched the head (agent-04's fit
     7.7(1-cos th) + 6.8 sin th). Turned about the character's vertical in each bone's parent space, the head's

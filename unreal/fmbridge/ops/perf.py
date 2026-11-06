@@ -110,8 +110,8 @@ def face(*, anim: str, out: str = "", wav: str = "", gaze: list | None = None, s
          mood: str = "", moods: list | None = None, expressions: list | None = None, emphasis=None,
          layers: list | None = None, solver_head: str = "replace", blink_mode: str = "replace", blink_state: str = "talk",
          energy: float = 1.0, mouth_mix: float = 0.5, brow_chance: float = 0.55, signs: dict | None = None,
-         seed: int = 0, plot: str = "", avoid_blinks: list | None = None, blink_head: str = "still",
-         preset: str = "", beat_every: int = 1) -> dict:
+         seed: int = 0, plot: str = "", avoid_blinks: list | None = None,
+         speech_gain: list | None = None, blink_head: str = "still", preset: str = "", beat_every: int = 1) -> dict:
     """Make a face animation (a speech solve, or any MetaHuman face animation) read as alive: write a copy whose head
     turns follow the gaze (eyes lead, the head eases with overshoot and settles), with nods and brow flashes on the
     stressed words, irregular asymmetric blinks (with big gaze shifts and at phrase ends), fixational eye darts, a
@@ -137,6 +137,8 @@ def face(*, anim: str, out: str = "", wav: str = "", gaze: list | None = None, s
       plot: a PNG path on the box: the result's curves drawn as strips (perf.plot) to look at.
       avoid_blinks: [[t0, t1], ...] spans (s, this animation's time) with no blink: another face's blinks in the
       same shot (two people blinking on the same frame reads as a glitch).
+      speech_gain: [[t0, t1, gain], ...] spans (s) whose mouth curves (jaw, lips) are scaled by gain, clamped 0..1:
+      for a rig that gives little mouth travel (r4: Host_Op).
       preset: presenter_calm|presenter_lively|listener|still_portrait (perfkit.presets: head style, blink state,
       energy, beat nods, brows; any of those given here other than its default wins). beat_every: a beat nod on 1
       in n stressed words (0: none).
@@ -180,7 +182,8 @@ def face(*, anim: str, out: str = "", wav: str = "", gaze: list | None = None, s
                        blink_mode=blink_mode, blink_state=blink_state,
                        signs=signs_for(_skeleton_path(a), signs), energy=energy, mouth_mix=mouth_mix,
                        brow_chance=brow_chance, seed=seed, avoid_blinks=[tuple(x) for x in (avoid_blinks or [])],
-                       blink_head=blink_head, beat_every=beat_every)
+                       speech_gain=[tuple(x) for x in (speech_gain or [])], blink_head=blink_head,
+                       beat_every=beat_every)
     except ValueError as e:
         raise OpError(str(e), code="bad_args", hint="perf.vocab lists presets, moods, nods and layers") from None
     if out != anim.split(".")[0]:
@@ -192,6 +195,9 @@ def face(*, anim: str, out: str = "", wav: str = "", gaze: list | None = None, s
     sg = signs_for(_skeleton_path(a), signs)
     turned = None
     if sg.turns_by_bone():
+        # the planned turn kept aside, its curve flat: a weak curve (calibrate) would add its own part to the bones'
+        t_, v_ = r["curves"][sg.curves["yaw"]]
+        _write(o, {PLANNED_TURN: (t_, v_), sg.curves["yaw"]: ([t_[0], t_[-1]], [0.0, 0.0])})
         if sg.turn_on == "Face":
             turned = _turn_by_bones(o, *r["curves"][sg.curves["yaw"]], sg)
         else:  # the face takes its neck from the body: perf.turn_head puts this turn on the body's animation
@@ -205,6 +211,12 @@ def face(*, anim: str, out: str = "", wav: str = "", gaze: list | None = None, s
     if plot:
         res["plot"] = _plot({**base, **r["curves"]}, plot, r["plan"], signs_for(_skeleton_path(a), signs), out)
     return res
+
+
+EYE_PROBE = (0.25, 0.5, 0.75, 1.0)  # eyeLook values perf.calibrate measures each direction at
+TURN_PROBE = (-240.0, -180.0, -140.0, -100.0, -70.0, -40.0, -20.0, 20.0, 40.0, 70.0, 100.0, 140.0, 180.0, 240.0)
+WEAK_TURN_MIN = 0.1  # a turn curve under a tenth of a real turn counts as dead (the bones turn the head)
+PLANNED_TURN = "FM_PlannedHeadTurn"  # perf.face's planned head turn, when the bones carry it (no AnimBP reads it)
 
 
 def _turn_by_bones(o, t: list, v: list, sg: HeadSigns) -> dict:
@@ -256,7 +268,7 @@ def turn_head(*, anim: str, face_anim: str, out: str = "", signs: dict | None = 
     if not sg.turns_by_bone() or sg.turn_on == "Face":
         return {"out": out or anim, "changed": False,
                 "why": "this face turns its head itself (a curve, or its own bones: perf.face did it)"}
-    name = sg.curves["yaw"]
+    name = PLANNED_TURN if PLANNED_TURN in read_all(f, [PLANNED_TURN]) else sg.curves["yaw"]
     cur = read_all(f, [name])
     if name not in cur:
         raise OpError(f"{face_anim} has no {name} (the planned turn): make it with perf.face", code="bad_args")
@@ -334,17 +346,24 @@ def _unit(v):
 
 @op("perf.calibrate", mutates=True, idempotent=True, tags=["slow"])
 def calibrate(*, label: str, face_component: str = "Face", body_component: str = "Body",
-              scratch: str = "/Game/_Perf/Calibrate", degrees: float = 10.0):
+              scratch: str = "/Game/_Perf/Calibrate", degrees: float = 10.0, turn_by: str = "auto"):
     """Measure, on the real rig, which of HeadYaw/HeadPitch/HeadRoll turns, nods and tilts the head (the names need not
     say: on the reel's MetaHumans HeadYaw nods), which way, and how far eyeLook* turns the
     eyes, and save it for this face skeleton (Saved/fmbridge/perf/signs_<skeleton>.json): perf.face and perf.apply
     then use it. Plays a scratch animation on the actor's face in a scratch sequence and samples the eye bones.
     Run once per face skeleton (the face must be driven by Sequencer: mh.drive_face). A multi-tick job, ~20 s.
 
+    turn_by: "auto" (the turn curve when it turns the head, else the neck bones) or "bones": the turn always goes on
+    the neck and head bones (the turn curve counted dead, the bones searched as for a dead one), about the
+    character's vertical (perf.turn_head). r5b: his live HeadRoll turns the head about the face rig's tilted axes and
+    head_to_body carries that pitch to the body (S15 turn-out blink_nod 1.41 deg).
+
     Returns: {"signs": {"yaw", "pitch", "roll", "eye_deg", "eye_flip", "measured", "curves": {axis: curve}}, "file",
     "raw": {...}}.
     Example: film-ue op perf.calibrate label=Presenter
     """
+    if turn_by not in ("auto", "bones"):
+        raise OpError(f"turn_by {turn_by!r}: auto or bones", code="bad_args")
     import math
     from .anim import _skeleton_path, _write, new as anim_new
     from .anim import _await_change
@@ -405,14 +424,34 @@ def calibrate(*, label: str, face_component: str = "Face", body_component: str =
     raw = {}
     last = rest
 
+    written = set()
+
     def apply(curves):
-        _write(a, {**heads, **curves})
+        # every curve an earlier probe wrote goes back to 0: _write only replaces the curves it is given, and the eye
+        # loop left eyeLook{Left,Right,Up,Down}L all at 1.0, cancelling each other (r4, box: Right read 4.6 deg,
+        # Down 11.5, and the eye table's left eye came out offset by a full turn)
+        zero_rest = {n: ([0.0, 2.0], [0.0, 0.0]) for n in written - set(curves) - set(heads)}
+        written.update(curves)
+        _write(a, {**heads, **zero_rest, **curves})
         EAL.save_asset(anim_path)
+
+    def settled(m, bone):
+        """`m` re-measured until `bone` holds still: the first change seen can be mid-swap, part of the way (r4, box:
+        eyeLookRight read 4.6 deg on the left eye, and her eyes then overshot her partner by 20)."""
+        for _ in range(12):
+            yield 0.25
+            m2 = yield from measure([frame])
+            still = max(abs(p - q) for p, q in zip(m2["bones"][bone][0][3:], m["bones"][bone][0][3:])) < 1e-4
+            m = m2
+            if still:
+                break
+        return m
 
     resp = {}  # curve -> {"yaw": sideways cm, "pitch": up cm, "roll": eye height difference cm}
     for name in ("HeadYaw", "HeadPitch", "HeadRoll"):
         apply({name: ([0.0, 2.0], [degrees, degrees])})
         m = yield from _await_change(measure, frame, "FACIAL_L_Eye", last["bones"]["FACIAL_L_Eye"][0])
+        m = yield from settled(m, "FACIAL_L_Eye")
         last = m
         l1, r1 = m["bones"]["FACIAL_L_Eye"][0], m["bones"]["FACIAL_R_Eye"][0]
         d = _sub(_mid(l1[:3], r1[:3]), mid0)
@@ -422,13 +461,68 @@ def calibrate(*, label: str, face_component: str = "Face", body_component: str =
     try:
         curves = head_axes(resp)
     except ValueError as e:
-        apply({})
-        raise OpError(f"{label}'s head curves: {e} (cm at the eyes for {degrees} each: {raw})", code="failed",
-                      details={"raw": raw},
-                      hint="drive the face from Sequencer with mh.drive_face, and check its Anim Blueprint reads "
-                           "HeadYaw/HeadPitch/HeadRoll with HeadControlSwitch=1") from None
+        live = [c for c in resp if max(abs(v) for v in resp[c].values()) >= LIVE_CM]
+        eye_moves = 0.0
+        if not live:  # no head curve moves: a face that takes its whole neck and head from the body (r4: the rebuilt
+            # Host_Op), or a face Sequencer does not drive at all. Its eyes tell the two apart.
+            apply({"CTRL_expressions_eyeLookLeftL": ([0.0, 2.0], [1.0, 1.0])})
+            m = yield from _await_change(measure, frame, "FACIAL_L_Eye", last["bones"]["FACIAL_L_Eye"][0], timeout=8.0)
+            x0, x1 = last["bones"]["FACIAL_L_Eye"][0], m["bones"]["FACIAL_L_Eye"][0]
+            eye_moves = max(math.degrees(math.acos(max(-1.0, min(1.0, _dot(_unit(x0[3 + 3 * i:6 + 3 * i]),
+                                                                           _unit(x1[3 + 3 * i:6 + 3 * i]))))))
+                            for i in range(3))
+            last = m
+            raw["eyeLookLeftL_probe_deg"] = round(eye_moves, 2)
+        if not live and eye_moves >= 2.0:  # driven, but the head is all the body's: every turn goes on the neck bones
+            # (the bone search below puts the eye back to rest first)
+            curves = {"yaw": "HeadRoll", "pitch": "HeadYaw", "roll": "HeadPitch"}  # the reel's 5.8 names (REEL_PERF)
+        else:
+            apply({})
+            if not live:
+                e = ValueError(f"no head curve moves the head and eyeLookLeftL turns the eye {eye_moves:.1f} deg: "
+                               f"Sequencer does not drive this face")
+            raise OpError(f"{label}'s head curves: {e} (cm at the eyes for {degrees} each: {raw})", code="failed",
+                          details={"raw": raw},
+                          hint="drive the face from Sequencer with mh.drive_face, and check its Anim Blueprint reads "
+                               "HeadYaw/HeadPitch/HeadRoll with HeadControlSwitch=1") from None
     dead = [c for c in resp if max(abs(v) for v in resp[c].values()) < LIVE_CM]
+    # how much of a real turn the turn curve gives: r4 (box), the rebuilt Host_Op's HeadRoll moved the eyes 0.55 cm
+    # for 10 (a full 10 deg at his 9.4 cm is 1.6), so S15's 95 deg look would have turned ~30 (r3: the same on her)
+    full_cm = math.hypot(mid0[0] - head0[0], mid0[1] - head0[1]) * math.sin(math.radians(degrees))
+    strength = abs(resp[curves["yaw"]]["yaw"]) / max(full_cm, 1e-6)
+    raw["turn_strength"] = round(strength, 3)
+    # the neck bones cannot carry it instead: on her 5.8 face the body's head bone moves nothing and its necks a sixth
+    # (r4, box), so the curve is written stronger (HeadSigns.yaw_gain); a curve under WEAK_TURN_MIN is still dead
+    yaw_gain = 1.0
+    if turn_by == "bones" and curves["yaw"] not in dead:
+        dead.append(curves["yaw"])
+        raw["turn_by"] = "bones"
+    if curves["yaw"] not in dead and strength < 0.9:
+        if strength < WEAK_TURN_MIN:
+            dead.append(curves["yaw"])
+        else:
+            yaw_gain = round(strength, 3)
     signs = {k: (1.0 if resp[c][k] > 0 else -1.0) if c not in dead else 1.0 for k, c in curves.items()}
+    yaw_table = None
+    if curves["yaw"] not in dead:
+        # the turn curve at several amplitudes, as the head bone's own yaw (r4, box: one 10-unit probe gave her 0.46
+        # deg per unit, and 70 units turned her 95; his turned 50 at 140 units and 11 at 185)
+        h0 = rest["bones"]["head"][0]
+        ax0 = [h0[3:6], h0[6:9], h0[9:12]]
+        loc = [_dot(fwd, a) for a in ax0]
+        yaw_table = []
+        for u in TURN_PROBE:
+            apply({curves["yaw"]: ([0.0, 2.0], [u, u])})
+            m = yield from _await_change(measure, frame, "FACIAL_L_Eye", last["bones"]["FACIAL_L_Eye"][0], timeout=8.0)
+            m = yield from settled(m, "head")
+            last = m
+            h1 = m["bones"]["head"][0]
+            ax1 = [h1[3:6], h1[6:9], h1[9:12]]
+            v = [sum(loc[i] * ax1[i][k] for i in range(3)) for k in range(3)]
+            yaw_table.append([u, round(math.degrees(math.atan2(_dot(v, left), _dot(v, fwd))), 2)])
+        raw["yaw_table"] = yaw_table
+        apply({})
+        last = yield from _await_change(measure, frame, "FACIAL_L_Eye", last["bones"]["FACIAL_L_Eye"][0], timeout=8.0)
     yaw_bone, turn_on = None, "Face"
     if curves["yaw"] in dead:  # no curve turns this head (5.8): find the bones that do, and each one's turn axis
         from .anim import model_keys
@@ -489,6 +583,7 @@ def calibrate(*, label: str, face_component: str = "Face", body_component: str =
     for d in ("Left", "Right", "Up", "Down"):
         apply({f"CTRL_expressions_eyeLook{d}L": ([0.0, 2.0], [1.0, 1.0])})
         m = yield from _await_change(measure, frame, "FACIAL_L_Eye", last["bones"]["FACIAL_L_Eye"][0])
+        m = yield from settled(m, "FACIAL_L_Eye")
         last = m
         x = m["bones"]["FACIAL_L_Eye"][0]
         gaze_new = [gs * c for c in [x[3:6], x[6:9], x[9:12]][g]]
@@ -498,9 +593,42 @@ def calibrate(*, label: str, face_component: str = "Face", body_component: str =
         if d == "Left":
             flip_votes.append(_dot(_sub(gaze_new, gaze_old), left) < 0)
         raw[f"eyeLook{d}L"] = round(ang, 3)
+    # each direction on both eyes at once (as perf.face drives them) at several values, each eye's own yaw and pitch
+    # off its rest in the character's frame: r4 (box), the left-eye-alone probe above read Right 4.6 and Down 11.5,
+    # and her eyes then overshot her partner by 20 deg
+    eye_table = {"L": {}, "R": {}}
+    rest_gaze = {}
+    for sd in ("L", "R"):
+        x = rest2["bones"][f"FACIAL_{sd}_Eye"][0]
+        ax = [x[3:6], x[6:9], x[9:12]]
+        gi = max(range(3), key=lambda i: abs(_dot(ax[i], fwd)))
+        rest_gaze[sd] = (gi, 1.0 if _dot(ax[gi], fwd) > 0 else -1.0)
+
+    def eye_angles(m, sd):
+        gi, sg = rest_gaze[sd]
+        x = m["bones"][f"FACIAL_{sd}_Eye"][0]
+        v = _unit([sg * c for c in [x[3:6], x[6:9], x[9:12]][gi]])
+        return (math.degrees(math.atan2(_dot(v, left), _dot(v, fwd))),
+                math.degrees(math.asin(max(-1.0, min(1.0, _dot(v, up))))))
+    apply({})
+    last = yield from _await_change(measure, frame, "FACIAL_L_Eye", last["bones"]["FACIAL_L_Eye"][0], timeout=8.0)
+    last = yield from settled(last, "FACIAL_L_Eye")
+    at_rest = {sd: eye_angles(last, sd) for sd in ("L", "R")}
+    for d in ("Left", "Right", "Up", "Down"):
+        k = 0 if d in ("Left", "Right") else 1
+        for val in EYE_PROBE:
+            apply({f"CTRL_expressions_eyeLook{d}L": ([0.0, 2.0], [val, val]),
+                   f"CTRL_expressions_eyeLook{d}R": ([0.0, 2.0], [val, val])})
+            m = yield from _await_change(measure, frame, "FACIAL_L_Eye", last["bones"]["FACIAL_L_Eye"][0], timeout=8.0)
+            m = yield from settled(m, "FACIAL_L_Eye")
+            last = m
+            for sd in ("L", "R"):
+                eye_table[sd].setdefault(d, []).append([val, round(eye_angles(m, sd)[k] - at_rest[sd][k], 2)])
+    raw["eye_table"] = eye_table
     apply({})
     result = HeadSigns(signs["yaw"], signs["pitch"], signs["roll"], eye_deg, True, bool(flip_votes and flip_votes[0]),
-                       curves, dead, yaw_bone, turn_on if turn_on == face_component else "Body")
+                       curves, dead, yaw_bone, turn_on if turn_on == face_component else "Body", yaw_gain,
+                       yaw_table, eye_table)
     path = _signs_file(skel)
     with open(path, "w") as f:
         json.dump(result.to_json(), f, indent=1)

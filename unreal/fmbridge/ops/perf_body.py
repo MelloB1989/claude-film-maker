@@ -224,10 +224,16 @@ def body_life(*, out: str, body_mesh: str, length_s: float, state: str = "rest",
     if face_anim:
         fa = _anim(face_anim)
         hs = signs_for(_skeleton_path(fa))
-        if AL.does_curve_exist(fa, hs.curves["yaw"], unreal.RawCurveTrackTypes.RCT_FLOAT):
-            ht, hv = _keys(fa, hs.curves["yaw"])  # the curve that turns the head (HeadRoll on the reel's rigs)
-            sg = hs.yaw
-            head_yaw = (lambda t: sg * C.at(ht, hv, t))
+        from .perf import PLANNED_TURN
+        # the curve that turns the head (HeadRoll on the reel's rigs), or the planned turn when bones carry it
+        name = next((n for n in (PLANNED_TURN, hs.curves["yaw"])
+                     if AL.does_curve_exist(fa, n, unreal.RawCurveTrackTypes.RCT_FLOAT)), None)
+        if name:
+            ht, hv = _keys(fa, name)
+            if name == PLANNED_TURN:
+                head_yaw = (lambda t: hs.yaw * C.at(ht, hv, t))
+            else:  # the curve's units in degrees (yaw_table / yaw_gain)
+                head_yaw = (lambda t: hs.turn_deg(C.at(ht, hv, t)))
     anim_new(path=out, skeleton=body_mesh, length_s=length_s, fps=30, replace=True)
     a = load(out)
     n_keys = model_keys(a)
