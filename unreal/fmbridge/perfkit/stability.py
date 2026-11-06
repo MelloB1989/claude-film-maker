@@ -187,7 +187,7 @@ def check(times: list, pitch: list, blinks: list, yaw: list | None = None, roll:
         blinks = [(a, b) for a, b in blinks if swing(a, b) < L["turn_deg"]]
     if blinks:
         for a, b in blinks:
-            per.append({"t": round(a, 3), "nod_deg": round(nod_depth(times, pitch, a, b), 3)})
+            per.append({"t": round(a, 3), "end": round(b, 3), "nod_deg": round(nod_depth(times, pitch, a, b), 3)})
         nods = [p for p in per if abs(p["nod_deg"]) >= L["nod_deg"]]
         share = len(nods) / len(per)
         worst = max(per, key=lambda p: abs(p["nod_deg"]))
