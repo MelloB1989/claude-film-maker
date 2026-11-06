@@ -168,7 +168,8 @@ ITEMS: dict = {
         "r4": [0.0067, "Trousers>tee at cast_op4"], "why": "~4 px of a garment"},
     "garment.collar_gap_cm": {
         "area": "garment", "track": "T3a", "op": "<=", "line": 0.8, "unit": "cm", "guard": True,
-        "what": "worst gap between his collar band and the neck surface (qa.garment_look collar_gap), any frame",
+        "what": "worst frame's p75 distance from the innermost collar ring to the neck skin (Face or Body), cm "
+                "(qa.garment_look collar_gap, agent-02 f4300854)",
         "where": "S13, S15, S17 (every measured frame)", "how": "qa.garment_look collar_gap (agent-02, T3a)",
         "r4": [None, "round 4's collar hugged the neck (Epic's band): not this failure"],
         "must_fail": [None, "round 5 Fit5: the collar FLOATED as a rolled ring off the neck in every S13 frame "
@@ -176,11 +177,21 @@ ITEMS: dict = {
         "why": "the gate passed Fit5 (neck_px 0, armor 0.109) while the collar stood off his neck"},
     "garment.collar_roll": {
         "area": "garment", "track": "T3a", "op": "==", "line": 0, "unit": "count", "guard": True,
-        "what": "frames where the collar band folds or rolls (lifts above the neck base: qa.garment_look collar_lift)",
+        "what": "frames where the collar band rolls or folds: gap > 0.8 cm OR the band's radial spread p90-p10 > "
+                "1.5 cm (a hugging band is one wall, ~0.3 cm); spread 1.5 is first-guess, calibrated on Fit5 (fail) "
+                "and Fit6 (pass)",
         "where": "S13, S15, S17", "how": "qa.garment_look collar_lift (T3a)",
         "r4": [None, "round 4: no roll"],
         "must_fail": [None, "round 5 Fit5: a fold at the front and a roll all round (orchestrator by eye)"],
         "why": "a rolled collar reads as a cowl, not a tee"},
+    "garment.hem_flare_ratio": {
+        "area": "garment", "track": "T3a", "op": "<=", "line": 1.15, "unit": "ratio", "guard": True,
+        "what": "worst frame's tee hem radius over his hip radius at the same height band (qa.garment_look hem flare)",
+        "where": "S15 wide, S17", "how": "qa.garment_look hem_flare (agent-02, T3a)",
+        "r4": [None, "round 4's hem followed the body"],
+        "must_fail": [None, "round 5 Fit5: hem ease 3.4 cm flares like a skirt edge in S15 (orchestrator by eye); "
+                            "agent-02 measures Fit5. Line 1.15 ~ 2.4 cm ease on a ~16 cm hip radius (Fit6 aims 1.5-2)"],
+        "why": "a stiff flared hem reads as a shell, not a tee"},
     "garment.silhouette_ratio": {
         "area": "garment", "track": "T3a", "op": "<=", "line": 1.12, "unit": "ratio", "guard": True, "info": True,
         "what": "(garment U body) / uncut body px in the garment's rows: the balloon guard for the refit",
@@ -208,6 +219,16 @@ ITEMS: dict = {
         "where": "S13, S15 close shots", "how": "agent-08's writer (T3b) from agent-02's qa.clip tee mask",
         "r4": [1.0, "round 4 against itself (its value is box-only: face rule)"],
         "why": "the operator: a smooth rigid shell; 25% more fold detail than the shell"},
+    # --- the shot itself (round 4's gate item f, restored: round 5's S15 preview rendered through the wrong camera)
+    "shot.cameras_ok": {
+        "area": "camera", "track": "T4", "op": "==", "line": 1, "unit": "bool",
+        "what": "probe_cam --check OK on all 13 Reel_ cameras (cut track and bindings as planned, 1 cm / 0.1 deg / "
+                "0.05 mm) AND framing.py prints no PROBLEM, read right before the render",
+        "where": "the 13 shots", "how": "r3/probe_cam.py ... --check; framing.py (r3/CAMERAS.md)",
+        "r4": [None, "round 4 passed it (13/13)"],
+        "must_fail": [0, "round 5's S15 preview f1080-1140 rendered through a wide camera instead of the over-the-"
+                         "shoulder close (orchestrator by eye)"],
+        "why": "every other number is meaningless through the wrong camera"},
     # --- T4: hair
     "hair.cut_reach_pct": {
         "area": "hair", "track": "T4", "op": "<=", "line": 12.0, "unit": "%",
