@@ -60,6 +60,12 @@ peak <= -1 dBTP; every caption line within 2 frames of its first VO word (cues.j
   live + saved 05:20:18 (agent-06); verified 05:20:45: green_px 0.000 in all three regions at both frames.
 - 05:21 glow_dE (set shots, old vs new radius): mean dE 0.06-0.91, worst block 0.67-4.97; four shots' worst blocks sit at
   the frame's top edge, away from the shelf: a noise-floor A/A (--tags new_a,new_b) decides before any re-render.
+- 05:58 cast_op5 PRE-CHECK: REFUSE. Pass b (watch), c (hair), f (13/13 + framing), g (lod0). Fail d: her S15 f1110 head
+  -94.6 (err 87.5) and S17 f1392 -120.4 (err 118.9), right way but over-turned (agent-01). Fail e: neck_px S13 81-172,
+  S15 609-649 / ~226, S17/S18 smaller. Fail a (frames, aligned): S13 him L1 1.02 (Host_Op's small mouth travel; engine
+  jaw 3.8 passes), S16 her L3b 1.99, S15 her L3a 0.80 and S17 him L4a 0.85 (her over-turns in their silences), S15 L2
+  and S17 L4b pass. Gate fixes in the run: clip keys Reel_*; the lips box interpolated and each frame pair lined up
+  (+-3 px) before differencing, so the head's own move in silence is not read as speech.
 - neck patch (agent-02 neck_px, before4 -> after, worst px per shot): S13 169 -> 172, S15 709 -> 649, S17 91 -> 93,
   S18 39 -> 34: NOT fixed; the gate refuses e until 0.
 
