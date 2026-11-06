@@ -271,38 +271,6 @@ vals.sort()
 result = vals[len(vals) // 2] if vals else None
 """
 
-CAPTURE_FRAME = r"""
-import unreal, json
-EAL = unreal.EditorAssetLibrary
-ident = EAL.load_asset("/Game/Host/OperatorCapture/MHI_Operator")
-face = ident.get_or_create_part_of_class(unreal.MetaHumanIdentityFace)
-pose = face.find_pose_by_type(unreal.IdentityPoseType.NEUTRAL)
-try:
-    fcd = pose.get_editor_property("capture_data")
-except Exception:
-    fcd = None
-if fcd is None:  # the ingested take (operator_mh.py's FOOTAGE)
-    fcd = EAL.load_asset("/Game/Host/OperatorCapture/CD_MySlate_3")
-cam = pose.get_editor_property("camera")
-align = pose.get_editor_property("timecode_alignment")
-P = unreal.PromotedFrameUtils
-result = {k: P.get_image_path_for_frame(fcd, cam, n, True, align) for k, n in FRAMES.items()}
-cal = {}
-try:
-    for c in fcd.get_editor_property("camera_calibrations"):
-        for n in dir(c):
-            if any(w in n.lower() for w in ("focal", "fov", "image_size", "principal", "lens")) and not n.startswith("_"):
-                try:
-                    v = getattr(c, n)
-                    cal[n] = str(v() if callable(v) and n.startswith("get") else v)[:300]
-                except Exception as e:
-                    cal[n] = "ERR " + str(e)[:80]
-except Exception as e:
-    cal["err"] = str(e)[:200]
-result = {"paths": result, "calibration": cal}
-"""
-
-
 # --- client side ---------------------------------------------------------------------------------------------------
 
 def rot_axes(rot: dict):
@@ -490,7 +458,9 @@ def render(a) -> None:
         setup = ex(SETUP, G=g, KEY_SIDE=a.key_side, STATE=state, KEY_CD=a.key_cd, FILL=a.fill, EV=ev, GREY=GREY, BG=BG)
         g["chip"] = setup["chip"]
         rep["setup"] = setup
-        rep["capture"] = ex(CAPTURE_FRAME, FRAMES={"front": 60, "left": 360, "right": 690})
+        # (no capture frames from the editor: the identity's footage needs Capture Manager's media, which a restored
+        # box lacks; asking for a frame's path then asserts and kills the editor, r4 03:14 UTC. compose takes them
+        # from the raw take with ffmpeg instead)
         for i, v in enumerate(vs):
             change = {k: x for k, x in v.items() if k != "label"}
             look = merge(base, change)
@@ -531,7 +501,7 @@ def render(a) -> None:
     finally:
         rep["restore"] = ex(RESTORE, STATE=state, LABEL=PREVIEW)
     meta = json.dumps({**rep, "key_side": a.key_side, "key": "5600 K rect key + white fill (1:%s), WB 5600 K, manual exposure EV %s, chip 18%% -> sRGB %d"
-                       % (a.fill, ev, CHIP_TARGET), "frames": (rep.get("capture") or {}).get("paths", {})})
+                       % (a.fill, ev, CHIP_TARGET), "frames": {}})
     ex("import os\nos.makedirs(OUT, exist_ok=True)\nopen(OUT + '/meta.json', 'w').write(META)\nresult = OUT + '/meta.json'",
        OUT=out, META=meta)
     print(json.dumps({"meta": out + "/meta.json", "ev": ev, "exposure": rep.get("exposure"),
@@ -623,9 +593,12 @@ def compose(a) -> None:
     rows = ["front"] + (["tq"] if "tq" in cols[0][1] else [])
     eyes = sheet == "iris"
     # the capture column: the front frame (and the turned one beside the three-quarter), cropped to the same framing
+    frames = dict(meta.get("frames") or {})
+    if not frames:
+        frames = take_frames(a.take, d)
     cap = []
     for k in ("front", "left" if meta.get("key_side", "left") == "left" else "right"):
-        p = (meta.get("frames") or {}).get(k)
+        p = frames.get(k)
         cap.append(Image.open(p).convert("RGB") if p and os.path.exists(p) else None)
     ncol = len(cols) + (1 if cap[0] is not None else 0)
     head, foot, eyeh = 70, 30 * (6 if sheet in ("iris", "skin") else 4), (cw // 3 if eyes else 0)
@@ -692,6 +665,31 @@ def _lines(sheet: str, m: dict, key_side: str = "left") -> list:
     return out
 
 
+TAKE = "/srv/ue/projects/HostStudio/Capture/operator-face/MySlate_3"  # operator_mh.py TAKE_DIR (private/operator-face/)
+TAKE_TIMES = {"front": 1.0, "left": 6.0, "right": 11.5}  # operator_mh.py FRAMES at 60 fps: 60, 360, 690
+
+
+def take_frames(take: str, out: str) -> dict:
+    """The capture's front and turned frames from the raw take's video, with ffmpeg (on the box: the static >= 5.1
+    build or the system one; the rotation tag is applied). {} when the take is not on this box."""
+    import glob
+    import shutil
+    import subprocess
+    movs = [m for m in glob.glob(os.path.join(take, "**", "*.mov"), recursive=True) if "depth" not in m.lower()]
+    ff = next((p for p in ("/srv/ue/tools/ffmpeg/bin/ffmpeg", shutil.which("ffmpeg")) if p and os.path.exists(p)), "")
+    if not (movs and ff):
+        print(json.dumps({"capture": "no take or no ffmpeg", "take": take, "movs": len(movs)}), file=sys.stderr)
+        return {}
+    got = {}
+    for k, t in TAKE_TIMES.items():
+        p = os.path.join(out, f"_capture_{k}.png")
+        r = subprocess.run([ff, "-v", "error", "-y", "-ss", str(t), "-i", sorted(movs, key=os.path.getsize)[-1],
+                            "-frames:v", "1", p], capture_output=True)
+        if r.returncode == 0 and os.path.exists(p):
+            got[k] = p
+    return got
+
+
 def _fit_capture(im, aspect: float, box: str):
     """The capture frame cropped to the render's aspect: `box` x,y,w (pixels; h from the aspect), else the frame's
     upper-centre (the take is a portrait selfie with the face in its upper middle)."""
@@ -737,6 +735,7 @@ def main() -> None:
     c.add_argument("--jpg", default="")
     c.add_argument("--max-mb", type=float, default=3.0)
     c.add_argument("--capture-box", default="", help="x,y,w of the face in the capture's front frame")
+    c.add_argument("--take", default=TAKE, help="the operator's take on the box (its video gives the capture column)")
     c.add_argument("--numbers-only", action="store_true")
     a = ap.parse_args()
     if a.cmd == "list":
