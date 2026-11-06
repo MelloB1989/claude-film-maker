@@ -110,7 +110,9 @@ ITEMS: dict = {
         "area": "head", "track": "T2", "op": "<=", "line": 0.6, "unit": "deg",
         "what": "worst blink's head-pitch departure (head bone forward axis elevation, world), window lid start "
                 "-0.1 s to lid open +0.12 s, de-trended by the chord between the window edges",
-        "where": "every blink of each presenter (her f1080-1559, him from f960)",
+        "where": "every ON-SCREEN blink of each presenter (qa/scope.py, the shot table's cast lists), blinks during "
+                 "head turns INCLUDED: no turn-blink exemption (orchestrator, round 5: the pitch bell on a turn is our "
+                 "torso-lags-neck artifact, and the operator sees it)",
         "how": "film-ue op qa.head_stability + film-qa head-gate (agent-04, T2)",
         "r4": [2.696, "Presenter f1395-1407 on the box (round 5 probe, agent-04's edge fix d4485bf4); perfkit "
                       "alone offline read 1.61 at f1380"],
