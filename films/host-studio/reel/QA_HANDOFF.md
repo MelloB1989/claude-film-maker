@@ -84,6 +84,9 @@ peak <= -1 dBTP; every caption line within 2 frames of its first VO word (cues.j
   final re-render). Tee silhouette (orchestrator): Host_fix vs Host_after +6..+15% -> gate e now checks +-2% (S15/S17/S18).
 - orchestrator by eye: S13 f977-1017 is the planned smirk/grin (lips part, teeth in a smile), not mouthing; a.lips is
   WAIVED for S13 L1 only (`--waive a.lips=...`), checked on each run that S13 L1 is the item's only failure.
+- 09:1x GATE SIGNED on cast_op5 = patch3 (gate_signed.json on the box): b c d f g PASS; a WAIVED (S13 L1, by eye); e
+  WAIVED on the orchestrator's eye (no balloon, no hole): residue neck_px 1-3 single px S15 f1082-1128, tee silhouette
+  +2.1..+2.2% S15 f1150-1198 (agent-02's tee_silhouette.py agrees, worst +2.23%). Presenter finals released.
 - neck patch (agent-02 neck_px, before4 -> after, worst px per shot): S13 169 -> 172, S15 709 -> 649, S17 91 -> 93,
   S18 39 -> 34: NOT fixed; the gate refuses e until 0.
 
