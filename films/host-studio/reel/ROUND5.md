@@ -242,10 +242,14 @@ inside the overshirt opening; S15). Found so far:
   `/srv/ue/reel/r5/patch_final{,2}/` on the box.
 - **Fixed by re-rendering in a fresh editor state** (~01:30 IST, the orchestrator's GO): S17+S18 as ONE job again
   (724 s, probe 13/13, lock_check pass). f1350 cells now 48.9 | 33.3 | 16.0 (round 4 50.3 | 33.8 | 16.0); f1386 matches
-  round 4 as well. S16 and S15 (warm-up 64) were re-rendered too. Their need was NOT proven: a fresh-still-vs-final
-  cell check (agent-09's suggestion) is invalid in close shots, since the still and final specs differ by −45..−54 there
-  even when both are clean. It only held in the wide S17. S13 stands as rendered (no evidence against it). The valid
-  control is old final vs new final, same spec.
+  round 4 as well. S16 and S15 (warm-up 64) were re-rendered too. A fresh-still-vs-final check (agent-09's suggestion) is
+  invalid in close shots: the still and final specs differ by −45..−54 there even when both are clean. The valid
+  control, OLD final vs NEW final with the same spec (old frames hard-linked in `final_cand`), reads the old ones
+  23-27 L* DARKER on bright cells at the frame bottom where her white top is, in all 4 frames (S15 f1176/f1190
+  x1480 y880; S16 f1270/f1300 x640-1120 y1040). That is the patch signature, so the re-render was needed. Caveat: dark
+  cells (hair, background) also moved by about +25 in mixed places, so old vs new is not noise-free; the consistent sign on
+  the white top is the evidence. S13 has no pre-19:09 twin: it stands, not proven either way.
+
 - Round 6: find WHAT editor state did it (the 18:08 overshirt restore ran in that session before the finals; the 19:09
   restart reloaded her assets), and render finals only from a freshly started editor.
 
