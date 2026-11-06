@@ -653,13 +653,17 @@ def _band(v: list, rate: float) -> list:
     return LS.bandpass(list(v), rate, 1.0, min(8.0, rate / 2.5))
 
 
-def av_lag(env: AU.Envelope, sig: list, f0: int, fps: float, max_lag_s: float = 1.0, motion: bool = False) -> dict:
-    """Lag (s; < 0 = picture early) and correlation of a per-frame mouth signal against the voice, frame-rate."""
-    t = [(f0 + i) / fps for i in range(len(sig))]
-    a = [env.at(x) for x in t]
+def av_lag(env, sig: list, f0: int, fps: float, max_lag_s: float = 1.0, motion: bool = False,
+           shift_s: float = 0.0) -> dict:
+    """Lag (s; < 0 = picture early) and correlation of a per-frame mouth signal against a target: the voice (an
+    Envelope) or, better, the solve's mouth opening (a {name: (times, values)} reference on the master timeline),
+    shifted later by `shift_s` (the control); two-stage like perfkit.lipsync (words' envelope, then refined)."""
+    t = [(f0 + i) / fps - shift_s for i in range(len(sig))]
+    a = LS.aperture(env, t) if isinstance(env, dict) else [env.at(x) for x in t]
     if motion:  # motion follows the envelope's changes, not its level
         a = [abs(a[i] - a[i - 1]) if i else 0.0 for i in range(len(a))]
-    return LS.xcorr(_band(a, fps), _band(sig, fps), fps, max_lag_s)
+    xc = LS.xcorr(LS.bandpass(a, fps, 0.25, 2.5), LS.bandpass(list(sig), fps, 0.25, 2.5), fps, max_lag_s)
+    return LS.xcorr(_band(a, fps), _band(sig, fps), fps, 0.25, center_s=xc["lag_s"])
 
 
 def _boxes_for(frames: list, boxes: dict | None, box: list | None) -> list:
@@ -679,15 +683,19 @@ def _boxes_for(frames: list, boxes: dict | None, box: list | None) -> list:
 def render_check(video: Path, wav: Path, cues: dict, who: str, boxes: dict | None = None, box: list | None = None,
                  wav_frame: float = 0.0, pad_s: float = 1.0, max_lag_frames: float = 1.0, min_corr: float = 0.3,
                  control_shift: int = 6, syncnet_dir: Path | None = None, min_conf: float = 3.0,
-                 frames_override: dict | None = None) -> dict:
-    """The video-level gate on a render: per line of `who`, the mouth crop's darkness and motion against the voice
-    (the better of the two), with a control (the voice shifted `control_shift` frames must move the lag by that
+                 frames_override: dict | None = None, reference: dict | None = None) -> dict:
+    """The video-level gate on a render: per line of `who`, the mouth crop's darkness and motion against a target
+    (the better of the two), with a control (the target shifted `control_shift` frames must move the lag by that
     much, else the measure is not sensitive on this shot: inconclusive), and SyncNet when available.
+    The target is `reference` when given: the line solves' curves placed at their mix positions ({name: (times,
+    values)}, master seconds: `lips.py refcurves`), i.e. what the mouth SHOULD do; the rendered mouth's darkness
+    follows the solve's opening closely. Without it, the voice's loudness (weak on short lines, r5 P2).
     frames_override: {line: ndarray [n, h, w]} for tests (no ffmpeg)."""
     w_h_fps = video_size(video) if frames_override is None else (0, 0, cues.get("fps", 24.0))
     fps = w_h_fps[2]
     x, sr = read_wav(wav)
     env = envelope(x, sr, offset_s=wav_frame / fps)
+    target = reference if reference else env
     res, issues, inconclusive = {}, [], []
     for k, c in sorted(cues["lines"].items(), key=lambda kc: kc[1]["voice_frame"]):
         if c["who"] != who:
@@ -699,16 +707,16 @@ def render_check(video: Path, wav: Path, cues: dict, who: str, boxes: dict | Non
         sig = mouth_signals(frames, bx)
         best = None
         for name in ("dark", "motion"):
-            r = av_lag(env, sig[name], f0, fps, motion=name == "motion")
+            r = av_lag(target, sig[name], f0, fps, motion=name == "motion")
             if best is None or r["corr"] > best[1]["corr"]:
                 best = (name, r)
         name, r = best
-        shifted = AU.Envelope(env.values, env.rate, env.offset_s + control_shift / fps)
-        rc = av_lag(shifted, sig[name], f0, fps, motion=name == "motion")
+        rc = av_lag(target, sig[name], f0, fps, motion=name == "motion", shift_s=control_shift / fps)
         moved = (r["lag_s"] - rc["lag_s"]) * fps  # the voice made later by k frames: the mouth reads k frames earlier
         sensitive = abs(moved - control_shift) <= 1.5
         lag_f = r["lag_s"] * fps
-        rec = {"frames": [f0, f1], "signal": name, "lag_frames": round(lag_f, 2), "corr": round(r["corr"], 3),
+        rec = {"frames": [f0, f1], "signal": name, "against": "solve" if reference else "voice",
+               "lag_frames": round(lag_f, 2), "corr": round(r["corr"], 3),
                "control_moved_frames": round(moved, 2), "sensitive": sensitive}
         if not sensitive or r["corr"] < 0.15:
             inconclusive.append(k)
@@ -908,6 +916,8 @@ def register(sub) -> None:
     r.add_argument("--box", help="x0,y0,x1,y1 (0..1): one mouth box for every frame (a locked-off shot)")
     r.add_argument("--syncnet-dir", type=Path, help="a syncnet_python checkout with data/syncnet_v2.model")
     r.add_argument("--min-conf", type=float, default=3.0)
+    r.add_argument("--reference", type=Path, help="the line solves' curves on the master timeline (lips.py refcurves "
+                   "JSON {name: [times_s, values]}): the rendered mouth is checked against what the solve does")
 
 
 def _done(rep: dict) -> None:
@@ -961,6 +971,9 @@ def dispatch(a) -> bool:
         if boxes:
             boxes = boxes.get("result", boxes).get("frames", boxes)
         box = [float(v) for v in a.box.split(",")] if a.box else None
+        ref = None
+        if a.reference:
+            ref = {n: (list(tv[0]), list(tv[1])) for n, tv in json.loads(a.reference.read_text()).items()}
         _done(render_check(a.video, a.wav, cues, a.who, boxes, box, a.wav_frame, syncnet_dir=a.syncnet_dir,
-                           min_conf=a.min_conf))
+                           min_conf=a.min_conf, reference=ref))
     return True
