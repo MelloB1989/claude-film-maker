@@ -222,8 +222,9 @@ def settle(frames: str, spec: str, shot: str, first: int = 4, rest: int = 12, li
     d = [round(h.box_diff(imgs[f], imgs[f + 1], box), 3) for f in range(a0, a0 + first + rest)]
     base = sorted(d[first:])[len(d[first:]) // 2]
     ratio = round(max(d[:first]) / max(base, 0.5), 3)
-    return {"what": "head+hair motion at the shot start (diagnostic)", "shot": shot, "box": box, "diffs": d, "start_max": max(d[:first]), "median_after": base,
-            "ratio": ratio, "line": line, "pass": ratio <= line}
+    return {"what": "head+hair motion at the shot start (diagnostic)", "shot": shot, "box": box, "diffs": d,
+            "start_max": max(d[:first]), "median_after": base, "ratio": ratio, "line": line, "pass": ratio <= line,
+            "gate": {"shot.start_motion_ratio": {"value": ratio, "where": f"{shot} f{a0}-{a0 + first}"}}}
 
 
 def main(argv=None) -> int:
