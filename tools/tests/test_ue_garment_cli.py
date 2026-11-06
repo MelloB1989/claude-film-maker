@@ -76,3 +76,13 @@ def test_gate_numbers_contract(tmp_path, monkeypatch):
     monkeypatch.setattr(sys, "argv", ["film-ue", "garment-gate", "--clip", str(tmp_path / "c.json"), "--out", str(out)])
     cli.main()
     assert json.loads(out.read_text())["gate"]["garment.armor_index"]["error"]
+
+
+def test_judge_names_the_clipping_regions():
+    rep = {**REP, "pass": False, "args": {"weights": "transfer"},
+           "problems": ["pose test anim_a: 40 garment verts inside the body at frame 371 (deepest 1.2 cm)"],
+           "poses": {"anim_a": {"inside": 40, "deepest_cm": 1.2, "frame": 371,
+                                "by_region": {"armpit": [300, 4.1], "collar@face": [30, 1.2], "waist": [10, 0.3]}}}}
+    j = G.judge(rep)
+    assert any("armpit 300" in s for s in j["lines"])
+    assert any('"collar": <+0.4 cm>' in n and '"waist"' in n and "armpit" not in n for n in j["next"])
