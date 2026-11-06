@@ -1,6 +1,7 @@
 """Round 5, track T1: the presenters' lip sync, re-done on one timebase and proved (r5/lipsync.md is the plan).
 
-    cd tools && uv run python ../films/host-studio/reel/r5/lips.py cues            # cues from the MIX (local, no box)
+    cd tools && uv run python ../films/host-studio/reel/r5/lips.py voice           # per-line WAVs from the mix's voice
+    cd tools && uv run python ../films/host-studio/reel/r5/lips.py cues            # cues from them (local, no box)
     cd tools && uv run python ../films/host-studio/reel/r5/lips.py push            # stems, line WAVs, cues -> the box
     cd tools && uv run python ../films/host-studio/reel/r5/lips.py probe --who him # P1: where round 4's lag entered
     cd tools && uv run python ../films/host-studio/reel/r5/lips.py solve [--only L1]   # mouth-only solve per line WAV
@@ -30,12 +31,11 @@ from filmtools.unreal import client  # noqa: E402
 
 CUES = VO / "cues.json"           # the measured one (lips.py cues), what everything reads
 MIX = REEL / "audio" / "mix" / "mix.wav"  # the delivered mix: CANONICAL (the orchestrator, r5): the viewer hears it
-R4_STEMS = VO / "r4_stems"        # round 4's stems, kept aside: they placed L1 ~14 frames before the mix
-R4_LINES = VO / "r4_lines"        # round 4's line WAVs, kept aside: not the takes the mix holds
-# The solve units: one per line WAV. Only L1, L2, L3, L4a, L4b.wav exist (Nov 1): L3 holds L3a + L3b, solved whole
-# and placed once (its mood the longer part's, L3b's); cues split it at its pause for captions and checks.
-UNIT_MOOD = {"L3.wav": MOODS["L3b"]}
+SEP = REEL / "audio" / "vo_sep"   # option D (r5): the voice separated from mix.wav (demucs htdemucs), cut per line
+R4_STEMS = VO / "r4_stems"        # round 4's stems (the v1 script), kept aside, never mixed or solved from again
+UNIT_MOOD: dict = {}  # a WAV holding several lines solves in this mood (none now: D cuts one WAV per line)
 LENGTH = {w: P.END + P.POST_ROLL - P.START[w] for w in ("him", "her")}
+LENGTH_ALL = P.END + P.POST_ROLL + 24  # the stems' frames (the reel and a second)
 
 
 def box(*parts: str) -> str:
@@ -53,53 +53,47 @@ def cues() -> dict:
     return doc
 
 
-def plan_lines() -> dict:
-    """The line list from the plan (cues_v2.json, never the measured cues.json: a second run would take its
-    measured frames as the plan), mapped onto the line WAVs that exist; L3a + L3b -> L3.wav with a split."""
-    plan = json.loads((REEL / "cues_v2.json").read_text())
-    lines = dict(plan["lines"])
-    if not (VO / "L3a.wav").exists() and (VO / "L3.wav").exists():
-        a, b = lines.pop("L3a"), lines.pop("L3b")
-        lines["L3"] = {**a, "wav": "L3.wav", "text": f"{a['text']} {b['text']}", "split": [
-            {"id": "L3a", "text": a["text"], "voice_frame": a["voice_frame"], "mood": a["mood"],
-             "intensity": a["intensity"], "slot_end": a["slot_end"]},
-            {"id": "L3b", "text": b["text"], "voice_frame": b["voice_frame"], "mood": b["mood"],
-             "intensity": b["intensity"], "slot_end": b["slot_end"]}]}
-    missing = [c["wav"] for c in lines.values() if not (VO / c["wav"]).exists()]
-    if missing:
-        raise SystemExit(f"line WAVs missing in {VO}: {missing}")
-    return {**plan, "lines": lines}
+def plan() -> dict:
+    """The planned v2 lines (cues_v2.json: who, text, voice_frame, slot_end): never the measured cues.json."""
+    return json.loads((REEL / "cues_v2.json").read_text())
+
+
+def cmd_voice(vocals: Path) -> dict:
+    """Option D, step 1: the per-line WAVs cut from the voice separated from the delivered mix (demucs htdemucs
+    vocals of audio/mix/mix.wav) into audio/vo_sep/, each checked for its speaker; voice.json is their provenance."""
+    from filmtools.unreal.cli_lipsync import lines_from_voice
+    lines, issues, man = lines_from_voice(vocals, plan(), SEP, MIX, FPS, "htdemucs (two_stems=vocals)")
+    (SEP / "lines.json").write_text(json.dumps({"lines": lines}, indent=1))
+    return {"lines": {k: [c["file_frame"], c["voice_frame"], c["voice_frame_planned"], c["f0_hz"]]
+                      for k, c in lines.items()}, "leak_db": man.get("leak_db"), "issues": issues,
+            "pass": not [i for i in issues if i["severity"] == "fail"]}
 
 
 def cmd_cues(words: str) -> dict:
-    """Cues from the delivered mix: each line WAV located in mix.wav, the voice stems rebuilt there (out/.../vo/
-    vo_<who>.wav, round 4's kept in vo/r4_stems/ and checked against the mix: they must FAIL on L1), measured."""
+    """Option D, step 2: the cues from the line WAVs cut from the mix's voice: stems with each at its cut's place
+    (out/.../vo/vo_<who>.wav; round 4's v1 stems kept in vo/r4_stems/), measured, each line located on the mix's
+    voice (>= 0.8) and proven to come from THIS mix (voice.json's sha256s)."""
     import shutil
-    from filmtools.unreal.cli_lipsync import cues_from_mix
+    from filmtools.unreal.cli_lipsync import build_cues, stems_from_lines
     R4_STEMS.mkdir(parents=True, exist_ok=True)
     for w in ("him", "her"):
         if (VO / f"vo_{w}.wav").exists() and not (R4_STEMS / f"vo_{w}.wav").exists():
             shutil.copy2(VO / f"vo_{w}.wav", R4_STEMS / f"vo_{w}.wav")
-    old = {w: R4_STEMS / f"vo_{w}.wav" for w in ("him", "her") if (R4_STEMS / f"vo_{w}.wav").exists()}
-    # the line WAVs on hand may not be the ones mixed (r5: they were not): every raw take in vo/takes/<line>/ is a
-    # candidate too, and the one the mix holds wins (trimmed and levelled as vo.py build made it)
-    doc = cues_from_mix(plan_lines(), VO, MIX, VO / "mix_aligned", old, FPS, words, VO / "takes")
-    R4_LINES.mkdir(parents=True, exist_ok=True)
-    for c in doc["lines"].values():  # the chosen line WAVs replace the old ones (kept in vo/r4_lines/)
-        src, dst = Path(doc["line_dir"]) / c["wav"], VO / c["wav"]
-        if dst.exists() and not (R4_LINES / c["wav"]).exists():
-            shutil.copy2(dst, R4_LINES / c["wav"])
-        shutil.copy2(src, dst)
-    for w, info in doc["stems"].items():  # what perf.py, the checks and the gate read
-        shutil.copy2(info["path"], VO / f"vo_{w}.wav")
-        info["path"] = str(VO / f"vo_{w}.wav")
+    cut = json.loads((SEP / "lines.json").read_text())["lines"]
+    doc_lines = {"fps": FPS, "frames": plan().get("frames"),
+                 "lines": {k: {**c, "place": "file_frame", "voice_frame": c["voice_frame_planned"]}
+                           for k, c in cut.items()}}
+    stems, _, issues = stems_from_lines(doc_lines, SEP, VO, LENGTH_ALL, FPS)
+    man = json.loads((SEP / "voice.json").read_text())
+    doc = build_cues(doc_lines, stems, FPS, words, line_dir=SEP, mix=MIX, mix_voice=SEP / "vocals.wav", mix_meta=man)
+    doc["issues"] = issues + doc["issues"]
+    doc["canonical"] = "mix (separated voice)"
     CUES.write_text(json.dumps(doc, indent=1))
     fails = [i for i in doc["issues"] if i["severity"] == "fail"]
-    return {"lines": {k: {"take": c.get("take"), "candidates": c.get("candidates"),
-                          "file_frame": c["file_frame"], "voice": [c["voice_frame"], c["end_frame"]],
+    return {"lines": {k: {"file_frame": c["file_frame"], "voice": [c["voice_frame"], c["end_frame"]],
                           "planned": c.get("voice_frame_planned"), "mix_score": c.get("mix_score"),
                           "words": c["words_source"]} for k, c in doc["lines"].items()},
-            "fails": fails, "old_stems": doc.get("old_stems"), "pass": not fails}
+            "fails": fails, "pass": not fails}
 
 
 def units(who: str) -> list:
@@ -118,7 +112,8 @@ def units(who: str) -> list:
 
 def cmd_push() -> list:
     cues()  # refuses stale cues
-    files = [VO / "vo_him.wav", VO / "vo_her.wav", CUES] + [VO / u["wav"] for w in ("him", "her") for u in units(w)]
+    d = Path(cues()["line_dir"])
+    files = [VO / "vo_him.wav", VO / "vo_her.wav", CUES] + [d / u["wav"] for w in ("him", "her") for u in units(w)]
     return [client.push(str(p), box(p.name)) for p in files]
 
 
@@ -245,7 +240,8 @@ def cmd_boxes(who: str) -> dict:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["cues", "push", "probe", "solve", "bias", "compose", "check", "boxes"])
+    ap.add_argument("cmd", choices=["voice", "cues", "push", "probe", "solve", "bias", "compose", "check", "boxes"])
+    ap.add_argument("--vocals", type=Path, default=SEP / "vocals.wav", help="demucs vocals of audio/mix/mix.wav")
     ap.add_argument("--who", choices=["him", "her"], default="him")
     ap.add_argument("--only", nargs="*")
     ap.add_argument("--stage", default="face", choices=["solve", "face", "final", "placed"])
@@ -254,7 +250,7 @@ def main() -> None:
     a = ap.parse_args()
     if a.cmd == "check":
         cmd_check(a.who, a.stage)
-    r = {"cues": lambda: cmd_cues(a.words), "push": cmd_push, "probe": lambda: cmd_probe(a.who),
+    r = {"voice": lambda: cmd_voice(a.vocals), "cues": lambda: cmd_cues(a.words), "push": cmd_push, "probe": lambda: cmd_probe(a.who),
          "solve": lambda: cmd_solve(a.only), "bias": cmd_bias, "compose": lambda: cmd_compose(a.who, a.keep_base),
          "boxes": lambda: cmd_boxes(a.who)}[a.cmd]()
     print(json.dumps(r, indent=1, default=str))

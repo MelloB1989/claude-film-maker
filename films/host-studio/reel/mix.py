@@ -156,6 +156,17 @@ def mix(vo_dir: Path | None, lines: dict[str, Path], no_vo: bool = False, png: b
         "duck": duck_report(duck) if g_voice is not None else None,
         "sections_lufs": sections_loudness(out),
     }
+    # provenance (round 5: round 4's faces were solved from a voice the mix was not built from): the voice stems
+    # read, the voice stem written and the mix, by sha256; `film-ue lips cues --mix-json` proves the faces' voice
+    # is the mixed one from these
+    import hashlib
+
+    def sha(p: Path) -> str:
+        return hashlib.sha256(p.read_bytes()).hexdigest()
+    if vo_dir is not None and not lines and not no_vo:
+        rep["voice_sha256"] = {w: sha(vo_dir / f"vo_{w}.wav") for w in ("him", "her") if (vo_dir / f"vo_{w}.wav").is_file()}
+    rep["stem_voice_sha256"] = sha(d / "stem-voice.wav")
+    rep["mix_sha256"] = sha(d / "mix.wav")
     (d / "mix.json").write_text(json.dumps(rep, indent=1))
     if png:
         plot(stems, gain, out, d / "mix.png")

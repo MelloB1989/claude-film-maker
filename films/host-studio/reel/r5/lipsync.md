@@ -44,31 +44,40 @@ GPU session, after core is merged into film/host-studio and the box tree is upda
 - Install the bridge: `film-ue install`.
 - `film-ue op ops.broken` must return `[]`, and `film-ue describe lipsync.check` must work.
 
-### 1. Cues from the delivered mix (local, no box, ~1 min)
+### 1. Cues from the delivered mix's own voice (option D; done locally, committed)
 
-The orchestrator's decision (r5): the delivered `audio/mix/mix.wav` is canonical, because it is what the viewer hears.
+The orchestrator's decision (r5): the delivered v2 `audio/mix/mix.wav` stays exactly as the operator heard it.
 
-```
-uv pip install stable-ts            # optional: real word timings (CPU); without it, words are estimated and flagged
-uv run python ../films/host-studio/reel/r5/lips.py cues
-```
+Why: the round-4 line WAVs and stems are the **v1 script**. L1.wav is a 9.2 s line from f929; v2's L1 is "Took you
+long enough." at f1020. The v2 takes the mix was built from are gone, and there is no ElevenLabs key to regenerate
+them. So the voice is separated from the mix itself.
 
-What it does:
+1. **Separation (done).** demucs 4.0.1 htdemucs, `--two-stems=vocals`, CPU, run on the build host.
+   - mix.wav sha256 58e28385… → `audio/vo_sep/vocals.wav` (mono, 44.1 kHz).
+2. **Per-line cut (done, committed):** `lips.py voice` writes `audio/vo_sep/L1…L4b.wav`, `lines.json` and
+   `voice.json`.
+   - VAD runs in each line's window, and a window never reaches back into the previous line.
+   - The speaker is checked by pitch. Him: L1 110 Hz, L2 122 Hz, L4a 140 Hz. Her: L3a 235 Hz, L3b 213 Hz, L4b 204 Hz.
+   - Music leakage between lines is -43 dB.
+   - Voice onsets against the plan: L1 1019.8 (1020), L2 1094.4 (1095), L3a 1157.5 (1158), L3b 1214.9 (1215),
+     L4a 1350.2 (1350), L4b 1384.8 (1386).
+3. **Cues (run it again on kali; deterministic):**
 
-- It finds each line WAV in `out/host-studio/reel/vo/` (L1, L2, L3, L4a, L4b) inside `mix.wav` by
-  cross-correlation. That position is the line's `file_frame`.
-- It rebuilds `vo_him.wav` and `vo_her.wav` with every line at exactly that position.
-  - Round 4's stems are kept in `vo/r4_stems/`.
-- It measures onset, offset and words on the rebuilt stems.
-- It splits L3 into L3a and L3b at its pause.
-- It verifies every line against the mix again.
+   ```
+   uv run python ../films/host-studio/reel/r5/lips.py cues
+   ```
 
-Expect:
-
-- `pass: true`, with `mix_score` ≥ 0.3 per line.
-- `file_frame` about f1019 for L1, near the mix's f1021 voice.
-- `old_stems.pass: false`, with `mix_mismatch` on L1 about 14 frames EARLY. That is round 4's root cause, now caught.
-- The L3a and L3b entries share `wav: L3.wav`.
+   - Each line is placed at its cut's place, giving `out/host-studio/reel/vo/vo_<who>.wav`. Round 4's v1 stems are
+     kept in `vo/r4_stems/`.
+   - Measured and verified.
+   - Expect `pass: true` and `mix_score` 1.0 per line (against the mix's own voice). Against the full mix with the
+     music, the same cuts score 0.80-0.92, with L2 at 0.796, at exactly their place.
+   - Provenance: `voice.json` holds the mix's sha256 and each WAV's. cues fails `vo_not_mixed` if the mix or a WAV
+     changed.
+   - **Captions** (agent-06's cut) read this cues.json.
+4. **Gate (P2):** `lips.py bias` must give corr ≥ 0.5 on most lines. Otherwise the separated voice is too dirty to
+   solve from, and the fallback is regenerating the v2 takes (vo.py, the operator's ElevenLabs key): ask the
+   orchestrator.
 
 ### 2. Push (box)
 
@@ -105,7 +114,7 @@ Expect:
   column in gate v2.
 - If stage 6 is fine but the render was early, the render or the mux moved the audio. Then P3 decides.
 
-### 4. Solve each line WAV alone, mouth only (~1-2 min each, 5 WAVs: L3 whole, in L3b's mood)
+### 4. Solve each line WAV alone, mouth only (~1-2 min each, 6 WAVs from audio/vo_sep/)
 
 ```
 uv run python ../films/host-studio/reel/r5/lips.py solve
