@@ -583,6 +583,30 @@ def compose(a) -> None:
             cells[name] = (im, st)
         nums.append({"label": row["label"], "look": row["look"], **m})
         cols.append((row["label"], cells, m))
+    if a.diag:  # numbers only: are the stills different, and what is around each iris point (7x5 cells of 2 iris radii)
+        import hashlib
+        import numpy as np
+        rows = []
+        for row in meta["variants"]:
+            st = row["stills"]["front"]
+            arr = np.asarray(Image.open(st["path"]).convert("RGB")).astype(float)
+            e = {"label": row["label"], "md5": hashlib.md5(arr.tobytes()).hexdigest()[:10],
+                 "mean": [round(c) for c in arr.reshape(-1, 3).mean(axis=0)], "pts": {}}
+            for k in ("irisL", "cheekL", "chip"):
+                x, y, kk, rad = st["points"][k]
+                r = max(2.0, kk * rad)
+                grid = []
+                for j in range(-2, 3):
+                    line = []
+                    for i in range(-3, 4):
+                        cx, cy = int(x + i * 2 * r), int(y + j * 2 * r)
+                        patch = arr[max(0, cy - int(r)):cy + int(r) + 1, max(0, cx - int(r)):cx + int(r) + 1]
+                        line.append([round(c) for c in patch.reshape(-1, 3).mean(axis=0)] if patch.size else None)
+                    grid.append(line)
+                e["pts"][k] = {"xy": [round(x), round(y)], "r_px": round(r, 1), "grid": grid}
+            rows.append(e)
+        print(json.dumps(rows[:a.diag]))
+        return
     if a.numbers_only:
         print(json.dumps(nums, indent=1))
         return
@@ -737,6 +761,7 @@ def main() -> None:
     c.add_argument("--capture-box", default="", help="x,y,w of the face in the capture's front frame")
     c.add_argument("--take", default=TAKE, help="the operator's take on the box (its video gives the capture column)")
     c.add_argument("--numbers-only", action="store_true")
+    c.add_argument("--diag", type=int, default=0, help="numbers only: hashes and colour grids around the points, first N")
     a = ap.parse_args()
     if a.cmd == "list":
         w = wardrobe()
