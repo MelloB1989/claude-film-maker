@@ -134,11 +134,13 @@ ITEMS: dict = {
         "where": "his tee's materials", "how": "film-ue garment-gate (agent-02, T3a)",
         "r4": [2.66, "0.15 + 0.75 + 1.76 cm (patch3)"], "why": "the operator: 'heavy armor inside'"},
     "garment.armor_index": {
-        "area": "garment", "track": "T3a", "op": "<=", "line": 0.5, "unit": "index",
+        "area": "garment", "track": "T3a", "op": "<=", "line": 0.5, "unit": "index", "guard": True,
         "what": "qa.garment_look: ease spread vs the uncut body, wall thickness, wpo, silhouette ratio, normal "
                 "detail, motion",
         "where": "S15 f1082/1150, S17 f1397", "how": "film-ue garment-gate --look (T3a)",
-        "r4": [0.538, "box G3 after agent-02's recalibrated detail ramp (2da3ce99); her fitted Top reads 0.0"],
+        "r4": [0.538, "box G3 terms re-scored under agent-02's ramps (2da3ce99); her fitted Top 0.0. A GUARD, not a "
+                      "regression line: the detail ramp is fitted to two points (her Top = cloth, his r4 tee = "
+                      "armour), so it fails round 4 by construction; garment.wpo_cm is the independent line"],
         "why": "the operator: a smooth, thick, rigid shell"},
     "garment.pair_fraction": {
         "area": "garment", "track": "T3a", "op": "<=", "line": 0.001, "unit": "fraction",
