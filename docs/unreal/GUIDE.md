@@ -107,6 +107,12 @@ film-ue apply /tmp/interview.pipeline.yaml
 Check: the render report says ok with no missing chunks, each review.json passes, a second plan is empty; then
 `film-ue op shot.check ...` for the framing numbers.
 
+**Cloth.** A garment that should move gets Chaos cloth from a preset (`cloth.setup label=Host component=Tee
+preset=cotton_tee`; needs the FMCloth plugin, [cloth.md](cloth.md)). After any respawn: `cloth.settings`. Check:
+`film-ue op qa.cloth label=Host component=Tee sequence=... start=S end=E` must pass, with `zones.hem.motion_cm >= 0.3`
+over a gesture (a skinned garment fails `cloth.no_clothing`/`cloth.dead`: the round-4 "armour"). Before a render:
+`cloth.render_check` on the plan's chunks, and set the `warmup_engine` it returns.
+
 **Review.** `film-ue qa review --sequence ... --out-dir ...`: one JSON (`pass`, `summary` worst first, `issues` each
 with a `fix`) and one picture. Fix the fails, re-apply, review again (WP10: [qa.md](qa.md)).
 
@@ -140,7 +146,8 @@ fit the 24 GB L4. Check: `film-ue render status`, or the report at `<out_dir>/_r
 - **A face played by Sequencer** stops following the body: bake them together (`anim.bake_follow`).
 - **Hair goes white indoors in daylight**: `r.HairStrands.SkyLighting 0`.
 - **Cloth needs pre-roll**: `render.job` pre-rolls any chunk that starts mid-shot from its cut start automatically
-  (`preroll: cut`); judge a cut's first frame on its own.
+  (`preroll: cut`); a chunk on its cut start only gets the warm-up hold, which `cloth.render_check` sizes. **A garment
+  without clothing data never moves** (armour): `cloth.describe` lists `skinned_only`.
 - **Path tracing OOMs on the 24 GB L4.** Use deferred (Lumen) renders.
 - **Never change a material while it is drawn** (an assert takes the editor down): ops that do it are multi-tick for
   a reason.

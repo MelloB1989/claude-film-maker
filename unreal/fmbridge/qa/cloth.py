@@ -258,3 +258,133 @@ def sample(n: int, k: int, zones: list | None = None) -> list:
                 s = max(1, len(ii) // per)
                 idx.update(ii[::s][:per])
     return sorted(idx)
+
+
+# ------------------------------------------------------------------------------------------------ fold detail (image)
+
+def chest_band(mask, w: int, h: int, top_frac: float = 0.08, bottom_frac: float = 0.40, width_frac: float = 0.6):
+    """The front-chest band of a garment's pixel mask (a flat list, nonzero = garment): the columns in the middle
+    `width_frac` of its bounding box, the rows from `top_frac` to `bottom_frac` of its height below its topmost
+    pixel there (the collar). (x0, y0, x1, y1) or None when the mask is empty."""
+    xs = [i % w for i, m in enumerate(mask) if m]
+    if not xs:
+        return None
+    x0, x1 = min(xs), max(xs) + 1
+    cx0 = int(x0 + (x1 - x0) * (1 - width_frac) / 2)
+    cx1 = int(x1 - (x1 - x0) * (1 - width_frac) / 2)
+    rows = [i // w for i, m in enumerate(mask) if m and cx0 <= i % w < cx1]
+    if not rows:
+        return None
+    top, bot = min(rows), max(rows) + 1
+    gh = bot - top
+    return cx0, int(top + gh * top_frac), cx1, int(top + gh * bottom_frac)
+
+
+def _gauss1d(sigma: float) -> list:
+    r = max(1, int(round(3 * sigma)))
+    k = [math.exp(-(i * i) / (2 * sigma * sigma)) for i in range(-r, r + 1)]
+    s = sum(k)
+    return [v / s for v in k]
+
+
+def _blur(img: list, w: int, h: int, sigma: float) -> list:
+    k = _gauss1d(sigma)
+    r = len(k) // 2
+    tmp = [0.0] * (w * h)
+    for y in range(h):
+        row = img[y * w:(y + 1) * w]
+        for x in range(w):
+            acc = 0.0
+            for j, kv in enumerate(k):
+                xx = min(w - 1, max(0, x + j - r))
+                acc += kv * row[xx]
+            tmp[y * w + x] = acc
+    out = [0.0] * (w * h)
+    for x in range(w):
+        for y in range(h):
+            acc = 0.0
+            for j, kv in enumerate(k):
+                yy = min(h - 1, max(0, y + j - r))
+                acc += kv * tmp[yy * w + x]
+            out[y * w + x] = acc
+    return out
+
+
+def fold_detail(lum: list, mask: list, w: int, h: int, sigma_fine: float = 1.5, sigma_coarse: float = 4.0,
+                max_side: int = 320) -> dict:
+    """How much fold and shading detail a garment's chest shows in a frame: the RMS of a band-pass (difference of
+    Gaussians, sigma_fine..sigma_coarse px at 1080p) of linear luminance inside the chest band (chest_band), over
+    the band's mean luminance. A smooth inflated shell (round 4's "armour") reads low; folds read high. Compare it
+    only between renders of the same frame and camera (garment.cloth_detail_ratio = r5 / r4).
+    Returns {"detail", "px", "band": [x0, y0, x1, y1]} or {"detail": None, "error"}."""
+    band = chest_band(mask, w, h)
+    if band is None:
+        return {"detail": None, "px": 0, "error": "no garment pixels in the mask"}
+    x0, y0, x1, y1 = band
+    bw, bh = x1 - x0, y1 - y0
+    if bw < 8 or bh < 8:
+        return {"detail": None, "px": 0, "band": list(band), "error": "the chest band is under 8 px"}
+    step = max(1, int(math.ceil(max(bw, bh) / float(max_side))))
+    cw, chh = (bw + step - 1) // step, (bh + step - 1) // step
+    crop = [lum[(y0 + j * step) * w + x0 + i * step] for j in range(chh) for i in range(cw)]
+    inside = [bool(mask[(y0 + j * step) * w + x0 + i * step]) for j in range(chh) for i in range(cw)]
+    f = _blur(crop, cw, chh, sigma_fine / step)
+    c = _blur(crop, cw, chh, sigma_coarse / step)
+    vals = [f[i] - c[i] for i in range(cw * chh) if inside[i]]
+    base = [crop[i] for i in range(cw * chh) if inside[i]]
+    if not vals:
+        return {"detail": None, "px": 0, "band": list(band), "error": "no garment pixels in the band"}
+    mean = sum(base) / len(base)
+    rms = math.sqrt(sum(v * v for v in vals) / len(vals))
+    return {"detail": round(rms / max(mean, 1e-6), 5), "px": len(vals), "band": list(band)}
+
+
+def gate_numbers(cloth: dict, detail: dict | None = None) -> dict:
+    """The gate v2 file (agent-09's contract) from qa.cloth results {where: result} and fold detail pairs {where:
+    (r5_detail, r4_detail)}: garment.cloth_alive (min hem/free-zone motion cm, >= 0.30), garment.cloth_sound (1 when
+    no explosion/NaN/spike/cold start/not simulating), garment.cloth_detail_ratio (min r5/r4, >= 1.25). An item that
+    could not be measured carries "error" (the gate fails it)."""
+    gate = {}
+    alive, sound, bad_where, err = None, 1, [], []
+    worst_where = ""
+    for where, r in sorted((cloth or {}).items()):
+        codes = {i.get("code") for i in r.get("issues", [])}
+        if "cloth.no_clothing" in codes:
+            v = 0.0
+        else:
+            z = (r.get("metrics") or {}).get("zones") or {}
+            cand = [z[k]["motion_cm"] for k in ("hem", "torso", "sleeve", "leg") if k in z]
+            v = min(cand) if cand else None
+            if "hem" in z:
+                v = z["hem"]["motion_cm"]
+        if v is None:
+            err.append(f"{where}: no motion metric")
+        elif alive is None or v < alive:
+            alive, worst_where = v, where
+        if codes & {"cloth.no_clothing", "cloth.not_simulating", "cloth.explosion", "cloth.nan",
+                    "cloth.velocity_spike", "cloth.cold_start", "cloth.no_data"}:
+            sound = 0
+            bad_where.append(where)
+    if not cloth:
+        gate["garment.cloth_alive"] = {"value": None, "where": "", "error": "no qa.cloth results"}
+        gate["garment.cloth_sound"] = {"value": None, "where": "", "error": "no qa.cloth results"}
+    else:
+        gate["garment.cloth_alive"] = {"value": alive, "where": worst_where}
+        if err and alive is None:
+            gate["garment.cloth_alive"]["error"] = "; ".join(err)
+        gate["garment.cloth_sound"] = {"value": sound, "where": ", ".join(bad_where) or "all"}
+    if detail is not None:
+        ratios = []
+        for where, (a, b) in sorted(detail.items()):
+            if a is None or b is None or b <= 0:
+                ratios.append((None, where))
+            else:
+                ratios.append((round(a / b, 4), where))
+        good = [r for r in ratios if r[0] is not None]
+        if len(good) != len(ratios) or not ratios:
+            gate["garment.cloth_detail_ratio"] = {"value": None, "where": ", ".join(w for r, w in ratios if r is None),
+                                                  "error": "fold detail could not be measured on some frames"}
+        else:
+            v, w = min(good)
+            gate["garment.cloth_detail_ratio"] = {"value": v, "where": w}
+    return {"gate": gate}

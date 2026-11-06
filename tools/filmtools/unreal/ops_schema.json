@@ -3620,7 +3620,7 @@
    "verb": "cache",
    "module": "fmbridge.ops.cloth",
    "file": "unreal/fmbridge/ops/cloth.py",
-   "line": 524,
+   "line": 535,
    "summary": "A Chaos Cache Manager for a character's cloth garments, so a render plays the cloth back instead of",
    "doc": "A Chaos Cache Manager for a character's cloth garments, so a render plays the cloth back instead of\nsimulating it: `record` (the next PIE/MRQ run of the shot writes the cache), then `play` (every later render of\nthat shot reads it: identical cloth in every chunk and every re-render), `off` (simulate live). Converges on one\nmanager actor per character. Needs the ChaosCaching plugin (experimental, off by default).\n\nRecord and play must start on the same frame (one MRQ job per shot, from its first frame): the cache's time is\nthe world's time since the job began. Check after `play` with qa.cloth or render.compare against the record pass.\nArgs: label: the character. mode: record | play | off. collection: the cache collection asset (default\n/Game/FM/ClothCache/CC_<label>). components: garment names (default every cloth garment). manager: the actor\nlabel (default ClothCache_<label>).\nReturns: {\"changed\", \"manager\", \"mode\", \"collection\", \"observed\": [names]}.\nExample: film-ue op cloth.cache label=Host mode=record",
    "params": [
@@ -3676,7 +3676,7 @@
    "verb": "describe",
    "module": "fmbridge.ops.cloth",
    "file": "unreal/fmbridge/ops/cloth.py",
-   "line": 169,
+   "line": 170,
    "summary": "Which garments of a placed character simulate cloth, and how: per garment its clothing data (config values as",
    "doc": "Which garments of a placed character simulate cloth, and how: per garment its clothing data (config values as\nthe solver has them, physics asset), the component's teleport/LOD settings, and the solver's live numbers.\n\nA garment with `\"clothing\": []` is skinned only: it moves like armour. `simulating` false with clothing data\nmeans it is disabled, suspended or has no dynamic particles (all painted 0).\nArgs: label: the actor. component: one garment (else every skeletal mesh component but Body and Face).\nReturns: {\"label\", \"garments\": {name: {\"mesh\", \"leader\", \"clothing\", \"settings\", \"max_distance_scale\",\n\"suspended\", \"forced_lod\", \"solver\", \"simulating\"}}, \"skinned_only\": [names]}.\nExample: film-ue op cloth.describe label=Host",
    "params": [
@@ -3710,7 +3710,7 @@
    "verb": "preroll",
    "module": "fmbridge.ops.cloth",
    "file": "unreal/fmbridge/ops/cloth.py",
-   "line": 455,
+   "line": 466,
    "summary": "Settle the cloth in the live level before reading a frame (a still, qa.clip under simulation): reset the cloth,",
    "doc": "Settle the cloth in the live level before reading a frame (a still, qa.clip under simulation): reset the cloth,\nthen evaluate the sequence one tick per frame (hold: the frame itself `frames` times, as MRQ's warm-up does;\nplay: the `frames` frames before it, from `start` at the earliest) and land on `frame`. Multi-tick.\n\nArgs: sequence: the level sequence. frame: the frame to land on. labels: the characters (default: every actor\nwith cloth garments). frames: settle frames (0 = what the slowest preset needs, clothkit.preroll.need_frames).\nmode: hold | play. start: the cut's first frame (play never runs before it).\nReturns: {\"frame\", \"steps\", \"mode\", \"garments\": {label.component: simulating}}.\nExample: film-ue op cloth.preroll sequence=/Game/Reel/SEQ_Reel frame=1080 'labels=[\"Host\"]' mode=play start=960",
    "params": [
@@ -3779,7 +3779,7 @@
    "verb": "presets",
    "module": "fmbridge.ops.cloth",
    "file": "unreal/fmbridge/ops/cloth.py",
-   "line": 153,
+   "line": 154,
    "summary": "The fabric presets cloth.setup takes: each one's solver config, zones (where it is anchored and where it hangs",
    "doc": "The fabric presets cloth.setup takes: each one's solver config, zones (where it is anchored and where it hangs\nfree, with max distances in cm) and settle time. Offline facts, no engine.\n\nArgs: name: one preset (else all).\nReturns: {name: {\"about\", \"config\", \"zones\", \"free\", \"pinned\", \"settle_s\", \"max_cm\"}}.\nExample: film-ue op cloth.presets name=cotton_tee",
    "params": [
@@ -3805,7 +3805,7 @@
    "verb": "remove",
    "module": "fmbridge.ops.cloth",
    "file": "unreal/fmbridge/ops/cloth.py",
-   "line": 381,
+   "line": 392,
    "summary": "Take the cloth off a garment section again (it is skinned only: the A side of an A/B). Idempotent.",
    "doc": "Take the cloth off a garment section again (it is skinned only: the A side of an A/B). Idempotent.\n\nReturns: {\"changed\", \"section\"}.\nExample: film-ue op cloth.remove label=Host component=Torso",
    "params": [
@@ -3860,7 +3860,7 @@
    "verb": "render_check",
    "module": "fmbridge.ops.cloth",
    "file": "unreal/fmbridge/ops/cloth.py",
-   "line": 502,
+   "line": 513,
    "summary": "Does a render plan give the cloth its settle frames before every chunk's first frame? Pure: feed it",
    "doc": "Does a render plan give the cloth its settle frames before every chunk's first frame? Pure: feed it\nrender.plan's chunks and the spec's warm-up counts. A chunk that starts on its cut holds the first frame for\nwarmup_engine + warmup_render frames; a chunk that starts mid-cut plays the cut's frames before it.\n\nArgs: chunks: render.plan's \"chunks\". warmup_engine/warmup_render: the spec's (resolved) counts. presets_used:\nthe cloth presets in the shots (default all: the slowest decides). fps: the sequence rate.\nReturns: {\"ok\", \"need\", \"warmup_engine\": what to set, \"chunks\": [{\"id\", \"mode\", \"frames\", \"ok\", \"fix\"}]}.\nExample: film-ue op cloth.render_check 'chunks=[{\"id\":\"c0\",\"cut_start\":1080,\"start\":1080,\"end\":1200,\"preroll\":0}]' warmup_render=8",
    "params": [
@@ -3915,7 +3915,7 @@
    "verb": "settings",
    "module": "fmbridge.ops.cloth",
    "file": "unreal/fmbridge/ops/cloth.py",
-   "line": 427,
+   "line": 438,
    "summary": "Give a character's cloth garments the component settings cloth needs on a presenter: teleport thresholds",
    "doc": "Give a character's cloth garments the component settings cloth needs on a presenter: teleport thresholds\n(30 cm / 30 deg) with reset-after-teleport (a cut that re-places them must not fling the cloth), no environment\ncollision, the max distance at full scale, and the cloth bound to the leader's pose. Run it after any respawn\n(mh.dress, a host swap): component settings live on the placed actor, not the asset.\n\nReturns: {\"changed\", \"garments\": {name: {setting: value}}}.\nExample: film-ue op cloth.settings label=Host",
    "params": [
@@ -3949,7 +3949,7 @@
    "verb": "setup",
    "module": "fmbridge.ops.cloth",
    "file": "unreal/fmbridge/ops/cloth.py",
-   "line": 314,
+   "line": 325,
    "summary": "Make a skeletal-mesh garment Chaos cloth from a fabric preset: clothing data on its LOD-0 section, the max",
    "doc": "Make a skeletal-mesh garment Chaos cloth from a fabric preset: clothing data on its LOD-0 section, the max\ndistance painted by rule (0 at the collar/shoulder seams or the waistband, ramping to the preset's cm at the hem\nand sleeve ends; the fit's vertex colours pin and cap it), the preset's solver config, the body's physics asset\nfor collision, and the component settings cloth needs (cloth.settings). Converges: re-running repaints and\nre-configures the same clothing data. Needs the FMCloth plugin (dry_run does not).\n\nArgs: label: the placed character. component: the garment component (cloth.describe lists them). preset:\ncotton_tee | overshirt_light | trousers (cloth.presets). overrides: {\"config\": {key: value}, \"zones\": {zone:\n{\"to_cm\": cm}}, \"settle_s\": s}. physics_asset: collision shapes (default: the Body's physics asset).\nlod/section: the garment section to simulate (-1 = the largest). use_colours: read the fit's vertex colours\n(R ease, G pinned). dry_run: paint the garment's render vertices and return the stats; write nothing.\nReturns: {\"changed\", \"cloth\", \"points\", \"maps\": {zone: {\"n\", \"min_cm\", \"max_cm\", \"mean_cm\"}}, \"colours\",\n\"config\": {\"set\", \"missing\"}, \"settings\", \"physics_asset\", \"readback_max_cm\"}.\nExample: film-ue op cloth.setup label=Host component=Torso preset=cotton_tee",
    "params": [
@@ -13789,7 +13789,7 @@
    "verb": "cloth",
    "module": "fmbridge.ops.qa_cloth",
    "file": "unreal/fmbridge/ops/qa_cloth.py",
-   "line": 31,
+   "line": 32,
    "summary": "Judge a garment's cloth over frames [start, end) of a sequence: sound (no explosion, NaN, velocity spikes,",
    "doc": "Judge a garment's cloth over frames [start, end) of a sequence: sound (no explosion, NaN, velocity spikes,\nanchor slip, jitter, cold start) and ALIVE (the hem and sleeves move relative to the body while it moves: not\narmour). Multi-tick; ~2 x (end - start + settle) ticks. Needs the FMCloth plugin (simulated positions).\n\nArgs: label/component: the garment (cloth.describe). sequence: the level sequence. start/end: frames (one shot,\nor a gesture inside it: alive needs the body to move >= 2 cm). preset: the garment's cloth preset (default: the\none cloth.setup tagged on the mesh). samples: vertices read per frame. settle: pre-roll frames (0 = the preset's).\nthresholds: any fmbridge.qa.cloth.DEFAULTS key (alive_min_cm=0.15, spike_cm_s=120, ...).\nReturns: {\"pass\", \"verdict\", \"issues\", \"metrics\": {\"zones\": {zone: {\"drape_cm\", \"motion_cm\", \"slip_cm\",\n\"body_path_cm\", \"jitter_cm\"}}, \"max_disp_cm\", \"max_speed_cm_s\", ...}, \"solver\"}.\nExample: film-ue op qa.cloth label=Host component=Torso sequence=/Game/Reel/SEQ_Reel start=1000 end=1060",
    "params": [

@@ -182,7 +182,17 @@ def describe(*, label: str, component: str = "") -> dict:
     comps = {component: garment(label, component)} if component else \
         {n: c for n, c in _components(label).items() if n not in SKIP}
     g = {n: describe_component(c) for n, c in comps.items()}
-    return {"label": label, "garments": g, "skinned_only": sorted(n for n, d in g.items() if not d["clothing"])}
+    out = {"label": label, "garments": g, "skinned_only": sorted(n for n, d in g.items() if not d["clothing"])}
+    # MetaHuman outfits (Chaos Outfit/Cloth Assets) simulate on their own ChaosClothComponent, not on a skeletal mesh
+    CCC = getattr(unreal, "ChaosClothComponent", None)
+    if CCC is not None and not component:
+        out["cloth_components"] = {
+            c.get_name(): {"asset": (lambda a: a.get_path_name().split(".")[0] if a else None)(_call(c, "get_asset")),
+                           "simulation_enabled": _call(c, "is_simulation_enabled"),
+                           "suspended": _call(c, "is_simulation_suspended"),
+                           "teleport_distance_threshold": _get(c, "teleport_distance_threshold")}
+            for c in _actor(label).get_components_by_class(CCC)}
+    return out
 
 
 def _plugin():

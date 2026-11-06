@@ -229,3 +229,37 @@ def test_sample_keeps_every_zone():
     idx = qcloth.sample(len(zones), 500, zones)
     assert len(idx) >= 500 and sum(1 for i in idx if zones[i] == "collar") >= 40
     assert qcloth.sample(10, 500) == list(range(10))
+
+
+# --- fold detail and the gate file ----------------------------------------------------------------------------------
+
+def _shirt(w=120, h=160, folds=0.0):
+    """A garment mask (a rounded block) with luminance: smooth shading, plus horizontal folds of `folds` amplitude."""
+    mask = [0] * (w * h)
+    lum = [0.05] * (w * h)
+    for y in range(20, 150):
+        for x in range(20, 100):
+            mask[y * w + x] = 1
+            lum[y * w + x] = 0.3 + 0.001 * x + folds * math.sin(y / 2.5) * math.sin(x / 7.0)
+    return lum, mask, w, h
+
+
+def test_fold_detail_reads_folds_and_not_a_smooth_shell():
+    smooth = qcloth.fold_detail(*_shirt(folds=0.0))
+    folded = qcloth.fold_detail(*_shirt(folds=0.03))
+    assert smooth["detail"] < 0.01 and folded["detail"] > 5 * max(smooth["detail"], 1e-4)
+    assert folded["band"][1] > 20 and folded["band"][3] < 150
+    assert qcloth.fold_detail([0.0] * 100, [0] * 100, 10, 10)["detail"] is None
+
+
+def test_gate_numbers_round4_fails_and_a_good_round_passes():
+    r4 = {"S13 f1000-1060": {"pass": False, "issues": [{"code": "cloth.no_clothing", "severity": "fail"}]}}
+    g = qcloth.gate_numbers(r4, {"S13 f1030": (0.02, 0.02)})["gate"]
+    assert g["garment.cloth_alive"]["value"] == 0.0 and g["garment.cloth_sound"]["value"] == 0
+    assert g["garment.cloth_detail_ratio"]["value"] == 1.0
+    good, _ = run(cloth=swing(1.5))
+    g = qcloth.gate_numbers({"S13 f1000-1048": good}, {"S13 f1030": (0.05, 0.02)})["gate"]
+    assert g["garment.cloth_alive"]["value"] >= 0.3 and g["garment.cloth_sound"]["value"] == 1
+    assert g["garment.cloth_detail_ratio"]["value"] == 2.5
+    g = qcloth.gate_numbers({}, {"S13": (None, 0.02)})["gate"]
+    assert all("error" in v for v in g.values())
