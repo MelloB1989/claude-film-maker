@@ -44,6 +44,24 @@ logged. Only Epic's cloud (rig, textures) sees the face, through the MetaHuman s
 #   (0.92, 0.12) unverified (check an iris crop's hue on the box). Tee hem patches: NOT slot holes (the tee's slots are
 #   M_DG_bodyShapeF_Shirt kept + M_DG_bodyShapeF_Short hidden), so if they persist it is the trousers' waistband (fitted
 #   to Trey's tee) through Host_Op's tee: slim the trousers' waist band or lower it under the hem tomorrow.
+# ROUND 4 (06 Nov, agent-04; look round 5): APPLIED and verified at 05:26 UTC: hair WI_Hair_S_SideSweptFringe (length_scale
+#   0.85 per instance on Host), brows WI_Eyebrows_M_SlightArch, mustache WI_Mustache_S_Full, NO beard, skin u/v 0.30/0.45,
+#   iris u/v 0.92/0.12, sculpt S3 (nose tip landmark 13 +0.9 cm forward/-0.45 down, chin 15 -0.65/+0.2, jaw angles 46/68
+#   0.3 cm in), groom melanin 1.0 / redness 0.08. Tools: reel/look_sheet.py (sheets), reel/r4/look_apply.py (the apply).
+#   Learned, each on the box:
+#   - mh.preview is useless for looks: untextured placeholder colours, no grooms, ignores mh.eyes. Judge only BUILT
+#     characters (look_sheet --target build: a scratch copy rebuilt per variant, ~2-3 min; --target bp for eye params).
+#   - Iris u/v ARE the eye material's "Iris Primary Color Hue"/"Value" (MI_Eye*_Baked): 0.92/0.12 is near-black red-
+#     magenta and renders dark brown (52,42,40) under a 5600 K key; brown hues are ~0.05-0.10.
+#   - Skin u is darkness (0.15 light ... 0.80 dark); v is the undertone, direction not yet measured.
+#   - Grooms/skin edits must be SAVED before mh.build, and a face edit (mh.face) rebuilds every groom binding
+#     asynchronously: wait (finish_all_asset_compilation) before rendering or the hair/mustache are missing.
+#   - mh.rig skips as 'up to date' when body+face match the last rig: the neck step through the tee is garment-side
+#     (agent-02's NECK_CM), not a stale rig.
+#   - Loading MHI_Operator without Capture Manager's media (a restored box) asserts and kills the editor
+#     (PromotedFrameUtils::GetImagePathForFrame): re-ingest first. The capture column comes from the take via ffmpeg.
+#   - STAGE='measure' is unreliable (eye 166.5 vs 168.8 on one body, knee 0.0): use probe_cam/framing instead.
+#   - The face has 79 sculpt landmarks and only ONE on the nose (the tip): the bridge follows the tip's falloff.
 # Not viable: the no-depth route (the Creator's ConformTargetParams wants a target head mesh + 2D curves from a known
 #   camera, i.e. a head mesh built from the depth by hand). Untested: the teeth pose (needs the solved identity).
 import json
