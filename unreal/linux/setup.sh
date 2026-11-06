@@ -286,6 +286,16 @@ step_plugin() {
         > "$w/PluginBuild.uproject"
     chown -R "$UE_USER:$UE_USER" "$w"
     PLUGIN_MARK="$engine/Engine/Build/InstalledBuild.txt"  # global: the EXIT trap runs after the function returns
+    # An installed engine loads its rules PRECOMPILED (UnrealBuildTool DynamicCompilation.cs: "Precompiled rules
+    # assembly ... does not exist"), and a restored engine tarball has no Engine/Intermediate. Compile the rules once,
+    # unmarked: QueryTargets builds only the C# rules assemblies (~1 min), not the engine (round 5, 0.4).
+    if [ ! -f "$engine/Engine/Intermediate/Build/BuildRules/UE5Rules.dll" ] && [ ! -f "$PLUGIN_MARK" ]; then
+        runuser -u "$UE_USER" -- "$engine/Engine/Build/BatchFiles/Linux/Build.sh" -Mode=QueryTargets \
+            -Project="$w/PluginBuild.uproject" -Output="$w/querytargets.json" > "/tmp/plugin-rules-$name.log" 2>&1 \
+            || { tail -20 "/tmp/plugin-rules-$name.log" >&2; echo "plugin: compiling the engine's build rules failed" >&2; exit 1; }
+        [ -f "$engine/Engine/Intermediate/Build/BuildRules/UE5Rules.dll" ] \
+            || { echo "plugin: no UE5Rules.dll after QueryTargets (log /tmp/plugin-rules-$name.log)" >&2; exit 1; }
+    fi
     if [ -f "$PLUGIN_MARK" ]; then PLUGIN_MARK=""; else touch "$PLUGIN_MARK"; trap 'rm -f "${PLUGIN_MARK:-/nonexistent}"' EXIT; fi
     log=/tmp/plugin-build-$name.log
     if ! runuser -u "$UE_USER" -- timeout 1500 "$engine/Engine/Build/BatchFiles/Linux/Build.sh" UnrealEditor Linux \
