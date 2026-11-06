@@ -66,6 +66,11 @@ def parse_args():
     ap.add_argument("--ease", default="", help='JSON {region: cm} over lib/garmentfit.EASE_CM')
     ap.add_argument("--min-ease", type=float, default=GF.MIN_EASE_CM)
     ap.add_argument("--slack", type=float, default=3.0, help="cm looser than the target before it is drawn in")
+    ap.add_argument("--neck-ring-cm", type=float, default=0.0,
+                    help="the neck opening by shape (vertices within this many cm of the innermost round the neck "
+                         "axis, qa.garment_look's ring) joins the collar region: its ease and --collar-slack (0: off)")
+    ap.add_argument("--collar-slack", type=float, default=None,
+                    help="--slack on the collar region only (0: the collar is drawn in to its ease; default --slack)")
     ap.add_argument("--pull", type=float, default=0.35)
     ap.add_argument("--smooth-iters", type=int, default=12)
     ap.add_argument("--passes", type=int, default=3)
@@ -117,6 +122,14 @@ def world_cm(ob, evaluated=False) -> tuple:
     if evaluated:
         ev.to_mesh_clear()
     return X, T.reshape(-1, 3)
+
+
+def bone_cm(arm, name) -> np.ndarray:
+    """A bone's head in world cm, rest pose (the garment's bind pose)."""
+    b = arm.data.bones.get(name)
+    if b is None:
+        raise SystemExit(f"--neck-ring-cm: the skeleton has no bone {name}")
+    return np.array(arm.matrix_world @ b.head_local) * 100.0
 
 
 def set_world_cm(ob, X):
@@ -572,13 +585,23 @@ def main():
     ease_over = json.loads(a.ease) if a.ease else {}
     W0, groups = weights_of(sc.garment)
     region = GF.regions(W0, groups)
+    ring = None
+    if a.neck_ring_cm > 0:
+        G0, _ = world_cm(sc.garment)
+        neck, head = (bone_cm(sc.arm, b) for b in ("neck_01", "head"))
+        ring = GF.neck_ring(G0, neck, head, ring_cm=a.neck_ring_cm) & fit_mask(sc.garment, a.only_slots)
+        log(f"neck ring: {int(ring.sum())} verts join the collar region "
+            f"(the bone-weight collar had {int((region == GF.REGIONS.index('collar')).sum())})")
+        region = np.where(ring, GF.REGIONS.index("collar"), region)
     target = GF.targets(region, ease_over)
+    slack = a.slack if a.collar_slack is None else np.where(region == GF.REGIONS.index("collar"), a.collar_slack,
+                                                            a.slack)
     pinned = np.isin(region, [GF.REGIONS.index(r) for r in GF.PINNED])
     active = fit_mask(sc.garment, a.only_slots)
     Xc, Tc, bvh = sc.collider()
     G, Tg = world_cm(sc.garment)
     d0, _ = signed(bvh, G)
-    rep = {"args": vars(a), "verts": len(G), "regions": {r: int((region == i).sum()) for i, r in enumerate(GF.REGIONS)},
+    rep = {"neck_ring": int(ring.sum()) if ring is not None else None, "args": vars(a), "verts": len(G), "regions": {r: int((region == i).sum()) for i, r in enumerate(GF.REGIONS)},
            "before": GF.ease_report(d0[active], region[active]), "morph": sc.morph}
     log(f"before: {rep['before'].get('all')}")
     if a.drape_frames > 0:
@@ -595,8 +618,8 @@ def main():
                                        iters=8), 0, 1) if sr else None
     for k in range(max(1, a.passes)):
         d, N = signed(bvh, G)
-        d = np.where(np.isfinite(d), d, target + a.slack)
-        mv = GF.fit_displacement(d, target, min_ease=a.min_ease, slack=a.slack, pull=a.pull)
+        d = np.where(np.isfinite(d), d, target + slack)
+        mv = GF.fit_displacement(d, target, min_ease=a.min_ease, slack=slack, pull=a.pull)
         mv[fixed] = 0.0
         mv = GF.smooth_field(mv, nbrs, iters=a.smooth_iters, pinned=fixed) * (1.0 - kf)
         N = GF.smooth_field(N, nbrs, iters=2, pinned=fixed)

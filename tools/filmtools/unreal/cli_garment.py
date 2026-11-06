@@ -24,7 +24,7 @@ ROOT = Path(__file__).resolve().parents[3]
 SCRIPT = ROOT / "blender" / "garment_fit.py"
 PASS_THROUGH = ("garment", "out", "ease", "min_ease", "slack", "pull", "smooth_iters", "passes", "drape_frames",
                 "weights", "thickness", "only_slots", "collider", "anim_samples", "morph_ref", "match_cm", "blend_regions", "single_layer", "min_island", "keep_regions",
-                "keep_ramp_cm", "straight_regions")
+                "keep_ramp_cm", "straight_regions", "neck_ring_cm", "collar_slack")
 
 
 def register(sub) -> None:
@@ -41,6 +41,9 @@ def register(sub) -> None:
     p.add_argument("--ease", default="", help='JSON {region: cm}: collar shoulder sleeve chest waist hem other')
     p.add_argument("--min-ease", type=float)
     p.add_argument("--slack", type=float)
+    p.add_argument("--neck-ring-cm", type=float,
+                   help="the neck opening by shape (qa.garment_look's ring, cm from the innermost) joins the collar")
+    p.add_argument("--collar-slack", type=float, help="--slack on the collar only (0: drawn in to its ease)")
     p.add_argument("--pull", type=float)
     p.add_argument("--smooth-iters", type=int)
     p.add_argument("--passes", type=int)
