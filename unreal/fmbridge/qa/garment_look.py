@@ -190,9 +190,11 @@ def collar_stats(axial: list, radial: list, gap: list, *, window=(-8.0, 4.0), ri
     pts = [(r, g) for a, r, g in zip(axial, radial, gap) if window[0] <= a <= window[1] and g == g]
     if not pts:
         return {"n": 0}
-    # the innermost radius from the 2nd percentile, not the min: one stray vertex near the axis made a 1-vert "ring"
-    # (round 5b, Epic's tee at f960: n 1, gap 5.289 while every other frame read 0.15-0.20)
-    rmin = percentile([r for r, _ in pts], 0.02)
+    # the innermost radius from the COLLAR_MIN_N-th smallest, not the min: one stray vertex near the axis made a
+    # 1-vert "ring" (round 5b, Epic's tee at f960: n 1, gap 5.289 while every other frame read 0.15-0.20). Not a
+    # percentile: the band is a few dozen verts among thousands in the window (a 2nd percentile landed outside it)
+    rs = sorted(r for r, _ in pts)
+    rmin = rs[min(COLLAR_MIN_N, len(rs)) - 1]
     ring = [g for r, g in pts if rmin - 0.5 <= r <= rmin + ring_cm]
     if len(ring) < COLLAR_MIN_N:
         return {"n": 0, "too_few": len(ring)}
