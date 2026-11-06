@@ -64,6 +64,9 @@ face_data=yes), the kali tree is agent-06's worktree `fleet/agent-06/r4-integrat
 | 09:32 | First cut attempt failed: `filmtools.paths` needs the repo marker `app/package.json`, which the box-tree archive left out (pushed it). The failing step still returned rc 0 through a pipe: the cut chain now greps for Traceback/Error and counts the outputs |
 | 09:33-09:40 | **Cuts**: 65 s (1560 frames, -14.0 LUFS, -1.7 dBTP), 45 s (1080 frames, -14.1 LUFS, -1.7 dBTP), each as ProRes 4444 textless, H.264 with captions, clean H.264, srt/vtt, cut.json. Captions from round 3's known-good cues.json (not rebuilt on this box) |
 | 09:40-09:43 | **Wrap**: final_d → private/renders/r4/final_d (1606 = 1606), /srv/ue/reel/r4 → private/renders/r4/box_r4, deliverables → private/renders/r4/final (21 = 21, every file head-object aws:kms and size = local); assets + level saved (nothing dirty), project → private/project/HostStudio (1568 = 1568, aws:kms), editor stopped (Epic sign-in saved), DDC → private/ddc/5.8.4 (50,211). idle-guard keepalive touched during the syncs |
+| 09:44 | agent-09 cut QA PASS (frame counts, -14.0/-14.1 LUFS, -1.7 dBTP, captions 0 frames off); last re-sync of /srv/ue/reel/r4 (gate/QA JSON) |
+| 09:45-09:52 | **`film-ue down`**: the box is STOPPED (09:52). /srv/ue now lives on the root EBS, so it keeps the engine, the project and the renders |
+| 09:48 | Last merges: agent-09 r4-gate 554ff431, agent-02 r4-clip 0ceb6889 (shipped state = patch3) → film/host-studio 53ce4f25 (ue + reel tests 1114 pass) |
 
 ## STATE AT END OF ROUND 4 (06 Nov, ~09:45 UTC)
 
