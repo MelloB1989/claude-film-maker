@@ -606,8 +606,9 @@ SHOTS_13 = ["V01", "V02", "V03", "V04", "V05", "S11", "S12", "N01", "S13", "S15"
 HUE_FRAMES = (1236, 1300)  # S16, where the screen-left ends read green (night1, cast_op3/4: green_px ~0.24)
 # agent-02's clipping metric (r4/clip_pass.py): per (under>over) layer pair, the share of the over garment's pixels
 # where the under layer pokes 0.3-3 cm through it at an intersection edge (openings and arms in front drop out).
-CLIP_MAX = 0.01
-CLIP_WHY = "qa.penetration's own pass line (PEN_MAX); pending agent-02's clean-vs-clip numbers"
+CLIP_MAX = 0.001
+CLIP_WHY = ("agent-02's cast_op4 pass: clean pairs read 0.0000 in every frame, the smallest real clip (the S18 hem, "
+            "21 px of a 4400 px tee) 0.0047; 0.001 (~4 px) sits between with margin")
 
 
 def _rows(x):
@@ -711,47 +712,82 @@ def _turns(t) -> dict:
 
 
 CLIP_SHOTS = {"Host": ["S13", "S15", "S17", "S18"], "Presenter": ["S15", "S16", "S17", "S18"]}
+CLIP_GATED = {"Host": ("Body>tee", "Body>Trousers", "Trousers>tee")}  # his screen pairs with an absolute line
+CLIP_HER_DRIFT = 0.01  # her pairs read 0.03-0.19 on clean frames (the scoop neck, the open overshirt): after vs before
 
 
-def _clip(cs: list, eng: dict | None) -> dict:
+def _clip(cs: list, eng: dict | None, before: dict | None = None) -> dict:
     """agent-02's clip.json (r4/clip_pass.py, one per presenter): shots -> frame -> "under>over" -> {fraction, raw,
-    clusters}. A pair fails above CLIP_MAX; a shot with an error or missing from the pass refuses too."""
-    bad, worst = [], {}
+    clusters}, and for him "neck" (the 3D test on the posed meshes). Him: CLIP_GATED pairs <= CLIP_MAX, neck.out == 0;
+    Face>tee is information only (depth cannot tell the collar's clean neck band from a patch). Her: per (shot, pair)
+    the worst fraction no more than CLIP_HER_DRIFT over `before` (her cast_op4 pass). A missing or errored shot
+    refuses."""
+    bad, worst, info = [], {}, {}
     cs = [c for c in cs or [] if c]
-    if cs:
-        src = "agent-02 clip_pass"
-        for c in cs:
-            lab = c.get("label", "?")
-            for sid in CLIP_SHOTS.get(lab, []):
-                if sid not in (c.get("shots") or {}):
-                    bad.append(f"{lab} {sid}: not in the clip pass")
-            for sid, per in (c.get("shots") or {}).items():
-                if not isinstance(per, dict) or "error" in per:
-                    bad.append(f"{lab} {sid}: {per.get('error') if isinstance(per, dict) else per}")
-                    continue
-                for f, fr_ in per.items():
-                    for pair, v in fr_.items():
-                        if not (isinstance(v, dict) and "fraction" in v):
-                            continue
-                        k = f"{lab} {pair}"
-                        if v["fraction"] >= worst.get(k, (-1,))[0]:
-                            worst[k] = (v["fraction"], f"{sid}@{f}")
-                        if v["fraction"] > CLIP_MAX:
-                            cl = max(v.get("clusters") or [{}], key=lambda x: x.get("px", 0))
-                            bad.append(f"{lab} {sid} f{f} {pair}: {v['fraction']} (worst cluster {cl.get('px')} px, "
-                                       f"{cl.get('worst_cm')} cm)")
-    elif eng:
-        src = "engine qa.penetration (him only: her necklines read as false positives)"
+    if not cs and eng:
         for sid, r in eng["shots"].items():
             for f, fr_ in r.items():
                 v = fr_.get("him")
                 if isinstance(v, dict) and (v.get("worst_fraction") or 0) > CLIP_MAX:
                     bad.append(f"{sid} f{f} him: {v['worst_fraction']}")
-    else:
-        src = None
-        bad.append("no clipping numbers")
-    return {"pass": not bad, "failed": bad, "threshold": CLIP_MAX, "why": CLIP_WHY, "source": src,
-            "worst": {k: {"fraction": v[0], "at": v[1]} for k, v in sorted(worst.items())}}
+        return {"pass": not bad, "failed": bad, "threshold": CLIP_MAX, "why": CLIP_WHY,
+                "source": "engine qa.penetration (him only)"}
+    if not cs:
+        return {"pass": False, "failed": ["no clipping numbers"], "threshold": CLIP_MAX, "why": CLIP_WHY}
+
+    def worst_of(c):
+        w = {}
+        for sid, per in (c.get("shots") or {}).items():
+            for f, fr_ in (per.items() if isinstance(per, dict) and "error" not in per else ()):
+                for pair, v in fr_.items():
+                    if isinstance(v, dict) and "fraction" in v and v["fraction"] >= w.get((sid, pair), (-1,))[0]:
+                        w[(sid, pair)] = (v["fraction"], f)
+        return w
+    for c in cs:
+        lab = c.get("label", "?")
+        shots = c.get("shots") or {}
+        for sid in CLIP_SHOTS.get(lab, []):
+            if sid not in shots:
+                bad.append(f"{lab} {sid}: not in the clip pass")
+            elif not isinstance(shots[sid], dict) or "error" in shots[sid]:
+                bad.append(f"{lab} {sid}: {shots[sid].get('error') if isinstance(shots[sid], dict) else shots[sid]}")
+        w = worst_of(c)
+        for (sid, pair), (v, f) in sorted(w.items()):
+            worst[f"{lab} {sid} {pair}"] = {"fraction": v, "at": f}
+        if lab == "Host":
+            necks = 0
+            for sid, per in shots.items():
+                for f, fr_ in (per.items() if isinstance(per, dict) and "error" not in per else ()):
+                    for pair, v in fr_.items():
+                        if not (isinstance(v, dict) and "fraction" in v):
+                            continue
+                        if pair in CLIP_GATED["Host"] and v["fraction"] > CLIP_MAX:
+                            cl = max(v.get("clusters") or [{}], key=lambda x: x.get("px", 0))
+                            bad.append(f"Host {sid} f{f} {pair}: {v['fraction']} (> {CLIP_MAX}; worst cluster "
+                                       f"{cl.get('px')} px, {cl.get('worst_cm')} cm)")
+                        elif pair not in CLIP_GATED["Host"]:
+                            info[f"Host {pair}"] = max(info.get(f"Host {pair}", 0), v["fraction"])
+                    n = fr_.get("neck")
+                    if isinstance(n, dict):
+                        necks += 1
+                        if n.get("out", 1) != 0:
+                            bad.append(f"Host {sid} f{f} neck: {n.get('out')} face verts outside the tee "
+                                       f"(max {n.get('max_out_cm')} cm)")
+            if not necks:
+                bad.append("Host: no 'neck' 3D test in the clip pass")
+        elif lab == "Presenter":
+            if not before:
+                bad.append("Presenter: no before pass to compare with (--clip-before)")
+                continue
+            wb = worst_of(before)
+            for (sid, pair), (v, f) in sorted(w.items()):
+                b0 = wb.get((sid, pair))
+                if b0 is None:
+                    bad.append(f"Presenter {sid} {pair}: {v} at f{f}, not in the before pass")
+                elif v > b0[0] + CLIP_HER_DRIFT:
+                    bad.append(f"Presenter {sid} f{f} {pair}: {v} against {b0[0]} before (> +{CLIP_HER_DRIFT})")
+    return {"pass": not bad, "failed": bad, "threshold": CLIP_MAX, "why": CLIP_WHY, "her_drift": CLIP_HER_DRIFT,
+            "source": "agent-02 clip_pass", "info_only": info, "worst": worst}
 
 
 def _cams(txt: str | None, framing: str | None) -> dict:
@@ -782,7 +818,7 @@ def sign(a) -> dict:
         "b.watch": _watch(eng),
         "c.hair_hue": _hue(rd(a.hue), fr),
         "d.head_turns": _turns(rd(a.turns)),
-        "e.clipping": _clip([rd(x) for x in a.clip], eng),
+        "e.clipping": _clip([rd(x) for x in a.clip], eng, rd(a.clip_before)),
         "f.cameras_framing": _cams(tx(a.cams), tx(a.framing)),
         "g.lod0_live": (lambda r: {"pass": r["pass"], "failed": r["failed"]})(
             rd(a.lod0) if a.lod0 else {"pass": False, "failed": ["no lod0 probe"]}),
@@ -842,6 +878,8 @@ def main() -> None:
     g.add_argument("--turns", default="", help="agent-01's head-turn direction table (json)")
     g.add_argument("--clip", action="append", default=[], help="agent-02's clip.json, once per presenter "
                    "(r4/clip_pass.py); else the engine's qa.penetration")
+    g.add_argument("--clip-before", default="", help="her clip.json before (cast_op4): her pairs are judged "
+                   "against it")
     g.add_argument("--cams", default="", help="probe_cam.py <13 shots> --check's output (text)")
     g.add_argument("--framing", default="", help="framing.py's output (text)")
     g.add_argument("--lod0", default="", help="cast_gate.py lod0's json")
