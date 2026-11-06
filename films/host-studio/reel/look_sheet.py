@@ -333,6 +333,77 @@ for c in a.get_components_by_class(unreal.GroomComponent):
 result = out
 """
 
+# the sculpt landmarks by role, read on the box (numbers only): the face's axes from the landmark cloud (up: the
+# longest span; sideways: the symmetric one; forward: where the nose sticks out), the nose tip (the most forward
+# centre-line point), the nose (centre-ish points near the tip, up to the brow line), the chin (the centre-line point
+# ~14 cm under the tip on Host_Op r4: 15) and the jaw angles (the low side pair: 46/68)
+LANDMARKS = r"""
+import importlib
+K = importlib.import_module("fmbridge.ops.mh._core")
+pts = [(p.x, p.y, p.z) for p in (K.sub().get_face_landmarks(K.char(PATH)) or [])]
+n = len(pts)
+span = [max(p[i] for p in pts) - min(p[i] for p in pts) for i in range(3)]
+up = max(range(3), key=lambda i: span[i])
+def sym(i):
+    m = sum(p[i] for p in pts) / n
+    v = sorted(p[i] - m for p in pts)
+    return sum(abs(a + b) for a, b in zip(v, reversed(v))) / n
+lat = min([i for i in range(3) if i != up], key=sym)
+fwd = [i for i in range(3) if i not in (up, lat)][0]
+m = sum(p[fwd] for p in pts) / n
+sgn = 1 if max(p[fwd] for p in pts) - m > m - min(p[fwd] for p in pts) else -1
+mlat = sum(p[lat] for p in pts) / n
+centre = [i for i, p in enumerate(pts) if abs(p[lat] - mlat) < 0.6]
+tip = max(centre, key=lambda i: sgn * pts[i][fwd])
+T = pts[tip]
+back = lambda i: sgn * (T[fwd] - pts[i][fwd])
+dz = lambda i: pts[i][up] - T[up]
+nose = [i for i in range(n) if i != tip and abs(pts[i][lat] - mlat) < 2.5 and -2.0 < dz(i) < 6.0 and back(i) < 5.0]
+chin = min([i for i in centre if back(i) < 6.0 and dz(i) < -5.0] or [tip], key=lambda i: pts[i][up])
+low = [i for i in range(n) if back(i) < 12.0 and dz(i) < -10.0 and abs(pts[i][lat] - mlat) > 3.0]
+jaw = sorted(low, key=lambda i: pts[i][up])[:2]
+result = {"axes": [up, lat, fwd, sgn], "tip": tip, "nose": nose, "chin": chin, "jaw": jaw,
+          "jaw_side": {i: (1 if pts[i][lat] > mlat else -1) for i in jaw}, "n": n}
+"""
+
+
+def sculpt_deltas(lm: dict, s: dict) -> dict:
+    """{index: [dx, dy, dz]} cm from roles: s = {"tip": [forward, down], "nose": forward, "chin": [down, forward],
+    "jaw_in": cm}."""
+    up, lat, fwd, sgn = lm["axes"]
+    out = {}
+
+    def put(i, f=0.0, d=0.0, inward=0.0, side=1):
+        v = [0.0, 0.0, 0.0]
+        v[fwd] += sgn * f
+        v[up] -= d
+        v[lat] -= side * inward
+        out[str(i)] = [round(x, 3) for x in v]
+    if s.get("tip"):
+        put(lm["tip"], f=s["tip"][0], d=s["tip"][1])
+    for i in lm["nose"]:
+        put(i, f=s.get("nose", 0.0))
+    if s.get("chin") and lm["chin"] != lm["tip"]:
+        put(lm["chin"], f=s["chin"][1], d=s["chin"][0])
+    for i in lm["jaw"]:
+        put(i, inward=s.get("jaw_in", 0.0), side=lm["jaw_side"][str(i)] if str(i) in lm["jaw_side"] else lm["jaw_side"][i])
+    return out
+
+
+# per-instance groom group settings on the spawned copy (groom.set's GroomGroupsDesc), e.g. {"Hair": {"length_scale": 0.85}}
+DESC_SET = r"""
+import importlib, unreal
+_b = importlib.import_module("fmbridge.ops.mh.build")
+G_ = importlib.import_module("fmbridge.ops.groom")
+a = _b._PREVIEWS[LABEL]
+out = {}
+for c in a.get_components_by_class(unreal.GroomComponent):
+    v = next((x for k, x in D.items() if c.get_name().lower().startswith(k.lower())), None)
+    if v:
+        out[c.get_name()] = str(G_._set_desc(c, -1, v))[:200]
+result = out
+"""
+
 # --- client side ---------------------------------------------------------------------------------------------------
 
 def rot_axes(rot: dict):
@@ -470,6 +541,13 @@ def apply_look(look: dict, label: str, skip_eye: bool = False) -> dict:
     """A look onto the scratch character (its preview follows): grooms, skin, iris, body; the hair colour onto the
     preview's groom components (the character's own colours need a built collection: docs/unreal/metahuman.md)."""
     done = {}
+    if look.get("fresh"):  # a sculpt variant starts from the applied character, not from the last variant's face
+        done["fresh"] = op("mh.duplicate", source=CHAR, path=DUP, overwrite=True).get("changed")
+    if look.get("sculpt"):
+        lm = ex(LANDMARKS, PATH=DUP)
+        d = sculpt_deltas(lm, look["sculpt"])
+        done["sculpt"] = {"landmarks": lm, "deltas": d,
+                          "face": op("mh.face", path=DUP, landmarks=d, force=True)}
     for slot, item in (look.get("grooms") or {}).items():
         r = op("mh.groom", character=DUP, slot=slot, item=item)  # saved: the build reads the saved selection (r4: unsaved edits built as the old groom)
         done[slot] = r.get("changed") if isinstance(r, dict) else r
@@ -484,6 +562,8 @@ def apply_look(look: dict, label: str, skip_eye: bool = False) -> dict:
         p = {"Iris Primary Color Hue": h, "Iris Primary Color Value": v, "Iris Secondary Color Hue": h,
              "Iris Secondary Color Value": v, **look["eye"].get("params", {})}
         done["eye"] = ex(EYE_SET, LABEL=label, P=p)
+    if look.get("desc") and not skip_eye:
+        done["desc"] = ex(DESC_SET, LABEL=label, D=look["desc"])
     if look.get("makeup"):
         done["makeup"] = op("mh.makeup", path=DUP, settings=look["makeup"]).get("changed")
     if look.get("thin") and not skip_eye:  # per instance on the spawned build, like the eye
@@ -497,8 +577,9 @@ def build_spawn(a, look: dict, rep: dict) -> dict:
     """--target build: the scratch copy built (textures again after a skin change, a rig after a body change) and its
     Blueprint spawned in the lab as PREVIEW; the hair colour and the eye parameters on that copy."""
     t0 = time.time()
-    steps = ([("mh.rig", {"character": DUP})] if look.get("body") else []) + (
-        [("mh.textures", {"character": DUP})] if (look.get("skin") or look.get("body") or a._need_tex) else []) + [
+    shaped = look.get("body") or look.get("sculpt")  # a face or body change drops the rig
+    steps = ([("mh.rig", {"character": DUP})] if shaped else []) + (
+        [("mh.textures", {"character": DUP})] if (look.get("skin") or shaped or a._need_tex) else []) + [
         ("mh.build", {"character": DUP, "name": "Host_OpLook", "force": True})]
     out = {}
     for step, args in steps:
@@ -585,7 +666,7 @@ def render(a) -> None:
             look = merge(base, change)
             if a.target == "build":
                 row = {"label": v["label"], "look": change}
-                if i > 0 and set(change) - {"eye", "thin"}:
+                if i > 0 and set(change) - {"eye", "thin", "desc"}:
                     row["applied"] = apply_look(change, PREVIEW, skip_eye=True)
                     row["build"] = build_spawn(a, change, rep)
                 elif i > 0:  # only the eye: the same build, its eye material changed
@@ -593,7 +674,7 @@ def render(a) -> None:
                 else:
                     row["applied"] = rep["first_applied"]
                     row["build"] = rep["first_build"]
-                post = {k: look[k] for k in ("eye", "thin") if look.get(k)}
+                post = {k: look[k] for k in ("eye", "thin", "desc") if look.get(k)}
                 if post:
                     row["post"] = apply_look(post, PREVIEW)
                 print(json.dumps({"built": v["label"], "s": row["build"].get("s")}), file=sys.stderr)
