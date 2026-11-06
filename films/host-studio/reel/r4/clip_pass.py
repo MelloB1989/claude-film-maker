@@ -19,9 +19,13 @@ it does not count; a hand pressed into the trousers borders leg skin just under 
 
 The number per (frame, pair): `fraction` = clipping pixels / G's pixels (what agent-09's gate reads), with `raw` (all
 in-band pixels, before the edge rule), the clusters (box as fractions of the frame, pixels, worst cm) and
-`seen` = the share of clipping pixels actually visible (U is the nearest layer of all there). Skin within 3 px (at
-480 wide) of an opening (skin with no garment behind, or the garment's far side > BAND behind) (his neck above the collar edge: a thin band, no clip; the
-orchestrator's review of the before sheet) is left out and counted as `at_opening_px`.
+`seen` = the share of clipping pixels actually visible (U is the nearest layer of all there).
+
+Face>tee in pixels also takes in his neck seen just above the collar edge in front of the tee's inside (a band along
+the collar, no clip: the orchestrator's review); depth alone does not tell that band from the blob just under it. So
+for his face the gate reads `neck` instead, per frame, on the posed meshes (Geometry Script, as neck_probe.py): face
+verts more than 2 cm below the tee's collar top and within 6 cm of it (n), how many stand outside the tee by more than
+0.1 cm (out) and how far (max_out_cm). Clean: out 0.
 
 Writes on the box only (face data with Host_Op on the level; never off it): OUT/clip.json (numbers), per frame
 <shot>_<frame>_final.png (the scene through the camera), _depth.bin (the layers, for clip_rejudge.py), _mask.png (flat colours: body red, face orange, tee/top
@@ -32,6 +36,7 @@ Returns the numbers (no images).
 """
 import array
 import json
+import math
 import os
 
 try:
@@ -58,6 +63,7 @@ EXTRA = globals().get("EXTRA") or {"Reel_S15": [1150, 1220, 1290], "Reel_S17": [
 TAG = globals().get("TAG", "now")
 OUT = globals().get("OUT") or f"/srv/ue/reel/r4/clip/{LABEL}_{TAG}"
 EMPTY = 1.0e7
+FOV = 30.0  # the frame's horizontal field of view (deg), set per frame (saved with the layers)
 SKIN = ("Body", "Face")
 COL = {"Body": (220, 40, 40), "Face": (255, 150, 60), "tee": (40, 190, 70), "Top": (40, 190, 70),
        "Trousers": (50, 90, 230), "shoes": (240, 220, 40), "Overshirt": (40, 200, 200)}
@@ -127,37 +133,20 @@ def clusters(mask, keep_edge) -> list:
 def judge(d, under, over) -> dict:
     """One pair at one frame from the depth layers d[name] (lists, cm)."""
     U, G = d[under], d[over]
-    inband, shallow, gpx, opening = set(), set(), 0, set()
+    inband, shallow, gpx = set(), set(), 0
     for i in range(W * H):
         g = G[i]
         if g >= EMPTY:
-            if U[i] < EMPTY:
-                opening.add(i)  # the under layer seen where the garment is not: it leaves the garment here
             continue
         gpx += 1
         u = U[i]
         if u >= EMPTY:
             continue
         gap = g - u
-        if gap > BAND:
-            opening.add(i)  # the under layer seen through an opening, well in front of the garment's far side
         if TOL < gap <= BAND:
             inband.add(i)
         elif -NEAR <= gap <= TOL:
             shallow.add(i)
-    # skin at a garment's opening (his neck above the collar, an arm out of a sleeve; an opening is where the skin is
-    # seen with no garment behind it, or with the garment's far side more than BAND behind) passes in front of the
-    # garment's inside there: a thin band along the edge that is no clip (the orchestrator, round 4). Skin pixels
-    # within R px of where the skin leaves the garment's silhouette are reported apart (at_opening_px), not counted.
-    near_open = set()
-    if under in SKIN and opening:
-        R = max(2, round(3 * W / 480))
-        for i in inband:
-            y, x = divmod(i, W)
-            if any((yy * W + xx) in opening for yy in range(max(0, y - R), min(H, y + R + 1))
-                   for xx in range(max(0, x - R), min(W, x + R + 1))):
-                near_open.add(i)
-        inband -= near_open
     kept, blobs = set(), []
     for blob, edge in clusters(inband, shallow):
         if edge:
@@ -171,9 +160,49 @@ def judge(d, under, over) -> dict:
     nearest = [min(d[n][i] for n in d) for i in kept] if kept else []
     seen = sum(1 for i, z in zip(kept, nearest) if U[i] <= z + 1e-3)
     return {"g_px": gpx, "raw": round(len(inband) / gpx, 5) if gpx else 0.0, "px": len(kept),
-            "at_opening_px": len(near_open),
             "fraction": round(len(kept) / gpx, 5) if gpx else 0.0, "seen": round(seen / len(kept), 3) if kept else 0.0,
             "clusters": blobs[:6], "_mask": kept}
+
+
+def neck3d(face_c, tee_c, body_c) -> dict:
+    """His face mesh out through the tee under the collar, on the posed meshes (render LOD 0)."""
+    SU, SP, MQ, LU = (unreal.GeometryScript_SceneUtils, unreal.GeometryScript_MeshSpatial,
+                      unreal.GeometryScript_MeshQueries, unreal.GeometryScript_List)
+    from fmbridge.ops.mh.actor import _pick
+    opts = unreal.GeometryScriptCopyMeshFromComponentOptions()
+    lod = unreal.GeometryScriptMeshReadLOD()
+    lod.set_editor_property("lod_type", unreal.GeometryScriptLODType.RENDER_DATA)
+    opts.set_editor_property("requested_lod", lod)
+
+    def copy(comp):
+        dm = unreal.DynamicMesh()
+        SU.copy_mesh_from_component(comp, dm, opts, True)
+        return dm
+
+    def verts(dm):
+        return LU.convert_vector_list_to_array(_pick(MQ.get_all_vertex_positions(dm, False), "GeometryScriptVectorList"))
+
+    tee, face = copy(tee_c), copy(face_c)
+    bvh = _pick(SP.build_bvh_for_mesh(tee), "GeometryScriptDynamicMeshBVH")
+    q = unreal.GeometryScriptSpatialQueryOptions()
+    top = max(p.z for p in verts(tee))
+    n = out = 0
+    mx = 0.0
+    for p in verts(face):
+        if p.z > top - 2.0:
+            continue
+        tp = _pick(SP.find_nearest_point_on_mesh(tee, bvh, p, q), "GeometryScriptTrianglePoint")
+        if not tp.get_editor_property("valid"):
+            continue
+        dv = p - tp.get_editor_property("position")
+        if dv.length() > 6.0:
+            continue
+        n += 1
+        sd = dv.dot(_pick(MQ.get_triangle_face_normal(tee, tp.get_editor_property("triangle_id")), "Vector"))
+        if sd > 0.1:
+            out += 1
+            mx = max(mx, sd)
+    return {"n": n, "out": out, "max_out_cm": round(mx, 2)}
 
 
 def mask_image(d, clip) -> "_image.Image":
@@ -212,6 +241,8 @@ def run():
             for f in frames:
                 yield from _scrub(SEQ, f, 10)
                 info = camera_info(cut_camera(SEQ, f), aspect=16 / 9)
+                global FOV
+                FOV = float(info["fov"])
                 L = layers(a)  # fetched each frame: a component may have been re-created
                 d = {}
                 for n, c in L.items():
@@ -228,7 +259,7 @@ def run():
                 _image.write(mask_image(d, clip), base + "_mask.png")
                 # the depth layers themselves, so the rules can be re-run off the editor (clip_rejudge.py)
                 with open(base + "_depth.bin", "wb") as fh:
-                    head = json.dumps({"w": W, "h": H, "layers": list(d)}).encode()
+                    head = json.dumps({"w": W, "h": H, "fov": FOV, "layers": list(d)}).encode()
                     fh.write(len(head).to_bytes(4, "little") + head)
                     for n in d:
                         array.array("f", d[n]).tofile(fh)
@@ -257,6 +288,9 @@ def run():
                         cov = sum(1 for x, y, z in zip(r_, g_, b_) if x + y + z > 1e-4)
                         fr.setdefault("albedo_warm", {})[n] = round(warm / cov, 5) if cov else 0.0
                         yield
+                if LABEL == "Host" and "Face" in L and "tee" in L:
+                    fr["neck"] = neck3d(L["Face"], L["tee"], L["Body"])
+                    yield
                 per[f] = fr
             rep["shots"][shot] = per
     finally:
@@ -268,6 +302,11 @@ def run():
                 if isinstance(v, dict) and "fraction" in v and v["fraction"] >= worst.get(k, (0, None))[0]:
                     worst[k] = (v["fraction"], f"{shot}@{f}")
     rep["worst"] = {k: {"fraction": v[0], "at": v[1]} for k, v in sorted(worst.items())}
+    necks = [(fr["neck"]["out"], fr["neck"]["max_out_cm"], f"{shot}@{f}") for shot, per in rep["shots"].items()
+             for f, fr in (per.items() if isinstance(per, dict) else ()) if "neck" in fr]
+    if necks:
+        o, cm, at = max(necks)
+        rep["worst"]["neck"] = {"out": o, "max_out_cm": max(x[1] for x in necks), "at": at}
     with open(os.path.join(OUT, "clip.json"), "w") as fh:
         json.dump(rep, fh, indent=1)
     rep["out"] = OUT
