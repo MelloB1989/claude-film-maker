@@ -41,6 +41,7 @@ import os
 import sys
 import time
 
+import bmesh
 import bpy
 import numpy as np
 from mathutils import Matrix, Vector
@@ -72,6 +73,10 @@ def parse_args():
     ap.add_argument("--weights", choices=("transfer", "keep", "blend"), default="transfer",
                     help="blend: transferred on --blend-regions, the garment's own elsewhere (smoothed between)")
     ap.add_argument("--blend-regions", default="collar,shoulder,chest,sleeve")
+    ap.add_argument("--single-layer", action="store_true",
+                    help="keep only the OUTER layer of a closed-shell garment's fitted slots, welded, small loose "
+                         "pieces dropped: a cloth-simulation section (its material must be two-sided)")
+    ap.add_argument("--min-island", type=int, default=50)
     ap.add_argument("--thickness", type=float, default=0.0, help="cm, Solidify on an open garment (0: none)")
     ap.add_argument("--only-slots", default="", help="comma list: fit only faces of material slots containing these")
     ap.add_argument("--collider", default="ref_body,face")
@@ -350,6 +355,67 @@ def transfer(sc, a, region=None):
     log(f"weights: {len(ob.vertex_groups)} bones, max influences {int((W > 0).sum(1).max())}")
 
 
+def single_layer(sc, a, bvh) -> dict:
+    """The fitted slots' faces that face the body (the inner wall of a closed shell: a face whose normal points
+    towards the nearest body point) removed, the rest welded (0.05 cm), loose pieces under --min-island verts
+    dropped. Round 5: Chaos Cloth on a two-layer garment crumpled (her overshirt); a sim wants one layer."""
+    ob = sc.garment
+    me = ob.data
+    keys = [k.strip().lower() for k in a.only_slots.split(",") if k.strip()]
+    names = [m.name.lower() if m else "" for m in me.materials]
+    M = ob.matrix_world
+    R = M.to_3x3()
+    scale = max(1e-9, M.to_scale()[0])
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    bm.faces.ensure_lookup_table()
+    v0, f0 = len(bm.verts), len(bm.faces)
+
+    def mine(f):
+        return not keys or any(k in names[f.material_index] for k in keys)
+
+    inner = []
+    for f in bm.faces:
+        if not mine(f):
+            continue
+        c = np.array((M @ f.calc_center_median())[:]) * 100.0
+        n = (R @ f.normal).normalized()
+        loc, nor, fi, dist = bvh.find_nearest(Vector(c))
+        if loc is not None and float((c - np.array(loc[:])) @ np.array(n[:])) < 0:
+            inner.append(f)
+    bmesh.ops.delete(bm, geom=inner, context="FACES")
+    bmesh.ops.remove_doubles(bm, verts=list(bm.verts), dist=0.0005 / scale)
+    bm.faces.ensure_lookup_table()
+    seen, dropped = set(), 0
+    for f in list(bm.faces):
+        if f.index in seen or not mine(f):
+            continue
+        stack, island = [f], []
+        seen.add(f.index)
+        while stack:
+            g = stack.pop()
+            island.append(g)
+            for e in g.edges:
+                for h in e.link_faces:
+                    if h.index not in seen and mine(h):
+                        seen.add(h.index)
+                        stack.append(h)
+        nv = len({v.index for g in island for v in g.verts})
+        if nv < a.min_island:
+            bmesh.ops.delete(bm, geom=island, context="FACES")
+            dropped += 1
+            bm.faces.ensure_lookup_table()
+    loose = [v for v in bm.verts if not v.link_faces]
+    bmesh.ops.delete(bm, geom=loose, context="VERTS")
+    out = {"verts": [v0, len(bm.verts)], "faces": [f0, len(bm.faces)], "inner_faces_removed": len(inner),
+           "islands_dropped": dropped}
+    bm.to_mesh(me)
+    bm.free()
+    me.update()
+    log(f"single layer: {out}")
+    return out
+
+
 def is_open(ob) -> int:
     from collections import Counter
     c = Counter()
@@ -527,6 +593,12 @@ def main():
     log(f"after: {rep['after'].get('all')}")
     if a.weights in ("transfer", "blend"):
         transfer(sc, a, region)
+    if a.single_layer:  # after the weights (the groups follow the kept verts); indices change: recompute per-vert data
+        rep["single_layer"] = single_layer(sc, a, bvh)
+        active = fit_mask(sc.garment, a.only_slots)
+        W1, g1 = weights_of(sc.garment)
+        region = GF.regions(W1, g1)
+        pinned = np.isin(region, [GF.REGIONS.index(r) for r in GF.PINNED])
     open_edges = is_open(sc.garment)
     rep["open_edges"] = open_edges
     if a.thickness > 0 and open_edges:
