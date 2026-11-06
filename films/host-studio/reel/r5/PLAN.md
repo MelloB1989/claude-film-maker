@@ -197,8 +197,14 @@ The order is T2's (her first: his blinks avoid hers). T1's stage checks run afte
 
 ## Phase 8: presenter finals (~35 min)
 
-S13, S15, S16, S17, S18 at 1080p into `/srv/ue/reel/r5/final`, one batch per shot, `probe_cam --check` before each
-(round 4: ~4-6 min a shot; strands at full count add a few %: **T4.P6**, compare S18's s/frame with round 4's).
+S13, S15, S16, S17, S18 at 1080p into `/srv/ue/reel/r5/final`, with `probe_cam --check` before each batch. Round 4
+took ~4-6 min a shot; strands at full count add a few % (**T4.P6**: compare S18's s/frame with round 4's).
+- **S17 + S18 render as ONE MRQ job** (agent-09, hair.md):
+  `--set batch=S17S18 --set 'shots=["Reel_S17","Reel_S18"]' --set chunking=none`.
+  - S18 is S17's end held. A new job restarts the hair simulation, which makes a visible step at f1440: that was
+    round 4's "her hair becomes short at 01:00" (head-box change 2.57 vs 0.88-1.00 around it).
+  - S13, S15 and S16 stay one batch per shot (`chunking: shot`, the default).
+- Gate item `hair.cut_pop_ratio` <= 1.8 (round 4: 2.57) comes from `film-qa hair` in 9.1.
 - The 8 set shots stay as they are in `private/renders/r4/final_d` (no presenter in them). Copy them in for the cut.
 - Then `final_check` and `final_qa` on all 13 shots.
 - **Expect:** no missing, black or jumping frames.
@@ -265,6 +271,7 @@ As round 4's wrap (ROUND4 09:40-09:52):
 | hair.lock | == 1 | 0 | 1 | 6.3 |
 | hair.render_cvars | == 1 | 0 | 1 | Phase 7 |
 | hair.cut_reach_pct | < 12 | > 12 (probe 1.3) | < 5 | 9.1 |
+| hair.cut_pop_ratio | ≤ 1.8 | 2.57 | ≤ 1.0 (around 0.9, like its neighbours) | 9.1 |
 
 ## Open risks (read before starting)
 
