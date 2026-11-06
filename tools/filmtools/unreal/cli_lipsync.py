@@ -439,7 +439,7 @@ def gate_numbers(curve_reports: dict, render_reports: dict, cues: dict | None, s
         put("lips.render_lag_frames", worst(ren, "lag_frames", lambda v, b: abs(v) > abs(b)),
             lambda v: round(abs(v), 2))
         inc = [f"{who} {k}" for who, rep in ren for k in rep.get("inconclusive", [])]
-        g["lips.render_conclusive"] = {"value": not inc, "where": ", ".join(inc) or "all lines"}
+        g["lips.render_conclusive"] = {"value": int(not inc), "where": ", ".join(inc) or "all lines"}
     else:
         g["lips.render_lag_frames"] = {"value": None, "error": "no render check (film-ue lips render)"}
     if cues is None:

@@ -39,6 +39,25 @@ Check: `perf.face` returns `report.pass` true (or only `expression_range` failin
 and `plan.shifts` / `plan.blinks` show what it did. `film-ue op perf.check anim=/Game/Speech/Anim/AS_l1` on the
 raw solve shows what was wrong before. Angles are in the CHARACTER's frame: yaw + = their left, pitch + = up.
 
+**Lip sync that is provably in time (R5: [research/lipsync.md](research/lipsync.md)).** One timebase: the lines'
+onsets measured from the audio the mix plays, one mouth-only solve per line placed at its WAV's start, a gate on the
+curves before rendering and on the pixels after.
+```bash
+film-ue lips cues --lines cues.json --stem him=vo_him.wav --stem her=vo_her.wav --out cues.json   # measured, words, stem hashes
+film-ue op speech.to_face wav=/srv/ue/vo/L1.wav name=reel_L1 face_mesh=<face> mood=CONFIDENCE intensity=0.7 process_mask=mouth head=false blinks=false
+film-ue op lipsync.check anim=/Game/Speech/Anim/AS_reel_L1 wav=/srv/ue/vo/L1.wav wav_frame=1018.8 anim_frame=1018.8 'lines=[{"id":"L1","f0":1020.6,"f1":1043.2}]'
+film-ue op lipsync.compose out=/Game/Reel/Perf/AS_reel_him_solve start_frame=960 length_frames=624 base=<whole performance anim> 'parts=[{"anim":"/Game/Speech/Anim/AS_reel_L1","frame":1018.8}, ...]'
+film-ue op perf.face anim=/Game/Reel/Perf/AS_reel_him_solve ...          # head, eyes, blinks, brows over the mouth
+film-ue op lipsync.check sequence=/Game/Reel/SEQ_Reel label=Host wav=/srv/ue/vo/vo_him.wav cues=/srv/ue/vo/cues.json who=him
+film-ue lips render --video S13.mp4 --wav vo_him.wav --cues cues.json --who him --boxes boxes.json [--syncnet-dir DIR]
+film-ue lips gate --curve him=check_him.json --render him=render_him.json --cues cues.json --stem him=vo_him.wav --out lips_gate.json
+```
+Check: every `lipsync.check` has `pass` true: per line |`lag_frames`| <= 1, `corr` >= 0.35, `onset_lead_s` <= 0.25,
+no `silence` issue; `diagnosis` "in sync". A failing check says what to do (`issues[].fix`); `diagnosis` "offset"
+= a section/audio misplaced by that many frames, "drift" = a frame-rate mismatch. `speech.to_face` returns
+`timing.ok` (the animation as long as its WAV) and `options` (what the plugin accepted). `film-ue lips render` exits
+0 pass, 1 fail, 2 inconclusive (its shifted-audio control did not move: the crop cannot see the mouth; fix the box).
+
 **Look at a performance without rendering** (a PNG of head, eyes, blinks, upper face and mouth on one time axis).
 ```bash
 film-ue op perf.plot anim=/Game/Speech/Anim/AS_l1_perf out=/tmp/l1_perf.png
@@ -161,7 +180,8 @@ film-ue op anim.new path=/Game/Perf/AS_blank skeleton=/Game/MetaHumans/Ada/Face/
 | `anim.rig_controls` / `anim.rig_keys` | Control Rig controls in a sequence; batched keys (float, rotator, transform) |
 | `anim.gaze_lock` | eyes on the lens, solved from the eye bones' measured pose |
 | `anim.bake_pose` / `anim.bake_follow` / `anim.head_to_body` | face and body as one skeleton |
-| `speech.to_face` / `speech.moods` | MetaHuman Animator's audio solver |
+| `speech.to_face` / `speech.moods` | MetaHuman Animator's audio solver (`process_mask` full/mouth, `head`, `blinks`; `timing`) |
+| `lipsync.check` / `lipsync.compose` / `lipsync.mouth_boxes` | lip-sync timing gate, per-line mouths at their cues, the mouth's box in each frame |
 | `perf.face` | make one face animation alive (head, eyes, blinks, brows, moods, expressions) |
 | `perf.check` | = anim.check |
 | `perf.plot` | the performance as a PNG of strips (head, eyes, blinks, upper face, mouth) |

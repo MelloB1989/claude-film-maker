@@ -89,7 +89,10 @@ stage 1). Needs the Epic sign-in on the box (`film-ue selftest --list` shows `ep
 
 **A performance.** A voice line to a face (`speech.to_face`), body animation sections (`seq.anim`), face and body as
 one skeleton (`anim.bake_follow` / `anim.head_to_body`), eyes on the lens (`anim.gaze_lock`) (WP4:
-[animation.md](animation.md)). Check: `seq.sample` bone positions, a still at a frame mid-line.
+[animation.md](animation.md)). Check: `seq.sample` bone positions, a still at a frame mid-line. **Lip sync is a timing
+check, not a look**: cues measured from the mix's stems (`film-ue lips cues`), one `process_mask=mouth` solve per
+line composed at its cue (`lipsync.compose`), then `lipsync.check` on the placed face (|lag| <= 1 frame, the mouth
+still in silences) and `film-ue lips render` on the render ([research/lipsync.md](research/lipsync.md)).
 
 **Shots.** A `shot` spec (WP7: [cameras.md](cameras.md)): shots by size (`WS`, `MCU`, `CU`...), angle, side, lens; moves;
 focus on a subject; times in frames, seconds or dialogue lines. The solver frames from the real skeleton. Check:
