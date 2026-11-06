@@ -6571,7 +6571,7 @@
    "verb": "hidden_face_maps",
    "module": "fmbridge.ops.garment",
    "file": "unreal/fmbridge/ops/garment.py",
-   "line": 788,
+   "line": 800,
    "summary": "A MetaHuman wardrobe item's hidden face maps: what MetaHuman itself removes or SHRINKS of the head and body",
    "doc": "A MetaHuman wardrobe item's hidden face maps: what MetaHuman itself removes or SHRINKS of the head and body\nunder this garment at assembly (5.7+: UMetaHumanOutfitEditorPipeline and UMetaHumanSkeletalMeshEditorPipeline\nboth carry HeadHiddenFaceMapTexture and BodyHiddenFaceMapTexture; settings MaxCullValue 0.1, MinKeepValue 0.9,\nMaxShrinkDistance 0 by default, i.e. shrink OFF). Pixels <= max_cull are removed, between the two the skin is\nmoved in along -normal by up to max_shrink_distance (cm), >= min_keep untouched; the head map is sampled in the\nhead's UV space (the highest of R, G, B).\n\nArgs: item: the wardrobe item's asset path (mh.palette lists a character's; a WI_ asset).\nReturns: {\"item\", \"pipeline\", \"editor_pipeline\", \"head\": {texture, max_cull_value, min_keep_value,\nmax_shrink_distance}, \"body\": {...}}.\nExample: film-ue op garment.hidden_face_maps item=/MetaHumanCharacter/Optional/Clothing/DefaultGarment/WI_DefaultGarment",
    "params": [
