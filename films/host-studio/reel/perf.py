@@ -879,9 +879,12 @@ def life(who: str) -> dict:
     mesh = ok(client.exec_code(f"PARAMS = {LABEL[who]!r}\n" + BODY_MESH))
     if not mesh:
         raise SystemExit(f"{LABEL[who]} has no Body mesh in the level")
+    # r5: follow=0. The chest's turn is torso_locked's (agent-01, phase-locked and about the vertical); the life
+    # layer's own follow (15% of the head's yaw, 0.25 s late, about the spine's tilted local axes) lifted his head's
+    # pitch ~1.5 deg on the S15 turn, 6 frames into its blink (agent-04, head_him.json 13:59)
     return ok(client.op("anim.body_life", out=f"{ANIM}/AS_reel_{who}_life", body_mesh=mesh,
                         length_s=round((END + POST_ROLL - START[who]) / FPS, 3), state="talk",
-                        face_anim=f"{ANIM}/AS_reel_{who}_face", seed=SEED[who], timeout=600))
+                        face_anim=f"{ANIM}/AS_reel_{who}_face", follow=0.0, seed=SEED[who], timeout=600))
 
 
 # ---------------------------------------------------------------------------------------------------- the stage
