@@ -99,6 +99,16 @@ def rasterise(val_g):
         v = l1 * vals[0] + l2 * vals[1] + l3 * vals[2]
         blk = P[y0:y1 + 1, x0:x1 + 1]
         P[y0:y1 + 1, x0:x1 + 1] = np.where(inside, np.minimum(blk, v), blk)
+    # every corner's own bilinear footprint (the 2x2 texels its sample reads) takes its value too: a triangle smaller
+    # than a texel draws no texel centre, and its corners then sampled white (loop 4 first try: 17 split left)
+    val_l = np.maximum(val_g[loops_g], 1 / 255)
+    for li in np.where(val_l < 0.999)[0]:
+        fx, fy = uv[li, 0] * W - 0.5, uv[li, 1] * H - 0.5
+        ix, iy = int(np.floor(fx)), int(np.floor(fy))
+        for yy in (iy, iy + 1):
+            for xx in (ix, ix + 1):
+                if 0 <= xx < W and 0 <= yy < H:
+                    P[yy, xx] = min(P[yy, xx], val_l[li])
     return P
 
 
