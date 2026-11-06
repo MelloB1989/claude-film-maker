@@ -184,6 +184,16 @@ ITEMS: dict = {
         "how": "qa.hair_continuity / film-qa hair",
         "r4": [None, "round 3's pop at S17 f1416-1440 (probe P3 re-reads it)"],
         "why": "a mid-shot LOD switch"},
+    "hair.cut_pop_ratio": {
+        "area": "hair", "track": "T4", "op": "<=", "line": 1.8, "unit": "x",
+        "what": "head-box change across each cut whose camera holds (S17 -> S18) over the larger of its neighbours' "
+                "frame-to-frame changes (qa/hair.py cut_pop: frame differences, no matte)",
+        "where": "S17 -> S18 f1440 (the operator's 01:00)",
+        "how": "film-qa hair (cut_pops)",
+        "r4": [2.57, "round 4 final_d head box MAD 2.57 at 1439->1440 vs 0.88 / 1.00 beside it; the dark (hair) "
+                     "mass -2.4% and stays (round 5 probe, agent-06)"],
+        "why": "a hair simulation restarting with a new render job pops at a held camera; a shot's own frame "
+               "pairs vary by <= ~1.3x"},
     "hair.lock": {
         "area": "hair", "track": "T4", "op": "==", "line": 1, "unit": "bool",
         "what": "groom.lock_check: every live groom of each presenter at the locked LOD, drawn as strands, in "

@@ -28,7 +28,8 @@ from __future__ import annotations
 
 from .issues import issue
 
-THRESHOLDS = {"cut_reach": 0.12, "cut_area": 0.25, "pop_reach": 0.08, "pop_area": 0.15, "k": 4, "min_px": 40}
+THRESHOLDS = {"cut_reach": 0.12, "cut_area": 0.25, "pop_reach": 0.08, "pop_area": 0.15, "k": 4, "min_px": 40,
+              "cut_pop": 1.8}  # cut_pop: round 4 S17->S18 read 2.57 (MAD 2.57 vs 0.88/1.00); shots' own pairs vary <= ~1.3
 LOW_Q, HIGH_Q = 0.02, 0.98  # robust extremes: a few stray strand pixels do not move the reach
 
 
@@ -89,6 +90,47 @@ def luma_mask(img, box, max_luma: float = 40.0) -> tuple:
     return mask, w, h
 
 
+def saturated(stats: dict, box, height: int, margin_px: float = 2.0) -> bool:
+    """A matte whose robust bottom reaches the box's bottom edge measured the box, not the hair (at night a dark
+    garment below the hair joins the matte): such a frame is not a measure (round 5 P3 on round 4's S17/S18)."""
+    return bool(stats.get("pixels")) and stats.get("bottom", 0) >= box[3] * height - 1 - margin_px
+
+
+def box_diff(a, b, box) -> float:
+    """Mean absolute luma difference (0-255) of two frames inside `box` (frame fractions)."""
+    if (a.w, a.h) != (b.w, b.h):
+        raise ValueError(f"frame sizes differ: {a.w}x{a.h} vs {b.w}x{b.h}")
+    w, h, ca, cb = a.w, a.h, a.c, b.c
+    x0, y0, x1, y1 = int(box[0] * w), int(box[1] * h), int(round(box[2] * w)), int(round(box[3] * h))
+    da, db = a.data, b.data
+    tot, n = 0.0, 0
+    for y in range(max(0, y0), min(h, y1)):
+        for x in range(max(0, x0), min(w, x1)):
+            pa, pb = (y * w + x) * ca, (y * w + x) * cb
+            la = 0.2126 * da[pa] + 0.7152 * da[pa + 1] + 0.0722 * da[pa + 2] if ca >= 3 else da[pa]
+            lb = 0.2126 * db[pb] + 0.7152 * db[pb + 1] + 0.0722 * db[pb + 2] if cb >= 3 else db[pb]
+            tot += abs(la - lb)
+            n += 1
+    return tot / n if n else 0.0
+
+
+def cut_pop(frames: dict, cut: int, box, floor: float = 0.5) -> dict:
+    """A pop at a cut whose camera does not change (S17 -> S18: S18 is S17's end, locked off): the change across
+    the cut (cut-1 -> cut) inside the head box, over the larger of the neighbours' (cut-2 -> cut-1, cut -> cut+1),
+    which hold the motion and the light changes of each shot. `frames`: {frame: Image}. A hair simulation that
+    restarts with a new render job, or a groom that switches LOD at the cut, reads several times its neighbours.
+    Returns {"cut", "d_cut", "d_before", "d_after", "ratio"} or {"cut", "missing": [...]}."""
+    need = [cut - 2, cut - 1, cut, cut + 1]
+    missing = [f for f in need if f not in frames]
+    if missing:
+        return {"cut": cut, "missing": missing}
+    d_cut = box_diff(frames[cut - 1], frames[cut], box)
+    d_b = box_diff(frames[cut - 2], frames[cut - 1], box)
+    d_a = box_diff(frames[cut], frames[cut + 1], box)
+    return {"cut": cut, "d_cut": round(d_cut, 3), "d_before": round(d_b, 3), "d_after": round(d_a, 3),
+            "ratio": round(d_cut / max(d_b, d_a, floor), 3)}
+
+
 def _rel(a: float, b: float) -> float:
     return (b - a) / a if abs(a) > 1e-9 else (0.0 if abs(b) < 1e-9 else float("inf"))
 
@@ -104,9 +146,16 @@ def judge(series: dict, cuts: list, character: str = "", thresholds: dict | None
     "thresholds"}."""
     t = {**THRESHOLDS, **(thresholds or {})}
     k, min_px = int(t["k"]), int(t["min_px"])
-    frames = {int(f): s for f, s in series.items() if s.get("pixels", 0) >= min_px}
+    sat = sorted(int(f) for f, s in series.items() if s.get("saturated"))
+    frames = {int(f): s for f, s in series.items() if s.get("pixels", 0) >= min_px and not s.get("saturated")}
     norms = {s.get("norm") for s in frames.values()}
     issues, cut_rows, pops = [], [], []
+    if sat:
+        issues.append(issue("hair.matte_saturated", "fail", f"{character}: the hair matte reaches the box's bottom "
+                            f"edge in {len(sat)} frames (f{sat[0]}..f{sat[-1]}): it measured the box (dark clothing "
+                            "joined it), not the hair, so these frames are not a measure",
+                            "use the editor's groom-only capture (qa.hair_continuity), lower max_luma, or the "
+                            "cut_pop check (frame differences, no matte)", subject=character))
     if "width" in norms:
         issues.append(issue("hair.norm_width", "warn", f"{character}: no bones for some frames, so reach/area are "
                             "normalised by the hair's own width (pose-dependent across a cut)",
