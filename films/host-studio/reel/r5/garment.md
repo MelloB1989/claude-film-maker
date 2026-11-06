@@ -177,3 +177,40 @@ turn (S17 f1397) cannot bring the face mesh through. `reel/r5/neck_backstop.py`;
 
 No cloth on the tee this round (the orchestrator: a closed shell, the failure class of her overshirt); the
 `garment.cloth_*` items are NOT ATTEMPTED. The neck backstop (§5b) was not needed.
+
+## 8. After Fit5 (06 Nov evening): what was learnt, where it stopped, the next session
+
+Fit5 passed every number and FAILED by eye: the collar floated like a rolled cowl, the hem flared like a skirt. New
+hard guards (core): qa.garment_look collar gap/roll (Fit5: 2.447 cm, 6/6 frames) and hem flare (ratio + the hem's own
+outward angle; the ratio's reference-body capture is unreliable, trust the angle).
+
+Root cause found late: with `--morph-ref` the fitted tees (Fit3-Fit6) were exported bound to the REFERENCE person's
+skeleton (SKM_Host_BodyMesh's joints), so Unreal posed every part offset by the joint differences (Fit6: Epic's kept
+collar 5.5 cm off, the tee 2.8 cm off the trousers). Fixed in core 868ef94e (his skeleton from body.fbx).
+
+The neck backstop (head hidden-face-map shrink) emptied his whole assembly: MetaHuman rejects MaxCullValue < 0
+(`TryCombineHiddenFaceMaps`, MetaHumanGeometryRemoval.cpp:45-52) and my "never cull" -0.01 failed the outfit. Fixed
+(6646f917: 0.0 + mask floor 1/255) but not re-run; BP_Host_Op was restored from the 14:10 snapshot.
+
+**Fit7** (his skeleton; collar 1.0, waist 2.6, hem 2.0 level, blend collar/shoulder/sleeve, no drape): neck_px 0
+WITHOUT the backstop, armor 0.006, wpo 0, hem level. Open: collar gap 1.62 cm / roll (line 0.8), and the trousers.
+HOLD at 21:15 IST (the orchestrator).
+
+**Next session, in order (~45 min before previews):**
+1. Fit8 = Fit7's command with the collar closer: run BOTH on CPU, pick by qa.garment_look collar + qa.clip neck:
+   - A: `--ease '{"collar": 0.4, "waist": 2.6, "hem": 2.0}'` (a hugging crew neck: the gap metric reads ease +
+     wall, so 0.4 should land ~0.6-0.8);
+   - B: `--keep-regions collar --keep-ramp-cm 3` (Epic's own band, now on his skeleton: it should hug as in round 4;
+     its neck poke is what the backstop is for: neck_px > 0 -> A).
+   Gate: collar_gap <= 0.8 and roll 0, neck_px 0.
+2. Trousers vs Fit8: the round-4 `_Op` vs `R5` qa.clip numbers (agent-06 measured _Op vs Fit7 at the hold: see
+   ROUND5.md); keep whichever reads Trousers>tee <= 0.001; else `props/his_outfit_ue/r5_trousers.sh` with TEE = Fit8's FBX
+   (~10 min CPU + import; it binds to his skeleton already).
+3. If neck_px > 0 with A: the backstop (6646f917) on a COPY of the BP first (never on BP_Host_Op without a snapshot).
+4. qa.clip + qa.garment_look + garment-gate --first-pass, then his S13/S15/S17 previews for the orchestrator's eye,
+   then the finals.
+
+Round 6 core list (agent-02): qa.garment_look's reference-body capture (silhouette, motion, hem ratio read nonsense on
+the box); a real collar fold detector (normals of the rim, not only the radial spread); the single-layer cloth proxy
+section with agent-08's FMCloth mapping; a garment-fit flag that refuses to export onto a skeleton other than the
+character's.
