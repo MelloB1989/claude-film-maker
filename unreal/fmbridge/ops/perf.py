@@ -169,6 +169,9 @@ def face(*, anim: str, out: str = "", wav: str = "", gaze: list | None = None, s
     sg = signs_for(_skeleton_path(a), signs)
     turned = None
     if sg.turns_by_bone():
+        # the planned turn kept aside, its curve flat: a weak curve (calibrate) would add its own part to the bones'
+        t_, v_ = r["curves"][sg.curves["yaw"]]
+        _write(o, {PLANNED_TURN: (t_, v_), sg.curves["yaw"]: ([t_[0], t_[-1]], [0.0, 0.0])})
         if sg.turn_on == "Face":
             turned = _turn_by_bones(o, *r["curves"][sg.curves["yaw"]], sg)
         else:  # the face takes its neck from the body: perf.turn_head puts this turn on the body's animation
@@ -182,6 +185,10 @@ def face(*, anim: str, out: str = "", wav: str = "", gaze: list | None = None, s
     if plot:
         res["plot"] = _plot({**base, **r["curves"]}, plot, r["plan"], signs_for(_skeleton_path(a), signs), out)
     return res
+
+
+WEAK_TURN = 0.5  # a turn curve under half of a real turn's motion at the eyes: the turn goes on the bones
+PLANNED_TURN = "FM_PlannedHeadTurn"  # perf.face's planned head turn, when the bones carry it (no AnimBP reads it)
 
 
 def _turn_by_bones(o, t: list, v: list, sg: HeadSigns) -> dict:
@@ -228,7 +235,7 @@ def turn_head(*, anim: str, face_anim: str, out: str = "", signs: dict | None = 
     if not sg.turns_by_bone() or sg.turn_on == "Face":
         return {"out": out or anim, "changed": False,
                 "why": "this face turns its head itself (a curve, or its own bones: perf.face did it)"}
-    name = sg.curves["yaw"]
+    name = PLANNED_TURN if PLANNED_TURN in read_all(f, [PLANNED_TURN]) else sg.curves["yaw"]
     cur = read_all(f, [name])
     if name not in cur:
         raise OpError(f"{face_anim} has no {name} (the planned turn): make it with perf.face", code="bad_args")
@@ -419,6 +426,14 @@ def calibrate(*, label: str, face_component: str = "Face", body_component: str =
                           hint="drive the face from Sequencer with mh.drive_face, and check its Anim Blueprint reads "
                                "HeadYaw/HeadPitch/HeadRoll with HeadControlSwitch=1") from None
     dead = [c for c in resp if max(abs(v) for v in resp[c].values()) < LIVE_CM]
+    # a turn curve that turns the head only part way counts as dead too, so the turn goes on the bones: r4 (box), the
+    # rebuilt Host_Op's HeadRoll moved the eyes 0.55 cm for 10 (a full 10 deg at his 9.4 cm is 1.6), so S15's 95 deg
+    # look would have turned ~30 (r3 saw the same weak HeadRoll on her)
+    full_cm = math.hypot(mid0[0] - head0[0], mid0[1] - head0[1]) * math.sin(math.radians(degrees))
+    weak = curves["yaw"] not in dead and abs(resp[curves["yaw"]]["yaw"]) < WEAK_TURN * full_cm
+    if weak:
+        dead.append(curves["yaw"])
+    raw["turn_strength"] = round(abs(resp[curves["yaw"]]["yaw"]) / max(full_cm, 1e-6), 3)
     signs = {k: (1.0 if resp[c][k] > 0 else -1.0) if c not in dead else 1.0 for k, c in curves.items()}
     yaw_bone, turn_on = None, "Face"
     if curves["yaw"] in dead:  # no curve turns this head (5.8): find the bones that do, and each one's turn axis
