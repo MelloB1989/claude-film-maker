@@ -34,6 +34,10 @@ def host(ue, fmb):
     m = ue.put_asset("/Game/H/SKM_Tee", ue.SkeletalMesh("SKM_Tee"))
     m._props["ref_bones"] = ref_bones()
     m._props["mesh_clothing_assets"] = []
+    pts = tee()
+    m._props["render_points"] = pts                                   # one open strip: simulatable
+    m._props["render_tris"] = [(i, i + 1, i + 2) for i in range(len(pts) - 2)]
+    m._props["render_mids"] = [0] * (len(pts) - 2)
     tee_c.set_skeletal_mesh_asset(m)
     tee_c.set_editor_property("leader_pose_component", None)
     ue.put_asset(SEQ, ue.LevelSequence("SEQ_Test"))
@@ -206,3 +210,38 @@ def test_an_older_plugin_without_set_config_value_says_so(ue, host):
     ue.FMCloth = type("FMClothOld", (), {k: v for k, v in vars(ue.FMCloth).items() if k != "set_config_value"})
     r = run_op("cloth.setup", label="Host", component="Tee", preset="cotton_tee")
     assert "plugin-build FMCloth" in r["config"]["asset_weighted"]["unsupported"]
+
+
+def closed_box():
+    v = [(x, y, z) for x in (0, 1) for y in (0, 1) for z in (0, 1)]
+    q = [(0, 1, 3, 2), (4, 6, 7, 5), (0, 4, 5, 1), (2, 3, 7, 6), (0, 2, 6, 4), (1, 5, 7, 3)]
+    return v, [t for a, b, c, d in q for t in ((a, b, c), (a, c, d))]
+
+
+def test_setup_refuses_a_closed_shell_and_loose_pieces_unless_forced(ue, host):
+    # round 5: her overshirt (solidified, with buttons and a pocket as pieces) exploded under cloth
+    m = ue.assets["/Game/H/SKM_Tee"]
+    v, t = closed_box()
+    m._props.update(render_tris=t, render_mids=[0] * len(t))
+    with pytest.raises(Exception) as e:
+        run_op("cloth.setup", label="Host", component="Tee", preset="cotton_tee")
+    assert e.value.code == "failed" and "CLOSED shell" in e.value.message and "proxy" in e.value.hint
+    assert ue.called("FMCloth.create") == []                           # nothing was created
+    strip = [(i, i + 1, i + 2) for i in range(100)]
+    buttons = [(200 + 3 * k, 201 + 3 * k, 202 + 3 * k) for k in range(10)]
+    m._props.update(render_tris=strip + buttons, render_mids=[0] * 110)
+    with pytest.raises(Exception) as e:
+        run_op("cloth.setup", label="Host", component="Tee", preset="cotton_tee")
+    assert "separate pieces" in e.value.message
+    m._props.update(render_tris=t, render_mids=[0] * len(t))
+    assert run_op("cloth.setup", label="Host", component="Tee", preset="cotton_tee", force=True)["changed"]
+
+
+def test_the_guard_judges_the_garments_own_material_group(ue, host):
+    # a hidden shorts slot (another material, closed) does not condemn the open shirt
+    m = ue.assets["/Game/H/SKM_Tee"]
+    v, box = closed_box()
+    strip = [(i, i + 1, i + 2) for i in range(100)]
+    m._props.update(render_tris=strip + [(a + 500, b + 500, c + 500) for a, b, c in box],
+                    render_mids=[0] * 100 + [1] * len(box))
+    assert run_op("cloth.setup", label="Host", component="Tee", preset="cotton_tee")["changed"]
