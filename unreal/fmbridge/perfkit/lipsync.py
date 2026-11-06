@@ -59,6 +59,10 @@ LIMITS = {
     # silence: the mouth's movement (mean |d aperture/dt|) as a share of its movement on the lines: talking in a
     # silence is as busy as a line (~1.0); a breath or a slow smile is a few percent
     "silence_busy": 0.25,
+    # with a reference (the solve placed at the mix's place): the mouth vs the solve, and how sure the voice-vs-mouth
+    # lag must be before it can fail on its own
+    "min_ref_corr": 0.8,
+    "confident_corr": 0.6,  # reported as audio_reliable
     # words (when cues carry aligned ones): the mouth's range inside a word, and the share of words that must move
     "word_move": 0.04,
     "min_words_moving": 0.8,
@@ -181,10 +185,13 @@ def speech_in(spans: list, t0: float, t1: float) -> tuple | None:
 
 # --- placement ---------------------------------------------------------------------------------------------------
 
-def place(curves: dict, start_s: float, offset_s: float = 0.0, rate: float = 1.0, end_s: float | None = None) -> dict:
+def place(curves: dict, start_s: float, offset_s: float = 0.0, rate: float = 1.0, end_s: float | None = None,
+          rest_outside: bool = False) -> dict:
     """An animation's curves as a Sequencer section plays them, on the master timeline: the section starts at
     `start_s` (s), begins `offset_s` into the animation (StartFrameOffset + FirstLoopStartFrameOffset), at `rate`.
-    Keys before the offset or after `end_s` are dropped."""
+    Keys before the offset or after `end_s` are dropped. `rest_outside`: the curves fall to 0 just outside their
+    keys (a line's solve checked alone: before and after it nothing drives the face; r5 P2 read a solve's first
+    keys, held, as a mouth open in the silence before the line)."""
     out = {}
     for n, (t, v) in curves.items():
         tt, vv = [], []
@@ -195,6 +202,9 @@ def place(curves: dict, start_s: float, offset_s: float = 0.0, rate: float = 1.0
             tt.append(m)
             vv.append(y)
         if tt:
+            if rest_outside:  # nothing drives the face outside the section: rest (0), not the end keys held
+                eps = 1.0 / 240.0
+                tt, vv = [tt[0] - eps] + tt + [tt[-1] + eps], [0.0] + vv + [0.0]
             out[n] = (tt, vv)
     return out
 
@@ -220,7 +230,8 @@ def _issue(code: str, line: str, message: str, fix: str, **metrics) -> dict:
 
 
 def check(env, curves: dict, lines: list, fps: float = 24.0, limits: dict | None = None, rate: float = 100.0,
-          expected_lag_s: float = 0.0, max_lag_s: float = 1.0, span: tuple | None = None) -> dict:
+          expected_lag_s: float = 0.0, max_lag_s: float = 1.0, span: tuple | None = None,
+          reference: dict | None = None) -> dict:
     """Lip-sync of one face against its voice, per line, plus the silences. See the module docstring.
 
     env: perfkit.audio.Envelope of the voice as placed in the mix (its offset_s = where it starts on the master).
@@ -229,6 +240,13 @@ def check(env, curves: dict, lines: list, fps: float = 24.0, limits: dict | None
     expected_lag_s: the solver's own lag on a line it solved alone (lipsync.check_anim on the raw solve; 0 by
     default): what is judged is the placed lag minus it. span: (t0, t1) the face is on screen/active (default: the
     first line - 2 s .. the last + 2 s), for the silence check.
+
+    reference: the speech solver's own mouth for these lines, on the same timeline (each line's solve placed at its
+    WAV's place in the mix: lipsync.check reference=[{anim, frame}]). With it, timing and tracking are judged
+    against the solve (mouth vs mouth: r ~1 when in place, a sharp peak): FAIL on |ref lag| > 1 frame or ref r <
+    0.8; the voice-vs-mouth lag and r are then reported, not judged: on short real lines loudness and jaw opening
+    diverge (r5 P2: the real solves, exactly in place, read r 0.25-0.88 and lags of -23 to +16 frames). The
+    silence and onset checks still judge against the voice.
 
     Returns {"pass", "lines": {id: {...}}, "silences": [...], "silence": {...}, "issues": [...], "diagnosis",
     "limits"}. Every issue says what to do."""
@@ -251,6 +269,8 @@ def check(env, curves: dict, lines: list, fps: float = 24.0, limits: dict | None
     mth = bandpass(mouth_raw, rate)
     slow_a = bandpass(aud_raw, rate, 0.25, 2.5)
     slow_m = bandpass(mouth_raw, rate, 0.25, 2.5)
+    ref_m = bandpass(aperture(reference, times), rate, 0.25, 8.0) if reference else None
+    mth_r = bandpass(mouth_raw, rate, 0.25, 8.0) if reference else None
     frame = 1.0 / fps
     spans = vad(env.values, env.rate, env.offset_s)
 
@@ -289,7 +309,25 @@ def check(env, curves: dict, lines: list, fps: float = 24.0, limits: dict | None
                "onset_lead_s": round(lead, 3) if lead is not None else None,
                "open_range": round(peak - rest_v, 3)}
         fails = []
-        if abs(lag) > lim["max_lag_frames"] * frame + 1e-9:
+        # with the solve as the reference the voice-vs-mouth lag is only reported: on the real r5 solves it read
+        # -1 to -23 frames on lines that are exactly in place (loudness is not jaw opening on short lines)
+        confident = reference is None
+        rec["audio_reliable"] = x["corr"] >= lim["confident_corr"]
+        if reference is not None:
+            xr = xcorr(ref_m[i0:i1], mth_r[i0:i1], rate, max_lag_s)
+            rec["ref_lag_frames"], rec["ref_corr"] = round(xr["lag_s"] / frame, 2), round(xr["corr"], 3)
+            if abs(xr["lag_s"]) > (lim["max_lag_frames"] + 0.05) * frame:  # 1 frame passes (measured 1.01)
+                fails.append(_issue(
+                    "ref_lag", lid, f"{lid}: the mouth is {abs(rec['ref_lag_frames']):.1f} frames "
+                    f"{'EARLY' if xr['lag_s'] < 0 else 'LATE'} on its own solve placed at the line's place in the mix",
+                    "a stage after the solve moved it (compose offset, a section start/offset, a rate): lips.py check "
+                    "--stage solve/face/final/placed finds which", ref_lag_frames=rec["ref_lag_frames"]))
+            if xr["corr"] < lim["min_ref_corr"]:
+                fails.append(_issue(
+                    "ref_corr", lid, f"{lid}: the mouth no longer follows its solve (r {xr['corr']:.2f}, limit "
+                    f"{lim['min_ref_corr']:g})", "a layer rewrote the speech curves (gain clamp, expression, another "
+                    "solve): only the solve's speech curves may drive the mouth on a line", ref_corr=rec["ref_corr"]))
+        if confident and abs(lag) > (lim["max_lag_frames"] + 0.05) * frame:
             way = "EARLY" if lag < 0 else "LATE"
             fails.append(_issue(
                 "lag", lid, f"{lid}: the mouth is {abs(lag) / frame:.1f} frames {way} on its voice "
@@ -298,7 +336,7 @@ def check(env, curves: dict, lines: list, fps: float = 24.0, limits: dict | None
                 "solve at its cue (the solve's t=0 is its WAV's first sample, which starts on the line's file_frame); "
                 "if every line is off by the same amount, the section or the audio is misplaced; if it grows with "
                 "time, a frame rate is wrong (see diagnosis)", lag_frames=rec["lag_frames"]))
-        if x["corr"] < lim["min_corr"]:
+        if reference is None and x["corr"] < lim["min_corr"]:
             fails.append(_issue(
                 "corr", lid, f"{lid}: the mouth does not follow the words (r {x['corr']:.2f} at its best lag, "
                 f"limit {lim['min_corr']:g})",
@@ -333,7 +371,7 @@ def check(env, curves: dict, lines: list, fps: float = 24.0, limits: dict | None
         rec["pass"] = not fails
         issues += fails
         out_lines[lid] = rec
-        lags.append((t0, lag))
+        lags.append((t0, rec["ref_lag_frames"] * frame if reference is not None else lag))
     # silences: outside every voice span, padded by the anticipation and the release
     allowed = [(a - lim["max_onset_lead_s"], b + lim["release_s"]) for a, b in spans]
     quiet = []
