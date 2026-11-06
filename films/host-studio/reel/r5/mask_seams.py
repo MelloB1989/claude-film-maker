@@ -8,7 +8,13 @@ copy; reports `split` (copies disagreeing by > 0.3) and `dark` (any copy <= 0.4)
 texels (each white texel next to a dark one takes the darkest neighbour, N times), recounts, and writes the padded
 PNG (--out): that PNG is the loop-4 mask (apply with OUT=<it>).
 
-    blender -b --factory-startup -P mask_seams.py -- <face.fbx> <mask.png> [--pad 4 --out <padded.png>]
+With --redraw (implies --out) it draws the mask again from the FACE'S OWN per-corner UVs: each face vertex (copies
+grouped by POSITION: an FBX export already splits a vertex at its UV seams, so index alone sees no seam) takes the
+darkest value any of its copies samples from the given mask, and every triangle is rasterised with its own corners'
+UVs. The editor's mask stage rasterised with ONE UV per (welded) vertex, so a triangle on the far side of a seam was
+drawn on the near island and the far copies stayed white: the seam tear.
+
+    blender -b --factory-startup -P mask_seams.py -- <face.fbx> <mask.png> [--redraw] [--pad 4 --out <padded.png>]
 """
 import sys
 
@@ -32,6 +38,13 @@ uv = np.zeros(len(me.loops) * 2)
 uvl.foreach_get("uv", uv)
 uv = uv.reshape(-1, 2)
 
+co = np.zeros(len(me.vertices) * 3)
+me.vertices.foreach_get("co", co)
+_, group = np.unique(np.round(co.reshape(-1, 3) * 1e4).astype(np.int64), axis=0, return_inverse=True)
+group = group.ravel()
+ng = int(group.max()) + 1
+loops_g = group[loops_v]  # each corner's position group: the seam copies of one face vertex share it
+redraw = "--redraw" in a
 img = bpy.data.images.load(png)
 W, H = img.size
 pix = np.array(img.pixels[:], np.float32).reshape(H, W, img.channels)[:, :, 0]  # Blender: row 0 = bottom = UV v 0
@@ -49,21 +62,52 @@ def sample(P, u, v):
 
 def judge(P, tag):
     s = sample(P, uv[:, 0], uv[:, 1])
-    nv = len(me.vertices)
-    lo = np.full(nv, 9.0)
-    hi = np.full(nv, -9.0)
-    np.minimum.at(lo, loops_v, s)
-    np.maximum.at(hi, loops_v, s)
+    lo = np.full(ng, 9.0)
+    hi = np.full(ng, -9.0)
+    np.minimum.at(lo, loops_g, s)
+    np.maximum.at(hi, loops_g, s)
     dark = lo <= 0.4
     split = dark & (hi - lo > 0.3)
-    print(f"{tag}: face verts {nv}, dark (any copy <= 0.4) {int(dark.sum())}, SPLIT (copies disagree > 0.3) "
-          f"{int(split.sum())}, worst copy gap {float((hi - lo)[dark].max()) if dark.any() else 0:.2f}")
-    return split
+    print(f"{tag}: face verts {len(me.vertices)} ({ng} positions), dark (any copy <= 0.4) {int(dark.sum())}, SPLIT "
+          f"(copies disagree > 0.3) {int(split.sum())}, worst copy gap "
+          f"{float((hi - lo)[dark].max()) if dark.any() else 0:.2f}")
+    return lo
 
 
-judge(pix, "mask as is")
+def rasterise(val_g):
+    """A white map with every face triangle drawn from its own corners' UVs, each corner's value its position
+    group's (never 0: 1/255 at least, nothing culls)."""
+    me.calc_loop_triangles()
+    P = np.ones((H, W), np.float32)
+    for t in me.loop_triangles:
+        ls = list(t.loops)
+        vals = np.maximum(val_g[loops_g[ls]], 1 / 255)
+        if vals.min() >= 0.999:
+            continue
+        U = uv[ls] * [W, H]
+        x0, x1 = int(max(0, np.floor(U[:, 0].min()))), int(min(W - 1, np.ceil(U[:, 0].max())))
+        y0, y1 = int(max(0, np.floor(U[:, 1].min()))), int(min(H - 1, np.ceil(U[:, 1].max())))
+        (ax, ay), (bx, by), (cx, cy) = U
+        den = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy)
+        if abs(den) < 1e-9:
+            continue
+        X, Y = np.meshgrid(np.arange(x0, x1 + 1) + 0.5, np.arange(y0, y1 + 1) + 0.5)
+        l1 = ((by - cy) * (X - cx) + (cx - bx) * (Y - cy)) / den
+        l2 = ((cy - ay) * (X - cx) + (ax - cx) * (Y - cy)) / den
+        l3 = 1 - l1 - l2
+        inside = (l1 >= -0.02) & (l2 >= -0.02) & (l3 >= -0.02)
+        v = l1 * vals[0] + l2 * vals[1] + l3 * vals[2]
+        blk = P[y0:y1 + 1, x0:x1 + 1]
+        P[y0:y1 + 1, x0:x1 + 1] = np.where(inside, np.minimum(blk, v), blk)
+    return P
+
+
+lo = judge(pix, "mask as is")
+P = pix.copy()
+if redraw:
+    P = rasterise(np.where(lo <= 0.999, lo, 1.0))
+    judge(P, "redrawn from per-corner UVs")
 if pad > 0:
-    P = pix.copy()
     for _ in range(pad):
         Q = P.copy()
         white = P >= 0.999
@@ -75,7 +119,8 @@ if pad > 0:
         Q[white] = n[white]
         P = Q
     judge(P, f"padded {pad} px")
-    if out:
+if out and (pad > 0 or redraw):
+    if True:
         full = np.array(img.pixels[:], np.float32).reshape(H, W, img.channels)
         for ch in range(min(3, img.channels)):
             full[:, :, ch] = P
