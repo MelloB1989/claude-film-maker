@@ -63,6 +63,9 @@ def test_gate_numbers_contract(tmp_path, monkeypatch):
     assert g["garment.silhouette_pct"]["value"] == 2.23
     assert g["garment.pair_fraction"] == {"value": 0.0067, "where": "S18 f1500 Trousers>tee"}
     assert g["garment.wpo_cm"]["value"] == 2.66 and g["garment.armor_index"]["value"] == 0.71
+    nosil = {"metrics": {"worst": {k: v for k, v in clip["metrics"]["worst"].items() if k != "silhouette"}}}
+    assert G.gate_numbers(nosil, look)["gate"]["garment.silhouette_pct"]["error"]
+    assert G.gate_numbers(nosil, look, first_pass=True)["gate"]["garment.silhouette_pct"]["value"] == 0.0
     g2 = G.gate_numbers(None, None)["gate"]
     assert all(v["value"] is None and v["error"] for v in g2.values()) and len(g2) == 6
     from filmtools.unreal import cli

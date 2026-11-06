@@ -31,6 +31,8 @@ def register(sub) -> None:
     q.add_argument("--clip", default="", help="qa.clip's clip.json (out_dir/clip.json)")
     q.add_argument("--look", default="", help="qa.garment_look's result saved as JSON")
     q.add_argument("--out", required=True)
+    q.add_argument("--first-pass", action="store_true",
+                   help="this qa.clip run is the silhouette reference (no ref_dir): silhouette_pct 0")
     p = sub.add_parser("garment-fit", help="refit a garment to the body with real ease (headless Blender, on the box)")
     p.add_argument("--src", help="garment.export's out_dir (body/face/ref_body/garment_*.fbx, manifest.json)")
     p.add_argument("--garment", default="tee")
@@ -60,7 +62,7 @@ def _where(at: str) -> str:
     return f"{shot.replace('Reel_', '')} f{f}"
 
 
-def gate_numbers(clip: dict | None, look: dict | None) -> dict:
+def gate_numbers(clip: dict | None, look: dict | None, first_pass: bool = False) -> dict:
     """Gate v2's numbers (agent-09's contract: {"gate": {id: {"value", "where"} or {"error"}}}) from a qa.clip result
     (clip.json) and a qa.garment_look result: garment.neck_px (worst px), garment.silhouette_pct (worst |%| vs the
     ref_dir), garment.pair_fraction (worst non-face pair), garment.wpo_cm (the inflate params' push),
@@ -79,6 +81,8 @@ def gate_numbers(clip: dict | None, look: dict | None) -> dict:
         sil = w.get("silhouette")
         if sil:
             g["garment.silhouette_pct"] = {"value": abs(sil["pct"]), "where": _where(sil["at"])}
+        elif first_pass:  # this run IS the reference (gate v2: the accepted fit's first pass)
+            g["garment.silhouette_pct"] = {"value": 0.0, "where": "reference pass (this run's out_dir)"}
         else:
             miss("garment.silhouette_pct", "qa.clip ran without ref_dir (or no frame matched it)")
         pairs = [(v["fraction"], k, v["at"]) for k, v in w.items() if isinstance(v, dict) and "fraction" in v
@@ -174,7 +178,7 @@ def dispatch(a) -> bool:
         clip = rd(a.clip)
         if isinstance(clip, dict) and "result" in clip and "metrics" not in clip:
             clip = clip["result"]
-        g = gate_numbers(clip, look)
+        g = gate_numbers(clip, look, first_pass=a.first_pass)
         Path(a.out).write_text(json.dumps(g, indent=1))
         print(json.dumps(g, indent=1))
         return True
