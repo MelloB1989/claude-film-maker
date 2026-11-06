@@ -284,6 +284,9 @@ cls = unreal.EditorAssetLibrary.load_blueprint_class(BP)
 a = eas.spawn_actor_from_class(cls, unreal.Vector(*LOC), unreal.Rotator(0, 0, 0))
 a.set_actor_label(LABEL)
 _b._PREVIEWS[LABEL] = a
+# a new face rebuilds every groom binding asynchronously: until they are done the hair and the mustache are not drawn
+# (r4 look_sculpt: S1-S3 bald, the mustache only in the later cells of the same build)
+unreal.AutomationUtilsBlueprintLibrary.finish_all_asset_compilation()
 result = {"label": LABEL, "comps": len(a.get_components_by_class(unreal.ActorComponent))}
 """
 
@@ -390,6 +393,8 @@ def sculpt_deltas(lm: dict, s: dict) -> dict:
     return out
 
 
+WAIT_COMPILE = "import unreal\nunreal.AutomationUtilsBlueprintLibrary.finish_all_asset_compilation()\nresult = True"
+
 # per-instance groom group settings on the spawned copy (groom.set's GroomGroupsDesc), e.g. {"Hair": {"length_scale": 0.85}}
 DESC_SET = r"""
 import importlib, unreal
@@ -463,7 +468,9 @@ def points(g: dict, sheet: str, a) -> dict:
         ch = g["cheeks"].get(s) or add(add(e, [0, 0, -3.6]), side, 1.2 * sgn)
         pts["cheek" + s] = (add(ch, f, 1.5), 0.7)
     pts["chip"] = (g["chip"], 2.4)
-    pts["crown"] = (add(add(g["mid"], [0, 0, 11.0]), f, 3.0), 1.2)  # the hair above the forehead (diag)
+    pts["crown"] = (add(add(g["mid"], [0, 0, 11.0]), f, 3.0), 1.2)  # the hair above the forehead (diag, verify)
+    pts["forehead"] = (add(add(g["mid"], [0, 0, 4.5]), f, 1.8), 1.0)  # the fringe over the forehead (verify)
+    pts["stache"] = (add(add(g["mid"], [0, 0, -6.4]), f, 2.6), 0.6)  # the mustache under the nose (verify)
     return pts
 
 
@@ -628,7 +635,7 @@ def render(a) -> None:
               for u in [i / (n - 1) for i in range(n)] for v in [j / (n - 1) for j in range(n)]]
     rep = {"sheet": sheet, "out": out, "base": base, "variants": [], "wardrobe": ward if sheet in ("hair", "facial") else {}}
     if a.target == "bp":  # the built Blueprint as it is: no character edits (grooms, skin, body) apply
-        base = {k: v for k, v in base.items() if k in ("hair_color", "eye")}
+        base = {k: v for k, v in base.items() if k in ("hair_color", "eye", "desc")}
     elif not a.no_dup:
         rep["dup"] = op("mh.duplicate", source=CHAR, path=DUP, overwrite=True)
     for mi, col in ((GREY, 0.18), (BG, 0.22)):
@@ -812,7 +819,7 @@ def compose(a) -> None:
             arr = np.asarray(Image.open(st["path"]).convert("RGB")).astype(float)
             e = {"label": row["label"], "md5": hashlib.md5(arr.tobytes()).hexdigest()[:10],
                  "mean": [round(c) for c in arr.reshape(-1, 3).mean(axis=0)], "pts": {}}
-            for k in ("irisL", "cheekL", "chip", "crown"):
+            for k in ("irisL", "cheekL", "chip", "crown", "forehead", "stache"):
                 x, y, kk, rad = st["points"][k]
                 r = max(2.0, kk * rad)
                 grid = []
@@ -826,6 +833,26 @@ def compose(a) -> None:
                 e["pts"][k] = {"xy": [round(x), round(y)], "r_px": round(r, 1), "grid": grid}
             rows.append(e)
         print(json.dumps(rows[:a.diag]))
+        return
+    if a.verify:  # numbers only: dark (hair) pixels where the hair and the mustache must be, on each front still
+        import numpy as np
+        rows = []
+        for row in meta["variants"]:
+            st = row["stills"]["front"]
+            arr = np.asarray(Image.open(st["path"]).convert("RGB")).astype(float) / 255
+            e = {"label": row["label"]}
+            for k in ("crown", "forehead", "stache", "cheekL"):
+                if k not in st["points"]:
+                    continue
+                x, y, kk, rad = st["points"][k]
+                px = _disc(arr, x, y, max(2.0, kk * rad))
+                v = px.max(axis=1) if len(px) else np.zeros(1)
+                e[k] = {"dark": round(float((v < 0.22).mean()), 2), "v_med": round(float(np.median(v)), 2)}
+            skin_v = e.get("cheekL", {}).get("v_med", 0.6)
+            e["hair_ok"] = e.get("crown", {}).get("dark", 0) >= 0.5 or e.get("forehead", {}).get("dark", 0) >= 0.5
+            e["stache_ok"] = e.get("stache", {}).get("dark", 0) >= 0.25 or e.get("stache", {}).get("v_med", 1) < 0.5 * skin_v
+            rows.append(e)
+        print(json.dumps({"verify": rows, "pass": all(r["hair_ok"] and r["stache_ok"] for r in rows)}, indent=1))
         return
     if a.numbers_only:
         print(json.dumps(nums, indent=1))
@@ -985,6 +1012,7 @@ def main() -> None:
     c.add_argument("--capture-box", default="", help="x,y,w of the face in the capture's front frame")
     c.add_argument("--take", default=TAKE, help="the operator's take on the box (its video gives the capture column)")
     c.add_argument("--numbers-only", action="store_true")
+    c.add_argument("--verify", action="store_true", help="numbers only: hair at the crown/forehead, the mustache")
     c.add_argument("--diag", type=int, default=0, help="numbers only: hashes and colour grids around the points, first N")
     a = ap.parse_args()
     if a.cmd == "list":
