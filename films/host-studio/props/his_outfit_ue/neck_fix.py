@@ -21,6 +21,7 @@ TREE = globals().get("CHECKOUT") or "/srv/ue/r3tree"
 LABEL = globals().get("LABEL", "Host")
 FRAME = int(globals().get("FRAME", 1078))
 MIN_CM = float(globals().get("MIN_CM", 0.2))
+MAX_COLOUR = float(globals().get("MAX_COLOUR", 0.02))  # mean linear base colour, per channel
 MEL = unreal.MaterialEditingLibrary
 EAL = unreal.EditorAssetLibrary
 KEYS = ("FM_Inflate", "FM_Neck", "FM_NeckZ0", "FM_NeckZ1", "FM_NeckFront", "FM_NeckFrontBias")
@@ -69,6 +70,12 @@ def fix():
         rt = yield from _ns["capture"](info, 480, 270, "depth", show_only=[tee()], warmup=4)
         return _ns["read_pixels"](rt, "r")[0]
 
+    def colour():  # his tee's base colour alone: Break/Make must pass every attribute through unchanged
+        rt = yield from _ns["capture"](info, 480, 270, "base_color", show_only=[tee()], warmup=2)
+        r, g, b = _ns["read_pixels"](rt, "rgb")
+        px = [(x, y, z) for x, y, z in zip(r, g, b) if x + y + z > 1e-4]
+        return [round(sum(p[k] for p in px) / max(1, len(px)), 4) for k in range(3)]
+
     c = tee()
     i = slot(c)
     worn = c.get_materials()[i]
@@ -83,6 +90,7 @@ def fix():
     rep["original_master"] = master.get_path_name()
     rep["use_material_attributes"] = bool(master.get_editor_property("use_material_attributes"))
     base = yield from depth()
+    rep["colour_before"] = yield from colour()
     ok = False
     try:
         orig.set_editor_property("vector_parameter_values", worn.get_editor_property("vector_parameter_values"))
@@ -109,7 +117,10 @@ def fix():
         med = both[len(both) // 2] if both else 0.0
         rep["nearer_cm_median"] = round(med, 3)
         rep["nearer_cm_p90"] = round(both[int(len(both) * 0.9)], 3) if both else None
-        ok = med >= MIN_CM
+        rep["colour_after"] = yield from colour()
+        dc = max(abs(x - y) for x, y in zip(rep["colour_before"], rep["colour_after"]))
+        rep["colour_drift"] = round(dc, 4)
+        ok = med >= MIN_CM and dc <= MAX_COLOUR
     finally:
         if not ok:
             tee().set_material(slot(tee()), worn)
