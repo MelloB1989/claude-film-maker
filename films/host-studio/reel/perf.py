@@ -650,9 +650,14 @@ def job():
             face = component_of(lab, "Face")
             bones = {b: _xform(face, b) for b in ("head", "FACIAL_L_Eye", "FACIAL_R_Eye")}
             fw = a.get_actor_forward_vector()
+            try:
+                body = component_of(lab, "Body")
+            except Exception:
+                body = face
+            mf = body.get_right_vector()  # a skeletal mesh's front is its +Y, not the actor's +X
             row[who] = {"label": lab, "loc": [a.get_actor_location().x, a.get_actor_location().y,
                                               a.get_actor_location().z],
-                        "fwd": [fw.x, fw.y, fw.z], "bones": bones}
+                        "fwd": [fw.x, fw.y, fw.z], "mesh_fwd": [mf.x, mf.y, mf.z], "bones": bones}
         for sid in P["shots"].get(str(f), []):
             try:
                 c = component_of("Reel_" + sid, "CameraComponent")
@@ -669,12 +674,20 @@ result = job()
 """
 
 
-def _pose_from(row: dict) -> dict:
-    """A sampled presenter as looks.py's pose: the eyes' mid-point, the head bone, the facing (the actor's forward)."""
+def _pose_from(row: dict, check: bool = False) -> dict:
+    """A sampled presenter as looks.py's pose: the eyes' mid-point, the head bone, the facing. The facing is the body
+    mesh's front (its +Y), not the actor's forward: the reel's MetaHumans stand at actor yaw -90 facing +X, and the
+    actor's forward put every look 90 degrees off (step 0 on the box, r4). With `check` (the lens frames, head near
+    rest) cross-checked against head -> eyes, which also carries the head's own turn: a disagreement over 45 fails."""
     import math
     b = row["bones"]
     eyes = [(b["FACIAL_L_Eye"][k] + b["FACIAL_R_Eye"][k]) / 2 for k in range(3)]
-    return {"eyes": eyes, "head": b["head"][:3], "yaw": math.degrees(math.atan2(row["fwd"][1], row["fwd"][0]))}
+    f = row.get("mesh_fwd") or row["fwd"]
+    yaw = math.degrees(math.atan2(f[1], f[0]))
+    he = math.degrees(math.atan2(eyes[1] - b["head"][1], eyes[0] - b["head"][0]))
+    if check and abs((he - yaw + 180) % 360 - 180) > 45:
+        raise SystemExit(f"{row['label']}: facing {yaw:.1f} but head->eyes {he:.1f}: the facing read is wrong")
+    return {"eyes": eyes, "head": b["head"][:3], "yaw": yaw}
 
 
 def _eye_fwd(row: dict, rest_row: dict) -> list:
@@ -719,7 +732,7 @@ def looks(path: str = "/Game/Reel/SEQ_Reel", measured: bool = False) -> dict:
                                             "focal": c["focal"], "film_w": c["film_w"]}
                                       for sid, c in row["cameras"].items()}
     for w in ("him", "her"):
-        st["rest"][w] = st["frames"][str(LENS_FRAME[w])][w]
+        st["rest"][w] = _pose_from(raw["frames"][str(LENS_FRAME[w])][w], check=True)
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / "looks_stage_raw.json").write_text(json.dumps(raw))
     (OUT / "looks_stage.json").write_text(json.dumps(st, indent=1))
