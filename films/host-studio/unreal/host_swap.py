@@ -46,7 +46,8 @@ if _g is not None:
     tee = ({"diffuse_color_1": (0.12, 0.12, 0.125), "diffuse_color_2": (0.135, 0.135, 0.14)} if HOST == "op" else
            {"diffuse_color_1": (0.032, 0.034, 0.038), "diffuse_color_2": (0.045, 0.047, 0.052)})
     mh.garment("Host", "Shirt", component=_g.get_name(), vectors=tee)
-INFLATE_CM = float(globals().get("INFLATE_CM", 0.4))
+# round 5: no WPO inflate on his tee (it read as armor); the refit Tee has real ease (reel/r5/garment.md)
+INFLATE_CM = float(globals().get("INFLATE_CM", 0.0))
 NECK = globals().get("NECK") or {}  # e.g. {"FM_Neck": 2.8, "FM_NeckZ0": ..}: neck_inflate.py (HOST op only)
 # the neckline term's amount (cm): his tee's front pushed out this much more from 14 cm under neck_01 (none) to 5 cm
 # under it and up (all), the front only; its heights and front from his bones. 0 = off (the re-rig is the root fix)
