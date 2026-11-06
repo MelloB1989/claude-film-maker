@@ -465,9 +465,9 @@ def render(a) -> None:
     vs = variants_for(sheet, a, ward)
     if not vs:
         raise SystemExit(json.dumps({"error": "no variants", "wardrobe": ward}))
-    if a.grid:  # iris: a grid over the palette, numbers only (choose the sheet's candidates from it)
-        n = a.grid
-        vs = [{"label": f"iris {u:.2f}/{v:.2f}", "iris": {"u": round(u, 3), "v": round(v, 3)}}
+    if a.grid:  # iris or skin: a grid over the palette, numbers only (choose the sheet's candidates from it)
+        n, k = a.grid, ("skin" if sheet == "skin" else "iris")
+        vs = [{"label": f"{k} {u:.2f}/{v:.2f}", k: {"u": round(u, 3), "v": round(v, 3)}}
               for u in [i / (n - 1) for i in range(n)] for v in [j / (n - 1) for j in range(n)]]
     rep = {"sheet": sheet, "out": out, "base": base, "variants": [], "wardrobe": ward if sheet in ("hair", "facial") else {}}
     if not a.no_dup:
@@ -712,7 +712,7 @@ def main() -> None:
     r.add_argument("--items", default="", help="hair: item names; iris/skin: u:v,u:v; facial: M+B,M+B")
     r.add_argument("--variants", default="", help="a JSON list (or a file) of {label, grooms, skin, iris, body}")
     r.add_argument("--base", default="", help="JSON over the base look (earlier picks), e.g. '{\"grooms\": {\"Hair\": \"WI_Hair_M_X\"}}'")
-    r.add_argument("--grid", type=int, default=0, help="iris: an NxN palette grid, numbers only")
+    r.add_argument("--grid", type=int, default=0, help="iris or skin: an NxN palette grid, numbers only")
     r.add_argument("--px", type=int, default=1024)
     r.add_argument("--frame-cm", type=float, default=40.0, help="the headshot's frame width at the face")
     r.add_argument("--key-side", choices=("left", "right"), default="left", help="his side the key is on")
