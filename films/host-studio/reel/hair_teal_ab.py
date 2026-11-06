@@ -45,6 +45,23 @@ VARIANTS = [
     {"name": "no_multiscatter", "cvars": {"r.HairStrands.SkyLighting.IntegrationType": 0,
                                           "r.HairStrands.DeepShadow.Enable": 0}},
 ]
+# round 4 (agent-09). Night 1-2 numbers: only the SCREEN-LEFT ends are green (a* ~0, green_px 0.22) while the
+# screen-right ends and the crown sit at a* ~+2; the overshirt, both lighting cvars, the cards/helmet MIs and coverage
+# changed it by < 0.01. One-sided green is directional: a light or a green surface on that side, or a dark green
+# background between thin tips. So: a hair-only mask first (is the green on the strands at all?), then the lights one
+# at a time (--lights-ab), the plants, the TRT lobe (the strand's internal/transmitted light; TRTSaturation 1.2 lifts
+# whatever tint it carries), forced tip colour (ombre to the root melanin), and a grade as the last resort.
+R4 = [
+    {"name": "hair_hidden", "hide": ["Hair"]},  # the mask: cast_gate.py hue --mask hair_hidden.png
+    {"name": "plants_hidden", "hide_actors": ["pothos", "plant", "olive", "monstera", "fern", "leaf", "ivy"]},
+    {"name": "trt_sat_1", "mis": ["HerHair"], "scalars": {"TRTSaturation": 1.0}},
+    {"name": "trt_off", "mis": ["HerHair"], "scalars": {"TRTIntensity": 0.0}},
+    {"name": "tips_ombre_root", "mis": ["HerHair"], "scalars": {"Ombre": 1.0, "OmbreMelanin": 1.0, "OmbreRedness": 0.05,
+                                            "OmbreShift": 0.0, "OmbreContrast": 0.0}},
+    {"name": "redness_0.15", "mis": ["HerHair"], "scalars": {"hairRedness": 0.15}},
+    {"name": "pp_shadow_desat", "pp": {"color_saturation_shadows": [1.0, 1.0, 1.0, 0.6]}},
+]
+VARIANTS += R4
 
 NAMES = """
 import unreal
@@ -78,6 +95,29 @@ for c in her.get_components_by_class(unreal.PrimitiveComponent):
     if c.get_name() in V.get("hide", []):
         c.set_visibility(False, True)
         old["hide"].append(c.get_name())
+old["hide_actors"], old["lights_off"], old["pp"] = [], [], {}
+for a in unreal.get_editor_subsystem(unreal.EditorActorSubsystem).get_all_level_actors():
+    lab = a.get_actor_label()
+    if any(k in lab.lower() for k in V.get("hide_actors", [])) and lab not in ("Presenter", "Host"):
+        for c in a.get_components_by_class(unreal.PrimitiveComponent):
+            if c.is_visible():
+                c.set_visibility(False, True)
+                old["hide_actors"].append([lab, c.get_name()])
+    for c in a.get_components_by_class(unreal.LightComponent):
+        if [lab, c.get_name()] in V.get("lights_off", []) and c.is_visible():
+            c.set_visibility(False, True)
+            old["lights_off"].append([lab, c.get_name()])
+    if V.get("pp") and a.get_class().get_name() == "PostProcessVolume":
+        st = a.get_editor_property("settings")
+        o = {}
+        for k, v in V["pp"].items():
+            cur = st.get_editor_property(k)
+            o[k] = [cur.x, cur.y, cur.z, cur.w] if hasattr(cur, "w") else cur
+            o["override_" + k] = st.get_editor_property("override_" + k)
+            st.set_editor_property("override_" + k, True)
+            st.set_editor_property(k, unreal.Vector4(*v) if isinstance(v, list) else v)
+        a.set_editor_property("settings", st)
+        old["pp"][lab] = o
 result = old
 """
 
@@ -102,6 +142,17 @@ her = next(x for x in unreal.get_editor_subsystem(unreal.EditorActorSubsystem).g
 for c in her.get_components_by_class(unreal.PrimitiveComponent):
     if c.get_name() in OLD.get("hide", []):
         c.set_visibility(True, True)
+back = {tuple(x) for x in OLD.get("hide_actors", []) + OLD.get("lights_off", [])}
+for a in unreal.get_editor_subsystem(unreal.EditorActorSubsystem).get_all_level_actors():
+    lab = a.get_actor_label()
+    for c in a.get_components_by_class(unreal.SceneComponent):
+        if (lab, c.get_name()) in back:
+            c.set_visibility(True, True)
+    if lab in OLD.get("pp", {}):
+        st = a.get_editor_property("settings")
+        for k, v in OLD["pp"][lab].items():
+            st.set_editor_property(k, unreal.Vector4(*v) if isinstance(v, list) else v)
+        a.set_editor_property("settings", st)
 result = True
 """
 
@@ -145,6 +196,30 @@ result = sorted(out, key=lambda x: -x["green"])[:60]
 """
 
 
+NEAR = """
+import unreal
+EAS = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
+her = next(x for x in EAS.get_all_level_actors() if x.get_actor_label() == "Presenter")
+body = next(c for c in her.get_components_by_class(unreal.SkeletalMeshComponent) if c.get_name() == "Body")
+h = body.get_socket_location("head")
+out = []
+for a in EAS.get_all_level_actors():
+    for c in a.get_components_by_class(unreal.LightComponent):
+        if not c.is_visible():
+            continue
+        p = c.get_world_location()
+        d = max(30.0, ((p.x - h.x) ** 2 + (p.y - h.y) ** 2 + (p.z - h.z) ** 2) ** 0.5)
+        i = c.get_editor_property("intensity")
+        k = c.get_editor_property("light_color")
+        g = k.g / 255 - (k.r + k.b) / 510
+        directional = "Directional" in c.get_class().get_name() or "SkyLight" in c.get_class().get_name()
+        out.append({"actor": a.get_actor_label(), "comp": c.get_name(), "cls": c.get_class().get_name(),
+                    "intensity": round(i, 3), "dist_cm": round(d), "green": round(g, 3),
+                    "pull": round(1e9 if directional else i / (d / 100) ** 2, 3), "y_rel": round(p.y - h.y)})
+result = sorted(out, key=lambda x: -x["pull"])
+"""
+
+
 def ok(res):
     if not res.get("ok"):
         raise SystemExit(res.get("stdout", "") + res.get("error", ""))
@@ -158,26 +233,41 @@ def main() -> None:
     ap.add_argument("--frame", type=int, default=1236, help="S16's master frame (night1's green: 1236, 1300)")
     ap.add_argument("--only", default="", help="comma-separated variant names (default: all)")
     ap.add_argument("--lights", action="store_true", help="only list the level's lights and emissive MIs, greenest first (read-only)")
+    ap.add_argument("--lights-ab", type=int, default=0, help="add N variants: each of the N lights with the most pull "
+                    "at her head off on its own (plus every visibly green one)")
+    ap.add_argument("--frames", default="", help="several S16 frames, e.g. 1236,1300 (each still is <variant>_f<frame>)")
     a = ap.parse_args()
     if a.lights:
-        print(json.dumps(ok(client.exec_code(LIGHTS)), indent=1))
+        print(json.dumps({"near_her": ok(client.exec_code(NEAR))[:40], "green": ok(client.exec_code(LIGHTS))}, indent=1))
         return
+    if a.lights_ab:
+        near = ok(client.exec_code(NEAR))
+        pick = near[:a.lights_ab] + [x for x in near[a.lights_ab:] if x["green"] > 0.02]
+        VARIANTS.extend({"name": f"off_{x['actor']}_{x['comp']}"[:80], "lights_off": [[x["actor"], x["comp"]]],
+                         "light": x} for x in pick)
+        if not a.only:
+            a.only = ",".join(["base", "hair_hidden"] + [v["name"] for v in VARIANTS if "lights_off" in v])
     names = ok(client.exec_code(f"MIS = {MIS!r}\n" + NAMES))
-    have_s = set.intersection(*({x.lower() for x in n["scalars"]} for n in names.values()))  # FNames: any case
-    have_v = set.intersection(*({x.lower() for x in n["vectors"]} for n in names.values()))
+    def has(v, kind):  # the names every material the variant sets has (FNames: any case)
+        mis = [m for m in MIS if not v.get("mis") or any(m.endswith(x) for x in v["mis"])]
+        return set.intersection(*({x.lower() for x in names[m][kind]} for m in mis))
     rep = {"names": names, "stills": {}}
     for v in [v for v in VARIANTS if not a.only or v["name"] in a.only.split(",")]:
-        missing = [k for k in v.get("scalars", {}) if k.lower() not in have_s] + [
-            k for k in v.get("vectors", {}) if k.lower() not in have_v]
+        missing = [k for k in v.get("scalars", {}) if k.lower() not in has(v, "scalars")] + [
+            k for k in v.get("vectors", {}) if k.lower() not in has(v, "vectors")]
         if missing:
             rep["stills"][v["name"]] = {"skipped": f"the material has no {missing}"}
             continue
         old = ok(client.exec_code(f"MIS = {MIS!r}\nV = {v!r}\n" + SET))
         try:
-            r = ok(client.op("view.still", out=f"{a.out}/{v['name']}.png", sequence=SEQ, frame=a.frame, camera=CAM,
-                             width_px=960, height_px=540, mode=a.mode,
-                             **({"level": "/Game/Studio/Studio"} if a.mode == "mrq" else {})))
-            rep["stills"][v["name"]] = {"path": r["path"], "set": v}
+            for f in [int(x) for x in a.frames.split(",")] if a.frames else [a.frame]:
+                name = f"{v['name']}_f{f}" if a.frames else v["name"]
+                r = ok(client.op("view.still", out=f"{a.out}/{name}.png", sequence=SEQ, frame=f, camera=CAM,
+                                 width_px=960, height_px=540, mode=a.mode,
+                                 **({"level": "/Game/Studio/Studio"} if a.mode == "mrq" else {})))
+                rep["stills"][name] = {"path": r["path"], "set": v, "took": {k: old.get(k) for k in
+                                       ("hide", "hide_actors", "lights_off", "pp") if old.get(k)}}
+                print(name, flush=True)
         finally:
             ok(client.exec_code(f"OLD = {old!r}\n" + RESTORE))
     print(json.dumps(rep, indent=1))
