@@ -46,6 +46,8 @@ def main():
         fr = rep["shots"].setdefault(shot, {}).setdefault(f, {})
         for u, g in ns["pairs"](list(d)):
             r = ns["judge"](d, u, g)
+            if (u, g) == ("Face", "tee"):
+                fr["neck_px"] = ns["neck_px"](d, r["_mask"])
             r.pop("_mask")
             fr[f"{u}>{g}"] = r
     worst = {}
@@ -55,6 +57,14 @@ def main():
                 if isinstance(v, dict) and "fraction" in v and v["fraction"] >= worst.get(k, (0, None))[0]:
                     worst[k] = (v["fraction"], f"{shot}@{f}")
     rep["worst"] = {k: {"fraction": v[0], "at": v[1]} for k, v in sorted(worst.items())}
+    npx = [(fr["neck_px"]["px"], f"{shot}@{f}") for shot, per in rep["shots"].items()
+           for f, fr in (per.items() if isinstance(per, dict) else ()) if isinstance(fr, dict) and "neck_px" in fr]
+    if npx:
+        rep["worst"]["neck_px"] = {"px": max(npx)[0], "at": max(npx)[1]}
+    necks = [(fr["neck"]["out"], fr["neck"]["max_out_cm"], f"{shot}@{f}") for shot, per in rep["shots"].items()
+             for f, fr in (per.items() if isinstance(per, dict) else ()) if isinstance(fr, dict) and "neck" in fr]
+    if necks:
+        rep["worst"]["neck"] = {"out": max(necks)[0], "max_out_cm": max(x[1] for x in necks), "at": max(necks)[2]}
     json.dump(rep, open(old, "w"), indent=1)
     print(json.dumps(rep["worst"]))
 

@@ -73,30 +73,42 @@ hidden, garments hidden, each garment's albedo alone).
 0.005-0.007 in S17/S18, Body>tee 0, Body>Trousers 0; the tee's albedo has no skin colour. The orchestrator confirmed
 on the diag sheet: the Face>tee blob is the orange patch left of his neckline, Trousers>tee the hip two-tone.
 
-**Causes:**
-1. The orange patch is his FACE mesh (MetaHuman's face runs ~10 cm below neck_01, to the clavicles), standing
-   0.4-2.3 cm out of the tee under the collar line (`reel/r4/neck_probe.py`, posed meshes). The body under the tee is
-   already cut away by MetaHuman. A head/body neck mismatch of his build: agent-04 keeps the slim body's neck girth
-   (Neck Base 40, Neck 38) and re-rigs after setting the body so the cloud rig re-fits the neck seam; fallback Neck
-   Base +2.
+**Causes and fixes:**
+1. The orange patch is his FACE mesh (MetaHuman's face runs ~10 cm below neck_01, to the clavicles): its throat and
+   upper chest stood up to ~1.1 cm out through the tee's FRONT under the collar. The body under the tee is already
+   cut away by MetaHuman. The rig is up to date with his body (agent-04's re-rig came back "up to date"; no slim body),
+   so the fix is on the garment: his tee's inflate master gets a NECKLINE term (`props/his_outfit_ue/neck_inflate.py`,
+   WPO += normal x (FM_Inflate + FM_Neck x t x f), t ramping over the tee's reference-pose height FM_NeckZ0..Z1, f
+   weighting the front). host_swap.py builds it for HOST op (NECK_MASTER, folder /Game/FM/ClothOp) and, with
+   NECK_CM > 0, sets FM_Neck=NECK_CM, FM_NeckZ0 = neck_01's height - 14 cm, Z1 = Z0 + 9 cm and the front sign from
+   his feet. On the box: NECK_CM=2.5. Any later host_swap must pass NECK_CM=2.5 again.
 2. The hip two-tone: his trousers were fitted (props/his_outfit.py) to TREY's body and tee, so on Host_Op their
    waistband stood through the tee's hem. Re-fit to his own body and tee on the box: `props/his_outfit_ue/r4_fit_op.sh`
-   -> `SKM_Host_Trousers_Op`, which studio.py's his outfit block picks for HOST op (Trey keeps his).
+   -> `SKM_Host_Trousers_Op` (imported 04:23 UTC), which studio.py's his outfit block picks for HOST op (Trey keeps
+   his). The Blender dry run read 0 through the tee in every anim.
 3. host_swap never inflated his tee (studio.py's finish() does on a full build only): cast_op1-4's tee was the bare
    MetaHuman instance. host_swap.py now pushes it out INFLATE_CM (0.4) and re-sets the leaders (multi-tick).
+
+**The neck gate (3D, not pixels):** in pixels the face>tee pair also counts the neck correctly standing above the
+collar (the thin band along the collar line), so Face>tee is info only. The gate is the `neck` key of each Host
+frame: face verts below the tee's top and within 6 cm of it whose ray from the spine_05 -> neck_02 axis crosses the
+tee before reaching them, with the tee's WPO (FM_Inflate + the neck term, read from the worn instance) modelled.
+A posed-mesh check without the WPO over-counts (postrig/postneck read 644 verts / 6 cm), as does
+`reel/r4/neck_probe.py` (SUPERSEDED). Gate (agent-09): Body>tee, Body>Trousers, Trousers>tee <= 0.001 and neck.out == 0
+on every frame.
 
 **Her:** her pass reads high (Body>Top 0.10-0.19, Top>Overshirt 0.03-0.19) from her scoop neckline and the open
 overshirt (qa.penetration read 0.34 there): her check is before vs after unchanged, with the watch and collar as
 agent-09's gate measures them.
 
-**The order on the box after agent-04's slim build and respawn** (box tree /srv/ue/r3tree; T=that):
-1. `film-ue exec $T/films/host-studio/reel/r4/neck_probe.py` -> under_collar.out must be 0 (else agent-04's fallback).
-2. `film-ue exec -c "EXPORT_DIR='his_outfit_op'; exec(open('$T/films/host-studio/props/his_outfit_ue/export_body.py').read())"`
+**The order on the box** (box tree /srv/ue/r3tree; T=that), after agent-04's apply:
+1. `film-ue exec -c "EXPORT_DIR='his_outfit_op'; exec(open('$T/films/host-studio/props/his_outfit_ue/export_body.py').read())"`
    and `film-ue exec $T/films/host-studio/props/his_outfit_ue/export_alt_body.py`.
-3. On the box shell: `sh $T/films/host-studio/props/his_outfit_ue/r4_fit_op.sh` (Blender 4.2 at /srv/ue/tools, CPU).
-4. `film-ue exec -c "IMPORT_DIR='his_outfit_op'; SUFFIX='_Op'; exec(open('$T/films/host-studio/props/his_outfit_ue/import_outfit.py').read())"`
-5. `film-ue exec -c "HOST='op'; CHECKOUT='$T'; exec(open(CHECKOUT + '/films/host-studio/unreal/host_swap.py').read())"`:
+2. On the box shell: `sh $T/films/host-studio/props/his_outfit_ue/r4_fit_op.sh` (Blender 4.2 at /srv/ue/tools, CPU).
+3. `film-ue exec -c "IMPORT_DIR='his_outfit_op'; SUFFIX='_Op'; exec(open('$T/films/host-studio/props/his_outfit_ue/import_outfit.py').read())"`
+4. `film-ue exec -c "HOST='op'; NECK_CM=2.5; CHECKOUT='$T'; exec(open(CHECKOUT + '/films/host-studio/unreal/host_swap.py').read())"`:
    trousers SKM_Host_Trousers_Op, tee_slots Shirt -> *_Inflate, leader_pass True.
-6. The re-dress (steps 1-5 of "Next, on the restored box" above, from drive_faces on).
-7. `clip_pass.py` with TAG='after' for Host and Presenter, then
-   `clip_sheet.py <Host_before2> <Host_after> --out /srv/ue/reel/r4/review/clip_host.jpg` -> private/renders/r4/review/.
+5. The re-dress (steps 1-5 of "Next, on the restored box" above, from drive_faces on).
+6. `clip_pass.py` with TAG='after' for Host and Presenter (DIAG=False), then on the box
+   `uv run --with pillow python clip_sheet.py <Host_before4> <Host_after> --out /srv/ue/reel/r4/review/clip_host.jpg`
+   -> s3 private/renders/r4/review/ (KMS).
