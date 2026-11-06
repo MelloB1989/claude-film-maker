@@ -188,3 +188,10 @@ def test_describe_reports_the_drawn_lod(ue, host):
     host.get_components_by_class(ue.SkeletalMeshComponent)[1].set_editor_property("forced_lod_model", 1)
     d = run_op("cloth.describe", label="Host", component="Tee")["garments"]["Tee"]
     assert d["forced_lod_model"] == 1 and d["drawn_lod"] == 0
+
+
+def test_settings_keeps_setups_config_overrides_after_a_respawn(ue, host):
+    run_op("cloth.setup", label="Host", component="Tee", preset="cotton_tee",
+           overrides={"config": {"bending_stiffness_weighted": 0.05}, "zones": {"torso": {"to_cm": 4.0}}})
+    st = run_op("cloth.settings", label="Host")
+    assert st["garments"]["Tee"]["interactor"]["material"] == [1.0, 0.05, 1.0]

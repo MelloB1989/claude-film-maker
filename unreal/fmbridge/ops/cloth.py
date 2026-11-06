@@ -23,6 +23,8 @@ Traps these ops handle:
 """
 from __future__ import annotations
 
+import json
+
 import unreal
 
 from . import op
@@ -436,6 +438,8 @@ def setup(*, label: str, component: str, preset: str, overrides: dict | None = N
     _call(garment(label, component), "recreate_clothing_actors")
     cfg["interactor"] = apply_interactor(garment(label, component), cloth.get_name(), p["config"])
     EAL.set_metadata_tag(mesh, "FMClothPreset", preset)   # qa.cloth reads it
+    # cloth.settings re-applies the interactor values after a respawn: it needs the overrides too
+    EAL.set_metadata_tag(mesh, "FMClothOverrides", json.dumps(overrides or {}, sort_keys=True))
     if save:
         EAL.save_loaded_asset(mesh)
     return {"changed": True, "cloth": cloth.get_name(), "section": sec, "points": len(pts),
@@ -510,7 +514,11 @@ def settings(*, label: str, component: str = "") -> dict:
         out[n] = _apply_component(c)
         tag = EAL.get_metadata_tag(mesh, "FMClothPreset")
         if tag:   # the weighted values live on the simulation, not the asset: a respawn loses them
-            out[n]["interactor"] = apply_interactor(c, assets[0].get_name(), _presets.get(tag)["config"])
+            try:
+                ov = json.loads(EAL.get_metadata_tag(mesh, "FMClothOverrides") or "{}")
+            except ValueError:
+                ov = {}
+            out[n]["interactor"] = apply_interactor(c, assets[0].get_name(), _presets.get(tag, ov)["config"])
     return {"changed": bool(out), "garments": out}
 
 
