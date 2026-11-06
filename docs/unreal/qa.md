@@ -97,6 +97,29 @@ Check: `metrics.status` = created | match | differs (warn) | different (fail) | 
 carry its own `thresholds.min_ssim` for a noisy shot (`qa.baseline_save min_ssim=0.9`). The selftest harness checks
 every `t.still` against `selftest/<area>/<name>` (mode auto: the first GPU run creates them).
 
+**Hair that keeps its length in every shot (R5: `groom.lock`, `qa.hair_continuity`)**
+
+A MetaHuman's hair drew SHORTER on a wide shot in round 4, although LODSync was pinned to LOD 0: the engine's Auto
+hair LOD (`r.HairStrands.LODMode 1`, the default) thins the curves by screen size even at a forced LOD, and LODSync
+reaches a groom only if its name is in `components_to_sync`. The why, with sources: `research/hair-lod.md`.
+```bash
+film-ue op groom.lock 'labels=["Host","Presenter"]'        # pins + adds missing grooms to LODSync + the hair cvars; reads back
+film-ue op groom.lock_check 'labels=["Host","Presenter"]'  # read-only: the gate's hair.lock (pass + problems with fixes)
+film-ue op qa.hair_continuity sequence=/Game/Reel/SEQ_Reel 'labels=["Presenter"]' 'shots=["Reel_S17","Reel_S18"]' out=/srv/qa/hair.json
+film-qa hair spec.json                                      # the same judge on rendered frames (dark-hair matte per shot box)
+film-qa gate hair.json lips.json head.json garment.json --spec round.json   # the review gate v2: SIGN or REFUSE
+```
+Check: `groom.lock` returns `pass` and `render_cvars` (`r.HairStrands.LODMode 0`, `r.HairStrands.AutoLOD.Bias 1`,
+`r.HairStrands.UseCardsInsteadOfStrands 0`): put them in the render spec's `cvars`, lock BEFORE the render (a groom
+reads its LOD mode when it registers) and `level.save` after. `persist=true` also writes them to DefaultEngine.ini.
+A problem names its fix: a TRASH_ component (save, open, respawn), a groom missing from LODSync (groom.lock adds it),
+a cards/meshes LOD, use_cards. `qa.hair_continuity` measures **reach** (how far the hair falls below the head, in
+head-to-chest units, from a groom-only capture and the projected bones: zoom-free) and area at each cut, FAILS on a
+reach jump > 12% across a cut or > 8% frame to frame, and returns `gate` numbers (`hair.cut_reach_pct`,
+`hair.pop_reach_pct`). The gate (`unreal/fmbridge/qa/gate.py`): every item is a number with a line and the round-4
+value it must fail; a missing number fails; `--waive ITEM=REASON --by NAME` is refused on any item the operator
+complained about (`complaints` in the spec). `film-qa gate --lines` proves each line fails its round-4 value.
+
 **Hair: tune and measure it (B28: `groom.*`)**
 ```bash
 film-ue op groom.describe label=Ada                       # components, per-group overrides, hair params, the cvar

@@ -139,6 +139,9 @@ fit the 24 GB L4. Check: `film-ue render status`, or the report at `<out_dir>/_r
 - **Multi-tick ops are generators**: in exec'd code `yield from op(...)` inside a generator; a bare call does nothing.
 - **A face played by Sequencer** stops following the body: bake them together (`anim.bake_follow`).
 - **Hair goes white indoors in daylight**: `r.HairStrands.SkyLighting 0`.
+- **Hair gets shorter on a wide shot** (Auto hair LOD thins curves by screen size even at a forced LOD 0; LODSync
+  reaches a groom only by name): `film-ue op groom.lock labels=[...]` before every render, its `render_cvars` in the
+  spec, and `qa.hair_continuity` at the cuts (qa.md; research/hair-lod.md).
 - **Cloth needs pre-roll**: `render.job` pre-rolls any chunk that starts mid-shot from its cut start automatically
   (`preroll: cut`); judge a cut's first frame on its own.
 - **Path tracing OOMs on the 24 GB L4.** Use deferred (Lumen) renders.

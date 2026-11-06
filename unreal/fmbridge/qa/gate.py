@@ -18,6 +18,16 @@ waived. v2's rules:
 
 `film-qa gate NUMBERS.json [--spec SPEC.json] [--waive ITEM=REASON] [--by NAME]` runs it on the operator's side and
 exits 1 on REFUSE.
+
+The numbers contract (every track's check writes one file; the gate merges them):
+
+    {"gate": {"<item id>": {"value": <number|bool>, "where": "<shot fN-M>", "error"?: "<why it could not measure>"}}}
+
+Item ids are `<area>.<measure>_<unit>` (ITEMS below). A track adds or retunes its own items in the round's spec
+(`{"items": {id: {"line": .., "op": .., "unit": .., "what": .., "how": .., "r4": [value, source], "area": ..}},
+"complaints": [areas]}`), and the line must fail its own round-4 value (`film-qa gate --lines` checks it).
+Owners (round 5): lips T1 agent-01, head T2 agent-04, garment fit/clip/silhouette T3a agent-02, cloth T3b
+agent-08, hair + the gate T4 agent-09.
 """
 from __future__ import annotations
 
@@ -70,7 +80,7 @@ ITEMS: dict = {
         "why": "T2 sets the line from round 4's nod"},
     # --- T3a/T3b: garments
     "garment.neck_px": {
-        "area": "garment", "track": "T3b", "op": "<=", "line": 0, "unit": "px",
+        "area": "garment", "track": "T3a", "op": "<=", "line": 0, "unit": "px",
         "what": "skin pixels poking through his tee's collar band, worst frame",
         "where": "S13, S15, S17, S18 (6 frames each)",
         "how": "r4/clip_pass.py neck_px",
@@ -84,12 +94,12 @@ ITEMS: dict = {
         "r4": [2.23, "S15 f1150-1198 +2.1..+2.23%, waived"],
         "why": "the operator: 'heavy armor inside'"},
     "garment.cloth_detail": {
-        "area": "garment", "track": "T3a", "op": ">=", "line": None, "unit": "",
-        "what": "cloth behaviour: fold/shading detail on the tee's chest (T3a's metric)",
+        "area": "garment", "track": "T3b", "op": ">=", "line": None, "unit": "",
+        "what": "cloth behaviour: fold/shading detail on the tee's chest (T3b's metric)",
         "where": "S13, S15 close shots",
-        "how": "T3a's check",
+        "how": "T3b's check",
         "r4": [None, "not measured; the operator: a smooth rigid shell"],
-        "why": "T3a sets the line"},
+        "why": "T3b sets the line"},
     # --- T4: hair
     "hair.cut_reach_pct": {
         "area": "hair", "track": "T4", "op": "<=", "line": 12.0, "unit": "%",
