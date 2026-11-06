@@ -560,6 +560,16 @@ def _cloth_comps(label: str, component: str = "") -> dict:
     return {n: c for n, c in comps.items() if clothing_assets(c.get_skeletal_mesh_asset())}
 
 
+def editor_cloth(comp) -> None:
+    """Make an editor-world garment simulate: the flag first, then re-create the clothing simulation, because the
+    simulation is only created when the world is ready for it (bShouldSimulatePhysics, false in the editor, or
+    bUpdateClothInEditor: SkeletalMeshComponentPhysics.cpp:3146-3150) and the cloth tick runs in the editor only with
+    the flag (:83). Round 5: the flag alone left sim_time 0."""
+    _call(comp, "set_update_cloth_in_editor", True)
+    _call(comp, "set_component_tick_enabled", True)
+    _call(comp, "recreate_clothing_actors")
+
+
 def reset(comps) -> None:
     """Teleport-and-reset every cloth on its next update (back to the skinned pose)."""
     for c in comps:
@@ -589,8 +599,9 @@ def preroll_live(*, sequence: str, frame: int, labels: list | None = None, frame
         comps += [(f"{lab}.{n}", c) for n, c in _cloth_comps(lab).items()]
     n = int(frames) or _preroll.need_frames(_settle_for(), fps)
     steps = _preroll.live_steps(int(frame), n, mode, start)
-    for _, c in comps:   # an editor world ticks cloth only with this (SkeletalMeshComponentPhysics.cpp:83, 3148)
-        _call(c, "set_update_cloth_in_editor", True)
+    for _, c in comps:
+        editor_cloth(c)
+    yield
     call("seq.scrub", path=sequence, frame=steps[0])
     yield
     reset([c for _, c in comps])
