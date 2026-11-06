@@ -51,9 +51,13 @@ export_alt_body exported the same asset; his_outfit.py used it as uncut). If it 
 ## 2. Fit the tee (headless Blender on the box, CPU, ~5-10 min)
 
 ```bash
-film-ue garment-fit --src $G/fit --garment tee --out $G/fit/out --only-slots shirt --drape-frames 40 \
+film-ue garment-fit --src $G/fit --garment tee --out $G/fit/out --only-slots shirt --drape-frames 40 --morph-ref \
     --blender /srv/ue/tools/blender-4.2*/blender
 ```
+(GPU session, probe `ref_body_probe.py`: NO uncut body of Host_Op exists in the project. SKM_Host_BodyMesh is uncut
+(30455 verts, MetaHuman's full topology; his worn one is cut to 23780) and 0.45 cm median / 1.2 cm p95 from his
+shape: `--morph-ref` morphs it onto his worn body.fbx and fills the cut torso smoothly. First report line: matched
+~70-80%, the cut region moved median ~0.3-0.8 cm, max < 3; matched < 50% or max > 5 cm: STOP.)
 (`--only-slots`: the substring of SHIRT_SLOT from G7, lower case; the shorts stay as they are, hidden.)
 
 Expect `PASS` and, in the lines:
@@ -123,6 +127,26 @@ and at the hem (not a smooth gradient).
 2. Still: route B (research §3), for round 6: a head hidden face map with a grey band under the collar and
    `max_shrink_distance` 1.0 cm on a project copy of his default garment's wardrobe item, then a MetaHuman rebuild.
    Not this session: a rebuild re-creates his components (rounds 3-4) and needs its own re-dress and gate.
+
+## 5b. The neck backstop (route B), only if (A)'s qa.clip still has neck_px > 0 (orchestrator, 06 Nov)
+
+MetaHuman's own head hidden face map, set to SHRINK his face's lower neck under the collar (never cull), so a big
+turn (S17 f1397) cannot bring the face mesh through. `reel/r5/neck_backstop.py`; verified on the 5.8.4 source
+(research §3). Applied at ASSEMBLY: it costs a rebuild of his MetaHuman and the whole re-dress (~30-40 min).
+
+1. `film-ue exec -c "STAGE='mask'; exec(open('$T/films/host-studio/reel/r5/neck_backstop.py').read())"` (read-only):
+   expect `uv_valid` true, `covered` a few hundred to ~2000 face verts, `full_shrink` > 0, `png`
+   /srv/ue/reel/r5/garment/neck_hidden.png (a dark band in the head's UV layout; white elsewhere). `covered` 0: the
+   Tee is not on him (TEE='Tee').
+2. `film-ue exec -c "STAGE='apply'; WI='<the default garment WI_ from G5>'; SHRINK_CM=1.5; exec(open(...).read())"`:
+   `read_back` = texture set, max_cull -0.01, min_keep 0.9, max_shrink 1.5.
+3. `film-ue op mh.add_item character=<his MH_ asset> item=/Game/Host/Fit/WI_Host_DefaultGarment_Neck slot=Outfits`,
+   then `film-ue op mh.build character=<his MH_ asset>` (as round 4's look apply: forced build ~2 min).
+4. The re-dress chain (r3/DRESS.md "Next, on the restored box" 1-5, his part): host_swap (HOST='op', INFLATE_CM 0
+   is the default now), groom.set again (a respawn drops it), `perf.py drive_faces` + `perf.py place`, step 3's
+   `mh.dress` (Tee + hide_slots) + `dress_him.py`, `mh.leader_check`, lod0 probe (no TRASH_), `level.save`.
+5. `qa.clip` again (§4): neck_px 0 at S17 f1397. If the shrink shows as a dent at the collar opening (look at
+   S13/S15 closeups), lower SHRINK_CM to 1.0 or RAMP to 2 cm (steps 1-4 again).
 
 ## 6. Risks
 
