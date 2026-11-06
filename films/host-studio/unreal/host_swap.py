@@ -47,6 +47,7 @@ if _g is not None:
            {"diffuse_color_1": (0.032, 0.034, 0.038), "diffuse_color_2": (0.045, 0.047, 0.052)})
     mh.garment("Host", "Shirt", component=_g.get_name(), vectors=tee)
 INFLATE_CM = float(globals().get("INFLATE_CM", 0.4))
+NECK = globals().get("NECK") or {}  # e.g. {"FM_Neck": 2.8, "FM_NeckZ0": ..}: neck_inflate.py (HOST op only)
 
 
 def finish():
@@ -57,7 +58,24 @@ def finish():
     g = his_garment()
     inflated = {}
     if g is not None and INFLATE_CM > 0:
-        inflated = yield from mh.cloth_inflate("Host", cm=INFLATE_CM, component=g.get_name(), which="Shirt")
+        kw = {}
+        if HOST == "op" and globals().get("NECK_MASTER", True):  # his own master, with a neckline term
+            # (props/his_outfit_ue/neck_inflate.py; FM_Neck 0 = off; NECK_MASTER=False: the plain inflate)
+            import importlib.util
+            import fmbridge.ops.mh.actor as _act
+            spec = importlib.util.spec_from_file_location(
+                "neck_inflate", os.path.join(HERE, "..", "props", "his_outfit_ue", "neck_inflate.py"))
+            ni = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(ni)
+            plain, _act._add_inflate = _act._add_inflate, ni.add_neck_inflate
+            kw["folder"] = ni.FOLDER
+        try:
+            inflated = yield from mh.cloth_inflate("Host", cm=INFLATE_CM, component=g.get_name(), which="Shirt", **kw)
+        finally:
+            if kw:
+                _act._add_inflate = plain
+        if NECK:  # the neckline term's knobs (only on HOST op's master)
+            mh.garment("Host", "Shirt", component=his_garment().get_name(), scalars=NECK)
         for c in L.actor("Host").get_components_by_class(unreal.SkeletalMeshComponent):
             if c.get_name() not in ("Body", "Face"):
                 c.set_leader_pose_component(his_part("Body"))
