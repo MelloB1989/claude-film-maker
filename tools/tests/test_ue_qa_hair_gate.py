@@ -131,7 +131,7 @@ def test_clean_numbers_sign():
     good = {"lips.lead_in_cm": 0.008, "lips.onset_lead_ms": 140, "lips.track_r": 0.93, "lips.measured_against": 1, "lips.cues_fresh": True,
             "lips.lag_frames": 0, "lips.silence_open": 0.03, "lips.silence_busy": 0.1, "lips.render_lag_frames": 1,
             "lips.render_conclusive": True, "garment.wpo_cm": 0.0, "garment.armor_index": 0.3,
-            "garment.pair_fraction": 0.0, "garment.silhouette_ratio": 1.05,
+            "garment.pair_fraction": 0.0, "garment.silhouette_ratio": 1.05, "garment.collar_gap_cm": 0.3, "garment.collar_roll": 0,
             "head.blink_nod_deg": 0.2, "head.blink_locked_deg": 0.1, "garment.neck_px": 0, "garment.silhouette_pct": 0.8,
             "garment.cloth_alive": 0.6, "garment.cloth_sound": True, "garment.cloth_detail_ratio": 1.6, "hair.cut_reach_pct": 3.1, "hair.pop_reach_pct": 1.2, "hair.cut_pop_ratio": 1.1, "hair.lock": 1,
             "hair.render_cvars": 1}
@@ -271,3 +271,13 @@ def test_not_attempted_is_scoped():
     bad = gate.judge({}, spec={"not_attempted": {"garment.cloth_alive": {"reason": "", "by": "x"}}},
                      only=["garment.cloth_alive"])
     assert bad["verdict"] == "REFUSE"
+
+
+def test_guard_must_fail_its_own_failure():
+    spec = {"items": {"garment.collar_gap_cm": {"must_fail": [1.9, "Fit5"]},
+                      "garment.collar_roll": {"must_fail": [40, "Fit5"]}}}
+    res = gate.lines_fail(spec=spec)
+    assert res["garment.collar_gap_cm"] is True and res["garment.collar_roll"] is True
+    assert gate.lines_fail()["garment.collar_gap_cm"] is None  # not measured yet: open, not a pass
+    bad = gate.lines_fail(spec={"items": {"garment.collar_gap_cm": {"must_fail": [0.5, "a fit that floats"]}}})
+    assert bad["garment.collar_gap_cm"] is False  # a line Fit5 would pass: the gate's own test fails

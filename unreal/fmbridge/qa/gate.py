@@ -166,6 +166,21 @@ ITEMS: dict = {
         "what": "worst under>over clip fraction over the non-face pairs (Body>tee, Body>Trousers, Trousers>tee)",
         "where": "S13, S15, S17, S18", "how": "film-ue op qa.clip (T3a)",
         "r4": [0.0067, "Trousers>tee at cast_op4"], "why": "~4 px of a garment"},
+    "garment.collar_gap_cm": {
+        "area": "garment", "track": "T3a", "op": "<=", "line": 0.8, "unit": "cm", "guard": True,
+        "what": "worst gap between his collar band and the neck surface (qa.garment_look collar_gap), any frame",
+        "where": "S13, S15, S17 (every measured frame)", "how": "qa.garment_look collar_gap (agent-02, T3a)",
+        "r4": [None, "round 4's collar hugged the neck (Epic's band): not this failure"],
+        "must_fail": [None, "round 5 Fit5: the collar FLOATED as a rolled ring off the neck in every S13 frame "
+                            "(orchestrator by eye); agent-02 measures Fit5"],
+        "why": "the gate passed Fit5 (neck_px 0, armor 0.109) while the collar stood off his neck"},
+    "garment.collar_roll": {
+        "area": "garment", "track": "T3a", "op": "==", "line": 0, "unit": "count", "guard": True,
+        "what": "frames where the collar band folds or rolls (lifts above the neck base: qa.garment_look collar_lift)",
+        "where": "S13, S15, S17", "how": "qa.garment_look collar_lift (T3a)",
+        "r4": [None, "round 4: no roll"],
+        "must_fail": [None, "round 5 Fit5: a fold at the front and a roll all round (orchestrator by eye)"],
+        "why": "a rolled collar reads as a cowl, not a tee"},
     "garment.silhouette_ratio": {
         "area": "garment", "track": "T3a", "op": "<=", "line": 1.12, "unit": "ratio", "guard": True, "info": True,
         "what": "(garment U body) / uncut body px in the garment's rows: the balloon guard for the refit",
@@ -327,12 +342,17 @@ def judge(numbers: dict, waivers: dict | None = None, spec: dict | None = None, 
 
 
 def lines_fail(round_values: dict | None = None, spec: dict | None = None) -> dict:
-    """The gate's own test: does every item's line fail the round-4 value it is meant to catch? {item: True (it
+    """The gate's own test: does every item's line fail the round-4 value it is meant to catch (or, for a guard,
+    the `must_fail` value: the failure it was added for)? {item: True (it
     fails r4, good) | False (the line would have passed round 4: tighten it) | None (no r4 number yet)}."""
     out = {}
     for k, it in items(spec).items():
         v = (round_values or {}).get(k, (it.get("r4") or [None])[0])
-        if v is None or it.get("line") is None or it.get("guard"):  # a guard catches a new failure, not round 4's
+        if it.get("must_fail"):  # the failure this line exists for, when it is not round 4's (a guard's case)
+            v = (it["must_fail"] or [None])[0] if k not in (round_values or {}) else v
+        elif it.get("guard"):  # a guard catches a new failure, not round 4's
+            v = None
+        if v is None or it.get("line") is None:
             out[k] = None
         else:
             out[k] = not OPS[it["op"]](v, it["line"])
