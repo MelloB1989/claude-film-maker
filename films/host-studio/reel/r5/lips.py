@@ -31,6 +31,7 @@ from filmtools.unreal import client  # noqa: E402
 CUES = VO / "cues.json"           # the measured one (lips.py cues), what everything reads
 MIX = REEL / "audio" / "mix" / "mix.wav"  # the delivered mix: CANONICAL (the orchestrator, r5): the viewer hears it
 R4_STEMS = VO / "r4_stems"        # round 4's stems, kept aside: they placed L1 ~14 frames before the mix
+R4_LINES = VO / "r4_lines"        # round 4's line WAVs, kept aside: not the takes the mix holds
 # The solve units: one per line WAV. Only L1, L2, L3, L4a, L4b.wav exist (Nov 1): L3 holds L3a + L3b, solved whole
 # and placed once (its mood the longer part's, L3b's); cues split it at its pause for captions and checks.
 UNIT_MOOD = {"L3.wav": MOODS["L3b"]}
@@ -80,13 +81,22 @@ def cmd_cues(words: str) -> dict:
         if (VO / f"vo_{w}.wav").exists() and not (R4_STEMS / f"vo_{w}.wav").exists():
             shutil.copy2(VO / f"vo_{w}.wav", R4_STEMS / f"vo_{w}.wav")
     old = {w: R4_STEMS / f"vo_{w}.wav" for w in ("him", "her") if (R4_STEMS / f"vo_{w}.wav").exists()}
-    doc = cues_from_mix(plan_lines(), VO, MIX, VO / "mix_aligned", old, FPS, words)
+    # the line WAVs on hand may not be the ones mixed (r5: they were not): every raw take in vo/takes/<line>/ is a
+    # candidate too, and the one the mix holds wins (trimmed and levelled as vo.py build made it)
+    doc = cues_from_mix(plan_lines(), VO, MIX, VO / "mix_aligned", old, FPS, words, VO / "takes")
+    R4_LINES.mkdir(parents=True, exist_ok=True)
+    for c in doc["lines"].values():  # the chosen line WAVs replace the old ones (kept in vo/r4_lines/)
+        src, dst = Path(doc["line_dir"]) / c["wav"], VO / c["wav"]
+        if dst.exists() and not (R4_LINES / c["wav"]).exists():
+            shutil.copy2(dst, R4_LINES / c["wav"])
+        shutil.copy2(src, dst)
     for w, info in doc["stems"].items():  # what perf.py, the checks and the gate read
         shutil.copy2(info["path"], VO / f"vo_{w}.wav")
         info["path"] = str(VO / f"vo_{w}.wav")
     CUES.write_text(json.dumps(doc, indent=1))
     fails = [i for i in doc["issues"] if i["severity"] == "fail"]
-    return {"lines": {k: {"file_frame": c["file_frame"], "voice": [c["voice_frame"], c["end_frame"]],
+    return {"lines": {k: {"take": c.get("take"), "candidates": c.get("candidates"),
+                          "file_frame": c["file_frame"], "voice": [c["voice_frame"], c["end_frame"]],
                           "planned": c.get("voice_frame_planned"), "mix_score": c.get("mix_score"),
                           "words": c["words_source"]} for k, c in doc["lines"].items()},
             "fails": fails, "old_stems": doc.get("old_stems"), "pass": not fails}
