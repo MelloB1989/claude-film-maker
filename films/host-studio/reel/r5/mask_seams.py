@@ -47,11 +47,14 @@ loops_g = group[loops_v]  # each corner's position group: the seam copies of one
 redraw = "--redraw" in a
 img = bpy.data.images.load(png)
 W, H = img.size
-pix = np.array(img.pixels[:], np.float32).reshape(H, W, img.channels)[:, :, 0]  # Blender: row 0 = bottom = UV v 0
+pix = np.array(img.pixels[:], np.float32).reshape(H, W, img.channels)[:, :, 0]
+H0, W0 = H, W
+scale = int(a[a.index("--scale") + 1]) if "--scale" in a else 1  # Blender: row 0 = bottom = UV v 0
 
 
 def sample(P, u, v):
     # Blender's UV v and the PNG's rows are both flipped from Unreal's, so they line up as they are
+    H, W = P.shape
     fx, fy = u * W - 0.5, v * H - 0.5
     ix, iy = np.floor(fx).astype(int), np.floor(fy).astype(int)
     ax, ay = fx - ix, fy - iy
@@ -72,16 +75,17 @@ def judge(P, tag):
     dark = lo <= 0.4
     split = dark & (hi - lo > 0.3)
     cov0 = (LO0 <= 0.4) if LO0 is not None else dark
-    newly = (~cov0) & (lo < 0.999)
+    newly = (~cov0) & (lo < (LO0 if LO0 is not None else lo) - 0.1)  # shrinking MORE than in the as-is mask
     print(f"{tag}: face verts {len(me.vertices)} ({ng} positions), dark (any copy <= 0.4) {int(dark.sum())}, SPLIT "
           f"(copies disagree > 0.3) {int(split.sum())} [covered {int((split & cov0).sum())}, boundary "
           f"{int((split & ~cov0).sum())}], worst copy gap {float((hi - lo)[dark].max()) if dark.any() else 0:.2f}; "
-          f"uncovered-in-as-is now shrinking: {int(newly.sum())} (darkest {float(lo[newly].min()) if newly.any() else 1:.2f})")
+          f"uncovered, now shrinking more than as is: {int(newly.sum())} (darkest {float(lo[newly].min()) if newly.any() else 1:.2f}, worst extra {float((LO0 - lo)[newly].max()) if newly.any() else 0:.2f})")
     return lo
 
 
 def consistent(P, rounds=8):
     """Every copy of a split position takes its darkest copy's value on its own 2x2 footprint, until none split."""
+    H, W = P.shape
     for k in range(rounds):
         s = sample(P, uv[:, 0], uv[:, 1])
         lo = np.full(ng, 9.0)
@@ -102,10 +106,12 @@ def consistent(P, rounds=8):
     return P, rounds
 
 
-def rasterise(val_g):
-    """A white map with every face triangle drawn from its own corners' UVs, each corner's value its position
-    group's (never 0: 1/255 at least, nothing culls)."""
+def rasterise(val_g, k=1):
+    """A white map (k x the input's size) with every face triangle drawn from its own corners' UVs, each corner's
+    value its position group's (never 0: 1/255 at least, nothing culls). k > 1: at 1024 the neck's triangles are
+    smaller than a texel, so a corner's 2x2 footprint darkened its neighbours (loop4a: 1494 uncovered verts)."""
     me.calc_loop_triangles()
+    H, W = H0 * k, W0 * k
     P = np.ones((H, W), np.float32)
     for t in me.loop_triangles:
         ls = list(t.loops)
@@ -117,7 +123,7 @@ def rasterise(val_g):
         y0, y1 = int(max(0, np.floor(U[:, 1].min()))), int(min(H - 1, np.ceil(U[:, 1].max())))
         (ax, ay), (bx, by), (cx, cy) = U
         den = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy)
-        if abs(den) < 1e-9:
+        if abs(den) < 1e-12:
             continue
         X, Y = np.meshgrid(np.arange(x0, x1 + 1) + 0.5, np.arange(y0, y1 + 1) + 0.5)
         l1 = ((by - cy) * (X - cx) + (cx - bx) * (Y - cy)) / den
@@ -144,10 +150,10 @@ lo = judge(pix, "mask as is")
 LO0 = lo
 P = pix.copy()
 if redraw:
-    P = rasterise(np.where(lo <= 0.999, lo, 1.0))
+    P = rasterise(np.where(lo <= 0.999, lo, 1.0), scale)
     judge(P, "redrawn from per-corner UVs")
 if pad > 0:
-    for _ in range(pad):
+    for _ in range(pad * (scale if redraw else 1)):
         Q = P.copy()
         white = P >= 0.999
         n = np.full_like(P, 1.0)
@@ -163,11 +169,14 @@ if "--consistent" in a:
     judge(P, f"consistent after {k} round(s)")
 if out and (pad > 0 or redraw or "--consistent" in a):
     if True:
-        full = np.array(img.pixels[:], np.float32).reshape(H, W, img.channels)
-        for ch in range(min(3, img.channels)):
+        h, w = P.shape
+        o = bpy.data.images.new("mask_out", w, h, alpha=False, float_buffer=False)
+        o.colorspace_settings.name = "Non-Color"
+        full = np.ones((h, w, 4), np.float32)
+        for ch in range(3):
             full[:, :, ch] = P
-        img.pixels[:] = full.ravel().tolist()
-        img.filepath_raw = out
-        img.file_format = "PNG"
-        img.save()
+        o.pixels.foreach_set(full.ravel())
+        o.filepath_raw = out
+        o.file_format = "PNG"
+        o.save()
         print(f"wrote {out}")
