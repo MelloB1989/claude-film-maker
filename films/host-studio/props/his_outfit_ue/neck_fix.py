@@ -25,6 +25,7 @@ MAX_COLOUR = float(globals().get("MAX_COLOUR", 0.02))  # mean linear base colour
 MEL = unreal.MaterialEditingLibrary
 EAL = unreal.EditorAssetLibrary
 KEYS = ("FM_Inflate", "FM_Neck", "FM_NeckZ0", "FM_NeckZ1", "FM_NeckFront", "FM_NeckFrontBias")
+KNOBS = globals().get("KNOBS") or {}  # forced values (else the worn copy's), e.g. after a restore from disk
 
 _ns = {"RUN": False, "LABEL": LABEL, "__name__": "clip_pass"}
 exec(compile(open(TREE + "/films/host-studio/reel/r4/clip_pass.py").read(), "clip_pass.py", "exec"), _ns)
@@ -81,6 +82,8 @@ def fix():
     worn = c.get_materials()[i]
     rep = {"worn": worn.get_path_name(), "folder": ni.FOLDER}
     knobs = {k: float(MEL.get_material_instance_scalar_parameter_value(worn, k)) for k in KEYS}
+    rep["knobs_worn"] = dict(knobs)
+    knobs.update({k: float(v) for k, v in KNOBS.items()})
     rep["knobs"] = knobs
     orig = original_of(worn)
     rep["original"] = orig.get_path_name()
