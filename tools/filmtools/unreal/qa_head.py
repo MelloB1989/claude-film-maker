@@ -216,6 +216,10 @@ def gate(results: list, line: float = GATE_LINE_DEG, locked_line: float = GATE_L
         except (OSError, ValueError) as e:
             errors.append(f"{p}: {e}")
             continue
+        if d.get("samples"):  # qa.head_stability's out=: judge its samples afresh (the r5 box's first files
+            r = samples(p)    # carried no blinks from the op's clock bug; the samples were right)
+            d = {**d, "blinks": r["blinks"], "bta": r["bta"], "frames": [d["samples"]["frames"][0]],
+                 "fps": d["samples"]["fps"]}
         blinks = d.get("blinks") or []
         if not blinks:
             errors.append(f"{Path(p).name}: no blinks measured")

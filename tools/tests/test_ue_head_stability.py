@@ -361,7 +361,10 @@ def test_bone_samples_from_a_late_frame_find_the_blinks():
         path.write_text(json.dumps({"samples": {"frames": frames, "fps": fps, "bone": samples, "closure": closure,
                                                 "forward": [1.0, 0.0, 0.0]}}))
         r = QH.samples(str(path))
+        g = QH.gate([str(path)])["gate"]  # the gate re-judges saved samples (the box's first files had no blinks)
     finally:
         path.unlink()
     assert len(r["blinks"]) == len(ONSETS)
     assert "blink_nod" in r["failed"]
+    assert "error" not in g["head.blink_nod_deg"] and g["head.blink_nod_deg"]["value"] > 1.0
+    assert g["head.blink_nod_deg"]["where"].startswith("_tmp_head_samples f1")
