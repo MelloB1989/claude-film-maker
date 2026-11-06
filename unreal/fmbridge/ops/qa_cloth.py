@@ -73,6 +73,9 @@ def cloth(*, label: str, component: str, sequence: str, start: int, end: int, pr
     n_settle = int(settle) or _preroll.need_frames(p["settle_s"], fps)
     frames = list(range(int(start), int(end)))
     comp.set_editor_property("wait_for_parallel_cloth_task", True)
+    # the editor world ticks cloth only when asked (bUpdateClothInEditor: SkeletalMeshComponentPhysics.cpp:83, 3148);
+    # without it the simulation data never changes (round 5: not_simulating, body_path 0)
+    comp.set_update_cloth_in_editor(True)
     scale0 = comp.get_cloth_max_distance_scale()
     runs = {}
     try:
@@ -93,6 +96,12 @@ def cloth(*, label: str, component: str, sequence: str, start: int, end: int, pr
     finally:
         comp.set_cloth_max_distance_scale(scale0 if scale0 is not None else 1.0)
     subject = f"{label}.{component}"
+    stats = C.solver_stats(comp)
+    if stats.get("sim_time_ms", 1.0) == 0.0 and stats.get("dynamic_particles", 0) > 0:
+        return {"pass": False, "verdict": "fail", "issues": [issue(
+            "cloth.no_steps", "fail", f"{subject}: the solver reports no simulation time over {len(frames)} frames: "
+            "the editor world did not tick the cloth", "check set_update_cloth_in_editor and that the editor ticks "
+            "(t.MaxFPS); report it", subject=subject)], "metrics": {}, "solver": stats}
     if any(not r for r in runs["sim"]) or any(not r for r in runs["skin"]):
         return {"pass": False, "verdict": "fail", "issues": [issue(
             "cloth.not_simulating", "fail", f"{subject}: no simulated positions on some frames (the cloth is "
