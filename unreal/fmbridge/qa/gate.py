@@ -61,15 +61,24 @@ ITEMS: dict = {
         "why": "natural anticipation is 100-300 ms (Chandrasekaran 2009); 600-800 ms is out of sync"},
     "lips.lag_frames": {
         "area": "lips", "track": "T1", "op": "<=", "line": 1, "unit": "frames",
-        "what": "max |lag| over lines: cross-correlation of the syllable-band voice envelope vs mouth aperture",
-        "where": "every spoken line", "how": "film-ue lips gate (T1)",
-        "r4": [17, "agent-01's estimate of round 4's S13 L1 lead"], "why": "a frame of lag is the limit"},
+        "what": "max |lag| over lines of the rendered face's mouth curves vs each line's OWN solve placed at its mix "
+                "position (ref_lag_frames; round 5: voice loudness vs jaw lags +-23 f even when in place)",
+        "where": "every spoken line", "how": "film-ue lips gate (agent-01, T1, core ef3edd75)",
+        "r4": [17, "S13 L1 ~0.6-0.8 s early (orchestrator); agent-06's re-run against the v2 solves replaces it"],
+        "why": "a frame of lag is the limit"},
     "lips.track_r": {
-        "area": "lips", "track": "T1", "op": ">=", "line": 0.35, "unit": "r",
-        "what": "min over lines of the correlation at the best lag (voice envelope vs mouth aperture)",
+        "area": "lips", "track": "T1", "op": ">=", "line": 0.8, "unit": "r",
+        "what": "min over lines of the correlation of the face's mouth curves with the line's own solve, at the best "
+                "lag (ref_corr; in place reads 1.0, real curves shifted 2 f fail)",
         "where": "every spoken line", "how": "film-ue lips gate (T1)",
-        "r4": [None, "measured in T1's probe on round 4's face; the operator: no lip sync during his lines"],
-        "why": "synthetic good sync 0.9+, wrong words < 0.3"},
+        "r4": [None, "agent-06's re-run: round 4's face vs the v2 solves (expected low: it solved v1-script words)"],
+        "why": "against its own solve a line in sync reads ~1.0"},
+    "lips.measured_against": {
+        "area": "lips", "track": "T1", "op": "==", "line": 1, "unit": "bool",
+        "what": "the lips items were measured against each line's solve (1), not the voice alone (0)",
+        "where": "the lips gate file", "how": "film-ue lips gate (T1)",
+        "r4": [0, "round 4's gate read frames and voice only"],
+        "why": "voice vs jaw cannot certify sync on 1-2 s lines (r 0.25-0.88 in place)"},
     "lips.silence_open": {
         "area": "lips", "track": "T1", "op": "<=", "line": 0.10, "unit": "jawOpen",
         "what": "p95 jaw opening above rest outside the voice activity (+-0.25 s)",
