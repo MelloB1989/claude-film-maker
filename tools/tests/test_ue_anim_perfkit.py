@@ -735,3 +735,21 @@ def test_speech_gain_scales_only_the_mouth_inside_its_spans():
     v = out[jaw][1]
     assert v[0] == 0.3 and v[1] == 0.3 and v[-1] == 0.3  # silences untouched
     assert abs(v[2] - 0.51) < 1e-6 and v[3] == 1.0  # inside: x1.7, clamped at 1
+
+
+def test_eyes_are_written_through_their_measured_table():
+    """r4 (box): a left-eye-alone probe at 1.0 read eyeLookRight as 4.6 deg and her eyes overshot by 20. perf.calibrate
+    now measures each direction on both eyes at several values (eye_table); to_rig inverts it per eye, clamped."""
+    from perfkit import eyes as E
+    tab = {sd: {"Left": [[0.25, 8.0], [0.5, 18.0], [0.75, 26.0], [1.0, 30.0]],
+                "Right": [[0.25, -10.0], [0.5, -20.0], [0.75, -30.0], [1.0, -40.0]],
+                "Up": [[0.5, 10.0], [1.0, 20.0]], "Down": [[0.5, -15.0], [1.0, -30.0]]} for sd in ("L", "R")}
+    s = R.HeadSigns(eye_table=tab)
+    c = s.eye_curves("L", -15.0, 5.0)
+    assert abs(c["Right"] - 0.375) < 1e-6 and c["Left"] == 0.0 and abs(c["Up"] - 0.25) < 1e-6 and c["Down"] == 0.0
+    assert s.eye_curves("L", 45.0, 0.0)["Left"] == 1.0  # beyond the most it turns: clamped
+    out = E.to_rig({"times": [0.0], "L": [(-15.0, 5.0)], "R": [(-15.0, 5.0)]}, s, tol=0.0)
+    assert abs(out["CTRL_expressions_eyeLookRightL"][1][0] - 0.375) < 1e-6
+    back = E.angles_from_rig(out, s)
+    assert abs(back["L"][0][0] - -15.0) < 1e-6 and abs(back["L"][0][1] - 5.0) < 1e-6
+    assert R.HeadSigns.from_json(s.to_json()).eye_table == s.eye_table
