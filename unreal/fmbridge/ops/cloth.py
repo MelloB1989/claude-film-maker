@@ -33,6 +33,7 @@ from ..clothkit import presets as _presets
 from ..clothkit import preroll as _preroll
 
 BODY = "Body"
+PIN_MAX_FRACTION = 0.6   # fit colours pin the collar and shoulder seams (5-15%); more than this is someone else's colours
 SKIP = ("Body", "Face")   # a MetaHuman's skin components: never cloth
 
 # preset COMPONENT keys -> USkeletalMeshComponent property names (Python snake_case of the UPROPERTY)
@@ -142,8 +143,10 @@ def describe_component(comp) -> dict:
          "settings": {k: _plain(_get(comp, p)) for k, p in COMPONENT_PROPS.items() if _get(comp, p) is not None},
          "max_distance_scale": _call(comp, "get_cloth_max_distance_scale"),
          "suspended": _call(comp, "is_clothing_simulation_suspended"),
-         "forced_lod": _get(comp, "forced_lod_model"),
+         "forced_lod_model": _get(comp, "forced_lod_model"),   # ForcedLodModel: 0 = auto, N = LOD N-1
          "solver": solver_stats(comp)}
+    flm = d["forced_lod_model"]
+    d["drawn_lod"] = "auto" if not isinstance(flm, int) or flm <= 0 else flm - 1
     d["simulating"] = bool(assets) and not d["settings"].get("disable_cloth_simulation", False) and \
         not d["suspended"] and d["solver"].get("dynamic_particles", 1) > 0
     return d
@@ -176,7 +179,7 @@ def describe(*, label: str, component: str = "") -> dict:
     means it is disabled, suspended or has no dynamic particles (all painted 0).
     Args: label: the actor. component: one garment (else every skeletal mesh component but Body and Face).
     Returns: {"label", "garments": {name: {"mesh", "leader", "clothing", "settings", "max_distance_scale",
-    "suspended", "forced_lod", "solver", "simulating"}}, "skinned_only": [names]}.
+    "suspended", "forced_lod_model", "drawn_lod", "solver", "simulating"}}, "skinned_only": [names]}.
     Example: film-ue op cloth.describe label=Host
     """
     comps = {component: garment(label, component)} if component else \
@@ -286,8 +289,16 @@ def plan_maps(points: list, mesh, preset: dict, colours_from=None) -> dict:
     except ValueError as e:
         raise OpError(str(e), code="failed", hint="the garment must be skinned to the MetaHuman body skeleton") from None
     cols = nearest_colours(points, colours_from[0], colours_from[1]) if colours_from and colours_from[1] else None
+    ignored = ""
+    if cols:
+        pinned = sum(1 for c in cols if c is not None and c[1] > _paint.PIN_LEVEL) / float(len(cols))
+        if pinned > PIN_MAX_FRACTION:   # not the fit's encoding (a garment's own colours): round 5, her overshirt
+            ignored = (f"the vertex colours pin {pinned:.0%} of the garment: not garment.fit's encoding (G = pinned "
+                       "collar/shoulder), ignored")
+            cols = None
     maps = _paint.paint(points, zones, segs, preset, parents, colours=cols)
-    return {"maps": maps, "problems": _paint.check_maps(maps, preset), "colours": cols is not None}
+    return {"maps": maps, "problems": _paint.check_maps(maps, preset), "colours": cols is not None,
+            "colours_ignored": ignored}
 
 
 def _preset(name: str, overrides=None) -> dict:
@@ -356,7 +367,15 @@ def setup(*, label: str, component: str, preset: str, overrides: dict | None = N
                           hint="enable GeometryScripting in the .uproject")
         pm = plan_maps(pts, mesh, p, render)
         return {"changed": False, "dry_run": True, "points": len(pts), "maps": pm["maps"]["stats"],
-                "problems": pm["problems"], "colours": pm["colours"], "physics_asset": phys, "preset": preset}
+                "problems": pm["problems"], "colours": pm["colours"], "colours_ignored": pm["colours_ignored"],
+                "physics_asset": phys, "preset": preset}
+    if render[0]:   # check the rule on the render vertices BEFORE creating clothing data (a refusal changes nothing)
+        pre = plan_maps(render[0], mesh, p, render if render[1] else None)
+        if pre["problems"]:
+            raise OpError(f"{component}: the painted maps are wrong: {'; '.join(pre['problems'])}", code="failed",
+                          details={"maps": pre["maps"]["stats"], "colours_ignored": pre["colours_ignored"]},
+                          hint="use_colours=false when the garment's vertex colours are not garment.fit's; or change "
+                               "the preset's zones (overrides.zones)")
     L = _need_plugin()
     sec = int(section) if section >= 0 else int(L.largest_section(mesh, int(lod)))
     err = L.ensure_cloth_on_section(mesh, int(lod), sec, f"Cloth_{component}",
@@ -385,7 +404,7 @@ def setup(*, label: str, component: str, preset: str, overrides: dict | None = N
     if save:
         EAL.save_loaded_asset(mesh)
     return {"changed": True, "cloth": cloth.get_name(), "section": sec, "points": len(pts),
-            "maps": maps["stats"], "colours": pm["colours"], "config": cfg, "settings": settings_done,
+            "maps": maps["stats"], "colours": pm["colours"], "colours_ignored": pm["colours_ignored"], "config": cfg, "settings": settings_done,
             "physics_asset": phys, "preset": preset, "readback_max_cm": round(max(back), 3) if back else None}
 
 
