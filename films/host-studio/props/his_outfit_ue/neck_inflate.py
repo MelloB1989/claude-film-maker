@@ -28,7 +28,12 @@ def add_neck_inflate(master):
     X = lambda cls, x, y: MEL.create_material_expression(master, cls, x, y)  # noqa: E731
     have = [str(n) for n in MEL.get_scalar_parameter_names(master)]
     p = {}
+    # MetaHuman's garment master may carry FM_Inflate's offset already (M_fabric_simpler did on the box): then that
+    # term stays as it is and only the neckline term is added, so the plain inflate is never applied twice
+    had_inflate = "FM_Inflate" in have
     for i, (name, dv) in enumerate(PARAMS.items()):
+        if name == "FM_Inflate" and had_inflate:
+            continue
         if name in have:
             raise RuntimeError(f"{master.get_name()} already has {name}: build from the plugin master, not a copy")
         e = X(unreal.MaterialExpressionScalarParameter, -1700, 1400 + 90 * i)
@@ -68,7 +73,7 @@ def add_neck_inflate(master):
                p["FM_NeckFrontBias"], -1100, 2150), -950, 2150)
     neck = op(unreal.MaterialExpressionMultiply, p["FM_Neck"],
               op(unreal.MaterialExpressionMultiply, t, f, -800, 2075), -650, 2000)
-    amt = op(unreal.MaterialExpressionAdd, p["FM_Inflate"], neck, -500, 1900)
+    amt = neck if had_inflate else op(unreal.MaterialExpressionAdd, p["FM_Inflate"], neck, -500, 1900)
     n = X(unreal.MaterialExpressionVertexNormalWS, -500, 1800)
     off = op(unreal.MaterialExpressionMultiply, n, amt, -350, 1850)
     wpo = unreal.MaterialProperty.MP_WORLD_POSITION_OFFSET

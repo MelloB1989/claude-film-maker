@@ -30,7 +30,7 @@ try:
     m = unreal.load_asset(dst)
     had = "FM_Inflate" in [str(n) for n in MEL.get_scalar_parameter_names(m)]
     out["master_already_inflated"] = had
-    if not had:
+    if True:
         ni.add_neck_inflate(m)
         unreal.AutomationUtilsBlueprintLibrary.finish_all_asset_compilation()
         st = MEL.get_statistics(m)
