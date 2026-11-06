@@ -295,8 +295,10 @@ class _Surface:
 
 
 def _sample(seq, k: int) -> list:
+    """About k items spread through seq (an unreal.Array refuses a slice step: list it first)."""
+    seq = list(seq)
     step = max(1, len(seq) // max(1, k))
-    return list(seq[::step])
+    return seq[::step]
 
 
 def _ref_body(a, mesh: str, body: str = "Body"):
