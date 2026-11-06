@@ -1,0 +1,8 @@
+[
+ {"label": "skin 0.45/0.45", "skin": {"u": 0.45, "v": 0.45}},
+ {"label": "skin 0.30/0.45", "skin": {"u": 0.30, "v": 0.45}},
+ {"label": "skin 0.15/0.40 (lightest if u = darkness)", "skin": {"u": 0.15, "v": 0.40}},
+ {"label": "skin 0.80/0.45 (lightest if u = lightness)", "skin": {"u": 0.80, "v": 0.45}},
+ {"label": "HAIR S_Casual + lips Natural brownish | skin 0.30/0.45", "skin": {"u": 0.30, "v": 0.45},
+  "grooms": {"Hair": "WI_Hair_S_Casual"}, "makeup": {"lips": {"type": "Natural", "color": [0.32, 0.20, 0.16]}}}
+]
