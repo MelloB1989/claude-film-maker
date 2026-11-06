@@ -1,0 +1,8 @@
+[
+ {"label": "A M_SideSweptFringe | S_Full mustache, S_Stubble beard, M_FlatThick brows",
+  "grooms": {"Hair": "WI_Hair_M_SideSweptFringe", "Mustache": "WI_Mustache_S_Full", "Beard": "WI_Beard_S_Stubble", "Eyebrows": "WI_Eyebrows_M_FlatThick"}},
+ {"label": "B S_SideSweptFringe | M_Gunslinger mustache, S_Stubble beard, M_SlightArch brows",
+  "grooms": {"Hair": "WI_Hair_S_SideSweptFringe", "Mustache": "WI_Mustache_M_Gunslinger", "Beard": "WI_Beard_S_Stubble", "Eyebrows": "WI_Eyebrows_M_SlightArch"}},
+ {"label": "D M_Layered | L_Full mustache, M_Stubble beard, M_Thick brows",
+  "grooms": {"Hair": "WI_Hair_M_Layered", "Mustache": "WI_Mustache_L_Full", "Beard": "WI_Beard_M_Stubble", "Eyebrows": "WI_Eyebrows_M_Thick"}}
+]

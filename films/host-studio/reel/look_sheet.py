@@ -368,6 +368,7 @@ def points(g: dict, sheet: str, a) -> dict:
         ch = g["cheeks"].get(s) or add(add(e, [0, 0, -3.6]), side, 1.2 * sgn)
         pts["cheek" + s] = (add(ch, f, 1.5), 0.7)
     pts["chip"] = (g["chip"], 2.4)
+    pts["crown"] = (add(add(g["mid"], [0, 0, 11.0]), f, 3.0), 1.2)  # the hair above the forehead (diag)
     return pts
 
 
@@ -377,7 +378,7 @@ def variants_for(sheet: str, a, wardrobe: dict) -> list:
     if sheet == "hair":
         items = a.items.split(",") if a.items else pick_hair(wardrobe.get("Hair", []))[:6]
         return [{"label": i.removeprefix("WI_Hair_"), "grooms": {"Hair": i}} for i in items]
-    if sheet == "iris" and a.target == "bp":
+    if sheet == "iris" and a.target in ("bp", "build"):
         uv = [tuple(map(float, x.split(":"))) for x in a.items.split(",")] if a.items else [
             (0.06, 0.20), (0.06, 0.30), (0.08, 0.25), (0.08, 0.35), (0.10, 0.30), (0.92, 0.12)]
         return [{"label": f"iris hue {u:.2f} value {v:.2f}", "eye": {"hue": u, "value": v}} for u, v in uv]
@@ -441,7 +442,7 @@ def wardrobe() -> dict:
     return out
 
 
-def apply_look(look: dict, label: str) -> dict:
+def apply_look(look: dict, label: str, skip_eye: bool = False) -> dict:
     """A look onto the scratch character (its preview follows): grooms, skin, iris, body; the hair colour onto the
     preview's groom components (the character's own colours need a built collection: docs/unreal/metahuman.md)."""
     done = {}
@@ -454,7 +455,7 @@ def apply_look(look: dict, label: str) -> dict:
         u, v = look["iris"]["u"], look["iris"]["v"]
         done["iris"] = op("mh.eyes", path=DUP, save=False, both={"iris": {
             "primary_color_u": u, "primary_color_v": v, "secondary_color_u": u, "secondary_color_v": v}}).get("changed")
-    if look.get("eye"):  # on the built Blueprint (--target bp): the eye material's own parameters
+    if look.get("eye") and not skip_eye:  # on a built Blueprint (--target bp|build): the eye material's parameters
         h, v = look["eye"]["hue"], look["eye"]["value"]
         p = {"Iris Primary Color Hue": h, "Iris Primary Color Value": v, "Iris Secondary Color Hue": h,
              "Iris Secondary Color Value": v, **look["eye"].get("params", {})}
@@ -462,6 +463,29 @@ def apply_look(look: dict, label: str) -> dict:
     if look.get("body"):
         done["body"] = op("mh.body", character=DUP, measurements=look["body"]).get("changed")
     return done
+
+
+def build_spawn(a, look: dict, rep: dict) -> dict:
+    """--target build: the scratch copy built (textures again after a skin change, a rig after a body change) and its
+    Blueprint spawned in the lab as PREVIEW; the hair colour and the eye parameters on that copy."""
+    t0 = time.time()
+    steps = ([("mh.rig", {"character": DUP})] if look.get("body") else []) + (
+        [("mh.textures", {"character": DUP})] if (look.get("skin") or look.get("body") or a._need_tex) else []) + [
+        ("mh.build", {"character": DUP, "name": "Host_OpLook", "force": True})]
+    out = {}
+    for step, args in steps:
+        for _ in range(18):  # refused for a few ticks while a cloud request finishes (round 3)
+            res = client().op(step, timeout=3600, **args)
+            why = (res.get("error", "") or "") + (res.get("stdout", "") or "")
+            if res.get("ok") or "cloud request is still running" not in why:
+                break
+            time.sleep(10)
+        out[step] = ok(res)
+    a._need_tex = False
+    bp = out["mh.build"]["bp"]
+    out["spawn"] = ex(SPAWN_BP, LABEL=PREVIEW, BP=bp, LOC=LAB)
+    out["s"] = round(time.time() - t0)
+    return out
 
 
 def settle(a, extra: float = 0.0):
@@ -484,7 +508,7 @@ def render(a) -> None:
     vs = variants_for(sheet, a, ward)
     if not vs:
         raise SystemExit(json.dumps({"error": "no variants", "wardrobe": ward}))
-    if a.grid and a.target == "bp":  # the iris on the built eye: hue (u) over the browns x value (v)
+    if a.grid and a.target in ("bp", "build"):  # the iris on the built eye: hue (u) over the browns x value (v)
         n = a.grid
         hs = [round(0.02 + 0.11 * i / (n - 1), 3) for i in range(n)]
         vals = [round(0.10 + 0.45 * j / (n - 1), 3) for j in range(n)]
@@ -500,11 +524,20 @@ def render(a) -> None:
         rep["dup"] = op("mh.duplicate", source=CHAR, path=DUP, overwrite=True)
     for mi, col in ((GREY, 0.18), (BG, 0.22)):
         op("look.material", name=short(mi), color=[col, col, col], roughness=0.95, specular=0.0)
+    a._need_tex = False
     if a.target == "bp":
         rep["spawn"] = ex(SPAWN_BP, LABEL=PREVIEW, BP=BP_OP, LOC=LAB)
+        rep["base_applied"] = apply_look(base, PREVIEW)
+    elif a.target == "build":  # the base onto the copy; the first variant's build spawns it
+        rep["can_build"] = op("mh.can_build", path=DUP)
+        a._need_tex = not rep["can_build"]["can_build"]
+        rep["base_applied"] = apply_look(base, PREVIEW, skip_eye=True)
+        first = {k: x for k, x in vs[0].items() if k != "label"}
+        rep["first_build"] = build_spawn(a, merge(base, first) if a._need_tex else first, rep)
+        rep["base_eye"] = apply_look({"eye": base["eye"]}, PREVIEW) if base.get("eye") else None
     else:
         op("mh.preview", path=DUP, label=PREVIEW, loc=LAB, yaw_deg=0.0)
-    rep["base_applied"] = apply_look(base, PREVIEW)
+        rep["base_applied"] = apply_look(base, PREVIEW)
     settle(a, 4)
     if base.get("hair_color"):
         rep["hair_color"] = ex(HAIR_COLOR, LABEL=PREVIEW, COLOR=base["hair_color"])
@@ -521,9 +554,21 @@ def render(a) -> None:
         for i, v in enumerate(vs):
             change = {k: x for k, x in v.items() if k != "label"}
             look = merge(base, change)
-            row = {"label": v["label"], "look": change, "applied": apply_look(change, PREVIEW)}
+            if a.target == "build":
+                row = {"label": v["label"], "look": change}
+                if i > 0:
+                    row["applied"] = apply_look(change, PREVIEW, skip_eye=True)
+                    row["build"] = build_spawn(a, change, rep)
+                else:
+                    row["applied"] = apply_look(change, PREVIEW, skip_eye=True)
+                    row["build"] = rep["first_build"]
+                if look.get("eye"):
+                    row["eye"] = apply_look({"eye": look["eye"]}, PREVIEW)
+                print(json.dumps({"built": v["label"], "s": row["build"].get("s")}), file=sys.stderr)
+            else:
+                row = {"label": v["label"], "look": change, "applied": apply_look(change, PREVIEW)}
             settle(a, 6 if v.get("body") or v.get("grooms") else 0)
-            if look.get("hair_color") and (v.get("grooms") or i == 0):
+            if look.get("hair_color") and (v.get("grooms") or i == 0 or a.target == "build"):
                 ex(HAIR_COLOR, LABEL=PREVIEW, COLOR=look["hair_color"])
             gv = ex(GEO, LABEL=PREVIEW)
             gv["chip"] = g["chip"]
@@ -649,7 +694,7 @@ def compose(a) -> None:
             arr = np.asarray(Image.open(st["path"]).convert("RGB")).astype(float)
             e = {"label": row["label"], "md5": hashlib.md5(arr.tobytes()).hexdigest()[:10],
                  "mean": [round(c) for c in arr.reshape(-1, 3).mean(axis=0)], "pts": {}}
-            for k in ("irisL", "cheekL", "chip"):
+            for k in ("irisL", "cheekL", "chip", "crown"):
                 x, y, kk, rad = st["points"][k]
                 r = max(2.0, kk * rad)
                 grid = []
@@ -795,9 +840,10 @@ def main() -> None:
     r.add_argument("--items", default="", help="hair: item names; iris/skin: u:v,u:v; facial: M+B,M+B")
     r.add_argument("--variants", default="", help="a JSON list (or a file) of {label, grooms, skin, iris, body}")
     r.add_argument("--base", default="", help="JSON over the base look (earlier picks), e.g. '{\"grooms\": {\"Hair\": \"WI_Hair_M_X\"}}'")
-    r.add_argument("--target", choices=("preview", "bp"), default="preview",
-                   help="preview: a live preview of a scratch copy (grooms, skin, body); bp: a spawned copy of the built "
-                        "BP_Host_Op (the iris: its eye material's hue/value)")
+    r.add_argument("--target", choices=("preview", "bp", "build"), default="build",
+                   help="build (default): the scratch copy rebuilt per variant and its Blueprint spawned (textured, groomed, "
+                        "~2-3 min a variant); bp: a spawned copy of BP_Host_Op as built (the iris by its eye material's "
+                        "hue/value, seconds); preview: the live preview (untextured, bald, ignores eye/wardrobe edits: r4)")
     r.add_argument("--grid", type=int, default=0, help="iris or skin: an NxN palette grid, numbers only")
     r.add_argument("--px", type=int, default=1024)
     r.add_argument("--frame-cm", type=float, default=40.0, help="the headshot's frame width at the face")
