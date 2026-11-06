@@ -401,8 +401,52 @@ def partner_look(who: str, i: int, stage=None) -> dict:
     return LK.look(who, b["hold"], b["head"] if b["head"] is not None else 1.0, stage, b.get("torso", 0.0))
 
 
+def head_gaze_plan(who: str, stage=None):
+    """perfkit's GazePlan exactly as perf.face builds it for `who` (the same shifts, start, lead, head gain, energy
+    and seed): the head's own timing, to lock the torso to."""
+    sys.path.insert(0, str(ROOT / "unreal" / "fmbridge"))
+    from perfkit import face as FACE, gaze as G, head as H
+    e = events(who, stage)
+    style = H.Style.from_json({"seed": SEED[who], **(e.get("head") or {})})
+    return G.GazePlan([FACE._shift(g) for g in e["gaze"]], start=tuple(e.get("start_gaze") or (0.0, 0.0)),
+                      lead=e.get("lead", "eyes"), head_gain=style.gain, energy=e.get("energy", 1.0), seed=SEED[who])
+
+
+def torso_locked(who: str, stage=None):
+    """The torso's yaw (degrees, + = own left) at t s from START[who], PHASE-LOCKED to the head (r5, the orchestrator):
+    for each look with a torso turn, the chest's share of it follows the head's own progress, from where the head was
+    just before the look to where it holds, and back with it: no lag, the head's duration and ease. Round 4's
+    torso_moves brought the chest back 0.15 s after the head over 0.75 s (0.58 s for the head): while the neck was
+    back and the spine twist (a ~10 deg tilted axis) was not, his head pitched (-4.6 deg mid-turn, his S16 return).
+    Returns f(t)."""
+    plan = head_gaze_plan(who, stage)
+    beats = []
+    for i, b in enumerate(PARTNER_LOOKS[who]):
+        tz = partner_look(who, i, stage)["torso_yaw"]
+        if not tz:
+            continue
+        t0, th, tu = ((b[k] - START[who]) / FPS for k in ("t", "hold", "until"))
+        h0 = plan.head_base(t0 - 0.05)[0]
+        hh = plan.head_base(th)[0]
+        if abs(hh - h0) < 1.0:
+            continue
+        nxt = min([(o["t"] - START[who]) / FPS for o in PARTNER_LOOKS[who] if o["t"] > b["t"]] + [tu + 2.5])
+        beats.append((t0 - 0.1, min(nxt, tu + 2.5), h0, hh, tz))
+
+    def f(t: float) -> float:
+        y = 0.0
+        hy = None
+        for a, b_, h0, hh, tz in beats:
+            if a <= t <= b_:
+                hy = plan.head_base(t)[0] if hy is None else hy
+                y += tz * max(0.0, min(1.15, (hy - h0) / (hh - h0)))
+        return y
+    return f
+
+
 def torso_plan(who: str, stage=None) -> list:
-    """The torso's moves for `who`'s looks (looks.torso_moves), in seconds from START[who]."""
+    """The torso's moves for `who`'s looks (looks.torso_moves), in seconds from START[who]: round 4's lagged timing,
+    kept for reference; torso() and planned_head() use torso_locked."""
     import looks as LK
     beats = [{"t": (b["t"] - START[who]) / FPS, "until": (b["until"] - START[who]) / FPS, "kind": b.get("kind", "big"),
               "yaw": partner_look(who, i, stage)["torso_yaw"]} for i, b in enumerate(PARTNER_LOOKS[who])]
@@ -601,8 +645,9 @@ def planned_head(who: str, frame: int, stage=None) -> tuple:
     import looks as LK
     e = events(who, stage)
     t = (frame - START[who]) / FPS
-    (hy, hp), (gy, gp) = LK.head_plan(e["gaze"], e.get("start_gaze"), t)
-    tz = LK.torso_yaw(torso_plan(who, stage), t)  # the chest carries the neck round: head and eyes ride on it
+    plan = head_gaze_plan(who, stage)  # as perf.face builds it (its seed and gain: the head's real timing)
+    (hy, hp), (gy, gp) = plan.head_base(t), plan.gaze(t)
+    tz = torso_locked(who, stage)(t)  # the chest carries the neck round, in phase: head and eyes ride on it
     return (hy + tz, hp), (gy + tz, gp)
 
 
@@ -1097,12 +1142,12 @@ def torso(who: str) -> dict:
     """The torso turn (torso_plan) on `who`'s fresh body animation (sync's AS_reel_<who>_body, after turn_head): not
     idempotent, like turn_head, so only from sync. Needs perf.calibrate_body on this body (calibrate_body --who)."""
     import looks as LK
-    moves = torso_plan(who)
+    lock = torso_locked(who)
     sys.path.insert(0, str(ROOT / "unreal" / "fmbridge"))
     from perfkit import curves as C
     times = C.grid(0.0, (END + POST_ROLL - START[who]) / FPS, 30.0)
     return run(TORSO, {"anim": f"{ANIM}/AS_reel_{who}_body", "times": [round(t, 4) for t in times],
-                       "yaw": [round(LK.torso_yaw(moves, t), 3) for t in times], "share": TORSO_SHARE,
+                       "yaw": [round(lock(t), 3) for t in times], "share": TORSO_SHARE,
                        "counter": TORSO_COUNTER, "shift_cm": TORSO_SHIFT_CM, "full": TORSO_FULL}, 1800)
 
 
