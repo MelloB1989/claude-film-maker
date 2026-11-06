@@ -433,7 +433,8 @@ def setup(*, label: str, component: str, preset: str, overrides: dict | None = N
     {"to_cm": cm}}, "settle_s": s}. physics_asset: collision shapes (default: the Body's physics asset).
     lod/section: the garment section to simulate (-1 = the largest). use_colours: read the fit's vertex colours
     (R ease, G pinned). dry_run: paint the garment's render vertices and return the stats; write nothing.
-    Returns: {"changed", "cloth", "points", "maps": {zone: {"n", "min_cm", "max_cm", "mean_cm"}}, "colours",
+    Returns: {"changed", "leaders" (mh.leader_state after re-leading every garment: the asset edit re-creates the
+    actor's components), "cloth", "points", "maps": {zone: {"n", "min_cm", "max_cm", "mean_cm"}}, "colours",
     "config": {"set", "missing"}, "settings", "physics_asset", "readback_max_cm"}.
     Example: film-ue op cloth.setup label=Host component=Torso preset=cotton_tee
     """
@@ -495,7 +496,14 @@ def setup(*, label: str, component: str, preset: str, overrides: dict | None = N
     EAL.set_metadata_tag(mesh, "FMClothOverrides", json.dumps(overrides or {}, sort_keys=True))
     if save:
         EAL.save_loaded_asset(mesh)
-    return {"changed": True, "cloth": cloth.get_name(), "section": sec, "points": len(pts),
+    # Editing the mesh re-registers every component that draws it, and a MetaHuman Blueprint's construction script then
+    # re-creates its components: every garment loses its leader pose (round 5: Tee AND Trousers). Leader pose last, on
+    # all garments, then the component settings again on the fresh component.
+    from .mh.actor import _lead_all
+    leaders = _lead_all(label)
+    settings_done = _apply_component(garment(label, component))
+    cfg["interactor"] = apply_interactor(garment(label, component), cloth.get_name(), p["config"])
+    return {"changed": True, "leaders": leaders, "cloth": cloth.get_name(), "section": sec, "points": len(pts),
             "maps": maps["stats"], "colours": pm["colours"], "colours_ignored": pm["colours_ignored"], "config": cfg, "settings": settings_done,
             "physics_asset": phys, "preset": preset, "readback_max_cm": round(max(back), 3) if back else None}
 
