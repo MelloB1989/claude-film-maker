@@ -326,7 +326,7 @@ def fold_detail(lum: list, mask: list, w: int, h: int, sigma_fine: float = 1.5, 
         return {"detail": None, "px": 0, "band": list(band), "error": "the chest band is under 8 px"}
     step = max(1, int(math.ceil(max(bw, bh) / float(max_side))))
     cw, chh = (bw + step - 1) // step, (bh + step - 1) // step
-    crop = [lum[(y0 + j * step) * w + x0 + i * step] for j in range(chh) for i in range(cw)]
+    crop = [float(lum[(y0 + j * step) * w + x0 + i * step]) for j in range(chh) for i in range(cw)]  # numpy-safe
     inside = [bool(mask[(y0 + j * step) * w + x0 + i * step]) for j in range(chh) for i in range(cw)]
     f = _blur(crop, cw, chh, sigma_fine / step)
     c = _blur(crop, cw, chh, sigma_coarse / step)
