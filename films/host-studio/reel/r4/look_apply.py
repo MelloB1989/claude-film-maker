@@ -42,6 +42,8 @@ def main() -> None:
     ap.add_argument("--body", default="", help="now|slim|slimmer or a JSON of measurements (default: unchanged)")
     ap.add_argument("--melanin", type=float, default=1.0)
     ap.add_argument("--redness", type=float, default=0.08)
+    ap.add_argument("--rerig", action="store_true", help="re-rig on the body as it is (agent-02: the face's neck seam "
+                    "fitted to the final body; round 3's record has chest 104 against bodies.py's 100)")
     ap.add_argument("--skip-build", action="store_true", help="only the character stage (a dry look)")
     a = ap.parse_args()
     rep = {}
@@ -71,7 +73,7 @@ def main() -> None:
     if a.skip_build:
         print(json.dumps(rep, indent=1))
         return
-    steps = ([("mh.rig", {"character": CHAR})] if body else []) + [
+    steps = ([("mh.rig", {"character": CHAR})] if body or a.rerig else []) + [
         ("mh.textures", {"character": CHAR}), ("mh.build", {"character": CHAR, "name": "Host_Op", "force": True})]
     for step, args in steps:
         t0 = time.time()

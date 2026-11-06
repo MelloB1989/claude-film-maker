@@ -115,7 +115,8 @@ for side in ("L", "R"):
             break
 result = {"eyeL": eL, "eyeR": eR, "head": head, "mid": mid, "facing": f, "floor": a.get_actor_location().z,
           "top": o.z + e.z, "cheeks": cheeks,
-          "grooms": [c.get_name() for c in a.get_components_by_class(unreal.GroomComponent)]}
+          "grooms": {c.get_name(): (c.get_editor_property("groom_asset").get_name() if c.get_editor_property("groom_asset") else None)
+                     for c in a.get_components_by_class(unreal.GroomComponent)}}
 """
 
 SETUP = r"""
@@ -447,13 +448,13 @@ def apply_look(look: dict, label: str, skip_eye: bool = False) -> dict:
     preview's groom components (the character's own colours need a built collection: docs/unreal/metahuman.md)."""
     done = {}
     for slot, item in (look.get("grooms") or {}).items():
-        r = op("mh.groom", character=DUP, slot=slot, item=item, save=False)
+        r = op("mh.groom", character=DUP, slot=slot, item=item)  # saved: the build reads the saved selection (r4: unsaved edits built as the old groom)
         done[slot] = r.get("changed") if isinstance(r, dict) else r
     if look.get("skin"):
-        done["skin"] = op("mh.skin", character=DUP, save=False, **look["skin"]).get("changed")
+        done["skin"] = op("mh.skin", character=DUP, **look["skin"]).get("changed")
     if look.get("iris"):
         u, v = look["iris"]["u"], look["iris"]["v"]
-        done["iris"] = op("mh.eyes", path=DUP, save=False, both={"iris": {
+        done["iris"] = op("mh.eyes", path=DUP, both={"iris": {
             "primary_color_u": u, "primary_color_v": v, "secondary_color_u": u, "secondary_color_v": v}}).get("changed")
     if look.get("eye") and not skip_eye:  # on a built Blueprint (--target bp|build): the eye material's parameters
         h, v = look["eye"]["hue"], look["eye"]["value"]
@@ -572,7 +573,12 @@ def render(a) -> None:
                 ex(HAIR_COLOR, LABEL=PREVIEW, COLOR=look["hair_color"])
             gv = ex(GEO, LABEL=PREVIEW)
             gv["chip"] = g["chip"]
-            row["geo"] = {k: gv[k] for k in ("eyeL", "eyeR", "floor", "top")}
+            row["geo"] = {k: gv[k] for k in ("eyeL", "eyeR", "floor", "top", "grooms")}
+            want = {k: x for k, x in (change.get("grooms") or {}).items() if x and x != "none"}
+            worn = " ".join(str(x) for x in gv["grooms"].values())
+            row["groom_missing"] = [x for x in want.values() if x.removeprefix("WI_") not in worn]
+            if row["groom_missing"]:
+                print(json.dumps({"WARNING groom not worn": row["groom_missing"], "worn": gv["grooms"]}), file=sys.stderr)
             cams = views(gv, sheet, a)
             if a.grid:
                 cams = {"front": cams["front"]}
