@@ -345,3 +345,18 @@ film-qa gate ... lips_gate.json                        # agent-09's gate v2 merg
    - The neck_01 vertical-turn fix (core ddc8eaec) only applies on the body-bone path (`turn_on: Body`). On these
      faces' curve path the turn reaches the body through `head_to_body`, so his pitch bell there must be re-measured
      too (agent-04).
+7. **Result at the wrap (agent-06):**
+   - `perf.py restage --who him` fixed his looks (S15 +0.6°, S17 +0.8° vs plan). The stale Test_ stage was the
+     cause.
+   - His S15 turn-out blink still reads 1.414° (line 0.6). On the curve path, `sync`'s turn step is skipped by design
+     ("this face turns its head itself"): the face rig's HeadRoll turn reaches the body through `anim.head_to_body`
+     with the rig's own tilted turn axis, so the vertical-axis fix never runs.
+   - Two options for next session:
+     - (a) **Level the copied turn.** In `head_to_body`, or a step right after it, remove the pitch/roll the turn adds:
+       per key, rotate the neck/head bones about the horizontal so the head keeps its rest elevation and roll while
+       its yaw is kept. Generic; works on either path.
+     - (b) **Pin `turn_on: Body`.** Make `perf.calibrate` able to find `yaw_bone` even when HeadRoll is live (today it
+       searches only when the curve is dead). Write the turn on the body with the vertical-axis turn and drop the
+       HeadRoll curve.
+     - (a) is smaller and keeps today's working path.
+   - Prove it with `perf.py head` (agent-04: blink_nod < 0.6, the bell flat to ~0.3°) and `looks --measured`.
