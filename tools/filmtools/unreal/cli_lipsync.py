@@ -239,7 +239,8 @@ def build_cues(lines_doc: dict, stems: dict, fps: float = 24.0, words: str = "au
                            "message": f"{k}: no voice in its stem between f{start:.0f} and f{end:.0f}",
                            "fix": "the stem is not the one the mix plays, or the line moved: rebuild the stems"})
             continue
-        rec = {**{kk: c[kk] for kk in ("who", "text", "wav", "take", "mood", "intensity", "slot_end") if kk in c},
+        rec = {**{kk: c[kk] for kk in ("who", "text", "wav", "take", "mood", "intensity", "slot_end", "candidates")
+                  if kk in c},
                "file_frame": loc.get("file_frame", c.get("file_frame")), "file_frame_listed": c.get("file_frame"),
                **{kk: v for kk, v in loc.items() if kk != "file_frame"}, "voice_frame": round(m["onset"], 2),
                "end_frame": round(m["offset"], 2), "voice_frame_planned": c.get("voice_frame"),
@@ -278,52 +279,108 @@ def build_cues(lines_doc: dict, stems: dict, fps: float = 24.0, words: str = "au
     return doc
 
 
+def prepare_take(x: np.ndarray, sr: int, floor_db: float = -42.0, pre_s: float = 0.05, post_s: float = 0.25) -> tuple:
+    """A raw take as vo.py build made a line WAV of it: trimmed from `pre_s` before the first moment above `floor_db`
+    (relative to its loudest 20 ms) to `post_s` after the last, 10 ms fades, voiced RMS to -20 dBFS with the peak under
+    -1 dBFS. Returns (line samples, the trim's start in the take, s)."""
+    if x.ndim > 1:
+        x = x.mean(axis=1)
+    hop = sr // 100
+    n = len(x) // hop - 1
+    fr = np.stack([x[i * hop:i * hop + 2 * hop] for i in range(max(1, n))])
+    e = 10 * np.log10(np.mean(fr ** 2, axis=1) + 1e-12)
+    on = np.where(e > e.max() + floor_db)[0]
+    t0, t1 = on[0] * hop / sr, (on[-1] + 2) * hop / sr
+    a, b = max(0.0, t0 - pre_s), min(len(x) / sr, t1 + post_s)
+    y = x[int(a * sr):int(b * sr)].astype(np.float32).copy()
+    fade = int(0.01 * sr)
+    y[:fade] *= np.linspace(0, 1, fade)
+    y[-fade:] *= np.linspace(1, 0, fade)
+    h = sr // 100
+    m = 1 + max(0, len(y) - 2 * h) // h
+    rms = np.sqrt(np.mean(np.stack([y[i * h:i * h + 2 * h] for i in range(m)]) ** 2, axis=1))
+    act = rms[rms > rms.max() * 0.1]
+    y *= min(10 ** (-20 / 20) / np.sqrt(np.mean(act ** 2)), 10 ** (-1 / 20) / np.abs(y).max())
+    return y, a
+
+
+def _takes_for(takes_dir: Path | None, key: str) -> list:
+    """The raw takes that may be a line: takes_dir/<line>/*.wav (vo.py's layout), else takes_dir/<line>-*.wav."""
+    if not takes_dir:
+        return []
+    d = Path(takes_dir)
+    return sorted((d / key).glob("*.wav")) if (d / key).is_dir() else sorted(d.glob(f"{key}-*.wav"))
+
+
 def stems_from_mix(lines_doc: dict, line_dir: Path, mix: Path, out_dir: Path, fps: float = 24.0,
-                   min_mix_score: float = 0.3) -> tuple:
-    """The delivered mix is canonical (the viewer hears it): each line WAV is located in the mix by
-    cross-correlation, and each speaker's voice stem is rebuilt with every line at exactly that place (frame 0 =
-    sample 0, the mix's length). Returns ({who: stem path}, lines_doc with file_frame = the mix's, issues). A line the
-    mix does not hold fails (not_in_mix)."""
+                   min_mix_score: float = 0.3, takes_dir: Path | None = None) -> tuple:
+    """The delivered mix is canonical (the viewer hears it): each line is located in the mix by cross-correlation,
+    and each speaker's voice stem is rebuilt with every line at exactly that place (frame 0 = sample 0, the mix's
+    length). The line is the line WAV in `line_dir`, or, when `takes_dir` is given, whichever of it and the line's raw
+    takes (takes_dir/<line>/*.wav) the mix holds best: a take is trimmed and levelled as vo.py build does and placed
+    where its trimmed start sits. The chosen line WAVs (what the face is solved from) are written to out_dir/lines.
+    Returns ({who: stem path}, lines_doc with file_frame = the mix's and "take", issues, out_dir/lines). A line the
+    mix does not hold fails (not_in_mix, with every candidate's score)."""
     mx, msr = read_wav(Path(mix), mono=True)
     out_dir = Path(out_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "lines").mkdir(parents=True, exist_ok=True)
     stems, issues, doc = {}, [], {**lines_doc, "lines": {}}
     import soundfile as sf
     sr0 = None
     for k, c in sorted(lines_doc["lines"].items(), key=lambda kc: kc[1].get("file_frame", 0)):
-        y, ysr = read_wav(Path(line_dir) / c["wav"])
+        cands = []
+        if (Path(line_dir) / c["wav"]).exists():
+            cands.append(("line", Path(line_dir) / c["wav"]))
+        cands += [(p.stem, p) for p in _takes_for(takes_dir, k)]
+        scored = []
+        for name, path in cands:
+            y, ysr = read_wav(path)
+            off = 0.0
+            if name != "line":
+                y, off = prepare_take(y, ysr)
+            t, sc = locate(y, mx, ysr, msr)
+            scored.append((sc, name, y, ysr, t))
+        if not scored:
+            issues.append({"code": "no_wav", "line": k, "severity": "fail", "message": f"{k}: no line WAV or take",
+                           "fix": f"put {c['wav']} in {line_dir} or its takes in {takes_dir}/{k}/"})
+            continue
+        sc, name, y, ysr, t = max(scored, key=lambda r: r[0])
         sr0 = sr0 or ysr
         if ysr != sr0:
-            raise SystemExit(f"{c['wav']}: {ysr} Hz, the other lines {sr0} Hz")
-        t, sc = locate(y, mx, ysr, msr)
+            raise SystemExit(f"{k}: {ysr} Hz, the other lines {sr0} Hz")
+        board = {n: round(s_, 3) for s_, n, *_ in sorted(scored, key=lambda r: -r[0])[:5]}
         if t is None or sc < min_mix_score:
             issues.append({"code": "not_in_mix", "line": k, "severity": "fail",
-                           "message": f"{k}: {c['wav']} is not in the mix (best {sc:.2f})",
-                           "fix": "the mix was made from another take: find the WAV the mix used"})
+                           "message": f"{k}: neither {c['wav']} nor any take is in the mix (best: {board})",
+                           "fix": "the mix was made from WAVs that are gone: re-mix from these (mix.py --vo-dir) "
+                           "and re-cut, or find the mix's own VO"})
             continue
         st = stems.setdefault(c["who"], np.zeros(int(round(len(mx) / msr * ysr)), np.float32))
         i0 = int(round(t * ysr))
         st[i0:i0 + len(y)] += y[:max(0, len(st) - i0)]
+        sf.write(out_dir / "lines" / c["wav"], y, ysr, subtype="PCM_24")
         doc["lines"][k] = {**c, "file_frame": round(t * fps, 2), "file_frame_listed": c.get("file_frame"),
-                           "mix_score": round(sc, 3)}
+                           "mix_score": round(sc, 3), "take": c.get("take") if name == "line" else name,
+                           "candidates": board}
     paths = {}
     for who, st in stems.items():
         paths[who] = out_dir / f"vo_{who}.wav"
         sf.write(paths[who], st, sr0, subtype="PCM_24")
-    return paths, doc, issues
+    return paths, doc, issues, out_dir / "lines"
 
 
 def cues_from_mix(lines_doc: dict, line_dir: Path, mix: Path, stems_dir: Path, old_stems: dict | None = None,
-                  fps: float = 24.0, words: str = "auto") -> dict:
+                  fps: float = 24.0, words: str = "auto", takes_dir: Path | None = None) -> dict:
     """The round-5 cues: the mix canonical (stems_from_mix), measured on the rebuilt stems and verified against the
     mix (build_cues with line_dir + mix: every line must pass). The old stems, if given, are checked against the mix
     too and reported under "old_stems" (round 4's: mix_mismatch on L1)."""
-    paths, placed, issues = stems_from_mix(lines_doc, line_dir, mix, stems_dir, fps)
-    doc = build_cues(placed, paths, fps, words, line_dir=line_dir, mix=mix)
+    paths, placed, issues, chosen = stems_from_mix(lines_doc, line_dir, mix, stems_dir, fps, takes_dir=takes_dir)
+    doc = build_cues(placed, paths, fps, words, line_dir=chosen, mix=mix)
+    doc["line_dir"] = str(chosen)  # the line WAVs to solve from (a take the mix holds, where the line WAV was not)
     doc["issues"] = issues + doc["issues"]
     doc["canonical"] = "mix"
     if old_stems:
-        old = build_cues(lines_doc, old_stems, fps, "none", line_dir=line_dir, mix=mix)
+        old = build_cues(lines_doc, old_stems, fps, "none", line_dir=line_dir, mix=mix)  # the r4 WAVs, as they were
         doc["old_stems"] = {"stems": old["stems"], "issues": [i for i in old["issues"] if i["severity"] == "fail"],
                             "pass": not [i for i in old["issues"] if i["severity"] == "fail"]}
     return doc
@@ -618,6 +675,7 @@ def register(sub) -> None:
     c.add_argument("--words", default="auto", choices=["auto", "whisper", "estimate", "none"])
     c.add_argument("--line-dir", type=Path, help="the line WAVs the face is solved from: each is located in its stem")
     c.add_argument("--mix", type=Path, help="the audio the cut plays: each line must sit there where the stem has it")
+    c.add_argument("--takes", type=Path, help="raw takes DIR/<line>/*.wav: with --from-mix, the take the mix holds wins")
     c.add_argument("--from-mix", type=Path, metavar="STEMS_DIR",
                    help="the mix is canonical: locate each line in --mix, rebuild the voice stems there into "
                         "STEMS_DIR, then measure on them (--line-dir and --mix needed; --stem is the old stems, checked "
@@ -665,7 +723,7 @@ def dispatch(a) -> bool:
         if a.from_mix:
             if not (a.line_dir and a.mix):
                 raise SystemExit("--from-mix needs --line-dir and --mix")
-            doc = cues_from_mix(lines_doc, a.line_dir, a.mix, a.from_mix, _kv(a.stem), a.fps, a.words)
+            doc = cues_from_mix(lines_doc, a.line_dir, a.mix, a.from_mix, _kv(a.stem), a.fps, a.words, a.takes)
         else:
             doc = build_cues(lines_doc, _kv(a.stem), a.fps, a.words, line_dir=a.line_dir, mix=a.mix)
         a.out.write_text(json.dumps(doc, indent=1))
