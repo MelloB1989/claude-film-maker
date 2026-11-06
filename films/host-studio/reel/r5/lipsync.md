@@ -316,3 +316,11 @@ film-qa gate ... lips_gate.json                        # agent-09's gate v2 merg
 3. **SyncNet second opinion**: not run in r5. Calibrate `--min-conf` on this avatar (in-sync vs audio shifted 12
    frames) before relying on it.
 4. **`lipsync.mouth_boxes`** on the engine: if it was replaced by `--box` per shot in r5, run it once and compare.
+5. **Head turns about the vertical (done in r5, core 728c13f3 / film c3da3197).** The phase-lock did not remove his
+   turn's pitch bell.
+   - agent-04's fit showed the bell is pure geometry: his neck/head local turn axes sit ~7-8° off vertical.
+   - `perf.turn_head` and sync's torso twist now turn about the character's vertical in each bone's parent space,
+     per key.
+   - Watch item (agent-04): component +Z is the vertical only while the animation's root is not pitched. That holds
+     for standing presenters. A seated, leaning or lying performance needs the vertical from the world (the actor's
+     up) instead.

@@ -330,6 +330,28 @@ def _drop_ref():
             eas.destroy_actor(x)
 
 
+def _collar(a, parts, gv, body: str = "Body") -> dict:
+    """fmbridge.qa.garment_look.collar_stats at this pose: the garment's verts in the neck's frame (neck_01 ->
+    head axis of the Body) and their distance to the skin (the Face's lower neck, or the Body)."""
+    b = parts.get(body) or parts.get("Body")
+    if b is None:
+        return {"n": 0, "error": "no Body"}
+    n0, hd = b.get_socket_location("neck_01"), b.get_socket_location("head")
+    ax = hd - n0
+    L = ax.length() or 1.0
+    u = ax * (1.0 / L)
+    skins = [_Surface(_posed(parts[k])) for k in ("Face", body) if k in parts]
+    near = [p for p in gv if -10.0 <= (p - n0).dot(u) <= 6.0]
+    axial, radial, gap = [], [], []
+    for p in near:
+        t = (p - n0).dot(u)
+        radial.append((p - n0 - u * t).length())
+        axial.append(t)
+        ds = [(p - r[0]).length() for r in (sk.nearest(p) for sk in skins) if r is not None]
+        gap.append(min(ds) if ds else float("nan"))
+    return _look.collar_stats(axial, radial, gap)
+
+
 def _wpo_params(comp) -> dict:
     """The inflate parameters on the component's material instances (largest per name)."""
     out = {}
@@ -350,7 +372,7 @@ def _wpo_params(comp) -> dict:
 @op("qa.garment_look", mutates=False, idempotent=True, tags=["gpu", "slow", "metahuman", "experimental"])
 def garment_look(*, label: str, garment: str = "", ref_body: str = "", sequence: str = "", frames: list | None = None,
                  motion_from: int | None = None, motion_frames: int = 0, width_px: int = 480, samples: int = 1500,
-                 body: str = "Body", out_dir: str = "", ramps: dict | None = None):
+                 body: str = "Body", out_dir: str = "", ramps: dict | None = None, collar: bool = True):
     """Does the garment read as cloth or as ARMOR (fmbridge.qa.garment_look: the armor index)?
 
     Measured: `ease` (each sampled garment vertex's distance to the UNCUT reference body, posed: its spread and
@@ -363,6 +385,9 @@ def garment_look(*, label: str, garment: str = "", ref_body: str = "", sequence:
     ref_body: the uncut body mesh of the same build (needed for ease, silhouette, motion; without it they are skipped
     and reported missing). sequence + frames: where to look (default the sequence's first cut, middle). out_dir:
     _look_normal.png per frame (the garment's normals) on the box.
+    With `collar` (default), per frame the COLLAR band round the neck (fmbridge.qa.garment_look.collar_stats): its
+    gap to the skin and its radial spread; FAIL (hard) over 0.8 cm gap or any rolled frame (round 5: Fit5's collar
+    floated like a cowl while every other number passed).
     Returns: {"pass", "verdict": cloth|borderline|armor, "index", "terms", "issues", "missing", "metrics"}.
     Example: film-ue op qa.garment_look label=Host ref_body=/Game/Host/Unpacked/Host/Body/SKM_Host_BodyMesh sequence=/Game/Reel/SEQ_Reel 'frames=[1082,1150]' motion_from=1140 motion_frames=12
     """
@@ -405,6 +430,9 @@ def garment_look(*, label: str, garment: str = "", ref_body: str = "", sequence:
             fr["thickness_cm"] = round(_look.percentile(walls, 0.5), 3) if len(walls) >= 10 else 0.0
             fr["walls"] = len(walls)
             yield
+            if collar:
+                fr["collar"] = _collar(a, parts, gv, body)
+                yield
             if rc is not None:
                 bs = _Surface(_posed(rc))
                 ease = []
@@ -468,6 +496,10 @@ def garment_look(*, label: str, garment: str = "", ref_body: str = "", sequence:
     det = [v["detail"]["energy"] for v in vals if v.get("detail", {}).get("energy") is not None]
     if det:
         m["detail"] = min(det)
+    cols = [v["collar"] for v in vals if v.get("collar", {}).get("n")]
+    if cols:
+        m["collar"] = {"frames": len(cols), "gap_cm": max(c["gap_cm"] for c in cols),
+                       "spread_cm": max(c["spread_cm"] for c in cols), "roll_frames": sum(1 for c in cols if c["roll"])}
     if isinstance(m.get("motion"), dict):
         m["motion"] = m["motion"].get("ratio")
         if m["motion"] is None:
