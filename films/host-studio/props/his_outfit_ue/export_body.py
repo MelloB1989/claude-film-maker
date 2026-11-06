@@ -6,7 +6,8 @@ import os
 import unreal
 
 EAL = unreal.EditorAssetLibrary
-OUT = os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_saved_dir()), "Export", "his_outfit")
+OUT = os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_saved_dir()), "Export",
+                   globals().get("EXPORT_DIR", "his_outfit"))  # round 4, the operator's MetaHuman: his_outfit_op
 os.makedirs(OUT, exist_ok=True)
 host = next(a for a in unreal.get_editor_subsystem(unreal.EditorActorSubsystem).get_all_level_actors()
             if a.get_actor_label() == "Host")
@@ -32,7 +33,8 @@ idles = [p.split(".")[0] for p in EAL.list_assets("/MetaHumanCharacter/Optional/
 info["idles"] = idles
 
 todo = [("body", comps["Body"].get_skeletal_mesh_asset()), ("face", comps["Face"].get_skeletal_mesh_asset()),
-        ("garment", comps["SkeletalMesh"].get_skeletal_mesh_asset())]
+        ("garment", (comps.get("SkeletalMesh") or next(c for n, c in comps.items()  # his default garment: by
+                     if n not in ("Body", "Face", "Trousers"))).get_skeletal_mesh_asset())]  # elimination on another build
 male_idle = next((p for p in idles if "_m_" in p.lower() or "_mn" in p.lower() or "male" in p.lower().replace("female", "")), None)
 if male_idle:
     todo.append(("idle", unreal.load_asset(male_idle)))

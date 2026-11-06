@@ -490,6 +490,10 @@ mh.garment("Host", "Shirt", vectors={"diffuse_color_1": (0.032, 0.034, 0.038), "
 # tee (kept); the default garment's shorts are cut out (their slots get a fully transparent masked material).
 HIS_DIR = "/Game/Host/Host_Outfit"
 HIS_TROUSERS = f"{HIS_DIR}/SKM_Host_Trousers"
+# round 4: the operator's MetaHuman wears trousers fitted to HIS body and tee (props/his_outfit_ue/r4_fit_op.sh); the
+# ones fitted to Trey's tee showed their waistband through his tee's hem (cast v3: two-tone patches at the hips)
+if HOST == "op" and unreal.EditorAssetLibrary.does_asset_exist(HIS_TROUSERS + "_Op"):
+    HIS_TROUSERS += "_Op"
 if unreal.EditorAssetLibrary.does_asset_exist(HIS_TROUSERS):
     his_mats = {"M_Trousers": K.material("MI_K_HisTrousers", (1.0, 1.0, 1.0), kind="Pbr",
                                          texture=tex(HIS_DIR, "T_HisTwill_A"), normal=tex(HIS_DIR, "T_HisTwill_N"),

@@ -1,7 +1,9 @@
 """Who plays him, without rebuilding the studio: run studio.py's "host swap" block (HOST=trey|op: the Blueprint on the
 'Host' mark, SEQ_Reel's Host binding re-pointed) and its "his outfit" block (his trousers under the body, the default
 shorts hidden, the leader pose on every garment), then his shirt colour and lighting channels as studio.py sets them,
-and the leader check. In the editor:
+then his tee pushed out INFLATE_CM (default 0.4, as studio.py's finish() does; multi-tick) and the leader check.
+On HOST op the trousers are SKM_Host_Trousers_Op when it exists (his own fit: props/his_outfit_ue/r4_fit_op.sh).
+In the editor:
 
     film-ue exec -c "HOST='op'; CHECKOUT='<checkout>'; exec(open(CHECKOUT + '/films/host-studio/unreal/host_swap.py').read())"
 
@@ -44,11 +46,33 @@ if _g is not None:
     tee = ({"diffuse_color_1": (0.12, 0.12, 0.125), "diffuse_color_2": (0.135, 0.135, 0.14)} if HOST == "op" else
            {"diffuse_color_1": (0.032, 0.034, 0.038), "diffuse_color_2": (0.045, 0.047, 0.052)})
     mh.garment("Host", "Shirt", component=_g.get_name(), vectors=tee)
-lc = mh.leader_check(label="Host")
-host = L.actor("Host")
-result = {"host": HOST, "bp": host.get_class().get_path_name(), "tee": _g.get_name() if _g is not None else None,
-          "tee_slots": ({str(n_): (m_.get_name() if m_ else None) for n_, m_ in
-                         zip(_g.get_material_slot_names(), _g.get_materials())} if _g is not None else {}),
-          "components": sorted(c.get_name() for c in host.get_components_by_class(unreal.SkeletalMeshComponent)),
-          "leader_pass": lc["pass"], "leader_gap_cm": lc["metric"], "why": lc.get("why", "")}
-print(result)
+INFLATE_CM = float(globals().get("INFLATE_CM", 0.4))
+
+
+def finish():
+    """Multi-tick (film-ue exec runs a generator result): his tee pushed out INFLATE_CM along its normals, as
+    studio.py's finish() does on a full build. A swap alone never did it: Host_Op's tee in cast_op1-4 was the bare
+    MetaHuman instance (tee_slots: MI_WI_DefaultGarment...), tight on his skin (round 4, agent-02). The inflate swaps
+    the tee's material, so the leader pose is set again on every garment after it."""
+    g = his_garment()
+    inflated = {}
+    if g is not None and INFLATE_CM > 0:
+        inflated = yield from mh.cloth_inflate("Host", cm=INFLATE_CM, component=g.get_name(), which="Shirt")
+        for c in L.actor("Host").get_components_by_class(unreal.SkeletalMeshComponent):
+            if c.get_name() not in ("Body", "Face"):
+                c.set_leader_pose_component(his_part("Body"))
+    g = his_garment()
+    lc = mh.leader_check(label="Host")
+    host = L.actor("Host")
+    out = {"host": HOST, "bp": host.get_class().get_path_name(), "tee": g.get_name() if g is not None else None,
+           "tee_slots": ({str(n_): (m_.get_name() if m_ else None) for n_, m_ in
+                          zip(g.get_material_slot_names(), g.get_materials())} if g is not None else {}),
+           "inflated": inflated,
+           "trousers": (lambda t: t.get_skeletal_mesh_asset().get_name() if t else None)(his_part("Trousers")),
+           "components": sorted(c.get_name() for c in host.get_components_by_class(unreal.SkeletalMeshComponent)),
+           "leader_pass": lc["pass"], "leader_gap_cm": lc["metric"], "why": lc.get("why", "")}
+    print(out)
+    return out
+
+
+result = finish()
