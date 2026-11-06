@@ -35,6 +35,8 @@ preset: final
 shots: ${shots}
 chunking: ${chunking}
 preroll: cut
+# round 5 (cloth.render_check): the overshirt needs ~54 settle frames at a chunk start; 32 render warm-up + 22 engine
+warmup_engine: 22
 aa_method: "${aa}"
 spatial: ${spatial}
 shutter_timing: open
