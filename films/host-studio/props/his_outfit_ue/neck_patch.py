@@ -28,7 +28,8 @@ FRAMES = globals().get("FRAMES") or [("Reel_S13", 1078), ("Reel_S15", 1105), ("R
 INFLATE = float(globals().get("INFLATE", 0.2))
 PATCH = globals().get("PATCH") or {}
 FIND_ONLY = bool(globals().get("FIND_ONLY", False))
-CLUSTER = globals().get("CLUSTER", "largest")  # which cluster of pierce points gets the push (index, or the largest)
+MAX_R = float(globals().get("MAX_R", 4.0))  # cm: the patch (the orchestrator: a 4-5 cm falloff round it)
+MAX_INFLATE = float(globals().get("MAX_INFLATE", 0.5))  # cm: the plain inflate everywhere (the orchestrator: <= 0.5)
 MEL = unreal.MaterialEditingLibrary
 EAL = unreal.EditorAssetLibrary
 
@@ -188,11 +189,30 @@ def run():
     cl = clusters(ref, ids)
     rep["clusters"] = [{"verts": len(c), "centre": [round(v, 2) for v in ctr], "radius": round(rad, 2),
                         "deepest_cm": round(dp, 2)} for c, ctr, rad, dp in cl]
-    pick = cl[int(CLUSTER)] if str(CLUSTER).isdigit() else cl[0]  # default: the largest
+    # his neck meets the tee along the whole front collar arc, mostly by a few mm, and pierces it deeply in one place
+    # (the patch). The push goes on the deep part only: the lowest depth at which its largest cluster fits in
+    # MAX_R cm; everything shallower is left to the plain inflate (that depth + 0.05, at most MAX_INFLATE).
+    deep_at, pick = None, None
+    for k in range(4, 19):
+        t = k * 0.05
+        sub = {i: v for i, v in ids.items() if v >= t}
+        if not sub:
+            break
+        c = clusters(ref, sub)[0]
+        if c[2] <= MAX_R:
+            deep_at, pick = t, c
+            break
+    if pick is None:
+        rep["error"] = f"no depth threshold leaves a patch within {MAX_R} cm"
+        return rep
     _, (cx, cy, cz), r, deep = pick
-    knobs = {"FM_Inflate": INFLATE, "FM_Neck": 0.0, "FM_Patch": round(min(3.0, max(1.5, deep + 0.8)), 2),
+    knobs = {"FM_Inflate": round(min(MAX_INFLATE, max(INFLATE, deep_at + 0.05)), 2), "FM_Neck": 0.0,
+             "FM_Patch": round(min(3.0, max(1.5, deep + 0.8)), 2),
              "FM_PatchX": round(cx, 2), "FM_PatchY": round(cy, 2), "FM_PatchZ": round(cz, 2),
              "FM_PatchR": round(r + 1.0, 2), "FM_PatchF": 3.0}
+    rep["deep"] = {"threshold_cm": round(deep_at, 2), "verts": len(pick[0]), "radius": round(r, 2),
+                   "shallow_left": sum(1 for v in ids.values() if v < deep_at),
+                   "shallow_deepest_cm": round(max([v for v in ids.values() if v < deep_at] or [0.0]), 2)}
     knobs.update({k: float(v) for k, v in PATCH.items()})
     rep.update(patch_tee_verts=len(ids), deepest_cm=round(deep, 2), knobs=knobs)
     if FIND_ONLY:
