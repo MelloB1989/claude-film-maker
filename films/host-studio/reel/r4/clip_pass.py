@@ -165,6 +165,54 @@ def judge(d, under, over) -> dict:
             "clusters": blobs[:6], "_mask": kept}
 
 
+RIM_JUMP = float(globals().get("RIM_JUMP", 4.0))  # cm: the tee's front surface ends at the collar (behind: its inside)
+NECK_MARGIN = float(globals().get("NECK_MARGIN", 1.0))  # cm under the collar rim that is still the collar band
+
+
+def neck_px(d, mask) -> dict:
+    """The orchestrator's gate line for his neck patch, in pixels: Face>tee clip pixels (mask) BELOW the collar band.
+    The collar rim, per image column x, is the lowest tee pixel of its front surface's top edge: a tee pixel whose
+    pixel above has no tee or tee more than RIM_JUMP cm further (the tee's inside back, seen over the front collar),
+    with his face nearer than the tee there (his neck seen above the collar). The band is NECK_MARGIN cm (projected at
+    the rim's depth) under that rim. A column with no rim takes the nearest rim column's within 24 px; none: no band.
+    The neck correctly in front of the collar's inner lip (the thin band) sits within it; the patch ~3 cm below does not."""
+    F, T = d["Face"], d["tee"]
+    fpx = (W / 2) / math.tan(math.radians(FOV) / 2)
+    rim = {}
+    for i in range(W, W * H):
+        if T[i] >= EMPTY or F[i] >= EMPTY:
+            continue
+        j = i - W
+        if F[j] >= EMPTY or not (T[j] >= EMPTY or T[j] - T[i] > RIM_JUMP) or not (T[j] >= EMPTY or F[j] < T[j]):
+            continue
+        x, y = i % W, i // W
+        band = NECK_MARGIN * fpx / max(T[i], 1.0)
+        rim[x] = max(rim.get(x, (-1, 0.0)), (y, band))
+    xs = sorted(rim)
+
+    def edge(x):
+        if x in rim:
+            return rim[x]
+        near = [k for k in xs if abs(k - x) <= 24]
+        return rim[min(near, key=lambda k: abs(k - x))] if near else None
+
+    below = set()
+    for i in mask:
+        x, y = i % W, i // W
+        e = edge(x)
+        if e is None or y > e[0] + e[1]:
+            below.add(i)
+    blobs = []
+    for blob, _ in clusters(below, set()):
+        bx = [i % W for i in blob]
+        by = [i // W for i in blob]
+        blobs.append({"px": len(blob), "worst_cm": round(max(T[i] - F[i] for i in blob), 2),
+                      "box": [round(min(bx) / W, 3), round(min(by) / H, 3), round((max(bx) + 1) / W, 3),
+                              round((max(by) + 1) / H, 3)]})
+    blobs.sort(key=lambda b: -b["px"])
+    return {"px": len(below), "clusters": blobs[:6], "rim_cols": len(rim)}
+
+
 def neck3d(face_c, tee_c, body_c) -> dict:
     """His face mesh out through the tee, on the posed meshes (render LOD 0). For each face vert below the tee's top,
     within 6 cm of it and outside the cloth as rendered (its inflate added) by > 0.1 cm (out_all), a ray is cast from his neck/spine axis (the nearest point
@@ -303,6 +351,8 @@ def run():
                 fr, clip = {}, set()
                 for u, g in pairs(list(d)):
                     r = judge(d, u, g)
+                    if (u, g) == ("Face", "tee"):
+                        fr["neck_px"] = neck_px(d, r["_mask"])
                     clip |= r.pop("_mask")
                     fr[f"{u}>{g}"] = r
                     yield
@@ -355,6 +405,10 @@ def run():
     rep["worst"] = {k: {"fraction": v[0], "at": v[1]} for k, v in sorted(worst.items())}
     necks = [(fr["neck"]["out"], fr["neck"]["max_out_cm"], f"{shot}@{f}") for shot, per in rep["shots"].items()
              for f, fr in (per.items() if isinstance(per, dict) else ()) if "neck" in fr]
+    npx = [(fr["neck_px"]["px"], f"{shot}@{f}") for shot, per in rep["shots"].items()
+           for f, fr in (per.items() if isinstance(per, dict) else ()) if "neck_px" in fr]
+    if npx:
+        rep["worst"]["neck_px"] = {"px": max(npx)[0], "at": max(npx)[1]}
     if necks:
         o, cm, at = max(necks)
         rep["worst"]["neck"] = {"out": o, "max_out_cm": max(x[1] for x in necks), "at": at}
