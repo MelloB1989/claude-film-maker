@@ -128,7 +128,7 @@ def test_waiver_needs_reason_and_name_and_works_off_complaints():
 
 
 def test_clean_numbers_sign():
-    good = {"lips.lead_in_cm": 0.008, "lips.onset_lead_ms": 140, "lips.track_r": 0.71, "lips.cues_fresh": True,
+    good = {"lips.lead_in_cm": 0.008, "lips.onset_lead_ms": 140, "lips.track_r": 0.93, "lips.measured_against": 1, "lips.cues_fresh": True,
             "lips.lag_frames": 0, "lips.silence_open": 0.03, "lips.silence_busy": 0.1, "lips.render_lag_frames": 1,
             "lips.render_conclusive": True, "garment.wpo_cm": 0.0, "garment.armor_index": 0.3,
             "garment.pair_fraction": 0.0, "garment.silhouette_ratio": 1.05,

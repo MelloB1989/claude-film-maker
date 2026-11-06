@@ -76,6 +76,10 @@
   "garment.armor_index": {
    "value": 0.538,
    "where": "box G3 (2da3ce99)"
+  },
+  "lips.measured_against": {
+   "value": 0,
+   "where": "round 4 gate: frames + voice"
   }
  }
 }
