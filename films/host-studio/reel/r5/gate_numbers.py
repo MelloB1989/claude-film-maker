@@ -12,7 +12,7 @@ for `film-qa gate`. No frame leaves the box (face rule): it runs there, from too
     # hair.lock + hair.render_cvars (+ the hair.* numbers of film-qa hair on the finals and of the editor's
     # qa.hair_continuity: a measured number beats an error, the worst number wins)
     uv run python ../films/host-studio/reel/r5/gate_numbers.py hair --check $G/check_after.json \
-        --yaml ../films/host-studio/reel/r3/30-final.yaml --qa $G/her_final.json --qa $G/editor_after.json \
+        --yaml ../films/host-studio/reel/r3/30-final.yaml --qa-pop $G/her_final.json --qa $G/editor_after.json \
         --out $G/hair_gate.json
 
 A missing input writes the item with an error, so the gate FAILS it as "the check errored" rather than passing.
@@ -110,7 +110,40 @@ def _yaml_cvars(path: str) -> dict:
     return cv
 
 
-def hair(check: str, yaml_path: str, qa_paths: list) -> dict:
+POP_ONLY = ("hair.cut_pop_ratio",)
+
+
+def _pop_exclude(g: dict, qa_paths: list, excludes: list) -> None:
+    """hair.pop_reach_pct again from the full results' pop rows, without the windows a ruling in the round's spec
+    names (`hair_pop_exclude`: [{"shot", "frames": [f0, f1], "reason", "by"}]: a measure-scope decision, e.g. her
+    planned motion at a shot's start, proved on the render against round 4; never a waiver). Every pop it drops is
+    listed in the item."""
+    for e in excludes:
+        if not (str(e.get("reason") or "").strip() and str(e.get("by") or "").strip()):
+            g["hair.pop_reach_pct"] = _err(f"hair_pop_exclude {e} needs a reason and who decided it")
+            return
+    kept, dropped = [], []
+    for p in qa_paths:
+        d = json.loads(_read(p) or "null") or {}
+        d = d["result"] if isinstance(d.get("result"), dict) else d
+        for r in (d.get("characters") or {"": d}).values():
+            for pop in r.get("pops") or []:
+                hit = next((e for e in excludes if f"Reel_{e['shot']}" in (pop.get("shot"), f"Reel_{pop.get('shot')}")
+                            or e["shot"] == pop.get("shot")), None)
+                if hit and hit["frames"][0] <= pop["frame"] <= hit["frames"][1]:
+                    dropped.append({**pop, "by": hit["by"], "reason": hit["reason"]})
+                else:
+                    kept.append(pop)
+    if not dropped:
+        return
+    worst = max(kept, key=lambda q: abs(q["reach"]), default=None)
+    g["hair.pop_reach_pct"] = {"value": round(abs(worst["reach"]) * 100, 2) if worst else 0.0,
+                               "where": f"{worst['shot']} f{worst['frame']}" if worst else "no pop over the line",
+                               "excluded_by_ruling": dropped}
+
+
+def hair(check: str, yaml_path: str, qa_paths: list, pop_paths: list | None = None,
+         excludes: list | None = None) -> dict:
     g = {}
     c = json.loads(_read(check)) if _read(check) else None
     if c is None:
@@ -129,10 +162,11 @@ def hair(check: str, yaml_path: str, qa_paths: list) -> dict:
                if k not in have or float(have[k]) != float(v)]
         g["hair.render_cvars"] = {"value": int(not bad), "where": Path(yaml_path).name, "mismatch": bad}
     judged, popped = [], []  # every cut each result judged, so the gate output shows them (the orchestrator's check)
-    for p in qa_paths:
+    for p in list(qa_paths) + list(pop_paths or []):
+        only = POP_ONLY if p in (pop_paths or []) else None
         d = json.loads(_read(p) or "null")
         if d is None:
-            for k in ("hair.cut_reach_pct", "hair.pop_reach_pct", "hair.cut_pop_ratio"):
+            for k in only or ("hair.cut_reach_pct", "hair.pop_reach_pct", "hair.cut_pop_ratio"):
                 g.setdefault(k, _err(f"no film-qa hair result at {p!r}"))
             continue
         if isinstance(d.get("result"), dict):  # film-ue op's {"ok", "result": {...}}
@@ -144,6 +178,8 @@ def hair(check: str, yaml_path: str, qa_paths: list) -> dict:
         popped += [f"{c['from']}->{c['to']} f{c.get('cut')} x{c['ratio']}" if "ratio" in c else
                    f"{c['from']}->{c['to']} missing {c.get('missing')}" for c in d.get("cut_pops") or []]
         for k, v in (d.get("gate") or {}).items():
+            if only and k not in only:  # the render's night matte: only its pixel cut pop is a measure
+                continue
             # several results (render-side film-qa hair, the editor's qa.hair_continuity): a measured number beats
             # an error (the render matte saturates at night: hair.matte_saturated), and the worst number wins
             old = g.get(k)
@@ -152,23 +188,29 @@ def hair(check: str, yaml_path: str, qa_paths: list) -> dict:
             bad_old = old is None or ov is None or (isinstance(old, dict) and bool(old.get("error")))
             if old is None or (bad_old and not bad_new) or (not bad_old and not bad_new and vv > ov):
                 g[k] = v
+    if excludes and qa_paths:
+        _pop_exclude(g, qa_paths, excludes)
     for k, extra in (("hair.cut_reach_pct", {"cuts_judged": judged}), ("hair.cut_pop_ratio", {"pop_cuts": popped})):
-        if k in g and qa_paths:
+        if k in g and (qa_paths or pop_paths):
             g[k] = {**(g[k] if isinstance(g[k], dict) else {"value": g[k]}), **extra}
     return g
 
 
-def settle(frames: str, spec: str, shot: str, first: int = 4, rest: int = 12, line: float = 1.8) -> dict:
-    """The hair settle at a shot's start, on rendered frames (the editor's qa.hair_continuity has no warm-up, so its
-    pops at a shot's first frames may be the editor's own): head-box frame differences (qa/hair.py box_diff, no
-    matte: the night matte saturates) of the first `first` frame pairs over the median of the next `rest` pairs.
-    A settling hair simulation moves several times more than the shot's own motion; the render's warm-up (32 render
-    + 22 engine frames in r3/30-final) should remove it."""
+def settle(frames: str, spec: str, shot: str, first: int = 4, rest: int = 12, line: float = 1.8,
+           box: list | None = None) -> dict:
+    """Head + hair motion at a shot's start, on rendered frames: head-box frame differences (qa/hair.py box_diff, no
+    matte) of the first `first` frame pairs over the median of the next `rest` pairs. Anything that moves or changes
+    in the box at the start reads: a hair simulation settling, a head snapping into its pose, but also a render job's
+    own start (exposure adaptation, temporal history) and planned motion. A DIAGNOSTIC, not a gate line: round 5b's
+    S15 read 12.3 with round 4's final_d reading the same shape (13.8), while the eye saw her head snap only in round
+    5, so the number did not separate them on a large box. Compare with round 4 (the same command on final_d), on a
+    TIGHT box around the head. `box`: frame fractions, else the spec's box for the shot (hair_spec.py builds the
+    FIRST shot's box from its END frames: pass --box from a projection at the shot's start when the head moves)."""
     from filmtools.unreal import qa_local
     qa_local.qa()
     im, h = sys.modules["fmqa.image"], sys.modules["fmqa.hair"]
     sp = json.loads(Path(spec).read_text())
-    box = (sp.get("boxes") or {}).get(shot)
+    box = box or (sp.get("boxes") or {}).get(shot)
     a0 = next((c[1] for c in sp.get("cuts") or [] if c[0] == shot), None)
     if not box or a0 is None:
         return {"error": f"no box/cut for {shot} in {spec}"}
@@ -180,8 +222,9 @@ def settle(frames: str, spec: str, shot: str, first: int = 4, rest: int = 12, li
     d = [round(h.box_diff(imgs[f], imgs[f + 1], box), 3) for f in range(a0, a0 + first + rest)]
     base = sorted(d[first:])[len(d[first:]) // 2]
     ratio = round(max(d[:first]) / max(base, 0.5), 3)
-    return {"shot": shot, "box": box, "diffs": d, "start_max": max(d[:first]), "median_after": base,
-            "ratio": ratio, "line": line, "pass": ratio <= line}
+    return {"what": "head+hair motion at the shot start (diagnostic)", "shot": shot, "box": box, "diffs": d,
+            "start_max": max(d[:first]), "median_after": base, "ratio": ratio, "line": line, "pass": ratio <= line,
+            "gate": {"shot.start_motion_ratio": {"value": ratio, "where": f"{shot} f{a0}-{a0 + first}"}}}
 
 
 def main(argv=None) -> int:
@@ -200,16 +243,20 @@ def main(argv=None) -> int:
     h = sub.add_parser("hair")
     h.add_argument("--check", required=True, help="groom.lock_check (or groom.lock) result json")
     h.add_argument("--yaml", required=True, help="the finals' render spec")
-    h.add_argument("--qa", action="append", default=[], help="film-qa hair --out json (repeatable)")
+    h.add_argument("--qa", action="append", default=[], help="film-qa hair / qa.hair_continuity json (repeatable)")
+    h.add_argument("--spec", default="", help="the round's gate spec: its hair_pop_exclude rulings, if any")
+    h.add_argument("--qa-pop", action="append", default=[], help="film-qa hair on NIGHT renders: only its "
+                   "hair.cut_pop_ratio is taken (the luma matte reads dark clothing as hair: reach is not a measure)")
     h.add_argument("--out", required=True)
-    st = sub.add_parser("settle", help="the hair settle at a shot's first frames, on the rendered frames")
+    st = sub.add_parser("settle", help="head+hair motion at a shot's first frames, on the rendered frames (diagnostic)")
+    st.add_argument("--box", default="", help="x0,y0,x1,y1 frame fractions (default: the spec's box for the shot)")
     st.add_argument("--frames", required=True)
     st.add_argument("--spec", required=True, help="hair_spec.py's json (its boxes and cuts)")
     st.add_argument("--shot", default="S15")
     st.add_argument("--out", required=True)
     a = ap.parse_args(argv)
     if a.cmd == "settle":
-        r = settle(a.frames, a.spec, a.shot)
+        r = settle(a.frames, a.spec, a.shot, box=[float(v) for v in a.box.split(",")] if a.box else None)
         Path(a.out).parent.mkdir(parents=True, exist_ok=True)
         Path(a.out).write_text(json.dumps(r, indent=1))
         print(json.dumps(r, indent=1))
@@ -219,7 +266,8 @@ def main(argv=None) -> int:
     elif a.cmd == "ssim":
         g = ssim(a.frames, a.ref, [x for x in a.shots.split(",") if x], a.step)
     else:
-        g = hair(a.check, a.yaml, a.qa)
+        ex = (json.loads(Path(a.spec).read_text()).get("hair_pop_exclude") or []) if a.spec else []
+        g = hair(a.check, a.yaml, a.qa, a.qa_pop, ex)
     out = {"gate": g}
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
     Path(a.out).write_text(json.dumps(out, indent=1))

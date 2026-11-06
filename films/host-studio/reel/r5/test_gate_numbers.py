@@ -117,3 +117,31 @@ def test_settle_flags_a_start_pop(tmp_path):
     r = GN.settle(str(tmp_path), str(tmp_path / "spec.json"), "S15")
     assert r["pass"] is False and r["ratio"] > 1.8
     assert GN.settle(str(tmp_path), str(tmp_path / "spec.json"), "S16")["error"]
+
+
+def test_hair_pop_only_ignores_the_night_matte(tmp_path):
+    """Round 5b: film-qa hair on the night finals read cut_reach 156.5 % (the matte took her dark clothing) without
+    flagging saturation; with --qa-pop only its cut_pop_ratio is taken and the editor's reach stands."""
+    (tmp_path / "c.json").write_text(json.dumps({"pass": True}))
+    (tmp_path / "rd.json").write_text(json.dumps({"gate": {"hair.cut_reach_pct": 156.5, "hair.pop_reach_pct": 0.0,
+                                                           "hair.cut_pop_ratio": 1.372}}))
+    (tmp_path / "ed.json").write_text(json.dumps({"gate": {"hair.cut_reach_pct": 2.0, "hair.pop_reach_pct": 8.9}}))
+    g = GN.hair(str(tmp_path / "c.json"), str(GN.REEL / "r3" / "30-final.yaml"), [str(tmp_path / "ed.json")],
+                [str(tmp_path / "rd.json")])
+    assert g["hair.cut_reach_pct"]["value"] == 2.0 and g["hair.pop_reach_pct"] == 8.9
+    assert g["hair.cut_pop_ratio"]["value"] == 1.372
+
+
+def test_pop_exclude_needs_a_ruling_and_lists_what_it_drops(tmp_path):
+    (tmp_path / "c.json").write_text(json.dumps({"pass": True}))
+    ed = {"gate": {"hair.cut_reach_pct": 1.96, "hair.pop_reach_pct": 8.93}, "characters": {"Presenter": {"pops": [
+        {"shot": "Reel_S15", "frame": 1082, "reach": -0.0893, "area": 0.038}]}}}
+    (tmp_path / "ed.json").write_text(json.dumps(ed))
+    y = str(GN.REEL / "r3" / "30-final.yaml")
+    rule = {"shot": "S15", "frames": [1080, 1086], "reason": "planned motion, render = round 4", "by": "cc-64d05f6e"}
+    g = GN.hair(str(tmp_path / "c.json"), y, [str(tmp_path / "ed.json")], [], [rule])
+    assert g["hair.pop_reach_pct"]["value"] == 0.0 and g["hair.pop_reach_pct"]["excluded_by_ruling"][0]["frame"] == 1082
+    g = GN.hair(str(tmp_path / "c.json"), y, [str(tmp_path / "ed.json")], [], [{**rule, "frames": [1090, 1100]}])
+    assert g["hair.pop_reach_pct"] == 8.93  # outside the window: unchanged
+    g = GN.hair(str(tmp_path / "c.json"), y, [str(tmp_path / "ed.json")], [], [{**rule, "by": ""}])
+    assert g["hair.pop_reach_pct"]["error"]  # no name, no exclusion
