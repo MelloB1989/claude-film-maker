@@ -1,3 +1,59 @@
+# QA handoff (agent-09): ROUND 4 (06 Nov), the gate on cast_op5 and the finals' QA
+
+Numbers only. No Host_Op frame, crop or still leaves the box (face rule); the orchestrator looks at Host_Op by eye from
+private/. Both this gate and that review must pass before the presenter finals.
+
+## The gate: `cast_gate.py sign` (exit 0 = SIGN, 1 = REFUSE, each failing item with its frames)
+
+On the box, from `tools/` in the box tree, `G=/srv/ue/reel/r4/gate`, `R=../films/host-studio/reel`:
+
+    uv run python $R/cast_gate.py engine --out $G/engine.json            # jaw curves, alive, qa.penetration, watch (scrubs)
+    uv run python $R/cast_gate.py mouth  --out $G/mouth.json             # a box per speaker per shot from the lip bones
+    uv run python $R/cast_gate.py lod0   --out $G/lod0.json              # read-only
+    uv run python $R/r3/probe_cam.py V01,V02,V03,V04,V05,S11,S12,N01,S13,S15,S16,S17,S18 --check > $G/cams.txt
+    python3 $R/framing.py > $G/framing.txt
+    uv run --with pillow --with numpy python $R/cast_gate.py frames <cast_op5 dir> --engine $G/engine.json \
+        --mouth $G/mouth.json --out $G/frames
+    uv run --with pillow --with numpy python $R/cast_gate.py hue <cast_op5 dir> --frames 1236,1300 --out $G/hue
+    uv run --with pillow --with numpy python $R/cast_gate.py sign --name cast_op5 --engine $G/engine.json \
+        --frames $G/frames/cast_gate_frames.json --hue $G/hue/hue.json --turns <agent-01's table> \
+        --clip <agent-02's json> --cams $G/cams.txt --framing $G/framing.txt --lod0 $G/lod0.json --out $G/gate.json
+
+| item | measure | pass | why this line |
+|---|---|---|---|
+| a. lips | every spoken line (L1 S13 him; L2 S15 him; L3a S15 her; L3b S16 her; L4a S17 him; L4b S17 her): mean abs luma change inside the speaker's projected mouth box (per frame, from FACIAL_* lip bones via cam.project) on the line, over the same in the speaker's own silence in that shot (3 frames clear of any line) | ratio >= 2.0 per line; and the engine's jaw on/off >= 3 per person, no silent line | 2.0: preview 1 with no lip sync read 1.55, round 1's good sync 2.37, cast3 S13 2.13. Boxes under 8 px tall (S17's 28 mm two-shot at 960x540: ~5 px) cannot separate a mouth from a pixel of head motion, so those lines are judged on the engine's jaw for that line (jaw_max >= 0.08 and moving), and re-read on the 1080p finals |
+| b. watch | HerWatch to hand_l, cm, after seq.scrub, at start+2 / mid / end-3 of S15-S18 | every sample 3.6 +- 0.5 | dress_her's seat is 3.6; cast_op2-4 rendered a stale 8.2, which the old <= 8.0 cap would pass at 7.9 |
+| c. hair hue | Lab on the hair's dark pixels (L* < 30) in the crown and both ends regions, f1236 and f1300 | green_px <= 0.05 in every region, ends a* >= -2 | 0.05: the right ends and the clean frames read 0.02-0.03; the defect reads 0.21-0.24 |
+| d. head turns | agent-01's direction table, every look beat | every beat ok | agent-01's own rule per beat |
+| e. clipping (him) | agent-02's metric; without it the engine's qa.penetration worst_fraction on his garments | <= CLIP_MAX per garment per sampled frame | see `CLIP_WHY` in cast_gate.py (set from agent-02's clean-vs-clip numbers) |
+| f. cameras + framing | probe_cam --check on all 13 Reel_ cameras; framing.py's PROBLEM lines | 13/13 OK, no PROBLEM | the plan's own tolerances (1 cm, 0.1 deg, 0.05 mm) |
+| g. lod0 live | the presenters' components (read-only) | no TRASH_ component on Host or Presenter at all; every live LODSync forced_lod 0; every skeletal mesh forced_lod_model 1 | a pin, drive_faces or a dressing on a TRASH_ component does nothing to what renders |
+
+`--waive item=reason` marks a failing item WAIVED (listed, not blocking): only on the orchestrator's word (e.g. the hair
+if its time-box ends unfixed).
+
+## Her hair's teal ends (time-boxed, 60 min of box time)
+
+What the numbers say so far: only the screen-LEFT ends are green (f1236: a* 0.0, green_px 0.22) while the screen-right
+ends and the crown read a* ~+2. Hiding the overshirt, the two Lumen/scatter cvars, the cards/helmet MIs and coverage
+each moved it by < 0.01. One-sided green is directional. The A/B (`hair_teal_ab.py`, R4 variants):
+`hair_hidden` (a mask: `cast_gate.py hue --mask hair_hidden.png` measures only the pixels the hair changes, so a dark
+green background between thin tips stops counting as green hair), `plants_hidden`, `trt_sat_1` / `trt_off` (the TRT
+lobe, the light carried through the strand; its saturation is 1.2), `tips_ombre_root`, `redness_0.15`,
+`pp_shadow_desat` (a grade, last resort), and `--lights-ab 8` (each of the 8 lights with the most pull at her head off on
+its own). Results below when run.
+
+## The finals' QA: `r3/final_qa.py` (read-only, numbers only)
+
+    uv run --with pillow --with numpy python $R/r3/final_qa.py --final /srv/ue/reel/r3/final_d \
+        --cut /srv/ue/reel/r3/cut/final --out /srv/ue/reel/r4/qa/final_qa.json
+
+Plus agent-05's `r3/final_check.py` (FINAL=final_d) and `r3/camcheck.py`. Pass: every shot's frames on disk, 1920x1080,
+none black (< 0.01) or white (> 0.97); each cut deliverable 1560 / 1080 frames, audio = picture, -14 +- 1 LUFS, true
+peak <= -1 dBTP; every caption line within 2 frames of its first VO word (cues.json through the cut's EDL).
+
+## Round 4 log
+
 # QA handoff (agent-09): the presenter gate, end of night 1 (05 Nov, ~21:50 UTC)
 
 Read with ROUND3.md (state, items 1-17). This file is the presenter gate's own state: what is verified and what is
