@@ -1,0 +1,162 @@
+"""Round 5 (agent-02), the NECK BACKSTOP ("route B", docs/unreal/research/garment-fit.md §3): MetaHuman's own head
+hidden face map, set to SHRINK (not cull) his face mesh's lower neck under the tee's collar, so a big head turn
+(S17 f1397) cannot bring the face mesh out through the collar even where the collar lags. Only if (A)'s qa.clip
+still reads neck_px > 0. It needs a MetaHuman REBUILD (the map is applied at assembly), i.e. the full re-dress after.
+
+Verified on the 5.8.4 source: UMetaHumanSkeletalMeshEditorPipeline / UMetaHumanOutfitEditorPipeline
+HeadHiddenFaceMapTexture {Texture, Settings{MaxCullValue 0.1, MinKeepValue 0.9, MaxShrinkDistance 0}}; per skin
+vertex the map is sampled in its UV space (max of R, G, B); ComputeShrinkWeight = 1 - clamp((p - MaxCull) / (MinKeep -
+MaxCull)); a triangle fully under p <= MaxCull is REMOVED. So MaxCull is set to -0.01 (nothing is ever removed) and
+the band is drawn from p = 0 (full shrink) to 1 (white: untouched).
+
+    STAGE='mask'  (read-only on the project): the face verts under the tee (a ray out along the skin normal meets
+                  the Tee within REACH cm, rest pose), each weighted by its distance under the collar edge (0 at the
+                  edge, 1 at RAMP cm below), rasterised into the head's UV 0 as a grey PNG at OUT.
+    STAGE='apply' (writes assets): imports the PNG (/Game/Host/Fit/T_Host_NeckHidden, sRGB off), duplicates the
+                  default garment's wardrobe item WI to /Game/Host/Fit/WI_Host_DefaultGarment_Neck and sets its head
+                  hidden face map (MaxShrinkDistance SHRINK_CM). Then (garment.md §5b): mh.add_item that WI in the
+                  Outfits slot, mh.build, and the re-dress chain.
+    film-ue exec -c "STAGE='mask'; WI='<default garment WI_>'; exec(open('<tree>/films/host-studio/reel/r5/neck_backstop.py').read())"
+"""
+import os
+
+import unreal
+
+STAGE = globals().get("STAGE", "mask")
+LABEL = globals().get("LABEL", "Host")
+TEE = globals().get("TEE", "Tee")  # the refit tee's component
+REACH = float(globals().get("REACH", 4.0))  # cm: a face vert this far under the cloth (along its normal) is covered
+RAMP = float(globals().get("RAMP", 3.0))  # cm under the collar edge to full shrink
+SHRINK_CM = float(globals().get("SHRINK_CM", 1.5))
+SIZE = int(globals().get("SIZE", 1024))
+OUT = globals().get("OUT") or "/srv/ue/reel/r5/garment/neck_hidden.png"
+DEST = "/Game/Host/Fit"
+WI = globals().get("WI", "")
+
+AU, SP, MQ, LU = (unreal.GeometryScript_AssetUtils, unreal.GeometryScript_MeshSpatial, unreal.GeometryScript_MeshQueries,
+                  unreal.GeometryScript_List)
+EAL = unreal.EditorAssetLibrary
+
+
+def pick(res, cls):
+    items = res if isinstance(res, tuple) else (res,)
+    return next((x for x in items if type(x).__name__ == cls), items[0])
+
+
+def dm_of(skm):
+    dm = unreal.DynamicMesh()
+    lod = unreal.GeometryScriptMeshReadLOD()
+    lod.set_editor_property("lod_index", 0)
+    AU.copy_mesh_from_skeletal_mesh(skm, dm, unreal.GeometryScriptCopyMeshFromAssetOptions(), lod)
+    return dm
+
+
+def mask():
+    from fmbridge.qa import image as I
+    host = next(a for a in unreal.get_editor_subsystem(unreal.EditorActorSubsystem).get_all_level_actors()
+                if a.get_actor_label() == LABEL)
+    comps = {c.get_name(): c for c in host.get_components_by_class(unreal.SkeletalMeshComponent)}
+    face, tee = dm_of(comps["Face"].get_skeletal_mesh_asset()), dm_of(comps[TEE].get_skeletal_mesh_asset())
+    V = list(LU.convert_vector_list_to_array(pick(MQ.get_all_vertex_positions(face, False), "GeometryScriptVectorList")))
+    N = list(LU.convert_vector_list_to_array(pick(unreal.GeometryScript_Normals.get_mesh_per_vertex_normals(face),
+                                                  "GeometryScriptVectorList")))
+    UV = list(LU.convert_uv_list_to_array(pick(unreal.GeometryScript_UVs.get_mesh_per_vertex_uvs(face, 0),
+                                               "GeometryScriptUVList")))
+    all_ids = getattr(MQ, "get_all_triangle_i_ds", None) or getattr(MQ, "get_all_triangle_ids")
+    tids = list(LU.convert_index_list_to_array(pick(all_ids(face), "GeometryScriptIndexList")))
+    tris = []
+    for t in tids:
+        iv = pick(MQ.get_triangle_indices(face, t), "IntVector")
+        tris.append((iv.x, iv.y, iv.z))
+    TV = list(LU.convert_vector_list_to_array(pick(MQ.get_all_vertex_positions(tee, False), "GeometryScriptVectorList")))
+    top = max(p.z for p in TV)
+    bvh = pick(SP.build_bvh_for_mesh(tee), "GeometryScriptDynamicMeshBVH")
+    q = unreal.GeometryScriptSpatialQueryOptions()
+    cov = [False] * len(V)
+    for i, (p, n) in enumerate(zip(V, N)):
+        if p.z > top:
+            continue
+        ln = n.length() or 1.0
+        hit = pick(SP.find_nearest_ray_intersection_with_mesh(tee, bvh, p, n * (1.0 / ln), q), "GeometryScriptRayHitResult")
+        cov[i] = bool(hit.get_editor_property("hit")) and float(hit.get_editor_property("ray_parameter")) <= REACH
+    # the collar edge: uncovered verts that share a triangle with a covered one
+    edge = set()
+    for a, b, c in tris:
+        k = (cov[a], cov[b], cov[c])
+        if any(k) and not all(k):
+            edge.update(i for i in (a, b, c) if not cov[i])
+    E = [V[i] for i in edge]
+    w = [0.0] * len(V)
+    for i, c in enumerate(cov):
+        if c and E:
+            d = min((V[i] - e).length() for e in E)
+            w[i] = max(0.0, min(1.0, d / RAMP))
+    img = bytearray([255] * (SIZE * SIZE))
+    drawn = 0
+    for a, b, c in tris:
+        if not (cov[a] or cov[b] or cov[c]):
+            continue
+        P = [(UV[i].x * SIZE, UV[i].y * SIZE, 1.0 - w[i] if cov[i] else 1.0) for i in (a, b, c)]
+        x0, x1 = int(max(0, min(p[0] for p in P))), int(min(SIZE - 1, max(p[0] for p in P) + 1))
+        y0, y1 = int(max(0, min(p[1] for p in P))), int(min(SIZE - 1, max(p[1] for p in P) + 1))
+        (ax, ay, av), (bx, by, bv), (cx, cy, cv) = P
+        den = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy)
+        if abs(den) < 1e-9:
+            continue
+        for y in range(y0, y1 + 1):
+            for x in range(x0, x1 + 1):
+                l1 = ((by - cy) * (x + 0.5 - cx) + (cx - bx) * (y + 0.5 - cy)) / den
+                l2 = ((cy - ay) * (x + 0.5 - cx) + (ax - cx) * (y + 0.5 - cy)) / den
+                l3 = 1 - l1 - l2
+                if min(l1, l2, l3) < -0.02:
+                    continue
+                v = int(round(255 * max(0.0, min(1.0, l1 * av + l2 * bv + l3 * cv))))
+                j = y * SIZE + x
+                if v < img[j]:
+                    img[j] = v
+                    drawn += 1
+    os.makedirs(os.path.dirname(OUT), exist_ok=True)
+    I.write(I.Image(SIZE, SIZE, 1, img), OUT)
+    return {"face_verts": len(V), "covered": sum(cov), "edge_verts": len(edge), "full_shrink": sum(1 for x in w if x >= 1),
+            "px_drawn": drawn, "png": OUT, "uv_valid": bool(UV) and len(UV) == len(V)}
+
+
+def apply():
+    if not WI:
+        raise RuntimeError("WI= the default garment's wardrobe item (garment.hidden_face_maps / mh.palette)")
+    t = unreal.AssetImportTask()
+    t.set_editor_property("filename", OUT)
+    t.set_editor_property("destination_path", DEST)
+    t.set_editor_property("destination_name", "T_Host_NeckHidden")
+    for k in ("automated", "replace_existing", "save"):
+        t.set_editor_property(k, True)
+    unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks([t])
+    tex = EAL.load_asset(f"{DEST}/T_Host_NeckHidden")
+    tex.set_editor_property("srgb", False)
+    tex.set_editor_property("compression_settings", unreal.TextureCompressionSettings.TC_GRAYSCALE)
+    EAL.save_asset(f"{DEST}/T_Host_NeckHidden")
+    dst = f"{DEST}/WI_Host_DefaultGarment_Neck"
+    if not EAL.does_asset_exist(dst):
+        EAL.duplicate_asset(WI, dst)
+    wi = EAL.load_asset(dst)
+    ed = wi.get_editor_property("pipeline").get_editor_property("editor_pipeline")
+    h = ed.get_editor_property("head_hidden_face_map_texture")
+    h.set_editor_property("texture", tex)
+    s = h.get_editor_property("settings")
+    s.set_editor_property("max_cull_value", -0.01)  # never remove: shrink only
+    s.set_editor_property("min_keep_value", 0.9)
+    s.set_editor_property("max_shrink_distance", SHRINK_CM)
+    h.set_editor_property("settings", s)
+    ed.set_editor_property("head_hidden_face_map_texture", h)
+    EAL.save_asset(dst)
+    back = ed.get_editor_property("head_hidden_face_map_texture")
+    bs = back.get_editor_property("settings")
+    return {"wi": dst, "texture": tex.get_path_name(), "read_back": {
+        "texture": back.get_editor_property("texture").get_path_name() if back.get_editor_property("texture") else None,
+        "max_cull_value": bs.get_editor_property("max_cull_value"),
+        "min_keep_value": bs.get_editor_property("min_keep_value"),
+        "max_shrink_distance": bs.get_editor_property("max_shrink_distance")},
+        "next": f"mh.add_item character=<his MH_> item={dst} slot=Outfits; mh.build; the re-dress chain (garment.md §5b)"}
+
+
+result = mask() if STAGE == "mask" else apply()
