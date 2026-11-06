@@ -48,6 +48,9 @@ if _g is not None:
     mh.garment("Host", "Shirt", component=_g.get_name(), vectors=tee)
 INFLATE_CM = float(globals().get("INFLATE_CM", 0.4))
 NECK = globals().get("NECK") or {}  # e.g. {"FM_Neck": 2.8, "FM_NeckZ0": ..}: neck_inflate.py (HOST op only)
+# the neckline term's amount (cm): his tee's front pushed out this much more from 14 cm under neck_01 (none) to 5 cm
+# under it and up (all), the front only; its heights and front from his bones. 0 = off (the re-rig is the root fix)
+NECK_CM = float(globals().get("NECK_CM", 0.0))
 
 
 def finish():
@@ -74,8 +77,17 @@ def finish():
         finally:
             if kw:
                 _act._add_inflate = plain
-        if NECK:  # the neckline term's knobs (only on HOST op's master)
-            mh.garment("Host", "Shirt", component=his_garment().get_name(), scalars=NECK)
+        neck = dict(NECK)
+        if kw and NECK_CM > 0:  # the neckline term from his own bones (mesh space = component space, cm)
+            b = his_part("Body")
+            cs = unreal.RelativeTransformSpace.RTS_COMPONENT
+            nz = b.get_socket_transform("neck_01", cs).translation.z
+            fy = b.get_socket_transform("ball_l", cs).translation.y - b.get_socket_transform("foot_l", cs).translation.y
+            neck = {"FM_Neck": NECK_CM, "FM_NeckZ0": nz - 14.0, "FM_NeckZ1": nz - 5.0,
+                    "FM_NeckFront": 0.1 if fy > 0 else -0.1, "FM_NeckFrontBias": 0.5, **neck}
+        if neck and kw:  # the neckline term's knobs (only on HOST op's master)
+            mh.garment("Host", "Shirt", component=his_garment().get_name(), scalars=neck)
+            inflated["neck"] = neck
         for c in L.actor("Host").get_components_by_class(unreal.SkeletalMeshComponent):
             if c.get_name() not in ("Body", "Face"):
                 c.set_leader_pose_component(his_part("Body"))
