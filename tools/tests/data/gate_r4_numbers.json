@@ -50,8 +50,8 @@
    "where": "Trousers>tee cast_op4"
   },
   "head.blink_nod_deg": {
-   "value": 1.61,
-   "where": "Presenter S17 f1380 (perfkit alone)"
+   "value": 2.696,
+   "where": "Presenter f1395-1407 (box)"
   },
   "garment.cloth_alive": {
    "value": 0.0,
@@ -68,6 +68,14 @@
   "hair.cut_pop_ratio": {
    "value": 2.57,
    "where": "final_d head box 1439->1440"
+  },
+  "head.blink_locked_deg": {
+   "value": 0.416,
+   "where": "Presenter f1080-1559, 12 blinks (box)"
+  },
+  "garment.armor_index": {
+   "value": 0.538,
+   "where": "box G3 (2da3ce99)"
   }
  }
 }

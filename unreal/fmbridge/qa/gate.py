@@ -6,7 +6,8 @@ gate had either no number for them, a number it never read (the grooms' own LOD)
 waived. v2's rules:
 
 1. An item is a measured number, a comparison and a line (ITEMS); a `guard` item protects against a new failure
-   (a fix overshooting) and need not fail round 4.
+   (a fix overshooting) and need not fail round 4; an `info` item is reported but never blocks (a measure not
+   trusted yet; its r4 note says why).
    It says where to look (shots, frames), which
    command produces the number, and the round-4 value that the line must fail (`r4`), so a line that would have
    passed round 4 is visible in review.
@@ -102,14 +103,15 @@ ITEMS: dict = {
                 "-0.1 s to lid open +0.12 s, de-trended by the chord between the window edges",
         "where": "every blink of each presenter (her f1080-1559, him from f960)",
         "how": "film-ue op qa.head_stability + film-qa head-gate (agent-04, T2)",
-        "r4": [1.61, "her S17 f1380 glance blink, perfkit alone (before the solver's head); also 1.23 f1397, 0.83 f1145"],
+        "r4": [2.696, "Presenter f1395-1407 on the box (round 5 probe, agent-04's edge fix d4485bf4); perfkit "
+                      "alone offline read 1.61 at f1380"],
         "why": "the operator: 'every time she blinks her head nods a little down'"},
     "head.blink_locked_deg": {
         "area": "head", "track": "T2", "op": "<=", "line": 0.3, "unit": "deg",
         "what": "blink-triggered average of the de-trended head pitch: small nods on EVERY blink that each stay "
                 "under the per-blink line",
         "where": "all blinks of each presenter", "how": "film-qa head-gate (T2)",
-        "r4": [None, "T2's probe on round 4's face anims"], "why": "the operator saw it on every blink"},
+        "r4": [0.416, "Presenter f1080-1559, 12 blinks (round 5 probe)"], "why": "the operator saw it on every blink"},
     # --- T3a/T3b: garments
     "garment.neck_px": {
         "area": "garment", "track": "T3a", "op": "<=", "line": 0, "unit": "px",
@@ -132,11 +134,13 @@ ITEMS: dict = {
         "where": "his tee's materials", "how": "film-ue garment-gate (agent-02, T3a)",
         "r4": [2.66, "0.15 + 0.75 + 1.76 cm (patch3)"], "why": "the operator: 'heavy armor inside'"},
     "garment.armor_index": {
-        "area": "garment", "track": "T3a", "op": "<=", "line": 0.5, "unit": "index",
+        "area": "garment", "track": "T3a", "op": "<=", "line": 0.5, "unit": "index", "guard": True,
         "what": "qa.garment_look: ease spread vs the uncut body, wall thickness, wpo, silhouette ratio, normal "
                 "detail, motion",
         "where": "S15 f1082/1150, S17 f1397", "how": "film-ue garment-gate --look (T3a)",
-        "r4": [None, "probe G3 on the r4 state before the refit (agent-02 expects ~0.7)"],
+        "r4": [0.538, "box G3 terms re-scored under agent-02's ramps (2da3ce99); her fitted Top 0.0. A GUARD, not a "
+                      "regression line: the detail ramp is fitted to two points (her Top = cloth, his r4 tee = "
+                      "armour), so it fails round 4 by construction; garment.wpo_cm is the independent line"],
         "why": "the operator: a smooth, thick, rigid shell"},
     "garment.pair_fraction": {
         "area": "garment", "track": "T3a", "op": "<=", "line": 0.001, "unit": "fraction",
@@ -144,10 +148,11 @@ ITEMS: dict = {
         "where": "S13, S15, S17, S18", "how": "film-ue op qa.clip (T3a)",
         "r4": [0.0067, "Trousers>tee at cast_op4"], "why": "~4 px of a garment"},
     "garment.silhouette_ratio": {
-        "area": "garment", "track": "T3a", "op": "<=", "line": 1.12, "unit": "ratio", "guard": True,
+        "area": "garment", "track": "T3a", "op": "<=", "line": 1.12, "unit": "ratio", "guard": True, "info": True,
         "what": "(garment U body) / uncut body px in the garment's rows: the balloon guard for the refit",
         "where": "S15, S17", "how": "qa.garment_look (T3a)",
-        "r4": [None, "a guard, not a regression line: round 4 did not balloon (probe G3 gives its value)"],
+        "r4": [None, "info only in round 5: qa.garment_look's reference-body capture is not trustworthy on the box "
+                     "(2.30 / 966 px, agent-02); garment.silhouette_pct and the orchestrator's eye cover a balloon"],
         "why": "08:19 round 4: the tee BALLOONED once"},
     "garment.cloth_alive": {
         "area": "garment", "track": "T3b", "op": ">=", "line": 0.30, "unit": "cm",
@@ -235,6 +240,8 @@ def check(item_id: str, it: dict, raw) -> dict:
         return {**row, "state": "FAIL", "reason": f"no line set yet ({it.get('track')} sets it): an item without a "
                                                     "line cannot pass"}
     if raw is None or v is None:
+        if it.get("info"):
+            return {**row, "state": "INFO", "reason": "not measured (info only)"}
         return {**row, "state": "FAIL", "reason": f"not measured: run {it.get('how')}"}
     if extra.get("error"):
         return {**row, "state": "FAIL", "reason": f"the check errored: {extra['error']}"}
@@ -243,6 +250,9 @@ def check(item_id: str, it: dict, raw) -> dict:
     if not isinstance(v, (int, float)) or (isinstance(v, float) and math.isnan(v)):
         return {**row, "state": "FAIL", "reason": f"not a number: {v!r}"}
     ok = OPS[it["op"]](v, it["line"])
+    if it.get("info"):  # reported, never blocking (a measure not trusted yet: the spec says why)
+        return {**row, "value": v, "state": "INFO", "reason": "" if ok else f"{v} {it.get('unit', '')} is not "
+                f"{it['op']} {it['line']} (info only)"}
     return {**row, "value": v, "state": "PASS" if ok else "FAIL",
             "reason": "" if ok else f"{v} {it.get('unit', '')} is not {it['op']} {it['line']}"}
 
