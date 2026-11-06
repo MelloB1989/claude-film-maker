@@ -59,7 +59,8 @@ def finish():
     inflated = {}
     if g is not None and INFLATE_CM > 0:
         kw = {}
-        if HOST == "op":  # his own master copy, with a neckline term (props/his_outfit_ue/neck_inflate.py; 0 = off)
+        if HOST == "op" and globals().get("NECK_MASTER", True):  # his own master, with a neckline term
+            # (props/his_outfit_ue/neck_inflate.py; FM_Neck 0 = off; NECK_MASTER=False: the plain inflate)
             import importlib.util
             import fmbridge.ops.mh.actor as _act
             spec = importlib.util.spec_from_file_location(
