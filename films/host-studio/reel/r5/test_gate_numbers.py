@@ -145,3 +145,28 @@ def test_pop_exclude_needs_a_ruling_and_lists_what_it_drops(tmp_path):
     assert g["hair.pop_reach_pct"] == 8.93  # outside the window: unchanged
     g = GN.hair(str(tmp_path / "c.json"), y, [str(tmp_path / "ed.json")], [], [{**rule, "by": ""}])
     assert g["hair.pop_reach_pct"]["error"]  # no name, no exclusion
+
+
+def test_reach_at_vs_ref_and_saturation(tmp_path):
+    from filmtools.unreal import qa_local
+    qa_local.qa()
+    im = sys.modules["fmqa.image"]
+    import numpy as np
+
+    def fr(f, bottom):
+        a = np.full((60, 100, 3), 180, "uint8")
+        a[10:bottom, 40:60] = 10  # dark hair from row 10 to `bottom`
+        im.write(im.Image.from_array(a), str(tmp_path / f"{f:04d}.png"))
+    fr(1086, 40)
+    for f in range(1100, 1105):
+        fr(f, 41)
+    spec = {"cuts": [["S15", 1080, 1200]], "boxes": {"S15": [0.2, 0.0, 0.8, 0.9]}}
+    (tmp_path / "s.json").write_text(json.dumps(spec))
+    r = GN.reach(str(tmp_path), str(tmp_path / "s.json"), "S15", 1086, list(range(1100, 1105)))
+    assert r["pass"] and abs(r["rel"]) < 0.08
+    fr(1086, 25)  # much shorter
+    r = GN.reach(str(tmp_path), str(tmp_path / "s.json"), "S15", 1086, list(range(1100, 1105)))
+    assert not r["pass"]
+    fr(1086, 60)  # down to the box bottom: saturated
+    r = GN.reach(str(tmp_path), str(tmp_path / "s.json"), "S15", 1086, list(range(1100, 1105)), box=[0.2, 0.0, 0.8, 0.5])
+    assert "saturated" in r["error"]
