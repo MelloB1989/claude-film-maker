@@ -705,3 +705,19 @@ def test_a_weak_turn_curve_is_written_stronger():
     assert abs(H.from_rig(rig, s)["yaw"][1][1] - 35.0) < 1e-6
     assert R.HeadSigns.from_json(s.to_json()).yaw_gain == 0.35
     assert R.HeadSigns(curves=s.curves, dead=["HeadRoll"], yaw_gain=0.35).gain("yaw") == 1.0  # a dead curve: bones
+
+
+def test_a_turn_curve_is_written_through_its_measured_table():
+    """r4 (box): HeadRoll's response is not linear (his: 50 deg at 140 units, 11 at 185). perf.calibrate measures
+    yaw_table; to_rig inverts it on the part that keeps growing and clamps there, from_rig reads it back."""
+    tab = [[-200, -40.0], [-100, -60.0], [-50, -30.0], [50, 20.0], [100, 45.0], [140, 50.0], [185, 11.0]]
+    s = R.HeadSigns(yaw=1.0, pitch=-1.0, roll=1.0, curves={"yaw": "HeadRoll", "pitch": "HeadYaw", "roll": "HeadPitch"},
+                    dead=["HeadPitch"], yaw_table=tab)
+    assert abs(s.turn_units(20.0) - 50.0) < 1e-6 and abs(s.turn_units(47.5) - 120.0) < 1e-6
+    assert s.turn_units(90.0) == 140.0  # the most it turns: never past the fold at 185
+    assert abs(s.turn_units(-45.0) - -75.0) < 1e-6 and s.turn_units(-80.0) == -100.0
+    head = {"times": [0.0, 1.0], "yaw": [0.0, 32.5], "pitch": [0.0, 5.0], "roll": [0.0, 0.0]}
+    rig = H.to_rig(head, s, tol_deg=0.0)
+    assert abs(rig["HeadRoll"][1][1] - 75.0) < 1e-6 and rig["HeadYaw"][1][1] == -5.0
+    assert abs(H.from_rig(rig, s)["yaw"][1][1] - 32.5) < 1e-6
+    assert R.HeadSigns.from_json(s.to_json()).yaw_table == s.yaw_table

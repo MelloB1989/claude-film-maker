@@ -252,7 +252,7 @@ def check(who: str, frame: int, sid: str, head, gaze_, stage: Stage | None = Non
 
 def table(rows: list) -> str:
     cols = ["shot", "beat", "who", "frames", "yaw_cmd", "true_yaw", "head_yaw", "screen_dir", "partner_dir", "err_deg",
-            "head_err_deg", "ok"]
+            "head_err_deg", "head_plan_yaw", "head_vs_plan_deg", "ok"]
     out = ["  ".join(f"{c:>12}" if c != "beat" else f"{c:<26}" for c in cols)]
     for r in rows:
         out.append("  ".join(f"{str(r.get(c, '')):<26}" if c == "beat" else f"{str(r.get(c, '')):>12}" for c in cols))

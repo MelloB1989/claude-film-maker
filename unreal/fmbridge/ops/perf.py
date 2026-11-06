@@ -187,6 +187,7 @@ def face(*, anim: str, out: str = "", wav: str = "", gaze: list | None = None, s
     return res
 
 
+TURN_PROBE = (-240.0, -180.0, -140.0, -100.0, -70.0, -40.0, -20.0, 20.0, 40.0, 70.0, 100.0, 140.0, 180.0, 240.0)
 WEAK_TURN_MIN = 0.1  # a turn curve under a tenth of a real turn counts as dead (the bones turn the head)
 PLANNED_TURN = "FM_PlannedHeadTurn"  # perf.face's planned head turn, when the bones carry it (no AnimBP reads it)
 
@@ -440,6 +441,32 @@ def calibrate(*, label: str, face_component: str = "Face", body_component: str =
         else:
             yaw_gain = round(strength, 3)
     signs = {k: (1.0 if resp[c][k] > 0 else -1.0) if c not in dead else 1.0 for k, c in curves.items()}
+    yaw_table = None
+    if curves["yaw"] not in dead:
+        # the turn curve at several amplitudes, as the head bone's own yaw (r4, box: one 10-unit probe gave her 0.46
+        # deg per unit, and 70 units turned her 95; his turned 50 at 140 units and 11 at 185)
+        h0 = rest["bones"]["head"][0]
+        ax0 = [h0[3:6], h0[6:9], h0[9:12]]
+        loc = [_dot(fwd, a) for a in ax0]
+        yaw_table = []
+        for u in TURN_PROBE:
+            apply({curves["yaw"]: ([0.0, 2.0], [u, u])})
+            m = yield from _await_change(measure, frame, "FACIAL_L_Eye", last["bones"]["FACIAL_L_Eye"][0], timeout=8.0)
+            for _ in range(12):  # until it holds still: a measure mid-swap reads part of the turn
+                yield 0.25
+                m2 = yield from measure([frame])
+                still = max(abs(a - b) for a, b in zip(m2["bones"]["head"][0][3:], m["bones"]["head"][0][3:])) < 1e-4
+                m = m2
+                if still:
+                    break
+            last = m
+            h1 = m["bones"]["head"][0]
+            ax1 = [h1[3:6], h1[6:9], h1[9:12]]
+            v = [sum(loc[i] * ax1[i][k] for i in range(3)) for k in range(3)]
+            yaw_table.append([u, round(math.degrees(math.atan2(_dot(v, left), _dot(v, fwd))), 2)])
+        raw["yaw_table"] = yaw_table
+        apply({})
+        last = yield from _await_change(measure, frame, "FACIAL_L_Eye", last["bones"]["FACIAL_L_Eye"][0], timeout=8.0)
     yaw_bone, turn_on = None, "Face"
     if curves["yaw"] in dead:  # no curve turns this head (5.8): find the bones that do, and each one's turn axis
         from .anim import model_keys
@@ -511,7 +538,8 @@ def calibrate(*, label: str, face_component: str = "Face", body_component: str =
         raw[f"eyeLook{d}L"] = round(ang, 3)
     apply({})
     result = HeadSigns(signs["yaw"], signs["pitch"], signs["roll"], eye_deg, True, bool(flip_votes and flip_votes[0]),
-                       curves, dead, yaw_bone, turn_on if turn_on == face_component else "Body", yaw_gain)
+                       curves, dead, yaw_bone, turn_on if turn_on == face_component else "Body", yaw_gain,
+                       yaw_table)
     path = _signs_file(skel)
     with open(path, "w") as f:
         json.dump(result.to_json(), f, indent=1)

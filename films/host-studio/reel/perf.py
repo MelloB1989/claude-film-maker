@@ -600,6 +600,9 @@ def head_turns(who: str, path: str = "/Game/Reel/SEQ_Reel") -> dict:
 
 # ------------------------------------------------------------------------------------- round 4: the looks' check
 
+PLAN_TOL = 15.0  # degrees the measured head may miss the planned head (the orchestrator's gate, r4)
+
+
 def look_table(stage=None, measured: dict | None = None) -> list:
     """Every look at the partner in every camera that sees it (the shot cut at its hold, and the hold's shot's cast):
     the head and gaze perfkit plans (or, with `measured`, the head and eyes read from the animation on the box: see
@@ -622,6 +625,12 @@ def look_table(stage=None, measured: dict | None = None) -> list:
                     (hy, hp), (gy, gp) = planned_head(who, f, st)
                     head, gz, src = [hy, hp], [gy, gp], "plan"
                 r = LK.check(who, f, shot.id, head, gz, st)
+                if src == "anim":  # the animation must do what was planned: the head within PLAN_TOL of the plan
+                    # (r4: his S15 head at 41 against 95 planned passed the beyond-reach rule; hers overshot to -95)
+                    plan_y = planned_head(who, f, st)[0][0]
+                    r["head_plan_yaw"] = round(plan_y, 1)
+                    r["head_vs_plan_deg"] = round(r["head_yaw"] - plan_y, 1)
+                    r["ok"] = bool(r["ok"] and abs(r["head_vs_plan_deg"]) <= PLAN_TOL)
                 rows.append({"shot": shot.id, "beat": b["beat"], "who": who, "frames": [b["t"], b["until"]], "f0": b["t"], "f1": b["until"],
                              "target": "partner_face", "yaw_cmd": lk["yaw"], "pitch_cmd": lk["pitch"],
                              "dist_cm": lk["dist_cm"], "stage": st.source, "head_from": src, **r})
