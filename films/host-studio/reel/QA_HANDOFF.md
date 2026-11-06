@@ -66,6 +66,17 @@ peak <= -1 dBTP; every caption line within 2 frames of its first VO word (cues.j
   jaw 3.8 passes), S16 her L3b 1.99, S15 her L3a 0.80 and S17 him L4a 0.85 (her over-turns in their silences), S15 L2
   and S17 L4b pass. Gate fixes in the run: clip keys Reel_*; the lips box interpolated and each frame pair lined up
   (+-3 px) before differencing, so the head's own move in silence is not read as speech.
+- 08:0x (after the box was re-provisioned) final_d set shots, rendered 02:59-04:54 UTC (before the glow fix): frames QA
+  PASS (final_check: 3 reports ok; final_qa: all frames present, 1920x1080, no black/white/jump). Glow continuity, worst
+  32 px block dE old->new vs the A/A noise floor: V05 4.97/0.32, V04 3.54/0.20, S12 2.50/0.35, V02 2.25/0.38 ->
+  RE-RENDER those four; V01 0.71/1.74, V03 0.75/0.94, N01 1.38/0.74, S11 0.67/0.03 stay. Mean dE < 1 everywhere (local,
+  upper frame). camcheck on the noise-floor stills: all 8 framing_match (scale 1.000, shift <= 1 px at 480).
+- 08:4x lip stills (after agent-01's speech gain, viewport, 24 on / 24 silence per line), frames ratio: S15 L2 6.54,
+  S15 L3a 8.01 PASS; S13 L1 1.03, S16 L3b 1.18, S17 L4a 1.16, S17 L4b 1.52. On-line change is alike everywhere (5.9-7.5);
+  the failing lines' SILENCES read 4-6 (S15's ~1): S13's head lift, S17's glance, the move after S16's line. A rotating
+  head cannot be lined up by a shift, so the frames cannot certify those lines. Added `cast_gate.py lipgap` (engine,
+  read-only): the upper-to-lower lip bone gap in cm on the evaluated face, on vs the same silence; `sign --lipgap`
+  decides the lines the frames fail (ratio >= 2.0 and opens >= 0.3 cm), and says so per line.
 - neck patch (agent-02 neck_px, before4 -> after, worst px per shot): S13 169 -> 172, S15 709 -> 649, S17 91 -> 93,
   S18 39 -> 34: NOT fixed; the gate refuses e until 0.
 
