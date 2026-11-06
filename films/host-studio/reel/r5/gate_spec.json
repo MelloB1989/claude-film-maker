@@ -1,0 +1,5 @@
+{
+ "_about": "Round 5's gate spec for qa/gate.py (film-qa gate --spec). complaints: what the operator complained about in round 4: no waiver on these areas. Tracks add their items/lines here (T1 agent-01 lips, T2 agent-04 head, T3a agent-02 garment, T3b agent-08 cloth, T4 agent-09 hair).",
+ "complaints": ["lips", "head", "garment", "hair"],
+ "items": {}
+}
