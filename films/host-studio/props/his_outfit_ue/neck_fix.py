@@ -81,6 +81,13 @@ def fix():
     def slot(c):
         return next(i for i, n in enumerate(c.get_material_slot_names()) if "shirt" in str(n).lower())
 
+    def swap(old, new_):
+        cc = tee()
+        hit = [k for k, m in enumerate(cc.get_materials()) if m is not None and m.get_path_name() == old.get_path_name()]
+        for k in hit:
+            cc.set_material(k, new_)
+        return hit
+
     def depth():
         rt = yield from _ns["capture"](info, 480, 270, "depth", show_only=[tee()], warmup=4)
         return _ns["read_pixels"](rt, "r")[0]
@@ -115,7 +122,7 @@ def fix():
         unreal.AutomationUtilsBlueprintLibrary.finish_all_asset_compilation()
         for _ in range(8):
             yield
-        tee().set_material(slot(tee()), new)
+        rep["slots_swapped"] = swap(worn, new)  # every slot (section, LOD) that wore it, not only the first
         for _ in range(6):
             yield
         rep["new"] = new.get_path_name()
@@ -137,7 +144,10 @@ def fix():
         rep["error"] = f"{type(e).__name__}: {e}"
     finally:
         if not ok:
-            tee().set_material(slot(tee()), worn)
+            if rep.get("slots_swapped"):
+                swap(new, worn)
+            else:
+                tee().set_material(slot(tee()), worn)
             for _ in range(4):
                 yield
         _ns["remove_rig"]()
