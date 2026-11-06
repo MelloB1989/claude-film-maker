@@ -18,6 +18,7 @@ MaxCull is 0.0 and the band is drawn from p = 1/255 (full shrink, never culled) 
                   Outfits slot, mh.build, and the re-dress chain.
     film-ue exec -c "STAGE='mask'; WI='<default garment WI_>'; exec(open('<tree>/films/host-studio/reel/r5/neck_backstop.py').read())"
 """
+import math
 import os
 
 import unreal
@@ -27,6 +28,9 @@ LABEL = globals().get("LABEL", "Host")
 TEE = globals().get("TEE", "Tee")  # the refit tee's component
 REACH = float(globals().get("REACH", 4.0))  # cm: a face vert this far under the cloth (along its normal) is covered
 RAMP = float(globals().get("RAMP", 3.0))  # cm under the collar edge to full shrink
+PAD_PX = int(globals().get("PAD_PX", 0))  # round 5b loop 4: grow the dark mask this many texels into the white round
+# it (texture padding): a covered vertex on a UV island's edge or seam sampled half-white texels and barely shrank
+# (loop 2: ~27 of 1160 covered verts moved < 0.5 cm while every covered one should move >= EDGE_W x SHRINK_CM)
 DILATE_CM = float(globals().get("DILATE_CM", 0.0))  # round 5b: uncovered face verts this close ABOVE the collar edge
 # also shrink, EDGE_W fading to 0 at DILATE_CM (a turn brings the neck out right at the line, where nothing was covered)
 EDGE_W = float(globals().get("EDGE_W", 0.0))
@@ -166,10 +170,43 @@ def mask():
                 if v < img[j]:
                     img[j] = v
                     drawn += 1
+    if PAD_PX > 0 and drawn:
+        idx = [j for j in range(SIZE * SIZE) if img[j] < 255]
+        xs, ys = [j % SIZE for j in idx], [j // SIZE for j in idx]
+        x0, x1 = max(0, min(xs) - PAD_PX - 1), min(SIZE - 1, max(xs) + PAD_PX + 1)
+        y0, y1 = max(0, min(ys) - PAD_PX - 1), min(SIZE - 1, max(ys) + PAD_PX + 1)
+        for _ in range(PAD_PX):
+            src = bytes(img)
+            for y in range(y0, y1 + 1):
+                row = y * SIZE
+                for x in range(x0, x1 + 1):
+                    j = row + x
+                    if src[j] < 255:
+                        continue
+                    m = 255
+                    for k in ((j - 1) if x > 0 else -1, (j + 1) if x < SIZE - 1 else -1,
+                              (j - SIZE) if y > 0 else -1, (j + SIZE) if y < SIZE - 1 else -1):
+                        if k >= 0 and src[k] < m:
+                            m = src[k]
+                    if m < 255:
+                        img[j] = m
+    # what MetaHuman will sample per vertex (bilinear in UV 0): covered verts that would shrink less than the
+    # edge weight asks for are the ones a turn can still bring through the collar. 0 here before any build
+    def sample(u, v):
+        fx, fy = u * SIZE - 0.5, v * SIZE - 0.5
+        ix, iy = int(math.floor(fx)), int(math.floor(fy))
+        ax, ay = fx - ix, fy - iy
+        def px(x, y):
+            return img[min(SIZE - 1, max(0, y)) * SIZE + min(SIZE - 1, max(0, x))] / 255.0
+        return ((1 - ax) * (1 - ay) * px(ix, iy) + ax * (1 - ay) * px(ix + 1, iy) + (1 - ax) * ay * px(ix, iy + 1)
+                + ax * ay * px(ix + 1, iy + 1))
+    want = 1.0 - 0.9 * max(EDGE_W, 0.05)
+    weak = [i for i, c in enumerate(cov) if c and sample(UV[i].x, UV[i].y) > want]
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     I.write(I.Image(SIZE, SIZE, 1, img), OUT)
     return {"tee_component": tee_c.get_name(), "face_verts": len(V), "covered": sum(cov), "edge_verts": len(edge), "dilated": dil, "full_shrink": sum(1 for x in w if x >= 1),
-            "px_drawn": drawn, "png": OUT, "uv_valid": bool(UV) and len(UV) == len(V)}
+            "px_drawn": drawn, "pad_px": PAD_PX, "weak_covered": len(weak),
+            "weak_z_cm": [round(min(V[i].z for i in weak), 1), round(max(V[i].z for i in weak), 1)] if weak else None, "png": OUT, "uv_valid": bool(UV) and len(UV) == len(V)}
 
 
 def apply():

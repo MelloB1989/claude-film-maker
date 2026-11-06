@@ -179,14 +179,45 @@ COLLAR_MIN_N = 10  # a ring of fewer garment verts is not a collar band (a stray
 COLLAR_SPREAD_CM = 1.5  # a hugging band is one wall thick (~0.3 cm) radially; a rolled/folded ring much more
 
 
+COLLAR_ROLL_DEPTH_CM = 3.0  # the collar band's height from its top: where a fold or a rolled lip would be
+COLLAR_CELL = (1.0, 10.0)  # (cm along the neck, degrees round it): one place on the band (30 deg spanned ~1 cm of
+# an elliptic neck's radius by itself)
+
+
+def local_spread(axial: list, radial: list, angle: list, top: float, *, depth: float = COLLAR_ROLL_DEPTH_CM,
+                 band_cm: float = 4.0, cell=COLLAR_CELL, min_n: int = 4) -> tuple:
+    """The band's thickness at ONE place: per cell (cell[0] cm along the neck x cell[1] degrees round it) in the top
+    `depth` cm of the band, the radial p90 - p10 of its garment verts within band_cm of the cell's innermost; the
+    worst cell. A fold or a rolled lip is two layers at the same height and angle; a hugging band is one wall (plus
+    its rib). Round 5b: over the whole window the spread read 1.9-2.1 on Epic's hugging band (the neck's elliptic
+    section and the shoulders' slope), roll 6/6 on a collar the eye passed. Returns (spread_cm, cells judged, where:
+    the worst cell's {below_top_cm, angle_deg})."""
+    cells = {}
+    for a, r, g in zip(axial, radial, angle):
+        if top - depth <= a <= top + 0.5:
+            cells.setdefault((int(math.floor((a - top) / cell[0])), int(math.floor(g / cell[1]))), []).append(r)
+    worst, n, where = 0.0, 0, None
+    for key, rs in cells.items():
+        if len(rs) < min_n:
+            continue
+        r0 = min(rs)
+        rs = [r for r in rs if r <= r0 + band_cm]
+        n += 1
+        sp = percentile(rs, 0.9) - percentile(rs, 0.1)
+        if sp > worst:
+            worst, where = sp, {"below_top_cm": -key[0] * cell[0], "angle_deg": key[1] * cell[1]}
+    return worst, n, where
+
+
 def collar_stats(axial: list, radial: list, gap: list, *, window=(-8.0, 4.0), ring_cm: float = 2.0,
-                 band_cm: float = 4.0) -> dict:
+                 band_cm: float = 4.0, angle: list | None = None) -> dict:
     """The collar band round the neck at one frame. Per garment vertex: `axial` = its height along the neck axis
     from neck_01 (cm, + towards the head), `radial` = its distance from that axis, `gap` = its distance to the skin
     (face or body). In the axial window, the RING is the innermost garment (radial within ring_cm of the smallest)
     and the BAND everything within band_cm of it. Returns {n, gap_cm: the ring's p75 distance to the skin,
     spread_cm: the band's radial p90 - p10 (a rolled or folded collar is thick), roll: gap over COLLAR_GAP_CM or
-    spread over COLLAR_SPREAD_CM}."""
+    spread over COLLAR_SPREAD_CM}. With `angle` (degrees round the neck axis, per vertex) the spread is LOCAL
+    (local_spread: the worst place on the band's top COLLAR_ROLL_DEPTH_CM), else over the whole window."""
     pts = [(r, g) for a, r, g in zip(axial, radial, gap) if window[0] <= a <= window[1] and g == g]
     if not pts:
         return {"n": 0}
@@ -201,6 +232,16 @@ def collar_stats(axial: list, radial: list, gap: list, *, window=(-8.0, 4.0), ri
     band = [r for r, _ in pts if rmin - 0.5 <= r <= rmin + band_cm]
     out = {"n": len(ring), "gap_cm": round(percentile(ring, 0.75), 3),
            "spread_cm": round(percentile(band, 0.9) - percentile(band, 0.1), 3)}
+    if angle is not None:
+        inw = [(a, r, g) for a, r, g, gp in zip(axial, radial, angle, gap) if window[0] <= a <= window[1] and gp == gp]
+        top = max(a for a, r, _ in inw if rmin - 0.5 <= r <= rmin + ring_cm)  # the ring's top: the collar's edge
+        sp, cells, where = local_spread([a for a, _, _ in inw], [r for _, r, _ in inw], [g for _, _, g in inw], top,
+                                        band_cm=band_cm)
+        out.update({"spread_window_cm": out["spread_cm"], "spread_cm": round(sp, 3) if cells else None,
+                    "spread_cells": cells, "spread_where": where})
+        if not cells:  # no place on the band had enough verts: NOT measured (never a silent 0 that passes)
+            out["roll"] = True if out["gap_cm"] > COLLAR_GAP_CM else None
+            return out
     out["roll"] = bool(out["gap_cm"] > COLLAR_GAP_CM or out["spread_cm"] > COLLAR_SPREAD_CM)
     return out
 
@@ -287,7 +328,16 @@ def look(m: dict, subject: str = "", *, ramps: dict | None = None, wpo_max_cm: f
     if col.get("frames"):
         terms["collar_gap"] = {"value": col["gap_cm"], "score": None, "weight": 0.0, "cloth": 0.3,
                                "armor": COLLAR_GAP_CM}
-        terms["collar_roll"] = {"value": col["roll_frames"], "score": None, "weight": 0.0, "cloth": 0, "armor": 1}
+        unm = col.get("roll_unmeasured") or 0
+        terms["collar_roll"] = {"value": None if unm else col["roll_frames"], "score": None, "weight": 0.0, "cloth": 0,
+                                "armor": 1, "unmeasured_frames": unm}
+        if unm:
+            hard = True
+            issues.append(issue("garment.collar_roll", "fail",
+                                f"{subject}: the collar's roll was NOT measured in {unm} of {col['frames']} frames (no "
+                                f"place on the band's top {COLLAR_ROLL_DEPTH_CM} cm had 4 garment verts)",
+                                "check the collar band is where qa.garment_look looks (neck_01 -> head axis), or the "
+                                "garment's vertex density there", subject=subject, value=None, expected=0))
         if col["gap_cm"] > COLLAR_GAP_CM or col["roll_frames"] > 0:
             hard = True
             issues.append(issue("garment.collar", "fail",
