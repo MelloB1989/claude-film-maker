@@ -162,9 +162,7 @@ class Scene:
                     self.face.parent = None
                     self.face.matrix_world = mw
                     bpy.data.objects.remove(o, do_unlink=True)
-            for m in list(self.face.modifiers):
-                self.face.modifiers.remove(m)
-            self._face_follow()
+            self.face_mode = self._face_bind()
         go = import_fbx(os.path.join(a.src, f"garment_{a.garment}.fbx"))
         self.garment = next(o for o in go if o.type == "MESH")
         for o in go:
@@ -196,6 +194,28 @@ class Scene:
         log(f"morph: ref onto his worn body: matched {st['matched']:.1%}, the cut region moved median "
             f"{st['fill_median_cm']} cm (max {st['fill_max_cm']})")
         return st
+
+    def _face_bind(self) -> str:
+        """The face deforms with the BODY's bones it is weighted to (a MetaHuman face mesh carries neck_01/neck_02/
+        spine/clavicle weights for its lower neck: in a head turn the lower neck stays with the shoulders, as in
+        Unreal); weights on facial joints the body skeleton lacks are ignored (the jaw stays shut: far from any
+        collar). With no such weights, the old rigid follow of neck_02."""
+        bones = {b.name for b in self.arm.data.bones}
+        shared = [g.name for g in self.face.vertex_groups if g.name in bones]
+        if len(shared) >= 3:
+            mods = [m for m in self.face.modifiers if m.type == "ARMATURE"] or [self.face.modifiers.new("Armature",
+                                                                                                     "ARMATURE")]
+            for m in mods:
+                m.object = self.arm
+            for m in [m for m in self.face.modifiers if m.type != "ARMATURE"]:
+                self.face.modifiers.remove(m)
+            log(f"face: skinned to the body's {len(shared)} shared bones ({', '.join(sorted(shared)[:6])}...)")
+            return "skinned"
+        for m in list(self.face.modifiers):
+            self.face.modifiers.remove(m)
+        self._face_follow()
+        log("face: no shared bones: rides neck_02 rigidly")
+        return "rigid"
 
     def _face_follow(self):
         """The face rides the body's head/neck bones (a child of neck_02 kept at its rest offset): close enough for
@@ -342,9 +362,24 @@ def retarget(src, dst):
         pb.matrix_basis = rl.inverted() @ want
 
 
-def pose_tests(sc, a) -> dict:
-    """Every anim_*.fbx at anim_samples frames: garment verts inside the posed body/face (count, deepest cm)."""
+def body_regions(sc) -> np.ndarray:
+    """Per collider triangle: 'torso' or 'arm' (or 'face'), from the body's dominant bone (the face last)."""
+    W, groups = weights_of(sc.body)
+    reg = GF.regions(W, groups)
+    arm = np.isin(reg, [GF.REGIONS.index("sleeve")])
+    _, T = world_cm(sc.body)
+    lab = np.where(arm[T[:, 0]], "arm", "torso")
+    if sc.face is not None:
+        lab = np.concatenate([lab, np.full(len(world_cm(sc.face)[1]), "face")])
+    return lab
+
+
+def pose_tests(sc, a, active=None, region=None) -> dict:
+    """Every anim_*.fbx at anim_samples frames: the FITTED garment verts (active: --only-slots; a MetaHuman default
+    garment's shorts are hidden and were never refit, so their thighs say nothing about the tee) inside the posed
+    body/face: count, deepest cm (distances past 6 cm are left out: a nearest point across a gap, not a clip)."""
     out = {}
+    lab = body_regions(sc)
     for p in sorted(glob.glob(os.path.join(a.src, "anim_*.fbx"))):
         before = set(bpy.data.actions)
         objs = import_fbx(p)
@@ -364,11 +399,30 @@ def pose_tests(sc, a) -> dict:
             bpy.context.view_layer.update()
             _, _, bvh = sc.collider(evaluated=True)
             G, _ = world_cm(sc.garment, evaluated=True)
-            d, _ = signed(bvh, G[::2])
-            d = d[np.isfinite(d) & (np.abs(d) < 6.0)]
-            n_in = int((d < -0.1).sum())
-            if n_in > worst["inside"]:
-                worst = {"inside": n_in, "deepest_cm": round(float(-d.min()), 2), "frame": f}
+            R = region if region is not None and len(region) == len(G) else np.full(len(G), GF.REGIONS.index("other"))
+            if active is not None and len(active) == len(G):
+                G, R = G[active], R[active]
+            G, R = G[::2], R[::2]
+            hits = {}
+            for p, r in zip(G, R):
+                loc, nor, fi, dist = bvh.find_nearest(Vector(p))
+                if loc is None or dist >= 6.0:
+                    continue
+                sd = float((np.array(p) - np.array(loc[:])) @ np.array(nor[:]))
+                if sd >= -0.1:
+                    continue
+                # a sleeve's underside pressed against the TORSO when the arm comes down: cloth squeezed in the
+                # armpit, hidden by the arm (judged in the render by qa.clip's Body>Tee); everything else counts
+                key = "armpit" if (GF.REGIONS[r] == "sleeve" and lab[fi] == "torso") else GF.REGIONS[r] + \
+                    ("@face" if lab[fi] == "face" else "")
+                h = hits.setdefault(key, [0, 0.0])
+                h[0] += 1
+                h[1] = max(h[1], -sd)
+            n_in = sum(v[0] for k, v in hits.items() if k != "armpit")
+            if n_in > worst["inside"] or (worst["frame"] is None and hits):
+                worst = {"inside": n_in, "deepest_cm": round(max([v[1] for k, v in hits.items() if k != "armpit"]
+                                                                 or [0.0]), 2), "frame": f,
+                         "by_region": {k: [v[0], round(v[1], 2)] for k, v in sorted(hits.items())}}
         out[os.path.basename(p)[:-4]] = {"frames": [f0, f1], **worst}
         for pb in sc.arm.pose.bones:
             pb.matrix_basis = Matrix.Identity(4)
@@ -483,7 +537,9 @@ def main():
     attr = me.color_attributes.new("FitCol", "BYTE_COLOR", "POINT")
     attr.data.foreach_set("color", col.ravel())
     me.color_attributes.active_color = attr
-    rep["poses"] = pose_tests(sc, a)
+    full = len(active) == len(sc.garment.data.vertices)
+    rep["poses"] = pose_tests(sc, a, active if full else None, region if full else None)
+    rep["face_mode"] = getattr(sc, "face_mode", None)
     problems = GF.fit_gate(rep["after"])
     problems += [f"pose test {k}: {v['inside']} garment verts inside the body at frame {v['frame']} "
                  f"(deepest {v['deepest_cm']} cm)" for k, v in rep["poses"].items() if v["inside"] > 0]
