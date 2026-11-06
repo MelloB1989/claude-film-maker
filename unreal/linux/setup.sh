@@ -296,6 +296,15 @@ step_plugin() {
         [ -f "$engine/Engine/Intermediate/Build/BuildRules/UE5Rules.dll" ] \
             || { echo "plugin: no UE5Rules.dll after QueryTargets (log /tmp/plugin-rules-$name.log)" >&2; exit 1; }
     fi
+    # ... and it has no generated (UHT) headers either (PrimaryAssetId.generated.h not found): run UHT over the engine
+    # with -SkipBuild (UHT runs while the makefile is made, UEBuildTarget.cs; SkipBuild skips only the compile actions),
+    # still unmarked. A few minutes, once per restored engine.
+    if [ ! -f "$engine/Engine/Intermediate/Build/Linux/UnrealEditor/Inc/CoreUObject/UHT/PrimaryAssetId.generated.h" ] \
+            && [ ! -f "$PLUGIN_MARK" ]; then
+        runuser -u "$UE_USER" -- timeout 1500 "$engine/Engine/Build/BatchFiles/Linux/Build.sh" UnrealEditor Linux \
+            Development -Project="$w/PluginBuild.uproject" -SkipBuild > "/tmp/plugin-uht-$name.log" 2>&1 \
+            || { tail -20 "/tmp/plugin-uht-$name.log" >&2; echo "plugin: generating the engine's UHT headers failed" >&2; exit 1; }
+    fi
     if [ -f "$PLUGIN_MARK" ]; then PLUGIN_MARK=""; else touch "$PLUGIN_MARK"; trap 'rm -f "${PLUGIN_MARK:-/nonexistent}"' EXIT; fi
     log=/tmp/plugin-build-$name.log
     if ! runuser -u "$UE_USER" -- timeout 1500 "$engine/Engine/Build/BatchFiles/Linux/Build.sh" UnrealEditor Linux \
