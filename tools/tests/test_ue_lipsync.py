@@ -441,3 +441,21 @@ def test_one_wav_split_into_two_lines_at_its_pause(tmp_path):
     assert abs(a["voice_frame"] - 1157.0) < 2.5 and a["end_frame"] < b["voice_frame"]
     assert abs(b["voice_frame"] - (1157.0 + 1.4 * fps)) < 3
     assert [w["w"] for w in a["words"]] == ["Nice", "try."] and a["mood"] == "HAPPINESS"
+
+
+def test_a_regular_syllable_rate_does_not_alias_the_lag():
+    """Evenly spaced syllables (a 4 Hz chant): the syllable band alone peaks at every 0.25 s; the words' envelope
+    pins the right one."""
+    lines = [(2.5, 4.0), (6.0, 6.8)]
+    rate = 100.0
+    vals = []
+    for i in range(int(10 * rate)):
+        t = i / rate
+        on = any(a <= t <= b for a, b in lines)
+        vals.append(max(0.0, math.sin(2 * math.pi * 4.0 * t)) if on else 0.0)
+    env = AU.Envelope(vals, rate)
+    for shift in (-0.25, -0.5, 0.25):
+        m = mouth_from(env, shift)
+        r = LS.check(env, m, [{"id": "a", "t0": 2.5, "t1": 4.0}, {"id": "b", "t0": 6.0, "t1": 6.8}], fps=FPS)
+        for v in r["lines"].values():
+            assert abs(v["lag_frames"] - shift * FPS) < 1.0, (shift, v)
