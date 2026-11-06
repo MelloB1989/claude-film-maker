@@ -10,7 +10,7 @@ from _qa_load import load
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "unreal" / "fmbridge"))
-from clothkit import paint, presets  # noqa: E402
+from clothkit import paint, presets, topology  # noqa: E402
 
 load()
 from fmqa import cloth as qcloth  # noqa: E402
@@ -109,9 +109,10 @@ def test_fit_colours_pin_and_cap_by_the_ease():
     _, z, maps, p = painted(colours=cols)
     md = dict(zip(v, maps["max_distance"]))
     assert md[(16.0, 0.0, 150.0)] == 0.0
-    assert md[(16.0, 0.0, 95.0)] == pytest.approx(1.0 + p["config"]["collision_thickness"])
+    # R (ease) is NOT used: it arrives sRGB-decoded through UE's FBX vertex colours (round 5); G pins
+    assert md[(16.0, 0.0, 95.0)] == pytest.approx(3.0)
     i = v.index((16.0, 0.0, 95.0))
-    assert maps["backstop_distance"][i] == pytest.approx(1.0 - p["config"]["collision_thickness"])
+    assert maps["backstop_distance"][i] == 0.0
     assert maps["pinned"][v.index((16.0, 0.0, 150.0))]
 
 
@@ -263,3 +264,23 @@ def test_gate_numbers_round4_fails_and_a_good_round_passes():
     assert g["garment.cloth_detail_ratio"]["value"] == 2.5
     g = qcloth.gate_numbers({}, {"S13": (None, 0.02)})["gate"]
     assert all("error" in v for v in g.values())
+
+
+# --- topology: is a section simulatable? ------------------------------------------------------------------------------
+
+def test_topology_open_strip_closed_box_and_pieces():
+    strip = [(i, i + 1, i + 2) for i in range(20)]
+    st = topology.analyze(strip)[0]
+    assert st["islands"] == 1 and st["border_edges"] > 0 and topology.judge(st) == []
+    v = [(x, y, z) for x in (0, 1) for y in (0, 1) for z in (0, 1)]
+    q = [(0, 1, 3, 2), (4, 6, 7, 5), (0, 4, 5, 1), (2, 3, 7, 6), (0, 2, 6, 4), (1, 5, 7, 3)]
+    box = [t for a, b, c, d in q for t in ((a, b, c), (a, c, d))]
+    st = topology.analyze(box)[0]
+    assert st["border_edges"] == 0 and any("CLOSED" in w for w in topology.judge(st))
+    pieces = strip + [(100, 101, 102), (110, 111, 112)]
+    st = topology.analyze(pieces)[0]
+    assert st["islands"] == 3 and any("separate pieces" in w for w in topology.judge(st))
+    st = topology.analyze(strip + [(500, 501, 502)] * 1, [0] * 20 + [1])
+    assert set(st) == {0, 1} and st[0]["islands"] == 1
+    assert any("too many" in w for w in topology.judge({"verts": 50000, "border_edges": 10, "islands": 1,
+                                                        "main_frac": 1.0}))
