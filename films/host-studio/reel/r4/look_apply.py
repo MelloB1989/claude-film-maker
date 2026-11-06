@@ -45,6 +45,8 @@ def main() -> None:
     ap.add_argument("--beard-thin", type=float, default=0.0, help="the beard's strand width x this on the placed Host "
                     "(per instance, saved with the level; look_sheet's 'thin')")
     ap.add_argument("--lips", default="", help="r,g,b linear: lips makeup 'Natural' in this colour (before the build)")
+    ap.add_argument("--swap-set", action="append", default=[], metavar="NAME=PY",
+                    help="a global for host_swap.py, e.g. NECK_MASTER=False (repeatable)")
     ap.add_argument("--rerig", action="store_true", help="re-rig on the body as it is (agent-02: the face's neck seam "
                     "fitted to the final body; round 3's record has chest 104 against bodies.py's 100)")
     ap.add_argument("--skip-build", action="store_true", help="only the character stage (a dry look)")
@@ -93,7 +95,7 @@ def main() -> None:
         print(json.dumps({step: rep[step]}), file=sys.stderr)
     swap = os.path.join(a.checkout, "films/host-studio/unreal/host_swap.py")
     t0 = time.time()
-    res = client.exec_code(f"HOST = 'op'\nCHECKOUT = {a.checkout!r}\nexec(open({swap!r}).read())", timeout=1800)
+    res = client.exec_code(f"HOST = 'op'\nCHECKOUT = {a.checkout!r}\n" + "".join(x + "\n" for x in a.swap_set) + f"exec(open({swap!r}).read())", timeout=1800)
     rep["host_swap"] = {"ok": res.get("ok"), "s": round(time.time() - t0),
                         "stdout": (res.get("stdout") or "")[-1500:]}
     ok(res, "host_swap")
