@@ -360,3 +360,57 @@ film-qa gate ... lips_gate.json                        # agent-09's gate v2 merg
        HeadRoll curve.
      - (a) is smaller and keeps today's working path.
    - Prove it with `perf.py head` (agent-04: blink_nod < 0.6, the bell flat to ~0.3°) and `looks --measured`.
+
+## Round 5b (06 Nov, agent-01 on call)
+
+### His head (open item 2)
+
+- (b) was built: `perf.calibrate turn_by=bones` (core) with `TURN_BY` in `perf.py` (5e771ce9, in r5-film-integrate
+  b2356cf0).
+- On the box it failed on the rebuilt him (default garment, `mh.build`): "no local axis of Body.head turns Host's
+  head".
+  - Every Body neck/head axis moved his eyes the same +2.3 to 3.0 cm up, with ~0 yaw: drift, not the probe.
+  - His Face IS led: Face and Body head/neck_01 were identical to 0.001 cm at f1170, and his Body/Face fields matched
+    hers.
+  - Why the scratch body's bone tracks do not land in calibrate's sequence is not explained. Start round 6 there:
+    sample the Body's neck_01 in `LS_calibrate` before and after one `_write_tracks`.
+- The rebuilt rig's HeadRoll turns him at full strength (`turn_strength` 1.04; round 5's led face read ~0.34). His
+  old signs file is stale (its yaw_table was built for 0.34).
+- Fallback run (agent-04): `perf.calibrate label=Host turn_by=auto` (a fresh signs file; the old one kept as `.r5`),
+  then `naturalize --who him --no-turn-blinks` (agent-04 4f424b41: his S15 gaze blink moved before the turn). The
+  film default went back to auto (203555fd).
+
+### The render lip check (gate 9.5) does not discriminate
+
+On the candidate 65 s cut (box: `/srv/ue/reel/r5/render_{him,her,him_r4}.json`, `lips_gate_candidate.json`):
+
+| line | candidate lag (f) | round-4 control lag (f) |
+|---|---|---|
+| L1 (him) | +14.55 | +6.64 |
+| L2 (him) | +3.94 | +16.95 |
+| L4a (him) | +12.31 | +12.38 |
+| L3a (her) | -7.59 | — |
+| L3b (her) | +3.28 | — |
+| L4b (her) | -15.54 | — |
+
+All lines read "fail, sensitive". The curve rows pass: lag 0.8 f, track_r 0.972, onset 10 ms, silence_open 0.001.
+The orchestrator by eye: the L1, L2 and L4 onsets are at 0-2 f. The measure is not valid on these shots:
+
+1. **The lags scatter in sign and size.** A real desync is one offset per render (the mux) or per line (the solve).
+2. **It is not repeatable.** Round 4's L1 read -1.36 in round 5 and +6.64 here, with regenerated boxes.
+3. **The control is tautological.** Shifting the target 6 f moves any cross-correlation peak 6 f, so `sensitive`
+   cannot tell a mouth from noise.
+4. **The method does not fit the shots.**
+   - The coarse stage uses a 0.25-2.5 Hz band with a ±1 s search on 1-2 s lines, so the peak is ambiguous by about a
+     syllable.
+   - The crop is picked for the most motion on the line, and a head turn supplies that motion (S15).
+
+**Round 6:**
+- **Signal:** the mouth from landmarks (mediapipe FaceLandmarker, as `film-qa head` already runs on the box): the
+  inner-lip gap (landmarks 13/14) over the inter-ocular distance, against `lips.py refcurves`.
+- **Search:** ±0.5 s, full band.
+- **Null control:** the correlation at the found lag must beat the target shifted by ≥ 1 s by a set margin.
+- **Prove it before it gates:**
+  - round 4's L1 must read near its P1 curve-chain lag (about -17 f);
+  - an r5 cut muxed +6 f late must read +6 on every line;
+  - the r5 cut must read |lag| ≤ 1.
