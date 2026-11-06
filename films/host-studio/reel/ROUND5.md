@@ -148,3 +148,18 @@ Times marked ~ were written from memory, not read off a clock (corrected at 12:1
   stills, previews, S16 final), `private/r5tree_end` (the box tree), `private/renders/r5/review/` (the previews and the
   S16 still), the orchestrator's outage snapshots (`project_r5_snapshot`, `renders/r5/box_r5_snap`, `r5tree_snapshot`).
 - Kali probes: `/tmp/fleet-agent-06-ue/r5/probes/` (also copied in part to the shared t1-probes folder).
+
+## Round 5b (06 Nov, the finishing GPU session)
+
+Box driver: agent-06. Orchestrator: cc-64d05f6e. Box i-0284d544cdf14905e as **gr6.4xlarge** (L4, 128 GB; no g6.4xlarge
+capacity), up 16:08 UTC (orchestrator), self-terminate 20:10. Trees `cb3109b6` (film/host-studio 4b8f6463 +
+r5-film-integrate d8d5b26e), driven from kali as in round 5 (branch `fleet/agent-06/r5b`).
+
+| UTC | What |
+|---|---|
+| 16:10 | Trees → cb3109b6 (full archive to kali + `/srv/ue/r5tree`). doctor OK (5.8.4, Vulkan SM6, 371 ops, 163 GB free); `install` 157 files; `ops.broken` `{}`; FMCloth True |
+| 16:12 | **Fit8 A** (collar ease 0.4) and **Fit8 B** (`--keep-regions collar --keep-ramp-cm 3`, collar out of blend) in Blender on the box in parallel (Fit7's args from out13's report). `garment-fit` must run ON the box (reads --src locally): `python3 -c 'from filmtools.unreal.cli import main' garment-fit …` from `/srv/ue/r5tree/tools` (no uv there) |
+| 16:15 | Studio open: look_check ok (no fix), lock_check pass, Host wears SKM_Host_Tee_Fit7 + SKM_Host_Trousers_Op. **Leaders had dropped** (Tee/Trousers leader None after the editor start): mh.dress + dress_him → leaders OK (Body), saved |
+| 16:17 | probe_cam --check **13/13 OK**; framing.py rc 0 (kept in kali `b/probe_check.txt`, `b/framing.txt`) |
+| 16:18 | Fit8 A: rest in range (ease 1.749; **collar median 0.96**, p10 0.58 / p90 1.35; chest 1.68, waist 2.63, hem 2.10, sleeve 1.47); Fit8 B: ease 1.831, collar kept, collar@face 0 in every anim. **Both FAIL the static pose test only** (armpit/chest/sleeve 66-114 v ≤ 2.3 cm, the same set as Fit7, also `pass: false`). agent-02 + orchestrator: import both (round-5 deviation; qa.clip on the render is the judge) |
+| 16:22 | Snapshot `/Game/Host/Snap/BP_Host_Op_r5b_preFit8` + on disk `/srv/ue/reel/r5/b/snap/BP_Host_Op.preFit8.uasset`. Imported **SKM_Host_Tee_Fit8B** (bounds 32.5/20.3/43.7) then **_Fit8A** (32.5/20.3/45.0); new assets, Fit7 untouched. Spare A2 (collar 0.0, min-ease 0.3 → out14A2) on CPU |
