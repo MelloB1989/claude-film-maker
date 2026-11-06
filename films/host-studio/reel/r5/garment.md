@@ -159,3 +159,21 @@ turn (S17 f1397) cannot bring the face mesh through. `reel/r5/neck_backstop.py`;
   next lever is a wrinkle normal map on the Tee's material (round 6).
 - `body.hide_under` is NOT used: MetaHuman already removed his body under the default garment, and the refit covers
   the same area. Its faces were never the problem (Body>tee 0 in round 4).
+
+## 7. Outcome (GPU session, 06 Nov, agent-06 ran it)
+
+| run | knobs | qa.clip | why the next |
+|---|---|---|---|
+| G3 (round-4 tee) | – | armor 0.538 (recalibrated), wpo 2.66 | the line round 4 fails |
+| ref_body_probe | – | no uncut Host_Op body; SKM_Host_BodyMesh uncut, 0.45 cm off his | `--morph-ref` written |
+| #1 | drape 40 | (pose test counted the hidden shorts) | ease too loose (2.9); test bug |
+| #2 | = #1 | no-op (--weights transfer was the default) | – |
+| #3 / #4 | drape 0 | rest fit right; #4 crashed in the new pose test, re-read #3's report | imported #3's FBX (Fit, pass 1) |
+| pass 1 | transferred weights | neck 1 px; Trousers>tee 6.4% (3 cm, S17/S18) | the hem follows the thighs |
+| pass 2 (Fit2) | --weights keep, collar 1.2 | Trousers 0; neck 112 px at S17 f1397 | the collar does not follow the turn |
+| pass 3 (Fit3) | --weights blend, collar 1.2 | neck 3 px (S15); Trousers 0.0057 (0.5 cm) | the blend reaches the hem |
+| pass 4 (Fit4) | blend collar,shoulder,sleeve; collar 1.5; after the Phase 5 redo | neck 1 px; Trousers 0.0053 | the new torso turn |
+| **pass 5 (Fit5)** | **blend collar,shoulder,sleeve; collar 1.8, waist 3.0, hem 3.4** | **neck_px 0, Body>tee 0.00067, Trousers>tee 0, armor 0.109, wpo 0: PASS** | ships, pending the orchestrator's eye |
+
+No cloth on the tee this round (the orchestrator: a closed shell, the failure class of her overshirt); the
+`garment.cloth_*` items are NOT ATTEMPTED. The neck backstop (§5b) was not needed.
