@@ -234,7 +234,12 @@ def check(times: list, pitch: list, blinks: list, yaw: list | None = None, roll:
             spikes = [round(times[i], 3) for i, x in enumerate(j["residual"]) if abs(x) > L["spike_deg"]]
             edge = max(1, int(len(times) / max(times[-1] - times[0], 1e-6) * 0.1))
             spikes = [t for t in spikes if times[edge] <= t <= times[-1 - edge]]
-            jit[name] = {"rms_deg": round(j["rms_deg"], 4), "max_deg": round(j["max_deg"], 3), "spikes": spikes[:20]}
+            # a spike off screen is listed, not judged, like the blinks (r5b box: his 95 deg return turn's first frame,
+            # f1292, inside her S16 single)
+            off = [t for t in spikes if seen is not None and not any(s0 <= t <= s1 for s0, s1 in seen)]
+            spikes = [t for t in spikes if t not in off]
+            jit[name] = {"rms_deg": round(j["rms_deg"], 4), "max_deg": round(j["max_deg"], 3), "spikes": spikes[:20],
+                         "unseen_spikes": off[:20]}
     if jit:
         rms = max(j["rms_deg"] for j in jit.values())
         spikes = sorted({t for j in jit.values() for t in j["spikes"]})
