@@ -51,9 +51,13 @@ export_alt_body exported the same asset; his_outfit.py used it as uncut). If it 
 ## 2. Fit the tee (headless Blender on the box, CPU, ~5-10 min)
 
 ```bash
-film-ue garment-fit --src $G/fit --garment tee --out $G/fit/out --only-slots shirt --drape-frames 40 \
+film-ue garment-fit --src $G/fit --garment tee --out $G/fit/out --only-slots shirt --drape-frames 40 --morph-ref \
     --blender /srv/ue/tools/blender-4.2*/blender
 ```
+(GPU session, probe `ref_body_probe.py`: NO uncut body of Host_Op exists in the project. SKM_Host_BodyMesh is uncut
+(30455 verts, MetaHuman's full topology; his worn one is cut to 23780) and 0.45 cm median / 1.2 cm p95 from his
+shape: `--morph-ref` morphs it onto his worn body.fbx and fills the cut torso smoothly. First report line: matched
+~70-80%, the cut region moved median ~0.3-0.8 cm, max < 3; matched < 50% or max > 5 cm: STOP.)
 (`--only-slots`: the substring of SHIRT_SLOT from G7, lower case; the shorts stay as they are, hidden.)
 
 Expect `PASS` and, in the lines:
