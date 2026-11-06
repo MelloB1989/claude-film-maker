@@ -490,3 +490,96 @@ def test_the_take_the_mix_holds_wins_over_a_stale_line_wav(tmp_path):
     assert doc["line_dir"].endswith("stems/lines") and (tmp_path / "stems" / "lines" / "L1.wav").exists()
     none = CL.cues_from_mix(lines, tmp_path / "vo", mix, tmp_path / "s2", None, fps, "none")  # no takes: fails
     assert [i["code"] for i in none["issues"] if i["severity"] == "fail"] == ["not_in_mix"]
+
+
+def test_a_line_wav_that_is_missing_is_a_failure_not_a_silent_none(lips):
+    CL, stem, lines, fps, tmp = lips
+    doc = CL.build_cues(lines, {"him": stem}, fps, words="none", line_dir=tmp)  # no L1.wav / L2.wav in tmp
+    assert {i["code"] for i in doc["issues"] if i["severity"] == "fail"} == {"no_wav"}
+
+
+def test_the_mixed_voice_must_be_the_solved_voice(tmp_path):
+    """Round 4 in one test: the faces' stems were not the stems the mix was built from. mix.json's hashes prove it."""
+    from filmtools.unreal import cli_lipsync as CL
+    sr, fps = 48000, 24.0
+    l1 = _speech(sr, 1.0, 1)
+    (tmp_path / "vo").mkdir()
+    sf.write(tmp_path / "vo" / "L1.wav", l1, sr, subtype="PCM_24")
+    lines = {"lines": {"L1": {"who": "him", "text": "Took you long enough.", "wav": "L1.wav", "voice_frame": 1020,
+                              "file_frame": 1018.8, "slot_end": 1065}}}
+    paths, placed, issues = CL.stems_from_lines(lines, tmp_path / "vo", tmp_path / "stems", 1560, fps)
+    assert not issues and abs(placed["L1"] - 1020.0) < 2.5  # its first sound on the planned frame
+    voice = tmp_path / "stem-voice.wav"
+    x, _ = sf.read(paths["him"], dtype="float32")
+    sf.write(voice, 0.5 * x, sr)
+    mix = tmp_path / "mix.wav"
+    sf.write(mix, 0.5 * x + _place(sr, len(x) / sr, [], music=0.05), sr)
+    meta = {"voice_sha256": {"him": CL.sha256(paths["him"])}, "stem_voice_sha256": CL.sha256(voice),
+            "mix_sha256": CL.sha256(mix)}
+    doc = CL.build_cues(lines, paths, fps, "none", line_dir=tmp_path / "vo", mix=mix, mix_voice=voice, mix_meta=meta)
+    assert not [i for i in doc["issues"] if i["severity"] == "fail"], doc["issues"]
+    assert doc["lines"]["L1"]["mix_score"] > 0.99  # on the mix's own voice stem
+    other = tmp_path / "other.wav"  # the faces solved on other stems (round 4)
+    sf.write(other, np.roll(x, sr), sr, subtype="PCM_24")
+    bad = CL.build_cues(lines, {"him": other}, fps, "none", mix=mix, mix_voice=voice, mix_meta=meta)
+    assert "vo_not_mixed" in {i["code"] for i in bad["issues"]}
+    unproven = CL.build_cues(lines, paths, fps, "none", mix=mix, mix_meta={})
+    assert "vo_unproven" in {i["code"] for i in unproven["issues"]}
+
+
+def _voice_at(sr, dur, f0, seed):
+    rnd = np.random.default_rng(seed)
+    t = np.arange(int(sr * dur)) / sr
+    syl = 0.5 + 0.5 * np.sin(2 * np.pi * (4.2 + rnd.random()) * t - np.pi / 2)
+    return (0.3 * syl * np.sign(np.sin(2 * np.pi * f0 * t))).astype(np.float32)
+
+
+def test_line_wavs_cut_from_the_mixs_separated_voice(tmp_path):
+    """Option D: the voice separated from the delivered mix, cut per line at the plan's windows, speaker checked by
+    pitch, and proven to come from that mix."""
+    from filmtools.unreal import cli_lipsync as CL
+    sr, fps = 48000, 24.0
+    him, her = _voice_at(sr, 1.3, 120, 1), _voice_at(sr, 0.8, 230, 2)
+    vocals = _place(sr, 60.0, [(1021.0 / fps, him), (1160.0 / fps, her)], noise=3e-4)
+    sf.write(tmp_path / "vocals.wav", vocals, sr, subtype="PCM_24")
+    mix = tmp_path / "mix.wav"
+    sf.write(mix, vocals + _place(sr, 60.0, [], music=0.05), sr)
+    plan = {"lines": {"L1": {"who": "him", "text": "Took you long enough.", "voice_frame": 1020, "slot_end": 1065},
+                      "L3a": {"who": "her", "text": "Nice try.", "voice_frame": 1158, "slot_end": 1185}}}
+    lines, issues, man = CL.lines_from_voice(tmp_path / "vocals.wav", plan, tmp_path / "sep", mix, fps, "htdemucs")
+    assert not [i for i in issues if i["severity"] == "fail"], issues
+    assert abs(lines["L1"]["voice_frame"] - 1021.0) < 1.5 and abs(lines["L3a"]["voice_frame"] - 1160.0) < 1.5
+    assert abs(lines["L1"]["file_frame"] - (1021.0 - 0.05 * fps)) < 1.5
+    assert lines["L1"]["f0_hz"] < 165 < lines["L3a"]["f0_hz"] and man["leak_db"] < -25
+    # the cues on them: stems placed at the cut, proven against the mix
+    doc_lines = {"lines": {k: {**c, "place": "file_frame"} for k, c in lines.items()}}
+    stems, placed, _ = CL.stems_from_lines(doc_lines, tmp_path / "sep", tmp_path / "stems", 1560, fps)
+    assert abs(placed["L1"] - lines["L1"]["file_frame"]) < 1e-6
+    doc = CL.build_cues(doc_lines, stems, fps, "none", line_dir=tmp_path / "sep", mix=mix,
+                        mix_voice=tmp_path / "vocals.wav", mix_meta=man)
+    assert not [i for i in doc["issues"] if i["severity"] == "fail"], doc["issues"]
+    assert all(c["mix_score"] > 0.8 for c in doc["lines"].values())
+    sf.write(mix, vocals + _place(sr, 60.0, [], music=0.06), sr)  # another mix: not the one the voice came from
+    doc = CL.build_cues(doc_lines, stems, fps, "none", line_dir=tmp_path / "sep", mix=mix,
+                        mix_voice=tmp_path / "vocals.wav", mix_meta=man)
+    assert "vo_not_mixed" in {i["code"] for i in doc["issues"]}
+    wrong = {"lines": {"L1": {**plan["lines"]["L1"], "who": "her"}}}  # the plan says her: the pitch says him
+    _, issues, _ = CL.lines_from_voice(tmp_path / "vocals.wav", wrong, tmp_path / "sep2", mix, fps)
+    assert [i["code"] for i in issues if i["severity"] == "fail"] == ["speaker"]
+
+
+def test_a_line_window_never_reaches_into_the_line_before(tmp_path):
+    """r5 on the real vocals: L4b's window (planned f1386 - 0.6 s) began inside L4a's tail (him to f1378)."""
+    from filmtools.unreal import cli_lipsync as CL
+    sr, fps = 48000, 24.0
+    him, her = _voice_at(sr, 1.15, 120, 1), _voice_at(sr, 1.6, 240, 2)
+    vocals = _place(sr, 62.0, [(1350.0 / fps, him), (1384.0 / fps, her)], noise=3e-4)
+    sf.write(tmp_path / "vocals.wav", vocals, sr, subtype="PCM_24")
+    mix = tmp_path / "mix.wav"
+    sf.write(mix, vocals, sr)
+    plan = {"lines": {"L4a": {"who": "him", "text": "What goes around…", "voice_frame": 1350, "slot_end": 1380},
+                      "L4b": {"who": "her", "text": "…comes around. That's karma.", "voice_frame": 1386,
+                              "slot_end": 1420}}}
+    lines, issues, _ = CL.lines_from_voice(tmp_path / "vocals.wav", plan, tmp_path / "sep", mix, fps)
+    assert not [i for i in issues if i["severity"] == "fail"], issues
+    assert abs(lines["L4b"]["voice_frame"] - 1384.0) < 1.5 and lines["L4b"]["f0_hz"] > 200
