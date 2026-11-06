@@ -80,7 +80,7 @@ def pairs(names) -> list:
     """(under, over): skin under every garment; the trousers under his tee (the hem: its waistband must stay
     inside); the shoes under the trousers (the hem over the shoe tops); her top under her overshirt."""
     gs = [n for n in names if n not in SKIN]
-    out = [(u, g) for g in gs for u in SKIN if u in names]
+    out = [(u, g) for g in gs for u in SKIN if u in names and (u == "Body" or g in ("tee", "Top", "Overshirt"))]
     for u, g in (("Trousers", "tee"), ("shoes", "Trousers"), ("Top", "Overshirt"), ("Trousers", "Overshirt")):
         if u in names and g in names:
             out.append((u, g))
