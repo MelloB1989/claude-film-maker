@@ -50,7 +50,9 @@ def crop(path, box, pad=0.06):
 
 def num(rep, shot, f, pair):
     v = rep["shots"].get(shot, {}).get(str(f), {}).get(pair) if isinstance(rep["shots"].get(shot), dict) else None
-    return f"{100 * v['fraction']:.2f}% ({v['px']} px)" if isinstance(v, dict) else "-"
+    if not isinstance(v, dict):
+        return "-"
+    return f"{100 * v['fraction']:.2f}% ({v['px']} px)" if "fraction" in v else f"{v.get('px', '-')} px"  # neck_px
 
 
 def diag(a):
