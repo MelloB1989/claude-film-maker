@@ -82,6 +82,8 @@ peak <= -1 dBTP; every caption line within 2 frames of its first VO word (cues.j
   moves 0.33 cm/frame (others 0.003-0.009): real lip motion before the line, flagged for the orchestrator's eye. Item a
   SIGNED on the orchestrator's rule: S13 L1, S15 L2, S16 L3b by eye; L3a/L4a/L4b on lipgap (S17 also by eye on the
   final re-render). Tee silhouette (orchestrator): Host_fix vs Host_after +6..+15% -> gate e now checks +-2% (S15/S17/S18).
+- orchestrator by eye: S13 f977-1017 is the planned smirk/grin (lips part, teeth in a smile), not mouthing; a.lips is
+  WAIVED for S13 L1 only (`--waive a.lips=...`), checked on each run that S13 L1 is the item's only failure.
 - neck patch (agent-02 neck_px, before4 -> after, worst px per shot): S13 169 -> 172, S15 709 -> 649, S17 91 -> 93,
   S18 39 -> 34: NOT fixed; the gate refuses e until 0.
 
