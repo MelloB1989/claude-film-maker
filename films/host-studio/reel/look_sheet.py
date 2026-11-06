@@ -115,7 +115,8 @@ for side in ("L", "R"):
             break
 result = {"eyeL": eL, "eyeR": eR, "head": head, "mid": mid, "facing": f, "floor": a.get_actor_location().z,
           "top": o.z + e.z, "cheeks": cheeks,
-          "grooms": [c.get_name() for c in a.get_components_by_class(unreal.GroomComponent)]}
+          "grooms": {c.get_name(): (c.get_editor_property("groom_asset").get_name() if c.get_editor_property("groom_asset") else None)
+                     for c in a.get_components_by_class(unreal.GroomComponent)}}
 """
 
 SETUP = r"""
@@ -572,7 +573,12 @@ def render(a) -> None:
                 ex(HAIR_COLOR, LABEL=PREVIEW, COLOR=look["hair_color"])
             gv = ex(GEO, LABEL=PREVIEW)
             gv["chip"] = g["chip"]
-            row["geo"] = {k: gv[k] for k in ("eyeL", "eyeR", "floor", "top")}
+            row["geo"] = {k: gv[k] for k in ("eyeL", "eyeR", "floor", "top", "grooms")}
+            want = {k: x for k, x in (change.get("grooms") or {}).items() if x and x != "none"}
+            worn = " ".join(str(x) for x in gv["grooms"].values())
+            row["groom_missing"] = [x for x in want.values() if x.removeprefix("WI_") not in worn]
+            if row["groom_missing"]:
+                print(json.dumps({"WARNING groom not worn": row["groom_missing"], "worn": gv["grooms"]}), file=sys.stderr)
             cams = views(gv, sheet, a)
             if a.grid:
                 cams = {"front": cams["front"]}
