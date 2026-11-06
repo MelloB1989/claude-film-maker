@@ -259,6 +259,59 @@ def install(fake):
         return ClothingSimulationInteractor("CSI", self) if m is not None and m._props.get("mesh_clothing_assets") else None
     SMC.get_clothing_simulation_interactor = get_interactor
 
+    # Geometry Script, as far as cloth.py reads it: a mesh's render points and triangles from mesh._props
+    # ("render_points": [(x, y, z)], "render_tris": [(a, b, c)], "render_mids": [material id per triangle])
+    class _DM(core.Object):
+        pass
+
+    src = {}   # id(dynamic mesh) -> the skeletal mesh it was copied from
+
+    fake.DynamicMesh = _DM
+
+    class GSAssetUtils:
+        @staticmethod
+        def copy_mesh_from_skeletal_mesh(mesh, dm, opts, lod, *a):
+            src[id(dm)] = mesh
+            return dm
+
+    class GSQueries:
+        @staticmethod
+        def get_all_vertex_positions(dm, skip_gaps=False):
+            m = src.get(id(dm))
+            return [core.Vector(*p) for p in (m._props.get("render_points") or [])] if m is not None else []
+
+        @staticmethod
+        def get_all_triangle_indices(dm, skip_gaps=True):
+            m = src.get(id(dm))
+            return [core.Vector(*t) for t in (m._props.get("render_tris") or [])] if m is not None else []
+
+    class GSMaterials:
+        @staticmethod
+        def get_all_triangle_material_i_ds(dm):
+            m = src.get(id(dm))
+            return list(m._props.get("render_mids") or []) if m is not None else []
+
+    class GSList:
+        @staticmethod
+        def convert_vector_list_to_array(v):
+            return list(v)
+
+        @staticmethod
+        def convert_triangle_list_to_array(v):
+            return list(v)
+
+        @staticmethod
+        def convert_index_list_to_array(v):
+            return list(v)
+
+    fake.GeometryScript_AssetUtils = GSAssetUtils
+    fake.GeometryScript_MeshQueries = GSQueries
+    fake.GeometryScript_Materials = GSMaterials
+    fake.GeometryScript_List = GSList
+    fake.GeometryScript_VertexColors = None
+    fake.GeometryScriptMeshReadLOD = type("GeometryScriptMeshReadLOD", (core.Object,), {})
+    fake.GeometryScriptCopyMeshFromAssetOptions = type("GeometryScriptCopyMeshFromAssetOptions", (core.Object,), {})
+
     class ChaosCacheManager(core.Actor):
         def find_or_add_observed_component(self, component, cache_name="", transfer=False):
             obs = self._props.setdefault("__observed", {})

@@ -200,6 +200,24 @@ Component settings (all garments): teleport 50 cm / 45°, reset after teleport, 
   - `garment.cloth_sound == 1` (r4 0);
   - `garment.cloth_detail_ratio >= 1.25` (r4 1.0).
 
+## 5b. Round 5 on the box: what happened (2026-11-06)
+
+- **Her overshirt exploded** (a crumpled, shredded, metallic mass in the S16 preview). Cause: a finished render mesh
+  (subdivided, ~108k vertices, solidified into two layers, collar/plackets/buttons/pocket as separate pieces:
+  `props/overshirt.py`) simulated as one cloth. The cloth was removed; it is skinned as in round 4. `cloth.setup` now
+  refuses closed shells, loose pieces and > 40k vertices (`clothkit.topology`).
+- **His tee: no cloth this round** (the orchestrator's ruling). MetaHuman's default tee is also a closed shell (0.34 cm
+  wall). The refit (real ease, no WPO; armour index 0.126 vs round 4's 0.538) removes the armour look.
+  `garment.cloth_*` are recorded NOT ATTEMPTED. The proxy-sim path is in cloth.md "Round 6".
+- **Engine facts learned on the box** (now handled by the ops):
+  - Restored engines need UBT's rules and the engine's UHT headers before a plugin builds (setup.sh `plugin`).
+  - The cloth config's EditAnywhere-only properties need their C++ names from Python.
+  - Weighted values have no Python type: FMCloth `SetConfigValue` writes them on the asset, which is the only place
+    an MRQ world reads them.
+  - Editing a mesh re-creates the MetaHuman's components and drops leader pose.
+  - The editor never stepped skeletal-mesh cloth, so `qa.cloth` could not run.
+  - Fit vertex colours arrive sRGB-decoded: G pinning only.
+
 ## 6. Not done here (alternatives, follow-ups)
 
 - **Dataflow Cloth Asset via the 5.8 AI toolsets.** Use it when we author outfits (Panel Cloth, MetaHuman outfit

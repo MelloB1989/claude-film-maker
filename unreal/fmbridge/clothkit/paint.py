@@ -20,6 +20,7 @@ import math
 
 EASE_FULL_CM = 5.0          # R = 1.0 in the fit's colours (garment.fit encodes ease cm / 5, clamped)
 PIN_LEVEL = 0.5             # G above this is pinned
+USE_EASE = False            # R (ease) arrives sRGB-decoded through UE's FBX colours (byte 77 -> 0.37 cm): G only (round 5)
 
 
 def _sub(a, b):
@@ -147,7 +148,7 @@ def paint(verts: list, zones: list, segs: dict, preset: dict, parents: dict, col
             r, gch = float(colours[i][0]), float(colours[i][1])
             if gch > PIN_LEVEL:
                 d, pin = 0.0, True
-            elif r < 0.98:                      # a body is under it (the ease is measured, not "far")
+            elif USE_EASE and r < 0.98:                      # a body is under it (the ease is measured, not "far")
                 ease = r * EASE_FULL_CM
                 d = min(d, ease + thick)
                 back_d = max(0.0, ease - thick)
