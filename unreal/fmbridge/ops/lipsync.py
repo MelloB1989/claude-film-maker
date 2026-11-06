@@ -1,6 +1,6 @@
 """Lip-sync in the editor: measure WHEN a face's mouth moves against its voice (perfkit.lipsync), on an animation or
 on what a sequence actually plays; build a performance's mouth from per-line solves placed at their cues; and project
-a speaker's mouth into the shot cameras for the video-level check (film-ue lipsync render).
+a speaker's mouth into the shot cameras for the video-level check (film-ue lips render).
 
     lipsync.check     per line: lag (frames), correlation, onset lead; the silences; one diagnosis. FAILS on
                       |lag| > 1 frame, r < 0.35, a mouth that opens > 0.25 s ahead or talks in a silence
@@ -32,11 +32,11 @@ def _lines(lines, cues: str, who: str, fps: float) -> list:
     out = []
     if cues:
         if not os.path.exists(cues):
-            raise not_found("cues.json", cues, hint="push the cues built by `film-ue lipsync cues` to the box")
+            raise not_found("cues.json", cues, hint="push the cues built by `film-ue lips cues` to the box")
         doc = json.load(open(cues))
         if not doc.get("measured"):
             raise OpError(f"{cues} was not measured from the placed audio (no \"measured\": true)", code="bad_args",
-                          hint="rebuild it: film-ue lipsync cues (VAD on the stems at their mix positions, words)")
+                          hint="rebuild it: film-ue lips cues (VAD on the stems at their mix positions, words)")
         for k, c in doc["lines"].items():
             if who and c.get("who") != who:
                 continue
@@ -121,7 +121,7 @@ def check(*, wav: str, lines: list | None = None, cues: str = "", who: str = "",
         wav_frame, so the solver's own lag is measured; pass it as expected_lag_s to later checks).
     wav: the voice on the box, its first sample on master frame `wav_frame` (a 65 s stem from frame 0: 0; a line's WAV:
       its cue's file_frame). lines: [{"id", "f0", "f1"}] speech onset/offset frames, or cues=<cues.json on the box>
-      who=<who> (it must be a measured one: film-ue lipsync cues). fps: default the sequence's, else 24.
+      who=<who> (it must be a measured one: film-ue lips cues). fps: default the sequence's, else 24.
 
     Returns {"pass", "lines": {id: {lag_frames, corr, onset_lead_s, ...}}, "silences", "issues", "diagnosis",
     "sections"?, "audio"?}.
@@ -219,7 +219,7 @@ def mouth_boxes(*, sequence: str, label: str, frames: list, component: str = "Fa
                 bones: list | None = None, pad: float = 0.6, ticks: int = 2):
     """Where `label`'s mouth is in the picture, per frame: through `camera` or (default) the camera the edit shows on
     that frame, the mouth's corner/lip/jaw bones projected (cam.project's lens model) to a square box (0..1 from the
-    top left) padded by `pad` x its size, for the video check's crop (film-ue lipsync render --boxes). A multi-tick
+    top left) padded by `pad` x its size, for the video check's crop (film-ue lips render --boxes). A multi-tick
     job. Bones default to the MetaHuman face's FACIAL_C_Jaw, FACIAL_L/R_LipCorner, FACIAL_C_LipUpper/LipLower.
 
     Returns {"frames": {frame: {"camera", "box": [x0, y0, x1, y1], "visible"}}}.

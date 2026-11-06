@@ -202,3 +202,115 @@ def test_speech_curves():
     assert LS.is_speech_curve("CTRL_expressions_tongueUp")
     assert not LS.is_speech_curve("CTRL_expressions_mouthCornerPullL")
     assert not LS.is_speech_curve("CTRL_expressions_browRaiseInL")
+
+
+# --- film-ue lips: measured cues, the offline curve gate, the render gate ----------------------------------------
+
+np = pytest.importorskip("numpy")
+sf = pytest.importorskip("soundfile")
+
+
+def _speech(sr: int, dur: float, seed: int) -> "np.ndarray":
+    """A voiced-sounding burst: a 140 Hz buzz under a syllable-rate (4-5 Hz) envelope."""
+    rnd = np.random.default_rng(seed)
+    t = np.arange(int(sr * dur)) / sr
+    syl = 0.5 + 0.5 * np.sin(2 * np.pi * (4.2 + rnd.random()) * t - np.pi / 2)
+    return (0.3 * syl * np.sign(np.sin(2 * np.pi * 140 * t)) * (0.7 + 0.3 * rnd.random(len(t)))).astype(np.float32)
+
+
+def _stem(path, sr, length_s, lines):
+    x = np.zeros(int(sr * length_s), np.float32)
+    for t0, dur, seed in lines:
+        y = _speech(sr, dur, seed)
+        i0 = int(t0 * sr)
+        x[i0:i0 + len(y)] += y
+    x += np.random.default_rng(0).normal(0, 1e-4, len(x)).astype(np.float32)
+    sf.write(path, x, sr, subtype="PCM_24")
+    return path
+
+
+@pytest.fixture
+def lips(tmp_path):
+    from filmtools.unreal import cli_lipsync as CL
+    sr, fps = 48000, 24.0
+    stem = _stem(tmp_path / "vo_him.wav", sr, 50.0, [(42.55, 1.0, 1), (45.7, 1.1, 2)])
+    lines = {"fps": fps, "lines": {
+        "L1": {"who": "him", "text": "Took you long enough.", "wav": "L1.wav", "file_frame": 1018.8, "voice_frame": 1020,
+               "end_frame": None, "slot_end": 1065},
+        "L2": {"who": "him", "text": "Ask her what's next.", "wav": "L2.wav", "file_frame": 1093.8, "voice_frame": 1095,
+               "end_frame": None, "slot_end": 1133}}}
+    return CL, stem, lines, fps, tmp_path
+
+
+def test_cues_are_measured_from_the_stem_and_record_its_hash(lips):
+    CL, stem, lines, fps, tmp = lips
+    doc = CL.build_cues(lines, {"him": stem}, fps, words="estimate")
+    assert doc["measured"] and doc["stems"]["him"]["sha256"] == CL.sha256(stem)
+    l1, l2 = doc["lines"]["L1"], doc["lines"]["L2"]
+    assert abs(l1["voice_frame"] - 42.55 * fps) < 1.5 and abs(l1["end_frame"] - 43.55 * fps) < 3
+    assert abs(l2["voice_frame"] - 45.7 * fps) < 1.5
+    assert l1["words"][0]["start"] == l1["voice_frame"] and l1["words"][-1]["end"] == l1["end_frame"]
+    assert [w["w"] for w in l1["words"]] == ["Took", "you", "long", "enough."]
+    assert l1["words_source"] == "estimate"
+    assert CL.stale(doc, {"him": stem}) == []
+    _stem(stem, 48000, 50.0, [(42.0, 1.0, 1)])  # the stem changed: the cues are stale
+    assert CL.stale(doc, {"him": stem}) == ["him"]
+
+
+def test_offline_curve_gate_catches_an_early_face(lips):
+    CL, stem, lines, fps, tmp = lips
+    doc = CL.build_cues(lines, {"him": stem}, fps, words="none")
+    x, sr = sf.read(stem, dtype="float32")
+    env = CL.envelope(x, sr)
+    ts = [i / 30 for i in range(30 * 50)]
+    good = {JAW: (ts, [0.6 * env.at(t) for t in ts])}
+    # as anim.read_curves returns them: on the animation's own time; it starts on master frame 960
+    shifted = {JAW: ([t - 40.0 for t in ts if t >= 40.0], [0.6 * env.at(t) for t in ts if t >= 40.0])}
+    assert CL.curve_check(shifted, 960, stem, doc, "him", fps)["pass"]
+    early = {JAW: ([t - 40.0 - 0.7 for t in ts if t >= 40.7], [0.6 * env.at(t) for t in ts if t >= 40.7])}
+    r = CL.curve_check(early, 960, stem, doc, "him", fps)
+    assert not r["pass"] and r["lines"]["L1"]["lag_frames"] < -15
+    assert good
+
+
+def _frames_for(env, f0, n, fps, shift_frames=0.0, h=90, w=160):
+    """A grey face with a mouth whose dark cavity opens with the voice (shifted by `shift_frames`)."""
+    out = np.full((n, h, w), 0.7, np.float32)
+    yy, xx = np.mgrid[0:h, 0:w]
+    for i in range(n):
+        a = env.at((f0 + i - shift_frames) / fps)
+        ry = 1 + 14 * a
+        m = ((xx - 80) / 20.0) ** 2 + ((yy - 45) / ry) ** 2 <= 1.0
+        out[i][m] = 0.1
+    return out
+
+
+def test_render_gate_passes_in_sync_and_fails_an_early_mouth(lips):
+    CL, stem, lines, fps, tmp = lips
+    doc = CL.build_cues(lines, {"him": stem}, fps, words="none")
+    x, sr = sf.read(stem, dtype="float32")
+    env = CL.envelope(x, sr)
+    box = [0.3, 0.2, 0.7, 0.8]
+
+    def frames(shift):
+        out = {}
+        for k, c in doc["lines"].items():
+            f0 = int(math.floor(c["voice_frame"] - fps))
+            f1 = int(math.ceil(c["end_frame"] + fps))
+            out[k] = _frames_for(env, f0, f1 - f0, fps, shift)
+        return out
+    ok = CL.render_check(stem, stem, doc, "him", box=box, frames_override=frames(0))
+    assert ok["verdict"] == "pass", ok
+    assert all(abs(v["lag_frames"]) <= 1 and v["sensitive"] for v in ok["lines"].values())
+    bad = CL.render_check(stem, stem, doc, "him", box=box, frames_override=frames(-17))
+    assert bad["verdict"] == "fail" and bad["issues"][0]["code"] == "render_lag"
+    assert "EARLY" in bad["issues"][0]["message"]
+
+
+def test_render_gate_is_inconclusive_on_a_static_mouth(lips):
+    CL, stem, lines, fps, tmp = lips
+    doc = CL.build_cues(lines, {"him": stem}, fps, words="none")
+    still = {k: np.full((int(c["end_frame"] - c["voice_frame"] + 2 * fps) + 2, 90, 160), 0.5, np.float32)
+             for k, c in doc["lines"].items()}
+    r = CL.render_check(stem, stem, doc, "him", box=[0.3, 0.2, 0.7, 0.8], frames_override=still)
+    assert r["verdict"] == "inconclusive" and not r["pass"]
