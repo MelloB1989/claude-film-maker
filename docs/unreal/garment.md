@@ -30,6 +30,15 @@ film-ue op qa.garment_look label=Host ref_body=<uncut body from manifest.json> s
 A garment of your own that MetaHuman did not cut the body for: `film-ue op body.hide_under label=Ava garment=Top`
 (counts), then `apply=true` (a copy of the body mesh without the covered triangles, leader pose re-applied).
 
+**What shipped on the karma reel (round 5, his MetaHuman default-garment tee):**
+```bash
+film-ue op garment.export label=Host out_dir=$G/fit ref_body=<an UNCUT MetaHuman body: 30455 verts> 'sequences=[...]'
+film-ue garment-fit --src $G/fit --garment tee --out $G/fit/out9 --only-slots shirt --morph-ref --drape-frames 0 \
+    --weights blend --blend-regions collar,shoulder,sleeve --ease '{"collar": 1.8, "waist": 3.0, "hem": 3.4}'
+```
+qa.clip: neck_px 0, Body>Tee 0.00067, Trousers>Tee 0; armor 0.109 (round 4's WPO tee: 0.538), wpo 0. It took 9 runs;
+the lessons are in §4 (weights, the uncut body, the pose test, the closed shell).
+
 ## 2. Ops
 
 | op | what | multi-tick |
@@ -69,6 +78,26 @@ ease_spread 1.0 → 0.4; ease_median 3 → 5 cm; thickness 0.3 → 0.8 cm; silho
   the shorts in the same mesh: `--only-slots shirt` fits the tee and leaves the shorts.
 - Vertex colours out of the fit: R = ease / 5 cm, G = pinned (collar, shoulder): cloth.setup reads them.
 - Detail needs a normal capture (`SCS_Normal`, deferred renderer only).
+
+- **No uncut body of the character?** (MetaHuman assembles only the cut one.) `--morph-ref` with another uncut
+  MetaHuman body of the same topology (30455 verts; a cut one has fewer): it is morphed onto the worn body where
+  they meet and the cut region filled smoothly (round 5: 74.5% matched, fill median 0.2 cm).
+- **Weights decide clips that ease cannot.** Body-transferred weights let the collar follow a big neck turn, but at
+  the hem they follow the thighs, while under-garments fitted to the garment's OWN weights (his trousers copy the
+  old tee's) stay with the spine: the waistband came through by 3 cm. `--weights blend --blend-regions
+  collar,shoulder,sleeve`: transferred where the neck/arms drive it, the garment's own below (the blend is smoothed
+  over ~15 rings, ~15-20 cm: keep the chest out of the transferred set or it reaches the hem).
+- **Measure on the final motion.** A later performance pass (calibrate_body) changed his torso turn and brought a
+  0.5 cm waistband residue back: 0.6 cm more waist/hem ease cleared it.
+- **The fit's pose test is a proxy.** qa.clip in the shot's camera with the real face rig is the judge (round 5: the
+  pose test first counted the hidden shorts, then rode the face rigidly on neck_02).
+- **A closed-shell garment (a MetaHuman default garment, a solidified overshirt) must not be simulated whole**
+  (round 5: her overshirt exploded). Simulate a single-layer proxy section (`--single-layer`, round 6) mapped onto
+  the render section.
+- **qa.garment_look's silhouette and motion terms are reported with weight 0**: the temporary reference-body actor
+  read impossible values on the box (2.30, 966); fix before trusting them.
+- **Vertex colours**: the fit writes linear bytes; Unreal reads FBX colours as sRGB FColor: read G (pinned, 0/1),
+  not R, unless decoded as raw byte/255.
 
 ## 5. API_NOTES (verified on the 5.8.4 source box, /srv/ue-src/UnrealEngine-5.8.4)
 
