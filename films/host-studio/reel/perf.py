@@ -533,7 +533,15 @@ def _clash(a: list, b: list, pad: float = 2.0) -> list:
     return [x for x in a if any(x[0] < y[1] + pad and y[0] < x[1] + pad for y in b)]
 
 
-def naturalize(who: str, plot: bool = True) -> dict:
+# Master-frame spans where `who` must not blink: the onset of a big turn whose path carries a pitch bell (r5 box: his
+# S15 turn-out, look t=1128, the gaze blink at f1130-1133 read blink_nod 1.41 deg, line 0.6, on the face-curve turn
+# path, where the vertical-axis fix does not run). The planner moves the blink before the turn (up to 0.9 s) or drops
+# it; the pitch bell stays the turn's (lipsync.md, options a/b). Opt-in (`naturalize --no-turn-blinks`): the fallback
+# if the bone-path turn (option b) still leaves the bell over 0.6 deg under that blink.
+NO_BLINK = {"him": [[1124, 1172]], "her": []}
+
+
+def naturalize(who: str, plot: bool = True, no_turn_blinks: bool = False) -> dict:
     """perf.face over the composed solve -> ANIM/AS_reel_<who>_face (what sync, gaze and place use, as in v2). Needs
     `compose` (r3) and perf.calibrate on the presenter's face (`calibrate`). When the other presenter's face has been
     made, its blinks are kept out of this one's (perf.face avoid_blinks): two people blinking on the same frame reads
@@ -543,7 +551,7 @@ def naturalize(who: str, plot: bool = True) -> dict:
     other = "her" if who == "him" else "him"
     theirs_p = OUT / f"blinks_{other}.json"
     theirs = json.loads(theirs_p.read_text()) if theirs_p.exists() else []
-    avoid = [[round((a - START[who]) / FPS, 3), round((b - START[who]) / FPS, 3)] for a, b in theirs]
+    avoid = [[round((a - START[who]) / FPS, 3), round((b - START[who]) / FPS, 3)] for a, b in theirs + (NO_BLINK[who] if no_turn_blinks else [])]
     args = {"anim": f"{ANIM}/AS_reel_{who}_solve", "out": f"{ANIM}/AS_reel_{who}_face",
             # r5 (the operator on r4: "every time she blinks her head nods"): the solve's head is dropped (it comes out
             # of the same predictor run as its blinks and dips with them) and no blink moves the head
@@ -1498,6 +1506,7 @@ def main() -> None:
     ap.add_argument("--me", help="the owner tag in test asset names (default REEL_PERF_ME, else 'perf')")
     ap.add_argument("--measured", action="store_true", help="looks: the head and eyes the placed animation has")
     ap.add_argument("--cleanup", action="store_true", help="place: then remove every test actor and sequence")
+    ap.add_argument("--no-turn-blinks", action="store_true", help="naturalize: no blink on the turns in NO_BLINK")
     ap.add_argument("--rejudge", action="store_true", help="head: judge the files already pulled, no editor")
     a = ap.parse_args()
     if a.me:
@@ -1518,6 +1527,8 @@ def main() -> None:
                 r = gaze(w, a.start_at, a.stop_at)
             elif a.cmd == "stills":
                 r = stills(w, [int(f) for f in a.frames.split(",")] if a.frames else None)
+            elif a.cmd == "naturalize":
+                r = naturalize(w, no_turn_blinks=a.no_turn_blinks)
             else:
                 r = globals()[a.cmd](w)
             print(w, json.dumps(r, default=str))
