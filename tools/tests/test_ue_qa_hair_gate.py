@@ -131,7 +131,7 @@ def test_clean_numbers_sign():
     good = {"lips.lead_in_cm": 0.008, "lips.onset_lead_ms": 140, "lips.track_r": 0.93, "lips.measured_against": 1, "lips.cues_fresh": True,
             "lips.lag_frames": 0, "lips.silence_open": 0.03, "lips.silence_busy": 0.1, "lips.render_lag_frames": 1,
             "lips.render_conclusive": True, "garment.wpo_cm": 0.0, "garment.armor_index": 0.3,
-            "garment.pair_fraction": 0.0, "garment.silhouette_ratio": 1.05, "garment.collar_gap_cm": 0.3, "garment.collar_roll": 0, "garment.hem_flare_ratio": 1.08, "shot.cameras_ok": 1,
+            "garment.pair_fraction": 0.0, "garment.silhouette_ratio": 1.05, "garment.collar_gap_cm": 0.3, "garment.collar_roll": 0, "garment.hem_flare_ratio": 1.08, "shot.cameras_ok": 1, "shot.render_matches_r4": 0.91,
             "head.blink_nod_deg": 0.2, "head.blink_locked_deg": 0.1, "garment.neck_px": 0, "garment.silhouette_pct": 0.8,
             "garment.cloth_alive": 0.6, "garment.cloth_sound": True, "garment.cloth_detail_ratio": 1.6, "hair.cut_reach_pct": 3.1, "hair.pop_reach_pct": 1.2, "hair.cut_pop_ratio": 1.1, "hair.lock": 1,
             "hair.render_cvars": 1}
@@ -287,4 +287,5 @@ def test_guard_must_fail_its_own_failure():
 def test_cameras_item_restored():
     r = gate.judge({"shot.cameras_ok": 0}, only=["shot.cameras_ok"])
     assert r["verdict"] == "REFUSE" and "probe_cam" in r["issues"][0]["fix"]
-    assert gate.lines_fail()["shot.cameras_ok"] is True  # fails the S15 wrong-camera preview it was restored for
+    assert gate.lines_fail()["shot.cameras_ok"] is True
+    assert gate.lines_fail()["shot.render_matches_r4"] is True  # 0.19: the S15 wrong-view preview fails it
