@@ -27,8 +27,8 @@ for c in host.get_components_by_class(unreal.SkeletalMeshComponent):
                 if k in names:
                     wpo[k] = MEL.get_material_instance_scalar_parameter_value(m, k)
         plain = next((p for p in chain if not p.startswith("/Game/FM/") and "Inflate" not in p), None)
-        if plain is None and chain and chain[0].endswith("_Inflate"):  # mh.cloth_inflate's copy: Host_<MI>_Inflate
-            want = chain[0].rsplit("/", 1)[1][len("Host_"):-len("_Inflate")]
+        if plain is None and chain and "_Inflate" in chain[0]:  # cloth_inflate's copy: Host_<MI>_Inflate[_N_P...]
+            want = chain[0].rsplit("/", 1)[1][len("Host_"):].split("_Inflate")[0]
             ar = unreal.AssetRegistryHelpers.get_asset_registry()
             hits = [str(d.package_name) for d in ar.get_all_assets() if str(d.asset_name) == want]
             plain = sorted(hits, key=lambda h: (h.startswith("/Game/FM/"), len(h)))[0] if hits else None
