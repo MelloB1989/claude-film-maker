@@ -261,8 +261,11 @@ inside the overshirt opening; S15). Found so far:
 - her hair intact across 01:00 (S17 -> S18).
 The neck HELD for round 6: loop 6 proved it a FIT problem (Epic's collar vs his neck; the backstop trades poke for gap).
 Gate v2 on it REFUSES on the garment rows above and on lips.render_lag (an invalid measure); the hair.pop_reach row
-stands, since agent-04's place fix was not rendered. The re-rendered S17+S18's hair.cut_pop_ratio was not reported
-before the wrap; the earlier S17+S18 job read 1.372 and the orchestrator's eye confirms the length.
+stands, since agent-04's place fix was not rendered. On the delivered frames (all presenter shots but S13 rendered after
+19:09; `hair_gate2.json`): **hair.cut_pop_ratio 1.375** (line 1.8, round 4 2.57: the 01:00 fix holds on the re-render),
+hair.lock 1, render_cvars 1, cut_reach 1.96 (editor), pop_reach 8.93 (editor, S15 f1082: FAIL, her pre-existing start
+tilt); the render matte's cut_reach 160.26 is excluded (`--qa-pop`); shot.start_motion_ratio 13.65 (INFO);
+shot.render_matches_r4 0.8125 (S15 f1140, line 0.5).
 
 **What the gate learned this session (tools, all on r5-film-integrate)**
 
