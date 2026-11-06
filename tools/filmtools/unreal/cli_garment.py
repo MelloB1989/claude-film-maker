@@ -160,15 +160,20 @@ def judge(rep: dict) -> dict:
         if x:
             lines.append(f"  {r:8s} p10 {x['p10']:5.2f}  median {x['median']:5.2f}  p90 {x['p90']:5.2f} cm  (n {x['n']})")
     for k, v in (rep.get("poses") or {}).items():
+        br = v.get("by_region") or {}
         lines.append(f"pose test {k}: {v['inside']} verts inside" + (f" (deepest {v['deepest_cm']} cm at f{v['frame']})"
-                                                                     if v["inside"] else ""))
+                                                                     if v["inside"] else "")
+                     + ("  by region " + ", ".join(f"{r} {n} ({cm} cm)" for r, (n, cm) in br.items()) if br else ""))
     probs = rep.get("problems") or []
     for p in probs:
         if "shell" in p:
             nxt.append("drape it: --drape-frames 40 (the hem and sleeves fall, folds form)")
         elif "inside the body" in p and "pose test" in p:
             if (rep.get("args") or {}).get("weights") == "transfer":
-                nxt.append("more ease where it clips (--ease '{\"<region>\": ...}'): see the pose test's frame")
+                regs = sorted({r.split("@")[0] for v in (rep.get("poses") or {}).values()
+                               for r in (v.get("by_region") or {}) if r != "armpit"})
+                nxt.append("more ease where it clips: --ease '{" + ", ".join(f'"{r}": <+0.4 cm>' for r in regs)
+                           + "}' (regions from the pose tests; '@face': the face's neck in the collar)")
             else:
                 nxt.append("weights: --weights transfer (from the uncut body), or more ease where it clips (--ease)")
         elif "inside" in p or "closer than" in p:
