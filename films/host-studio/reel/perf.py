@@ -1375,30 +1375,49 @@ def place(path: str) -> list:
     return out
 
 
-def head_check(seq: str) -> dict:
+def seen_frames(who: str) -> list:
+    """[[f0, f1), ...] master frames `who` is on screen in the cut: the shots whose cast has them (merged)."""
+    out = []
+    for sh in sorted(SHOTS, key=lambda x: x.start):
+        if who in sh.cast:
+            if out and out[-1][1] == sh.start:
+                out[-1][1] = sh.end
+            else:
+                out.append([sh.start, sh.end])
+    return out
+
+
+def head_check(seq: str, rejudge: bool = False) -> dict:
     """Round 5: does either head move with its blinks (or buzz) as SEQ_Reel plays? qa.head_stability on each
     presenter's head bone over their screen time (the Face's own eyeBlink curves; the planned blinks of
-    OUT/blinks_<who>.json if the instance shows none), the results pulled to OUT/qa/, then gate v2's numbers file
-    OUT/qa/gate_head.json (head.blink_nod_deg <= 0.6, head.blink_locked_deg <= 0.3: film-qa head-gate)."""
+    OUT/blinks_<who>.json if the instance shows none), the results pulled to OUT/qa/, then judged on the frames each
+    is ON SCREEN in the cut (the shots' cast: the orchestrator's r5 ruling; his return turn in S16, her single, is not
+    seen) and gate v2's numbers file OUT/qa/gate_head.json (head.blink_nod_deg <= 0.6, head.blink_locked_deg <= 0.3).
+    `rejudge`: no editor, judge the files already in OUT/qa/ again."""
     from filmtools.unreal import qa_head as QH
-    got, local = {}, []
+    got, local, seen = {}, [], {}
     (OUT / "qa").mkdir(parents=True, exist_ok=True)
     for who in ("her", "him"):
-        remote = _j(REMOTE_STILLS, f"head_{who}.json")
-        args = {"sequence": seq, "label": LABEL[who], "start": START[who], "end": END - 1, "out": remote}
-        r = ok(client.op("qa.head_stability", timeout=1800, **args))
-        mine = OUT / f"blinks_{who}.json"
-        if any(i["code"] == "head.no_blinks" for i in r["issues"]) and mine.exists():
-            r = ok(client.op("qa.head_stability", timeout=1800, blinks=json.loads(mine.read_text()), **args))
         dst = OUT / "qa" / f"head_{who}.json"
-        client.pull(remote, str(dst))
+        seen[LABEL[who]] = seen_frames(who)
+        if not rejudge:
+            remote = _j(REMOTE_STILLS, f"head_{who}.json")
+            args = {"sequence": seq, "label": LABEL[who], "start": START[who], "end": END - 1, "out": remote}
+            r = ok(client.op("qa.head_stability", timeout=1800, **args))
+            mine = OUT / f"blinks_{who}.json"
+            if any(i["code"] == "head.no_blinks" for i in r["issues"]) and mine.exists():
+                r = ok(client.op("qa.head_stability", timeout=1800, blinks=json.loads(mine.read_text()), **args))
+            client.pull(remote, str(dst))
         local.append(str(dst))
-        got[who] = {"pass": r["pass"], "metrics": r["metrics"], "issues": [i["code"] for i in r["issues"]],
-                    "worst": max(r["blinks"], key=lambda b: abs(b["nod_deg"]), default=None)}
-    g = QH.gate(local)
+        j = QH.samples(str(dst), seen_frames=seen[LABEL[who]])
+        warn = [c["name"] for c in j["checks"] if not c["pass"] and c.get("severity") == "warn"]
+        got[who] = {"pass": j["pass"], "failed": j["failed"], "warn": warn, "metrics": j["metrics"],
+                    "seen": seen[LABEL[who]], "unseen": j["unseen"], "turns": j["turns"],
+                    "worst": max(j["blinks"], key=lambda b: abs(b["nod_deg"]), default=None)}
+    g = QH.gate(local, seen=seen)
     (OUT / "qa" / "gate_head.json").write_text(json.dumps(g, indent=1))
     got["gate"] = g["gate"]
-    got["pass"] = all(v.get("pass") for k, v in got.items() if k in ("her", "him")) and \
+    got["pass"] = all(got[w]["pass"] for w in ("her", "him")) and \
         all("error" not in it and it["value"] <= it["line"] for it in g["gate"].values())
     return got
 
@@ -1417,6 +1436,7 @@ def main() -> None:
     ap.add_argument("--me", help="the owner tag in test asset names (default REEL_PERF_ME, else 'perf')")
     ap.add_argument("--measured", action="store_true", help="looks: the head and eyes the placed animation has")
     ap.add_argument("--cleanup", action="store_true", help="place: then remove every test actor and sequence")
+    ap.add_argument("--rejudge", action="store_true", help="head: judge the files already pulled, no editor")
     a = ap.parse_args()
     if a.me:
         global ME
@@ -1446,7 +1466,7 @@ def main() -> None:
         print(json.dumps(r))
         sys.exit(0 if r["pass"] else 1)
     elif a.cmd == "head":
-        r = head_check(a.seq)
+        r = head_check(a.seq, a.rejudge)
         print(json.dumps(r, default=str))
         sys.exit(0 if r["pass"] else 1)
     elif a.cmd == "cleanup":
