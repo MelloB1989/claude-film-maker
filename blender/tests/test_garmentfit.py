@@ -115,3 +115,11 @@ def test_blend_weights_by_region():
     a2 = GF.region_alpha(region, ("collar",), nb, smooth_iters=3)
     W2, _ = GF.blend_weights(Wa, ga, Wb, gb, a2)
     assert np.allclose(W2.sum(1), 1) and 0 < a2[8] < 1
+
+
+def test_keep_factor_ramps_from_the_kept_band():
+    X = np.array([[0, 0, z] for z in range(8)], float)
+    region = np.array([GF.REGIONS.index("collar")] * 2 + [GF.REGIONS.index("chest")] * 6)
+    f = GF.keep_factor(X, region, ("collar",), ramp_cm=4.0)
+    assert list(f[:2]) == [1, 1] and f[2] == pytest.approx(0.75) and f[5] == 0 and f[7] == 0
+    assert not GF.keep_factor(X, region, (), 4.0).any()

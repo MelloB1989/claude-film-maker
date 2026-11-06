@@ -275,3 +275,21 @@ def region_alpha(region: np.ndarray, transfer_regions, nbrs: list, smooth_iters:
     meet without a seam."""
     on = np.isin(region, [REGIONS.index(r) for r in transfer_regions]).astype(float)
     return np.clip(smooth_field(on, nbrs, iters=smooth_iters, lam=0.5), 0, 1)
+
+
+def keep_factor(X: np.ndarray, region: np.ndarray, keep_regions, ramp_cm: float = 3.0) -> np.ndarray:
+    """1 on the vertices of keep_regions (the garment's ORIGINAL shape there: round 5's collar band, which the
+    operator wants hugging the neck base), falling linearly to 0 at ramp_cm (straight-line distance) from them, so
+    the fitted ease starts below the band without a ledge. 0 everywhere when no region is kept."""
+    X = np.asarray(X, float)
+    keep = np.isin(region, [REGIONS.index(r) for r in keep_regions])
+    if not keep.any():
+        return np.zeros(len(X))
+    K = X[keep]
+    d = np.full(len(X), np.inf)
+    for i in range(0, len(K), 512):  # chunks: memory stays small on 10k x 300
+        blk = K[i:i + 512]
+        d = np.minimum(d, np.sqrt(((X[:, None, :] - blk[None, :, :]) ** 2).sum(-1)).min(1))
+    f = np.clip(1.0 - d / max(ramp_cm, 1e-6), 0.0, 1.0)
+    f[keep] = 1.0
+    return f
