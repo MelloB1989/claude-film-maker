@@ -334,3 +334,34 @@ def test_breathing_is_never_a_metronome():
     assert old["breath_cv"] == 0.0
     flex = life["bones"]["spine_05"]["flex"]
     assert min(flex) < -0.1 and max(flex) <= 1e-9  # extension on the inhale, back to rest
+
+
+def test_blinks_on_another_clock_are_refused_not_dropped():
+    """r5 box: qa.head_stability found her blinks on the sequence's clock (45-65 s) and judged them on samples from 0;
+    every blink was dropped and the gate read 0.0 for round 4. That must raise."""
+    t = C.grid(0, 10.5, RATE)
+    with pytest.raises(ValueError, match="same clock"):
+        ST.check(t, [0.0] * len(t), [(45.0 + a, 45.3 + a) for a in ONSETS])
+
+
+def test_bone_samples_from_a_late_frame_find_the_blinks():
+    """The op's path end to end on bone samples that start at master frame 1080 (her screen time)."""
+    import json
+    from filmtools.unreal import qa_head as QH
+    fps, f0 = 24.0, 1080
+    frames = list(range(f0, f0 + 480))
+    samples, closure = [], []
+    for f in frames:
+        x = (f - f0) / fps
+        p = math.radians(dip(x, ONSETS, 1.5))
+        samples.append([0, 0, 160] + [-math.sin(p), 0.0, math.cos(p)] + [math.cos(p), 0.0, math.sin(p)] + [0.0, 1.0, 0.0])
+        closure.append(blink_closure(x, ONSETS))
+    path = Path(__file__).parent / "_tmp_head_samples.json"
+    try:
+        path.write_text(json.dumps({"samples": {"frames": frames, "fps": fps, "bone": samples, "closure": closure,
+                                                "forward": [1.0, 0.0, 0.0]}}))
+        r = QH.samples(str(path))
+    finally:
+        path.unlink()
+    assert len(r["blinks"]) == len(ONSETS)
+    assert "blink_nod" in r["failed"]
