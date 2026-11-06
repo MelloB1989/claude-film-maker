@@ -898,7 +898,7 @@ def head_stability(*, sequence: str, label: str, component: str = "Face", bone: 
                             f"no blink seen on {label} over f{frames[0]}-{frames[-1]} (blink curves {source}): the "
                             "blink checks did not run", fix="pass blinks=[[f0, f1], ...] (perf.py: blinks_<who>.json)",
                             subject=label))
-    res = _result(issues, {c["name"]: c["metric"] for c in r["checks"]}, blinks=r["blinks"], bta=r["bta"],
+    res = _result(issues, {c["name"]: c["metric"] for c in r["checks"]}, blinks=r["blinks"], edge=r["edge"], bta=r["bta"],
                   jitter=r["jitter"], axes=h.get("axes"), frames=[frames[0], frames[-1]], fps=fps,
                   blink_source=source, label=label, sequence=sequence)
     if out:

@@ -368,3 +368,13 @@ def test_bone_samples_from_a_late_frame_find_the_blinks():
     assert "blink_nod" in r["failed"]
     assert "error" not in g["head.blink_nod_deg"] and g["head.blink_nod_deg"]["value"] > 1.0
     assert g["head.blink_nod_deg"]["where"].startswith("_tmp_head_samples f1")
+
+
+def test_a_blink_cut_by_the_end_of_the_samples_is_not_judged():
+    """r5 box: his last blink, cut off by the end of his screen time with the head moving, scored 5.8 deg."""
+    t = C.grid(0, 10.5, RATE)
+    onsets = ONSETS + [10.35]
+    clos = [blink_closure(x, onsets) for x in t]
+    r = ST.check(t, [(-8.0 * (x - 10.2) if x > 10.2 else 0.0) for x in t], ST.blink_windows(t, clos))
+    assert r["pass"], r["failed"]
+    assert len(r["edge"]) == 1 and len(r["blinks"]) == len(ONSETS)
