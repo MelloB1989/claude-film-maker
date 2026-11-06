@@ -231,7 +231,7 @@ def _turn_by_bones(o, t: list, v: list, sg: HeadSigns) -> dict:
     times = [k * length / max(1, n_keys - 1) for k in range(n_keys)]
     yaw = [sg.yaw * C.at(list(t), list(v), x) for x in times]
     tracks = {str(n) for n in unreal.AnimationLibrary.get_animation_track_names(o)}
-    own, pos, scl = {}, {}, {}
+    own, pos, scl, up = {}, {}, {}, {}
     for x in times:
         pose = unreal.AnimPoseExtensions.get_anim_pose_at_time(o, x, unreal.AnimPoseEvaluationOptions())
         for b in sg.yaw_bone:
@@ -240,7 +240,10 @@ def _turn_by_bones(o, t: list, v: list, sg: HeadSigns) -> dict:
             own.setdefault(b, []).append([q.x, q.y, q.z, q.w])
             pos.setdefault(b, []).append([p.x, p.y, p.z])
             scl.setdefault(b, []).append([sc.x, sc.y, sc.z])
-    rot = HD.turn_bones(own, yaw, sg.yaw_bone)
+            # the character's vertical in this bone's parent space at this key: the turn goes about it (r5)
+            qc = unreal.AnimPoseExtensions.get_bone_pose(pose, b, unreal.AnimPoseSpaces.WORLD).rotation
+            up.setdefault(b, []).append(HD.up_in_parent([q.x, q.y, q.z, q.w], [qc.x, qc.y, qc.z, qc.w]))
+    rot = HD.turn_bones(own, yaw, sg.yaw_bone, up_parent=up)
     _write_tracks(o, {b: list(zip(pos[b], rot[b], scl[b])) for b in rot}, n_keys)
     return {"bones": {b: sg.yaw_bone[b] for b in rot}, "keys": n_keys, "had_tracks": sorted(b for b in rot if b in tracks),
             "max_deg": round(max((abs(y) for y in yaw), default=0.0), 1)}
