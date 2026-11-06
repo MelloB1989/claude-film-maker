@@ -172,8 +172,8 @@ ITEMS: dict = {
                 "(qa.garment_look collar_gap, agent-02 f4300854)",
         "where": "S13, S15, S17 (every measured frame)", "how": "qa.garment_look collar_gap (agent-02, T3a)",
         "r4": [None, "round 4's collar hugged the neck (Epic's band): not this failure"],
-        "must_fail": [None, "round 5 Fit5: the collar FLOATED as a rolled ring off the neck in every S13 frame "
-                            "(orchestrator by eye); agent-02 measures Fit5"],
+        "must_fail": [2.447, "round 5 Fit5 (agent-06, qa.garment_look): the collar FLOATED as a rolled ring off the "
+                             "neck in every S13 frame (orchestrator by eye)"],
         "why": "the gate passed Fit5 (neck_px 0, armor 0.109) while the collar stood off his neck"},
     "garment.collar_roll": {
         "area": "garment", "track": "T3a", "op": "==", "line": 0, "unit": "count", "guard": True,
@@ -182,15 +182,18 @@ ITEMS: dict = {
                 "and Fit6 (pass)",
         "where": "S13, S15, S17", "how": "qa.garment_look collar_lift (T3a)",
         "r4": [None, "round 4: no roll"],
-        "must_fail": [None, "round 5 Fit5: a fold at the front and a roll all round (orchestrator by eye)"],
+        "must_fail": [6, "round 5 Fit5 (agent-06): 6 rolled frames; a fold at the front and a roll all round "
+                         "(orchestrator by eye)"],
         "why": "a rolled collar reads as a cowl, not a tee"},
     "garment.hem_flare_ratio": {
         "area": "garment", "track": "T3a", "op": "<=", "line": 1.15, "unit": "ratio", "guard": True,
         "what": "worst frame's tee hem radius over his hip radius at the same height band (qa.garment_look hem flare)",
         "where": "S15 wide, S17", "how": "qa.garment_look hem_flare (agent-02, T3a)",
         "r4": [None, "round 4's hem followed the body"],
-        "must_fail": [None, "round 5 Fit5: hem ease 3.4 cm flares like a skirt edge in S15 (orchestrator by eye); "
-                            "agent-02 measures Fit5. Line 1.15 ~ 2.4 cm ease on a ~16 cm hip radius (Fit6 aims 1.5-2)"],
+        "must_fail": [None, "OPEN: round 5 Fit5 flares like a skirt edge in S15 (orchestrator by eye), but the "
+                            "measure read 1.0216 on Fit5 (agent-06), which PASSES 1.15: the measure does not see the "
+                            "flare; agent-02 recalibrates (agent-02 d8a741eb definition: median radius of the tee's "
+                            "lowest 3 cm / the uncut body's in the same band, worst frame)"],
         "why": "a stiff flared hem reads as a shell, not a tee"},
     "garment.silhouette_ratio": {
         "area": "garment", "track": "T3a", "op": "<=", "line": 1.12, "unit": "ratio", "guard": True, "info": True,
