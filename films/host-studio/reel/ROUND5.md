@@ -197,3 +197,47 @@ r5-film-integrate d8d5b26e), driven from kali as in round 5 (branch `fleet/agent
 | 19:24-19:38 | **Loop 6** (agent-02 mask RAMP 1, EDGE_W 0, BOUND 2.0 + the orchestrator's SHRINK 1.2, texture T_Host_NeckHidden6): the build took (shrink_live max 1.195, lowest z 144.6) but **neck_px 113** (S15 f1128; S15 37-113 px ≤ 1.39 cm; S13/S17/S18 0), collar gap 1.21-1.38, roll 6/6. **Neck HOLD for round 6** (the root fix is the fit) |
 | 19:16-19:20 | Lips render on the candidate cut (box, agent-01's steps): **all 6 lines fail** (him L1 +14.6, L2 +3.9, L4a +12.3; her L3a −7.6, L3b +3.3, L4b −15.5 f), and the round-4 control fails too (L1 +6.6, L2 +17.0, L4a +12.4); curve gate items pass (lag 0.8, track_r 0.972, silence 0.001). The orchestrator's eye: onsets 0-2 f. With agent-01 |
 | 19:13 | Her asset diff vs round 4 (size): only Studio.umap and SEQ_Reel differ; every mesh/material/physics/clothing asset of hers = round 4. **Her grey patch persists in the candidate (S17 f1350, both sides of her chest)**: render-side batch (sequence visibility keys) at S17 f1350 |
+
+### Gate v2 at the end of round 5b (agent-09): the candidate REFUSES; its failing rows are round 6's start list
+
+The candidate (loop-2 finals in `/srv/ue/reel/r5/final`, cuts in `private/renders/r5/review/candidate_unsigned/`) is
+**UNSIGNED**: gate v2 (`r5/gate_spec.json`) REFUSES it. Numbers come from the box's post-finals and the garment re-run at
+19:10 (main b8631197 + film 3aa77b73). No waiver is written on any row, and none is possible: lips, head, garment and
+hair are complaint areas.
+
+**FAIL (round 6 starts here)**
+
+| item | value | line | where | cause / round-6 work |
+|---|---|---|---|---|
+| garment.neck_px | 3 px | 0 | S15 f1152/f1175 (soft frames; his sharp frames read 0) | Epic's collar does not fit HIS neck. The backstop trades poke for gap: SHRINK 3.0 tears the face's open lower edge (shrunk_on_open_edge 92/92) and leaves a 2.3 cm gap; SHRINK 1.2 pokes 113 px. Fit the collar to his neck (agent-02, r5/garment.md); backstop only as a ≤ 0.5 cm safety. The S15 sharp/soft split draft was never committed |
+| garment.collar_gap_cm | 2.2-2.4 | 0.8 | every frame | the same: the shrink pulls the visible neck ~2.3 cm off the collar (orchestrator, by eye in the S13 crops: a dark ring and a see-through gap) |
+| garment.collar_roll | 6/6 | 0 | every frame | the same band; re-read after the fit |
+| garment.silhouette_pct | 2.66 % | 2.0 | vs round 4's `r4/clip/Host_after` | WORSE than round 4 (2.23) on the same garment. Re-measure after the fit |
+| lips.render_lag_frames | worst 15.5 f | 1 | all 6 lines (him L1 +14.6, L2 +3.9, L4a +12.3; her L3a −7.6, L3b +3.3, L4b −15.5) | **the measure does not separate**: the round-4 control fails too (L1 +6.6, L2 +17.0, L4a +12.4), while every curve item passes (lag 0.8 f, track_r 0.972, silences 0.001) and the orchestrator's eye reads onsets 0-2 f on L1, L2 and L4. Round 6 (agent-01): calibrate the render measure on a known-good clip before it gates |
+| hair.pop_reach_pct | 8.93 % | 8 | S15 f1082 (editor) | her start tilt-in f1080-1083, the same in round 4 (start motion 13.8 vs 12.3). Cause: `place()` cross-fades idle→baked on screen; fix on `fleet/agent-04/r5b-film-settle` (b475dfe5, b22f3372), NOT rendered (S15 was not re-rendered once the neck held). The conditional exclusion (`hair_pop_exclude`) was not committed: the fix makes it unnecessary |
+
+**PASS**: head.blink_nod_deg (him 0.316, her 0.0; line 0.6), head.blink_locked_deg (0.265; 0.3), garment.wpo_cm 0,
+garment.armor_index 0.329 (0.5), garment.pair_fraction 7e-05 (0.001), garment.hem_flare_ratio 0.557 (1.15),
+shot.cameras_ok 1 (13/13), shot.render_matches_r4 0.806 (0.5; S15 f1152), hair.lock 1, hair.render_cvars 1,
+hair.cut_reach_pct 1.96 (12; every cut she is on screen, editor groom-only), **hair.cut_pop_ratio 1.372** (1.8; round 4
+2.57: S17+S18 as ONE job fixed the operator's "short at 01:00"), the lips curve items. final_qa with the cut: PASS.
+
+**NOT ATTEMPTED** (the orchestrator's ruling): garment.cloth_alive / cloth_sound / cloth_detail_ratio.
+**INFO**: garment.silhouette_ratio 2.30 (an untrusted capture), shot.start_motion_ratio 12.33 (round 4 13.81).
+
+**Open at the end of round 5b, besides the table**: her grey patches on the white top (S17 f1350, both sides of her
+chest; S15). They are NOT her assets (all = round 4 by size); the render-side batch at S17 f1350 (H0 / overshirt hidden /
+hair hidden / hair shadow off / lock released) decides between garment geometry and her full-count hair.
+
+**What the gate learned this session (tools, all on r5-film-integrate)**
+
+- Four items had no producer, so the sign would have refused them as "not measured": `r5/gate_numbers.py` writes
+  shot.cameras_ok, shot.render_matches_r4, hair.lock and hair.render_cvars (ba43f60b).
+- The pixel cut pop ran on EVERY cut, so camera changes read as pops: it now reads only held-camera cuts (`pop_cuts`,
+  854b0d71).
+- The night luma matte read cut_reach 156.5 % without flagging saturation: night renders feed only the pixel pop
+  (`--qa-pop`, 51a36628), and the editor's groom-only reach stands.
+- neck_px cannot see a torn skin edge ABOVE the collar (the orchestrator's eye did). Whole-crop SSIM vs round 4 did not
+  separate it either (ragged 0.835-0.871 vs clean 0.839-0.863), so it is not proposed as a line. Round 6 needs a
+  neckline-edge measure, or the eye stays the only judge of the tear.
+- The settle measure on a large box moved the same in round 4 and round 5, so it is a diagnostic (INFO), never a line.
