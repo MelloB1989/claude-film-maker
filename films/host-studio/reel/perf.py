@@ -502,6 +502,9 @@ def naturalize(who: str, plot: bool = True) -> dict:
             "mouth_mix": 0.5, "seed": SEED[who], **e}
     if avoid:
         args["avoid_blinks"] = avoid
+    gains = speech_gain(who)
+    if gains:
+        args["speech_gain"] = gains
     if plot:
         args["plot"] = _j(REMOTE_STILLS, f"perf_{who}_face.png")
     r = ok(client.op("perf.face", timeout=900, **args))
@@ -510,6 +513,27 @@ def naturalize(who: str, plot: bool = True) -> dict:
     (OUT / f"blinks_{who}.json").write_text(json.dumps(mine))
     r["blinks"] = {"seed": SEED[who], "avoided": len(avoid), "clash_frames": _clash(mine, theirs)}
     return r
+
+
+# The mouth's speech curves scaled on each spoken line (none on the silences): r4, agent-09's lip metric on cast_op5
+# read his S13 L1 at 1.02 (cast_op4 1.49) where Trey passed: Host_Op's rig gives less mouth travel per unit. Her L3b a
+# touch (1.99). Target >= 2.0 on every line without the mouth looking exaggerated (the orchestrator, r4).
+SPEECH_GAIN = {"him": 1.7, "her": 1.0}
+LINE_GAIN = {"L3b": 1.1}
+GAIN_PAD = 3  # frames before the voice and after the line's end
+
+
+def speech_gain(who: str) -> list:
+    """[[t0, t1, gain]] (s from START[who]) for `who`'s lines with a gain other than 1."""
+    out = []
+    for k, c in sorted(cues().items(), key=lambda kc: kc[1]["voice_frame"]):
+        g = LINE_GAIN.get(k, SPEECH_GAIN[who])
+        if c["who"] != who or abs(g - 1.0) < 1e-6:
+            continue
+        end = c.get("end_frame") or c.get("slot_end")
+        out.append([round((c["voice_frame"] - GAIN_PAD - START[who]) / FPS, 3),
+                    round((end + GAIN_PAD - START[who]) / FPS, 3), g])
+    return out
 
 
 def calibrate(who: str) -> dict:

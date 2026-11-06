@@ -721,3 +721,17 @@ def test_a_turn_curve_is_written_through_its_measured_table():
     assert abs(rig["HeadRoll"][1][1] - 75.0) < 1e-6 and rig["HeadYaw"][1][1] == -5.0
     assert abs(H.from_rig(rig, s)["yaw"][1][1] - 32.5) < 1e-6
     assert R.HeadSigns.from_json(s.to_json()).yaw_table == s.yaw_table
+
+
+def test_speech_gain_scales_only_the_mouth_inside_its_spans():
+    """r4: Host_Op's rig gives little mouth travel; perf.face's speech_gain scales jaw and lips on the spoken lines,
+    eased at the edges, clamped to 0..1, and leaves the silences and every other curve alone."""
+    from perfkit import face as F
+    jaw, brow = "CTRL_expressions_jawOpen", "CTRL_expressions_browRaiseInL"
+    t = [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
+    curves = {jaw: (t, [0.3, 0.3, 0.3, 0.7, 0.3, 0.3, 0.3]), brow: (t, [0.2] * 7)}
+    out = F.gain_mouth(curves, [(1.0, 2.0, 1.7)])
+    assert brow not in out
+    v = out[jaw][1]
+    assert v[0] == 0.3 and v[1] == 0.3 and v[-1] == 0.3  # silences untouched
+    assert abs(v[2] - 0.51) < 1e-6 and v[3] == 1.0  # inside: x1.7, clamped at 1
