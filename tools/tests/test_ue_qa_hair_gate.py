@@ -221,6 +221,38 @@ def test_film_qa_hair_cut_pop_and_saturation(capsys, tmp_path):
     assert r["metrics"]["frames_measured"] == 8
 
 
+def test_film_qa_hair_cut_pop_only_held_cuts(capsys, tmp_path):
+    """pop_cuts: the cut pop reads only the cuts whose camera holds; S16 -> S17 changes camera (a big box change by
+    design) and must not fail hair.cut_pop (round 5b: hair_spec --cuts S15,S16,S17,S18)."""
+    from filmtools.unreal import qa_local
+    for f in range(1388, 1392):
+        _frame(tmp_path / f"{f:04d}.png", 5)   # S16's end: a different view
+    for f in range(1392, 1396):
+        _frame(tmp_path / f"{f:04d}.png", 30)  # S17's start
+    for f in range(1436, 1444):
+        _frame(tmp_path / f"{f:04d}.png", 30)  # S17 -> S18 held, no pop
+    spec = {"character": "Presenter", "cuts": [["S16", 1200, 1392], ["S17", 1392, 1440], ["S18", 1440, 1560]],
+            "frames_glob": str(tmp_path / "*.png"),
+            "boxes": {s: [0.3, 0.0, 0.7, 0.6] for s in ("S16", "S17", "S18")}, "max_luma": 40.0}
+    sp = tmp_path / "spec.json"
+    sp.write_text(json.dumps(spec))
+    try:
+        qa_local.main(["hair", str(sp)])
+    except SystemExit:
+        pass
+    r = json.loads(capsys.readouterr().out)
+    assert [(p["from"], p["to"]) for p in r["cut_pops"]] == [("S16", "S17"), ("S17", "S18")]
+    assert r["gate"]["hair.cut_pop_ratio"] > 1.8  # without pop_cuts the camera change reads as a pop
+    sp.write_text(json.dumps({**spec, "pop_cuts": [["S17", "S18"]]}))
+    try:
+        qa_local.main(["hair", str(sp)])
+    except SystemExit:
+        pass
+    r = json.loads(capsys.readouterr().out)
+    assert [(p["from"], p["to"]) for p in r["cut_pops"]] == [("S17", "S18")]
+    assert r["gate"]["hair.cut_pop_ratio"] <= 1.8 and "hair.cut_pop" not in {i["code"] for i in r["issues"]}
+
+
 def test_cut_pop_quiet_cut():
     a = image.solid(20, 20, (100, 100, 100))
     b = image.solid(20, 20, (102, 100, 100))
