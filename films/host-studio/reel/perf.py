@@ -377,11 +377,16 @@ SEED = {"him": 31, "her": 17}
 # stage by looks.py, never signed by hand. Each: the master frame the shift starts, a frame in its hold (the check's),
 # the frame it lets go, the head share (as in round 3). The stage is the level's when `perf.py looks` has sampled it
 # (OUT/looks_stage.json), else shots.py's marks and eyes.
+# "torso": degrees the chest turns with a look beyond the neck's reach (looks.torso_moves; the orchestrator, round 4:
+# ~30 on his S15 hold, 15-20 at most on a short glance, and only if it reads), "kind" its timing.
 PARTNER_LOOKS = {
-    "him": [{"beat": "over his shoulder to her (S15)", "t": 1128, "hold": 1170, "until": 1290, "head": 0.76},
-            {"beat": "glance on 'comes around' (S17)", "t": 1378, "hold": 1394, "until": 1404, "head": 0.58}],
-    "her": [{"beat": "watching him (S15)", "t": 1080, "hold": 1110, "until": 1146, "head": None},
-            {"beat": "glance on 'comes around' (S17)", "t": 1381, "hold": 1392, "until": 1398, "head": 0.6}],
+    "him": [{"beat": "over his shoulder to her (S15)", "t": 1128, "hold": 1170, "until": 1290, "head": 0.76,
+             "torso": 30.0, "kind": "big"},
+            {"beat": "glance on 'comes around' (S17)", "t": 1378, "hold": 1394, "until": 1404, "head": 0.58,
+             "torso": 12.0, "kind": "glance"}],
+    "her": [{"beat": "watching him (S15)", "t": 1080, "hold": 1110, "until": 1146, "head": None, "torso": 0.0},
+            {"beat": "glance on 'comes around' (S17)", "t": 1381, "hold": 1392, "until": 1398, "head": 0.6,
+             "torso": 0.0}],
 }
 START_LEAD = 0.73  # her S15 opening: the head already round at the share of this much of the look (round 3: 35 of 48)
 
@@ -390,7 +395,15 @@ def partner_look(who: str, i: int, stage=None) -> dict:
     """The i-th look at the partner (PARTNER_LOOKS) as perf.face's yaw/pitch/dist_cm, from the stage at its hold."""
     import looks as LK
     b = PARTNER_LOOKS[who][i]
-    return LK.look(who, b["hold"], b["head"] if b["head"] is not None else 1.0, stage)
+    return LK.look(who, b["hold"], b["head"] if b["head"] is not None else 1.0, stage, b.get("torso", 0.0))
+
+
+def torso_plan(who: str, stage=None) -> list:
+    """The torso's moves for `who`'s looks (looks.torso_moves), in seconds from START[who]."""
+    import looks as LK
+    beats = [{"t": (b["t"] - START[who]) / FPS, "until": (b["until"] - START[who]) / FPS, "kind": b.get("kind", "big"),
+              "yaw": partner_look(who, i, stage)["torso_yaw"]} for i, b in enumerate(PARTNER_LOOKS[who])]
+    return LK.torso_moves(beats)
 
 
 def _g(lk: dict) -> dict:
@@ -554,10 +567,14 @@ LENS_FRAME = {"her": 1240, "him": 1050}
 
 
 def planned_head(who: str, frame: int, stage=None) -> tuple:
-    """perfkit's planned head (yaw, pitch) and gaze (yaw, pitch) at a master frame, from events()."""
+    """perfkit's planned head (yaw, pitch) and gaze (yaw, pitch) at a master frame, from events(), with the torso
+    turn (torso_plan) under them: the body's frame, as the stage sees it."""
     import looks as LK
     e = events(who, stage)
-    return LK.head_plan(e["gaze"], e.get("start_gaze"), (frame - START[who]) / FPS)
+    t = (frame - START[who]) / FPS
+    (hy, hp), (gy, gp) = LK.head_plan(e["gaze"], e.get("start_gaze"), t)
+    tz = LK.torso_yaw(torso_plan(who, stage), t)  # the chest carries the neck round: head and eyes ride on it
+    return (hy + tz, hp), (gy + tz, gp)
 
 
 def head_turns(who: str, path: str = "/Game/Reel/SEQ_Reel") -> dict:
@@ -952,7 +969,90 @@ def sync(who: str) -> dict:
     # round 3: on 5.8 no face curve turns the head and the face takes its neck from the body, so the turn perf.face
     # planned goes on the body animation just made (fresh each sync: the turn is never applied twice), before gaze
     d = ok(client.op("perf.turn_head", anim=f"{ANIM}/AS_reel_{who}_body", face_anim=face, timeout=900))
-    return {"follow_head": a, "body": b, "follow": c, "turn": d}
+    # round 4: the chest turns with a look beyond the neck's reach (torso_plan), on the same fresh body animation
+    e = torso(who) if torso_plan(who) else {"changed": False}
+    return {"follow_head": a, "body": b, "follow": c, "turn": d, "torso": e}
+
+
+# The torso turn on a body animation: per bone {"flex", "side", "twist"} in degrees per degree of the torso's yaw, in
+# perf.calibrate_body's measured axes (twist + = turns to the own left; a clavicle's flex brings its arm forward), and a
+# weight shift: the pelvis SHIFT_CM (at the full turn) towards the side turned to, tilting as body life does, the spine
+# bending back over the feet. The feet are below every presenter frame (framing.py cuts above the knee).
+TORSO_SHARE = {"spine_03": {"twist": 0.25}, "spine_04": {"twist": 0.35}, "spine_05": {"twist": 0.4},
+               "clavicle_l": {"flex": -0.12}, "clavicle_r": {"flex": 0.12}}
+TORSO_SHIFT_CM, TORSO_FULL = 1.2, 30.0
+TORSO_COUNTER = {"spine_01": 0.4, "spine_02": 0.35, "spine_03": 0.25}  # bodylife.COUNTER_SHARE
+
+TORSO = r"""
+import json, unreal
+from fmbridge.ops.anim import _anim, _skeleton_path, model_keys
+from fmbridge.ops.perf_body import _calib_file, _write_tracks
+from fmbridge.perfkit import curves as C
+from fmbridge.perfkit.bodylife import qmul, quat_from_euler_xyz
+P = json.loads(PARAMS)
+APE = unreal.AnimPoseExtensions
+def job():
+    o = _anim(P["anim"])
+    with open(_calib_file(_skeleton_path(o))) as f:
+        cal = json.load(f)
+    n = model_keys(o)
+    L = float(unreal.AnimationLibrary.get_sequence_length(o))
+    times = [k * L / max(1, n - 1) for k in range(n)]
+    bones = sorted(set(P["share"]) | set(P["counter"]) | {"pelvis"})
+    missing = [b for b in bones if b not in cal["axes"]]
+    if missing:
+        raise RuntimeError(f"no calibrated axes for {missing}: run perf.calibrate_body on this body")
+    own = {b: [] for b in bones}
+    for i, x in enumerate(times):
+        pose = APE.get_anim_pose_at_time(o, x, unreal.AnimPoseEvaluationOptions())
+        for b in bones:
+            tr = APE.get_bone_pose(pose, b, unreal.AnimPoseSpaces.LOCAL)
+            q, p, sc = tr.rotation, tr.translation, tr.scale3d
+            own[b].append(([p.x, p.y, p.z], [q.x, q.y, q.z, q.w], [sc.x, sc.y, sc.z]))
+        if i % 40 == 39:
+            yield
+    tracks, peak = {}, 0.0
+    for b in bones:
+        keys = []
+        for x, (p, q, sc) in zip(times, own[b]):
+            y = C.at(P["times"], P["yaw"], x)
+            peak = max(peak, abs(y))
+            shift = P["shift_cm"] * y / P["full"]  # + = towards the own left, as the turn
+            tilt = -0.7 * shift
+            comp = {k: v * y for k, v in P["share"].get(b, {}).items()}
+            if b in P["counter"]:
+                comp["side"] = comp.get("side", 0.0) - tilt * P["counter"][b]
+            if b == "pelvis":
+                comp["side"] = comp.get("side", 0.0) + tilt
+            e = [0.0, 0.0, 0.0]
+            for k, v in comp.items():
+                ax, sg = cal["axes"][b][k]
+                e["xyz".index(ax)] += sg * v
+            pos = list(p)
+            if b == "pelvis" and cal.get("shift_axis"):
+                ax, sg = cal["shift_axis"]
+                pos["xyz".index(ax)] += sg * shift
+            keys.append((pos, qmul(q, quat_from_euler_xyz(*e)), sc))
+        tracks[b] = keys
+    yield
+    _write_tracks(o, tracks, n)
+    unreal.EditorAssetLibrary.save_asset(P["anim"])
+    return {"anim": P["anim"], "bones": bones, "keys": n, "max_deg": round(peak, 1), "changed": True}
+result = job()
+"""
+
+
+def torso(who: str) -> dict:
+    """The torso turn (torso_plan) on `who`'s fresh body animation (sync's AS_reel_<who>_body, after turn_head): not
+    idempotent, like turn_head, so only from sync. Needs perf.calibrate_body on this body (calibrate_body --who)."""
+    import looks as LK
+    moves = torso_plan(who)
+    sys.path.insert(0, str(ROOT / "unreal" / "fmbridge"))
+    from perfkit import curves as C
+    times = C.grid(0.0, (END + POST_ROLL - START[who]) / FPS, 30.0)
+    return run(TORSO, {"anim": f"{ANIM}/AS_reel_{who}_body", "times": [round(t, 4) for t in times],
+                       "yaw": [round(LK.torso_yaw(moves, t), 3) for t in times], "share": TORSO_SHARE,
+                       "counter": TORSO_COUNTER, "shift_cm": TORSO_SHIFT_CM, "full": TORSO_FULL}, 1800)
 
 
 # Where the eyes go, master frames: a test camera (the shot's lens) or the partner's eyes. Frames in none of these

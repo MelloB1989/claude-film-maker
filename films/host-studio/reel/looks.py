@@ -156,16 +156,50 @@ def reach(share: float) -> float:
     return min(HEAD_MAX / max(share, 1e-3), EYE_MAX / max(1.0 - share, 1e-3))
 
 
-def look(who: str, frame: int, share: float = 1.0, stage: Stage | None = None) -> dict:
+def look(who: str, frame: int, share: float = 1.0, stage: Stage | None = None, torso: float = 0.0) -> dict:
     """`who`'s look at the partner's face at `frame`: perf.face's gaze (yaw, pitch, dist_cm), in `who`'s frame. The
-    yaw is the true one, cut to what the head share can reach (`reach`) when the partner is further round."""
+    yaw is the true one, less the `torso` turn (degrees, towards the partner) that carries the neck round with it, cut
+    to what the head share can reach (`reach`) when the partner is further round. "torso_yaw" is the signed torso."""
     st = stage or Stage.load()
     me, them = st.pose(who, frame), st.pose(OTHER[who], frame)
     y, p, d = local(me, them["eyes"])
+    tz = math.copysign(min(abs(torso), abs(y)), y)
     r = reach(share)
-    cmd = max(-r, min(r, y))
+    cmd = max(-r, min(r, y - tz))
     return {"yaw": round(cmd, 1), "pitch": round(p, 1), "dist_cm": round(d, 1), "true_yaw": round(y, 1),
-            "reach": round(r, 1), "source": st.source}
+            "reach": round(r, 1), "torso_yaw": round(tz, 1), "source": st.source}
+
+
+# The torso turn for a look beyond the neck's reach (the orchestrator, round 4: his S15 look over his shoulder): the
+# eyes lead, then the head, then the chest a beat later and slower, spread up the upper spine with the far shoulder
+# coming forward, a little weight onto the near leg; it settles back after the head has gone back to the lens.
+TORSO_TIMING = {"big": {"lag": 0.22, "in": 0.8, "back_lag": 0.15, "back": 0.75},     # a held look
+                "glance": {"lag": 0.12, "in": 0.45, "back_lag": 0.08, "back": 0.5}}  # a glance of a second or so
+
+
+def torso_moves(beats: list) -> list:
+    """Moves [(t0, dur, a, b)] of the torso's yaw (degrees, + = own left; seconds) for beats [{"t", "until", "yaw",
+    "kind"}]: in after the head, back after the head has let go."""
+    out, at = [], 0.0
+    for b in sorted(beats, key=lambda x: x["t"]):
+        if not b["yaw"]:
+            continue
+        k = TORSO_TIMING[b.get("kind", "big")]
+        out.append((b["t"] + k["lag"], k["in"], at, b["yaw"]))
+        out.append((b["until"] + k["back_lag"], k["back"], b["yaw"], 0.0))
+        at = 0.0
+    return out
+
+
+def torso_yaw(moves: list, t: float) -> float:
+    """The torso's yaw at `t` s: each move from where the last one aimed (skewed min-jerk, a little overshoot)."""
+    from perfkit import curves as C
+    v = 0.0
+    for t0, dur, a, b in moves:
+        if t <= t0:
+            break
+        v += C.move(t, t0, dur, a, b, 0.45, 0.03, 0.35) - a
+    return v
 
 
 # ------------------------------------------------------------------------------------------------- the check

@@ -34,3 +34,16 @@ def test_wrong_way_fails():
     assert not LK.check("him", 1170, "S15", [-65.0, 0.0], [-85.0, -5.0], st)["ok"]
     assert LK.check("him", 1170, "S15", [65.0, -3.0], [85.0, -5.0], st)["ok"]
     assert LK.check("her", 1110, "S15", [-32.0, 3.0], [-50.0, 5.0], st)["ok"]
+
+
+def test_torso_turn_goes_and_settles_back():
+    m = LK.torso_moves([{"t": 2.0, "until": 8.0, "yaw": 30.0, "kind": "big"}])
+    assert LK.torso_yaw(m, 2.1) == 0.0                        # after the head, not with it
+    assert abs(LK.torso_yaw(m, 4.0) - 30.0) < 0.5             # held
+    assert abs(LK.torso_yaw(m, 10.0)) < 0.2                   # back after the head lets go
+
+
+def test_torso_takes_off_the_neck():
+    st = LK.Stage()
+    a, b = LK.look("him", 1170, 0.76, st), LK.look("him", 1170, 0.76, st, torso=30.0)
+    assert b["torso_yaw"] == 30.0 and b["yaw"] <= a["yaw"]
