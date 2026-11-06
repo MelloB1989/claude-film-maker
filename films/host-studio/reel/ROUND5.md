@@ -240,9 +240,14 @@ inside the overshirt opening; S15). Found so far:
   30-frame run from S17's start (f1350: 48.9 | 33.3 | 16.0). Round 4 reads 50.3 | 33.8 | 16.0; the S17 final reads
   35.0 | 28.0 | 10.8. Not the final spec or motion blur, and not a build-up along the shot. Test frames:
   `/srv/ue/reel/r5/patch_final{,2}/` on the box.
-- Round 6: find WHAT state (the 18:08 overshirt restore ran in that editor session before the finals; the restart
-  reloaded her assets). Re-render any final made in that session (S13, S15, S16, S17+S18, 18:20-18:51) after a fresh
-  editor start.
+- **Fixed by re-rendering in a fresh editor state** (~01:30 IST, the orchestrator's GO): S17+S18 as ONE job again
+  (724 s, probe 13/13, lock_check pass). f1350 cells now 48.9 | 33.3 | 16.0 (round 4 50.3 | 33.8 | 16.0); f1386 matches
+  round 4 as well. S16 and S15 (warm-up 64) were re-rendered too. Their need was NOT proven: a fresh-still-vs-final
+  cell check (agent-09's suggestion) is invalid in close shots, since the still and final specs differ by −45..−54 there
+  even when both are clean. It only held in the wide S17. S13 stands as rendered (no evidence against it). The valid
+  control is old final vs new final, same spec.
+- Round 6: find WHAT editor state did it (the 18:08 overshirt restore ran in that session before the finals; the 19:09
+  restart reloaded her assets), and render finals only from a freshly started editor.
 
 **What the gate learned this session (tools, all on r5-film-integrate)**
 
