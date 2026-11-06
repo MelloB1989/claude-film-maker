@@ -121,42 +121,60 @@ def measure_line(x: np.ndarray, sr: int, f0: float, f1: float, fps: float) -> di
     return {"onset": spans[0][0] * fps, "offset": spans[-1][1] * fps, "spans": [[a * fps, b * fps] for a, b in spans]}
 
 
+LOCATE_SR = 8000
+
+
+def _mono8k(x: np.ndarray, sr: int) -> np.ndarray:
+    from scipy.signal import resample_poly
+    if x.ndim > 1:
+        x = x.mean(axis=1)
+    g = math.gcd(sr, LOCATE_SR)
+    return resample_poly(x.astype(np.float64), LOCATE_SR // g, sr // g)
+
+
+def locate(needle: np.ndarray, hay: np.ndarray, sr: int, hay_sr: int | None = None) -> tuple:
+    """Where a line's WAV sits inside a longer recording (a stem, or the mix with music under it): the time (s) of
+    the needle's first sample in `hay` and the normalised correlation at that lag (1 = the same samples; a voice under
+    ducked music reads ~0.4-0.9; another take of the line ~0.1-0.3). Waveform cross-correlation at 8 kHz, so the time
+    is good to a sample there (0.125 ms)."""
+    from scipy.signal import correlate
+    a = _mono8k(needle, sr)
+    b = _mono8k(hay, hay_sr or sr)
+    if len(b) < len(a):
+        return None, 0.0
+    c = correlate(b, a, mode="valid", method="fft")
+    e = np.concatenate([[0.0], np.cumsum(b * b)])
+    win = np.sqrt(np.maximum(e[len(a):] - e[:-len(a)], 1e-12))
+    score = c / (win * (np.linalg.norm(a) + 1e-12))
+    i = int(np.argmax(score))
+    return i / LOCATE_SR, float(score[i])
+
+
 def build_cues(lines_doc: dict, stems: dict, fps: float = 24.0, words: str = "auto", pre_s: float = 0.5,
-               post_s: float = 0.5) -> dict:
+               post_s: float = 0.5, line_dir: Path | None = None, mix: Path | None = None,
+               min_score: float = 0.6, min_mix_score: float = 0.3, max_mismatch_frames: float = 0.5) -> dict:
     """A measured cues.json from the line list (an earlier cues.json: who, text, wav, file_frame, slot_end per line)
     and the speakers' stems as the mix places them (frame 0 = sample 0). Per line: the VAD onset/offset in the window
     from file_frame - pre_s to its file's end (or slot_end) + post_s; words aligned in that span (`words`: auto |
-    whisper | estimate | none), snapped so the first starts at the onset and the last ends at the offset."""
+    whisper | estimate | none), snapped so the first starts at the onset and the last ends at the offset.
+
+    With `line_dir` (the line WAVs the face is solved from): each line WAV is LOCATED in its stem by cross-correlation
+    (file_frame measured, not trusted from the list) and the VAD runs on exactly that span. A line WAV that is not
+    in the stem (score < min_score: another take) FAILS. With `mix` (the audio the cut plays): each line is located
+    in the mix too and FAILS when the mix plays it more than `max_mismatch_frames` away from the stem (round 4: the
+    face was solved from stems whose L1 sat ~14 frames before the mix's), or not at all."""
     loaded = {who: read_wav(Path(p)) for who, p in stems.items()}
+    mixed = read_wav(Path(mix), mono=True) if mix else None
     out = {}
     issues = []
-    for k, c in sorted(lines_doc["lines"].items(), key=lambda kc: kc[1].get("file_frame", 0)):
-        who = c["who"]
-        if who not in loaded:
-            raise SystemExit(f"no stem for {who} (line {k}): pass --stem {who}=<vo_{who}.wav>")
-        x, sr = loaded[who]
-        start = c.get("file_frame", c.get("voice_frame", 0)) - pre_s * fps
-        end = max(c.get("end_frame") or 0, c.get("slot_end") or 0) + post_s * fps
-        m = measure_line(x, sr, start, end, fps)
-        if m is None:
-            issues.append({"code": "silent", "line": k, "severity": "fail",
-                           "message": f"{k}: no voice in its stem between f{start:.0f} and f{end:.0f}",
-                           "fix": "the stem is not the one the mix plays, or the line moved: rebuild the stems"})
-            continue
-        rec = {**{kk: c[kk] for kk in ("who", "text", "wav", "take", "mood", "intensity", "slot_end") if kk in c},
-               "file_frame": c.get("file_frame"), "voice_frame": round(m["onset"], 2),
-               "end_frame": round(m["offset"], 2), "voice_frame_planned": c.get("voice_frame"),
-               "spans": [[round(a, 2), round(b, 2)] for a, b in m["spans"]]}
-        if c.get("voice_frame") is not None and abs(m["onset"] - c["voice_frame"]) > 1.0:
-            issues.append({"code": "moved", "line": k, "severity": "warn",
-                           "message": f"{k}: the voice starts on f{m['onset']:.1f}, not the planned f{c['voice_frame']}",
-                           "fix": "place the face from voice_frame/file_frame here (measured), never from the plan"})
-        t0, t1 = m["onset"] / fps, m["offset"] / fps
+    def finish_line(k, rec, text):
+        x, sr = loaded[rec["who"]]
+        t0, t1 = rec["voice_frame"] / fps, rec["end_frame"] / fps
         ws, src = None, "estimate"
         if words in ("auto", "whisper"):
             i0, i1 = int(t0 * sr) - sr // 10, int(t1 * sr) + sr // 10
             try:
-                got = _whisper_words(x[max(0, i0):i1], sr, c.get("text", ""))
+                got = _whisper_words(x[max(0, i0):i1], sr, text)
             except Exception as e:  # an aligner that is installed but fails: say so, estimate
                 got = None
                 issues.append({"code": "aligner", "line": k, "severity": "warn", "message": f"{k}: aligner failed: {e}",
@@ -167,7 +185,7 @@ def build_cues(lines_doc: dict, stems: dict, fps: float = 24.0, words: str = "au
             elif words == "whisper":
                 raise SystemExit("no aligner installed: uv pip install stable-ts (or faster-whisper), or --words estimate")
         if ws is None and words != "none":
-            ws = _estimate_words(c.get("text", ""), t0, t1)
+            ws = _estimate_words(text, t0, t1)
         if ws:
             ws[0]["start"] = t0 if abs(ws[0]["start"] - t0) < 0.15 or src == "estimate" else ws[0]["start"]
             ws[-1]["end"] = t1 if abs(ws[-1]["end"] - t1) < 0.15 or src == "estimate" else ws[-1]["end"]
@@ -175,9 +193,139 @@ def build_cues(lines_doc: dict, stems: dict, fps: float = 24.0, words: str = "au
                             for w in ws]
         rec["words_source"] = src if ws else "none"
         out[k] = rec
+
+    for k, c in sorted(lines_doc["lines"].items(), key=lambda kc: kc[1].get("file_frame", 0)):
+        who = c["who"]
+        if who not in loaded:
+            raise SystemExit(f"no stem for {who} (line {k}): pass --stem {who}=<vo_{who}.wav>")
+        x, sr = loaded[who]
+        start = c.get("file_frame", c.get("voice_frame", 0)) - pre_s * fps
+        end = max(c.get("end_frame") or 0, c.get("slot_end") or 0) + post_s * fps
+        loc = {}
+        lw = Path(line_dir) / c["wav"] if line_dir and c.get("wav") else None
+        if lw is not None and lw.exists():
+            y, ysr = read_wav(lw)
+            t, sc = locate(y, x, ysr, sr)
+            loc = {"file_frame": round(t * fps, 2) if t is not None else None, "stem_score": round(sc, 3)}
+            if t is None or sc < min_score:
+                issues.append({"code": "not_in_stem", "line": k, "severity": "fail",
+                               "message": f"{k}: {c['wav']} is not in the {who} stem (best match {sc:.2f} at "
+                               f"f{(t or 0) * fps:.1f}): the stem holds another take or edit",
+                               "fix": "rebuild the stems from the line WAVs the face is solved from (vo.py cues), or "
+                               "solve from the WAVs the stems were made of"})
+            else:
+                start, end = t * fps - 0.1 * fps, (t + len(y) / ysr) * fps + 0.1 * fps
+                if mixed is not None:
+                    mx, msr = mixed
+                    tm, scm = locate(y, mx, ysr, msr)
+                    loc["mix_frame"] = round(tm * fps, 2) if tm is not None else None
+                    loc["mix_score"] = round(scm, 3)
+                    if tm is None or scm < min_mix_score:
+                        issues.append({"code": "not_in_mix", "line": k, "severity": "fail",
+                                       "message": f"{k}: {c['wav']} is not in the mix (best {scm:.2f}): the cut plays "
+                                       "another take", "fix": "re-mix from these stems (mix.py --vo-dir) or solve "
+                                       "the face from the WAVs the mix was made of"})
+                    elif abs(tm - t) * fps > max_mismatch_frames:
+                        d = (tm - t) * fps
+                        issues.append({"code": "mix_mismatch", "line": k, "severity": "fail",
+                                       "message": f"{k}: the mix plays it on f{tm * fps:.1f}, the stem on f{t * fps:.1f} "
+                                       f"({d:+.1f} frames): a face solved from the stem is {abs(d):.1f} frames "
+                                       f"{'EARLY' if d > 0 else 'LATE'} in the cut",
+                                       "fix": "one timebase: re-mix from these stems (mix.py --vo-dir) and re-cut, "
+                                       "or rebuild the stems to the mix's placement before solving"})
+        m = measure_line(x, sr, start, end, fps)
+        if m is None:
+            issues.append({"code": "silent", "line": k, "severity": "fail",
+                           "message": f"{k}: no voice in its stem between f{start:.0f} and f{end:.0f}",
+                           "fix": "the stem is not the one the mix plays, or the line moved: rebuild the stems"})
+            continue
+        rec = {**{kk: c[kk] for kk in ("who", "text", "wav", "take", "mood", "intensity", "slot_end") if kk in c},
+               "file_frame": loc.get("file_frame", c.get("file_frame")), "file_frame_listed": c.get("file_frame"),
+               **{kk: v for kk, v in loc.items() if kk != "file_frame"}, "voice_frame": round(m["onset"], 2),
+               "end_frame": round(m["offset"], 2), "voice_frame_planned": c.get("voice_frame"),
+               "spans": [[round(a, 2), round(b, 2)] for a, b in m["spans"]]}
+        if c.get("voice_frame") is not None and abs(m["onset"] - c["voice_frame"]) > 1.0:
+            issues.append({"code": "moved", "line": k, "severity": "warn",
+                           "message": f"{k}: the voice starts on f{m['onset']:.1f}, not the planned f{c['voice_frame']}",
+                           "fix": "place the face from voice_frame/file_frame here (measured), never from the plan"})
+        parts = [(k, rec, c.get("text", ""))]
+        if c.get("split"):  # one WAV holding several lines (L3 = L3a + L3b): cut at the longest pauses
+            subs, spans = c["split"], m["spans"]
+            if len(spans) < len(subs):
+                issues.append({"code": "split", "line": k, "severity": "fail",
+                               "message": f"{k}: {len(spans)} voiced spans, cannot split into {len(subs)} lines",
+                               "fix": "solve and caption it as one line, or split the WAV by hand"})
+            else:
+                gaps = sorted(range(1, len(spans)), key=lambda i: spans[i][0] - spans[i - 1][1], reverse=True)
+                cuts = sorted(gaps[:len(subs) - 1])
+                bounds = [0] + cuts + [len(spans)]
+                parts = []
+                for sub, i0, i1 in zip(subs, bounds, bounds[1:]):
+                    r = {**rec, "text": sub.get("text", ""), "voice_frame": round(spans[i0][0], 2),
+                         "end_frame": round(spans[i1 - 1][1], 2), "split_of": k,
+                         "spans": [[round(x, 2), round(y, 2)] for x, y in spans[i0:i1]],
+                         "voice_frame_planned": sub.get("voice_frame")}
+                    for kk in ("mood", "intensity", "slot_end"):
+                        if kk in sub:
+                            r[kk] = sub[kk]
+                    parts.append((sub["id"], r, sub.get("text", "")))
+        for k, rec, text in parts:
+            finish_line(k, rec, text)
     doc = {"fps": fps, "frames": lines_doc.get("frames"), "measured": True, "lines": out,
            "stems": {who: {"path": str(p), "sha256": sha256(Path(p))} for who, p in stems.items()},
-           "issues": issues}
+           "mix": {"path": str(mix), "sha256": sha256(Path(mix))} if mix else None,
+           "line_dir": str(line_dir) if line_dir else None, "issues": issues}
+    return doc
+
+
+def stems_from_mix(lines_doc: dict, line_dir: Path, mix: Path, out_dir: Path, fps: float = 24.0,
+                   min_mix_score: float = 0.3) -> tuple:
+    """The delivered mix is canonical (the viewer hears it): each line WAV is located in the mix by
+    cross-correlation, and each speaker's voice stem is rebuilt with every line at exactly that place (frame 0 =
+    sample 0, the mix's length). Returns ({who: stem path}, lines_doc with file_frame = the mix's, issues). A line the
+    mix does not hold fails (not_in_mix)."""
+    mx, msr = read_wav(Path(mix), mono=True)
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    stems, issues, doc = {}, [], {**lines_doc, "lines": {}}
+    import soundfile as sf
+    sr0 = None
+    for k, c in sorted(lines_doc["lines"].items(), key=lambda kc: kc[1].get("file_frame", 0)):
+        y, ysr = read_wav(Path(line_dir) / c["wav"])
+        sr0 = sr0 or ysr
+        if ysr != sr0:
+            raise SystemExit(f"{c['wav']}: {ysr} Hz, the other lines {sr0} Hz")
+        t, sc = locate(y, mx, ysr, msr)
+        if t is None or sc < min_mix_score:
+            issues.append({"code": "not_in_mix", "line": k, "severity": "fail",
+                           "message": f"{k}: {c['wav']} is not in the mix (best {sc:.2f})",
+                           "fix": "the mix was made from another take: find the WAV the mix used"})
+            continue
+        st = stems.setdefault(c["who"], np.zeros(int(round(len(mx) / msr * ysr)), np.float32))
+        i0 = int(round(t * ysr))
+        st[i0:i0 + len(y)] += y[:max(0, len(st) - i0)]
+        doc["lines"][k] = {**c, "file_frame": round(t * fps, 2), "file_frame_listed": c.get("file_frame"),
+                           "mix_score": round(sc, 3)}
+    paths = {}
+    for who, st in stems.items():
+        paths[who] = out_dir / f"vo_{who}.wav"
+        sf.write(paths[who], st, sr0, subtype="PCM_24")
+    return paths, doc, issues
+
+
+def cues_from_mix(lines_doc: dict, line_dir: Path, mix: Path, stems_dir: Path, old_stems: dict | None = None,
+                  fps: float = 24.0, words: str = "auto") -> dict:
+    """The round-5 cues: the mix canonical (stems_from_mix), measured on the rebuilt stems and verified against the
+    mix (build_cues with line_dir + mix: every line must pass). The old stems, if given, are checked against the mix
+    too and reported under "old_stems" (round 4's: mix_mismatch on L1)."""
+    paths, placed, issues = stems_from_mix(lines_doc, line_dir, mix, stems_dir, fps)
+    doc = build_cues(placed, paths, fps, words, line_dir=line_dir, mix=mix)
+    doc["issues"] = issues + doc["issues"]
+    doc["canonical"] = "mix"
+    if old_stems:
+        old = build_cues(lines_doc, old_stems, fps, "none", line_dir=line_dir, mix=mix)
+        doc["old_stems"] = {"stems": old["stems"], "issues": [i for i in old["issues"] if i["severity"] == "fail"],
+                            "pass": not [i for i in old["issues"] if i["severity"] == "fail"]}
     return doc
 
 
@@ -468,6 +616,12 @@ def register(sub) -> None:
     c.add_argument("--lines", type=Path, required=True, help="a cues.json naming the lines (who, text, file_frame)")
     c.add_argument("--stem", action="append", required=True, help="who=path: the speaker's stem, frame 0 = sample 0")
     c.add_argument("--words", default="auto", choices=["auto", "whisper", "estimate", "none"])
+    c.add_argument("--line-dir", type=Path, help="the line WAVs the face is solved from: each is located in its stem")
+    c.add_argument("--mix", type=Path, help="the audio the cut plays: each line must sit there where the stem has it")
+    c.add_argument("--from-mix", type=Path, metavar="STEMS_DIR",
+                   help="the mix is canonical: locate each line in --mix, rebuild the voice stems there into "
+                        "STEMS_DIR, then measure on them (--line-dir and --mix needed; --stem is the old stems, checked "
+                        "against the mix and reported)")
     c.add_argument("--fps", type=float, default=24.0)
     c.add_argument("--out", type=Path, required=True)
     k = s.add_parser("curves", help="the curve gate on anim.read_curves output")
@@ -507,7 +661,13 @@ def dispatch(a) -> bool:
     if getattr(a, "cmd", None) != "lips":
         return False
     if a.lipsync_cmd == "cues":
-        doc = build_cues(json.loads(a.lines.read_text()), _kv(a.stem), a.fps, a.words)
+        lines_doc = json.loads(a.lines.read_text())
+        if a.from_mix:
+            if not (a.line_dir and a.mix):
+                raise SystemExit("--from-mix needs --line-dir and --mix")
+            doc = cues_from_mix(lines_doc, a.line_dir, a.mix, a.from_mix, _kv(a.stem), a.fps, a.words)
+        else:
+            doc = build_cues(lines_doc, _kv(a.stem), a.fps, a.words, line_dir=a.line_dir, mix=a.mix)
         a.out.write_text(json.dumps(doc, indent=1))
         _done({"pass": not [i for i in doc["issues"] if i["severity"] == "fail"], "out": str(a.out),
                "issues": doc["issues"], "lines": {k: [v["voice_frame"], v["end_frame"], v["words_source"]]

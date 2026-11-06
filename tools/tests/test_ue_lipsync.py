@@ -345,3 +345,99 @@ def test_gate_numbers_round4_fails_every_line_it_should(lips):
     assert g["lips.cues_fresh"]["value"] == 1 and "error" in g["lips.render_lag_frames"]
     cues["lines"]["L1"]["words_lost"] = True
     assert CL.gate_numbers({"him": rep}, {}, cues, {"him": stem})["gate"]["lips.cues_fresh"]["value"] == 0
+
+
+def _place(sr, length_s, items, noise=1e-4, music=0.0):
+    x = np.zeros(int(sr * length_s), np.float32)
+    for t0, y in items:
+        i0 = int(round(t0 * sr))
+        x[i0:i0 + len(y)] += y
+    rnd = np.random.default_rng(3)
+    x += rnd.normal(0, noise, len(x)).astype(np.float32)
+    if music:
+        t = np.arange(len(x)) / sr
+        x += (music * (np.sin(2 * np.pi * 220 * t) + 0.5 * np.sin(2 * np.pi * 330 * t + 1))).astype(np.float32)
+    return x
+
+
+def test_cues_locate_each_line_and_catch_a_mix_that_plays_it_elsewhere(tmp_path):
+    """Round 4: the face was solved from stems whose L1 sat ~14 frames before the mix's L1."""
+    from filmtools.unreal import cli_lipsync as CL
+    sr, fps = 48000, 24.0
+    l1, l2 = _speech(sr, 1.0, 1), _speech(sr, 1.1, 2)
+    (tmp_path / "vo").mkdir()
+    sf.write(tmp_path / "vo" / "L1.wav", l1, sr, subtype="PCM_24")
+    sf.write(tmp_path / "vo" / "L2.wav", l2, sr, subtype="PCM_24")
+    stem = tmp_path / "vo_him.wav"
+    sf.write(stem, _place(sr, 50.0, [(1007.0 / fps, l1), (1093.8 / fps, l2)]), sr, subtype="PCM_24")
+    lines = {"lines": {
+        "L1": {"who": "him", "text": "Took you long enough.", "wav": "L1.wav", "file_frame": 1018.8, "voice_frame": 1020,
+               "slot_end": 1065},
+        "L2": {"who": "him", "text": "Ask her what's next.", "wav": "L2.wav", "file_frame": 1093.8, "voice_frame": 1095,
+               "slot_end": 1133}}}
+    good_mix = tmp_path / "mix_good.wav"
+    sf.write(good_mix, _place(sr, 50.0, [(1007.0 / fps, 0.8 * l1), (1093.8 / fps, 0.8 * l2)], music=0.05), sr)
+    doc = CL.build_cues(lines, {"him": stem}, fps, words="none", line_dir=tmp_path / "vo", mix=good_mix)
+    assert not [i for i in doc["issues"] if i["severity"] == "fail"], doc["issues"]
+    assert abs(doc["lines"]["L1"]["file_frame"] - 1007.0) < 0.05  # measured, not the listed 1018.8
+    assert doc["lines"]["L1"]["file_frame_listed"] == 1018.8
+    assert abs(doc["lines"]["L1"]["voice_frame"] - 1007.0) < 2.5 and doc["lines"]["L1"]["mix_score"] > 0.5
+    bad_mix = tmp_path / "mix_bad.wav"
+    sf.write(bad_mix, _place(sr, 50.0, [(1021.0 / fps, 0.8 * l1), (1093.8 / fps, 0.8 * l2)], music=0.05), sr)
+    doc = CL.build_cues(lines, {"him": stem}, fps, words="none", line_dir=tmp_path / "vo", mix=bad_mix)
+    bad = [i for i in doc["issues"] if i["severity"] == "fail"]
+    assert [i["code"] for i in bad] == ["mix_mismatch"] and bad[0]["line"] == "L1"
+    assert "14.0 frames EARLY" in bad[0]["message"]
+    other = (0.3 * np.random.default_rng(7).normal(0, 1, sr)).astype(np.float32)  # another take: other samples
+    sf.write(tmp_path / "vo" / "L2.wav", other, sr, subtype="PCM_24")
+    doc = CL.build_cues(lines, {"him": stem}, fps, words="none", line_dir=tmp_path / "vo")
+    assert "not_in_stem" in {i["code"] for i in doc["issues"]}
+
+
+def test_cues_from_the_mix_rebuild_the_stems_and_fail_round4s(tmp_path):
+    from filmtools.unreal import cli_lipsync as CL
+    sr, fps = 48000, 24.0
+    l1, l2 = _speech(sr, 1.0, 1), _speech(sr, 1.1, 2)
+    (tmp_path / "vo").mkdir()
+    sf.write(tmp_path / "vo" / "L1.wav", l1, sr, subtype="PCM_24")
+    sf.write(tmp_path / "vo" / "L2.wav", l2, sr, subtype="PCM_24")
+    old = tmp_path / "vo_him.wav"  # round 4's stems: L1 14 frames before the mix's
+    sf.write(old, _place(sr, 50.0, [(1007.0 / fps, l1), (1093.8 / fps, l2)]), sr, subtype="PCM_24")
+    mix = tmp_path / "mix.wav"
+    sf.write(mix, _place(sr, 50.0, [(1021.0 / fps, 0.8 * l1), (1096.0 / fps, 0.8 * l2)], music=0.05), sr)
+    lines = {"lines": {
+        "L1": {"who": "him", "text": "Took you long enough.", "wav": "L1.wav", "file_frame": 1018.8, "voice_frame": 1020,
+               "slot_end": 1065},
+        "L2": {"who": "him", "text": "Ask her what's next.", "wav": "L2.wav", "file_frame": 1093.8, "voice_frame": 1095,
+               "slot_end": 1133}}}
+    doc = CL.cues_from_mix(lines, tmp_path / "vo", mix, tmp_path / "stems", {"him": old}, fps, "none")
+    assert not [i for i in doc["issues"] if i["severity"] == "fail"], doc["issues"]
+    assert abs(doc["lines"]["L1"]["file_frame"] - 1021.0) < 0.05 and abs(doc["lines"]["L2"]["file_frame"] - 1096.0) < 0.05
+    assert abs(doc["lines"]["L1"]["voice_frame"] - 1021.0) < 2.5
+    assert doc["stems"]["him"]["path"].endswith("stems/vo_him.wav") and doc["canonical"] == "mix"
+    o = doc["old_stems"]
+    assert not o["pass"] and o["issues"][0]["code"] == "mix_mismatch" and "14.0 frames EARLY" in o["issues"][0]["message"]
+
+
+def test_one_wav_split_into_two_lines_at_its_pause(tmp_path):
+    """Only L3.wav exists (L3a 'Nice try.' + L3b): located once, captioned and checked as two lines."""
+    from filmtools.unreal import cli_lipsync as CL
+    sr, fps = 48000, 24.0
+    gap = np.zeros(int(0.9 * sr), np.float32)
+    l3 = np.concatenate([_speech(sr, 0.5, 4), gap, _speech(sr, 2.0, 5)])
+    (tmp_path / "vo").mkdir()
+    sf.write(tmp_path / "vo" / "L3.wav", l3, sr, subtype="PCM_24")
+    mix = tmp_path / "mix.wav"
+    sf.write(mix, _place(sr, 60.0, [(1157.0 / fps, 0.8 * l3)], music=0.05), sr)
+    lines = {"lines": {"L3": {"who": "her", "text": "Nice try. Some things you have to see for yourself.", "wav": "L3.wav",
+                              "file_frame": 1156.8, "split": [
+                                  {"id": "L3a", "text": "Nice try.", "voice_frame": 1158, "mood": "HAPPINESS"},
+                                  {"id": "L3b", "text": "Some things you have to see for yourself.", "voice_frame": 1215}]}}}
+    doc = CL.cues_from_mix(lines, tmp_path / "vo", mix, tmp_path / "stems", None, fps, "estimate")
+    assert not [i for i in doc["issues"] if i["severity"] == "fail"], doc["issues"]
+    a, b = doc["lines"]["L3a"], doc["lines"]["L3b"]
+    assert "L3" not in doc["lines"] and a["split_of"] == b["split_of"] == "L3"
+    assert a["wav"] == b["wav"] == "L3.wav" and a["file_frame"] == b["file_frame"]
+    assert abs(a["voice_frame"] - 1157.0) < 2.5 and a["end_frame"] < b["voice_frame"]
+    assert abs(b["voice_frame"] - (1157.0 + 1.4 * fps)) < 3
+    assert [w["w"] for w in a["words"]] == ["Nice", "try."] and a["mood"] == "HAPPINESS"
