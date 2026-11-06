@@ -62,6 +62,10 @@ logged. Only Epic's cloud (rig, textures) sees the face, through the MetaHuman s
 #     (PromotedFrameUtils::GetImagePathForFrame): re-ingest first. The capture column comes from the take via ffmpeg.
 #   - STAGE='measure' is unreliable (eye 166.5 vs 168.8 on one body, knee 0.0): use probe_cam/framing instead.
 #   - The face has 79 sculpt landmarks and only ONE on the nose (the tip): the bridge follows the tip's falloff.
+#   - The sculpt lands in the built mesh (landmarks are mesh vertices; placed Host == the lab S3 build), but WEAKER than
+#     asked: S3's tip +0.9 forward gave ~+0.65 relative to the cheekbones, and the vertical moves (tip -0.45, chin -0.65)
+#     ~0. Read as identical by eye. A next likeness pass needs much larger deltas (x2 forward, x3 vertical) or a re-conform.
+#   - groom.set length_scale (0.85 on Hair) is set on the placed Host but changes nothing visible: not a styling lever.
 # Not viable: the no-depth route (the Creator's ConformTargetParams wants a target head mesh + 2D curves from a known
 #   camera, i.e. a head mesh built from the depth by hand). Untested: the teeth pose (needs the solved identity).
 import json
