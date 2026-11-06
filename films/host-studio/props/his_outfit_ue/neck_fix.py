@@ -7,7 +7,7 @@ folder (FOLDER, /Game/FM/ClothOp2), so nothing being drawn is recompiled:
   2. mh.cloth_inflate with neck_inflate.add_neck_inflate builds the new chain and swaps it on; the worn copy's
      FM_ knobs (FM_Inflate, FM_Neck, FM_NeckZ0/Z1/Front/FrontBias) are set on the new instance;
   3. CHECK: his tee alone is depth-captured at FRAME through its camera, before and after: it must come nearer by
-     at least MIN_CM (median); if not, the worn copy goes back on and the result says so (ok False).
+     at least MIN_CM (median) and its base colour stay within MAX_COLOUR; if not, the worn copy goes back on and the result says so (ok False).
 Editor-side, multi-tick, numbers only. Run (box tree T):
     film-ue exec -c "CHECKOUT='$T'; exec(open(CHECKOUT + '/films/host-studio/props/his_outfit_ue/neck_fix.py').read())"
 A later host_swap.py (HOST op) builds the same chain from MetaHuman's instance on a fresh build (its NECK_MASTER).
