@@ -37,7 +37,8 @@ LIMITS = {
     "speed_ratio": 2.5,      # FAIL when the head moves this much faster inside blink windows...
     "speed_min_deg_s": 6.0,  # ...and that peak speed is over this (a still head's ratios are noise)
     "jitter_rms_deg": 0.08,  # FAIL on buzz: RMS residual off the local fit, any axis
-    "turn_deg": 20.0,        # a blink window whose head yaws this much is a turn's blink, not judged as a nod
+    "turn_deg": None,        # off (the orchestrator, r5: turn blinks are judged as nods; the pitch bell of our torso
+                             # lagging the neck is our artifact). A number lists blink windows yawing that much as "turns"
     "turn_dip_deg": 2.0,     # ...but a turn whose pitch departs this much is flagged (head_turn_dip, a warning)
     "spike_deg": 0.5,        # FAIL on any residual over this (a twitch; the sharpest planned onsets leave ~0.4)
 }
@@ -177,7 +178,7 @@ def check(times: list, pitch: list, blinks: list, yaw: list | None = None, roll:
     # not a nod: the head's pitch along a 60-95 deg turn is the turn's path (r5 box: his return turn dipped 4.6 deg
     # with its blink, his face flat). Listed as "turn" with the departure; head_turn_dip warns on a big one.
     turns = []
-    if yaw:
+    if yaw and L["turn_deg"]:
         def swing(a, b):
             seg = _segment(times, yaw, max(times[0], a - PRE), min(times[-1], b + POST))[1]
             return max(seg) - min(seg) if seg else 0.0
