@@ -123,13 +123,17 @@ def install(fake):
     def reset(self):
         core.FAKE.calls.append(("SkeletalMeshComponent.force_cloth_next_update_teleport_and_reset", (self,), {}))
 
+    def set_uce(self, on):
+        self._props["__update_cloth_in_editor"] = bool(on)
+
     def get_skm(self):
         return self._props.get("skeletal_mesh_asset")
 
     for k, fn in (("_bones", _bones), ("get_parent_bone", get_parent_bone),
                   ("get_ref_pose_transform", get_ref_pose_transform), ("set_cloth_max_distance_scale", set_scale),
                   ("get_cloth_max_distance_scale", get_scale),
-                  ("force_cloth_next_update_teleport_and_reset", reset), ("get_skeletal_mesh_asset", get_skm)):
+                  ("force_cloth_next_update_teleport_and_reset", reset), ("get_skeletal_mesh_asset", get_skm),
+                  ("set_update_cloth_in_editor", set_uce)):
         setattr(SMC, k, fn)
 
     fake.stub("MathLibrary.compose_transforms",
@@ -187,7 +191,10 @@ def install(fake):
             mesh = comp.get_skeletal_mesh_asset()
             if mesh is None or not mesh._props.get("mesh_clothing_assets"):
                 return []
-            f = _frame()
+            if not comp._props.get("__update_cloth_in_editor"):   # the editor world does not tick cloth
+                f = 0
+            else:
+                f = _frame()
             b = fake.cloth_body(f)
             s = comp.get_cloth_max_distance_scale()
             ramp = min(1.0, _steps_since_reset(comp) / float(max(1, fake.cloth_settle_steps)))

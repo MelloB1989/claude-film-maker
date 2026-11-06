@@ -345,25 +345,35 @@ def apply_interactor(comp, cloth_name: str, config: dict) -> dict:
 
 
 def write_config(asset, config: dict) -> dict:
-    """Write a preset's config onto the clothing asset's config objects (cloth_configs: Chaos + shared); a number
-    for a weighted value sets low = high. Returns {"set": {key: value read back}, "missing": [keys no config has]}."""
-    cfgs = list((_get(asset, "cloth_configs", {}) or {}).values())
+    """Write a preset's config onto the clothing asset's config objects (cloth_configs: Chaos + shared), except the
+    INTERACTOR_KEYS. The configs are fetched afresh for every key and written without edit notifications: in round 5
+    every key after the first notified write came back unreadable. Returns {"set": {key: value read back},
+    "missing": ["key: why", ...]}."""
     done, missing = {}, []
+    quiet = getattr(getattr(unreal, "PropertyAccessChangeNotifyMode", None), "NEVER", None)
     for k, v in config.items():
         if k in INTERACTOR_KEYS:
             continue
-        target = next((c for c in cfgs if _get(c, k) is not None), None)
+        why = []
+        target = None
+        for c in list((asset.get_editor_property("cloth_configs") or {}).values()):
+            try:
+                c.get_editor_property(k)
+                target = c
+                break
+            except Exception as e:  # noqa: BLE001 - collect the engine's reason
+                why.append(f"{type(c).__name__}: {e}")
         if target is None:
-            missing.append(k)
+            missing.append(f"{k}: " + ("; ".join(why) or "no config objects"))
             continue
-        cur = _get(target, k)
-        if isinstance(v, list) and len(v) == 3:
-            val = type(cur)(*[float(x) for x in v]) if cur is not None else unreal.Vector(*v)
-        else:
-            val = v
+        cur = target.get_editor_property(k)
+        val = type(cur)(*[float(x) for x in v]) if isinstance(v, list) and len(v) == 3 else v
         try:
-            target.set_editor_property(k, val)
-            done[k] = _plain(_get(target, k))
+            if quiet is not None:
+                target.set_editor_property(k, val, quiet)
+            else:
+                target.set_editor_property(k, val)
+            done[k] = _plain(target.get_editor_property(k))
         except Exception as e:  # noqa: BLE001 - one refused key must not stop the rest
             missing.append(f"{k}: {type(e).__name__}: {e}")
     return {"set": done, "missing": missing}
@@ -557,6 +567,8 @@ def preroll_live(*, sequence: str, frame: int, labels: list | None = None, frame
         comps += [(f"{lab}.{n}", c) for n, c in _cloth_comps(lab).items()]
     n = int(frames) or _preroll.need_frames(_settle_for(), fps)
     steps = _preroll.live_steps(int(frame), n, mode, start)
+    for _, c in comps:   # an editor world ticks cloth only with this (SkeletalMeshComponentPhysics.cpp:83, 3148)
+        _call(c, "set_update_cloth_in_editor", True)
     call("seq.scrub", path=sequence, frame=steps[0])
     yield
     reset([c for _, c in comps])
