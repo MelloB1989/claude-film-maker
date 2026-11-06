@@ -28,7 +28,7 @@ if ! "$BLENDER" -b --factory-startup --python-expr "import sys; sys.path.append(
     pyv=$("$BLENDER" -b --factory-startup --python-expr "import sys; print('PYV', '%d.%d' % sys.version_info[:2])" 2>/dev/null | awk '/^PYV/ {print $2}')
     npv=$("$BLENDER" -b --factory-startup --python-expr "import numpy; print('NPV', numpy.__version__)" 2>/dev/null | awk '/^NPV/ {print $2}')
     echo "installing scipy for Blender's Python $pyv (numpy $npv) into $PYLIB"
-    uv pip install --quiet --python-version "$pyv" --only-binary :all: --target "$PYLIB" "scipy<1.14" "numpy==$npv"
+    "${UV:-$(command -v uv || echo $HOME/.local/bin/uv)}" pip install --quiet --python-version "$pyv" --only-binary :all: --target "$PYLIB" "scipy<1.14" "numpy==$npv"
     rm -rf "$PYLIB"/numpy "$PYLIB"/numpy-*  # Blender's own numpy comes first; never shadow it
 fi
 echo "blender: $("$BLENDER" --version | head -1); src: $(ls "$WORK/src" | tr '\n' ' ')"

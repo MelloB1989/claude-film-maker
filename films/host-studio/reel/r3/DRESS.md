@@ -57,3 +57,46 @@ As ROUND3 "Next session" steps 6-8:
 - Anything with Host_Op goes to `private/` only. Only no-face shots go to `shoot/r3/final/`.
 - Before the presenter finals (S16, S13, S15, S17, S18), run steps 2-5 above once more if the editor restarted since
   the cast preview.
+
+## Round 4: clipping on him (Host_Op), agent-02, 06 Nov
+
+Measured, not guessed: `reel/r4/clip_pass.py` (editor-side, multi-tick, read-only) depth-captures each layer alone
+(Body, Face, his tee, Trousers; hers Top/Trousers/Overshirt) from the shot's camera at 6 spread frames per shot (plus
+agent-01's twist frames in S15/S17) and counts, per (under>over) pair, the pixels where the under layer comes out
+through the garment: nearer by 0.3-3 cm (an opening's 10-25 cm drops out), in a cluster that meets an intersection
+edge (an arm held in front of the tee does not), and not within 3 px of where the skin leaves the garment (his neck
+above the collar edge). `fraction` = clipping px / garment px is agent-09's gate number. Stills and masks stay on the
+box (face rule); `reel/r4/clip_sheet.py` makes the crop sheets (`--diag` for the A/B columns: scene, mask, body+face
+hidden, garments hidden, each garment's albedo alone).
+
+**Before (cast_op4 state, restored level):** Face>tee 0.004-0.032 in EVERY shot (S15 worst), Trousers>tee
+0.005-0.007 in S17/S18, Body>tee 0, Body>Trousers 0; the tee's albedo has no skin colour. The orchestrator confirmed
+on the diag sheet: the Face>tee blob is the orange patch left of his neckline, Trousers>tee the hip two-tone.
+
+**Causes:**
+1. The orange patch is his FACE mesh (MetaHuman's face runs ~10 cm below neck_01, to the clavicles), standing
+   0.4-2.3 cm out of the tee under the collar line (`reel/r4/neck_probe.py`, posed meshes). The body under the tee is
+   already cut away by MetaHuman. A head/body neck mismatch of his build: agent-04 keeps the slim body's neck girth
+   (Neck Base 40, Neck 38) and re-rigs after setting the body so the cloud rig re-fits the neck seam; fallback Neck
+   Base +2.
+2. The hip two-tone: his trousers were fitted (props/his_outfit.py) to TREY's body and tee, so on Host_Op their
+   waistband stood through the tee's hem. Re-fit to his own body and tee on the box: `props/his_outfit_ue/r4_fit_op.sh`
+   -> `SKM_Host_Trousers_Op`, which studio.py's his outfit block picks for HOST op (Trey keeps his).
+3. host_swap never inflated his tee (studio.py's finish() does on a full build only): cast_op1-4's tee was the bare
+   MetaHuman instance. host_swap.py now pushes it out INFLATE_CM (0.4) and re-sets the leaders (multi-tick).
+
+**Her:** her pass reads high (Body>Top 0.10-0.19, Top>Overshirt 0.03-0.19) from her scoop neckline and the open
+overshirt (qa.penetration read 0.34 there): her check is before vs after unchanged, with the watch and collar as
+agent-09's gate measures them.
+
+**The order on the box after agent-04's slim build and respawn** (box tree /srv/ue/r3tree; T=that):
+1. `film-ue exec $T/films/host-studio/reel/r4/neck_probe.py` -> under_collar.out must be 0 (else agent-04's fallback).
+2. `film-ue exec -c "EXPORT_DIR='his_outfit_op'; exec(open('$T/films/host-studio/props/his_outfit_ue/export_body.py').read())"`
+   and `film-ue exec $T/films/host-studio/props/his_outfit_ue/export_alt_body.py`.
+3. On the box shell: `sh $T/films/host-studio/props/his_outfit_ue/r4_fit_op.sh` (Blender 4.2 at /srv/ue/tools, CPU).
+4. `film-ue exec -c "IMPORT_DIR='his_outfit_op'; SUFFIX='_Op'; exec(open('$T/films/host-studio/props/his_outfit_ue/import_outfit.py').read())"`
+5. `film-ue exec -c "HOST='op'; CHECKOUT='$T'; exec(open(CHECKOUT + '/films/host-studio/unreal/host_swap.py').read())"`:
+   trousers SKM_Host_Trousers_Op, tee_slots Shirt -> *_Inflate, leader_pass True.
+6. The re-dress (steps 1-5 of "Next, on the restored box" above, from drive_faces on).
+7. `clip_pass.py` with TAG='after' for Host and Presenter, then
+   `clip_sheet.py <Host_before2> <Host_after> --out /srv/ue/reel/r4/review/clip_host.jpg` -> private/renders/r4/review/.
