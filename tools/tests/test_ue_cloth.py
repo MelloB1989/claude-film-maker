@@ -57,13 +57,13 @@ def painted(colours=None, name="cotton_tee"):
 
 def test_presets_exist_and_merge_over_the_base():
     assert presets.names() == ["cotton_tee", "overshirt_light", "trousers"]
-    p = presets.get("cotton_tee", {"config": {"damping": 0.1}, "zones": {"torso": {"to_cm": 4.0}}})
-    assert p["config"]["damping"] == 0.1 and p["config"]["edge_stiffness"] == 1.0
+    p = presets.get("cotton_tee", {"config": {"damping_coefficient": 0.1}, "zones": {"torso": {"to_cm": 4.0}}})
+    assert p["config"]["damping_coefficient"] == 0.1 and p["config"]["edge_stiffness_weighted"] == 1.0
     assert [z for z in p["zones"] if z["name"] == "torso"][0]["to_cm"] == 4.0
     assert presets.PRESETS["cotton_tee"]["zones"][2]["to_cm"] == 3.0       # the table is not mutated
 
 
-@pytest.mark.parametrize("bad", [{"config": {"dampin": 0.1}}, {"zones": {"hemm": {"to_cm": 1}}},
+@pytest.mark.parametrize("bad", [{"config": {"dampin_coefficient": 0.1}}, {"zones": {"hemm": {"to_cm": 1}}},
                                  {"zones": {"torso": {"to": 1}}}, {"settle": 1}])
 def test_preset_typos_are_errors(bad):
     with pytest.raises(KeyError):

@@ -146,7 +146,7 @@ def judge(frames: list, sim: list, skin: list, zones: list, max_distance: list, 
                             f"cloth moves {max_speed:.0f} cm/s relative to the body at frame {spike_frame} "
                             f"(limit {th['spike_cm_s']:.0f})", "a pop: a teleport at a cut (cloth.setup teleport "
                             "thresholds + reset), an animation jump (seq: check the body keys at that frame), or too "
-                            "little damping (preset damping up)", frame=spike_frame, subject=subject,
+                            "little damping (preset config.damping_coefficient up)", frame=spike_frame, subject=subject,
                             value=round(max_speed, 1), expected=th["spike_cm_s"]))
     # body motion per frame (mean over vertices) and still frames
     body_step = [0.0] + [sum(_n(_d(skin[f][i], skin[f - 1][i])) for i in range(nv)) / nv for f in range(1, nf)]
@@ -183,7 +183,7 @@ def judge(frames: list, sim: list, skin: list, zones: list, max_distance: list, 
                                 f"{zn}: the cloth moves {m['motion_cm']} cm relative to the body while the body moves "
                                 f"{m['body_path_cm']} cm: it reads as a rigid shell (armour)",
                                 "cloth.setup with a preset (max distance in the free zones), check cloth.describe "
-                                "simulating=true; lower bending/anim-drive stiffness", subject=subject, region=zn,
+                                "simulating=true; lower bending_stiffness_weighted/anim_drive_stiffness", subject=subject, region=zn,
                                 value=m["motion_cm"], expected=th["alive_min_cm"]))
         elif m["motion_cm"] < th["alive_good_cm"]:
             issues.append(issue("cloth.stiff", "warn",
@@ -202,7 +202,7 @@ def judge(frames: list, sim: list, skin: list, zones: list, max_distance: list, 
         if m["jitter_cm"] > th["jitter_cm"]:
             issues.append(issue("cloth.jitter", "warn",
                                 f"{zn}: the cloth buzzes {m['jitter_cm']} cm frame to frame while the body is still",
-                                "more damping (preset config.damping 0.1), collision_thickness up 0.2 cm, or "
+                                "more damping (preset config.damping_coefficient 0.1), collision_thickness up 0.2 cm, or "
                                 "self-collision off", subject=subject, region=zn, value=m["jitter_cm"],
                                 expected=th["jitter_cm"]))
     # 7. cold start: fast settling in the first frames, calm afterwards (and not because the body moved)

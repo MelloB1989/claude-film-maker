@@ -14,52 +14,58 @@ from __future__ import annotations
 
 import copy
 
-# Chaos cloth config (UChaosClothConfig / UChaosClothSharedSimConfig properties, snake_case as Python names them).
-# Only what a preset changes from the engine defaults is listed; `ops.cloth` writes each one and reads it back.
+# Chaos cloth config: UChaosClothConfig / UChaosClothSharedSimConfig properties as Python names them
+# (Engine/Plugins/ChaosCloth/Source/ChaosCloth/Public/ChaosCloth/ChaosClothConfig.h, 5.8.4). A number given for a
+# weighted value (FChaosClothWeightedValue) sets low = high = it (no map). Only what differs from the engine's
+# defaults matters; ops.cloth writes every key and reads it back.
 BASE_CONFIG = {
-    "mass_mode": "DENSITY",          # EClothMassMode: kg/m2 x the garment's area: the same fabric reads the same on any mesh
-    "density": 0.15,                 # kg/m2
-    "min_per_particle_mass": 0.0001,
-    "edge_stiffness": 1.0,           # stretch along edges (XPBD, 0..1): keep 1, let tethers do the rest
-    "bending_stiffness": 0.1,        # folds: low = soft jersey, high = card
-    "area_stiffness": 1.0,
-    "tether_stiffness": 1.0,         # long range attachment: stops the hem stretching away from the anchors
-    "tether_scale": 1.0,             # 1.0 = no stretch beyond rest length along the tethers
-    "use_geodesic_distance": True,   # tethers measured over the cloth, not through the body (shirts round a torso)
-    "collision_thickness": 0.5,      # cm kept off the physics asset's shapes
-    "friction_coefficient": 0.6,
+    "mass_mode": "DENSITY",               # EClothMassMode: kg/m2 x area, so the same fabric reads the same on any mesh
+    "density": 0.15,                      # kg/m2 (engine default 0.35)
+    "edge_stiffness_weighted": 1.0,       # stretch along edges: keep 1, the tethers do the rest
+    "bending_stiffness_weighted": 0.1,    # folds: low = soft jersey, high = card (default 1.0: card, i.e. armour)
+    "area_stiffness_weighted": 1.0,
+    "tether_stiffness": 1.0,              # long range attachment: the hem cannot stretch away from the anchors
+    "tether_scale": 1.0,                  # 1.0 = no stretch beyond rest length along the tethers
+    "use_geodesic_distance": True,        # tethers measured over the cloth, not through the body
+    "collision_thickness": 0.5,           # cm kept off the physics asset's shapes (default 1.0)
+    "friction_coefficient": 0.6,          # default 0.8
+    "use_ccd": False,
     "use_self_collisions": False,
     "self_collision_thickness": 0.5,
-    "damping": 0.05,                 # 0.01 default: presenters want calm cloth, not buzz
-    "linear_velocity_scale": 0.75,   # how much of the actor's motion the cloth feels (Epic default 0.75)
+    "damping_coefficient": 0.05,          # default 0.01: presenters want calm cloth, not buzz
+    "linear_velocity_scale": [0.75, 0.75, 0.75],   # how much of the reference bone's motion the cloth feels
     "angular_velocity_scale": 0.75,
-    "fictitious_angular_scale": 0.5,  # centrifugal kick on turns: half, or a quick head turn flings the hem
+    "fictitious_angular_scale": 0.5,      # centrifugal kick on turns: half, or a quick turn flings the hem (default 1)
+    "enable_linear_velocity_clamping": True,       # a fast root move (a re-placed presenter) cannot fling the cloth
+    "max_linear_velocity": [500.0, 500.0, 500.0],  # cm/s
     "gravity_scale": 1.0,
-    "anim_drive_stiffness": 0.0,     # pull toward the skinned pose everywhere: 0 = free within the max distance
-    "drag_coefficient": 0.035,
-    "lift_coefficient": 0.035,
-    # shared (one per mesh)
+    "anim_drive_stiffness": 0.0,          # pull toward the skinned pose everywhere: 0 = free within the max distance
+    "drag": 0.035,
+    "lift": 0.035,
+    # UChaosClothSharedSimConfig (one per mesh). MRQ's temporal samples already sub-step the cloth (8 samples = 8x),
+    # so keep these low: raising them under TAA makes cloth twitch (Epic staff, research doc).
     "iteration_count": 2,
     "max_iteration_count": 6,
-    "subdivision_count": 2,          # substeps: 2 at 24 fps (and MRQ's temporal samples shorten the step further)
+    "subdivision_count": 1,
 }
 
-# component settings (USkeletalMeshComponent) every cloth garment gets
+# component settings (USkeletalMeshComponent, Python names; SkeletalMeshComponent.h 5.8.4) every cloth garment gets
 COMPONENT = {
-    "teleport_distance_threshold": 30.0,   # cm the root may jump in a frame before the cloth teleports (0 = never)
-    "teleport_rotation_threshold": 30.0,   # degrees likewise: a cut that re-places a presenter must not fling the cloth
+    "teleport_distance_threshold": 50.0,   # cm the root may jump in a frame before the cloth teleports (0 = never)
+    "teleport_rotation_threshold": 45.0,   # degrees likewise: a cut that re-places a presenter must not fling the cloth
     "reset_after_teleport": True,          # bResetAfterTeleport: back to the skinned pose, then settle (needs pre-roll)
     "allow_cloth_actors": True,            # bAllowClothActors
     "disable_cloth_simulation": False,
     "collide_with_environment": False,     # the garment collides with ITS body's physics asset, not the room
-    "cloth_max_distance_scale": 1.0,
+    "wait_for_parallel_cloth_task": True,  # this frame's cloth on the game thread: renders and qa.cloth read it
+    "cloth_max_distance_scale": 1.0,       # set through set_cloth_max_distance_scale (not an editable property)
 }
 
 PRESETS = {
     "cotton_tee": {
         "about": "a fitted cotton jersey T-shirt over a presenter's torso: anchored at the collar and shoulder seams, "
                  "free toward the hem and the sleeve ends; soft folds, no swing",
-        "config": {"density": 0.15, "bending_stiffness": 0.08, "damping": 0.06, "tether_scale": 1.03,
+        "config": {"density": 0.15, "bending_stiffness_weighted": 0.08, "damping_coefficient": 0.06, "tether_scale": 1.03,
                    "collision_thickness": 0.4, "friction_coefficient": 0.6},
         "zones": [
             {"name": "collar", "bones": ["neck_01", "neck_02", "head"], "ramp": "fixed", "from_cm": 0.0, "to_cm": 0.0},
@@ -79,7 +85,7 @@ PRESETS = {
     "overshirt_light": {
         "about": "a light open overshirt (shirting/twill) over a top: anchored at the collar and the shoulders, its "
                  "open front and hem hang free and swing a little on a turn",
-        "config": {"density": 0.2, "bending_stiffness": 0.25, "damping": 0.06, "tether_scale": 1.02,
+        "config": {"density": 0.2, "bending_stiffness_weighted": 0.25, "damping_coefficient": 0.06, "tether_scale": 1.02,
                    "collision_thickness": 0.6, "friction_coefficient": 0.5, "use_self_collisions": False},
         "zones": [
             {"name": "collar", "bones": ["neck_01", "neck_02", "head"], "ramp": "fixed", "from_cm": 0.0, "to_cm": 0.0},
@@ -100,7 +106,7 @@ PRESETS = {
     },
     "trousers": {
         "about": "chino-weight trousers: anchored at the waistband and the seat, free below the knee toward the hem",
-        "config": {"density": 0.28, "bending_stiffness": 0.4, "damping": 0.08, "tether_scale": 1.02,
+        "config": {"density": 0.28, "bending_stiffness_weighted": 0.4, "damping_coefficient": 0.08, "tether_scale": 1.02,
                    "collision_thickness": 0.6, "friction_coefficient": 0.7, "fictitious_angular_scale": 0.3},
         "zones": [
             {"name": "waist", "bones": ["pelvis", "spine_01"], "ramp": "fixed", "from_cm": 0.0, "to_cm": 0.0},
