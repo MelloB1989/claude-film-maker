@@ -46,7 +46,7 @@
    "lead_s": 0.092,
    "peak_t": 1.615,
    "camera": "CAM_MCU",
-   "apex_height": "bust",
+   "apex_height": "sternum",
    "apex_f": 37
   },
   {
@@ -149,7 +149,7 @@
    "lead_s": 0.142,
    "peak_t": 5.865,
    "camera": null,
-   "apex_height": "bust",
+   "apex_height": "sternum",
    "apex_f": 137
   },
   {
@@ -269,7 +269,7 @@
    "lead_s": 0.129,
    "peak_t": 12.915,
    "camera": null,
-   "apex_height": "bust",
+   "apex_height": "sternum",
    "apex_f": 307
   },
   {
@@ -586,7 +586,7 @@
    "lead_s": 0.134,
    "peak_t": 29.485,
    "camera": "CAM_MCU",
-   "apex_height": "bust",
+   "apex_height": "sternum",
    "apex_f": 704
   },
   {
@@ -649,7 +649,7 @@
    "peak_t": 32.775,
    "chained": true,
    "camera": null,
-   "apex_height": "bust",
+   "apex_height": "sternum",
    "apex_f": 784
   },
   {
@@ -905,7 +905,7 @@
    "peak_t": 49.605,
    "chained": true,
    "camera": "CAM_MCU",
-   "apex_height": "bust",
+   "apex_height": "sternum",
    "apex_f": 1188
   },
   {

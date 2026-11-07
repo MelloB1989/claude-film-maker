@@ -126,12 +126,14 @@ def plan(film: str, seed: int = 72) -> dict:
             "gestures": out, "speech": spans, "stats": stats(out, spans)}
 
 
-APEX_HEIGHT = {"CAM_CU": "upper_chest"}  # agent-11's scale (bust..chin): added beats are small; the rest "bust"
+# agent-11's scale for small strokes (sheet d2d3e565): sternum in MCU / MCU_L / off camera, collarbone in CU,
+# lower_chest in WIDE
+APEX_HEIGHT = {"CAM_CU": "collarbone", "CAM_WIDE": "lower_chest"}
 
 
 def heights(ev, film):
     """Each added beat's apex_height from the camera on screen at its apex (edl/<film>.json; agent-11's sheet gives
-    the sheet's own): bust height or higher, never at the desk (the orchestrator on side A: hands under the MCU frame)."""
+    the sheet's own): sternum height or higher, never at the desk (the orchestrator on side A: hands under the MCU frame)."""
     edl = json.loads((EXPL / "edl" / f"{film}.json").read_text())
     for e in ev:
         if e["src"] != "prosody":
@@ -140,7 +142,7 @@ def heights(ev, film):
         cam = next((s.get("camera") for s in edl["shots"] if s["f0"] <= f < s["f1"] and s["kind"] in ("pres", "panel")),
                    None)
         e["camera"] = cam
-        e["apex_height"] = APEX_HEIGHT.get(cam, "bust")
+        e["apex_height"] = APEX_HEIGHT.get(cam, "sternum")
 
 
 def chain(ev):
