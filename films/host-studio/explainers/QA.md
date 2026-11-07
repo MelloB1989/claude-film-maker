@@ -169,8 +169,8 @@ the end of 2024.
 1. His film on box B: garment.head_state_parity (box A's head files by checksum, the same cull_live), and setplan's
    sign rule re-enabled for him (FACE_ESTIMATED empty once his seated eyes are measured).
 2. Editor, read before the render: garment.leaders_ok (every garment leader == Body; the r6n0 lesson), hair.lock, render_cvars, cameras_ok, set.props_overlap.
-2. Editor, after the performance is placed: qa.clip (garments + set + mouth) and qa.garment_look, seated.
-3. agent-04 head.py and agent-01 lips/body on the placed performance.
-4. Finals, from a freshly restarted editor (the karma lesson): exposure, hair numbers.
-5. Composite on the box, then the cut: loudness, format, qc, captions, facts.
-6. `film-qa gate` → SIGN on everything but the eye rows → the review to the orchestrator → the signed strip → SIGN.
+3. Editor, after the performance is placed: qa.clip (garments + set + mouth) and qa.garment_look, seated.
+4. agent-04 head.py and agent-01 lips/body on the placed performance.
+5. Finals, from a freshly restarted editor (the karma lesson): exposure, hair numbers.
+6. Composite on the box, then the cut: loudness, format, qc, captions, facts.
+7. `film-qa gate` → SIGN on everything but the eye rows → the review to the orchestrator → the signed strip → SIGN.
