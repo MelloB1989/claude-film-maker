@@ -1,0 +1,16 @@
+n,kind,camera,gfx,f0,f1,t0,t1,lines,text
+1,pres,CAM_MCU,,0,98,0.000,4.083,N01,Netflix has over three hundred million paying members.
+2,pres,CAM_CU,,98,141,4.083,5.875,N02,"Hit play, and it just starts."
+3,gfx,,title,141,196,5.875,8.167,N03,But the video doesn't come from the cloud.
+4,pres,CAM_MCU,,196,305,8.167,12.708,N04,"Netflix builds its own servers, called Open Connect Appliances."
+5,gfx,,oca,305,406,12.708,16.917,N05,"Internet providers get them free, inside their own networks."
+6,panel,CAM_MCU,prefill,406,556,16.917,23.167,N06 N07,"Every night, Netflix predicts what your area will watch. And copies it to the box near you."
+7,pres,CAM_CU,,556,656,23.167,27.333,N08,Each title is encoded at many sizes and bitrates.
+8,gfx,,ladder,656,791,27.333,32.958,N09,"A cartoon needs fewer bits than an action film, so each gets its own ladder."
+9,gfx,,abr,791,954,32.958,39.750,N10 N11,The video is cut into chunks a few seconds long. Your player picks the right rung for every chunk.
+10,panel,CAM_MCU,buffer,954,1040,39.750,43.333,N12,Network dips? The next chunk is a little softer.
+11,pres,CAM_WIDE,,1040,1162,43.333,48.417,N13,"Your login, profile, recommendations: that all runs on AWS."
+12,gfx,,planes,1162,1278,48.417,53.250,N14,"Press play, and AWS points you to that box. It streams the video."
+13,pres,CAM_MCU,,1278,1352,53.250,56.333,N15,The cloud decides. The box next door delivers.
+14,pres,CAM_CU,,1352,1391,56.333,57.958,N16,That's why it just plays.
+15,gfx,,end,1391,1427,57.958,59.458,,

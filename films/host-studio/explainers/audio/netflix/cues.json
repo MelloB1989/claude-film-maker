@@ -1,0 +1,1277 @@
+{
+ "film": "netflix",
+ "title": "How Netflix streams to 300 million people without buffering",
+ "presenter": "her",
+ "voice": "tripti",
+ "fps": 24,
+ "frames": 1427,
+ "duration": 59.4583,
+ "sr": 48000,
+ "vo": "audio/netflix/vo.wav",
+ "lines": [
+  {
+   "id": "N01",
+   "beat": "hook",
+   "text": "Netflix has over three hundred million paying members.",
+   "take": 3,
+   "file": "audio/netflix/lines/N01.wav",
+   "file_start": 0.75,
+   "file_start_f": 18,
+   "file_len": 3.443,
+   "start": 0.75,
+   "end": 3.943,
+   "start_f": 18,
+   "end_f": 95,
+   "words": [
+    {
+     "w": "Netflix",
+     "start": 0.75,
+     "end": 1.307,
+     "f0": 18,
+     "f1": 32
+    },
+    {
+     "w": "has",
+     "start": 1.493,
+     "end": 1.69,
+     "f0": 35,
+     "f1": 41
+    },
+    {
+     "w": "over",
+     "start": 1.772,
+     "end": 2.027,
+     "f0": 42,
+     "f1": 49
+    },
+    {
+     "w": "three",
+     "start": 2.074,
+     "end": 2.283,
+     "f0": 49,
+     "f1": 55
+    },
+    {
+     "w": "hundred",
+     "start": 2.329,
+     "end": 2.631,
+     "f0": 55,
+     "f1": 64
+    },
+    {
+     "w": "million",
+     "start": 2.689,
+     "end": 3.026,
+     "f0": 64,
+     "f1": 73
+    },
+    {
+     "w": "paying",
+     "start": 3.095,
+     "end": 3.397,
+     "f0": 74,
+     "f1": 82
+    },
+    {
+     "w": "members.",
+     "start": 3.467,
+     "end": 3.943,
+     "f0": 83,
+     "f1": 95
+    }
+   ]
+  },
+  {
+   "id": "N02",
+   "beat": "hook",
+   "text": "Hit play, and it just starts.",
+   "take": 1,
+   "file": "audio/netflix/lines/N02.wav",
+   "file_start": 4.25,
+   "file_start_f": 102,
+   "file_len": 1.748,
+   "start": 4.25,
+   "end": 5.748,
+   "start_f": 102,
+   "end_f": 138,
+   "words": [
+    {
+     "w": "Hit",
+     "start": 4.25,
+     "end": 4.505,
+     "f0": 102,
+     "f1": 109
+    },
+    {
+     "w": "play,",
+     "start": 4.54,
+     "end": 4.796,
+     "f0": 108,
+     "f1": 116
+    },
+    {
+     "w": "and",
+     "start": 4.9,
+     "end": 5.028,
+     "f0": 117,
+     "f1": 121
+    },
+    {
+     "w": "it",
+     "start": 5.074,
+     "end": 5.132,
+     "f0": 121,
+     "f1": 124
+    },
+    {
+     "w": "just",
+     "start": 5.179,
+     "end": 5.33,
+     "f0": 124,
+     "f1": 128
+    },
+    {
+     "w": "starts.",
+     "start": 5.353,
+     "end": 5.748,
+     "f0": 128,
+     "f1": 138
+    }
+   ]
+  },
+  {
+   "id": "N03",
+   "beat": "hook",
+   "text": "But the video doesn't come from the cloud.",
+   "take": 1,
+   "file": "audio/netflix/lines/N03.wav",
+   "file_start": 6.0417,
+   "file_start_f": 145,
+   "file_len": 2.015,
+   "start": 6.042,
+   "end": 7.807,
+   "start_f": 145,
+   "end_f": 188,
+   "words": [
+    {
+     "w": "But",
+     "start": 6.042,
+     "end": 6.216,
+     "f0": 145,
+     "f1": 150
+    },
+    {
+     "w": "the",
+     "start": 6.263,
+     "end": 6.332,
+     "f0": 150,
+     "f1": 152
+    },
+    {
+     "w": "video",
+     "start": 6.379,
+     "end": 6.634,
+     "f0": 153,
+     "f1": 160
+    },
+    {
+     "w": "doesn't",
+     "start": 6.681,
+     "end": 6.948,
+     "f0": 160,
+     "f1": 167
+    },
+    {
+     "w": "come",
+     "start": 6.994,
+     "end": 7.157,
+     "f0": 167,
+     "f1": 172
+    },
+    {
+     "w": "from",
+     "start": 7.191,
+     "end": 7.331,
+     "f0": 172,
+     "f1": 176
+    },
+    {
+     "w": "the",
+     "start": 7.377,
+     "end": 7.447,
+     "f0": 177,
+     "f1": 179
+    },
+    {
+     "w": "cloud.",
+     "start": 7.482,
+     "end": 7.807,
+     "f0": 179,
+     "f1": 188
+    }
+   ]
+  },
+  {
+   "id": "N04",
+   "beat": "open-connect",
+   "text": "Netflix builds its own servers, called Open Connect Appliances.",
+   "take": 2,
+   "file": "audio/netflix/lines/N04.wav",
+   "file_start": 8.5417,
+   "file_start_f": 205,
+   "file_len": 4.267,
+   "start": 8.542,
+   "end": 12.559,
+   "start_f": 205,
+   "end_f": 302,
+   "words": [
+    {
+     "w": "Netflix",
+     "start": 8.542,
+     "end": 8.995,
+     "f0": 205,
+     "f1": 216
+    },
+    {
+     "w": "builds",
+     "start": 9.064,
+     "end": 9.343,
+     "f0": 217,
+     "f1": 225
+    },
+    {
+     "w": "its",
+     "start": 9.39,
+     "end": 9.529,
+     "f0": 225,
+     "f1": 229
+    },
+    {
+     "w": "own",
+     "start": 9.575,
+     "end": 9.784,
+     "f0": 229,
+     "f1": 235
+    },
+    {
+     "w": "servers,",
+     "start": 9.854,
+     "end": 10.388,
+     "f0": 236,
+     "f1": 250
+    },
+    {
+     "w": "called",
+     "start": 10.725,
+     "end": 11.003,
+     "f0": 257,
+     "f1": 265
+    },
+    {
+     "w": "Open",
+     "start": 11.108,
+     "end": 11.386,
+     "f0": 266,
+     "f1": 274
+    },
+    {
+     "w": "Connect",
+     "start": 11.444,
+     "end": 11.758,
+     "f0": 274,
+     "f1": 283
+    },
+    {
+     "w": "Appliances.",
+     "start": 11.804,
+     "end": 12.559,
+     "f0": 283,
+     "f1": 302
+    }
+   ]
+  },
+  {
+   "id": "N05",
+   "beat": "open-connect",
+   "text": "Internet providers get them free, inside their own networks.",
+   "take": 3,
+   "file": "audio/netflix/lines/N05.wav",
+   "file_start": 12.8333,
+   "file_start_f": 308,
+   "file_len": 3.977,
+   "start": 12.833,
+   "end": 16.56,
+   "start_f": 308,
+   "end_f": 398,
+   "words": [
+    {
+     "w": "Internet",
+     "start": 12.833,
+     "end": 13.263,
+     "f0": 308,
+     "f1": 319
+    },
+    {
+     "w": "providers",
+     "start": 13.309,
+     "end": 13.831,
+     "f0": 319,
+     "f1": 332
+    },
+    {
+     "w": "get",
+     "start": 13.89,
+     "end": 14.052,
+     "f0": 333,
+     "f1": 338
+    },
+    {
+     "w": "them",
+     "start": 14.098,
+     "end": 14.249,
+     "f0": 338,
+     "f1": 342
+    },
+    {
+     "w": "free,",
+     "start": 14.354,
+     "end": 14.679,
+     "f0": 344,
+     "f1": 353
+    },
+    {
+     "w": "inside",
+     "start": 15.016,
+     "end": 15.527,
+     "f0": 360,
+     "f1": 373
+    },
+    {
+     "w": "their",
+     "start": 15.561,
+     "end": 15.759,
+     "f0": 373,
+     "f1": 379
+    },
+    {
+     "w": "own",
+     "start": 15.805,
+     "end": 15.944,
+     "f0": 379,
+     "f1": 383
+    },
+    {
+     "w": "networks.",
+     "start": 15.979,
+     "end": 16.56,
+     "f0": 383,
+     "f1": 398
+    }
+   ]
+  },
+  {
+   "id": "N06",
+   "beat": "prefill",
+   "text": "Every night, Netflix predicts what your area will watch.",
+   "take": 2,
+   "file": "audio/netflix/lines/N06.wav",
+   "file_start": 17.2917,
+   "file_start_f": 415,
+   "file_len": 3.826,
+   "start": 17.292,
+   "end": 20.868,
+   "start_f": 415,
+   "end_f": 501,
+   "words": [
+    {
+     "w": "Every",
+     "start": 17.292,
+     "end": 17.605,
+     "f0": 415,
+     "f1": 423
+    },
+    {
+     "w": "night,",
+     "start": 17.664,
+     "end": 17.919,
+     "f0": 423,
+     "f1": 431
+    },
+    {
+     "w": "Netflix",
+     "start": 18.186,
+     "end": 18.65,
+     "f0": 436,
+     "f1": 448
+    },
+    {
+     "w": "predicts",
+     "start": 18.708,
+     "end": 19.103,
+     "f0": 448,
+     "f1": 459
+    },
+    {
+     "w": "what",
+     "start": 19.231,
+     "end": 19.428,
+     "f0": 461,
+     "f1": 467
+    },
+    {
+     "w": "your",
+     "start": 19.486,
+     "end": 19.637,
+     "f0": 467,
+     "f1": 472
+    },
+    {
+     "w": "area",
+     "start": 19.695,
+     "end": 20.078,
+     "f0": 472,
+     "f1": 482
+    },
+    {
+     "w": "will",
+     "start": 20.229,
+     "end": 20.45,
+     "f0": 485,
+     "f1": 491
+    },
+    {
+     "w": "watch.",
+     "start": 20.496,
+     "end": 20.868,
+     "f0": 491,
+     "f1": 501
+    }
+   ]
+  },
+  {
+   "id": "N07",
+   "beat": "prefill",
+   "text": "And copies it to the box near you.",
+   "take": 2,
+   "file": "audio/netflix/lines/N07.wav",
+   "file_start": 21.1667,
+   "file_start_f": 508,
+   "file_len": 1.875,
+   "start": 21.167,
+   "end": 22.792,
+   "start_f": 508,
+   "end_f": 547,
+   "words": [
+    {
+     "w": "And",
+     "start": 21.167,
+     "end": 21.364,
+     "f0": 508,
+     "f1": 513
+    },
+    {
+     "w": "copies",
+     "start": 21.422,
+     "end": 21.724,
+     "f0": 514,
+     "f1": 522
+    },
+    {
+     "w": "it",
+     "start": 21.771,
+     "end": 21.852,
+     "f0": 522,
+     "f1": 525
+    },
+    {
+     "w": "to",
+     "start": 21.898,
+     "end": 21.956,
+     "f0": 525,
+     "f1": 527
+    },
+    {
+     "w": "the",
+     "start": 22.003,
+     "end": 22.073,
+     "f0": 528,
+     "f1": 530
+    },
+    {
+     "w": "box",
+     "start": 22.119,
+     "end": 22.351,
+     "f0": 530,
+     "f1": 537
+    },
+    {
+     "w": "near",
+     "start": 22.421,
+     "end": 22.572,
+     "f0": 538,
+     "f1": 542
+    },
+    {
+     "w": "you.",
+     "start": 22.63,
+     "end": 22.792,
+     "f0": 543,
+     "f1": 547
+    }
+   ]
+  },
+  {
+   "id": "N08",
+   "beat": "encoding",
+   "text": "Each title is encoded at many sizes and bitrates.",
+   "take": 1,
+   "file": "audio/netflix/lines/N08.wav",
+   "file_start": 23.5417,
+   "file_start_f": 565,
+   "file_len": 3.907,
+   "start": 23.542,
+   "end": 27.199,
+   "start_f": 565,
+   "end_f": 653,
+   "words": [
+    {
+     "w": "Each",
+     "start": 23.542,
+     "end": 23.797,
+     "f0": 565,
+     "f1": 572
+    },
+    {
+     "w": "title",
+     "start": 23.844,
+     "end": 24.32,
+     "f0": 572,
+     "f1": 584
+    },
+    {
+     "w": "is",
+     "start": 24.448,
+     "end": 24.61,
+     "f0": 586,
+     "f1": 591
+    },
+    {
+     "w": "encoded",
+     "start": 24.668,
+     "end": 25.191,
+     "f0": 592,
+     "f1": 605
+    },
+    {
+     "w": "at",
+     "start": 25.26,
+     "end": 25.411,
+     "f0": 606,
+     "f1": 610
+    },
+    {
+     "w": "many",
+     "start": 25.516,
+     "end": 25.748,
+     "f0": 612,
+     "f1": 618
+    },
+    {
+     "w": "sizes",
+     "start": 25.806,
+     "end": 26.27,
+     "f0": 619,
+     "f1": 631
+    },
+    {
+     "w": "and",
+     "start": 26.352,
+     "end": 26.584,
+     "f0": 632,
+     "f1": 639
+    },
+    {
+     "w": "bitrates.",
+     "start": 26.653,
+     "end": 27.199,
+     "f0": 639,
+     "f1": 653
+    }
+   ]
+  },
+  {
+   "id": "N09",
+   "beat": "encoding",
+   "text": "A cartoon needs fewer bits than an action film, so each gets its own ladder.",
+   "take": 3,
+   "file": "audio/netflix/lines/N09.wav",
+   "file_start": 27.5,
+   "file_start_f": 660,
+   "file_len": 5.324,
+   "start": 27.5,
+   "end": 32.574,
+   "start_f": 660,
+   "end_f": 782,
+   "words": [
+    {
+     "w": "A",
+     "start": 27.5,
+     "end": 27.581,
+     "f0": 660,
+     "f1": 662
+    },
+    {
+     "w": "cartoon",
+     "start": 27.639,
+     "end": 28.057,
+     "f0": 663,
+     "f1": 674
+    },
+    {
+     "w": "needs",
+     "start": 28.301,
+     "end": 28.568,
+     "f0": 679,
+     "f1": 686
+    },
+    {
+     "w": "fewer",
+     "start": 28.649,
+     "end": 28.905,
+     "f0": 687,
+     "f1": 694
+    },
+    {
+     "w": "bits",
+     "start": 28.963,
+     "end": 29.172,
+     "f0": 695,
+     "f1": 701
+    },
+    {
+     "w": "than",
+     "start": 29.218,
+     "end": 29.369,
+     "f0": 701,
+     "f1": 705
+    },
+    {
+     "w": "an",
+     "start": 29.416,
+     "end": 29.485,
+     "f0": 705,
+     "f1": 708
+    },
+    {
+     "w": "action",
+     "start": 29.543,
+     "end": 29.892,
+     "f0": 709,
+     "f1": 718
+    },
+    {
+     "w": "film,",
+     "start": 29.973,
+     "end": 30.252,
+     "f0": 719,
+     "f1": 727
+    },
+    {
+     "w": "so",
+     "start": 30.739,
+     "end": 31.006,
+     "f0": 737,
+     "f1": 745
+    },
+    {
+     "w": "each",
+     "start": 31.296,
+     "end": 31.529,
+     "f0": 751,
+     "f1": 757
+    },
+    {
+     "w": "gets",
+     "start": 31.575,
+     "end": 31.761,
+     "f0": 757,
+     "f1": 763
+    },
+    {
+     "w": "its",
+     "start": 31.807,
+     "end": 31.947,
+     "f0": 763,
+     "f1": 767
+    },
+    {
+     "w": "own",
+     "start": 31.993,
+     "end": 32.156,
+     "f0": 767,
+     "f1": 772
+    },
+    {
+     "w": "ladder.",
+     "start": 32.214,
+     "end": 32.574,
+     "f0": 773,
+     "f1": 782
+    }
+   ]
+  },
+  {
+   "id": "N10",
+   "beat": "abr",
+   "text": "The video is cut into chunks a few seconds long.",
+   "take": 2,
+   "file": "audio/netflix/lines/N10.wav",
+   "file_start": 33.3333,
+   "file_start_f": 800,
+   "file_len": 2.955,
+   "start": 33.333,
+   "end": 36.038,
+   "start_f": 800,
+   "end_f": 865,
+   "words": [
+    {
+     "w": "The",
+     "start": 33.333,
+     "end": 33.472,
+     "f0": 800,
+     "f1": 804
+    },
+    {
+     "w": "video",
+     "start": 33.519,
+     "end": 33.786,
+     "f0": 804,
+     "f1": 811
+    },
+    {
+     "w": "is",
+     "start": 33.855,
+     "end": 33.937,
+     "f0": 812,
+     "f1": 815
+    },
+    {
+     "w": "cut",
+     "start": 33.995,
+     "end": 34.157,
+     "f0": 815,
+     "f1": 820
+    },
+    {
+     "w": "into",
+     "start": 34.204,
+     "end": 34.366,
+     "f0": 820,
+     "f1": 825
+    },
+    {
+     "w": "chunks",
+     "start": 34.448,
+     "end": 34.819,
+     "f0": 826,
+     "f1": 836
+    },
+    {
+     "w": "a",
+     "start": 34.97,
+     "end": 35.04,
+     "f0": 839,
+     "f1": 841
+    },
+    {
+     "w": "few",
+     "start": 35.144,
+     "end": 35.318,
+     "f0": 843,
+     "f1": 848
+    },
+    {
+     "w": "seconds",
+     "start": 35.376,
+     "end": 35.701,
+     "f0": 849,
+     "f1": 857
+    },
+    {
+     "w": "long.",
+     "start": 35.759,
+     "end": 36.038,
+     "f0": 858,
+     "f1": 865
+    }
+   ]
+  },
+  {
+   "id": "N11",
+   "beat": "abr",
+   "text": "Your player picks the right rung for every chunk.",
+   "take": 3,
+   "file": "audio/netflix/lines/N11.wav",
+   "file_start": 36.3333,
+   "file_start_f": 872,
+   "file_len": 3.524,
+   "start": 36.333,
+   "end": 39.607,
+   "start_f": 872,
+   "end_f": 951,
+   "words": [
+    {
+     "w": "Your",
+     "start": 36.333,
+     "end": 36.554,
+     "f0": 872,
+     "f1": 878
+    },
+    {
+     "w": "player",
+     "start": 36.6,
+     "end": 36.937,
+     "f0": 878,
+     "f1": 887
+    },
+    {
+     "w": "picks",
+     "start": 37.227,
+     "end": 37.482,
+     "f0": 893,
+     "f1": 900
+    },
+    {
+     "w": "the",
+     "start": 37.529,
+     "end": 37.61,
+     "f0": 900,
+     "f1": 903
+    },
+    {
+     "w": "right",
+     "start": 37.668,
+     "end": 37.889,
+     "f0": 904,
+     "f1": 910
+    },
+    {
+     "w": "rung",
+     "start": 37.993,
+     "end": 38.237,
+     "f0": 911,
+     "f1": 918
+    },
+    {
+     "w": "for",
+     "start": 38.481,
+     "end": 38.678,
+     "f0": 923,
+     "f1": 929
+    },
+    {
+     "w": "every",
+     "start": 38.829,
+     "end": 39.224,
+     "f0": 931,
+     "f1": 942
+    },
+    {
+     "w": "chunk.",
+     "start": 39.294,
+     "end": 39.607,
+     "f0": 943,
+     "f1": 951
+    }
+   ]
+  },
+  {
+   "id": "N12",
+   "beat": "abr",
+   "text": "Network dips? The next chunk is a little softer.",
+   "take": 1,
+   "file": "audio/netflix/lines/N12.wav",
+   "file_start": 39.9167,
+   "file_start_f": 958,
+   "file_len": 3.28,
+   "start": 39.917,
+   "end": 42.947,
+   "start_f": 958,
+   "end_f": 1031,
+   "words": [
+    {
+     "w": "Network",
+     "start": 39.917,
+     "end": 40.405,
+     "f0": 958,
+     "f1": 970
+    },
+    {
+     "w": "dips?",
+     "start": 40.463,
+     "end": 40.788,
+     "f0": 971,
+     "f1": 979
+    },
+    {
+     "w": "The",
+     "start": 41.101,
+     "end": 41.229,
+     "f0": 986,
+     "f1": 990
+    },
+    {
+     "w": "next",
+     "start": 41.287,
+     "end": 41.508,
+     "f0": 990,
+     "f1": 997
+    },
+    {
+     "w": "chunk",
+     "start": 41.554,
+     "end": 41.786,
+     "f0": 997,
+     "f1": 1003
+    },
+    {
+     "w": "is",
+     "start": 41.844,
+     "end": 41.995,
+     "f0": 1004,
+     "f1": 1008
+    },
+    {
+     "w": "a",
+     "start": 42.042,
+     "end": 42.065,
+     "f0": 1009,
+     "f1": 1010
+    },
+    {
+     "w": "little",
+     "start": 42.111,
+     "end": 42.367,
+     "f0": 1010,
+     "f1": 1017
+    },
+    {
+     "w": "softer.",
+     "start": 42.413,
+     "end": 42.947,
+     "f0": 1017,
+     "f1": 1031
+    }
+   ]
+  },
+  {
+   "id": "N13",
+   "beat": "planes",
+   "text": "Your login, profile, recommendations: that all runs on AWS.",
+   "take": 3,
+   "file": "audio/netflix/lines/N13.wav",
+   "file_start": 43.7083,
+   "file_start_f": 1049,
+   "file_len": 4.824,
+   "start": 43.708,
+   "end": 48.282,
+   "start_f": 1049,
+   "end_f": 1159,
+   "words": [
+    {
+     "w": "Your",
+     "start": 43.708,
+     "end": 43.929,
+     "f0": 1049,
+     "f1": 1055
+    },
+    {
+     "w": "login,",
+     "start": 43.998,
+     "end": 44.37,
+     "f0": 1055,
+     "f1": 1065
+    },
+    {
+     "w": "profile,",
+     "start": 44.579,
+     "end": 45.148,
+     "f0": 1069,
+     "f1": 1084
+    },
+    {
+     "w": "recommendations:",
+     "start": 45.322,
+     "end": 46.204,
+     "f0": 1087,
+     "f1": 1109
+    },
+    {
+     "w": "that",
+     "start": 46.552,
+     "end": 46.727,
+     "f0": 1117,
+     "f1": 1122
+    },
+    {
+     "w": "all",
+     "start": 46.796,
+     "end": 47.005,
+     "f0": 1123,
+     "f1": 1129
+    },
+    {
+     "w": "runs",
+     "start": 47.052,
+     "end": 47.272,
+     "f0": 1129,
+     "f1": 1135
+    },
+    {
+     "w": "on",
+     "start": 47.342,
+     "end": 47.504,
+     "f0": 1136,
+     "f1": 1141
+    },
+    {
+     "w": "AWS.",
+     "start": 47.609,
+     "end": 48.282,
+     "f0": 1142,
+     "f1": 1159
+    }
+   ]
+  },
+  {
+   "id": "N14",
+   "beat": "planes",
+   "text": "Press play, and AWS points you to that box. It streams the video.",
+   "take": 3,
+   "file": "audio/netflix/lines/N14.wav",
+   "file_start": 48.5833,
+   "file_start_f": 1166,
+   "file_len": 4.522,
+   "start": 48.583,
+   "end": 52.855,
+   "start_f": 1166,
+   "end_f": 1269,
+   "words": [
+    {
+     "w": "Press",
+     "start": 48.583,
+     "end": 48.85,
+     "f0": 1166,
+     "f1": 1173
+    },
+    {
+     "w": "play,",
+     "start": 48.908,
+     "end": 49.187,
+     "f0": 1173,
+     "f1": 1181
+    },
+    {
+     "w": "and",
+     "start": 49.361,
+     "end": 49.512,
+     "f0": 1184,
+     "f1": 1189
+    },
+    {
+     "w": "AWS",
+     "start": 49.593,
+     "end": 50.139,
+     "f0": 1190,
+     "f1": 1204
+    },
+    {
+     "w": "points",
+     "start": 50.243,
+     "end": 50.568,
+     "f0": 1205,
+     "f1": 1214
+    },
+    {
+     "w": "you",
+     "start": 50.603,
+     "end": 50.696,
+     "f0": 1214,
+     "f1": 1217
+    },
+    {
+     "w": "to",
+     "start": 50.742,
+     "end": 50.812,
+     "f0": 1217,
+     "f1": 1220
+    },
+    {
+     "w": "that",
+     "start": 50.859,
+     "end": 51.009,
+     "f0": 1220,
+     "f1": 1225
+    },
+    {
+     "w": "box.",
+     "start": 51.068,
+     "end": 51.404,
+     "f0": 1225,
+     "f1": 1234
+    },
+    {
+     "w": "It",
+     "start": 51.694,
+     "end": 51.857,
+     "f0": 1240,
+     "f1": 1245
+    },
+    {
+     "w": "streams",
+     "start": 51.915,
+     "end": 52.287,
+     "f0": 1245,
+     "f1": 1255
+    },
+    {
+     "w": "the",
+     "start": 52.333,
+     "end": 52.403,
+     "f0": 1256,
+     "f1": 1258
+    },
+    {
+     "w": "video.",
+     "start": 52.449,
+     "end": 52.855,
+     "f0": 1258,
+     "f1": 1269
+    }
+   ]
+  },
+  {
+   "id": "N15",
+   "beat": "close",
+   "text": "The cloud decides. The box next door delivers.",
+   "take": 1,
+   "file": "audio/netflix/lines/N15.wav",
+   "file_start": 53.625,
+   "file_start_f": 1287,
+   "file_len": 2.827,
+   "start": 53.625,
+   "end": 56.202,
+   "start_f": 1287,
+   "end_f": 1349,
+   "words": [
+    {
+     "w": "The",
+     "start": 53.625,
+     "end": 53.764,
+     "f0": 1287,
+     "f1": 1291
+    },
+    {
+     "w": "cloud",
+     "start": 53.811,
+     "end": 54.055,
+     "f0": 1291,
+     "f1": 1298
+    },
+    {
+     "w": "decides.",
+     "start": 54.089,
+     "end": 54.554,
+     "f0": 1298,
+     "f1": 1310
+    },
+    {
+     "w": "The",
+     "start": 54.798,
+     "end": 54.925,
+     "f0": 1315,
+     "f1": 1319
+    },
+    {
+     "w": "box",
+     "start": 54.995,
+     "end": 55.25,
+     "f0": 1319,
+     "f1": 1326
+    },
+    {
+     "w": "next",
+     "start": 55.308,
+     "end": 55.483,
+     "f0": 1327,
+     "f1": 1332
+    },
+    {
+     "w": "door",
+     "start": 55.517,
+     "end": 55.68,
+     "f0": 1332,
+     "f1": 1337
+    },
+    {
+     "w": "delivers.",
+     "start": 55.726,
+     "end": 56.202,
+     "f0": 1337,
+     "f1": 1349
+    }
+   ]
+  },
+  {
+   "id": "N16",
+   "beat": "close",
+   "text": "That's why it just plays.",
+   "take": 3,
+   "file": "audio/netflix/lines/N16.wav",
+   "file_start": 56.5,
+   "file_start_f": 1356,
+   "file_len": 1.202,
+   "start": 56.5,
+   "end": 57.452,
+   "start_f": 1356,
+   "end_f": 1379,
+   "words": [
+    {
+     "w": "That's",
+     "start": 56.5,
+     "end": 56.744,
+     "f0": 1356,
+     "f1": 1362
+    },
+    {
+     "w": "why",
+     "start": 56.79,
+     "end": 56.883,
+     "f0": 1362,
+     "f1": 1366
+    },
+    {
+     "w": "it",
+     "start": 56.906,
+     "end": 56.953,
+     "f0": 1365,
+     "f1": 1367
+    },
+    {
+     "w": "just",
+     "start": 56.999,
+     "end": 57.127,
+     "f0": 1367,
+     "f1": 1372
+    },
+    {
+     "w": "plays.",
+     "start": 57.162,
+     "end": 57.452,
+     "f0": 1371,
+     "f1": 1379
+    }
+   ]
+  }
+ ]
+}
