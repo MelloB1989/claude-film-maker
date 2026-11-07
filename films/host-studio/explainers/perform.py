@@ -496,8 +496,22 @@ def cmd_cams(who: str) -> dict:
                   "char": [round(x, 1) for x in a_]}
     res = {"eye_actor": eye, "cams": out, "actor": got["actor"]}
     missing = [c for c, v in out.items() if v is None]
-    if missing:
-        res["issues"] = [f"cameras not in the level: {missing}"]
+    issues = [f"cameras not in the level: {missing}"] if missing else []
+    # agent-04: a DIRECT cut (presenter to presenter) whose lens direction moves > 10 deg makes the eyes jump on
+    # screen: move a camera instead (agent-07), before the face step
+    on = cue_sheet(who)["on_cam"]
+    jumps = []
+    for (a0, b0, c0), (a1, b1, c1) in zip(on, on[1:]):
+        if abs(b0 - a1) < 1e-3 and out.get(c0) and out.get(c1):
+            d = math.hypot(out[c1]["yaw"] - out[c0]["yaw"], out[c1]["pitch"] - out[c0]["pitch"])
+            jumps.append({"t": round(a1, 3), "from": c0, "to": c1, "deg": round(d, 1)})
+    res["direct_cuts"] = jumps
+    big = [j for j in jumps if j["deg"] > 10.0]
+    if big:
+        issues.append(f"direct cuts with a lens move > 10 deg (move a camera before the face step): {big}")
+    if issues:
+        res["issues"] = issues
+    res["pass"] = not issues
     keep(who, "cams", res)
     return res
 
