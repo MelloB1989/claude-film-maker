@@ -633,6 +633,76 @@ def build_lamp(M):
     return ob, hulls, [P.socket("Bulb", bulb_c, (0, 0, 1))], info
 
 
+# =========================================================================== waterfall desk
+
+def build_waterfall(M):
+    """A walnut waterfall desk: one 3.2 cm slab runs across the top and turns down both ends to the floor (mitred
+    corners, grain wrapping over them), a modesty panel recessed 9 cm behind the camera-side (+X) edge, stopping
+    13 cm off the floor; no legs, no apron. 110 (Y) x 55 (X), top at 71 (lowered for her arms), same frame as SM_WalnutDesk_Panel.
+    UV0 in metres (1 UV unit = 1 m), U along the grain, so the studio's MI_K_Walnut takes it as-is."""
+    W, D, H, T = 1.10, 0.55, 0.71, 0.032
+    RO, RI = 0.004, 0.0015                       # outer and inner radius of the mitre
+    PX0, PT, PZ0 = D / 2 - 0.09, 0.019, 0.13      # modesty panel: front face, thickness, bottom
+    mat = M["WalnutFine"]
+
+    def arc(cy, cz, r, a0, a1, n=6):
+        return [(cy + r * math.cos(a0 + (a1 - a0) * k / n), cz + r * math.sin(a0 + (a1 - a0) * k / n)) for k in range(n + 1)]
+
+    hp = math.pi / 2
+    prof = ([(-W / 2, 0.0)] + arc(-W / 2 + RO, H - RO, RO, math.pi, hp) + arc(W / 2 - RO, H - RO, RO, hp, 0)
+            + [(W / 2, 0.0), (W / 2 - T, 0.0)] + arc(W / 2 - T - RI, H - T - RI, RI, 0, hp)
+            + arc(-W / 2 + T + RI, H - T - RI, RI, hp, math.pi) + [(-W / 2 + T, 0.0)])
+    bm = bmesh.new()
+    rings = [[bm.verts.new((x, y, z)) for y, z in prof] for x in (-D / 2, D / 2)]
+    n = len(prof)
+    for i in range(n):
+        j = (i + 1) % n
+        bm.faces.new((rings[0][i], rings[0][j], rings[1][j], rings[1][i]))
+    caps = [bm.faces.new(list(reversed(rings[0]))), bm.faces.new(rings[1])]
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bmesh.ops.triangulate(bm, faces=caps)
+    slab = S.obj_from_bm(bm, "slab", mat)
+    bevel(slab, 0.0035, 3, angle=50)              # the soft 3.5 mm edge on every long edge and the feet
+    slab = S._bake(slab)
+    pan = S.box("modesty", (PX0 - PT, -W / 2 + T - 0.002, PZ0), (PX0, W / 2 - T + 0.002, H - T + 0.001), mat)
+    bevel(pan, 0.002, 2)
+    pan = S._bake(pan)
+
+    def s_of(y, z):
+        """Arc length along the slab's centre line from the -Y foot: the grain runs up, across and down."""
+        if y < -W / 2 + T and z < H - T:
+            return z
+        if y > W / 2 - T and z < H - T:
+            return H + W + (H - z)
+        return H + (y + W / 2)
+
+    for ob, slab_uv in ((slab, True), (pan, False)):
+        me = ob.data
+        uvl = me.uv_layers.get("UVMap") or me.uv_layers.new(name="UVMap")
+        for p in me.polygons:
+            nx = abs(p.normal.x)
+            for li in p.loop_indices:
+                co = me.vertices[me.loops[li].vertex_index].co
+                if slab_uv:
+                    in_top = not ((co.y < -W / 2 + T or co.y > W / 2 - T) and co.z < H - T)
+                    v = (co.z if in_top else co.y) if nx > 0.7 else co.x
+                    uvl.data[li].uv = (s_of(co.y, co.z), v)
+                else:                              # grain along Y (horizontal)
+                    uvl.data[li].uv = (co.y + 3.0, co.z if nx > 0.7 else co.x)
+    ob = S.join("SM_WalnutDesk_Waterfall", [slab, pan])
+    hulls = [P.box_pts((-D / 2, -W / 2, H - T), (D / 2, W / 2, H)),
+             P.box_pts((-D / 2, -W / 2, 0), (D / 2, -W / 2 + T, H - T)),
+             P.box_pts((-D / 2, W / 2 - T, 0), (D / 2, W / 2, H - T)),
+             P.box_pts((PX0 - PT, -W / 2 + T, PZ0), (PX0, W / 2 - T, H - T))]
+    info = {"origin": "floor, centre of the top", "faces": "+X (camera side), long side along Y", "top_cm": [W * 100, D * 100],
+            "top_height_cm": H * 100, "slab_thickness_cm": T * 100, "edge_radius_mm": 3.5,
+            "underside_of_top_cm": round((H - T) * 100, 1), "inner_width_cm": round((W - 2 * T) * 100, 1),
+            "modesty_panel": {"x_cm": [round((PX0 - PT) * 100, 1), round(PX0 * 100, 1)], "z_cm": [PZ0 * 100, round((H - T) * 100, 1)],
+                              "recess_from_front_cm": round((D / 2 - PX0) * 100, 1)},
+            "material": "one slot (M_WalnutFine): assign /Game/Studio/Materials/MI_K_Walnut; UV0 in metres, U along the grain"}
+    return ob, hulls, [], info
+
+
 # =========================================================================== headphones, lying on the desk
 
 def _pillow(w, t, n=20):
@@ -750,7 +820,8 @@ def build_headphones(M):
 
 # =========================================================================== previews
 
-def preview_stage(lo, hi, view_dir, path, lens=55, res=None, aim=None, margin=1.08, key_side=1.0, aspect=(1, 1)):
+def preview_stage(lo, hi, view_dir, path, lens=55, res=None, aim=None, margin=1.08, key_side=1.0, aspect=(1, 1),
+                  cam_at=None):
     sc = bpy.context.scene
     for o in [o for o in bpy.data.objects if o.name.startswith("_pv")]:
         bpy.data.objects.remove(o, do_unlink=True)
@@ -797,6 +868,11 @@ def preview_stage(lo, hi, view_dir, path, lens=55, res=None, aim=None, margin=1.
     dg = bpy.context.evaluated_depsgraph_get()
     co, _ = cam.camera_fit_coords(dg, [c for p in corners for c in p])
     cam.location = centre + (Vector(co) - (lo + hi) / 2) * margin if aim is None else Vector(co) * margin + centre * (1 - margin)
+    if cam_at is not None:                     # a fixed camera: (location, look-at point)
+        cam.location = Vector(cam_at[0])
+        cam.rotation_euler = (Vector(cam_at[1]) - Vector(cam_at[0])).to_track_quat("-Z", "Y").to_euler()
+        cam_d.sensor_fit = "HORIZONTAL"
+        cam_d.sensor_width = 36.0
     cam_d.clip_start = 0.01
     cam_d.dof.use_dof = False
     sc.render.engine = "CYCLES"
@@ -830,7 +906,7 @@ def main():
     M = {k: P.pbr_material(k, p) for k, p in paths.items()}
     builders = {"chair": build_chair, "desk": build_desk, "mic": build_mic, "plant": build_plant,
                 "desk_panel": lambda m: build_desk(m, panel=True), "lamp": build_lamp,
-                "floorplant": lambda m: build_plant(m, floor=True), "headphones": build_headphones}
+                "floorplant": lambda m: build_plant(m, floor=True), "headphones": build_headphones, "waterfall": build_waterfall}
     only = [s for s in args.only.split(",") if s] or list(builders)
     manifest = {"units": "FBX in cm; Blender (x, y, z) -> Unreal (x, -y, z)", "textures": {}, "assets": {}}
     for k, p in paths.items():
@@ -841,7 +917,7 @@ def main():
         ob, hulls, socks, info = builders[key](M)
         S.tidy(ob, 40)
         ob.matrix_world = Matrix.Identity(4)
-        walnut_slot = {i for i, m in enumerate(ob.data.materials) if m and m.name in ("M_Walnut", "M_Leaf")}
+        walnut_slot = {i for i, m in enumerate(ob.data.materials) if m and m.name in ("M_Walnut", "M_Leaf", "M_WalnutFine")}
         P.uv_finish(ob, P.TILE_M, skip_slots=walnut_slot)
         cols = P.ucx(ob.name, hulls)
         fbx = os.path.join(out, "fbx", ob.name + ".fbx")
@@ -862,7 +938,7 @@ def main():
     allobs = [b[0] for b in built.values()]
     views = {"chair": (1.0, -0.75, 0.42), "desk": (1.0, -0.8, 0.55), "mic": (0.35, -1.0, 0.25), "plant": (1.0, -0.6, 0.35),
              "desk_panel": (1.0, -0.8, 0.30), "lamp": (1.0, -0.5, 0.25), "floorplant": (1.0, -0.6, 0.3),
-             "headphones": (0.8, -0.7, 0.75)}
+             "headphones": (0.8, -0.7, 0.75), "waterfall": (1.0, -0.55, 0.3)}
     for key, (ob, _, _) in built.items():
         hide(allobs, True)
         ob.hide_render = False
@@ -877,6 +953,21 @@ def main():
         if key == "chair":
             preview_stage(Vector((-0.05, -0.08, 0.40)), Vector((0.25, 0.08, 0.47)), (1.0, -0.4, 0.5),
                           os.path.join(out, "preview", f"{ob.name}_fabric.png"), lens=85)
+        if key == "waterfall":
+            preview_stage(Vector((0.13, -0.55, 0.62)), Vector((0.28, -0.40, 0.745)), (0.9, -0.5, 0.5),
+                          os.path.join(out, "preview", f"{ob.name}_grain.png"), lens=85)
+            # agent-07's CAM_WIDE (UE studio cm) in the desk's frame (desk centre (59.5, -20, 0): 6 cm closer than the panel desk; Blender y = -UE y),
+            # with grey proxy legs from agent-01's seated pose (hips (19.7, -19.8, 56), knees x 62 z 50)
+            def loc(p):
+                return Vector(((p[0] - 59.5) / 100, -(p[1] + 20.0) / 100, p[2] / 100))
+            grey = S.material("_pxGrey", (0.35, 0.35, 0.36), 0.6)
+            for sy in (-0.10, 0.10):
+                hip, knee, ankle = loc((19.7, -20.0 + sy * 100, 56)), loc((62, -20.0 + sy * 100, 50)), loc((66, -20.0 + sy * 100, 9))
+                S.cylinder(f"_pxthigh{sy}", hip, knee, 0.075, grey)
+                S.cylinder(f"_pxshin{sy}", knee, ankle, 0.055, grey)
+                S.box(f"_pxfoot{sy}", (ankle.x - 0.05, ankle.y - 0.05, 0.0), (ankle.x + 0.20, ankle.y + 0.05, 0.09), grey)
+            preview_stage(lo, hi, (1.0, -0.35, 0.3), os.path.join(out, "preview", f"{ob.name}_CAM_WIDE.png"), lens=35,
+                          res=1920, aspect=(16, 9), cam_at=(loc((245.5, 48.8, 154.1)), loc((38.6, -34.8, 98.4))))
         if key == "desk":
             preview_stage(Vector((0.1, -0.3, 0.70)), Vector((0.28, 0.0, 0.745)), (0.8, -0.5, 0.6),
                           os.path.join(out, "preview", f"{ob.name}_grain.png"), lens=85)

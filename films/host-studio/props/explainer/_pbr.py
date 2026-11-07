@@ -26,7 +26,7 @@ N = 2048
 TILE_M = {
     "ChairFabric": 0.08, "BrushedAlu": 0.25, "PowderBlack": 0.12, "Rubber": 0.06, "Grille": 0.025,
     "Walnut": 0.60, "Leather": 0.06, "PlasticBlack": 0.08, "Steel": 0.06, "Ceramic": 0.20, "Soil": 0.10,
-    "Leaf": 0.12, "Brass": 0.25, "ShadeLinen": 0.10, "LampBulb": 0.05,
+    "Leaf": 0.12, "Brass": 0.25, "ShadeLinen": 0.10, "LampBulb": 0.05, "WalnutFine": 1.0,
 }
 
 
@@ -276,11 +276,33 @@ def tex_linen(n, seed=14):
     return np.clip(col * (1 + slub)[..., None], 0, 1), nrm, ao, rough, metal
 
 
+def tex_walnut_fine(n, seed=16):
+    """Flat-sawn American walnut at real scale for a 1 m tile (1 UV unit = 1 m, as the studio's walnut MI): growth
+    lines ~4 mm apart along u, low contrast, a gentle cathedral drift, fine pores, board-scale colour drift, oiled
+    satin."""
+    u, v = coords(n)
+    warp = 0.022 * noise(n, 700, seed, aniso=5) + 0.004 * noise(n, 160, seed + 1, aniso=10)
+    spacing = 1 + 0.25 * noise(n, 900, seed + 2, aniso=3)
+    ring_pos = 240 * (v + warp) + 0.6 * spacing
+    fr = ring_pos - np.floor(ring_pos)
+    late = smooth(0.50, 0.80, fr) * (1 - smooth(0.90, 1.0, fr))
+    streak = noise(n, 3.0, seed + 4, aniso=30)
+    pores = np.clip(noise(n, 1.2, seed + 5, aniso=16) - 1.7, 0, None)
+    drift = noise(n, 900, seed + 6, aniso=3)
+    t = np.clip(0.45 + 0.16 * late + 0.06 * streak + 0.12 * drift, 0, 1)
+    col = mix((0.21, 0.125, 0.078), (0.105, 0.062, 0.040), t)
+    col *= (1 - 0.30 * np.clip(pores, 0, 1))[..., None]
+    h = -0.25 * pores - 0.03 * late + 0.02 * streak
+    rough = np.clip(0.44 + 0.04 * late + 0.14 * np.clip(pores, 0, 1) + 0.02 * streak, 0, 1)
+    ao = 1 - 0.25 * np.clip(pores, 0, 1)
+    return col, normal_from_height(h, 0.5), ao, rough, np.zeros((n, n))
+
+
 TEXTURES = {
     "ChairFabric": tex_fabric, "BrushedAlu": tex_brushed, "PowderBlack": tex_powder, "Rubber": tex_rubber,
     "Grille": tex_grille, "Walnut": tex_walnut, "Leather": tex_leather, "PlasticBlack": tex_plastic,
     "Steel": tex_steel, "Ceramic": tex_ceramic, "Soil": tex_soil, "Leaf": tex_leaf,
-    "Brass": tex_brass, "ShadeLinen": tex_linen,
+    "Brass": tex_brass, "ShadeLinen": tex_linen, "WalnutFine": tex_walnut_fine,
 }
 
 
