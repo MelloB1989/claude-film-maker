@@ -70,6 +70,22 @@
     null,
     "round 5b read 8.93 at S15 f1082 (her pre-existing start tilt-in, place() cross-fade on screen): round 6 renders S15 WITH agent-04's place fix (b475dfe5, b22f3372); no exclusion window"
    ]
+  },
+  "shot.settle_step_deg": {
+   "area": "head",
+   "track": "K2",
+   "op": "<=",
+   "line": 0.6,
+   "unit": "deg",
+   "info": true,
+   "what": "worst frame-to-frame head turn beyond perfkit's plan at a section's start or the film's end (perf.py settle, AFTER samples)",
+   "where": "each presenter section start and the film's last frame f1559",
+   "how": "perf.py settle (agent-04 1dad107b) -> r6/numbers/head.json",
+   "r4": [
+    null,
+    "round 5b read 13.65 on the rendered S15 start (start_motion_ratio); before e4c9c01f f1559 read him 1.999 / her 4.201"
+   ],
+   "why": "agent-04 K2: INFO until calibrated; shot.start_motion_ratio stays the render-side diagnostic"
   }
  },
  "not_attempted": {
