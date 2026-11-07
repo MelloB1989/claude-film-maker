@@ -87,7 +87,7 @@ def test_arm_radius_keeps_side_skin_out_of_the_arm():
     """v2b run 1: her side under the A-pose arm was nearest the upper arm's bone and counted as arm (-10.4 cm)."""
     segs = {"spine:pelvis": ((0, 0, 0), (0, 0, 50)), "upperarm_r": ((-20, 0, 45), (-30, 0, 20))}
     skin = [(-30 + 3.5 * math.cos(a), 3.5 * math.sin(a), 22.0) for a in (0, 1.5, 3.0, 4.5)]  # arm skin, t ~ 0.9
-    side = [(-15.0, 0.0, 30.0)]                                                              # side, 10 cm off
+    side = [(-16.0, 0.0, 27.0)]                                                              # side, 10 cm off
     P = skin + side
     lab = gm.label_rest(P, segs)
     assert lab[4][0] == "upperarm_r"
@@ -162,3 +162,12 @@ def test_point_beside_an_open_patch_is_not_inside():
     assert worst[0] > 0 and neg == 0
     worst, neg, _ = gm.clearance(grid, [(0, (5.0, 5.0, -2.0))])    # right behind the face
     assert abs(worst[0] + 2.0) < 1e-6 and neg == 1
+
+
+def test_deltoid_near_the_shoulder_is_not_torso():
+    """v2b r7w ref pose: a point at t 0.25, 5.1 cm off the upper-arm bone counted as torso beside arm points at t 0.3."""
+    segs = {"spine:pelvis": ((0, 0, 0), (0, 0, 50)), "upperarm_r": ((-20, 0, 45), (-30, 0, 20))}
+    lab = {0: ("upperarm_r", 0.25, 5.1), 1: ("upperarm_r", 0.6, 7.0), 2: ("upperarm_r", 0.33, 2.9)}
+    P = [(-40, 0, 40), (-40, 0, 20), (-40, 0, 30)]   # all far from the shoulder joint: only the t rule decides
+    arm, torso = gm.arm_sets(lab, P, (-20, 0, 45), "r", 0.3, 7.0, 4.08)
+    assert arm == [2] and torso == [1]

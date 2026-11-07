@@ -161,16 +161,19 @@ def is_torso_seg(n):
     return n.startswith("spine:") or n.startswith("clavicle_")
 
 
-def arm_sets(lab, rest_P, shoulder, side, arm_t0=0.3, axilla_cm=7.0, arm_r=None, margin=1.0):
+def arm_sets(lab, rest_P, shoulder, side, arm_t0=0.3, axilla_cm=7.0, arm_r=None, margin=1.5, torso_t0=0.45):
     """(arm vertex ids, torso vertex ids) for one side from the ref-pose labels. Arm: nearest segment upperarm_<s>,
     t >= arm_t0 and within arm_r of the bone (v2b run 1: without the radius, her side's skin under the A-pose arm was
     'arm' and sat inside the Top: -10.4 cm everywhere). Torso: nearest a spine/clavicle segment, or nearest that upper
-    arm but farther than arm_r + margin from it (her side under the arm); either way > axilla_cm from the shoulder."""
+    arm but farther than arm_r + margin from it AND past torso_t0 down the bone (her side under the arm; v2b r7w: with
+    no t floor the deltoid/armpit at t 0.25, 5.1 cm off the bone, was 'torso' next to arm points at t 0.3, and the
+    self-check read -4.4); either way > axilla_cm from the shoulder."""
     arm, torso = [], []
     for i, (n, t, d) in lab.items():
         if n == f"upperarm_{side}" and t >= arm_t0 and (arm_r is None or d <= arm_r):
             arm.append(i)
-        elif (is_torso_seg(n) or (arm_r is not None and n == f"upperarm_{side}" and d > arm_r + margin)) and \
+        elif (is_torso_seg(n) or (arm_r is not None and n == f"upperarm_{side}" and d > arm_r + margin
+                                  and t >= torso_t0)) and \
                 math.dist(rest_P[i], shoulder) > axilla_cm:
             torso.append(i)
     return arm, torso
