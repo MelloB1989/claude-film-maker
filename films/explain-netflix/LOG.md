@@ -29,3 +29,26 @@ Timing, look and deliverables follow agent-11's `films/host-studio/explainers/GF
 - Per-title encoding (Netflix Tech Blog, Dec 2015): ladder bars are illustrative, no bitrate numbers on screen.
 - ABR: chunks "a few seconds", the player picks a rung per chunk from its throughput and buffer.
 - Control plane on AWS (sign-in, profiles, recommendations, search, licence, steering to an OCA); video from OCAs.
+
+## Round 7: graphics v3 (08 Nov, IST)
+
+The operator: the three.js graphics "can be improved a lot", and the videos must be energetic ("people should not be
+bored"). v3 rebuilds every cutaway as a real 3D scene on the new engine kit `@kit/motion` (app/src/kit/motion, branch
+fleet/agent-12/r7-gfx-core), to the shared style guide docs/STYLE_V3.md (both explainers). Scene code: v3/*.ts. The v2
+2D scenes (scenes/) remain for the lead and the lower third.
+
+- 01:05 brief (lead: agent-12; WhatsApp: agent-13). 01:20 STYLE_V3.md and the kit pushed.
+- 01:23 style frames (title, oca, abr). Orchestrator: direction approved. Fixes applied: "300+ million MEMBERS" (not
+  people), no clipped labels, all type inside a 5 % title-safe margin, the title rebalanced.
+- 01:40 opening test (title + oca) approved. Fixes applied: labels draw over streams (kit Label), and the far library and
+  cloud recede before the OCA close-up.
+- 02:20 all shots built: title, oca, prefill (+panel), ladder, abr, buffer (+panel), planes, end. Renders on the
+  operator's Mac (Apple M5, Chrome GPU, ~5 s per contact sheet) under the fleet render lock; tools/finals.sh makes the
+  deliverables (full shots ProRes 422 HQ with 8-sample motion blur; panels and lower third ProRes 4444 via the
+  black/grey matte pair and tools/alpha.py).
+- SFX hit list for agent-11's mix: data/sfx_v3.json (tools/sfx.py, from the EDL word frames; the 9-cue vocabulary).
+
+Facts on screen are unchanged from round 6 (facts_netflix.json): 300+ million members; Open Connect Appliances given
+free, inside the ISP's network; nightly off-peak fill by predicted popularity; per-title ladders (rung lengths
+illustrative, no numbers, "illustrative" on screen); chunks of a few seconds, a rung per chunk; AWS runs the control
+plane (login, profiles, recommendations; it points the player to a box), the box streams the video.

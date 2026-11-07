@@ -1,0 +1,661 @@
+[
+ {
+  "shot": "title",
+  "f": 0,
+  "sfx": "data_stream",
+  "gain": -24,
+  "note": "packets racing round the spinner ring",
+  "f_end": 8
+ },
+ {
+  "shot": "title",
+  "f": 3,
+  "sfx": "tick",
+  "gain": -24,
+  "note": "kicker types on"
+ },
+ {
+  "shot": "title",
+  "f": 6,
+  "sfx": "whoosh_in",
+  "gain": -14,
+  "note": "camera arrive (the cut lands in motion)"
+ },
+ {
+  "shot": "title",
+  "f": 8,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "spinner resolves, play mark slams in"
+ },
+ {
+  "shot": "title",
+  "f": 13,
+  "sfx": "hit_sub",
+  "gain": -10,
+  "note": "'300+' slams"
+ },
+ {
+  "shot": "title",
+  "f": 17,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "'million members' rises"
+ },
+ {
+  "shot": "title",
+  "f": 26,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "'without buffering.' rises"
+ },
+ {
+  "shot": "oca",
+  "f": 2,
+  "sfx": "data_stream",
+  "gain": -28,
+  "note": "slow long-haul packets from the far library",
+  "f_end": 62
+ },
+ {
+  "shot": "oca",
+  "f": 3,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "provider platform opens"
+ },
+ {
+  "shot": "oca",
+  "f": 6,
+  "sfx": "whoosh_in",
+  "gain": -14,
+  "note": "camera arrive (the cut lands in motion)"
+ },
+ {
+  "shot": "oca",
+  "f": 14,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "home 1 lands"
+ },
+ {
+  "shot": "oca",
+  "f": 16,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "home 2 lands"
+ },
+ {
+  "shot": "oca",
+  "f": 18,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "home 3 lands"
+ },
+ {
+  "shot": "oca",
+  "f": 18,
+  "sfx": "tick",
+  "gain": -24,
+  "note": "'YOUR INTERNET PROVIDER' types on"
+ },
+ {
+  "shot": "oca",
+  "f": 20,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "home 4 lands"
+ },
+ {
+  "shot": "oca",
+  "f": 30,
+  "sfx": "swoosh_fast",
+  "gain": -14,
+  "note": "the appliance drops in"
+ },
+ {
+  "shot": "oca",
+  "f": 37,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "the appliance lands (a small bounce)"
+ },
+ {
+  "shot": "oca",
+  "f": 41,
+  "sfx": "hit_sub",
+  "gain": -10,
+  "note": "'FREE' slams"
+ },
+ {
+  "shot": "oca",
+  "f": 57,
+  "sfx": "data_stream",
+  "gain": -24,
+  "note": "dense red streams from the box to every home",
+  "f_end": 100
+ },
+ {
+  "shot": "oca",
+  "f": 80,
+  "sfx": "chime",
+  "gain": -16,
+  "note": "platform rim pulses: inside their own network"
+ },
+ {
+  "shot": "prefill",
+  "f": 3,
+  "sfx": "riser",
+  "gain": -20,
+  "note": "the moon rises"
+ },
+ {
+  "shot": "prefill",
+  "f": 6,
+  "sfx": "whoosh_in",
+  "gain": -14,
+  "note": "camera arrive (the cut lands in motion)"
+ },
+ {
+  "shot": "prefill",
+  "f": 19,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "'night' drops in"
+ },
+ {
+  "shot": "prefill",
+  "f": 25,
+  "sfx": "tick",
+  "gain": -24,
+  "note": "'OFF-PEAK FILL WINDOW' types on"
+ },
+ {
+  "shot": "prefill",
+  "f": 44,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "title card 1 flips up"
+ },
+ {
+  "shot": "prefill",
+  "f": 46,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "title card 2 flips up"
+ },
+ {
+  "shot": "prefill",
+  "f": 48,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "title card 3 flips up"
+ },
+ {
+  "shot": "prefill",
+  "f": 50,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "title card 4 flips up"
+ },
+ {
+  "shot": "prefill",
+  "f": 52,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "title card 5 flips up"
+ },
+ {
+  "shot": "prefill",
+  "f": 54,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "title card 6 flips up"
+ },
+ {
+  "shot": "prefill",
+  "f": 56,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "title card 7 flips up"
+ },
+ {
+  "shot": "prefill",
+  "f": 58,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "title card 8 flips up"
+ },
+ {
+  "shot": "prefill",
+  "f": 68,
+  "sfx": "chime",
+  "gain": -16,
+  "note": "your area's picks light red"
+ },
+ {
+  "shot": "prefill",
+  "f": 110,
+  "sfx": "swoosh_fast",
+  "gain": -14,
+  "note": "picked cards fly into the box"
+ },
+ {
+  "shot": "prefill",
+  "f": 110,
+  "sfx": "data_stream",
+  "gain": -24,
+  "note": "packet stream library -> box",
+  "f_end": 149
+ },
+ {
+  "shot": "prefill",
+  "f": 126,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "fill gauge pulses"
+ },
+ {
+  "shot": "prefill",
+  "f": 134,
+  "sfx": "chime",
+  "gain": -16,
+  "note": "'the box near you'"
+ },
+ {
+  "shot": "ladder",
+  "f": 5,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "cartoon screen pops up"
+ },
+ {
+  "shot": "ladder",
+  "f": 6,
+  "sfx": "whoosh_in",
+  "gain": -14,
+  "note": "camera arrive (the cut lands in motion)"
+ },
+ {
+  "shot": "ladder",
+  "f": 12,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "cartoon rung 1 shoots out"
+ },
+ {
+  "shot": "ladder",
+  "f": 14,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "cartoon rung 2 shoots out"
+ },
+ {
+  "shot": "ladder",
+  "f": 16,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "cartoon rung 3 shoots out"
+ },
+ {
+  "shot": "ladder",
+  "f": 18,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "cartoon rung 4 shoots out"
+ },
+ {
+  "shot": "ladder",
+  "f": 20,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "cartoon rung 5 shoots out"
+ },
+ {
+  "shot": "ladder",
+  "f": 35,
+  "sfx": "tick",
+  "gain": -24,
+  "note": "'fewer bits'"
+ },
+ {
+  "shot": "ladder",
+  "f": 47,
+  "sfx": "swoosh_fast",
+  "gain": -14,
+  "note": "camera whips to the action film"
+ },
+ {
+  "shot": "ladder",
+  "f": 55,
+  "sfx": "data_stream",
+  "gain": -24,
+  "note": "a torrent of bits into the action ladder",
+  "f_end": 83
+ },
+ {
+  "shot": "ladder",
+  "f": 58,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "action rung 1 shoots out"
+ },
+ {
+  "shot": "ladder",
+  "f": 60,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "action rung 2 shoots out"
+ },
+ {
+  "shot": "ladder",
+  "f": 62,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "action rung 3 shoots out"
+ },
+ {
+  "shot": "ladder",
+  "f": 64,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "action rung 4 shoots out"
+ },
+ {
+  "shot": "ladder",
+  "f": 66,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "action rung 5 shoots out"
+ },
+ {
+  "shot": "ladder",
+  "f": 67,
+  "sfx": "tick",
+  "gain": -24,
+  "note": "'more bits'"
+ },
+ {
+  "shot": "ladder",
+  "f": 119,
+  "sfx": "riser",
+  "gain": -14,
+  "note": "pull back into 'Its own ladder'"
+ },
+ {
+  "shot": "ladder",
+  "f": 120,
+  "sfx": "hit_sub",
+  "gain": -10,
+  "note": "'ladder' lands, rungs flash"
+ },
+ {
+  "shot": "abr",
+  "f": 6,
+  "sfx": "whoosh_in",
+  "gain": -14,
+  "note": "camera arrive (the cut lands in motion)"
+ },
+ {
+  "shot": "abr",
+  "f": 7,
+  "sfx": "data_stream",
+  "gain": -24,
+  "note": "light running along the video bar",
+  "f_end": 22
+ },
+ {
+  "shot": "abr",
+  "f": 25,
+  "sfx": "swoosh_fast",
+  "gain": -14,
+  "note": "the laser sweeps the bar"
+ },
+ {
+  "shot": "abr",
+  "f": 37,
+  "sfx": "hit_sub",
+  "gain": -10,
+  "note": "'CHUNKS' slams"
+ },
+ {
+  "shot": "abr",
+  "f": 54,
+  "sfx": "tick",
+  "gain": -24,
+  "note": "'a few seconds each' types on"
+ },
+ {
+  "shot": "abr",
+  "f": 83,
+  "sfx": "whoosh_in",
+  "gain": -14,
+  "note": "camera swings back to the ladder"
+ },
+ {
+  "shot": "abr",
+  "f": 89,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "ladder shelves come up"
+ },
+ {
+  "shot": "abr",
+  "f": 111,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "chunk 1 lands on its rung"
+ },
+ {
+  "shot": "abr",
+  "f": 115,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "chunk 2 lands on its rung"
+ },
+ {
+  "shot": "abr",
+  "f": 119,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "chunk 3 lands on its rung"
+ },
+ {
+  "shot": "abr",
+  "f": 123,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "chunk 4 lands on its rung"
+ },
+ {
+  "shot": "abr",
+  "f": 127,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "chunk 5 lands on its rung"
+ },
+ {
+  "shot": "abr",
+  "f": 131,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "chunk 6 lands on its rung"
+ },
+ {
+  "shot": "abr",
+  "f": 135,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "chunk 7 lands on its rung"
+ },
+ {
+  "shot": "abr",
+  "f": 139,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "chunk 8 lands on its rung"
+ },
+ {
+  "shot": "abr",
+  "f": 142,
+  "sfx": "chime",
+  "gain": -16,
+  "note": "'every chunk' glows"
+ },
+ {
+  "shot": "abr",
+  "f": 143,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "chunk 9 lands on its rung"
+ },
+ {
+  "shot": "abr",
+  "f": 147,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "chunk 10 lands on its rung"
+ },
+ {
+  "shot": "abr",
+  "f": 151,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "chunk 11 lands on its rung"
+ },
+ {
+  "shot": "abr",
+  "f": 155,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "chunk 12 lands on its rung"
+ },
+ {
+  "shot": "buffer",
+  "f": 0,
+  "sfx": "data_stream",
+  "gain": -24,
+  "note": "network stream onto the buffer",
+  "f_end": 85
+ },
+ {
+  "shot": "buffer",
+  "f": 6,
+  "sfx": "whoosh_in",
+  "gain": -14,
+  "note": "camera arrive (the cut lands in motion)"
+ },
+ {
+  "shot": "buffer",
+  "f": 19,
+  "sfx": "glitch",
+  "gain": -12,
+  "note": "'dips?': the stream stutters"
+ },
+ {
+  "shot": "buffer",
+  "f": 43,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "the softer 720p chunk lands"
+ },
+ {
+  "shot": "buffer",
+  "f": 65,
+  "sfx": "chime",
+  "gain": -16,
+  "note": "'a little softer'"
+ },
+ {
+  "shot": "buffer",
+  "f": 71,
+  "sfx": "tick",
+  "gain": -24,
+  "note": "'no stall' types on"
+ },
+ {
+  "shot": "planes",
+  "f": 6,
+  "sfx": "whoosh_in",
+  "gain": -14,
+  "note": "camera arrive (the cut lands in motion)"
+ },
+ {
+  "shot": "planes",
+  "f": 13,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "play button pressed"
+ },
+ {
+  "shot": "planes",
+  "f": 14,
+  "sfx": "swoosh_fast",
+  "gain": -14,
+  "note": "request flies up to AWS"
+ },
+ {
+  "shot": "planes",
+  "f": 28,
+  "sfx": "hit_sub",
+  "gain": -12,
+  "note": "'AWS' slams"
+ },
+ {
+  "shot": "planes",
+  "f": 45,
+  "sfx": "swoosh_fast",
+  "gain": -14,
+  "note": "AWS points its beam at the box"
+ },
+ {
+  "shot": "planes",
+  "f": 65,
+  "sfx": "chime",
+  "gain": -16,
+  "note": "'use this box'"
+ },
+ {
+  "shot": "planes",
+  "f": 80,
+  "sfx": "data_stream",
+  "gain": -24,
+  "note": "the box streams the video to the screen",
+  "f_end": 115
+ },
+ {
+  "shot": "planes",
+  "f": 85,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "the screen comes alive"
+ },
+ {
+  "shot": "end",
+  "f": 2,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "play ring returns"
+ },
+ {
+  "shot": "end",
+  "f": 6,
+  "sfx": "whoosh_in",
+  "gain": -14,
+  "note": "camera arrive (the cut lands in motion)"
+ },
+ {
+  "shot": "end",
+  "f": 10,
+  "sfx": "hit_sub",
+  "gain": -10,
+  "note": "'The box next door delivers.' slams"
+ },
+ {
+  "shot": "end",
+  "f": 17,
+  "sfx": "tick",
+  "gain": -24,
+  "note": "series tag types on"
+ }
+]
