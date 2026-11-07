@@ -492,6 +492,18 @@ def main(argv=None) -> int:
         fw.sort(reverse=True)
         s["worst_frames"] = [{"frame": f, "need_cm": round(w, 2), "pose": p} for w, f, p in fw[:12]]
         s["median_frame_need_cm"] = round(sorted(w for w, _, _ in fw)[len(fw) // 2], 2) if fw else None
+        # the tee posed vs its rest shape, in the torso frame: ~0 when the collar follows spine_05 as assumed (and
+        # the tee is really posed); cm-scale = the tee read at rest while the body moved, or the band follows the neck
+        R = setup.get("tee_rest_inner")
+        if R:
+            dev = []
+            for f, g in per.items():
+                d = sorted(abs(g["tee"][si][bi] - R[si][bi]) for si in range(NS) for bi in range(NB)
+                           if g["tee"][si][bi] is not None and R[si][bi] is not None)
+                if d:
+                    dev.append((round(d[len(d) // 2], 3), f))
+            dev.sort()
+            s["tee_vs_rest_p50_cm"] = {"median": dev[len(dev) // 2][0], "worst": dev[-1]} if dev else None
         (out / "need.json").write_text(json.dumps({"need": need, "where": where, "clear": a.clear,
                                                    "frames": frames, "summary": s}))
         print(json.dumps(s, indent=1))
