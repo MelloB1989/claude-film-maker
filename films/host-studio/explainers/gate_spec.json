@@ -755,7 +755,7 @@
    "op": "<=",
    "line": 0.75,
    "unit": "cm",
-   "what": "the bottoms' waistband vs the body at the waist: the worst of GAP / POKE / BARE SKIN per frame over the FRONT HALF (|angle| <= 90 deg from HER skeleton's facing, inclusive: the side bands face MCU_L's camera); the half must NOT be narrowed (a front-only reading passes v2b)",
+   "what": "the bottoms' waistband vs the body at the waist: max(front-half GAP, BARE SKIN) per frame, the front half = |angle| <= 90 deg from HER skeleton's facing (do not narrow it); the POKE is its own row (garment.waist_poke_cm)",
    "where": "every speaking + on-screen frame of the presenter (cue words x edl presenter spans)",
    "how": "agent-02's garment_measure.py: per frame, the worst over the camera/front half of the waistband GAP (trousers inner radius minus the layer under it, 1 cm cells down a 4 cm band, 24 sectors), POKE (under-layer through the band) and BARE SKIN (Top hem above the trousers' edge) -> numbers/<film>/garment.json; line set with the eye on v2b",
    "must_fail": [
@@ -763,7 +763,7 @@
     "netflix v2b (waist_v2b2, facing fixed, agent-02 adcc8c53; fleet/agent-06/r7-boxb 80cdd209): GAP 1.04 cm at 90 deg = her LEFT side (105 deg 0.95; front centre 0.56), every frame; no poke, tuck 6.0-7.6"
    ],
    "guard": true,
-   "why": "the operator: 'her skirt or whatever she is wearing below is not fit to her'. Line 0.75 PROVISIONAL (agent-02): v2b fails by 0.29, agent-05's refit reads 0.41-0.52 in Blender; frozen after the UE number on the refit and the orchestrator's eye"
+   "why": "the operator: 'not fit to her'. Line 0.75: v2b 1.04 (its left side) fails, agent-05's refit R7W reads 0.0 on this term (UE, agent-02). Split from the poke by agent-09 + agent-02: one number hid a poke under a passing value"
   },
   "body.limb_clearance_xcheck_cm": {
    "area": "performance",
@@ -860,6 +860,22 @@
     "INFO: the full-face audio solve can read angry at a neutral/auto mood (the orchestrator, round 7, from the tutorial's tip); a mood override + a happy layer fix it"
    ],
    "why": "a confident, happy presenter, not a hard brow"
+  },
+  "garment.waist_poke_cm": {
+   "area": "garment",
+   "track": "agent-02",
+   "op": "<=",
+   "line": 0.1,
+   "unit": "cm",
+   "guard": true,
+   "what": "the worst SKIN (or under-layer) radius past the bottoms' OUTER face at the waistband, front half (her facing), per frame (> 0 = out through the band)",
+   "where": "every measured frame of the seated performance",
+   "how": "agent-02's garment_measure.py waist POKE term -> numbers/<film>/garment.json; visibility cross-checked by qa.clip's Body>Trousers pair (garment.pair_fraction)",
+   "must_fail": [
+    0.46,
+    "agent-05's refit R7W on the v2b body (UE, agent-02, fleet/agent-06/r7-boxb ac1bb2e4): +0.46 cm at the front centre (0-15 deg), her belly in the seated pose with UE's correctives against a band fitted 0.4-0.5 cm in Blender; v2b read -0.61 (a guard: the failure the refit can cause)"
+   ],
+   "why": "a refit that closes the gap must not push her skin out through the band"
   }
  },
  "not_attempted": {
