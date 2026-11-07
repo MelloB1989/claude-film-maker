@@ -210,12 +210,22 @@
   "garment.collar_gap_cm": {
    "where": "the CAMERA-FACING half of the band (per vertex: outward radial direction from the neck axis . (the cut camera at that frame - vertex) > 0), S13, S15, S17 (every measured frame); a facing half with too few band verts is NOT measured and refuses",
    "how": "qa.garment_look collar on core b454f979 (agent-02) -> r6/numbers/garment.json",
-   "why_r6": "a MEASURE FIX by the orchestrator's ruling (07 Nov), not a waiver: his neck turns inside a static crew-neck; the far side's gap/roll (finals: gap 1.514 at S15 f1150, roll 3 at side/back 200-230 deg) faces no camera. Must-fails still fail on the facing half: Fit5 (gap 2.447 + lip), the rolled lip, the fold, a synthetic FRONT stand-off 1.5 cm"
+   "why_r6": "a MEASURE FIX by the orchestrator's ruling (07 Nov), not a waiver: his neck turns inside a static crew-neck; the far side's gap/roll (finals: gap 1.514 at S15 f1150, roll 3 at side/back 200-230 deg) faces no camera. Must-fails still fail on the facing half: Fit5 (gap 2.447 + lip), the rolled lip, the fold, a synthetic FRONT stand-off 1.5 cm",
+   "info": true,
+   "r4": [
+    null,
+    "INFO for the r6 karma by the orchestrator's ruling (cc-64d05f6e, 07 Nov), a scope change, not a waiver: measure unvalidated on Epic's default tee with a face cull: three iterations on 07 Nov disagreed (0.29 to 3.56 cm on the same state); round-7 tool item. The collar is judged instead by the orchestrator's eye on the finals' 1:1 crops (S13 f985/f1040, S15 f1100/f1128/f1150, S17 f1340/f1397, S18 f1500): natural crew-neck, no stand-off, no see-through, from every camera; backed by neck_visible 0 (validated, must_fail 39), armor 0.317 and wpo 0."
+   ]
   },
   "garment.collar_roll": {
    "where": "the CAMERA-FACING half of the band (per vertex: outward radial direction from the neck axis . (the cut camera at that frame - vertex) > 0), S13, S15, S17 (every measured frame); a facing half with too few band verts is NOT measured and refuses",
    "how": "qa.garment_look collar on core b454f979 (agent-02) -> r6/numbers/garment.json",
-   "why_r6": "a MEASURE FIX by the orchestrator's ruling (07 Nov), not a waiver: his neck turns inside a static crew-neck; the far side's gap/roll (finals: gap 1.514 at S15 f1150, roll 3 at side/back 200-230 deg) faces no camera. Must-fails still fail on the facing half: Fit5 (gap 2.447 + lip), the rolled lip, the fold, a synthetic FRONT stand-off 1.5 cm"
+   "why_r6": "a MEASURE FIX by the orchestrator's ruling (07 Nov), not a waiver: his neck turns inside a static crew-neck; the far side's gap/roll (finals: gap 1.514 at S15 f1150, roll 3 at side/back 200-230 deg) faces no camera. Must-fails still fail on the facing half: Fit5 (gap 2.447 + lip), the rolled lip, the fold, a synthetic FRONT stand-off 1.5 cm",
+   "info": true,
+   "r4": [
+    null,
+    "INFO for the r6 karma by the orchestrator's ruling (cc-64d05f6e, 07 Nov), a scope change, not a waiver: measure unvalidated on Epic's default tee with a face cull: three iterations on 07 Nov disagreed (0.29 to 3.56 cm on the same state); round-7 tool item. The collar is judged instead by the orchestrator's eye on the finals' 1:1 crops (S13 f985/f1040, S15 f1100/f1128/f1150, S17 f1340/f1397, S18 f1500): natural crew-neck, no stand-off, no see-through, from every camera; backed by neck_visible 0 (validated, must_fail 39), armor 0.317 and wpo 0."
+   ]
   },
   "garment.collar_gap_all_cm": {
    "area": "garment",
@@ -276,6 +286,11 @@
    "item": "editor lip-bone readers (cast_gate lipgap scrub+level.bone, seq.sample) return a frozen face on SEQ_Reel's rig (box A, r6), so lips.lead_in_cm cannot be measured editor-side; fix the reader or replace it with agent-01's landmark measure on rendered frames",
    "by": "cc-64d05f6e",
    "found": "agent-01, 07 Nov"
+  },
+  {
+   "item": "qa.garment_look collar gap/roll on Epic's default tee with a face cull: three iterations disagreed (0.29-3.56 cm on one state); validate against the eye on known collars before it gates again",
+   "by": "cc-64d05f6e",
+   "found": "agent-09/agent-02, 07 Nov"
   }
  ]
 }
