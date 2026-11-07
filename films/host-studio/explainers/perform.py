@@ -53,11 +53,12 @@ IDLE = "/MetaHumanCharacter/Optional/Animation/TemplateAnimations/Technical_Loop
 OUT = ROOT / "out" / "explainers" / "perf"
 SEED = {"him": 71, "her": 72}
 
-# The set (agent-07, 07 Nov 16:4x IST), in the ACTOR's frame: x forward (to camera), y the presenter's right, z up
+# The set (agent-07 / agent-05's props.json, 07 Nov 17:0x IST), in the ACTOR's frame: x forward (to camera), y the presenter's right, z up
 # from the floor; the actor root sits on the chair mark (studio (20, -20, 0), yaw 0: studio +X forward, studio +Y the
 # presenter's LEFT). Studio -> actor: x - 20, -(y + 20), z.
-SET = S.Set(seat_top=46.0, desk_top=74.0, desk_near=30.0, desk_far=85.0, desk_under=70.0,
-            mic=[24.0, 14.0, 99.0], mic_radius=9.0, boom=[[50.0, 50.0, 74.0], [24.0, 14.0, 99.0]])
+SET = S.Set(seat_top=45.0, seat_front=24.5, desk_top=74.0, desk_near=30.5, desk_far=85.5, desk_under=63.4,
+            mic=[24.0, 14.0, 99.0], mic_radius=9.0,
+            boom=[[50.0, 52.6, 74.0], [43.8, 42.9, 119.3], [24.0, 14.0, 99.0]])  # agent-05 props.json (16:5x IST)
 # How each sits (seatkit.Style). The cameras are to the presenter's right-front (-20 deg MCU/CU, -8 WIDE): the chest
 # turns a little toward them, the head and eyes do the rest (face + gaze).
 STYLE = {
@@ -621,7 +622,7 @@ def cmd_bodycheck(who: str, seq: str = "", every: int = 2) -> dict:
                     issues.append({"code": "desk.through", "frame": f, "bone": b, "z": round(p[2], 1)})
                 if st.mic and S.norm(S.sub(p, st.mic)) < st.mic_radius:
                     issues.append({"code": "mic.hand", "frame": f, "bone": b})
-                if st.boom and S.seg_dist(p, *st.boom) < st.boom_radius:
+                if st.boom and S.poly_dist(p, st.boom) < st.boom_radius:
                     issues.append({"code": "mic.boom", "frame": f, "bone": b})
             k = A[f"calf_{s}"]
             if k[2] > st.desk_under - 6.0 and k[0] > st.desk_near:

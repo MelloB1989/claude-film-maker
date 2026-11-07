@@ -263,7 +263,7 @@ class Set:
     seat_front: float = 22.0  # the seat's front edge, x
     mic: list | None = None  # [x, y, z] of the mic head, actor frame (y to the presenter's right)
     mic_radius: float = 9.0  # a sphere around the mic head (and its pop filter) no hand may enter
-    boom: list | None = None  # [[x, y, z], [x, y, z]]: the mic's arm, clamp to head, actor frame
+    boom: list | None = None  # [[x, y, z], ...]: the mic's arm as a polyline, clamp -> elbow -> head, actor frame
     boom_radius: float = 4.0
 
 
@@ -603,10 +603,9 @@ def check(seater: Seater, posed: dict) -> dict:
                     d = norm(sub(A[b], st.mic))
                     need(d >= st.mic_radius, "mic.hand", f"{b} {d:.1f} cm from the mic head", d)
         if st.boom:
-            a_, b_ = st.boom
             for b in ("hand_" + s, "lowerarm_" + s, f"middle_03_{s}", f"index_03_{s}", f"thumb_03_{s}"):
                 if b in A:
-                    d = seg_dist(A[b], a_, b_)
+                    d = poly_dist(A[b], st.boom)
                     need(d >= st.boom_radius + 3.0, "mic.boom", f"{b} {d:.1f} cm from the mic arm", d)
     return {"hips": [round(x, 1) for x in hips],
             "knees": {s: [round(x, 1) for x in A["calf_" + s]] for s in "lr"},
@@ -621,6 +620,10 @@ def seg_dist(p, a, b) -> float:
     ab = sub(b, a)
     u = max(0.0, min(1.0, dot(sub(p, a), ab) / max(1e-9, dot(ab, ab))))
     return norm(sub(p, add(a, mul(ab, u))))
+
+
+def poly_dist(p, pts) -> float:
+    return min(seg_dist(p, a, b) for a, b in zip(pts, pts[1:]))
 
 
 def gestures_from_cues(cues: list, fps: float = 30.0, start_s: float = 0.0) -> list:
