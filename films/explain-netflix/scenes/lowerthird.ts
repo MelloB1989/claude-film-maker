@@ -12,7 +12,7 @@ export default class LowerThird extends NfScene {
     const k = kin * (1 - kout);
     if (k <= 0) return;
     const x = 120, y = 790;
-    const tag = this.p('tag', 'SYSTEM DESIGN IN 60 SECONDS'), topic = this.p('topic', 'How Netflix streams without buffering');
+    const tag = this.p('tag', 'SYSTEM DESIGN IN 60 SECONDS'), topic = this.p('topic', 'How Netflix streams to 300+ million members without buffering');
     c.font = font(F.ui(400), 40);
     const wTopic = c.measureText(topic).width;
     const w = Math.max(wTopic, 560) + 80;
