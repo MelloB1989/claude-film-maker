@@ -354,6 +354,7 @@ def main(argv=None) -> None:
     pf.add_argument("--speaking", required=True, help="JSON [[f0, f1_excl], ...] speaking + on screen")
     pf.add_argument("--box", default="", help="x0,y0,x1,y1 (fractions): the face's region")
     pf.add_argument("--model", default="")
+    pf.add_argument("--series", default="", help="also write the per-frame blendshapes here (calibration)")
     pf.add_argument("--out", default="")
     pb = sub.add_parser("perf-body", help="round 7: gesture rows from seq.sample bone samples (hand_l, hand_r)")
     pb.add_argument("samples")
@@ -436,6 +437,8 @@ def main(argv=None) -> None:
         from . import qa_head as QH
         series = qa_perf.face_track(QH.frames_in(x.folder), x.fps, box, x.model)
         res = {"gate": qa_perf.face_rows(series, x.fps, qa_perf._spans(x.speaking)), "frames": len(series)}
+        if x.series:
+            Path(x.series).write_text(json.dumps(series))
     elif x.cmd == "perf-body":
         from . import qa_perf
         d = json.loads(Path(x.samples).read_text())
