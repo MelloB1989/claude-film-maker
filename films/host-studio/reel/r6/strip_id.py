@@ -75,7 +75,15 @@ def hit(m, d):
     t = float(res.get_editor_property("ray_parameter"))
     if t > REACH:
         return None
-    tid = int(res.get_editor_property("triangle_id"))
+    tid = None
+    for k in ("hit_triangle_id", "triangle_id", "hit_triangle", "triangle"):  # UE names it HitTriangleID
+        try:
+            tid = int(res.get_editor_property(k))
+            break
+        except Exception:  # noqa: BLE001
+            pass
+    if tid is None:
+        raise RuntimeError("no triangle id on GeometryScriptRayHitResult: " + str([n for n in dir(res) if not n.startswith("_")]))
     n = G._pick(s.MQ.get_triangle_face_normal(s.dm, tid), "Vector")
     return t, tid, n.dot(d) > 0.0  # True = back face (seen from inside)
 
