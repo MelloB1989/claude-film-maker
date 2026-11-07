@@ -143,8 +143,19 @@ def length_s(who: str) -> float:
     return frames(who) / FPS
 
 
+def full_solve() -> bool:
+    """r7 (agent-04, the orchestrator's primary face): a FULL-FACE solve per line with a mood per line
+    (face_acting.FULL_SOLVE: env FACE_SOLVE=full, the default); FACE_SOLVE=mouth keeps round 6's mouth-only solves
+    (AS_exp_<line>, the A side of the A/B), which stay as they are."""
+    try:
+        import face_acting as FA
+        return bool(FA.FULL_SOLVE)
+    except Exception:
+        return False
+
+
 def line_anim(k: str) -> str:
-    return f"{SPEECH}/Anim/AS_exp_{k}"
+    return f"{SPEECH}/Anim/AS_exp_{k}" + ("_full" if full_solve() else "")
 
 
 def mesh_of(who: str, comp: str) -> str:
@@ -178,11 +189,17 @@ def cmd_solve(who: str, only=None, face_mesh: str = "") -> dict:
         k = ln["id"]
         if only and k not in only:
             continue
-        mood, inten = MOOD.get(ln["beat"], MOOD_DEFAULT)
-        r = ok(client().op("speech.to_face", wav=box(who, Path(ln["file"]).name), name=f"exp_{k}", face_mesh=mesh,
-                           mood=mood, intensity=inten, process_mask="mouth", head=False, blinks=False,
+        if full_solve():  # the whole face from the voice, in the line's mood (agent-04's face_acting)
+            import face_acting as FA
+            mood, inten = FA.solve_mood(who, k)
+            name, mask = f"exp_{k}_full", "full"
+        else:
+            mood, inten = MOOD.get(ln["beat"], MOOD_DEFAULT)
+            name, mask = f"exp_{k}", "mouth"
+        r = ok(client().op("speech.to_face", wav=box(who, Path(ln["file"]).name), name=name, face_mesh=mesh,
+                           mood=mood, intensity=inten, process_mask=mask, head=False, blinks=False,
                            fallback=False, timeout=1800))
-        out[k] = {"anim": r["anim"], "timing": r.get("timing"), "options": r.get("options"),
+        out[k] = {"anim": r["anim"], "mask": mask, "mood": [mood, inten], "timing": r.get("timing"), "options": r.get("options"),
                   "missing": r.get("missing_options"), "sha256": __import__("hashlib").sha256(
                       (HERE / ln["file"]).read_bytes()).hexdigest()}
         if not (r.get("timing") or {}).get("ok", False):
