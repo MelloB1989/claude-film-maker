@@ -123,6 +123,11 @@ export default class Oca extends MotionScene {
     this.libLabel.pose(t, 0.25, 'rise', 1 - win(t, tIn + 0.3, 0.5));
     this.slow.pose(t, tProv + 0.35, 'type', 1 - win(t, tGet - 0.1, 0.3));
     this.lib.blink(t);
+    // the long route recedes into the haze once the box serves: the close-up is clean
+    const gone = expo(t, tIn + 0.25, 1.1);
+    this.lib.group.position.set(-9.2, 0.65 - gone * 2, -16 - gone * 30);
+    this.cloud.group.position.set(-2.6, 1.2 - gone * 1.5, -7 - gone * 30);
+    this.cloud.group.visible = this.lib.group.visible = gone < 0.97;
     // the box drops onto the platform with a little bounce
     const drop = expo(t, tGet, 0.3), land = spring(t, tGet + 0.28, 0.45, 0.15);
     const y0 = PLAT.y + 0.05 + 0.45 * 0.85;
