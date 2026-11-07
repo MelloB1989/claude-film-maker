@@ -34,5 +34,27 @@
    115.0
   ]
  ],
- "frame": "actor (studio minus the chair mark (20,-20,0)), cm; written by setplan.set_for_perf"
+ "frame": "actor (studio minus the chair mark (20,-20,0)), cm; written by setplan.set_for_perf",
+ "cams": {
+  "CAM_MCU": [
+   168.14,
+   76.64,
+   127.63
+  ],
+  "CAM_CU": [
+   133.33,
+   37.4,
+   127.47
+  ],
+  "CAM_WIDE": [
+   277.42,
+   88.41,
+   131.84
+  ],
+  "CAM_MCU_L": [
+   168.14,
+   76.64,
+   127.63
+  ]
+ }
 }
