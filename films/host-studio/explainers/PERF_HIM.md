@@ -16,7 +16,8 @@ P=../films/host-studio/explainers/perform.py
   checked: the eyes split along studio Y). The mic is aimed at his mouth, so commit its numbers as
   `films/host-studio/explainers/set_him.json` (any `seatkit.Set` field, in the actor frame: x forward from the
   mark, y the presenter's right = studio y + 20, z up). Typically `mic` and `boom` (clamp, elbow, tip, capsule);
-  `desk_*` too if the desk moved. Without the file his body uses her set.
+  `desk_*` too if the desk moved, and `cams` (each presenter camera's position, actor frame) since they are re-aimed
+  for his height: the hand-over-mic check reads them. Without the file his body uses her set and cameras.
 - His head state pulled from `private/r6/him_state/` into box B's project (box A is terminated after the karma cuts:
   the orchestrator, 07 Nov), with the guards passing: strays, leaders, face luma vs round 4, cull_live parity with box A
   (912 gone, z 144.2-153.3), qa.clip neck on a seated still (agent-09's head_state_parity row). His garments led.
@@ -26,6 +27,9 @@ P=../films/host-studio/explainers/perform.py
 ## 1. The run
 
 ```bash
+uv run python $P signs --who her --bless     # FIRST, before his perf.calibrate: the live signs file is still hers
+# (HEAD_HIM.md 1a-1b: keep .her_r6, perf.calibrate label=Host)
+uv run python $P signs --who him --bless     # right after his calibrate: face/sync refuse a signs file not his
 uv run python $P rolltest --who him          # HEAD_HIM.md 1c: send agent-04 the table
 uv run python $P all --who him               # body, life, preview, push, solve (17 lines), bias, cams, compose,
                                               # check:solve, workseq, face, check:face, sync, gaze, check:final,
@@ -43,7 +47,7 @@ uv run python $P all --who him               # body, life, preview, push, solve 
 | cams | each camera's direction from his seated eyes | `pass: true` | a direct cut with a lens move > 10°: agent-07 moves a camera (agent-04's rule), then `--from cams` |
 | check:solve / face / final / placed | lipsync.check with the r6 onset window | pass | send the step's JSON |
 | bodycheck | what the sequence plays vs desk, seat, mic + the solve | `vs_seatkit` < 1 cm, desk/mic/knee 0 | send it |
-| numbers | `numbers/whatsapp/{lips,body}.json` | commit them | — |
+| numbers | `numbers/whatsapp/{lips,body}.json` | commit them | lead_in reads an error (not 0) if the editor sees his lips frozen (box A did): send it to agent-09 as is |
 
 Then `qa.clip` in the seated shots (his neck: `garment.neck_px` 0 and `open_edge_shrunk` 0; contacts with the
 chair and desk 0), head.py's judge (HEAD_HIM.md §3), stills to the orchestrator, then previews.

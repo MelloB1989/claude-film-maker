@@ -540,7 +540,51 @@ def face_args(who: str) -> dict:
     return args
 
 
+SIGNS = r"""
+import json, hashlib, os, unreal
+from fmbridge.ops.seq import component_of
+from fmbridge.ops.anim import _skeleton_path
+from fmbridge.ops.perf import _signs_file
+P = json.loads(PARAMS)
+mesh = component_of(P["label"], "Face").get_skeletal_mesh_asset()
+path = _signs_file(_skeleton_path(mesh))
+result = {"file": path, "sha256": hashlib.sha256(open(path, "rb").read()).hexdigest() if os.path.exists(path) else None}
+"""
+
+
+def cmd_signs(who: str, bless: bool = False) -> dict:
+    """The face's head-signs calibration (perf.calibrate's signs_<skeleton>.json) is ONE file for both presenters
+    (they share Face_Archetype_Skeleton), so it belongs to whoever was calibrated last (agent-04). --bless records its
+    sha256 as `who`'s: run it right after perf.calibrate label=<who> (HEAD_HIM 1b); face and sync then refuse to run on a
+    file that is not `who`'s."""
+    r = run(SIGNS, {"label": LABEL[who]})
+    p = OUT / who / "signs_sha256.txt"
+    if bless:
+        if not r["sha256"]:
+            raise SystemExit(f"no signs file at {r['file']}: run perf.calibrate label={LABEL[who]} first")
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(r["sha256"] + "\n")
+    r["blessed"] = p.read_text().strip() if p.exists() else None
+    r["match"] = bool(r["blessed"]) and r["blessed"] == r["sha256"]
+    return r
+
+
+def signs_guard(who: str) -> None:
+    r = cmd_signs(who)
+    if r["blessed"] is None:
+        print(f"WARNING: no blessed signs for {who} (perform.py signs --who {who} --bless after perf.calibrate)",
+              file=sys.stderr)
+        return
+    if not r["match"]:
+        other = "her" if who == "him" else "him"
+        raise SystemExit(f"the live head-signs file is not {who}'s (sha {str(r['sha256'])[:12]} != blessed "
+                         f"{r['blessed'][:12]}): it was calibrated for {other} since. Restore {who}'s copy "
+                         f"(signs_Face_Archetype_Skeleton.json.{who}_r6) or re-run perf.calibrate label={LABEL[who]} "
+                         f"and bless it")
+
+
 def cmd_face(who: str) -> dict:
+    signs_guard(who)
     args = face_args(who)
     keep(who, "face_args", args)
     r = ok(client().op("perf.face", anim=f"{ANIM}/AS_exp_{who}_solve", out=f"{ANIM}/AS_exp_{who}_face",
@@ -553,6 +597,7 @@ def cmd_sync(who: str) -> dict:
     """The reel's sync on the seated body: the face rides the body with its head control on, the body takes the head
     motion that makes, the shared skeleton is baked back onto the face; then perf.face's planned head turn goes on the
     body (on 5.8 the face takes its neck from the body)."""
+    signs_guard(who)
     c = client()
     path, lab = WORK[who], LABEL[who]
     face, seat = f"{ANIM}/AS_exp_{who}_face", f"{ANIM}/AS_exp_{who}_seat"
@@ -929,7 +974,20 @@ def cmd_numbers(who: str, seq: str = "") -> dict:
             v = sum(d) / len(d) if d else 0.0
             if worst is None or v > worst[0]:
                 worst = (v, f"{k} f{lo}-{f0 - 1}")
-        g["lips.lead_in_cm"] = {"value": round(worst[0], 4), "where": worst[1]}
+        # guard (box A, 07 Nov: the editor read his lip bones FROZEN, 0.0 everywhere): the same sampler on a spoken
+        # stretch of each judged line must see the lips open >= 0.3 cm, else the row is an error, never a 0
+        by = {ln["id"]: ln for ln in lines}
+        spoken = sorted({f for k, _, f0 in wins for f in range(f0, min(by[k]["end_f"], f0 + 24))})
+        m2 = ok(client().op("seq.sample", path=path, actor_label=LABEL[who], component="Face", bones=list(LIP_GAP),
+                            frames=spoken, ticks=2, timeout=3600))
+        g2 = [S.norm(S.sub(m2["bones"][LIP_GAP[0]][i][:3], m2["bones"][LIP_GAP[1]][i][:3])) for i in range(len(spoken))]
+        opening = (max(g2) - min(g2)) if g2 else 0.0
+        if opening < 0.3:
+            g["lips.lead_in_cm"] = {"value": None, "error": f"the lip gap does not open while speaking ({opening:.2f} cm "
+                                                            f"over the judged lines' first second): the sampler read a "
+                                                            f"frozen face"}
+        else:
+            g["lips.lead_in_cm"] = {"value": round(worst[0], 4), "where": worst[1], "open_cm": round(opening, 2)}
     d = HERE / "numbers" / FILM[who]
     d.mkdir(parents=True, exist_ok=True)
     (d / "lips.json").write_text(json.dumps({"gate": g, "source": f"perform.py numbers --who {who} on {path}"},
@@ -950,7 +1008,7 @@ def step(name: str, who: str, a) -> dict:
              "body": lambda: cmd_body(who, a.force), "cams": lambda: cmd_cams(who), "life": lambda: cmd_life(who),
              "face": lambda: cmd_face(who), "sync": lambda: cmd_sync(who), "gaze": lambda: cmd_gaze(who),
              "place": lambda: cmd_place(who, a.seq), "preview": lambda: cmd_preview(who, a.seq),
-             "numbers": lambda: cmd_numbers(who, a.seq), "rolltest": lambda: cmd_rolltest(who), "bodycheck": lambda: cmd_bodycheck(who, a.seq),
+             "numbers": lambda: cmd_numbers(who, a.seq), "signs": lambda: cmd_signs(who, a.bless), "rolltest": lambda: cmd_rolltest(who), "bodycheck": lambda: cmd_bodycheck(who, a.seq),
              "calibrate_body": lambda: cmd_calibrate_body(who)}[name]()
     return r
 
@@ -958,13 +1016,14 @@ def step(name: str, who: str, a) -> dict:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("cmd", choices=["push", "solve", "bias", "compose", "check", "workseq", "cams", "body", "life",
-                                    "calibrate_body", "face", "sync", "gaze", "place", "preview", "numbers", "rolltest", "bodycheck", "all", "dry"])
+                                    "calibrate_body", "face", "sync", "gaze", "place", "preview", "numbers", "rolltest", "signs", "bodycheck", "all", "dry"])
     ap.add_argument("--who", required=True, choices=list(FILM))
     ap.add_argument("--stage", default="solve", choices=["solve", "face", "final", "placed"])
     ap.add_argument("--only", type=lambda s: s.split(","))
     ap.add_argument("--seq", default="")
     ap.add_argument("--fresh", action="store_true")
     ap.add_argument("--force", action="store_true", help="body: write even if the pose fails its own check")
+    ap.add_argument("--bless", action="store_true", help="signs: record the live head-signs file as this presenter's")
     ap.add_argument("--from", dest="start", default="body")
     ap.add_argument("--to", dest="stop", default="numbers")
     a = ap.parse_args()
