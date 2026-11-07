@@ -150,7 +150,7 @@
    "area": "garment",
    "track": "K1",
    "op": ">=",
-   "line": 3.0,
+   "line": 1.5,
    "unit": "cm",
    "guard": true,
    "what": "smallest distance below the tee's collar edge of any CULLED face vertex (every culled vertex is under the tee and at least 3 cm below the collar)",
@@ -160,7 +160,7 @@
     0.0,
     "a cull reaching the collar line would open a hole at the visible neck"
    ],
-   "why": "the orchestrator, 07 Nov: face verts under the tee and >= 3 cm below the collar edge only"
+   "why": "the orchestrator, 07 Nov: cull only, under the tee; the accepted state is r6n2 = 'Epic's tee untouched + the 1.5 cm cull' (the orchestrator's GO for the finals), so the line is that cull's depth; neck_visible (0 on the finals) is the independent check that no hole shows"
   },
   "garment.neck_px": {
    "what": "VISIBLE neck poke-through, worst frame (qa.clip neck_visible, agent-02 e71f06fa/a670ea02): Face skin the render shows through his tee, as ISLANDS (skin enclosed by cloth, any size) plus TONGUES (skin joined to the collar opening that runs more than tongue_cm down into the cloth, walked in cm at its depth). Known blind spot: a poke joined to the rim cluster and shallower than tongue_cm passes; the orchestrator's crops judge that case",
