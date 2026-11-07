@@ -276,7 +276,26 @@ def gestures(who: str) -> list:
             w = m[0]
         cs.append({"t": w["start"], "hand": g.get("hand"), "kind": g.get("kind", "lift"),
                    "size": g.get("size", 1.0), "hold": g.get("hold", max(0.3, w["end"] - w["start"]))})
+    # small settles where nothing is scripted for SETTLE_GAP s: a hand re-sets a little on the longest word there
+    # (a seated speaker's hands are never frozen for long), alternating hands, the mic side smaller
+    words = [w for ln in cues(who)["lines"] for w in ln["words"]]
+    marks = sorted(c["t"] for c in cs)
+    edges = [0.0] + marks + [length_s(who)]
+    side = "l"
+    for a, b in zip(edges, edges[1:]):
+        t = a + SETTLE_GAP
+        while t < b - 2.0:
+            pool = [w for w in words if t - 1.5 <= w["start"] <= t + 1.5]
+            if pool:
+                w = max(pool, key=lambda w: w["end"] - w["start"])
+                cs.append({"t": w["start"], "hand": side, "kind": "beat", "size": 0.35 if side == "l" else 0.25,
+                           "hold": 0.3})
+                side = "r" if side == "l" else "l"
+            t += SETTLE_GAP
     return S.gestures_from_cues(cs)
+
+
+SETTLE_GAP = 5.5
 
 
 BODY = r"""
