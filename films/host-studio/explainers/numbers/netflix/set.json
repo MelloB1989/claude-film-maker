@@ -1,0 +1,8 @@
+{
+ "gate": {
+  "set.props_overlap": {
+   "value": 0,
+   "where": "qa.clip depth layers (props as layers, n=4 frames x every camera, box B props_v2): Mic/Plant, Chair/Desk, Chair/Mic, Olive/Slats both ways: 0 px each (qa.overlaps' AABB flags were bounds only: Mic|Plant 0.883, Chair|Desk 0.229, Chair|Mic 0.097, Olive|Slats 0.086)"
+  }
+ }
+}

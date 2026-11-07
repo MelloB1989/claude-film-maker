@@ -13,8 +13,8 @@
    "where": "netflix: cuts 23.17/43.33/56.33 consistent; neckline fixed (Top.cast_shadow off)"
   },
   "eye.graphics": {
-   "value": null,
-   "error": "not judged"
+   "value": 1,
+   "where": "netflix: v2b: the caption plate reads at f48/f240/f600/f1000; the picture above y900 matches v2 (PSNR 52.1 avg / 46.7 min)"
   }
  }
 }

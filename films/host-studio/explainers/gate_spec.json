@@ -236,7 +236,15 @@
    "why": "the brief: the mic never covers the mouth in any camera"
   },
   "set.props_overlap": {
-   "how": "film-ue op qa.overlaps (axis-aligned boxes) flags candidates; EACH flagged pair is confirmed or cleared by a depth check: qa.clip props={both props} pairs=[[A,B],[B,A]] (the intersection-edge rule), the count = pairs whose qa.clip px > 0 -> numbers/<film>/set.json"
+   "how": "film-ue op qa.overlaps (axis-aligned boxes) flags candidates; EACH flagged pair is confirmed or cleared by a depth check: qa.clip props={both props} pairs=[[A,B],[B,A]] (the intersection-edge rule), the count = pairs whose qa.clip px > 0 -> numbers/<film>/set.json",
+   "area": "set",
+   "track": "agent-05 / box drivers",
+   "op": "==",
+   "line": 0,
+   "unit": "count",
+   "what": "prop pairs that interpenetrate (mic arm in the desk, chair in the desk), each axis-aligned candidate confirmed or cleared by depth",
+   "where": "the set",
+   "why": "clean set: the brief's no-intersection rule for the props"
   },
   "shot.render_matches_r4": {
    "info": true,

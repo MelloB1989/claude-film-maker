@@ -1,2 +1,17 @@
-{"by":"cc-64d05f6e","film":"netflix","gate":{"eye.real_person":1,"eye.light":1,"eye.hair_garment":1},
- "notes":{"eye.real_person":"v2 watched frame-wise","eye.light":"v2","eye.hair_garment":"cuts 23.17/43.33/56.33 consistent; neckline fixed (Top.cast_shadow off)","eye.graphics":"PENDING the v2b captions (backing plate)"}}
+{
+ "by": "cc-64d05f6e",
+ "film": "netflix",
+ "gate": {
+  "eye.real_person": 1,
+  "eye.light": 1,
+  "eye.hair_garment": 1,
+  "eye.graphics": 1
+ },
+ "notes": {
+  "eye.real_person": "v2 watched frame-wise",
+  "eye.light": "v2",
+  "eye.hair_garment": "cuts 23.17/43.33/56.33 consistent; neckline fixed (Top.cast_shadow off)",
+  "eye.graphics": "v2b: the caption plate reads at f48/f240/f600/f1000; the picture above y900 matches v2 (PSNR 52.1 avg / 46.7 min)"
+ },
+ "cut": "netflix_r6_v2b (1427 f / 59.458 s, aac 59.458, -14.0/-1.7), delivered 23:29"
+}

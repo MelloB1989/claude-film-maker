@@ -1,0 +1,24 @@
+{
+ "gate": {
+  "hair.lock": {
+   "value": 1,
+   "where": "groom.lock_check labels=[Presenter] on box B before the V2 close finals' state (LODSync forced 0, strands, no TRASH_, hair cvars live)"
+  },
+  "hair.render_cvars": {
+   "value": 1,
+   "where": "render.py CVARS in every final job's spec: r.HairStrands.LODMode 0, AutoLOD.Bias 1.0, UseCardsInsteadOfStrands 0 (+ SkyLighting 0)"
+  },
+  "hair.cut_reach_pct": {
+   "value": 2.68,
+   "where": "qa.hair_continuity labels=[Presenter] sequence=SEQ_Explain_Her every=24 (box B, her V2 state, groom locked): every cut, 4 frames each side"
+  },
+  "hair.pop_reach_pct": {
+   "value": 0.0,
+   "where": "qa.hair_continuity (same run): inside shots every 24 frames"
+  },
+  "hair.cut_pop_ratio": {
+   "value": null,
+   "info": "INFO for netflix (agent-09): no held-camera cut; every job pre-rolled from frame 0 of one take"
+  }
+ }
+}

@@ -19,3 +19,17 @@ def test_info_films_makes_an_item_info_for_that_film_only():
     spec = {"items": {"hair.cut_pop_ratio": {"info_films": ["netflix"], "info_reason": "no held cut"}}}
     assert scoped(spec, "netflix")["items"]["hair.cut_pop_ratio"]["info"] is True
     assert "info" not in scoped(spec, "whatsapp")["items"]["hair.cut_pop_ratio"]
+
+
+def test_every_new_spec_item_has_a_line():
+    import json
+    import sys
+    from pathlib import Path
+    here = Path(__file__).resolve().parent
+    sys.path.insert(0, str(here.parents[2] / "tools"))
+    from filmtools.unreal import qa_local
+    qa_local.qa()
+    core = sys.modules["fmqa.gate"].ITEMS
+    spec = json.loads((here / "gate_spec.json").read_text())
+    bad = [k for k, v in spec["items"].items() if k not in core and v.get("line") is None and not v.get("info")]
+    assert not bad, f"spec items without a line (an override replaced the whole item?): {bad}"

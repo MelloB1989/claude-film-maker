@@ -1,0 +1,44 @@
+{
+ "gate": {
+  "head.blink_nod_deg": {
+   "value": 0.048,
+   "where": "her on screen f0-1390 (9 spans)"
+  },
+  "head.blink_locked_deg": {
+   "value": 0.103,
+   "where": "her on screen f0-1390 (9 spans)"
+  },
+  "head.buzz_rms_deg": {
+   "value": 0.0306,
+   "where": "her on screen f0-1390 (9 spans)"
+  },
+  "head.drift_deg": {
+   "value": 1.029,
+   "where": "her on screen f0-1390 (9 spans)"
+  },
+  "head.frozen_s": {
+   "value": 0.33,
+   "where": "her on screen f0-1390 (9 spans)"
+  },
+  "head.nods_per_min": {
+   "value": 8.77,
+   "where": "her on screen f0-1390 (9 spans)"
+  },
+  "blinks.per_min": {
+   "value": 19.29,
+   "where": "her on screen f0-1390 (9 spans)"
+  },
+  "eyes.on_lens_share": {
+   "value": 0.915,
+   "where": "her on screen f0-1390 (9 spans)"
+  },
+  "eyes.saccades_per_s": {
+   "value": 1.41,
+   "where": "her on screen f0-1390 (9 spans)"
+  },
+  "eyes.glances_per_min": {
+   "value": 5.26,
+   "where": "her on screen f0-1390 (9 spans)"
+  }
+ }
+}
