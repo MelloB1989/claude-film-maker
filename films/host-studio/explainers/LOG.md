@@ -200,3 +200,13 @@ tested in `test_seatkit.py`), `gestures.json` (the emphasis gestures per line).
 | 18:05 | agent-07 moved the desk in (near edge x 38) and mirrored the boom to the -Y edge (scale -1 at yaw -90): no re-pose needed. Armrest 63.0 vs apron underside 63.4 noted |
 | 18:30 | A full re-run died at once: `cd && rm && nohup … &` on one line ran the whole chain in a subshell that SSM killed with the command → relaunch with `setsid nohup` on its own line |
 | 18:45 | Orchestrator (via agent-07): her feet never seen, WIDE's empty right → SM_WalnutDesk_Panel, SM_FloorLamp (practical, SOCKET_Bulb), SM_FloorSnakePlant; all 7 FBX re-import at size; uploaded with all textures |
+
+## Round 7 garment (agent-02, branch fleet/agent-02/r7-garment; measures in `reel/r7/garment_measure.py`)
+
+| IST (8 Nov) | What |
+|---|---|
+| 00:10-00:40 | `garment_measure.py` waist + arms. Fixes found on box B runs: the actor's forward is 90 deg off her facing (angles now from her skeleton); the arm/torso split needed the arm radius, an open-edge sign rule, a shoulder floor and a nearer-the-spine rule; a ref-pose self-check gates every arms run |
+| 00:40 | v2b waist: `waist_fit_cm` 1.04 at her LEFT side (90 deg), front 0.56, no poke. Orchestrator's eye (WIDE f1100 3x): the band flares out past the Top's side line on her left = the operator's "not fit" |
+| 01:00 | agent-05's R7W (seated refit): fit 0.0 but her belly pokes out through the front band, +0.32..0.59 cm on the R7 body (qa.clip Body>Trousers 2.6 % in the WIDE). agent-09 splits the row: `waist_fit_cm` <= 0.75 (must_fail v2b 1.04) + `waist_poke_cm` <= 0.1 (must_fail R7W +0.49), on-screen frames only |
+| 01:20 | R7W2 (agent-05, fitted over her UE-posed belly from `export_posed.py` at f1080/270/150/870): fit 0.28, poke -0.26 on f150/270/870/1080. Orchestrator: waist PASS by eye (WIDE f1100 3x). Her TEST renders in R7W2 with the cuts Top<Trousers 2.5, Body<Top 6, Body<Trousers 2.5 |
+| 01:20 | Arms (`upperarm_torso_clear_cm`): self-check passes (ref pose +5.19, 0 inside); agent-01's elbows-out R7 frames read +5.7..+8.7. Pending before it gates: the v2b reading (must_fail, her right arm at 00:44) |
