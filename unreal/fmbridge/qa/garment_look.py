@@ -179,22 +179,30 @@ COLLAR_MIN_N = 10  # a ring of fewer garment verts is not a collar band (a stray
 COLLAR_SPREAD_CM = 1.5  # a hugging band is one wall thick (~0.3 cm) radially; a rolled/folded ring much more
 
 
+COLLAR_WALL_DEG = 50.0  # a vertex is "wall" when its normal is within this of perpendicular to the neck axis
 COLLAR_ROLL_DEPTH_CM = 3.0  # the collar band's height from its top: where a fold or a rolled lip would be
 COLLAR_CELL = (1.0, 10.0)  # (cm along the neck, degrees round it): one place on the band (30 deg spanned ~1 cm of
 # an elliptic neck's radius by itself)
 
 
 def local_spread(axial: list, radial: list, angle: list, top: float, *, depth: float = COLLAR_ROLL_DEPTH_CM,
-                 band_cm: float = 4.0, cell=COLLAR_CELL, min_n: int = 4) -> tuple:
+                 band_cm: float = 4.0, cell=COLLAR_CELL, min_n: int = 4, wall: list | None = None) -> tuple:
     """The band's thickness at ONE place: per cell (cell[0] cm along the neck x cell[1] degrees round it) in the top
     `depth` cm of the band, the radial p90 - p10 of its garment verts within band_cm of the cell's innermost; the
     worst cell. A fold or a rolled lip is two layers at the same height and angle; a hugging band is one wall (plus
     its rib). Round 5b: over the whole window the spread read 1.9-2.1 on Epic's hugging band (the neck's elliptic
     section and the shoulders' slope), roll 6/6 on a collar the eye passed. Returns (spread_cm, cells judged, where:
-    the worst cell's {below_top_cm, angle_deg})."""
+    the worst cell's {below_top_cm, angle_deg}).
+    `wall` (per vertex, optional): True where the garment surface runs ALONG the neck (its normal within
+    COLLAR_WALL_DEG of perpendicular to the neck axis). Only walls are layers: a band, a rolled lip and a fold are
+    all walls, but the yoke flowing out over the shoulder is not, and in a 1 cm slab it spans centimetres of radius
+    (round 6, Epic's hugging crew neck on box A: spread 3.1-3.9 cm at the side/back, 0-3 cm below the top, roll 6/6
+    on a collar the orchestrator passed by eye)."""
     cells = {}
-    for a, r, g in zip(axial, radial, angle):
-        if top - depth <= a <= top + 0.5:
+    if wall is None:
+        wall = [True] * len(axial)
+    for a, r, g, wl in zip(axial, radial, angle, wall):
+        if wl and top - depth <= a <= top + 0.5:
             cells.setdefault((int(math.floor((a - top) / cell[0])), int(math.floor(g / cell[1]))), []).append(r)
     worst, n, where = 0.0, 0, None
     for key, rs in cells.items():
@@ -210,7 +218,7 @@ def local_spread(axial: list, radial: list, angle: list, top: float, *, depth: f
 
 
 def collar_stats(axial: list, radial: list, gap: list, *, window=(-8.0, 4.0), ring_cm: float = 2.0,
-                 band_cm: float = 4.0, angle: list | None = None) -> dict:
+                 band_cm: float = 4.0, angle: list | None = None, wall: list | None = None) -> dict:
     """The collar band round the neck at one frame. Per garment vertex: `axial` = its height along the neck axis
     from neck_01 (cm, + towards the head), `radial` = its distance from that axis, `gap` = its distance to the skin
     (face or body). In the axial window, the RING is the innermost garment (radial within ring_cm of the smallest)
@@ -233,10 +241,14 @@ def collar_stats(axial: list, radial: list, gap: list, *, window=(-8.0, 4.0), ri
     out = {"n": len(ring), "gap_cm": round(percentile(ring, 0.75), 3),
            "spread_cm": round(percentile(band, 0.9) - percentile(band, 0.1), 3)}
     if angle is not None:
-        inw = [(a, r, g) for a, r, g, gp in zip(axial, radial, angle, gap) if window[0] <= a <= window[1] and gp == gp]
-        top = max(a for a, r, _ in inw if rmin - 0.5 <= r <= rmin + ring_cm)  # the ring's top: the collar's edge
-        sp, cells, where = local_spread([a for a, _, _ in inw], [r for _, r, _ in inw], [g for _, _, g in inw], top,
-                                        band_cm=band_cm)
+        wl = wall if wall is not None else [True] * len(axial)
+        inw = [(a, r, g, w) for a, r, g, gp, w in zip(axial, radial, angle, gap, wl) if window[0] <= a <= window[1]
+               and gp == gp]
+        top = max(a for a, r, _, _ in inw if rmin - 0.5 <= r <= rmin + ring_cm)  # the ring's top: the collar's edge
+        sp, cells, where = local_spread([x[0] for x in inw], [x[1] for x in inw], [x[2] for x in inw], top,
+                                        band_cm=band_cm, wall=[x[3] for x in inw] if wall is not None else None)
+        if wall is not None:
+            out["wall_verts"] = sum(1 for x in inw if x[3])
         out.update({"spread_window_cm": out["spread_cm"], "spread_cm": round(sp, 3) if cells else None,
                     "spread_cells": cells, "spread_where": where})
         if not cells:  # no place on the band had enough verts: NOT measured (never a silent 0 that passes)

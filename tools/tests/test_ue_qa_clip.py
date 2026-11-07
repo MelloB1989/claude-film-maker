@@ -332,3 +332,35 @@ def test_hem_angle_independent_of_the_body():
     assert st["angle_deg"] == pytest.approx(20.2, abs=0.1) and "ratio" not in st
     straight = GL.hem_stats([17.0] * 20, [16.0] * 20, upper_r=[16.6] * 20)
     assert straight["angle_deg"] < 3 and straight["ratio"] == pytest.approx(1.0625)
+
+
+def yoke(a, r, g, ang, n=72, top=0.0):
+    """The yoke of a crew neck flowing out over the shoulder at the side/back, inside the roll depth: a near-flat
+    surface 0.3-1.6 cm below the band's top, from just outside the band to 4 cm out (its normals ALONG the neck)."""
+    wall = [True] * len(a)
+    for k in range(n):
+        t = 2 * math.pi * k / n
+        if not (math.cos(t) > 0.3):  # one side only, like the shoulder
+            continue
+        for j in range(8):
+            a.append(top - 0.3 - 0.15 * j)
+            r.append(6.0 + 0.5 * j)
+            g.append(1.0)
+            ang.append(math.degrees(t) % 360)
+            wall.append(False)
+    return a, r, g, ang, wall
+
+
+def test_collar_roll_ignores_the_yoke_but_not_a_lip():
+    # round 6 box A: Epic's hugging crew neck read spread 3.1-3.9 cm at the side/back (roll 6/6) with gap 0.29-0.30:
+    # the yoke over the shoulder, not a layer. With the wall flags it is not judged; lips, folds, Fit5 still fail
+    a, r, g, ang, wall = yoke(*band())
+    assert GL.collar_stats(a, r, g, angle=ang)["roll"]  # without flags: the false roll
+    ok = GL.collar_stats(a, r, g, angle=ang, wall=wall)
+    assert not ok["roll"] and ok["spread_cm"] < 0.8 and ok["wall_verts"] < len(a), ok
+    a, r, g, ang, wall = yoke(*band(lip=1.8))
+    assert GL.collar_stats(a, r, g, angle=ang, wall=wall)["roll"]
+    a, r, g, ang, wall = yoke(*band(fold=1.6))
+    assert GL.collar_stats(a, r, g, angle=ang, wall=wall)["roll"]
+    a, r, g, ang, wall = yoke(*band(gap=2.447, lip=1.2))  # Fit5
+    assert GL.collar_stats(a, r, g, angle=ang, wall=wall)["roll"]
