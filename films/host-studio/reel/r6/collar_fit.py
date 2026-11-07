@@ -322,10 +322,32 @@ def _editor(G: dict):
         rs = sorted(fr0.cyl(inv_pos(T, p))[1] for p in F[::5] if 2.0 <= fr0.cyl(inv_pos(T, p))[0] <= 4.0)
         return {"neck_r_p50": round(rs[len(rs) // 2], 2) if rs else None, "n": len(rs)}
 
+    def crowd(allow_ref: bool):
+        """Other people on his mark (round 6: restage's Test_perf_Him and a stray FMQA ref face sat on it and every
+        measure and render was contaminated): any other actor within 1 m with a BP_Host class or a skeletal mesh named
+        like a face/body/his. Refuse to measure."""
+        here = host.get_actor_location()
+        bad = []
+        for x in EAS.get_all_level_actors():
+            if x == host or (allow_ref and x.get_actor_label() == REF_FACE):
+                continue
+            if (x.get_actor_location() - here).length() > 100.0:
+                continue
+            cls = x.get_class().get_name()
+            meshes = [c.get_skeletal_mesh_asset().get_name() for c in x.get_components_by_class(unreal.SkeletalMeshComponent)
+                      if c.get_skeletal_mesh_asset()]
+            if "Host" in cls or any(k in m for m in meshes for k in ("Face", "Body", "Host")):
+                bad.append(f"{x.get_actor_label()} ({cls})")
+        if bad:
+            raise RuntimeError(f"REFUSED: other actors with a face/body within 1 m of {label}: {bad}. Remove them "
+                               "(collar_fit.py cleanup removes FMQA_Neck*; others are the driver's call), then measure")
+
     stage = G.get("STAGE", "setup")
     host = actor(label)
     cs = comps(host)
     body = cs["Body"]
+    if stage in ("setup", "frame", "push", "verify", "probe"):
+        crowd(allow_ref=stage == "frame" and bool(G.get("FACE_REF")))
 
     if stage == "setup":
         # the rest neck frame: his Body mesh unanimated at the origin (ref pose), in spine_05's local space
