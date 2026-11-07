@@ -44,7 +44,9 @@ BOX_PROPS = "/srv/ue/explainer/props"
 REVIEW_S3 = f"{BUCKET}/private/renders/r6/review/explain/"
 ACTOR = {"her": "Presenter", "him": "Host"}
 SEQ = {"her": f"{FOLDER}/SEQ_Explain_Her", "him": f"{FOLDER}/SEQ_Explain_Him"}
-STEPS = ["level", "props", "light", "cameras", "seq", "save"]
+STEPS = ["level", "props", "light", "cameras", "seq", "dress", "save"]
+# the presenter's dress pass (leaders, hair look, accessories; saves the level) and what she wears, per presenter
+DRESS = {"her": HERE.parent / "props/her_outfit_ue/dress_her.py", "him": HERE.parent / "props/his_outfit_ue/dress_him.py"}
 client = None  # filmtools.unreal.client, imported once FILM_UE_BOX is set
 
 
@@ -117,6 +119,10 @@ for a in unreal.get_editor_subsystem(unreal.EditorActorSubsystem).get_all_level_
         a.tags = list(a.tags) + [unreal.Name("exp_sign_drop")]
         moved.append(lab)
 result = moved"""))
+    # the window's garden card dimmed in this level only (its own instance; the studio's MI_K_Outside is shared)
+    op("look.material", name="MI_Exp_Outside", kind="Screen", texture="/Game/Studio/Textures/T_Outside",
+       intensity=6.0, roughness=1.0, folder=f"{FOLDER}/Materials")
+    op("look.apply", label="Outside", material=f"{FOLDER}/Materials/MI_Exp_Outside", slot=0)
     who_actor = ACTOR[who]
     op("level.move", label=who_actor, loc=list(P.MARK), rot_={"pitch": 0.0, "yaw": P.YAW, "roll": 0.0})
     print("presenter:", ex(f"""from fmbridge.ops import level as L
@@ -250,6 +256,17 @@ def step_seq(who: str, edl_path: str | None, length: int) -> None:
     print(f"{seq}: 0-{end}, cuts {cuts}")
 
 
+def step_dress(who: str) -> None:
+    """Leaders back on every garment (any step that touches her components drops them: box B after agent-01's body
+    step), her hair look and accessories, the groom lock (render cvars) — then the leaders check must pass."""
+    ok(client.exec_code(DRESS[who].read_text()))
+    op("groom.lock", labels=[ACTOR[who]])
+    lead = op("mh.leader_check", label=ACTOR[who])
+    if not lead.get("pass"):
+        raise SystemExit(f"leaders: {lead}")
+    print("dressed, leaders pass, groom locked")
+
+
 def step_save() -> None:
     op("level.save")
     print("saved:", op("assets.save", folder=FOLDER).get("saved"))
@@ -342,7 +359,8 @@ def main() -> int:
             print(f"== {s}")
             {"level": lambda: step_level(a.who), "props": lambda: step_props(a.who),
              "light": lambda: step_light(a.who), "cameras": lambda: step_cameras(a.who),
-             "seq": lambda: step_seq(a.who, a.edl, a.length), "save": step_save}[s]()
+             "seq": lambda: step_seq(a.who, a.edl, a.length), "dress": lambda: step_dress(a.who),
+             "save": step_save}[s]()
     return 0
 
 
