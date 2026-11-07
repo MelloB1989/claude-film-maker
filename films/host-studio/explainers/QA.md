@@ -124,6 +124,16 @@ measures it. Calibrated on box B: the f300 speckle reads 3.10 and MCU_1330 reads
 0.689 on the finals-spec MCU test, which the orchestrator passed at 1:1. Measure the first and last frame of each final job; a FAIL re-renders that job. A FAIL blocks
 the 9-shot batch.
 
+**WIDE shots (the orchestrator's ruling, 07 Nov):** grain is read on flat patches only (the wall, plus a second
+plaster patch), with line **0.8**:
+
+- f300's wall at 1.002 must FAIL.
+- Netflix V2 shot 11 reads 0.55 and passes.
+
+At that scale the neck and desk patches hold texture (jaw line, hair edges, walnut pores), so they are reported as
+INFO. The evidence is the orchestrator's 1:1 look at shot 11 f1100: the desk shadow is smooth and the pores are real.
+Close shots stay at wall + neck ≤ 1.0.
+
 ### Exposure (agent-09 runs it on the box)
 
     python3 qa_av.py exposure <final frames> --shots shots.json --box <face box x0,y0,x1,y1> --out numbers/<film>/exposure.json

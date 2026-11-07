@@ -490,7 +490,7 @@
    "op": "<=",
    "line": 1.0,
    "unit": "8-bit levels",
-   "what": "pixel noise (unconverged stochastic shadows / dither) in fixed FLAT patches picked by projection through each shot camera (the back-wall plaster, under her jaw at neck_01 + 6 cm forward, the desk top before her hands in the WIDE): the worst patch's Immerkaer noise sigma",
+   "what": "CLOSE shots (MCU, CU, MCU_L): pixel noise in fixed flat patches by projection (the back-wall plaster, under her jaw at neck_01 + 6 cm forward): the worst patch's Immerkaer noise sigma",
    "where": "the first AND last frame of each final job (a FAIL re-renders that job), the finals-spec MCU test f29 before the batch",
    "how": "qa_av.py grain <full-res frames> --patches grain_patches.json (on box B: face data) -> numbers/<film>/grain.json",
    "must_fail": [
@@ -499,6 +499,38 @@
    ],
    "guard": true,
    "why": "the orchestrator, 07 Nov: an ABSOLUTE line sigma <= 1.0 (8-bit, flat patches) until a karma reference exists; f300 (3.10) and MCU_1330 (14.55) fail it, the finals-spec MCU test f29 (0.69, passed by eye at 1:1) passes"
+  },
+  "shot.grain_wide_sigma": {
+   "area": "shot",
+   "track": "agent-07 (box B)",
+   "op": "<=",
+   "line": 0.8,
+   "unit": "8-bit levels",
+   "what": "WIDE shots: the same noise sigma on FLAT patches only (the back-wall plaster right of the shelves, the higher plaster further right; no neck, no desk)",
+   "where": "the first AND last frame of each WIDE final job (a FAIL re-renders that job)",
+   "how": "qa_av.py grain <frames> --patches grain_patches_wide.json (wall, wall2) -> numbers/<film>/grain.json",
+   "must_fail": [
+    1.002,
+    "netflix r6c WIDE f300's wall (wall2 0.606): the speckle"
+   ],
+   "guard": true,
+   "why": "the orchestrator's ruling (07 Nov), a measure scope change: at WIDE scale the neck and desk patches hold texture (jaw line, hair edge, walnut pores), so they are INFO; evidence = the orchestrator's 1:1 look at shot 11 f1100 (orch/wide_1100.png): the desk shadow smooth, the pores real, face, hair and wall clean. Netflix V2 shot 11 reads 0.552/0.543 (wall2 0.377/0.386): PASS"
+  },
+  "shot.grain_wide_texture": {
+   "area": "shot",
+   "track": "agent-07 (box B)",
+   "op": "<=",
+   "line": 1.0,
+   "unit": "8-bit levels",
+   "info": true,
+   "what": "WIDE shots' neck and desk patches (texture at that scale), reported beside the flat-patch row",
+   "where": "each WIDE final job",
+   "how": "qa_av.py grain (neck, desk patches)",
+   "r4": [
+    null,
+    "netflix V2 shot 11: desk 1.28/1.05, neck 1.80/1.79 (v1's WIDE read 1.58, passed by eye)"
+   ],
+   "why": "the orchestrator's ruling: INFO, texture not noise at WIDE scale"
   }
  },
  "not_attempted": {
