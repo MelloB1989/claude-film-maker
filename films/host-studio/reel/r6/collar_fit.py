@@ -383,6 +383,45 @@ def _editor(G: dict):
                     "max": round(x[-1], 3)} if x else {"n": 0}
         return {"collar_zone": st(inside), "elsewhere": st(outside)}
 
+    if stage == "probe":
+        # where each part really is at this frame: component world location, posed bbox, and (torso neck frame) the
+        # mean radial offset of its verts in the slab 0..4 cm above neck_01: a neck centred on the axis reads ~0-3 cm
+        Ts = body.get_socket_transform("spine_05", W)
+        out = {"neck_01": str(body.get_socket_location("neck_01")), "head": str(body.get_socket_location("head")),
+               "spine_05": str(Ts.translation)}
+        for name, c in (("Body", body), ("Face", cs["Face"]), ("tee", tee_comp(cs))):
+            row = {"comp_world": str(c.get_world_transform().translation)}
+            for world in (True, False):
+                opts = unreal.GeometryScriptCopyMeshFromComponentOptions()
+                lod = unreal.GeometryScriptMeshReadLOD()
+                lod.set_editor_property("lod_type", unreal.GeometryScriptLODType.RENDER_DATA)
+                lod.set_editor_property("lod_index", 0)
+                opts.set_editor_property("requested_lod", lod)
+                dm = unreal.DynamicMesh()
+                SU.copy_mesh_from_component(c, dm, opts, world)
+                V = verts(dm)
+                if not V:
+                    row[f"world_{world}"] = "empty"
+                    continue
+                xs, ys, zs = [p.x for p in V], [p.y for p in V], [p.z for p in V]
+                slab = []
+                for p in V[::3]:
+                    t, r, th, rad = fr.cyl(inv_pos(Ts, p))
+                    if 0.0 <= t <= 4.0 and r <= R_MAX:
+                        slab.append((r, th, rad))
+                mx = sum(x[2].x for x in slab) / max(1, len(slab))
+                my = sum(x[2].y for x in slab) / max(1, len(slab))
+                mz = sum(x[2].z for x in slab) / max(1, len(slab))
+                rs = sorted(x[0] for x in slab)
+                row[f"world_{world}"] = {
+                    "n": len(V), "min": [round(min(xs), 1), round(min(ys), 1), round(min(zs), 1)],
+                    "max": [round(max(xs), 1), round(max(ys), 1), round(max(zs), 1)],
+                    "slab_n": len(slab), "slab_r_p10_p50_p90": [round(rs[int(k * (len(rs) - 1))], 2) for k in
+                                                                (0.1, 0.5, 0.9)] if rs else None,
+                    "slab_mean_dir_len": round((mx * mx + my * my + mz * mz) ** 0.5, 2)}
+            out[name] = row
+        return out
+
     if stage == "cleanup":
         gone = []
         for lab in (REF_FACE, REF_BODY, NEW_TEE):
@@ -446,6 +485,10 @@ def main(argv=None) -> int:
     v.add_argument("--from", dest="src", required=True)
     v.add_argument("--frames", default="1128,1397")
     v.add_argument("--seq", default="/Game/Reel/SEQ_Reel")
+    pr = sub.add_parser("probe", help="where Body/Face/tee really are at a frame (diagnostic)")
+    pr.add_argument("--from", dest="src", required=True)
+    pr.add_argument("--frames", default="1150,1500")
+    pr.add_argument("--seq", default="/Game/Reel/SEQ_Reel")
     sub.add_parser("cleanup")
     a = ap.parse_args(argv)
     if a.box != "conf":
@@ -507,6 +550,13 @@ def main(argv=None) -> int:
         (out / "need.json").write_text(json.dumps({"need": need, "where": where, "clear": a.clear,
                                                    "frames": frames, "summary": s}))
         print(json.dumps(s, indent=1))
+        return 0
+    if a.cmd == "probe":
+        setup = json.loads((Path(a.src) / "setup.json").read_text())
+        for f in (int(x) for x in a.frames.split(",") if x):
+            for ff in (f + 1, f):
+                client.op("seq.scrub", path=a.seq, frame=ff)
+            print(f"probe f{f}:", json.dumps(_exec(client, "probe", FRAME=setup["frame"]), indent=1))
         return 0
     if a.cmd == "verify":
         src = Path(a.src)
