@@ -1,0 +1,535 @@
+{
+ "source": "fleet/agent-11/r6-explainers films/host-studio/explainers/edl/whatsapp.json",
+ "fps": 24,
+ "shots": [
+  {
+   "gfx": "title",
+   "kind": "gfx",
+   "f0": 93,
+   "f1": 152,
+   "frames": 59,
+   "text": "And almost none of them stay on its servers.",
+   "words": [
+    {
+     "w": "and",
+     "f": 4
+    },
+    {
+     "w": "almost",
+     "f": 14
+    },
+    {
+     "w": "none",
+     "f": 24
+    },
+    {
+     "w": "of",
+     "f": 27
+    },
+    {
+     "w": "them",
+     "f": 30
+    },
+    {
+     "w": "stay",
+     "f": 34
+    },
+    {
+     "w": "on",
+     "f": 39
+    },
+    {
+     "w": "its",
+     "f": 42
+    },
+    {
+     "w": "servers",
+     "f": 45
+    }
+   ]
+  },
+  {
+   "gfx": "connect",
+   "kind": "panel",
+   "f0": 179,
+   "f1": 273,
+   "frames": 94,
+   "text": "Open the app, and your phone keeps one connection open to WhatsApp.",
+   "words": [
+    {
+     "w": "open",
+     "f": 9
+    },
+    {
+     "w": "the",
+     "f": 17
+    },
+    {
+     "w": "app",
+     "f": 20
+    },
+    {
+     "w": "and",
+     "f": 31
+    },
+    {
+     "w": "your",
+     "f": 36
+    },
+    {
+     "w": "phone",
+     "f": 39
+    },
+    {
+     "w": "keeps",
+     "f": 46
+    },
+    {
+     "w": "one",
+     "f": 54
+    },
+    {
+     "w": "connection",
+     "f": 59
+    },
+    {
+     "w": "open",
+     "f": 70
+    },
+    {
+     "w": "to",
+     "f": 76
+    },
+    {
+     "w": "whatsapp",
+     "f": 79
+    }
+   ]
+  },
+  {
+   "gfx": "erlang",
+   "kind": "gfx",
+   "f0": 273,
+   "f1": 422,
+   "frames": 149,
+   "text": "On the server, each connection is its own tiny Erlang process. One server once held two million of them.",
+   "words": [
+    {
+     "w": "on",
+     "f": 4
+    },
+    {
+     "w": "the",
+     "f": 9
+    },
+    {
+     "w": "server",
+     "f": 12
+    },
+    {
+     "w": "each",
+     "f": 28
+    },
+    {
+     "w": "connection",
+     "f": 33
+    },
+    {
+     "w": "is",
+     "f": 44
+    },
+    {
+     "w": "its",
+     "f": 47
+    },
+    {
+     "w": "own",
+     "f": 51
+    },
+    {
+     "w": "tiny",
+     "f": 58
+    },
+    {
+     "w": "erlang",
+     "f": 68
+    },
+    {
+     "w": "process",
+     "f": 76
+    },
+    {
+     "w": "one",
+     "f": 95
+    },
+    {
+     "w": "server",
+     "f": 100
+    },
+    {
+     "w": "once",
+     "f": 109
+    },
+    {
+     "w": "held",
+     "f": 114
+    },
+    {
+     "w": "two",
+     "f": 119
+    },
+    {
+     "w": "million",
+     "f": 124
+    },
+    {
+     "w": "of",
+     "f": 132
+    },
+    {
+     "w": "them",
+     "f": 135
+    }
+   ]
+  },
+  {
+   "gfx": "store",
+   "kind": "gfx",
+   "f0": 480,
+   "f1": 614,
+   "frames": 134,
+   "text": "Then it goes straight down their connection. If not, it waits. And once it's delivered, it's deleted.",
+   "words": [
+    {
+     "w": "then",
+     "f": 4
+    },
+    {
+     "w": "it",
+     "f": 9
+    },
+    {
+     "w": "goes",
+     "f": 12
+    },
+    {
+     "w": "straight",
+     "f": 17
+    },
+    {
+     "w": "down",
+     "f": 25
+    },
+    {
+     "w": "their",
+     "f": 30
+    },
+    {
+     "w": "connection",
+     "f": 34
+    },
+    {
+     "w": "if",
+     "f": 54
+    },
+    {
+     "w": "not",
+     "f": 59
+    },
+    {
+     "w": "it",
+     "f": 68
+    },
+    {
+     "w": "waits",
+     "f": 72
+    },
+    {
+     "w": "and",
+     "f": 85
+    },
+    {
+     "w": "once",
+     "f": 89
+    },
+    {
+     "w": "it's",
+     "f": 94
+    },
+    {
+     "w": "delivered",
+     "f": 99
+    },
+    {
+     "w": "it's",
+     "f": 110
+    },
+    {
+     "w": "deleted",
+     "f": 115
+    }
+   ]
+  },
+  {
+   "gfx": "ticks",
+   "kind": "panel",
+   "f0": 614,
+   "f1": 769,
+   "frames": 155,
+   "text": "Your ticks? One: the server has it. Two: it reached their phone. Blue: they've read it.",
+   "words": [
+    {
+     "w": "your",
+     "f": 9
+    },
+    {
+     "w": "ticks",
+     "f": 15
+    },
+    {
+     "w": "one",
+     "f": 32
+    },
+    {
+     "w": "the",
+     "f": 44
+    },
+    {
+     "w": "server",
+     "f": 48
+    },
+    {
+     "w": "has",
+     "f": 57
+    },
+    {
+     "w": "it",
+     "f": 62
+    },
+    {
+     "w": "two",
+     "f": 72
+    },
+    {
+     "w": "it",
+     "f": 87
+    },
+    {
+     "w": "reached",
+     "f": 92
+    },
+    {
+     "w": "their",
+     "f": 99
+    },
+    {
+     "w": "phone",
+     "f": 102
+    },
+    {
+     "w": "blue",
+     "f": 118
+    },
+    {
+     "w": "they've",
+     "f": 133
+    },
+    {
+     "w": "read",
+     "f": 139
+    },
+    {
+     "w": "it",
+     "f": 144
+    }
+   ]
+  },
+  {
+   "gfx": "group",
+   "kind": "gfx",
+   "f0": 769,
+   "f1": 870,
+   "frames": 101,
+   "text": "In a group, your phone encrypts once. The server fans it out to everyone.",
+   "words": [
+    {
+     "w": "in",
+     "f": 9
+    },
+    {
+     "w": "a",
+     "f": 13
+    },
+    {
+     "w": "group",
+     "f": 15
+    },
+    {
+     "w": "your",
+     "f": 21
+    },
+    {
+     "w": "phone",
+     "f": 24
+    },
+    {
+     "w": "encrypts",
+     "f": 31
+    },
+    {
+     "w": "once",
+     "f": 41
+    },
+    {
+     "w": "the",
+     "f": 52
+    },
+    {
+     "w": "server",
+     "f": 56
+    },
+    {
+     "w": "fans",
+     "f": 64
+    },
+    {
+     "w": "it",
+     "f": 70
+    },
+    {
+     "w": "out",
+     "f": 72
+    },
+    {
+     "w": "to",
+     "f": 76
+    },
+    {
+     "w": "everyone",
+     "f": 80
+    }
+   ]
+  },
+  {
+   "gfx": "e2e",
+   "kind": "gfx",
+   "f0": 929,
+   "f1": 997,
+   "frames": 68,
+   "text": "The Signal protocol keeps the keys on your phones.",
+   "words": [
+    {
+     "w": "the",
+     "f": 4
+    },
+    {
+     "w": "signal",
+     "f": 8
+    },
+    {
+     "w": "protocol",
+     "f": 16
+    },
+    {
+     "w": "keeps",
+     "f": 28
+    },
+    {
+     "w": "the",
+     "f": 34
+    },
+    {
+     "w": "keys",
+     "f": 37
+    },
+    {
+     "w": "on",
+     "f": 43
+    },
+    {
+     "w": "your",
+     "f": 46
+    },
+    {
+     "w": "phones",
+     "f": 49
+    }
+   ]
+  },
+  {
+   "gfx": "media",
+   "kind": "panel",
+   "f0": 997,
+   "f1": 1121,
+   "frames": 124,
+   "text": "Photos go to a blob store, encrypted. Only the key rides in the message.",
+   "words": [
+    {
+     "w": "photos",
+     "f": 9
+    },
+    {
+     "w": "go",
+     "f": 21
+    },
+    {
+     "w": "to",
+     "f": 25
+    },
+    {
+     "w": "a",
+     "f": 29
+    },
+    {
+     "w": "blob",
+     "f": 31
+    },
+    {
+     "w": "store",
+     "f": 39
+    },
+    {
+     "w": "encrypted",
+     "f": 49
+    },
+    {
+     "w": "only",
+     "f": 75
+    },
+    {
+     "w": "the",
+     "f": 82
+    },
+    {
+     "w": "key",
+     "f": 85
+    },
+    {
+     "w": "rides",
+     "f": 92
+    },
+    {
+     "w": "in",
+     "f": 101
+    },
+    {
+     "w": "the",
+     "f": 103
+    },
+    {
+     "w": "message",
+     "f": 105
+    }
+   ]
+  },
+  {
+   "gfx": "end",
+   "kind": "gfx",
+   "f0": 1323,
+   "f1": 1359,
+   "frames": 36,
+   "text": "",
+   "words": []
+  }
+ ]
+}
