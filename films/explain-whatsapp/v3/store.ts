@@ -94,7 +94,7 @@ export default class Store extends WaShot {
     const D = 6;
     this.on = this.own(new Label('ONLINE', { size: em(40, D), family: F.mono(500), role: 'accent', k: 1.3, tracking: 0.08 }));
     this.off = this.own(new Label('OFFLINE', { size: em(40, D), family: F.mono(500), role: AMBER as `#${string}`, k: 1.3, tracking: 0.08 }));
-    for (const l of [this.on, this.off]) l.group.position.set(FRD[0] - 0.05, 1.95, FRD[2]);
+    for (const l of [this.on, this.off]) l.group.position.set(FRD[0] - 0.25, 1.95, FRD[2]);
     this.waits = this.own(new Label('WAITS', { size: em(60, 4.6), family: F.mono(500), role: AMBER as `#${string}`, k: 1.4, align: 'left', tracking: 0.08 }));
     this.waits.group.position.set(PARK[0] + 0.5, PARK[1] - 0.1, PARK[2]);
     const DH = 9.5;
@@ -154,8 +154,10 @@ export default class Store extends WaShot {
       { text: 'see you at 8?', k: expo(t, T[1]!.arr, 0.25) },
     ] }, 1.2 + 0.8 * Math.exp(-Math.max(0, t - T[0]!.arr) * 6) + 0.8 * Math.exp(-Math.max(0, t - T[1]!.arr) * 6));
     this.server.pose(t, 0.5 + 0.5 * Math.exp(-Math.abs(t - T[0]!.srv) * 4) + 0.5 * Math.exp(-Math.abs(t - T[1]!.srv) * 4));
-    this.on.pose(t, 0.15, 'rise', expo(t, 0.15, 0.2) * (1 - offline));
-    this.off.pose(t, ifT + 0.1, 'drop', offline);
+    // off while the camera is in close on the slot (the friend's phone is at the frame's edge there)
+    const close = expo(t, waits - 0.4, 0.2) * (1 - expo(t, delv - 0.2, 0.2));
+    this.off.pose(t, ifT + 0.1, 'drop', offline * (1 - close));
+    this.on.pose(t, 0.15, 'rise', expo(t, 0.15, 0.2) * (1 - offline) * (1 - close));
     // the links: sender's draws first, friend's goes dark while they're away
     this.beamA.pose(t, 0.05, 0.4, 1 + 0.3 * Math.sin(t * 7) ** 2);
     this.beamB.pose(t, 0.12, 0.4, (1 - 0.85 * offline) * (1 + 0.3 * Math.sin(t * 7 + 1) ** 2));

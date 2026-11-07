@@ -11,7 +11,7 @@ import { F } from '@engine/type';
 import { Mat } from '@engine/type3d';
 
 const D = 7.5;
-const B: V3 = [0.05, 0.3, 0];
+const B: V3 = [0.05, 0.2, 0];
 const BW = 2.3, BH = 0.86;
 
 export default class Ticks extends WaShot {
@@ -58,10 +58,10 @@ export default class Ticks extends WaShot {
     this.bag.own(this.blueMat);
     heads.forEach((h, i) => {
       const k = this.own(new KineticText(h, { size: em(64, D), align: 'center', accentWords: i === 2 ? [0] : [], accentMat: i === 2 ? this.blueMat : undefined }));
-      k.group.position.set(0, -0.47, 0.1);
+      k.group.position.set(0, -0.53, 0.1);
       this.heads.push(k);
       const b = this.own(new Label(bodies[i]!, { size: em(46, D), role: 'fgDim', align: 'center' }));
-      b.group.position.set(0, -0.75, 0.1);
+      b.group.position.set(0, -0.8, 0.1);
       this.bodies.push(b);
       s.add(k.group, b.group);
     });
@@ -71,20 +71,20 @@ export default class Ticks extends WaShot {
     [-1.0, 0, 1.0].forEach((x, i) => {
       const m = this.bag.own(new THREE.MeshPhysicalMaterial({ color: hdr('#2A211B', 1), emissive: hdr(GREEN), emissiveIntensity: 0, roughness: 0.4, clearcoat: 0.8 }));
       const n = new THREE.Mesh(i === 1 ? sg : ng, m);
-      n.position.set(x, -1.04, 0);
+      n.position.set(x, -1.08, 0);
       this.nodes.push(n);
       this.nodeMats.push(m);
       s.add(n);
     });
     for (let i = 0; i < 2; i++) {
-      const a = new THREE.Vector3(-1.0 + i + 0.17, -1.04, 0), b = new THREE.Vector3(i - 0.17 + 0.0 + (i === 0 ? -0.03 : 0.03) + (i === 0 ? 0 : 0) , -1.04, 0);
+      const a = new THREE.Vector3(-1.0 + i + 0.17, -1.08, 0), b = new THREE.Vector3(i - 0.17 + 0.0 + (i === 0 ? -0.03 : 0.03) + (i === 0 ? 0 : 0) , -1.08, 0);
       b.x = i === 0 ? -0.2 : 0.83;
       const l = this.own(new Beam(new THREE.LineCurve3(a, b), { radius: 0.012, k: 3 }));
       this.legs.push(l);
       s.add(l.mesh);
     }
     this.kicker = this.own(new Label('READ RECEIPTS', { size: em(40, D), family: F.mono(500), role: 'accent', k: 1.2, align: 'left', tracking: 0.08 }));
-    this.kicker.group.position.set(-1.42, 0.86, 0);
+    this.kicker.group.position.set(-1.42, 0.76, 0);
     s.add(this.kicker.group);
     this.frame({ centre: [0, 0, 0], w: 3.2, h: 2.4 });
     const one = this.cue('one', 1.33), two = this.cue('two', 3.0), blue = this.cue('blue', 4.92);

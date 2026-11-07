@@ -85,11 +85,11 @@ export default class Media extends WaShot {
     s.add(this.msg);
     // labels
     this.kicker = this.own(new Label('PHOTOS & VIDEO', { size: em(40, D), family: F.mono(500), role: 'accent', k: 1.2, align: 'left', tracking: 0.08 }));
-    this.kicker.group.position.set(-1.42, 0.86, 0);
+    this.kicker.group.position.set(-1.42, 0.76, 0);
     this.blobL = this.own(new Label('blob store', { size: em(48, D), role: 'fg', align: 'center' }));
-    this.blobL.group.position.set(BLOB[0] + 0.02, 0.66, BLOB[2] + 0.1);
+    this.blobL.group.position.set(BLOB[0] + 0.05, 0.53, BLOB[2] + 0.1);
     this.cdn = this.own(new Label('SERVED VIA CDN', { size: em(40, D), family: F.mono(500), role: 'accent', k: 1.2, align: 'left', tracking: 0.08 }));
-    this.cdn.group.position.set(-1.42, 0.86, 0);
+    this.cdn.group.position.set(-1.42, 0.76, 0);
     this.pill = this.own(new Label('KEY + LINK', { size: em(40, D), family: F.mono(500), role: 'accent', k: 1.3, align: 'center', tracking: 0.06 }));
     for (const k of [this.kicker, this.blobL, this.cdn, this.pill]) s.add(k.group);
     this.frame({ centre: [0, 0, 0], w: 3.2, h: 2.4 });

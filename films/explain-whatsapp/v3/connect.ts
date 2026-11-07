@@ -43,11 +43,11 @@ export default class Connect extends WaShot {
     s.add(this.beam.mesh, this.up.mesh, this.down.mesh);
     const x0 = -1.42;
     this.kicker = this.own(new Label('ALWAYS-ON LINK', { size: em(40, D), family: F.mono(500), role: 'accent', k: 1.2, align: 'left', tracking: 0.06 }));
-    this.kicker.group.position.set(x0, 0.8, 0);
+    this.kicker.group.position.set(x0, 0.7, 0);
     this.l1 = this.own(new KineticText('One connection,', { size: em(64, D), align: 'left', accentWords: [0] }));
-    this.l1.group.position.set(x0, 0.4, 0);
+    this.l1.group.position.set(x0, 0.33, 0);
     this.l2 = this.own(new KineticText('always open', { size: em(64, D), align: 'left', accentWords: [1] }));
-    this.l2.group.position.set(x0, 0.07, 0);
+    this.l2.group.position.set(x0, 0.01, 0);
     this.srvLabel = this.own(new Label('server', { size: em(44, D), role: 'fgDim', align: 'center' }));
     this.srvLabel.group.position.set(SV[0] + 0.12, SV[1] + 0.86, SV[2] + 0.3);
     for (const k of [this.kicker, this.l1, this.l2, this.srvLabel]) s.add(k.group);

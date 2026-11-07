@@ -139,8 +139,9 @@ export default class Group extends WaShot {
       f.pose(t, fans + 0.1 + i * 0.03);
     });
     // type
-    this.l1.enter(t, [enc - 0.02, once], 'rise');
-    this.l1.emphasis(t, once + 0.05, 1);
+    // the headline waits for the camera to pull back from the close-up on the lock (it would sit cut by the top edge)
+    this.l1.enter(t, [once + 0.2, once + 0.32], 'rise');
+    this.l1.emphasis(t, once + 0.4, 1);
     this.l2.enter(t, [fans, this.cue('out', 3.0)], 'rise');
     this.l2.emphasis(t, this.cue('out', 3.0) + 0.05, 1.2);
     this.tag.pose(t, every, 'rise', expo(t, every - 0.05, 0.2));
