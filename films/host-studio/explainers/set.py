@@ -54,8 +54,8 @@ def ok(res: dict):
     return res.get("result")
 
 
-def op(name, **kw):
-    return ok(client.op(name, **kw))
+def op(op_name, /, **kw):
+    return ok(client.op(op_name, **kw))
 
 
 def ex(code: str):
@@ -87,8 +87,12 @@ def guard(box: str, instance: str) -> None:
 def step_level(who: str) -> None:
     exists = ex(f"import unreal\nresult = unreal.EditorAssetLibrary.does_asset_exist({LEVEL!r})")
     if not exists:
-        op("assets.duplicate", src=STUDIO, dst=LEVEL)
-        print(f"duplicated {STUDIO} -> {LEVEL}")
+        # save-as from the open Studio: assets.duplicate of the loaded map, then level.open of the copy, kills the
+        # editor (EditorServer.cpp:2544, the old world still referenced) every time (box B, 16:47 and 16:48 IST)
+        op("level.open", path=STUDIO)
+        ex("import unreal\nw = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world()\n"
+           f"result = unreal.EditorLoadingAndSavingUtils.save_map(w, {LEVEL!r})")
+        print(f"saved {STUDIO} as {LEVEL}")
     op("level.open", path=LEVEL)
     labels = [a[0] for a in op("level.actors")]
     other = ACTOR["him" if who == "her" else "her"]

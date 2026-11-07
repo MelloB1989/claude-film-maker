@@ -104,7 +104,7 @@ def cameras(who: str) -> dict:
     plan = {  # az, el, distance from the look point, focal, f-stop, look point
         "CAM_MCU": (-20.0, 2.5, 165.0, 60.0, 2.0, (eyes[0], eyes[1], eyes[2] - 7.0)),
         "CAM_CU": (-17.0, 2.0, 128.0, 85.0, 2.0, (eyes[0], eyes[1], eyes[2] - 4.0)),
-        "CAM_WIDE": (-9.0, 4.0, 320.0, 35.0, 2.8, (eyes[0] + 12.0, eyes[1] + 8.0, eyes[2] - 30.0)),
+        "CAM_WIDE": (-14.0, 4.0, 320.0, 35.0, 2.8, (eyes[0] + 12.0, eyes[1] + 8.0, eyes[2] - 30.0)),
     }
     out = {}
     for name, (az, el, dist, focal, stop, look) in plan.items():
@@ -130,7 +130,7 @@ def lights(who: str) -> dict:
     return {
         "ExpKey": dict(kind="rect", loc=_orbit(f, 45.0, 28.0, 175.0), look_at=f, intensity=cd(9.0, 190.0, 175.0),
                        temperature=5200, width=160, height=120, barn_angle=75),
-        "ExpFill": dict(kind="rect", loc=_orbit(f, -55.0, 8.0, 230.0), look_at=f, intensity=cd(1.3, 221.0, 230.0),
+        "ExpFill": dict(kind="rect", loc=_orbit(f, -55.0, 8.0, 230.0), look_at=f, intensity=cd(3.4, 221.0, 230.0),
                         temperature=5000, width=180, height=180, specular=0.25),
         "ExpRim": dict(kind="rect", loc=_orbit(f, -145.0, 18.0, 150.0), look_at=(f[0], f[1], f[2] - 6.0),
                        intensity=cd(3.0, 181.0, 150.0), temperature=3100, width=25, height=120, barn_angle=50),
