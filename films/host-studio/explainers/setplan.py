@@ -142,8 +142,10 @@ def cameras(who: str) -> dict:
     plan = {  # az, el, distance from the look point, focal, f-stop, look point
         "CAM_MCU": (26.0, 2.5, 175.0, 60.0, 2.0, (eyes[0], eyes[1], eyes[2] - 7.0)),
         "CAM_CU": (17.0, 2.0, 128.0, 85.0, 2.0, (eyes[0], eyes[1], eyes[2] - 4.0)),
+        # r6 (the operator: the desk front looked weird): higher and tighter, the desk top's front edge in the lower
+        # third, the set behind her; within 1° of CAM_MCU_L (her look to the lens across the 43.3 s cut)
         # within 4° of CAM_MCU_L (her look to the lens across the 43.3 s cut) and the window just out of frame
-        "CAM_WIDE": (24.0, 4.0, 320.0, 35.0, 2.8, (eyes[0] + 12.0, eyes[1] - 30.0, eyes[2] - 38.0)),
+        "CAM_WIDE": (22.0, 14.0, 230.0, 35.0, 2.8, (eyes[0] + 8.0, eyes[1] - 16.0, eyes[2] - 22.0)),
     }
     out = {}
     for name, (az, el, dist, focal, stop, look) in plan.items():
@@ -259,9 +261,9 @@ def check(who: str) -> list:
         head = min(abs(p[0] - eu) for p in sp)
         rows.append((f"{name} sign wholly in (clear of the head) or wholly out", n_in == 0 or (n_in == len(sp)
                      and head > 0.12), f"{n_in}/{len(sp)} sign points in frame, nearest to the eyes {head:.2f}"))
-        if name == "CAM_WIDE":
-            cu, cv, _ = project(cam, (MARK[0], MARK[1], 0.0))
-            rows.append(("CAM_WIDE chair feet in frame", 0.0 < cu < 1.0 and cv < 0.98, f"u {cu:.3f} v {cv:.3f}"))
+        if name == "CAM_WIDE":  # r6: the desk front small in frame (its top's camera-side edge in the lower third)
+            dv = [project(cam, (DESK_C[0] + 27.5, y, DESK_TOP))[1] for y in (DESK_C[1] - 55, DESK_C[1], DESK_C[1] + 55)]
+            rows.append(("CAM_WIDE desk front in the lower third", min(dv) >= 0.67, f"v {[round(v, 3) for v in dv]}"))
     for name, cam in cams.items():  # the desk plant stays off her face and mouth
         x, y, _ = PROPS["ExpPlant"][1]
         mu, mv, _ = project(cam, fc["mouth"])
