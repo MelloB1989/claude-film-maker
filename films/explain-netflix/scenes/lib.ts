@@ -12,9 +12,11 @@
 //          presenter.
 // Every scene authors its beats in NOMINAL seconds (`nominal`); a shot given another length plays them scaled to
 // fit, so a retime to the cue sheet is a `length` change only.
+import { THREE } from '@engine/three';
 import { Scene2D, glowInk, type Frame } from '@kit/scene2d';
-import { W, H } from '@engine/gl';
-import { rgba } from '@engine/palette';
+import { W, H, Layer2D } from '@engine/gl';
+import { rgba, LIN } from '@engine/palette';
+import { Stage } from '@engine/stage';
 import { F, font } from '@engine/type';
 import { clamp, ease, hash, lerp, mulberry32, noise1, smoothstep, TAU } from '@engine/util';
 
@@ -32,6 +34,28 @@ export const land = (t: number, at: number, dur = 0.7) => {
 };
 
 export interface Look { matte: '' | 'black' | 'grey'; panel: boolean }
+
+// ——— the 3D stage (full-frame shots) ————————————————————————————————————————————————————————————————————————
+// A full-frame shot is drawn on five 2D layers that stand at different depths in front of a perspective camera, so a
+// slow camera move gives real parallax and the engine's depth of field focuses on the diagram:
+//   studio  z = -0.8   the warm ground, grid and bokeh (far: well out of focus)
+//   back    z = -0.03  cards and panels (card() draws here): the content floats a little in front of its card
+//   mid     z = 0      the diagram (in focus)
+//   glow    z = 0.002  the glow layer, added as light at the glow level (it blooms in the post)
+//   front   z = +0.018 headings and pills (heading(), pill())
+// Each plane is scaled so that at rest (the camera at D on the axis) it maps to the frame exactly as the flat layout.
+const D = 1, FOV = 24;
+const Z = { studio: -0.8, back: -0.03, mid: 0, glow: 0.002, front: 0.018 } as const;
+/** Where card() and pill()/heading() draw while a 3D frame is drawn (null: on the context they are given). */
+let BACK: Ctx | null = null, FRONT: Ctx | null = null;
+/** Draw on `to` (when set) with `c`'s transform and alpha. */
+function on(c: Ctx, to: Ctx | null, draw: (x: Ctx) => void) {
+  if (!to) return draw(c);
+  to.save(); to.setTransform(c.getTransform()); to.globalAlpha = c.globalAlpha;
+  draw(to);
+  to.restore();
+}
+interface S3 { stage: Stage; layers: Record<keyof typeof Z, Layer2D> }
 
 export abstract class NfScene extends Scene2D {
   /** The beats' timebase: the shot's length they were authored for (s). */
@@ -51,6 +75,72 @@ export abstract class NfScene extends Scene2D {
     const ws = this.p<{ w: string; f: number }[]>('words', []).filter((w) => norm(w.w) === norm(word));
     const w = ws[nth];
     return w ? (w.f + lag) / 24 : fb;
+  }
+
+  private s3: S3 | null = null;
+
+  override render(f: Frame, out: THREE.WebGLRenderTarget) {
+    if (this.p('matte', '') || this.p('panel', false) || this.p('flat', false)) return super.render(f, out);
+    const S = (this.s3 ??= this.build3d());
+    const L = S.layers;
+    for (const l of Object.values(L)) l.clear();
+    this.look = { matte: '', panel: false };
+    const len = Math.max(0.1, f.end - f.start);
+    this.t = f.lt;
+    const k = ease.inOutQuad(clamp(f.lt / len));
+    this.studio(L.studio.ctx, L.glow.ctx, f, k);
+    BACK = L.back.ctx; FRONT = L.front.ctx;
+    try { this.scene(L.mid.ctx, L.glow.ctx, this.t, f); } finally { BACK = FRONT = null; }
+    for (const l of Object.values(L)) l.upload();
+    // the camera: a slow dolly in with a lateral drift (its side seeded by the shot), breathing a little
+    const side = hash(this.ctx.id.length, this.ctx.id.charCodeAt(0)) < 0.5 ? -1 : 1;
+    const mv = this.p('move', 1);
+    const cam = S.stage.camera;
+    const x = side * mv * lerp(-0.045, 0.045, k) + 0.004 * noise1(f.t * 0.3, 1);
+    const y = mv * lerp(0.022, -0.012, k) + 0.003 * noise1(f.t * 0.27, 2);
+    cam.position.set(x, y, D * lerp(1.035, 0.975, k));
+    cam.lookAt(x * 0.35, y * 0.35, 0);
+    cam.updateMatrixWorld();
+    S.stage.render(out, { dof: { focus: S.stage.depthOf([0, 0, 0]), fstop: this.p('fstop', 2.0), maxBlurPx: 30 } });
+  }
+
+  private build3d(): S3 {
+    const stage = new Stage(this.ctx.renderer, { fov: FOV, near: 0.02, far: 10, background: LIN.bg, envIntensity: 0 });
+    const ppu = H / (2 * D * Math.tan((FOV * Math.PI) / 360));
+    const layers = {} as S3['layers'];
+    const order: (keyof typeof Z)[] = ['studio', 'back', 'mid', 'glow', 'front'];
+    order.forEach((key, i) => {
+      const l = (layers[key] = new Layer2D());
+      const z = Z[key], extra = key === 'studio' ? 1.3 : 1;
+      const sc = ((D - z) / D) * extra;
+      const glowL = key === 'glow' ? this.glowLevel : 1;
+      const mat = new THREE.MeshBasicMaterial({
+        map: l.texture, transparent: key !== 'studio', toneMapped: false, alphaTest: key === 'glow' ? 0 : 0.004,
+        depthWrite: key !== 'glow', color: new THREE.Color(glowL, glowL, glowL),
+        blending: key === 'glow' ? THREE.AdditiveBlending : THREE.NormalBlending,
+      });
+      // the layers were drawn to be mixed as display values (Canvas2D); the stage blends linear light, where a faint
+      // wash (a 4 % fill) shows far brighter. Over a dark ground, alpha^2.2 mixes in light what alpha mixed on screen.
+      if (key !== 'glow' && key !== 'studio') {
+        mat.onBeforeCompile = (sh) => {
+          sh.fragmentShader = sh.fragmentShader.replace('#include <alphatest_fragment>', 'diffuseColor.a = pow(diffuseColor.a, 2.2);\n#include <alphatest_fragment>');
+        };
+      }
+      const m = new THREE.Mesh(new THREE.PlaneGeometry((W / ppu) * sc, (H / ppu) * sc), mat);
+      m.position.z = z; m.renderOrder = i;
+      stage.scene.add(m);
+    });
+    return { stage, layers };
+  }
+
+  override dispose() {
+    if (this.s3) {
+      this.s3.stage.scene.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh) { m.geometry.dispose(); (m.material as THREE.Material).dispose(); } });
+      for (const l of Object.values(this.s3.layers)) l.dispose();
+      this.s3.stage.dispose();
+      this.s3 = null;
+    }
+    super.dispose();
   }
 
   /** Draw the diagram in frame px (1920x1080 design space); `g` is the glow layer, same transform. */
@@ -88,7 +178,7 @@ export abstract class NfScene extends Scene2D {
   }
 
   /** The dark-warm studio behind the diagram. */
-  private studio(c: Ctx, g: Ctx, f: Frame, k: number) {
+  protected studio(c: Ctx, g: Ctx, f: Frame, k: number) {
     // warm charcoal ground: #1E1813 at the key falling to #120E0B, an amber glow (6 %) high on the left
     const kx = W * 0.55, ky = H * 0.42;
     const pool = c.createRadialGradient(kx, ky, 0, kx, ky, W * 0.7);
@@ -131,7 +221,7 @@ export abstract class NfScene extends Scene2D {
 
 /** The panel box of a presenter shot (x 1010-1860, y 150-930; GFX.md): a frosted card, a title bar; returns the
  * origin of its content area, which is PANEL_W x PANEL_H (the bottom 160 px of the box are kept clear for captions). */
-export const PANEL = { x: 1010, y: 150, w: 850, h: 780 };
+export const PANEL = { x: 1010, y: 150, w: 850, h: 765 };
 export const PANEL_W = 850, PANEL_H = 560;
 function panelCard(c: Ctx, g: Ctx, title: string, lt: number, fade: number) {
   const { x, y, w, h } = PANEL;
@@ -145,7 +235,7 @@ function panelCard(c: Ctx, g: Ctx, title: string, lt: number, fade: number) {
   c.shadowColor = 'transparent';
   c.strokeStyle = '#3b3129'; c.lineWidth = 1; c.stroke();
   c.fillStyle = rgba('accent'); c.beginPath(); c.arc(x + 36, y + dy + 38, 6, 0, TAU); c.fill();
-  c.font = font(F.ui(600), 26); c.fillStyle = rgba('fg', 0.95); c.textBaseline = 'middle'; c.textAlign = 'left';
+  c.font = font(F.ui(600), 30); c.fillStyle = rgba('fg', 0.95); c.textBaseline = 'middle'; c.textAlign = 'left';
   c.fillText(title, x + 56, y + dy + 39);
   c.fillStyle = 'rgba(242,236,228,0.08)'; c.fillRect(x + 24, y + dy + 72, w - 48, 1);
   c.restore();
@@ -162,7 +252,10 @@ export function rr(c: Ctx, x: number, y: number, w: number, h: number, r: number
 }
 
 /** A glass card with a soft drop shadow (the depth cue every block gets). */
-export function card(c: Ctx, x: number, y: number, w: number, h: number, o: { r?: number; a?: number; edge?: string; fill?: [string, string]; lift?: number } = {}) {
+export function card(c0: Ctx, x: number, y: number, w: number, h: number, o: { r?: number; a?: number; edge?: string; fill?: [string, string]; lift?: number } = {}) {
+  on(c0, BACK, (c) => cardOn(c, x, y, w, h, o));
+}
+function cardOn(c: Ctx, x: number, y: number, w: number, h: number, o: { r?: number; a?: number; edge?: string; fill?: [string, string]; lift?: number }) {
   const r = o.r ?? 14, a = o.a ?? 1, lift = o.lift ?? 1;
   c.save();
   c.globalAlpha *= a;
@@ -185,7 +278,7 @@ export interface TextOpt { size?: number; weight?: number; width?: number; color
 export function text(c: Ctx, s: string, x: number, y: number, o: TextOpt = {}) {
   const size0 = o.size ?? 28, face = o.face ?? 'ui';
   // small labels read on a phone: everything under 40 px is set a size up
-  const size = size0 < 40 ? Math.round(size0 * 1.22) : size0;
+  const size = size0 < 40 ? Math.max(28, Math.round(size0 * 1.25)) : size0;
   const fam = face === 'display' ? F.display(o.width ?? 100, o.weight ?? 600) : face === 'mono' ? F.mono(o.weight ?? 500) : F.ui(o.weight ?? 500);
   c.font = font(fam, size);
   c.textAlign = o.align ?? 'left';
@@ -344,8 +437,13 @@ export function screen(c: Ctx, g: Ctx, x: number, y: number, kind: 'tv' | 'phone
 }
 
 /** A pill tag. */
-export function pill(c: Ctx, g: Ctx, s: string, x: number, y: number, o: { color?: string; a?: number; size?: number; filled?: boolean; align?: 'center' | 'left' } = {}) {
-  const size = Math.round((o.size ?? 22) * 1.18), col = o.color ?? 'accent', a = o.a ?? 1;
+export function pill(c0: Ctx, g: Ctx, s: string, x: number, y: number, o: { color?: string; a?: number; size?: number; filled?: boolean; align?: 'center' | 'left' } = {}) {
+  let w = 0;
+  on(c0, FRONT, (c) => { w = pillOn(c, g, s, x, y, o) ?? 0; });
+  return w;
+}
+function pillOn(c: Ctx, g: Ctx, s: string, x: number, y: number, o: { color?: string; a?: number; size?: number; filled?: boolean; align?: 'center' | 'left' }) {
+  const size = Math.max(28, Math.round((o.size ?? 22) * 1.18)), col = o.color ?? 'accent', a = o.a ?? 1;
   if (a <= 0) return;
   c.font = font(F.ui(600), size);
   const w = c.measureText(s).width + size * 1.4, h = size * 1.75;
@@ -362,7 +460,10 @@ export function pill(c: Ctx, g: Ctx, s: string, x: number, y: number, o: { color
 }
 
 /** A headline at the top-left of a diagram: kicker + title, landing in. */
-export function heading(c: Ctx, kick: string, title: string, t: number, at = 0, x = 120, y = 150) {
+export function heading(c0: Ctx, kick: string, title: string, t: number, at = 0, x = 120, y = 150) {
+  on(c0, FRONT, (c) => headingOn(c, kick, title, t, at, x, y));
+}
+function headingOn(c: Ctx, kick: string, title: string, t: number, at: number, x: number, y: number) {
   const k1 = rev(t, at, 0.35), k2 = rev(t, at + 0.06, 0.45);
   kicker(c, kick, x, y - 62 + (1 - k1) * 14, k1);
   text(c, title, x, y + (1 - k2) * 24, { size: 70, weight: 700, face: 'display', width: 87.5, alpha: k2 });
