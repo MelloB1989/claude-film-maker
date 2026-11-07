@@ -531,6 +531,22 @@
     "netflix V2 shot 11: desk 1.28/1.05, neck 1.80/1.79 (v1's WIDE read 1.58, passed by eye)"
    ],
    "why": "the orchestrator's ruling: INFO, texture not noise at WIDE scale"
+  },
+  "shot.face_luma_vs_karma": {
+   "area": "camera",
+   "track": "agent-07 (box B)",
+   "op": ">=",
+   "line": 0.6,
+   "unit": "ratio",
+   "guard": true,
+   "what": "WHATSAPP (him): his face-box median luma on a seated still over his karma r6 finals' (S15 f1128), per-image face boxes: a FLOOR that catches a broken face state (r6n0 read 0.119-0.24), not a lighting match (the explainer set is lit differently; the 0.9-1.1 band is reported as INFO in the where)",
+   "where": "his MCU and CU seated stills before his first finals job",
+   "how": "films/host-studio/reel/r6/face_luma.py-style per-image boxes (agent-06) on box B vs private/renders/r6/box_a karma frames -> numbers/whatsapp/box.json",
+   "must_fail": [
+    0.119,
+    "karma r6n0: the dark face (leaders/material state)"
+   ],
+   "why": "the orchestrator, 07 Nov: face-luma vs karma r6 among his guards on box B"
   }
  },
  "not_attempted": {
