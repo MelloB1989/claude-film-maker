@@ -1,6 +1,8 @@
 """The caption-band gate: no graphic in the bottom 15 % of the frame.
 
-    python3 bandcheck.py <out.json> <shot>=<dir> [<shot>=<dir> ...]
+    python3 bandcheck.py <out.json> <shot>=<dir>[@<limit>] ...
+
+(@918 for a panel shot, which plays flat: its frosted card ends at y 915.)
 
 Each dir holds PNG frames of a shot rendered over black (VITE_NF_MATTE=black: no studio, the diagram alone, laid out
 flat). A frame passes when no pixel in rows y >= LIMIT is brighter than THR (a faint bloom spill is allowed). LIMIT is
@@ -20,15 +22,17 @@ out = Path(sys.argv[1])
 res, bad = {}, []
 for arg in sys.argv[2:]:
     shot, d = arg.split('=', 1)
+    d, _, lim = d.partition('@')
+    lim = int(lim or LIMIT)
     fails, mx, n = [], 0, 0
     for p in sorted(Path(d).glob('*.png')):
         a = np.asarray(Image.open(p).convert('RGB'))
-        band = a[LIMIT * a.shape[0] // 1080:, :, :]
+        band = a[lim * a.shape[0] // 1080:, :, :]
         m = int(band.max())
         mx, n = max(mx, m), n + 1
         if m > THR:
             fails.append(p.name)
-    res[shot] = {'frames': n, 'fail': fails, 'max': mx}
+    res[shot] = {'frames': n, 'fail': fails, 'max': mx, 'limit_y': lim}
     if fails or n == 0:
         bad.append(shot)
 gate = {'value': 0 if bad else 1,
