@@ -105,19 +105,22 @@ def step_level(who: str) -> None:
     if gone:
         op("level.delete", labels=gone)
     print("deleted:", gone)
-    # the sign (and its halo card and LEDs) comes down into the seated MCU's background, once (tagged)
+    # the sign (and its halo card and LEDs) at the studio's height + SIGN_DROP: each actor's studio z is kept in a tag
+    # the first time, so a re-run with another drop moves it from there, not from where the last run left it
     print("sign:", ex(f"""import unreal
-from fmbridge.ops import level as L
-moved = []
+moved = {{}}
 for a in unreal.get_editor_subsystem(unreal.EditorActorSubsystem).get_all_level_actors():
     lab = a.get_actor_label()
     if lab in ("Sign", "SignHalo") or (lab.startswith("Halo") and lab[4:].isdigit()):
-        if "exp_sign_drop" in [str(t) for t in a.tags]:
-            continue
         p = a.get_actor_location()
-        a.set_actor_location(unreal.Vector(p.x, p.y, p.z + {P.SIGN_DROP}), False, False)
-        a.tags = list(a.tags) + [unreal.Name("exp_sign_drop")]
-        moved.append(lab)
+        tags = [str(t) for t in a.tags]
+        orig = next((float(t.split("=")[1]) for t in tags if t.startswith("exp_studio_z=")), None)
+        if orig is None:
+            # round 6's first run tagged exp_sign_drop after moving it down 78 cm
+            orig = p.z + 78.0 if "exp_sign_drop" in tags else p.z
+            a.tags = [unreal.Name(t) for t in tags if t != "exp_sign_drop"] + [unreal.Name(f"exp_studio_z={{orig:.3f}}")]
+        a.set_actor_location(unreal.Vector(p.x, p.y, orig + {P.SIGN_DROP}), False, False)
+        moved[lab] = round(orig + {P.SIGN_DROP}, 2)
 result = moved"""))
     # the window's garden card dimmed in this level only (its own instance; the studio's MI_K_Outside is shared)
     op("look.material", name="MI_Exp_Outside", kind="Screen", texture="/Game/Studio/Textures/T_Outside",
@@ -156,25 +159,24 @@ result = {{"rc": r.returncode, "err": r.stderr[-500:], "props": json.load(open(p
            texture_dest=f"{PROPS_DIR}/Textures", params={"Tiling": round(tiling, 4)})
         mats[slot] = mi
     print("materials:", sorted(mats))
-    for label, (name, loc, yaw) in P.PROPS.items():
+    for label, (name, loc, yaw, scale) in P.PROPS.items():
         if name not in by_name:
             print(f"MISSING {label}: no {name}.fbx under {PROPS_S3} (agent-05)")
             continue
-        place = meta.get("assets", {}).get(name, {}).get("placement_ue")
-        if place:  # agent-05's own transform for a posed prop wins over the plan's
-            loc, yaw = place["location"], place["yaw"]
+        # the plan's transform (r3: the boom mirrored to the -Y side; agent-05's props.json placement is the unmirrored
+        # one it was posed for)
         paths = op("assets.import", files=[by_name[name]], dest=PROPS_DIR, replace=True, combine=True, kind="static",
                    nanite=False, collision="none", materials=False, textures=False, name=name)
         mesh = next((x for x in paths if x.split("/")[-1].split(".")[0] == name), paths[0] if paths else "")
         if not mesh:
             raise SystemExit(f"{name}: import returned nothing")
         op("level.spawn", label=label, asset=mesh.split(".")[0], loc=list(loc),
-           rot_={"pitch": 0.0, "yaw": yaw, "roll": 0.0}, replace=True)
+           rot_={"pitch": 0.0, "yaw": yaw, "roll": 0.0}, scale=scale or [1.0, 1.0, 1.0], replace=True)
         slots = op("look.slots", label=label) or {}
         want = {sl: mats[sl] for sl in slots if sl in mats}
         if want:
             op("look.slots", label=label, materials=want)
-        print(f"{label}: {mesh} at {list(loc)} yaw {yaw}; slots {sorted(slots)}; undressed {sorted(set(slots) - set(want))}")
+        print(f"{label}: {mesh} at {list(loc)} yaw {yaw} scale {scale}; slots {sorted(slots)}; undressed {sorted(set(slots) - set(want))}")
     op("look.channels", labels=list(P.PROPS), channels=[0, 1])
 
 
@@ -186,6 +188,7 @@ def step_light(who: str) -> None:
         op("look.light", label=label, volumetric=0.0, **{k: (list(v) if isinstance(v, tuple) else v)
                                                          for k, v in kw.items()})
     op("look.channels", labels=list(rig), channels=[1])
+    op("level.set", label="FM_Sun", component="DirectionalLightComponent", props={"intensity": P.SUN_LUX})
     op("look.channels", labels=[ACTOR[who]], channels=[0, 1])
     # exposure LOCKED: manual, the studio's bias; nothing in the frame may pump it
     op("look.post", label="FM_Post", settings={

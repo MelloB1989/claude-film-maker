@@ -33,7 +33,7 @@ def test_mcu_l_moves_her_left_only():
     c = P.cameras("her")
     assert c["CAM_MCU_L"]["loc"] == c["CAM_MCU"]["loc"]
     e = P.face("her")["eyes"]
-    assert abs(P.project(c["CAM_MCU_L"], e)[0] - 0.27) < 0.01
+    assert abs(P.project(c["CAM_MCU_L"], e)[0] - 0.24) < 0.01
 
 
 def test_drift_is_subtle():

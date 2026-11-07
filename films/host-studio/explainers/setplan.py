@@ -33,20 +33,23 @@ FACE = {  # who: (eyes forward of the mark, eyes to +Y of the mark, eye height, 
 # the props (agent-05; s3 …/props/explainer/). Origins: chair and desk on the floor at their centre, the mic boom at its
 # desk clamp on the desk top (props/mic_boom.py's convention). Yaw in degrees about +Z.
 DESK_TOP = 74.0
-PROPS = {  # label: (FBX stem, loc, yaw; None = aimed at the capsule target)
-    "ExpChair": ("SM_PodcastChair", (MARK[0], MARK[1], 0.0), 0.0),   # seat top 45, faces +X
-    "ExpDesk": ("SM_WalnutDesk", (78.0, -20.0, 0.0), 0.0),           # top 110 (Y) x 55 (X) at z 74
-    # posed by agent-05 for this clamp → capsule (44,-6,99) aimed at the mouth (32,-20,113); SOCKET_Capsule to check
-    "ExpMic": ("SM_MicBoom", (70.0, 32.6, DESK_TOP), -90.0),
-    "ExpPlant": ("SM_DeskPlant", (100.0, 25.0, DESK_TOP), 25.0),      # 13 x 44 cm, the far +Y corner by the mic
+DESK_C = (65.5, -20.0)  # orchestrator r3: the desk 12.5 cm in, so her knees go under and her forearms rest on it
+PROPS = {  # label: (FBX stem, loc, yaw, scale)
+    "ExpChair": ("SM_PodcastChair", (MARK[0], MARK[1], 0.0), 0.0, None),  # seat top 45, front edge +24.5, faces +X
+    "ExpDesk": ("SM_WalnutDesk", (DESK_C[0], DESK_C[1], 0.0), 0.0, None),  # 55 (X) x 110 (Y), top 74: x 38..93
+    # agent-05 posed the boom for a clamp on the desk's +Y edge (70,32.6,74) → capsule (44,-6,99). The cameras moved to
+    # the +Y side (r3: no window behind her), so the boom is MIRRORED about the desk's centre line y = -20: local X
+    # scale -1 at yaw -90 mirrors world Y → clamp (70,-72.6,74), capsule (44,-34,99), still aimed at the mouth
+    "ExpMic": ("SM_MicBoom", (70.0, 2 * DESK_C[1] - 32.6, DESK_TOP), -90.0, [-1.0, 1.0, 1.0]),
+    "ExpPlant": ("SM_DeskPlant", (85.0, -66.0, DESK_TOP), 25.0, None),  # 13 x 44 cm: the far -Y corner, behind the boom
 }
 PLANT_TOP = DESK_TOP + 44.0
 UV_METRES = False  # agent-05: tile_m is baked into UV0 (1 UV = tile_m metres), so Tiling 1
-MIC_FROM_MOUTH = (12.0, 14.0, -14.0)  # the capsule's centre from the mouth: forward, to her left (+Y), down
+MIC_FROM_MOUTH = (11.5, -15.3, -14.6)  # the capsule's centre from the mouth: forward, to -Y (away from the cameras), down
 MIC_LEN = 19.0                       # the capsule body's length (props/mic_boom.py)
 
 # the set dressing that moves in this level only: the karma sign comes down into the seated MCU's background
-SIGN_DROP = -78.0  # cm on Z for Sign, SignHalo and Halo0..8 (studio: the sign's centre at z ~228)
+SIGN_DROP = -30.0  # r3: out of the close frames; wholly in the WIDE beside her head (searched with the window out)  # cm on Z for Sign, SignHalo and Halo0..8 (studio: the sign's centre at z ~228)
 SIGN = (WALL + 4.0, 25.0, 228.0 + SIGN_DROP)
 
 # the studio's standing-host rig and reel cameras: not this set's (deleted in the explainer level only)
@@ -58,6 +61,7 @@ FILMBACK = [36.0, 20.25]  # full frame 16:9, every camera
 # compensation (higher = brighter). Box B 17:20 IST: -0.7 put her face at 164/255 with the studio's rig; one stop
 # lower with her rig one stop up (LIGHT_GAIN 2) keeps the face and takes the bright window down a stop
 EXPOSURE_BIAS = -1.4
+SUN_LUX = 9000.0           # FM_Sun in this level (studio 17000): r3, the sun patches on the floor in the WIDE
 LIGHT_GAIN = 2.0          # her rig (channel 1 only) x this; the set's own light (channel 0) is untouched
 
 
@@ -101,27 +105,29 @@ def _aim_right(cam: dict, du: float) -> dict:
 
 def cameras(who: str) -> dict:
     """Each camera: loc, look_at, focal, aperture, filmback, focus bone. Azimuth from the presenter's facing (+X),
-    negative = her right (-Y). Eye level: the lens at her eye height, aimed a little below the eyes so they sit in the
+    positive = studio +Y (her right). r3 (the orchestrator): the cameras on the +Y side so every presenter background is
+    the warm shelves wall, never the window (y 130..280 on the back wall); the sign stays out of the close frames. Eye level: the lens at her eye height, aimed a little below the eyes so they sit in the
     upper third. CAM_MCU_L is CAM_MCU turned so she sits on the left third, for agent-11's PANEL shots (a graphic panel
     over x 1010-1860 of 1920)."""
     eyes = face(who)["eyes"]
     plan = {  # az, el, distance from the look point, focal, f-stop, look point
-        "CAM_MCU": (-20.0, 2.5, 165.0, 60.0, 2.0, (eyes[0], eyes[1], eyes[2] - 7.0)),
-        "CAM_CU": (-17.0, 2.0, 128.0, 85.0, 2.0, (eyes[0], eyes[1], eyes[2] - 4.0)),
-        "CAM_WIDE": (-14.0, 4.0, 320.0, 35.0, 2.8, (eyes[0] + 12.0, eyes[1] + 8.0, eyes[2] - 30.0)),
+        "CAM_MCU": (26.0, 2.5, 175.0, 60.0, 2.0, (eyes[0], eyes[1], eyes[2] - 7.0)),
+        "CAM_CU": (17.0, 2.0, 128.0, 85.0, 2.0, (eyes[0], eyes[1], eyes[2] - 4.0)),
+        # within 4° of CAM_MCU_L (her look to the lens across the 43.3 s cut) and the window just out of frame
+        "CAM_WIDE": (24.0, 4.0, 320.0, 35.0, 2.8, (eyes[0] + 12.0, eyes[1] - 30.0, eyes[2] - 38.0)),
     }
     out = {}
     for name, (az, el, dist, focal, stop, look) in plan.items():
         out[name] = {"loc": _orbit(look, az, el, dist), "look_at": [round(v, 2) for v in look], "focal": focal,
                      "aperture": stop, "filmback": FILMBACK,
-                     # focus tracks her camera-side eye (her right): the CU's depth of field is ±1.2 cm at f/2
+                     # focus tracks her camera-side eye (her right, +Y): the CU's depth of field is ±1.2 cm at f/2
                      "focus": "FACIAL_R_Eye"}
-    out["CAM_MCU_L"] = _aim_right(out["CAM_MCU"], 0.23)
+    out["CAM_MCU_L"] = _aim_right(out["CAM_MCU"], 0.26)
     return out
 
 
 def lights(who: str) -> dict:
-    """The presenter's rig (lighting channel 1 only, as the studio's host rig): a large soft key from her left at ~45°,
+    """The presenter's rig (lighting channel 1 only, as the studio's host rig): a large soft key at ~45° on the side AWAY from the cameras (-Y; short lighting),
     a gentle fill from the camera side, a warm rim on the shadow side, a hair light, a small eye light by the lens.
     Intensities (candela, look.light) are the studio's host rig's at its distances (Key 9 cd at 190 cm under the
     same locked exposure), scaled by the square of the new distance."""
@@ -132,15 +138,15 @@ def lights(who: str) -> dict:
         return round(LIGHT_GAIN * ref_cd * (d / ref_d) ** 2, 3)
 
     return {
-        "ExpKey": dict(kind="rect", loc=_orbit(f, 45.0, 28.0, 175.0), look_at=f, intensity=cd(9.0, 190.0, 175.0),
+        "ExpKey": dict(kind="rect", loc=_orbit(f, -45.0, 28.0, 175.0), look_at=f, intensity=cd(9.0, 190.0, 175.0),
                        temperature=5200, width=160, height=120, barn_angle=75),
-        "ExpFill": dict(kind="rect", loc=_orbit(f, -55.0, 8.0, 230.0), look_at=f, intensity=cd(3.4, 221.0, 230.0),
+        "ExpFill": dict(kind="rect", loc=_orbit(f, 55.0, 8.0, 230.0), look_at=f, intensity=cd(3.4, 221.0, 230.0),
                         temperature=5000, width=180, height=180, specular=0.25),
-        "ExpRim": dict(kind="rect", loc=_orbit(f, -145.0, 18.0, 150.0), look_at=(f[0], f[1], f[2] - 6.0),
+        "ExpRim": dict(kind="rect", loc=_orbit(f, 145.0, 18.0, 150.0), look_at=(f[0], f[1], f[2] - 6.0),
                        intensity=cd(3.0, 181.0, 150.0), temperature=3100, width=25, height=120, barn_angle=50),
-        "ExpHair": dict(kind="rect", loc=_orbit(f, 175.0, 52.0, 140.0), look_at=(e[0] - 4.0, e[1], e[2] + 12.0),
+        "ExpHair": dict(kind="rect", loc=_orbit(f, -175.0, 52.0, 140.0), look_at=(e[0] - 4.0, e[1], e[2] + 12.0),
                         intensity=cd(5.0, 133.0, 140.0), temperature=3600, width=60, height=30, barn_angle=55),
-        "ExpEye": dict(kind="rect", loc=_orbit(f, -19.0, 9.0, 150.0), look_at=f, intensity=0.35 * LIGHT_GAIN, temperature=5600,
+        "ExpEye": dict(kind="rect", loc=_orbit(f, 19.0, 9.0, 150.0), look_at=f, intensity=0.35 * LIGHT_GAIN, temperature=5600,
                        width=22, height=22, shadows=False),
     }
 
@@ -214,10 +220,16 @@ def check(who: str) -> list:
                      f"{all(pv > mv for _, pv, _ in pts)}"))
         rows.append((f"{name} mic below the mouth", all(pv > mv for _, pv, _ in pts),
                      ", ".join(f"v {pv:.3f}" for _, pv, _ in pts) + f" (mouth v {mv:.3f})"))
-        if name == "CAM_MCU":
-            su, sv, _ = project(cam, SIGN)
-            rows.append(("CAM_MCU sign in the background, off the head", 0.05 < su < 0.95 and 0.0 < sv < 0.6
-                         and abs(su - eu) > 0.15, f"sign u {su:.3f} v {sv:.3f} (eyes u {eu:.3f})"))
+        # r3: no window in any presenter frame (its opening on the back wall, y 130..280, z 0..285)
+        wp = [project(cam, (WALL + 2, y, z)) for y in (130, 170, 205, 240, 280) for z in (10, 80, 150, 220, 285)]
+        inside = [p for p in wp if -0.01 <= p[0] <= 1.01 and -0.01 <= p[1] <= 1.01]
+        rows.append((f"{name} no window in frame", not inside, f"{len(inside)} window points in frame"))
+        # the sign: clear of her head, wholly in or wholly out (never cut by the head or the frame edge)
+        sp = [project(cam, (SIGN[0], SIGN[1] + dy, SIGN[2] + dz)) for dy in (-60, 0, 60) for dz in (-18, 18)]
+        n_in = sum(0 <= p[0] <= 1 and 0 <= p[1] <= 1 for p in sp)
+        head = min(abs(p[0] - eu) for p in sp)
+        rows.append((f"{name} sign wholly in (clear of the head) or wholly out", n_in == 0 or (n_in == len(sp)
+                     and head > 0.12), f"{n_in}/{len(sp)} sign points in frame, nearest to the eyes {head:.2f}"))
         if name == "CAM_WIDE":
             cu, cv, _ = project(cam, (MARK[0], MARK[1], 0.0))
             rows.append(("CAM_WIDE chair feet in frame", 0.0 < cu < 1.0 and cv < 0.98, f"u {cu:.3f} v {cv:.3f}"))
