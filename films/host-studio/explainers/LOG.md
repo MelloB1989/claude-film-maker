@@ -219,3 +219,12 @@ tested in `test_seatkit.py`), `gestures.json` (the emphasis gestures per line).
   5 payoffs, soft 0.4-0.6 elsewhere over a warm base, nods and a shake, and filler past 0.7 s of neutral speech.
   The lips stay the solve's (corner pull and dimple only, x0.75 while talking). Tilts go to agent-01's body.
   Offline rows pass: active 0.88, smiles 27/min, brows 22/min, neutral hold 0.79 s. FACE_R7.md is the driver's sheet.
+## Round 7 garment: her bottoms at the waist (agent-05, branch fleet/agent-05/r7-waist; task 0c7d, with agent-02)
+
+| IST | |
+|---|---|
+| 23:15 | Brief: "her skirt or whatever she is wearing below is not fit to her". Her bottoms are her_outfit.py's Trousers (fitted to her A-pose, weights smoothed 30x over the garment), leader-posed seated |
+| 23:30 | agent-06's garment.export (read-only) → box B /srv/ue/fit/her_r7 (live meshes: Trousers_Under_Top, Body_Under_Top) + the uncut SKM_Presenter_Trousers |
+| 23:35 | `props/her_waist_r7.py` probe (24 sectors x 5 heights through the band, AS_exp_her_body seated): the uncut band stands 0.62-1.97 cm off her waist (front 0.7-0.9, sides 0.9-2.0); the live cut copy has lost 7.4k verts incl. the band's INNER face (r6b's Trousers-under-Top 6 cm cut): a hollow band, gap 0.7-2.2 cm, and a step down to the Top |
+| 23:50 | Refit in her seated pose, carried back to the bind pose by each vertex's inverse skinning: Top tuck 0.12 cm off her skin (under the band), the band 0.42 cm over it, her body's weights unsmoothed through the band ramping to the trousers' own 5-13 cm under it, seams welded. Seated after: band gap 0.41-0.52 cm in every sector, 0 body/Top pokes. Standing it would sit up to 0.7 cm inside her belly: a seated-only asset (_R7W). ~3k verts at her seated front hip crease (9-13 cm under the edge) read inside her skin: left alone; Body-under-Trousers now hides her skin there |
+| 23:58 | setplan: GARMENT_SRC Top/Trousers → SKM_Presenter_{Top,Trousers}_R7W; GARMENT_HIDES her: the inner layer under the outer one (Top under Trousers 2.5, Body under Top 6, Body under Trousers 2.5), the Trousers-under-Top cut dropped. Import: `her_outfit_ue/import_r7_waist.py` (agent-06) |
