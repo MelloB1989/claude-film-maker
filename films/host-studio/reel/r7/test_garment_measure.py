@@ -151,3 +151,14 @@ def test_natural_waist_and_cyl():
 
 def test_parse_frames():
     assert gm.parse_frames("29,1290-1300:5, 7") == [29, 1290, 1295, 1300, 7]
+
+
+def test_point_beside_an_open_patch_is_not_inside():
+    """v2b2 ref pose: an arm point beside the torso patch's cut edge read as 13.7 cm 'inside'."""
+    P = [(0, 0, 0), (10, 0, 0), (0, 10, 0), (10, 10, 0)]   # a flat patch facing +z, open edges all round
+    T = [(0, 1, 2), (1, 3, 2)]
+    grid = gm.TriGrid(gm.torso_tris(P, T, {0, 1, 2, 3}, "Top"), 2.0)
+    worst, neg, _ = gm.clearance(grid, [(0, (20.0, 5.0, -2.0))])   # off the edge, a little below the plane
+    assert worst[0] > 0 and neg == 0
+    worst, neg, _ = gm.clearance(grid, [(0, (5.0, 5.0, -2.0))])    # right behind the face
+    assert abs(worst[0] + 2.0) < 1e-6 and neg == 1

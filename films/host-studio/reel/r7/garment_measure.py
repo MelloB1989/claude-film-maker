@@ -198,11 +198,11 @@ def torso_tris(P, T, keep, tag, chain=None):
                 m = ((pa[0] + pb[0] + pc[0]) / 3, (pa[1] + pb[1] + pc[1]) / 3, (pa[2] + pb[2] + pc[2]) / 3)
                 if dot(n, spine_out(m, chain)) < 0:
                     n = (-n[0], -n[1], -n[2])
-            out.append((pa, pb, pc, n, tag))
+            out.append((pa, pb, pc, n, (tag, a)))
     return out
 
 
-def clearance(grid, arm_pts, max_d=20.0):
+def clearance(grid, arm_pts, max_d=20.0, align=0.5):
     """Signed clearance of each arm point to the grid's surface: (min, its record, count < 0, count < 3 cm)."""
     worst, neg, lt3 = None, 0, 0
     for i, p in arm_pts:
@@ -210,11 +210,15 @@ def clearance(grid, arm_pts, max_d=20.0):
         if hit is None:
             continue
         d, q, k = hit
-        s = d if dot(sub(p, q), grid.tris[k][3]) >= 0 else -d
+        al = dot(norm(sub(p, q)), grid.tris[k][3]) if d > 1e-6 else 1.0
+        # inside only when the point lies (mostly) BEHIND the face: at the torso patch's open edge (where the arm and
+        # the armpit were cut out) the nearest point is on that edge and the face normal says nothing (v2b2's
+        # ref-pose -13.7 cm: arm points beside the patch, read as 'behind' it)
+        s = -d if al <= -align else d
         neg += s < 0
         lt3 += s < 3.0
         if worst is None or s < worst[0]:
-            worst = (s, i, q, grid.tris[k][4])
+            worst = (s, i, q, grid.tris[k][4], round(al, 2))
     return worst, neg, lt3
 
 
@@ -498,13 +502,19 @@ def _editor(G: dict):
             rec = {"arm_verts": len(arm), "torso_tris": len(entries), "verts_lt0": neg, "verts_lt3": lt3,
                    "arm_r_med": r_med and round(r_med, 2), "arm_r": arm_r and round(arm_r, 2),
                    "rest_clear_cm": rw and round(rw[0], 2), "rest_verts_lt0": rneg,
-                   "rest_part": rw and rw[3], "rest_check_skips": skipped}
+                   "rest_part": rw and rw[3][0], "rest_check_skips": skipped}
+            if rw and rw[0] < 0:  # why the self-check failed: the arm point and the torso face, by their ref labels
+                ln, lt, ld = labels["Body"][rw[1]]
+                tn, tt, td = labels[rw[3][0]].get(rw[3][1], ("?", 0.0, 0.0))
+                rec["rest_worst"] = {"arm": [ln, round(lt, 2), round(ld, 2)], "torso": [rw[3][0], tn, round(tt, 2),
+                                     round(td, 2)], "align": rw[4], "dist": round(abs(rw[0]), 2)}
             if worst:
-                s, i, q, tag = worst
+                s, i, q, tag, al = worst
+                tag = tag[0]
                 cy = Cyl(chain[0], chain[3], facing("clavicle_l", "clavicle_r")[0],
                          sub(loc(body, "clavicle_l"), loc(body, "clavicle_r")))  # her left, a direction
                 tq, _, thq = cy(q)
-                rec.update({"clear_cm": round(s, 2), "arm_t": round(seg_t(P[i], ua, la)[1], 2), "torso_part": tag,
+                rec.update({"clear_cm": round(s, 2), "arm_t": round(seg_t(P[i], ua, la)[1], 2), "torso_part": tag, "align": al,
                             "torso_t_cm": round(tq, 1), "torso_deg": round(thq)})
             out["sides"][sd] = rec
         cl = [r["clear_cm"] for r in out["sides"].values() if "clear_cm" in r]
@@ -616,7 +626,8 @@ def main(argv=None) -> int:
                 f"{sd}: {r.get('clear_cm')} cm (arm_t {r.get('arm_t')}, {r.get('torso_part')} at t {r.get('torso_t_cm')}"
                 f" cm, {r.get('torso_deg')} deg; <0 {r['verts_lt0']}, <3 {r['verts_lt3']} of {r['arm_verts']}; arm_r "
                 f"{r.get('arm_r')}; rest {r.get('rest_clear_cm')}/{r.get('rest_verts_lt0')} {r.get('rest_part')}"
-                f"{' skips ' + ','.join(r['rest_check_skips']) if r.get('rest_check_skips') else ''})"
+                f"{' skips ' + ','.join(r['rest_check_skips']) if r.get('rest_check_skips') else ''}"
+                f"{' WHY ' + json.dumps(r['rest_worst']) if r.get('rest_worst') else ''})"
                 for sd, r in res["sides"].items()), flush=True)
         else:
             print(f"f{f}: waist_fit {res['waist_fit_cm']} cm ({res['worst']}; facing vs actor "
