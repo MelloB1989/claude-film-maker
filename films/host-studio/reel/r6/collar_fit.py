@@ -419,7 +419,8 @@ def main(argv=None) -> int:
     import sys
     from pathlib import Path
     ap = argparse.ArgumentParser()
-    ap.add_argument("--box", required=True, help="the workstation (instance) to talk to: never the default")
+    ap.add_argument("--box", required=True, help="the workstation profile (FILM_UE_BOX) to talk to; 'conf' = the "
+                    "default film-ue.json of the conf dir in use (a driver's private dir holding one box's profile)")
     sub = ap.add_subparsers(dest="cmd", required=True)
     m = sub.add_parser("measure")
     m.add_argument("--out", required=True)
@@ -441,7 +442,8 @@ def main(argv=None) -> int:
     p.add_argument("--seq", default="/Game/Reel/SEQ_Reel")
     sub.add_parser("cleanup")
     a = ap.parse_args(argv)
-    os.environ["FILM_UE_BOX"] = a.box
+    if a.box != "conf":
+        os.environ["FILM_UE_BOX"] = a.box
     sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "tools"))
     from filmtools.unreal import client
 
