@@ -307,3 +307,19 @@ drops the shrink entirely and enlarges the GARMENT.
   first measure (a ref face following his Face) read the face at rest while his body moved: 2-11 cm "needs" in all
   24 sectors, worst at the shot edges (f960, f1563-1571). Round 5's qa.garment_look ref body read nonsense for the
   same reason. Measure only components of his own BP.
+- The first three measures were each wrong for a different reason, all fixed: (m1) the script-spawned ref face read
+  at rest; (m1b) a height bin's MAX face radius vs its MIN tee radius mixed the face's lower FLANGE (it runs under
+  the tee onto his chest) with the collar ring: 8-15 cm; (m1c) rays from the neck axis through every face vertex
+  crossed far geometry: 16 cm. The measure now works from the TEE side: each collar-zone tee vertex's signed
+  distance to the posed face, the normal oriented away from the neck axis, binned by the tee vertex itself.
+- **A temp actor left on his mark contaminates everything.** m1's FMQA_NeckRefFace (never cleaned up) and
+  restage's Test_perf_Him stood on his mark from 16:40 to ~18:00 IST: his skin rendered black-red (face luma
+  0.12-0.24 of round 4) and a dark "band" showed through the tee; qa.clip and every measure in that window are void
+  (agent-06 found them). collar_fit now removes every FMQA_Neck* actor in a try/finally and refuses to measure with
+  any other face/body/BP_Host actor within 1 m of him.
+- Box A's probe (f1150/f1500, clean of that bias since it reads his own components): his unshrunk neck 6.0-7.7 cm
+  from the neck axis 0-4 cm above neck_01 vs Epic's collar inner ring 5.8-6.3 cm: the round-5b poke, ~0.5-1.5 cm.
+- **The orchestrator's split (18:00 IST)**: (1) CULL the face's chest flange where it is ALWAYS under the tee
+  (`neck_backstop.py` CULL mode: covered and >= CULL_DEPTH_CM 3.0 below the collar edge -> 0, MaxCull 0.1, MaxShrink
+  0; everything else white: nothing near the visible neck moves; `r6/cull_live.py` proves what the build removed);
+  crops after (1) alone; (2) the collar push only for what still pokes at the collar line, re-measured.

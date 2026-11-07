@@ -45,8 +45,9 @@ comps = {c.get_name(): c for c in host.get_components_by_class(unreal.SkeletalMe
 built, ref = dm_of(comps["Face"].get_skeletal_mesh_asset()), dm_of(unreal.EditorAssetLibrary.load_asset(REF))
 B, R = verts(built), verts(ref)
 gone = [p for p, d in zip(R, near(built, R)) if d > GONE_CM]
-kept_moved = sum(1 for d in near(ref, B) if d > 0.05)
+kd = near(ref, B)
+kept_moved = sum(1 for d in kd if d > 0.05)
 zs = sorted(p.z for p in gone)
 result = {"built_verts": len(B), "ref_verts": len(R), "gone": len(gone),
           "gone_z_cm": [round(zs[0], 1), round(zs[len(zs) // 2], 1), round(zs[-1], 1)] if zs else None,
-          "kept_moved_gt_0.05cm": kept_moved}
+          "kept_moved_gt_0.05cm": kept_moved, "kept_max_moved_cm": round(max(kd), 4) if kd else None}
