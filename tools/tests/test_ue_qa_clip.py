@@ -123,6 +123,42 @@ def test_gate_flags_a_shot_error_and_missing_neck():
 
 # --- armor index ----------------------------------------------------------------------------------------------------
 
+def test_project_px_center_and_offsets():
+    cam = {"loc": [0, 0, 0], "rot": {"pitch": 0, "yaw": 0, "roll": 0}, "fov": 90.0}
+    x, y, z = clip.project_px(cam, (100, 0, 0), 160, 90)
+    assert (round(x, 3), round(y, 3), z) == (80.0, 45.0, 100.0)
+    x, y, _ = clip.project_px(cam, (100, 50, 0), 160, 90)  # half-way to the right edge at tan(45) = 1
+    assert round(x, 3) == 120.0
+    x, y, _ = clip.project_px(cam, (100, 0, 25), 160, 90)  # up: 25 / 100 of the half-width, scaled to the height
+    assert round(y, 3) == round(45 - 0.25 * 80, 3)
+    assert clip.project_px(cam, (-10, 0, 0), 160, 90)[2] < 0
+
+
+def test_mouth_blocked_by_a_mic_in_front_and_clear_below():
+    face = rect(layer(), 10, 5, 30, 25, 100.0)
+    mic = rect(layer(), 17, 16, 23, 30, 80.0)  # a mic in front, its head at rows 16+
+    centers = [(20, 12, 100.0)]  # the mouth at row 12, radius 3: clear of the mic
+    r = clip.mouth_blocked({"Face": face, "Mic": mic}, centers, 3, w=W, h=H)
+    assert r["blocked_px"] == 0 and r["disc_px"] > 20
+    r = clip.mouth_blocked({"Face": face, "Mic": mic}, [(20, 16, 100.0)], 3, w=W, h=H)
+    assert r["blocked_px"] > 0 and r["box"]
+    behind = rect(layer(), 17, 10, 23, 30, 120.0)  # behind the face: never covers the mouth
+    assert clip.mouth_blocked({"Face": face, "Mic": behind}, [(20, 12, 100.0)], 3, w=W, h=H)["blocked_px"] == 0
+
+
+def test_gate_mouth_and_set_pairs():
+    frames = {"WA_C1": {10: {"Body>Chair": {"fraction": 0.0, "px": 0},
+                             "mouth": {"disc_px": 30, "blocked_px": 0, "share": 0.0}},
+                        20: {"Body>Chair": {"fraction": 0.02, "px": 12, "clusters": [{"worst_cm": 1.1}]},
+                             "mouth": {"disc_px": 30, "blocked_px": 4, "share": 0.13, "blocker": "Mic"}},
+                        30: {"mouth": {"error": "the face has no bone 'X'"}}}}
+    codes = [(i["code"], i["frame"]) for i in clip.gate(frames, "Host")]
+    assert ("clip.pair", 20) in codes and ("clip.mouth", 20) in codes and ("clip.mouth", 30) in codes
+    assert ("clip.mouth", 10) not in codes
+    w = clip.summarize(frames)
+    assert w["mouth"]["blocked_px"] == 4 and w["Body>Chair"]["fraction"] == 0.02
+
+
 def test_ease_stats_shell_vs_drape():
     shell = GL.ease_stats([1.0 + 0.05 * math.sin(i) for i in range(500)])
     drape = GL.ease_stats([0.3 + 4.0 * (i / 499) ** 2 for i in range(500)])
