@@ -284,15 +284,7 @@
    "why": "the brief: true peak <= -1 dBTP"
   },
   "captions.text_match": {
-   "area": "captions",
-   "track": "agent-11",
-   "op": "==",
-   "line": 1,
-   "unit": "bool",
-   "what": "the burnt/side-car captions' words in order equal the VO lines' words (case, punctuation ignored)",
-   "where": "the cut's SRT vs audio/<film>/cues.json",
-   "how": "qa_av.py captions CUT.srt audio/<film>/cues.json",
-   "why": "the brief: captions match the VO"
+   "why": "the brief: captions match the VO; the orchestrator's ruling (07 Nov): EVERY line captioned, including over the graphics"
   },
   "captions.onset_ms": {
    "area": "captions",
@@ -432,6 +424,17 @@
   },
   "lips.lead_in_cm": {
    "where": "each on-camera line's silence before its first word, the window clipped to the gap after the previous line (the explainer gaps are ~0.34 s, shorter than 24 f; agent-01)"
+  },
+  "gfx.caption_band_clear": {
+   "area": "captions",
+   "track": "agent-08/agent-12",
+   "op": "==",
+   "line": 1,
+   "unit": "bool",
+   "what": "no diagram text or key diagram content in the caption band (y > 0.85 of the frame) in any frame, full and panel layouts",
+   "where": "every graphics frame of the film",
+   "how": "the graphics film's own layout: every text/label element's screen box vs y 0.85 -> numbers/<film>/gfx.json (agent-08 whatsapp, agent-12 netflix)",
+   "why": "the orchestrator's ruling (07 Nov): every line is captioned, over the graphics too (people watch muted); captions sit in one band at the bottom"
   }
  },
  "not_attempted": {
