@@ -2,7 +2,8 @@
 
     python3 crop_waist.py --dir /srv/ue/explainer/review/r7waist2 --frame 1074 [--size 512]
 
-Reads waist_px.json (waist_px.py), projects her waist (the midpoint of pelvis and spine_02, i.e. the band) through
+Reads waist_px.json (waist_px.py), projects her waistband (13 cm above the pelvis along the spine: just past spine_03,
+as the band's centre sits in her bind pose, edge 109.6 / pelvis 94.5) through
 each camera (fmbridge.qa.clip.project_px's maths), and cuts a size x size crop at 1:1 pixels centred there from
 her_<CAM>_f<frame>.png with ffmpeg -> waist_<CAM>_f<frame>.png. Pure python + ffmpeg.
 """
@@ -45,7 +46,7 @@ def main():
     a = ap.parse_args()
     meta = json.load(open(os.path.join(a.dir, "waist_px.json")))
     b = meta["bones"]
-    waist = [(b["pelvis"][i] + b["spine_02"][i]) / 2 for i in range(3)]
+    waist = [b["spine_03"][i] + 0.15 * (b["spine_03"][i] - b["pelvis"][i]) for i in range(3)]
     rep = {"waist_world": waist, "seated": meta.get("seated"), "crops": {}}
     for cam, info in meta["cameras"].items():
         src = os.path.join(a.dir, f"her_{cam}_f{a.frame}.png")
@@ -54,16 +55,18 @@ def main():
             continue
         w, h = dims(src)
         x, y, z = project_px(info, waist, w, h)
-        if not (0 <= x < w and 0 <= y < h):
+        if not (0 <= x < w) or not math.isfinite(y) or y < 0:
             rep["crops"][cam] = {"skipped": f"waist off frame at ({x:.0f}, {y:.0f})"}
             continue
+        below = y >= h   # under the frame's bottom edge (the MCUs): the crop sits on that edge, as close as it gets
         s = min(a.size, w, h)
         x0 = int(min(max(x - s / 2, 0), w - s))
         y0 = int(min(max(y - s / 2, 0), h - s))
         dst = os.path.join(a.dir, f"waist_{cam}_f{a.frame}.png")
         subprocess.run([a.ffmpeg, "-v", "error", "-y", "-i", src, "-vf", f"crop={s}:{s}:{x0}:{y0}", dst], check=True)
         rep["crops"][cam] = {"still": [w, h], "waist_px": [round(x), round(y)], "depth_cm": round(z, 1),
-                             "crop": [x0, y0, s, s], "out": dst}
+                             "crop": [x0, y0, s, s], "out": dst,
+                             **({"note": "the band is below the frame: crop on the bottom edge"} if below else {})}
     json.dump(rep, open(os.path.join(a.dir, f"waist_crops_f{a.frame}.json"), "w"), indent=1)
     print(json.dumps(rep, indent=1))
 
