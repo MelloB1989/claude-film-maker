@@ -8,6 +8,7 @@ film-qa gate --spec films/host-studio/explainers/gate_spec.json. QA.md says whic
     python3 qa_av.py exposure FRAMES_DIR --shots shots.json [--box x0,y0,x1,y1] [--pattern '*.png'] [--out n.json]
     python3 qa_av.py captions CUT.srt VO_CUES.json [--out n.json]
     python3 qa_av.py facts VO_CUES.json FACTS.json [--out n.json]
+    python3 qa_av.py all CUT.mp4 CUT.srt VO_CUES.json --facts FACTS.json --out numbers/<film>/cut.json   # on the box
 
 FACE RULE: frames and cuts with a presenter in them are private. Run `exposure` and `loudness` on a cut ON THE BOX
 (they write numbers only); captions and facts read text only.
@@ -240,6 +241,32 @@ def facts_numbers(vo: dict, facts: dict) -> dict:
     return {"facts.sourced": row(0 if bad else 1, "; ".join(bad[:6]) if bad else "every number softened or sourced")}
 
 
+def qc_row(path: str, srt: str | None) -> dict:
+    """deliver.qc_ok from film-post qc (filmtools.unreal.post_qc: black/frozen runs, captions timing/safe area)."""
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tools"))
+        from filmtools.unreal import post_qc
+        rep = post_qc.run(Path(path), None, Path(srt) if srt else None)
+    except Exception as e:  # noqa: BLE001 (no ffmpeg, no tools tree: an error row, never a pass)
+        return {"deliver.qc_ok": {"value": None, "error": f"film-post qc: {e}"}}
+    fails = [i.get("message", i.get("code")) for i in rep.get("issues", []) if i.get("severity") == "fail"]
+    return {"deliver.qc_ok": row(0 if fails or rep.get("pass") is False else 1, "; ".join(map(str, fails[:4])) or "pass")}
+
+
+def all_rows(cut: str, srt: str, cues: str, facts: str | None) -> dict:
+    vo = json.loads(Path(cues).read_text())
+    g = {**loudness(cut)}
+    try:
+        g.update(format_numbers(probe(cut)))
+    except (OSError, subprocess.CalledProcessError) as e:
+        g.update({k: {"value": None, "error": str(e)} for k in ("deliver.format_ok", "deliver.duration_s")})
+    g.update(captions_numbers(parse_srt(Path(srt).read_text()), vo))
+    if facts:
+        g.update(facts_numbers(vo, json.loads(Path(facts).read_text())))
+    g.update(qc_row(cut, srt))
+    return g
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -249,7 +276,9 @@ def main(argv=None) -> int:
     e.add_argument("--box", default=""); e.add_argument("--pattern", default="*.png")
     c = sub.add_parser("captions"); c.add_argument("srt"); c.add_argument("vo")
     f = sub.add_parser("facts"); f.add_argument("vo"); f.add_argument("facts")
-    for p in (a, fm, e, c, f):
+    al = sub.add_parser("all", help="every cut row at once: loudness, format, captions, facts, film-post qc")
+    al.add_argument("cut"); al.add_argument("srt"); al.add_argument("cues"); al.add_argument("--facts", default="")
+    for p in (a, fm, e, c, f, al):
         p.add_argument("--out", default="")
     x = ap.parse_args(argv)
     if x.cmd == "loudness":
@@ -262,6 +291,8 @@ def main(argv=None) -> int:
     elif x.cmd == "exposure":
         box = [float(v) for v in x.box.split(",")] if x.box else None
         g = exposure(x.frames, json.loads(Path(x.shots).read_text()), box, x.pattern)
+    elif x.cmd == "all":
+        g = all_rows(x.cut, x.srt, x.cues, x.facts or None)
     elif x.cmd == "captions":
         g = captions_numbers(parse_srt(Path(x.srt).read_text()), json.loads(Path(x.vo).read_text()))
     else:
