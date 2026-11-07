@@ -87,7 +87,7 @@ def gesture_pose(g: dict, hand: str, count_n: int) -> HandPose:
     if detail in ("pinch",):
         return HandPose((26.0, 12.0, 2.0), pron=70.0, ext=15.0, shape="pinch")
     # beat: from the high rest a short down-stroke, palm in/down
-    return HandPose((27.0, 11.0 + so * 0.4, -3.0), pron=35.0, ext=6.0, shape="relaxed")
+    return HandPose((29.0, 12.0 + so * 0.4, -5.0), pron=35.0, ext=8.0, shape="relaxed")
 
 
 HIGH_REST = HandPose((22.0, 8.0, -1.0), pron=70.0, ext=14.0, shape="relaxed")  # loose, fingertips near each other
@@ -214,10 +214,13 @@ def plan_from_sheet(sheet: dict, cues: dict, tilts: list | None = None, base_lea
             pr = scaled(gesture_pose(g, "r", n_count), k)
             pl = scaled(gesture_pose(g, "l", n_count), k) if g.get("hand") in ("both", "l") else None
             if pl is not None:  # the left (mic side) stays below and inside the mic line, whatever the amp
-                pl = replace(pl, off=(pl.off[0], min(pl.off[1], 7.0), min(pl.off[2], -3.5)), ext=max(pl.ext, 34.0),
+                pl = replace(pl, off=(pl.off[0], min(pl.off[1], 7.0), -2.5), ext=max(pl.ext, 34.0),
                              pron=min(pl.pron, 60.0))
             seed0 += 1
-            ev = Event(g.get("hand", "r"), float(g["prep_t"]), float(g["stroke_t"]), float(g.get("hold_s", 0.25)),
+            prep = float(g["prep_t"])
+            if g.get("type") == "beat" and g.get("detail") in ("beat", "press", "", None):
+                prep = max(prep, float(g["stroke_t"]) - 0.2)  # a beat is quick: it reads as a beat, not a reach
+            ev = Event(g.get("hand", "r"), prep, float(g["stroke_t"]), float(g.get("hold_s", 0.25)),
                        pr, pl, g.get("type", "beat"), g.get("word", ""), g.get("size") == "big",
                        energy=float(g.get("energy", amp)), seed=seed0, retract=float(g.get("retract_s", 0.35)),
                        detail=g.get("detail", ""), line=str(b.get("line", ln.get("id", ""))))
