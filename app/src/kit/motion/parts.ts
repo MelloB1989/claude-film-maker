@@ -29,6 +29,17 @@ export function surfaceMat(role: PaletteKey | `#${string}` = 'surface', o: { rou
   });
 }
 
+/**
+ * Solid accent for hero type and objects: the accent as the surface colour with an emissive glow of `glowK` (the face
+ * reads as lit colour and blooms softly), a clearcoat for the studio's sweeps. emphasis() pulses its emissive.
+ */
+export function accentSolid(role: PaletteKey | `#${string}` = 'accent', glowK = 1.2): THREE.MeshPhysicalMaterial {
+  const m = new THREE.MeshPhysicalMaterial({ color: hdr(role, 1), roughness: 0.35, metalness: 0, clearcoat: 0.8, clearcoatRoughness: 0.15 });
+  m.emissive.copy(hdr(role, 1));
+  m.emissiveIntensity = glowK;
+  return m;
+}
+
 // ———————————————————————————————————————————————————————————————————————————————————————————————— kinetic type
 
 export type Entrance = 'rise' | 'slam' | 'flip' | 'type' | 'drop';
@@ -348,7 +359,8 @@ export class Floor {
     this.mat = new THREE.ShaderMaterial({
       toneMapped: false,
       uniforms: {
-        uBase: { value: hdr('bg', 1) },
+        uBase: { value: hdr('bg', 1.6) },
+        uVoid: { value: hdr('#0A0706', 1) },
         uLine: { value: hdr('fg', 1) },
         uPool: { value: hdr(o.pool ?? 'accent', 1) },
         uPoolK: { value: o.poolK ?? 0.12 },
@@ -362,7 +374,7 @@ export class Floor {
         varying vec2 vXZ;
         void main() { vec4 w = modelMatrix * vec4(position, 1.0); vXZ = w.xz; gl_Position = projectionMatrix * viewMatrix * w; }`,
       fragmentShader: /* glsl */ `
-        uniform vec3 uBase, uLine, uPool; uniform float uPoolK, uGrid, uCell, uReach; uniform vec2 uC, uShift;
+        uniform vec3 uBase, uVoid, uLine, uPool; uniform float uPoolK, uGrid, uCell, uReach; uniform vec2 uC, uShift;
         varying vec2 vXZ;
         void main() {
           vec2 p = (vXZ + uShift) / uCell;
@@ -371,7 +383,7 @@ export class Floor {
           float d = length(vXZ - uC);
           float fade = exp(-d * d / (uReach * uReach));
           float pool = exp(-d * d / (0.35 * uReach * uReach));
-          vec3 c = uBase * (0.55 + 0.45 * fade) + uLine * line * uGrid * fade + uPool * uPoolK * pool;
+          vec3 c = mix(uVoid, uBase, fade) + uLine * line * uGrid * fade + uPool * uPoolK * pool;
           gl_FragColor = vec4(c, 1.0);
         }`,
       extensions: { derivatives: true } as never,
@@ -393,8 +405,8 @@ export class Haze {
     this.mat = new THREE.ShaderMaterial({
       toneMapped: false,
       uniforms: {
-        uA: { value: hdr(o.role ?? '#2A1A12', o.k ?? 1) },
-        uB: { value: hdr(o.role2 ?? 'accentDim', o.k2 ?? 0.18) },
+        uA: { value: hdr(o.role ?? '#22160f', o.k ?? 1) },
+        uB: { value: hdr(o.role2 ?? 'accentDim', o.k2 ?? 0.08) },
         uVoid: { value: hdr('#0A0706', 1) },
         uT: { value: 0 },
       },

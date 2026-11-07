@@ -50,7 +50,7 @@ export abstract class MotionScene extends Scene3D {
   /** Hits merged into the post overrides. */
   protected hits: Hit[] = [];
   /** Base post for the shot (bloom etc). */
-  protected basePost: PostOverrides = { bloom: 0.85, bloomThreshold: 1.1, bloomRadius: 0.8, halation: 0.3, vignette: 0.32, grain: 0.03, ca: 0.25 };
+  protected basePost: PostOverrides = { bloom: 0.6, bloomThreshold: 1.2, bloomRadius: 0.7, halation: 0.18, vignette: 0.34, grain: 0.03, ca: 0.2 };
   /** The drift's strength (1: ±0.6 % position, ±0.3° roll). */
   protected driftAmt = 1;
 
@@ -150,7 +150,7 @@ export abstract class MotionScene extends Scene3D {
       if (h.kind === 'punch') {
         const x = t - h.t;
         if (x >= 0 && x < 0.6) zoom *= 1 + 0.035 * a * (x < 0.06 ? x / 0.06 : Math.exp(-(x - 0.06) / 0.1));
-      } else if (h.kind === 'flash') flash += 0.22 * a * pulse(t, h.t, 0.02, 0.05);
+      } else if (h.kind === 'flash') flash += 0.12 * a * pulse(t, h.t, 0.02, 0.05);
       else if (h.kind === 'shake' || h.kind === 'glitch') {
         const p = pulse(t, h.t, 0.01, h.kind === 'glitch' ? 0.09 : 0.12) * a;
         if (p > 0.01) {
