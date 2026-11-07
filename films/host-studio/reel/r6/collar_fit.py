@@ -362,6 +362,14 @@ def _editor(G: dict):
         out["tee_rest_inner"] = grids(verts(rest), Ts, Frame(frame), keep_max=False)  # actor at identity: Ts = rest
         return out
 
+    if stage == "cleanup":
+        gone = []
+        for a in list(EAS.get_all_level_actors()):
+            lab = a.get_actor_label()
+            if lab.startswith("FMQA_Neck"):
+                EAS.destroy_actor(a)
+                gone.append(lab)
+        return {"removed": gone}
     fr = Frame(G["FRAME"])
     if stage == "frame":
         Ts = body.get_socket_transform("spine_05", W)
@@ -507,14 +515,6 @@ def _editor(G: dict):
             out[name] = row
         return out
 
-    if stage == "cleanup":
-        gone = []
-        for lab in (REF_FACE, REF_BODY, NEW_TEE):
-            a = actor(lab)
-            if a:
-                EAS.destroy_actor(a)
-                gone.append(lab)
-        return {"removed": gone}
     raise RuntimeError(f"STAGE {stage}?")
 
 
@@ -585,6 +585,18 @@ def main(argv=None) -> int:
     if a.cmd == "cleanup":
         print(json.dumps(_exec(client, "cleanup"), indent=1))
         return 0
+    try:
+        return _run(a, client)
+    finally:  # never leave an FMQA_* temp actor on his mark (round 6: the S1 ref face stayed in the level and
+        # darkened his renders until agent-06 found it)
+        try:
+            print("cleanup:", json.dumps(_exec(client, "cleanup")))
+        except BaseException as e:  # noqa: BLE001
+            print(f"CLEANUP FAILED ({e}): run collar_fit.py --box .. cleanup, then check for FMQA_* actors")
+
+
+def _run(a, client) -> int:
+    from pathlib import Path
     if a.cmd == "measure":
         out = Path(a.out)
         out.mkdir(parents=True, exist_ok=True)
