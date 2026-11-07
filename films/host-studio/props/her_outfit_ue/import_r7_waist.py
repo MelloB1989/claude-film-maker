@@ -53,14 +53,23 @@ for fbx, (name, orig_name) in MESHES.items():
     if not m or not orig:
         out[name] = {"error": "not loaded", "orig": bool(orig)}
         continue
-    om = {str(s.material_slot_name): s for s in orig.materials}
+    # by slot INDEX: the FBX round trip names every slot WorldGridMaterial*, and the struct copies m.materials hands
+    # out ignore assignment, so each slot is a fresh SkeletalMaterial carrying the original's material and slot name
+    # (r7: agent-06 found both imports on the grid material)
+    if len(m.materials) != len(orig.materials):
+        out[name] = {"error": f"{len(m.materials)} slots vs the original's {len(orig.materials)}"}
+        continue
     mats, how = [], []
-    for i, s in enumerate(m.materials):
-        src = om.get(str(s.material_slot_name)) or (orig.materials[i] if i < len(orig.materials) else None)
-        how.append([str(s.material_slot_name), str(src.material_slot_name) if src else None])
-        if src:
-            s.material_interface = src.material_interface
-        mats.append(s)
+    for i, (s, o) in enumerate(zip(m.materials, orig.materials)):
+        sm = unreal.SkeletalMaterial()
+        sm.set_editor_property("material_interface", o.material_interface)
+        sm.set_editor_property("material_slot_name", o.material_slot_name)
+        try:
+            sm.set_editor_property("imported_material_slot_name", o.material_slot_name)
+        except Exception:
+            pass
+        mats.append(sm)
+        how.append([str(s.material_slot_name), str(o.material_slot_name)])
     m.set_editor_property("materials", mats)
     unreal.EditorAssetLibrary.save_loaded_asset(m)
     b = m.get_bounds()
