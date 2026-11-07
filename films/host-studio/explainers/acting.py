@@ -14,10 +14,10 @@ Timing conventions (agent-04 face, agent-01/agent-10 body):
 - smile: onset 0.30 s before the apex, apex on the word, held `hold` s, then eases to the line's base smile;
 - nod / tilt: apex on the stressed syllable (a nod is down-then-up, 0.35 s; a tilt holds until the next head move);
 - gesture: preparation from `prep` s before the stroke (default 0.30), stroke on the stressed syllable, held `hold`
-  s, then a retraction to a HIGH REST (hands loosely together at bust height, elbows off the torso: in the MCU
-  frame), not the desk, unless `rest` says so;
+  s, then a retraction to a HIGH REST (hands loosely together at the sternum, elbows off the torso: at the MCU
+  frame's bottom edge), not the desk, unless `rest` says so;
 - gesture space: `apex_height` per stroke (HEIGHT, by camera and size): chest to collarbone in front of the torso,
-  so the hands are IN the shot (CAM_MCU's bottom edge is about the bust line; CAM_CU's key strokes at the collarbone).
+  so the hands are IN the shot (CAM_MCU's bottom edge is at the sternum, z 85; CAM_CU's above the shoulders, z 102).
 
 Staging (the operator's notes, R7_common.md): hands off the body and above the desk while she speaks; elbows out so
 the upper arms clear the torso and breasts by >= 3 cm; the mic is on HER LEFT, so big gestures are her RIGHT hand, or
@@ -45,8 +45,8 @@ HER = {
     "film": "netflix", "who": "her",
     "pre": {  # before the first word (t 0-0.75 s, on CAM_MCU)
         "note": "Already alive when the cut opens: a soft closed-mouth smile building, a small head tilt to her right "
-                "(4 deg), an inhale with the shoulders rising 1 cm, hands loosely together at bust height in front "
-                "of her (fingertips touching, elbows out), already in the bottom of the MCU frame, not on the desk. A small lean in from 0.4 s.",
+                "(4 deg), an inhale with the shoulders rising 1 cm, hands loosely together at the sternum in front "
+                "of her (fingertips touching, elbows out), at the bottom edge of the MCU frame, not on the desk. A small lean in from 0.4 s.",
         "face": [("smile_soft", 0.15, {"amount": 0.35}), ("tilt", 0.2, {"side": "R", "deg": 4})],
         "lean": [(0.4, 4)],
     },
@@ -282,8 +282,8 @@ HER = {
             "gestures": [
                 ("high_low", "R", ("N15", "cloud"), {"size": "medium", "target": "up, her right", "height": "chin",
                                                      "hold": 0.5, "note": "open palm raised to chin height: up there"}),
-                ("place", "both", ("N15", "box"), {"size": "medium", "target": "front", "height": "bust",
-                                                    "note": "both hands come down to the bust line, still in frame: "
+                ("place", "both", ("N15", "box"), {"size": "medium", "target": "front", "height": "sternum",
+                                                    "note": "both hands come down to the sternum, the frame's edge: "
                                                             "right here"}),
                 ("beat", "both", ("N15", "delivers.", 1, 0.35), {"size": "medium", "target": "front"}),
             ],
@@ -313,8 +313,8 @@ HIM = {
     "film": "whatsapp", "who": "him",
     "pre": {
         "note": "Already alive when the cut opens: an easy closed-mouth grin building, a small head tilt to his right "
-                "(4 deg), an inhale with the shoulders rising 1 cm, hands loosely together at bust height in front "
-                "of him (fingers loosely laced, elbows out), already in the bottom of the MCU frame, not on the desk. A small lean in from 0.4 s.",
+                "(4 deg), an inhale with the shoulders rising 1 cm, hands loosely together at the sternum in front "
+                "of him (fingers loosely laced, elbows out), at the bottom edge of the MCU frame, not on the desk. A small lean in from 0.4 s.",
         "face": [("smile_soft", 0.15, {"amount": 0.35}), ("tilt", 0.2, {"side": "R", "deg": 4})],
         "lean": [(0.4, 4)],
     },
@@ -713,17 +713,17 @@ def face04(row: dict) -> dict:
     return {k: x for k, x in v.items() if x != []}
 
 
-# Gesture space (orchestrator, side A review): the apex of a stroke sits chest-to-collarbone in front of the torso, never
-# at desk height. In CAM_MCU the frame's bottom edge is about her bust line, so a medium/big stroke at the sternum puts
-# the hands in the frame's lower third; in CAM_CU the key strokes rise to the collarbone. Heights, low to high:
-# bust (just above the bust line: the fingertips inside the MCU frame), lower_chest, sternum, upper_chest, collarbone,
-# chin.
-HEIGHT = {"CAM_MCU": {"small": "bust", "medium": "sternum", "big": "upper_chest"},
-          "CAM_MCU_L": {"small": "bust", "medium": "sternum", "big": "upper_chest"},
-          "CAM_CU": {"small": "upper_chest", "medium": "collarbone", "big": "collarbone"},
-          "CAM_WIDE": {"small": "lower_chest", "medium": "sternum", "big": "sternum"},
-          None: {"small": "bust", "medium": "sternum", "big": "upper_chest"}}  # off camera: MCU heights (the TEST
-# span plays N03 on CAM_MCU, and the next shot can open mid-gesture)
+# Gesture space (orchestrator, side A review): the apex of a stroke sits chest-to-chin in front of the torso, never at
+# desk height. agent-10's framing check (her gesture plane): CAM_MCU's bottom edge is at her sternum point (z 85),
+# CAM_CU's above her shoulders (z 102). So in MCU a small beat peaks at the sternum (the hand at the frame's edge),
+# medium/big at the upper chest and collarbone (the hands in the frame's lower third); in CU the key strokes rise to the
+# chin. Heights, low to high: bust, lower_chest, sternum, upper_chest, collarbone, chin.
+HEIGHT = {"CAM_MCU": {"small": "sternum", "medium": "upper_chest", "big": "collarbone"},
+          "CAM_MCU_L": {"small": "sternum", "medium": "upper_chest", "big": "collarbone"},
+          "CAM_CU": {"small": "collarbone", "medium": "chin", "big": "chin"},
+          "CAM_WIDE": {"small": "lower_chest", "medium": "sternum", "big": "upper_chest"},
+          None: {"small": "sternum", "medium": "upper_chest", "big": "collarbone"}}  # off camera: MCU heights (the
+# TEST span plays N03 on CAM_MCU, and the next shot can open mid-gesture)
 # hands_in_frame_frac (>= 1 hand fully in frame, of the speaking frames), per camera: agent-09's gate row
 IN_FRAME = {"CAM_MCU": 0.6, "CAM_MCU_L": 0.6, "CAM_CU": 0.3, "CAM_WIDE": 1.0}
 
@@ -836,12 +836,13 @@ five payoffs; mid-line smiles 0.4-0.6, varied in shape and asymmetry. Confident,
 amplitude varies (`amp` 0-1: small 0.3, medium 0.55, big 0.85), and the HELD strokes keep the shape after the stroke
 for `hold_s` before retracting: deliberate, confident.
 
-**Gesture space (side A review):** the apex of every stroke sits chest-to-collarbone in front of the torso, never at
-desk height: in `CAM_MCU` the frame's bottom edge is about her bust line, so medium/big strokes peak at the sternum or
-higher and the hands sit in the frame's lower third; beats can be lower but stay in frame; in `CAM_CU` the key strokes
-rise to the collarbone. Each gesture carries its `apex_height`; each on-camera line its `hands_in_frame_min` (at least
+**Gesture space (side A review, agent-10's framing check):** the apex of every stroke sits chest-to-chin in front of
+the torso, never at desk height. `CAM_MCU`'s bottom edge is at her sternum (z 85 on her gesture plane): small beats
+peak at the sternum (the hand at the edge), medium at the upper chest, big at the collarbone, so the hands sit in the
+frame's lower third. `CAM_CU`'s bottom edge is above her shoulders (z 102): small strokes at the collarbone, the key
+ones at the chin. Each gesture carries its `apex_height`; each on-camera line its `hands_in_frame_min` (at least
 one hand fully in frame: MCU/MCU_L 0.6, CU 0.3, WIDE 1.0 of the speaking frames). The high rest is hands together at
-bust height, in frame.
+the sternum, at the MCU frame's edge.
 
 **Staging, for every line:** hands off the body and above the desk while she speaks, rest (hands loosely together,
 forearms on the desk edge) only in the pauses; elbows out so the upper arms clear the torso and breasts by >= 3 cm;
