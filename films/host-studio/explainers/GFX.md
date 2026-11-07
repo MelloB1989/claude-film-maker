@@ -8,11 +8,12 @@ rebuild; scene lengths follow. 24 fps, 1920x1080, 16:9.
 
 - **Series tag** (lower third on the first presenter shot, frames 12-84): `SYSTEM DESIGN IN 60 SECONDS` in Geist 600
   caps, tracking +8 %, over the film's topic line in Geist 400. No presenter names (the repo is public).
-- **Ground:** deep ink `#0A0E16` → `#111827` radial, a faint 64 px blueprint grid at 4 % white, slow parallax drift,
-  soft film grain (2 %) and a vignette. Never flat black, never pure white.
+- **Ground (dark-warm, matching the karma studio set):** warm charcoal `#120E0B` → `#1E1813` radial with a soft amber
+  glow `#C8874A` at 6 % top-left (the key light's side), a faint 64 px blueprint grid at 4 % warm white, slow parallax
+  drift, soft film grain (2 %) and a vignette. Never flat black, never pure white.
 - **Type:** titles Bricolage Grotesque 800; labels and UI Geist 500/600; numbers, keys, packets, code JetBrains Mono
   500. Fonts: `fonts/src/` and `app/public/fonts/`.
-- **Colour:** neutrals `#E6EAF2` (text), `#8A94A6` (secondary), `#1F2937` (cards, 1 px `#2B3646` border, 14 px radius,
+- **Colour:** neutrals `#F2ECE4` (text), `#A89E92` (secondary), `#241D18` (cards, 1 px `#3B3129` border, 14 px radius,
   soft shadow). One accent per film: WhatsApp `#25D366` (blue-tick `#53BDEB`), Netflix `#E50914`. Accent only on the
   thing the voice is naming, at the moment it names it.
 - **Motion:** eased (cubic out, 10-16 frame moves), elements build on the VO word that names them (`words[].f`, land
@@ -30,8 +31,8 @@ rebuild; scene lengths follow. 24 fps, 1920x1080, 16:9.
 - `<scene>_full.mov`: full frame, ProRes 422 HQ, exactly the shot's frame count from `edl/<film>.json` (+12 tail
   handle frames that keep the end state).
 - `<scene>_panel.mov` for the "panel" scenes: ProRes 4444 with alpha, the graphic laid out inside the right panel box
-  x 1010-1860, y 150-930 (presenter sits left of x 960), on a frosted card (`#111827` at 78 %, 18 px radius,
-  1 px `#2B3646`); everything outside the card transparent.
+  x 1010-1860, y 150-930 (presenter sits left of x 960), on a frosted card (`#1A1410` at 78 %, 18 px radius,
+  1 px `#3B3129`); everything outside the card transparent.
 - Keep a full-frame version of every panel scene too (fallback if a presenter shot fails).
 - Upload: `s3://rf-render-788655295054-aps1/ue-linux/r6/gfx/<film>/` (graphics carry no face data), or hand the box
   driver a branch + render command. `composite.py` reads `<scene>_full.mov` / `<scene>_panel.mov` from that folder.
