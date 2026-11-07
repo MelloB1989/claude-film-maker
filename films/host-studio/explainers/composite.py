@@ -48,6 +48,8 @@ LT_F0, LT_F1 = 12, 84         # the lower third's frames (on the first presenter
 CAP_Y = 1000                  # caption baseline centre (y of the text's vertical middle)
 CAP_SIZE = 50
 CAP_MAX_WORDS, CAP_MAX_CHARS = 6, 34
+CAP_PLATE = (16, 8, 12, 115)  # the caption's backing plate: x pad, y pad, radius (px), black alpha (45 %)
+CAP_DIM = 179                 # alpha of the words still to come (70 %)
 # a chunk never ends on these (no "over a hundred / billion", no "the / server")
 NO_BREAK_AFTER = {"a", "an", "the", "over", "of", "to", "on", "in", "its", "your", "their", "and", "so", "than",
                   "hundred", "three", "two", "few", "many", "right", "fewer", "one", "is", "it's", "into", "at", "per"}
@@ -194,22 +196,29 @@ def chunks(line: dict) -> list[list[dict]]:
 
 
 def caption_image(path: Path, words: list[str], lit: int, film: str) -> None:
-    """A chunk with its first `lit` words bright and the rest waiting, on a soft shadow (no box)."""
+    """A chunk with its first `lit` words bright and the rest waiting (CAP_DIM), on a rounded dark plate (CAP_PLATE):
+    white on a shadow alone vanished over her white top (orchestrator, Netflix v2)."""
     im = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     f = font("Geist-600.ttf", CAP_SIZE)
     d = ImageDraw.Draw(im)
     space = d.textlength(" ", font=f)
     widths = [d.textlength(w, font=f) for w in words]
-    x = (W - (sum(widths) + space * (len(words) - 1))) / 2
+    tw = sum(widths) + space * (len(words) - 1)
+    x = (W - tw) / 2
+    _, top, _, bot = d.textbbox((0, CAP_Y), "Hgjy", font=f, anchor="lm")  # one plate height for every chunk
+    px, py, r, a = CAP_PLATE
+    d.rounded_rectangle((round(x - px), round(top - py), round(x + tw + px), round(bot + py)), radius=r,
+                        fill=(0, 0, 0, a))
     sh = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     ds = ImageDraw.Draw(sh)
     xs = x
     for w, wd in zip(words, widths):
-        ds.text((xs, CAP_Y + 3), w, font=f, fill=(0, 0, 0, 200), anchor="lm")
+        ds.text((xs, CAP_Y + 2), w, font=f, fill=(0, 0, 0, 140), anchor="lm")
         xs += wd + space
-    im.alpha_composite(sh.filter(ImageFilter.GaussianBlur(6)))
+    im.alpha_composite(sh.filter(ImageFilter.GaussianBlur(3)))
+    d = ImageDraw.Draw(im)
     for i, (w, wd) in enumerate(zip(words, widths)):
-        d.text((x, CAP_Y), w, font=f, fill=TEXT + (255,) if i < lit else TEXT + (120,), anchor="lm")
+        d.text((x, CAP_Y), w, font=f, fill=TEXT + ((255,) if i < lit else (CAP_DIM,)), anchor="lm")
         x += wd + space
     im.save(path)
 
