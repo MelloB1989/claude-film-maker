@@ -1,4 +1,4 @@
-"""The explainers' final composite: presenter renders + graphics (full frame and alpha side panels) + kinetic captions +
+"""The explainers' final composite: presenter renders + graphics (full frame and alpha side panels) + kinetic captions (every VO word) +
 the lower third + the mix, cut to edl/<film>.json. Runs ON THE BOX (presenter frames are private: they never leave it
 except to private/ on S3).
 
@@ -208,11 +208,11 @@ def caption_image(path: Path, words: list[str], lit: int, film: str) -> None:
 
 
 def captions(edl: dict, cues: dict, film: str, work: Path) -> tuple[Path, list]:
-    """The caption track as an ffconcat of stills (one per word state) and the SRT entries. Captions show on the
-    presenter and panel shots only, each chunk from 2 frames before its first word to 8 after its last (or the next
-    chunk, or the shot's cut)."""
+    """The caption track as an ffconcat of stills (one per word state) and the SRT entries. Every VO word is captioned,
+    on every shot (QA: the captions are the VO, in order), each chunk from 2 frames before its first word to 8 after
+    its last (or the next chunk, or the shot's cut). The graphics keep the bottom caption band clear (GFX.md)."""
     shots = edl["shots"]
-    on = [(s["f0"], s["f1"]) for s in shots if s["kind"] in ("pres", "panel")]
+    on = [(s["f0"], s["f1"]) for s in shots if s["lines"]]
     events, srt = [], []  # (f0, f1, still)
     blank = work / "cap_blank.png"
     Image.new("RGBA", (W, H), (0, 0, 0, 0)).save(blank)

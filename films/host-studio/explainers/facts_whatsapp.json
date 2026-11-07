@@ -1,10 +1,54 @@
-{"claims": [
- {"said": "over a hundred billion", "text": "WhatsApp carries more than 100 billion messages a day (Facebook, Q3 2020 earnings call, 29 Oct 2020; repeated by Meta since)", "source": "https://investor.atmeta.com/investor-events/default.aspx"},
- {"said": "two million", "text": "WhatsApp engineering, Jan 2012: over 2 million TCP connections on a single Erlang/FreeBSD server", "source": "https://blog.whatsapp.com/1-million-is-so-2011"},
- {"said": "One", "text": "Receipts: one grey tick = sent (reached WhatsApp's server), two grey = delivered to the recipient's phone, two blue = read", "source": "https://faq.whatsapp.com/"},
- {"said": "Two", "text": "as above (two grey ticks = delivered)", "source": "https://faq.whatsapp.com/"},
- {"said": "deleted", "text": "Messages are stored on WhatsApp's servers only until delivered, then deleted (undelivered ones are kept up to 30 days)", "source": "https://www.whatsapp.com/legal/privacy-policy"},
- {"said": "encrypts once", "text": "Groups use Sender Keys: the sender encrypts a message once and the server does the fan-out to each member", "source": "https://www.whatsapp.com/security/WhatsApp-Security-Whitepaper.pdf"},
- {"said": "Signal protocol", "text": "End-to-end encryption by default since April 2016, built on the Signal Protocol; keys are generated and kept on devices", "source": "https://www.whatsapp.com/security/WhatsApp-Security-Whitepaper.pdf"},
- {"said": "blob store", "text": "Attachments are encrypted with a random AES-256 key, uploaded to a blob store; the key, MAC and hash ride in the end-to-end encrypted message", "source": "https://www.whatsapp.com/security/WhatsApp-Security-Whitepaper.pdf"}
-]}
+{
+ "claims": [
+  {
+   "said": "over a hundred billion",
+   "text": "WhatsApp carries more than 100 billion messages a day (Facebook, Q3 2020 earnings call, 29 Oct 2020; repeated by Meta since)",
+   "source": "https://investor.atmeta.com/investor-events/default.aspx"
+  },
+  {
+   "said": "two million",
+   "text": "WhatsApp engineering, Jan 2012: over 2 million TCP connections on a single Erlang/FreeBSD server",
+   "source": "https://blog.whatsapp.com/1-million-is-so-2011"
+  },
+  {
+   "said": "One",
+   "text": "Receipts: one grey tick = sent (reached WhatsApp's server), two grey = delivered to the recipient's phone, two blue = read",
+   "source": "https://faq.whatsapp.com/"
+  },
+  {
+   "said": "Two",
+   "text": "as above (two grey ticks = delivered)",
+   "source": "https://faq.whatsapp.com/"
+  },
+  {
+   "said": "deleted",
+   "text": "Messages are stored on WhatsApp's servers only until delivered, then deleted (undelivered ones are kept up to 30 days)",
+   "source": "https://www.whatsapp.com/legal/privacy-policy"
+  },
+  {
+   "said": "encrypts once",
+   "text": "Groups use Sender Keys: the sender encrypts a message once and the server does the fan-out to each member",
+   "source": "https://www.whatsapp.com/security/WhatsApp-Security-Whitepaper.pdf"
+  },
+  {
+   "said": "Signal protocol",
+   "text": "End-to-end encryption by default since April 2016, built on the Signal Protocol; keys are generated and kept on devices",
+   "source": "https://www.whatsapp.com/security/WhatsApp-Security-Whitepaper.pdf"
+  },
+  {
+   "said": "blob store",
+   "text": "Attachments are encrypted with a random AES-256 key, uploaded to a blob store; the key, MAC and hash ride in the end-to-end encrypted message",
+   "source": "https://www.whatsapp.com/security/WhatsApp-Security-Whitepaper.pdf"
+  },
+  {
+   "said": "1,024",
+   "text": "On screen (graphics): groups up to 1,024 members (Meta, Nov 2022)",
+   "source": "https://about.fb.com/news/2022/11/whatsapp-communities-launch/"
+  },
+  {
+   "said": "2016",
+   "text": "On screen (graphics): end-to-end encryption by default since April 2016",
+   "source": "https://blog.whatsapp.com/end-to-end-encryption"
+  }
+ ]
+}
