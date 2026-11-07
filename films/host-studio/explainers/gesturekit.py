@@ -378,7 +378,9 @@ class Performer(S.Seater):
         tgt[2] += 4.0 * math.sin(math.pi * ws)  # an arc up off the desk and back, never through it
         if s == "l":  # and the mic-side hand's path bows in toward her midline, away from the mic in every camera
             tgt = add(tgt, mul(self.fr[1], 4.0 * math.sin(math.pi * ws)))
-        pole = add(add(mul(f, -0.3), mul(r if s == "r" else mul(r, -1.0), 0.9)), mul(u, -0.35))
+        # elbows out and a little down; the mic-side elbow lower still (its upward swing meets the mic)
+        pole = (add(add(mul(f, -0.3), mul(r, 0.9)), mul(u, -0.35)) if s == "r"
+                else add(add(mul(f, -0.3), mul(r, -0.9)), mul(u, -0.5)))
         pole_rest = sub(self.comp(e0), self._fk_t("upperarm_" + s, "clavicle_" + s, W))
         pole = add(mul(unit(pole), ws), mul(unit(pole_rest), 1.0 - ws))
         rest_hp = HandPose((0.0, 0.0, 0.0), pron=self.sy.pronation, ext=self.ext_base.get(s, 10.0), shape="relaxed")
@@ -488,6 +490,12 @@ class Performer(S.Seater):
                 A2 = {**A, "upperarm_" + s: self.actor(sh), "lowerarm_" + s: self.actor(e)}
                 c = clearance(A2, None, s, self.tor)
                 if dot(sub(e, sh), side) < 0:  # never swing the elbow in across the body
+                    continue
+                ea = self.actor(e)  # nor into the mic: box B's bodycheck had her left elbow 9 cm from the capsule
+                st_ = self.set
+                if st_.mic and norm(sub(ea, st_.mic)) < st_.mic_radius + 2.5:
+                    continue
+                if st_.boom and S.poly_dist(ea, st_.boom) < st_.boom_radius + 3.5:
                     continue
                 if best is None or c > best[0]:
                     best = (c, e, w2)
