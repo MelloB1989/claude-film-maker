@@ -14,7 +14,7 @@ shrink backstop only trades that poke for a gap and a torn open edge. This tool 
      difference), K = 1 from the bin's height up to the top and RIB_CM below it (the rib band moves as one: its
      height and thickness are kept, both walls move the same), then a cosine to 0 over FALL_CM down the tee. Sectors
      are smoothed (max over +-1, then 1-2-1), so the collar stays round, never lumpy. Nothing else moves.
-  3. VERIFY: the copy's rest shape moved only in the collar region; posed (a temp actor on leader pose to his Body)
+  3. VERIFY: the copy's rest shape moved only in the collar region; posed (dressed as Tee, vs Epic's SkeletalMesh)
      it matches his worn tee everywhere outside the collar (skin weights survived the write-back); and the measure
      re-run on the dressed copy reads need <= 0 everywhere (no face outside the collar on any frame) BEFORE qa.clip.
 
@@ -232,6 +232,13 @@ def _editor(G: dict):
                 g[s][b] = r
         return [[None if x is None else round(x, 3) for x in row] for row in g]
 
+    def pose_check(F, T):
+        """Sanity per frame: the face's median radius 2-4 cm above neck_01 (his neck: ~5-7 cm; a face read at rest
+        while the body moves reads far off) and how many face verts fall in that slab at all."""
+        fr0 = Frame(G["FRAME"])
+        rs = sorted(fr0.cyl(inv_pos(T, p))[1] for p in F[::5] if 2.0 <= fr0.cyl(inv_pos(T, p))[0] <= 4.0)
+        return {"neck_r_p50": round(rs[len(rs) // 2], 2) if rs else None, "n": len(rs)}
+
     stage = G.get("STAGE", "setup")
     host = actor(label)
     cs = comps(host)
@@ -281,7 +288,7 @@ def _editor(G: dict):
         out = {"face": grids(F, Ts, fr, keep_max=True), "tee": grids(verts(posed(tee_comp(cs))), Ts, fr, keep_max=False),
                "neck01_w": [round(c, 2) for c in (lambda v: (v.x, v.y, v.z))(body.get_socket_location("neck_01"))],
                "head_w": [round(c, 2) for c in (lambda v: (v.x, v.y, v.z))(body.get_socket_location("head"))],
-               "face_src": "ref" if ref else "Face"}
+               "face_src": "ref" if ref else "Face", "pose": pose_check(F, Ts)}
         if ref and G.get("CHECK_REF"):  # the ref face vs the worn face above the collar: ~0 when they agree
             live = verts(posed(cs["Face"]))
             hi = [p for p in live if fr.cyl(inv_pos(Ts, p))[0] > 3.0]
@@ -341,10 +348,6 @@ def _editor(G: dict):
         back = verts(asset_dm(dup))
         orig = verts(asset_dm(src))
         d_rest = sorted((a - b).length() for a, b in zip(back, orig)) if len(back) == len(orig) else None
-        # temp actor on leader pose to his Body: verify (after a scrub) compares it posed with his worn tee
-        na, nc = spawn(NEW_TEE, dup, host)
-        nc.set_world_transform(tee_comp(cs).get_world_transform(), False, False)
-        nc.set_leader_pose_component(body, True)
         mats = {str(s): (m.get_path_name() if m else None) for s, m in zip(tee_comp(cs).get_material_slot_names(),
                                                                           tee_comp(cs).get_materials())}
         return {"dest": dest, "src": src.get_path_name(), "verts": [len(back), len(orig)], "moved_verts": moved,
@@ -355,13 +358,13 @@ def _editor(G: dict):
                 "lods": dup.get_lod_num() if hasattr(dup, "get_lod_num") else None}
 
     if stage == "verify":
-        # posed: the copy (leader pose to Body) vs his worn tee, by surface; outside the collar zone ~0 (weights OK)
-        na = actor(NEW_TEE)
-        if na is None:
-            raise RuntimeError("no temp copy actor: run STAGE='push' first")
+        # after mh.dress: the copy (component Tee) vs Epic's (SkeletalMesh), both posed as worn, by surface; outside
+        # the collar zone ~0 = the skin weights survived the write-back. (Not a temp actor on leader pose: a
+        # follower spawned by a script is NOT posed when read on the CPU: round 6 S1 read his face ref at rest, and
+        # qa.garment_look's ref body read nonsense in round 5 for the same reason)
         Ts = body.get_socket_transform("spine_05", W)
-        A = verts(posed(na.get_editor_property("skeletal_mesh_component")))
-        dm = posed(tee_comp(cs))
+        A = verts(posed(cs[G.get("NEW", "Tee")]))
+        dm = posed(cs[G.get("OLD", "SkeletalMesh")])
         SP = unreal.GeometryScript_MeshSpatial
         bvh = pick(SP.build_bvh_for_mesh(dm), "GeometryScriptDynamicMeshBVH")
         q = unreal.GeometryScriptSpatialQueryOptions()
@@ -424,7 +427,7 @@ def main(argv=None) -> int:
     sub = ap.add_subparsers(dest="cmd", required=True)
     m = sub.add_parser("measure")
     m.add_argument("--out", required=True)
-    m.add_argument("--face-ref", default="")
+    m.add_argument("--face-ref", default="", help="UNRELIABLE (round 6 S1): a script-spawned leader-pose follower reads at rest on the CPU; measure the live Face after backstop_off instead")
     m.add_argument("--tee", default="", help="component (Tee / SkeletalMesh) or the temp copy actor FMQA_NeckTee")
     m.add_argument("--seq", default="/Game/Reel/SEQ_Reel")
     m.add_argument("--shots", default="Reel_S13,Reel_S15,Reel_S17,Reel_S18")
@@ -438,8 +441,11 @@ def main(argv=None) -> int:
     p.add_argument("--dest", required=True)
     p.add_argument("--rib", type=float, default=2.0)
     p.add_argument("--fall", type=float, default=4.5)
-    p.add_argument("--verify-frames", default="1128,1397")
     p.add_argument("--seq", default="/Game/Reel/SEQ_Reel")
+    v = sub.add_parser("verify", help="after mh.dress: Tee vs SkeletalMesh posed, elsewhere ~0")
+    v.add_argument("--from", dest="src", required=True)
+    v.add_argument("--frames", default="1128,1397")
+    v.add_argument("--seq", default="/Game/Reel/SEQ_Reel")
     sub.add_parser("cleanup")
     a = ap.parse_args(argv)
     if a.box != "conf":
@@ -478,9 +484,27 @@ def main(argv=None) -> int:
         (out / "frames.json").write_text(json.dumps(per))
         need, where = worst_need(per, a.clear)
         s = summarize(need, where)
+        fw = []
+        for f, g in per.items():
+            n1, _ = worst_need({f: g}, a.clear)
+            w = max((x for row in n1 for x in row if x is not None), default=None)
+            fw.append((w if w is not None else -99, f, g.get("pose")))
+        fw.sort(reverse=True)
+        s["worst_frames"] = [{"frame": f, "need_cm": round(w, 2), "pose": p} for w, f, p in fw[:12]]
+        s["median_frame_need_cm"] = round(sorted(w for w, _, _ in fw)[len(fw) // 2], 2) if fw else None
         (out / "need.json").write_text(json.dumps({"need": need, "where": where, "clear": a.clear,
                                                    "frames": frames, "summary": s}))
         print(json.dumps(s, indent=1))
+        return 0
+    if a.cmd == "verify":
+        src = Path(a.src)
+        setup = json.loads((src / "setup.json").read_text())
+        res = json.loads((src / "push.json").read_text())["result"]
+        for f in (int(x) for x in a.frames.split(",") if x):
+            for ff in (f + 1, f):
+                client.op("seq.scrub", path=a.seq, frame=ff)
+            v = _exec(client, "verify", FRAME=setup["frame"], ZONE_T_MIN=res["zone"]["t_min"] or -12.0)
+            print(f"verify f{f}:", json.dumps(v))
         return 0
     # push
     src = Path(a.src)
@@ -490,11 +514,7 @@ def main(argv=None) -> int:
     print(json.dumps(summarize(nd["need"], nd["where"], P)["sectors"]))
     res = _exec(client, "push", FRAME=setup["frame"], PUSH=P, DEST=a.dest, TEE="")
     print(json.dumps(res, indent=1))
-    for f in (int(x) for x in a.verify_frames.split(",") if x):
-        for ff in (f + 1, f):
-            client.op("seq.scrub", path=a.seq, frame=ff)
-        v = _exec(client, "verify", FRAME=setup["frame"], ZONE_T_MIN=res["zone"]["t_min"] or -12.0)
-        print(f"verify f{f}:", json.dumps(v))
+    print("next: mh.dress the copy as Tee, then: collar_fit.py --box .. verify --from", a.src)
     (src / "push.json").write_text(json.dumps({"P": P, "rib": a.rib, "fall": a.fall, "result": res}))
     return 0
 
