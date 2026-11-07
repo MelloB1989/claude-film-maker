@@ -54,14 +54,15 @@ if audio.startswith("s3://"):
     subprocess.run(["aws", "s3", "cp", "--only-show-errors", audio, local])
     audio = local
 for d in {dirs!r}:
-    pngs = sorted(glob.glob(f"{{base}}/{{d}}/[0-9]*.png"))
+    pngs = sorted(glob.glob(f"{{base}}/{{d}}/[0-9]*.png")) or sorted(glob.glob(f"{{base}}/{{d}}/[0-9]*.jpeg"))
     if not pngs:
         res[d] = "no frames"; continue
-    first = int(os.path.basename(pngs[0])[:-4])
+    ext = os.path.splitext(pngs[0])[1]  # the preview preset writes jpeg, the finals png
+    first = int(os.path.basename(pngs[0]).split(".")[0])
     a = ["-ss", f"{{first / 24:.4f}}", "-i", audio, "-map", "0:v", "-map", "1:a", "-c:a", "aac", "-b:a", "192k",
          "-shortest"] if audio else []
     r = subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-framerate", "24", "-start_number", str(first),
-                        "-i", f"{{base}}/{{d}}/%04d.png", *a, "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "16",
+                        "-i", f"{{base}}/{{d}}/%04d{{ext}}", *a, "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "16",
                         f"{{base}}/{{d}}.mp4"], capture_output=True, text=True)
     res[d] = [len(pngs), first, r.returncode, r.stderr[-200:]]
 r = subprocess.run(["aws", "s3", "sync", base, {f"{S3}/{film}/{preset}/"!r}, "--sse", "aws:kms", "--only-show-errors"],
@@ -81,6 +82,7 @@ def main() -> int:
     ap.add_argument("--preset", default="preview", choices=sorted(PRESETS))
     ap.add_argument("--shots", help="only these shot numbers (comma list)")
     ap.add_argument("--dry", action="store_true", help="print the plan and the specs, touch nothing")
+    ap.add_argument("--post-only", action="store_true", help="only encode the previews and sync (frames on disk)")
     ap.add_argument("--audio", default="", help="the film's mix (s3 key or box path) muxed into each preview")
     a = ap.parse_args()
     edl = json.loads(Path(a.edl).read_text())
@@ -96,6 +98,9 @@ def main() -> int:
     from filmtools.unreal import client
     S.client = client
     S.guard(a.box, a.instance)
+    if a.post_only:
+        post(a.film, a.preset, plan, a.audio)
+        return 0
     seq, failed = S.SEQ[a.who], []
     box_json = HERE / "numbers" / a.film / "box.json"
     box = json.loads(box_json.read_text()) if box_json.exists() else {}
@@ -105,16 +110,18 @@ def main() -> int:
             S.op("seq.camera_cuts", path=seq, cuts=[[cam, 0]])
             for n, c, f0, f1 in [p for p in plan if p[1] == cam]:
                 # garment.leaders_ok (agent-09's hard row): every garment led by Body, read right before EVERY job
+                # + agent-06's pre-render guard: no Test_*/FMQA_* or second presenter, her face lit in this camera
                 S.op("mh.leader", label=S.ACTOR[a.who])
-                lead = S.op("mh.leader_check", label=S.ACTOR[a.who])
+                g = S.guard_scene(a.who, c, (f0 + f1) // 2)
+                lead = {"pass": g["ok"], "why": g["why"]}
                 jobs.append({"job": f"{a.preset}/shot{n:02d}_{c}", "frames": [f0, f1], "box": a.instance,
-                             "at": time.strftime("%Y-%m-%d %H:%M:%S"), "garment.leaders_ok": int(bool(lead.get("pass"))),
-                             "leader_gap_cm": lead.get("metric")})
+                             "at": time.strftime("%Y-%m-%d %H:%M:%S"), "garment.leaders_ok": g["leaders_ok"],
+                             "strays": g["strays"], "face_luma": g.get("face_luma"), "guard_ok": int(bool(g["ok"]))})
                 box["garment.leaders_ok"] = min(j["garment.leaders_ok"] for j in jobs)
                 box_json.parent.mkdir(parents=True, exist_ok=True)
                 box_json.write_text(json.dumps(box, indent=1) + "\n")
                 if not lead.get("pass"):
-                    print(f"shot{n:02d} {c}: leaders FAIL ({lead.get('why')}): not rendered")
+                    print(f"shot{n:02d} {c}: GUARD FAIL ({lead.get('why')}): not rendered")
                     failed.append(n)
                     continue
                 t = time.time()
