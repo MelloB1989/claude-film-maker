@@ -27,10 +27,14 @@ OUT = "/srv/ue/explainer/renders"
 S3 = f"{S.BUCKET}/private/renders/r6/explain"
 # round 5's film cvars (groom.lock's render_cvars, SSS full res); r.HairStrands.SkyLighting 0 as studio.py sets it
 CVARS = {"r.SSS.Quality": 1, "r.SSS.HalfRes": 0, "r.HairStrands.LODMode": 0, "r.HairStrands.AutoLOD.Bias": 1.0,
-         "r.HairStrands.UseCardsInsteadOfStrands": 0, "r.HairStrands.SkyLighting": 0}
+         "r.HairStrands.UseCardsInsteadOfStrands": 0, "r.HairStrands.SkyLighting": 0,
+         # r6b (the CU f1300 rectangular tile blocks: textures still streaming in): every used texture fully resident,
+         # a pool big enough for the set at full mips (L40S 46 GB), and warm-up frames before the first kept frame
+         "r.Streaming.FullyLoadUsedTextures": 1, "r.Streaming.PoolSize": 12000}
 PRESETS = {
-    "preview": {"preset": "preview", "spatial": 1, "temporal": 2, "width": 1920, "height": 1080},
-    "final": {"preset": "final", "spatial": 4, "temporal": 8, "width": 1920, "height": 1080, "aa_method": "none"},
+    "preview": {"preset": "preview", "spatial": 1, "temporal": 2, "width": 1920, "height": 1080, "warmup_render": 16},
+    "final": {"preset": "final", "spatial": 4, "temporal": 8, "width": 1920, "height": 1080, "aa_method": "none",
+              "warmup_render": 24},
 }
 
 
