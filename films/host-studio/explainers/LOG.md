@@ -200,6 +200,19 @@ tested in `test_seatkit.py`), `gestures.json` (the emphasis gestures per line).
 | 18:05 | agent-07 moved the desk in (near edge x 38) and mirrored the boom to the -Y edge (scale -1 at yaw -90): no re-pose needed. Armrest 63.0 vs apron underside 63.4 noted |
 | 18:30 | A full re-run died at once: `cd && rm && nohup … &` on one line ran the whole chain in a subshell that SSM killed with the command → relaunch with `setsid nohup` on its own line |
 | 18:45 | Orchestrator (via agent-07): her feet never seen, WIDE's empty right → SM_WalnutDesk_Panel, SM_FloorLamp (practical, SOCKET_Bulb), SM_FloorSnakePlant; all 7 FBX re-import at size; uploaded with all textures |
+
+## Round 7: performance (agent-11, director)
+
+- 07 Nov 23:43 IST: her acting sheet, first draft. `acting.py` resolves a per-line sheet (emotion, intensity, base
+  smile/brows, face moves and gestures on exact words, lean) against the VO alignment into `acting/her.json` (seconds +
+  frames, plus `face04` / `body01` views for agent-04 and agent-01) and `ACTING.md`. On paper: 19.4 smiles/min, 20.6
+  brow moves/min, 0.87 gesture onsets/s, longest neutral stretch inside a line 1.41 s, no gesture twice in a row.
+  TEST span: CAM_MCU f0-196 (N01-N03) + CAM_WIDE f1040-1162 (N13) = 13.25 s; N04 (f196-305) optional.
+- 07 Nov 23:47 IST: the orchestrator approved v1 as direction, with two calibrations, applied: full Duchenne (>= 0.8)
+  only on five payoffs (members, just starts, near you, AWS, just plays), mid-line smiles 0.4-0.6 with a shape /
+  asymmetry each; gesture amplitude `amp` per stroke and HELD strokes (`held`, `hold_s` 0.5-1.0). His 17 lines
+  (`acting/him.json`), same staging and calibration (payoffs: messages, Here's how, read it, your hands, a day): 0.94
+  onsets/s, longest neutral stretch <= 1.5 s; his TEST span CAM_MCU f0-179 (W01-W03) + CAM_WIDE f422-480 (W07).
 - 07 Nov ~01:30 IST (r7, agent-04): her face acts. Cause of the "pale" face: mouth-only solves, plus a plan that
   added only random brow flashes (brow_chance 0.45) and no smiles. `face_acting.py` turns agent-11's sheet
   (v1.1) into perf.face events on the exact words: brows, curious one-brow, Duchenne (cheek + squint) only on the
