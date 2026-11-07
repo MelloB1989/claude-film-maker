@@ -1,0 +1,8 @@
+{
+ "gate": {
+  "lips.eye_onsets": {
+   "value": 1,
+   "where": "private/renders/r6/review/karma/cut/karma-reel-1080p-clean-h264.mp4: L1 1, L2 1, L3a occluded, L3b 2, L4a 2, L4b 1"
+  }
+ }
+}

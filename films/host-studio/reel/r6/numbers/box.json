@@ -1,0 +1,106 @@
+{
+ "box": "A i-0284d544cdf14905e",
+ "round": "6",
+ "what": "his karma finals (S13, S15 warm-up 64, S17+S18 one job) on the r6n2 state (backstop off + 1.5 cm chest-flange cull); S16 + set shots = round 5b's final",
+ "final_qa_cut_pass": true,
+ "cull_live": {
+  "gone": 912,
+  "gone_z_cm": [
+   144.2,
+   149.0,
+   153.3
+  ],
+  "kept_moved_gt_0.05cm": 0,
+  "kept_max_moved_cm": 0.0
+ },
+ "hair_note": "hair.cut_reach_pct from the editor (render matte's +160.26 at S16->S17 excluded via --qa-pop, as in round 5b)",
+ "gate": {
+  "garment.leaders_ok": {
+   "value": 1,
+   "where": "min over the 3 final jobs (S13, S15, S17S18), read right before each render: ['leaders_ok True', 'leaders_ok True', 'leaders_ok True']"
+  },
+  "shot.face_luma_ratio": {
+   "value": 1.035,
+   "where": "worst |ratio-1| S15 f1175, per-image mediapipe face boxes, finals vs r3/final_d; all: S13 f985 0.989, S13 f1040 0.994, S15 f1085 1.029, S15 f1128 1.013, S15 f1175 1.035, S17 f1340 1.001, S17 f1397 0.991, S18 f1442 0.986, S18 f1500 0.967",
+   "all_detected": false
+  },
+  "shot.cameras_ok": {
+   "value": 1,
+   "where": "the 13 shots (13/13)",
+   "failed": []
+  },
+  "shot.render_matches_r4": {
+   "value": 0.8099,
+   "where": "S15 f1080",
+   "per_shot": {
+    "S13": {
+     "min": 0.9412,
+     "at": 960,
+     "frames": 120,
+     "mean": 0.981
+    },
+    "S15": {
+     "min": 0.8099,
+     "at": 1080,
+     "frames": 120,
+     "mean": 0.8761
+    },
+    "S16": {
+     "min": 0.8634,
+     "at": 1319,
+     "frames": 120,
+     "mean": 0.8989
+    },
+    "S17": {
+     "min": 0.9785,
+     "at": 1320,
+     "frames": 120,
+     "mean": 0.9877
+    },
+    "S18": {
+     "min": 0.9715,
+     "at": 1559,
+     "frames": 120,
+     "mean": 0.992
+    }
+   },
+   "unmatched": []
+  },
+  "hair.lock": {
+   "value": 1,
+   "where": "the level, before the render",
+   "problems": []
+  },
+  "hair.render_cvars": {
+   "value": 1,
+   "where": "30-final.yaml",
+   "mismatch": []
+  },
+  "hair.cut_pop_ratio": {
+   "value": 1.304,
+   "pop_cuts": [
+    "S17->S18 f1440 x1.304"
+   ]
+  },
+  "hair.cut_reach_pct": {
+   "value": 3.47,
+   "cuts_judged": [
+    "editor Reel_S15->Reel_S16 f1200 +0.64%",
+    "editor Reel_S16->Reel_S17 f1320 +3.47%",
+    "editor Reel_S17->Reel_S18 f1440 -0.71%",
+    "render S15->S16 f1200 -31.70%",
+    "render S16->S17 f1320 +160.26%",
+    "render S17->S18 f1440 -27.79%"
+   ]
+  },
+  "hair.pop_reach_pct": {
+   "value": 1.61,
+   "where": "editor qa.hair_continuity S15-S18 (incl. S15 f1082), round 5b 8.93"
+  },
+  "shot.start_motion_ratio": {
+   "value": 3.355,
+   "where": "S15 f1080-1084 (INFO; round 5b 13.65)",
+   "info": true
+  }
+ }
+}
