@@ -36,3 +36,22 @@ round 5b; branch `fleet/agent-06/r6-boxa` (film/host-studio 8b2bad4e + agent-04 
 ### Round 6 track K: what holds, what is open (agent-06)
 - Delivered: his neck fixed at the root (backstop OFF: MetaHuman's unshrunk face, no tear/ring; the face's chest flange culled 1.5 cm under the tee, 912 verts, nothing visible moved), K2's place fix (pop_reach 8.93 → 1.61, the f1559 end lean fixed), finals S13 / S15 / S17+S18 in fresh editors, cuts 65 s + 45 s, gate signed.
 - Lessons (tool items): perf.py restage left `Test_perf_Him` ON his mark (fixed by agent-04 34f760d0) and collar_fit's temp face stayed in the level (fixed by agent-02): any extra BP/face on the mark darkens his face in every render, so the pre-render guard deletes strays and checks face luma; a hung MRQ (0 frames, game thread stalled) needs a frame-progress watchdog; the neck mask stage reads the Face component's CURRENT mesh (re-mask on the uncut face); the render lip and the editor lead_in samplers read a frozen face (only the eye and the curve rows judge lips); an MRQ still through a new camera needs the camera as a sequence spawnable.
+
+### Box A's state in private S3, and how a spot box resumes (agent-06)
+Box A (i-0284d544cdf14905e) was stopped and terminated by the orchestrator at ~20:35 IST, after its final image. Bucket
+`rf-render-788655295054-aps1`, all under `ue-linux/private/` (SSE-KMS, box role only; Host_Op data: never off the boxes).
+
+| prefix | what |
+|---|---|
+| `project/HostStudio/` (Content + Config) | the project as box A left it: his face = MetaHuman's unshrunk build with the 1.5 cm chest-flange cull (`Fit/WI_Host_DefaultGarment_Neck`: head hidden-face map `T_Host_NeckCull15`, MaxCull 0.1, MinKeep 0.89, MaxShrink 0), Epic's tee untouched, round 5b's skin textures/MIs; her round-4 overshirt; Studio + SEQ_Reel as rendered (K2d placement, agent-04's place fix). No strays: no `Test_*`, `FMQA_*` or `/Game/Tmp/*` |
+| `r6/him_state/` | his head state since box B's 16:14 clone: 107 assets + the perf signs file (reference) + his perf numbers, `manifest.json` with sha256 per file and the parity numbers (cull_live 912 gone / z 144.2-153.3 / kept 0; face luma S13 0.99, S15 1.01 of round 4) |
+| `renders/r6/box_a/` | all of `/srv/ue/reel`: `r6/final` (1584 frames), `r6/fin_{S13,S15,S17S18}`, `r6/cut` (65 s + 45 s, ProRes 4444 masters), `r6/qa`, `r6/hair`, `r6/garment` (qa.clip dirs clipr6c1/c3/fin with depth), `r6/hang` (the MRQ hang evidence), `r6/pfp`, `r6/review`; rounds 3-5 as before |
+| `renders/r6/review/karma/` | the review sets (r6n0 contaminated baseline, r6n1 clean baseline, r6n2 the cull) and `cut/` (the delivered cuts) |
+| `r6tree_box_a_end/` | the box's tools tree as run (film/host-studio + every merged fix: fleet/agent-06/r6-boxa 61f33859) |
+| `ddc/5.8.4` | the derived-data cache |
+
+A spot box resumes from the orchestrator's final image of box A (engine, project and DDC on its root EBS), or from a
+plain UE 5.8.4 image: `film-ue sync project down` (+ `sync ddc restore`) with that box's own film-ue config (pass the
+instance explicitly). Then, before anything renders: `film-ue install` (fmbridge from the current film/host-studio),
+`r6/lead.sh` (dress_him; mh.dress Trousers if the leader stays None; dress_her + seq_dress), `LUMA=1 r6/guard.sh`
+(strays, leaders, lock, probe 13/13, face luma 0.9-1.1 of round 4) and `cull_live.py` (912 / kept 0) for parity.
