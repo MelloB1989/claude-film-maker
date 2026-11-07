@@ -709,7 +709,7 @@ def check(seater: Seater, posed: dict) -> dict:
                 if b not in A:
                     continue
                 for cam, c in st.cams.items():
-                    hit = behind_mic(c, A[b], st, hand_r=5.0 if b.startswith("hand_") else 1.0)
+                    hit = behind_mic(c, A[b], st, hand_r=5.0)  # the orchestrator: the mic clear by >= 5 cm in the picture
                     need(hit is None, "mic.hides_hand", f"{b} is behind the mic from {cam} "
                          f"({hit:.1f} cm from the line of sight)" if hit is not None else "", hit)
     arms = {}
