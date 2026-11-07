@@ -1,5 +1,5 @@
-// Title: a buffering spinner that resolves into a play mark, then the title lands line by line, "300 million"
-// counting up in the accent, under a playback bar whose buffer runs well ahead of the playhead (the film's motif).
+// Title: a buffering spinner that resolves into a play mark, then the title lands line by line, "300+ million"
+// in the accent, under a playback bar whose buffer runs well ahead of the playhead (the film's motif).
 // params: kicker, line1, count (300), countSuffix (' million'), line2tail (' people'), line3
 import { NfScene, rev, land, text, kicker, rgba, glowInk, W, H, TAU, clamp, ease, lerp, F, font, type Frame } from './lib';
 
@@ -44,12 +44,11 @@ export default class Title extends NfScene {
       const L = lines[i]!, k = rev(t, L.at, 0.55, ease.outQuint);
       const y = 420 + i * lh + (1 - k) * 46;
       if (i === 1) {
-        // "300 million people": the number counts up and glows
-        const n = Math.round(this.p('count', 300) * ease.outExpo(clamp((t - 0.48) / 0.9)));
-        const num = `${n}${this.p('countSuffix', '+ million')}`;
+        // "300+ million members": static (a count-up showed wrong numbers, '277+ million', as it faded in), glowing
+        const num = `${this.p('count', 300)}${this.p('countSuffix', '+ million')}`;
         c.save(); c.globalAlpha *= k;
         c.font = font(F.display(87.5, 800), size);
-        const wNum = c.measureText(`${this.p('count', 300)}${this.p('countSuffix', '+ million')}`).width;
+        const wNum = c.measureText(num).width;
         text(c, num, x, y, { size, weight: 800, width: 87.5, face: 'display', color: 'accentBright' });
         g.save(); g.globalAlpha *= k * 0.35; g.font = c.font; g.fillStyle = glowInk('accent'); g.fillText(num, x, y); g.restore();
         text(c, this.p('line2tail', ' members'), x + wNum, y, { size, weight: 800, width: 87.5, face: 'display' });
