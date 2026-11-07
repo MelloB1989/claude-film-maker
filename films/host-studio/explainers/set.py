@@ -44,7 +44,7 @@ BOX_PROPS = "/srv/ue/explainer/props"
 REVIEW_S3 = f"{BUCKET}/private/renders/r6/review/explain/"
 ACTOR = {"her": "Presenter", "him": "Host"}
 SEQ = {"her": f"{FOLDER}/SEQ_Explain_Her", "him": f"{FOLDER}/SEQ_Explain_Him"}
-STEPS = ["level", "props", "light", "cameras", "seq", "garments", "dress", "save"]
+STEPS = ["level", "props", "dressing", "light", "cameras", "seq", "garments", "dress", "save"]
 # the presenter's dress pass (leaders, hair look, accessories; saves the level) and what she wears, per presenter
 DRESS = {"her": HERE.parent / "props/her_outfit_ue/dress_her.py", "him": HERE.parent / "props/his_outfit_ue/dress_him.py"}
 client = None  # filmtools.unreal.client, imported once FILM_UE_BOX is set
@@ -178,6 +178,34 @@ result = {{"rc": r.returncode, "err": r.stderr[-500:], "props": json.load(open(p
             op("look.slots", label=label, materials=want)
         print(f"{label}: {mesh} at {list(loc)} yaw {yaw} scale {scale}; slots {sorted(slots)}; undressed {sorted(set(slots) - set(want))}")
     op("look.channels", labels=list(P.PROPS), channels=[0, 1])
+
+
+def step_dressing(who: str) -> None:
+    """The WIDE's right side (the -Y wall): copies of the studio's dressed actors, a warm grazing light on the new slats;
+    the desk's modesty panel (a walnut slab until agent-05's panelled desk)."""
+    print("copies:", ex(f"""import unreal
+from fmbridge.ops import level as L
+EAS = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
+out = {{}}
+for new, (src, loc, yaw) in {P.DRESSING!r}.items():
+    for a in EAS.get_all_level_actors():
+        if a.get_actor_label() == new:
+            EAS.destroy_actor(a)
+    d = EAS.duplicate_actor(L.actor(src))
+    d.set_actor_label(new)
+    d.set_actor_location(unreal.Vector(*loc), False, False)
+    d.set_actor_rotation(unreal.Rotator(0.0, 0.0, yaw), False)  # Rotator(roll, pitch, yaw)
+    p = d.get_actor_location()
+    out[new] = [round(p.x, 1), round(p.y, 1), round(p.z, 1), round(d.get_actor_rotation().yaw, 1)]
+result = out"""))
+    g = P.SIDE_GRAZER
+    op("look.light", label="ExpSideGrazer", volumetric=0.0, shadows=True,
+       **{k: (list(v) if isinstance(v, tuple) else v) for k, v in g.items()})
+    op("look.channels", labels=["ExpSideGrazer"], channels=[0])
+    m = P.MODESTY
+    op("level.spawn", label="ExpModesty", shape="cube", loc=list(m["loc"]), size=list(m["size"]), replace=True)
+    op("look.apply", label="ExpModesty", material=f"{PROPS_DIR}/Materials/MI_Exp_Walnut", slot=0)
+    op("look.channels", labels=["ExpModesty"], channels=[0, 1])
 
 
 def step_light(who: str) -> None:
@@ -380,7 +408,7 @@ def main() -> int:
     for s in STEPS:
         if s in a.steps.split(","):
             print(f"== {s}")
-            {"level": lambda: step_level(a.who), "props": lambda: step_props(a.who),
+            {"level": lambda: step_level(a.who), "props": lambda: step_props(a.who), "dressing": lambda: step_dressing(a.who),
              "light": lambda: step_light(a.who), "cameras": lambda: step_cameras(a.who),
              "seq": lambda: step_seq(a.who, a.edl, a.length), "garments": lambda: step_garments(a.who), "dress": lambda: step_dress(a.who),
              "save": step_save}[s]()

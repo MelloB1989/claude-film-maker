@@ -29,6 +29,7 @@ FACE = {  # who: (eyes forward of the mark, eyes to +Y of the mark, eye height, 
     "her": (10.55, 1.24, 120.43, 6.8),  # measured on box B, 17:00 IST: agent-01's fe5ab6c0 seat, f60
     "him": (11.0, 0.0, 127.0, 9.0),     # estimate until measured on box A
 }
+FACE_ESTIMATED = {"him"}  # framing rules that hinge on the exact eye height (the sign's corner) wait for a measurement
 
 # the props (agent-05; s3 …/props/explainer/). Origins: chair and desk on the floor at their centre, the mic boom at its
 # desk clamp on the desk top (props/mic_boom.py's convention). Yaw in degrees about +Z.
@@ -53,6 +54,20 @@ SIGN_DROP = -30.0  # r3: out of the close frames; wholly in the WIDE beside her 
 SIGN = (WALL + 4.0, 25.0, 228.0 + SIGN_DROP)
 
 # the studio's standing-host rig and reel cameras: not this set's (deleted in the explainer level only)
+# r5 (the orchestrator): the WIDE's right half was the bare -Y side wall (y -330, x -240..0) → dressed with copies of
+# the studio's own dressed actors (their materials come along), plus a warm grazing light on the new slats (channel 0)
+SIDE_WALL = -330.0
+DRESSING = {  # new label: (studio actor to copy, loc, yaw)
+    "ExpSlats": ("SlatPanel", (-150.0, SIDE_WALL, 0.0), 90.0),
+    "ExpOlive": ("OliveTree", (-25.0, SIDE_WALL + 55.0, 0.0), 160.0),
+}
+SIDE_GRAZER = dict(kind="rect", loc=(-150.0, SIDE_WALL + 30.0, 265.0), look_at=(-150.0, SIDE_WALL, 90.0),
+                   intensity=1.6, temperature=2700, width=150.0, height=4.0, barn_angle=60)
+# the desk's modesty panel until agent-05's SM_WalnutDesk_Panel lands: a 2 cm walnut slab inside the +X (camera) edge,
+# from 8 cm up to the apron, so her feet and lower legs are never seen
+MODESTY = {"loc": (DESK_C[0] + 25.5, DESK_C[1], 8.0 + (63.4 - 8.0) / 2), "size": (2.0, 98.0, 63.4 - 8.0)}
+SUN_LUX = 6000.0  # r5: the floor sun streaks toned down again (studio 17000)
+
 # seated garment cuts (body.hide_under on copies, this level's instance only): (component, under garment, reach cm),
 # applied in order from the original meshes. Her r3 shoulder: the Top through the Overshirt seam.
 GARMENT_HIDES = {
@@ -71,7 +86,6 @@ FILMBACK = [36.0, 20.25]  # full frame 16:9, every camera
 # compensation (higher = brighter). Box B 17:20 IST: -0.7 put her face at 164/255 with the studio's rig; one stop
 # lower with her rig one stop up (LIGHT_GAIN 2) keeps the face and takes the bright window down a stop
 EXPOSURE_BIAS = -0.7
-SUN_LUX = 9000.0           # FM_Sun in this level (studio 17000): r3, the sun patches on the floor in the WIDE
 LIGHT_GAIN = 2.8          # her rig (channel 1 only) x this; the set's own light (channel 0) is untouched
 
 
