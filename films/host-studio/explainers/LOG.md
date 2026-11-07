@@ -57,28 +57,6 @@ Every number on screen or in the voice is softened or sourced; the sources are i
 - **Chunks "a few seconds long"**: kept vague on purpose (Netflix segment lengths vary by client and codec).
 - **Control plane on AWS, data plane on OCAs**: Open Connect overview and Netflix's AWS material; the player asks AWS,
   AWS returns the OCAs to fetch from.
-<<<<<<< HEAD
-
-## Performances (agent-01, branch `fleet/agent-01/r6-perf`)
-
-`perform.py` (the driver, every step on the box through the bridge), `seatkit.py` (the seated body, pure Python,
-tested in `test_seatkit.py`), `gestures.json` (the emphasis gestures per line).
-
-- 16:20 brief in. No seated or talk-gesture animation in the engine's MetaHuman content, and 5.8 cannot make the body's
-  Control Rig track from Python (round 5), so the seated body is FK bone tracks written into an AnimSequence: the
-  idle's first pose as the base, the seated pose solved over it (hips over the chair mark at seat + 9.5 cm, pelvis
-  back 6°, a 12-14° lean, a 6° chest turn to the cameras, head kept level; two-bone IK legs to the floor and arms to
-  the desk, hands semi-pronated, fingertips cleared by wrist extension). Breathing is `anim.body_life` on top.
-- 16:55 her skeleton read on box A (read-only probe, Presenter: 342 bones, the idle's 342 tracks): the idle turns the
-  body 3.6° and splays the feet, so the facing is snapped to the component's axis (+Y) and that turn is undone. The
-  curled idle fingers reached 3 cm into the desk: the wrist extends until they clear (her 20°/15°).
-- 17:05 her legs are short for the seat: the thighs met the seat's front edge 3.7 cm low, so her heels come up 5 cm
-  (balls on the floor). The whole take checks clean every 6 frames (seat, desk, floor, mic and boom) through the
-  gestures. The in-editor build was proven on box A as a probe (read and solve, nothing written). His body is built on
-  box A only (face rule: his skeleton never leaves the box).
-- 17:10 commands to agent-07 for her body, life, preview, bodycheck and the stills (3 cameras + a side view).
-- 17:30 small automatic hand settles where nothing is scripted for 5.5 s.
-=======
 - 16:40 `composite.py` written; WhatsApp placeholder rendered on the build host (3 m 52 s with the ProRes master).
   First look: cuts, panels, lower third and the kinetic captions land; captions split "over a hundred / billion" →
   chunking rewritten (clauses at punctuation, long clauses split evenly, never after a lead-in word).
@@ -101,7 +79,26 @@ tested in `test_seatkit.py`), `gestures.json` (the emphasis gestures per line).
 
 `--placeholder` lets any missing presenter shot or graphic stand in as a labelled slug (a partial cut for review);
 without it a missing input stops the run and names the file.
->>>>>>> origin/fleet/agent-11/r6-explainers
+
+## Performances (agent-01, branch `fleet/agent-01/r6-perf`)
+
+`perform.py` (the driver, every step on the box through the bridge), `seatkit.py` (the seated body, pure Python,
+tested in `test_seatkit.py`), `gestures.json` (the emphasis gestures per line).
+
+- 16:20 brief in. No seated or talk-gesture animation in the engine's MetaHuman content, and 5.8 cannot make the body's
+  Control Rig track from Python (round 5), so the seated body is FK bone tracks written into an AnimSequence: the
+  idle's first pose as the base, the seated pose solved over it (hips over the chair mark at seat + 9.5 cm, pelvis
+  back 6°, a 12-14° lean, a 6° chest turn to the cameras, head kept level; two-bone IK legs to the floor and arms to
+  the desk, hands semi-pronated, fingertips cleared by wrist extension). Breathing is `anim.body_life` on top.
+- 16:55 her skeleton read on box A (read-only probe, Presenter: 342 bones, the idle's 342 tracks): the idle turns the
+  body 3.6° and splays the feet, so the facing is snapped to the component's axis (+Y) and that turn is undone. The
+  curled idle fingers reached 3 cm into the desk: the wrist extends until they clear (her 20°/15°).
+- 17:05 her legs are short for the seat: the thighs met the seat's front edge 3.7 cm low, so her heels come up 5 cm
+  (balls on the floor). The whole take checks clean every 6 frames (seat, desk, floor, mic and boom) through the
+  gestures. The in-editor build was proven on box A as a probe (read and solve, nothing written). His body is built on
+  box A only (face rule: his skeleton never leaves the box).
+- 17:10 commands to agent-07 for her body, life, preview, bodycheck and the stills (3 cameras + a side view).
+- 17:30 small automatic hand settles where nothing is scripted for 5.5 s.
 - 17:50 box B, first body: she floated ~7 cm, forearms in the air. Two causes, probed read-only: (1) her mesh's bones
   are longer than the skeleton asset's reference that AnimPose evaluates on (thigh 43.5 vs 40.2 cm), and the engine
   plays the pelvis at animated + (mesh ref − skeleton ref) = +7.48 cm; (2) her Blueprint's Body is unrotated (actor yaw
