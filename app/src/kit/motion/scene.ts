@@ -46,12 +46,12 @@ export interface Arrive {
 const FPS = 24;
 
 /**
- * The panel box of a presenter shot (px of 1920x1080, GFX.md): x 1010-1860, y 150-930, content above y 770 (the
+ * The panel box of a presenter shot (px of 1920x1080, GFX.md): x 1010-1860, y 150-915 (inside the GFX.md box y 150-930, and clear of the caption band from y 918), content above y 770 (the
  * captions own the rest). A panel shot (params.panel true, or params.layout 'panel') draws the frosted card there and
  * the 3D over it with no environment; the camera's principal point sits on the card's content centre (a view offset),
  * so the shot frames its subject as usual and it lands in the card. (From agent-13's WhatsApp base.)
  */
-export const PANEL = { x0: 1010, x1: 1860, y0: 150, y1: 930, contentY1: 770 };
+export const PANEL = { x0: 1010, x1: 1860, y0: 150, y1: 915, contentY1: 770 };
 
 export abstract class MotionScene extends Scene3D {
   /** The environment; a shot overrides it in its constructor or build(). */
@@ -75,6 +75,7 @@ export abstract class MotionScene extends Scene3D {
 
   constructor(ctx: SceneCtx) {
     super(ctx);
+    if (this.matte) this.basePost = { ...this.basePost, grain: 0, vignette: 0, ca: 0 };
     if (this.panel) {
       this.env = { floor: false, haze: false, dust: false };
       this.arrival = { dur: 0.42, dist: 0.1, yaw: -6, roll: 0 };
@@ -83,6 +84,12 @@ export abstract class MotionScene extends Scene3D {
   }
 
   /** Panel mode: params.panel true or params.layout 'panel'. A shot that changes env in build() must keep it off. */
+  /** A matte pass (params.matte set: the frame cleared to black or grey for an alpha pair, or the caption-band gate): no
+   * environment, no grain or vignette, so only the graphic itself is in the frame. */
+  protected get matte(): boolean {
+    return !!this.ctx.params.matte;
+  }
+
   protected get panel(): boolean {
     return this.ctx.params.panel === true || this.ctx.params.layout === 'panel';
   }
@@ -97,7 +104,7 @@ export abstract class MotionScene extends Scene3D {
   protected buildEnv() {
     if (this.envBuilt) return;
     this.envBuilt = true;
-    if (this.panel) return;
+    if (this.panel || this.matte) return;
     const s = this.stage.scene;
     if (this.env.haze !== false) s.add(this.own(this.haze = new Haze(this.env.haze ?? {})).mesh);
     if (this.env.floor !== false) s.add(this.own(this.floor = new Floor(this.env.floor ?? {})).mesh);
