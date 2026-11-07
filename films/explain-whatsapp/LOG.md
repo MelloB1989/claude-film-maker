@@ -34,3 +34,16 @@ engine's Scene2D, timed by agent-11's EDL (`data/edl.json`, copied from fleet/ag
 | 17:15 | contact sheet v2 to the orchestrator |
 | 17:40 | v3/v4: labels >= 30 px, depth (perspective floor, parallax planes, contact shadows, extrusion, near bokeh), caption band y > 0.85 clear by clip |
 | 17:50 | finals rendering on the box (10 shards per film) |
+| 17:00 | finals v1 rendered on the box (1028 full frames + 818 matte frames, 10 shards each, ~70 s per film at ~13 fps) |
+| 17:05 | self-review: Erlang callout, queue 'waits', key pill overflowed their boxes; fixed (5a90a2d1) |
+| 17:10 | finals v2 rendered from 5a90a2d1 and uploaded to s3://rf-render-788655295054-aps1/ue-linux/gfx/explain-whatsapp/ (the box role cannot write ue-linux/r6/gfx/) |
+
+## Deliverables (s3://rf-render-788655295054-aps1/ue-linux/gfx/explain-whatsapp/)
+
+- `<scene>_full.mov` for all nine beats (title, connect, erlang, store, ticks, group, e2e, media, end): ProRes 422 HQ,
+  1920x1080, 24 fps, EDL frames + 12 tail frames.
+- `<scene>_panel.mov` for connect, ticks, media: ProRes 4444 with alpha (straight), the card in the panel box;
+  `<scene>_panel_png.tar`: the same as RGBA PNGs.
+- `review/review_full.mp4` (all beats back to back), `review/review_panels.mp4` (the panels over a warm stand-in plate).
+- Alpha check: outside the card only its soft shadow (max alpha ~0.05 at the card's edge, 0.12 just under it); card
+  ~0.85 (0.78 card over its shadow).
