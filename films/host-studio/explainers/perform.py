@@ -857,6 +857,68 @@ def cmd_trackcheck(who: str, anim: str = "", span: str = "", bones: str = "") ->
                             "bones": [b for b in bones.split(",") if b], "jump_deg": 25.0}, 1800)
 
 
+HEADAXES = r"""
+import json, math, unreal
+APE = unreal.AnimPoseExtensions
+P = json.loads(PARAMS)
+def q2(t):
+    r = t.rotation
+    return [r.x, r.y, r.z, r.w]
+def rot(q, v):
+    x, y, z, w = q
+    ix, iy, iz, iw = w*v[0] + y*v[2] - z*v[1], w*v[1] + z*v[0] - x*v[2], w*v[2] + x*v[1] - y*v[0], -x*v[0] - y*v[1] - z*v[2]
+    return [ix*w + iw*-x + iy*-z - iz*-y, iy*w + iw*-y + iz*-x - ix*-z, iz*w + iw*-z + ix*-y - iy*-x]
+out = {}
+f, r, u = P["fwd"], P["right"], [0.0, 0.0, 1.0]
+for a in P["anims"]:
+    obj = unreal.load_asset(a)
+    if obj is None:
+        out[a] = None
+        continue
+    rows = {}
+    ref = None
+    for t in P["times"]:
+        pose = APE.get_anim_pose_at_time(obj, t, unreal.AnimPoseEvaluationOptions())
+        q = q2(APE.get_bone_pose(pose, "head", unreal.AnimPoseSpaces.WORLD))
+        rest = q2(APE.get_ref_bone_pose(pose, "head", unreal.AnimPoseSpaces.WORLD))
+        ref = ref or q
+        # the head's rotation RELATIVE to the first time listed, in the character frame
+        x, y, z, w = ref
+        inv = [-x, -y, -z, w]
+        def mul(a_, b_):
+            ax, ay, az, aw = a_; bx, by, bz, bw = b_
+            return [aw*bx + ax*bw + ay*bz - az*by, aw*by - ax*bz + ay*bw + az*bx, aw*bz + ax*by - ay*bx + az*bw,
+                    aw*bw - ax*bx - ay*by - az*bz]
+        d = mul(q, inv)
+        fw, up = rot(d, f), rot(d, u)
+        dot = lambda a_, b_: sum(i * j for i, j in zip(a_, b_))
+        x2, y2, z2, w2 = rest
+        da = mul(q, [-x2, -y2, -z2, w2])  # absolute: against her REST head (the skeleton's reference, facing forward)
+        fa, ua = rot(da, f), rot(da, u)
+        rows[str(t)] = {"yaw_right": round(math.degrees(math.atan2(dot(fw, r), dot(fw, f))), 2),
+                        "pitch_up": round(math.degrees(math.asin(max(-1, min(1, dot(fw, u))))), 2),
+                        "roll_right": round(math.degrees(math.atan2(dot(up, r), dot(up, u))), 2),
+                        "abs_yaw_right": round(math.degrees(math.atan2(dot(fa, r), dot(fa, f))), 2),
+                        "abs_roll_right": round(math.degrees(math.atan2(dot(ua, r), dot(ua, u))), 2)}
+    out[a] = rows
+result = out
+"""
+
+
+def cmd_headaxes(who: str, times: str = "1.0,2.5") -> dict:
+    """Read-only: the head's yaw/pitch/roll (character frame, relative to the first time; abs_* against her rest head,
+    so abs_yaw_right compares with the camera's direction from cams.json) in each stage's animation
+    (seat, body after sync, the face's follow): where a head turn or tilt enters the chain (agent-04: her head turned
+    toward the mic at f60, inside the first tilt)."""
+    fr = json.loads((OUT / who / "body_check.json").read_text()).get("frame") or {"fwd": [0.0, 1.0, 0.0],
+                                                                                  "right": [-1.0, 0.0, 0.0]}
+    anims = [f"{ANIM}/AS_exp_{who}_{k}" for k in ("seat", "body", "follow", "gaze")]
+    r = run(HEADAXES, {"anims": anims, "times": [float(x) for x in times.split(",")], "fwd": fr["fwd"],
+                       "right": fr["right"]})
+    keep(who, "headaxes", r)
+    return r
+
+
 def fresh_editor(who: str, level: str) -> dict:
     """Save what's dirty, restart the editor, reopen `level`, re-lead the garments (box B, 07 Nov: his 8th-14th
     sampling job in a row killed the editor even with a GC after each; a fresh editor ran bake 3's 6 jobs clean)."""
@@ -1314,7 +1376,8 @@ def step(name: str, who: str, a) -> dict:
              "face": lambda: cmd_face(who), "sync": lambda: cmd_sync(who, a.from_bake, a.restart_level, a.bake_chunk), "gaze": lambda: cmd_gaze(who),
              "place": lambda: cmd_place(who, a.seq), "preview": lambda: cmd_preview(who, a.seq),
              "numbers": lambda: cmd_numbers(who, a.seq),
-             "trackcheck": lambda: cmd_trackcheck(who, a.anim, a.span, a.bones), "signs": lambda: cmd_signs(who, a.bless), "rolltest": lambda: cmd_rolltest(who), "bodycheck": lambda: cmd_bodycheck(who, a.seq, a.every, a.chunk, a.span),
+             "trackcheck": lambda: cmd_trackcheck(who, a.anim, a.span, a.bones),
+             "headaxes": lambda: cmd_headaxes(who, a.times), "signs": lambda: cmd_signs(who, a.bless), "rolltest": lambda: cmd_rolltest(who), "bodycheck": lambda: cmd_bodycheck(who, a.seq, a.every, a.chunk, a.span),
              "calibrate_body": lambda: cmd_calibrate_body(who)}[name]()
     return r
 
@@ -1322,7 +1385,7 @@ def step(name: str, who: str, a) -> dict:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("cmd", choices=["push", "solve", "bias", "compose", "check", "workseq", "cams", "body", "life",
-                                    "calibrate_body", "face", "sync", "gaze", "place", "preview", "numbers", "rolltest", "signs", "trackcheck", "bodycheck", "all", "dry"])
+                                    "calibrate_body", "face", "sync", "gaze", "place", "preview", "numbers", "rolltest", "signs", "trackcheck", "headaxes", "bodycheck", "all", "dry"])
     ap.add_argument("--who", required=True, choices=list(FILM))
     ap.add_argument("--stage", default="solve", choices=["solve", "face", "final", "placed"])
     ap.add_argument("--only", type=lambda s: s.split(","))
@@ -1333,6 +1396,7 @@ def main() -> None:
     ap.add_argument("--bake-chunk", type=int, default=0, help="sync: frames per sampling job (default 240)")
     ap.add_argument("--restart-level", default="", help="sync: restart the editor before bakes 2 and 3 and reopen "
                     "this level (a long run of sampling jobs kills it on his scene)")
+    ap.add_argument("--times", default="1.0,2.5", help="headaxes: seconds (the first is the reference)")
     ap.add_argument("--anim", default="", help="trackcheck: the animation (default AS_exp_<who>_body)")
     ap.add_argument("--bones", default="", help="trackcheck: comma list (default all tracks)")
     ap.add_argument("--every", type=int, default=2, help="bodycheck: every n-th frame")

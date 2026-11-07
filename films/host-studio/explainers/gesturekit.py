@@ -444,8 +444,8 @@ class Performer(S.Seater):
         W = self._world_from(locs)
         # head roll on neck_02/head about the forward axis (+ = toward her right shoulder)
         roll = self.plan.roll_at(t)
-        if roll:
-            for b, share in (("neck_02", 0.4), ("head", 0.6)):
+        if roll:  # cumulative: neck_02 takes 40 %, the head (its child) the full roll (it read 60 % before)
+            for b, share in (("neck_02", 0.4), ("head", 1.0)):
                 ang = -roll * share if self._rhs else roll * share
                 W[b] = [W[b][0], qmul(axis_angle(f, ang), W[b][1])]
             W["head"] = [self._fk_t("head", "neck_02", W), W["head"][1]]
