@@ -323,3 +323,7 @@ drops the shrink entirely and enlarges the GARMENT.
   (`neck_backstop.py` CULL mode: covered and >= CULL_DEPTH_CM 3.0 below the collar edge -> 0, MaxCull 0.1, MaxShrink
   0; everything else white: nothing near the visible neck moves; `r6/cull_live.py` proves what the build removed);
   crops after (1) alone; (2) the collar push only for what still pokes at the collar line, re-measured.
+- The mask stage reads the Face component's CURRENT mesh: after one cull, a re-mask sees the culled face (agent-06:
+  covered 437 instead of 1160). Put the uncut face back (the r5 snapshot) before any re-mask. The 3.0 cull (727
+  verts gone) barely moved qa.clip (neck_px 297 -> 262, Face>tee 666 -> 637): the S15 skin is within 3 cm of the
+  rim, his neck at the collar, not the chest flange. 1.5 cull: 912 gone (z 144.2-153.3), kept verts moved 0.0.
