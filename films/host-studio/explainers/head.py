@@ -33,7 +33,11 @@ import numpy as np
 
 SEED = {"him": 61, "her": 62}
 PRESET = "presenter_calm"
-HEAD_STYLE = {"micro_deg": 0.4, "breath_deg": 0.2, "breath_hz": 0.21, "speech_gain": 0.8, "gain": 0.9}
+HEAD_STYLE = {"micro_deg": 0.4, "breath_deg": 0.2, "breath_hz": 0.21, "speech_gain": 0.8, "gain": 0.9,
+              # r6: no roll until a roll test on the archetype face (the shared signs file writes roll on HeadPitch,
+              # and her K2c "yourself" tilt measured as a 5 deg chin dip): no rest tilt, no lean into the glances
+              "rest_roll_deg": 0.0, "lean": 0.0}
+ROLL_OK = False  # set once agent-01's roll test passes: a seeded rest tilt of up to 1.2 deg comes back
 GLANCE_EVERY_S = (9.0, 16.0)  # the gap between thinking glances (screen time)
 GLANCE_YAW = (8.0, 13.0)      # deg off the lens, to one side
 GLANCE_DUR = (0.6, 1.1)       # s off the lens
@@ -181,7 +185,8 @@ def plan(cue: dict, who: str) -> dict:
         if a > 0:
             avoid.append([round(a, 3), round(a + CUT_NO_BLINK_F / fps, 3)])
     avoid.sort()
-    head = {**HEAD_STYLE, "rest_roll_deg": round(rng.uniform(-1.2, 1.2), 2), "seed": SEED[who]}
+    roll = round(rng.uniform(-1.2, 1.2), 2)
+    head = {**HEAD_STYLE, "seed": SEED[who], **({"rest_roll_deg": roll, "lean": 0.12} if ROLL_OK else {})}
     return {"preset": PRESET, "solver_head": "replace", "blink_head": "still", "blink_mode": "replace",
             "blink_state": "talk", "beat_every": 2, "emphasis": "auto", "start_gaze": [y0, p0], "lead": "eyes",
             "gaze": gaze, "head": head, "avoid_blinks": avoid, "seed": SEED[who], "glances": gl, "reaims": ra}

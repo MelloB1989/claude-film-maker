@@ -68,7 +68,8 @@
   "breath_hz": 0.21,
   "speech_gain": 0.8,
   "gain": 0.9,
-  "rest_roll_deg": -0.33,
+  "rest_roll_deg": 0.0,
+  "lean": 0.0,
   "seed": 62
  },
  "avoid_blinks": [
