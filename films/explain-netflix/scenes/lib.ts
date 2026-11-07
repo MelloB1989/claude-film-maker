@@ -124,7 +124,7 @@ export abstract class NfScene extends Scene2D {
     void g;
     // vignette (the look adds its own on top; this one shapes the room)
     const v = c.createRadialGradient(W / 2, H * 0.45, H * 0.35, W / 2, H * 0.5, W * 0.72);
-    v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,0.6)');
+    v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,0.35)');
     c.fillStyle = v; c.fillRect(0, 0, W, H);
   }
 }
@@ -183,7 +183,9 @@ export function card(c: Ctx, x: number, y: number, w: number, h: number, o: { r?
 export interface TextOpt { size?: number; weight?: number; width?: number; color?: string; alpha?: number; align?: CanvasTextAlign; base?: CanvasTextBaseline; face?: 'display' | 'ui' | 'mono'; track?: number }
 
 export function text(c: Ctx, s: string, x: number, y: number, o: TextOpt = {}) {
-  const size = o.size ?? 28, face = o.face ?? 'ui';
+  const size0 = o.size ?? 28, face = o.face ?? 'ui';
+  // small labels read on a phone: everything under 40 px is set a size up
+  const size = size0 < 40 ? Math.round(size0 * 1.22) : size0;
   const fam = face === 'display' ? F.display(o.width ?? 100, o.weight ?? 600) : face === 'mono' ? F.mono(o.weight ?? 500) : F.ui(o.weight ?? 500);
   c.font = font(fam, size);
   c.textAlign = o.align ?? 'left';
@@ -343,7 +345,7 @@ export function screen(c: Ctx, g: Ctx, x: number, y: number, kind: 'tv' | 'phone
 
 /** A pill tag. */
 export function pill(c: Ctx, g: Ctx, s: string, x: number, y: number, o: { color?: string; a?: number; size?: number; filled?: boolean; align?: 'center' | 'left' } = {}) {
-  const size = o.size ?? 22, col = o.color ?? 'accent', a = o.a ?? 1;
+  const size = Math.round((o.size ?? 22) * 1.18), col = o.color ?? 'accent', a = o.a ?? 1;
   if (a <= 0) return;
   c.font = font(F.ui(600), size);
   const w = c.measureText(s).width + size * 1.4, h = size * 1.75;
@@ -352,16 +354,16 @@ export function pill(c: Ctx, g: Ctx, s: string, x: number, y: number, o: { color
   rr(c, x0, y - h / 2, w, h, h / 2);
   c.fillStyle = o.filled ? rgba(col, 0.92) : rgba(col, 0.14); c.fill();
   c.strokeStyle = rgba(col, 0.7); c.lineWidth = 1.5; c.stroke();
-  c.fillStyle = o.filled ? rgba('bg') : rgba('fg'); c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.fillStyle = rgba('fg'); c.textAlign = 'center'; c.textBaseline = 'middle';
   c.fillText(s, x0 + w / 2, y + 1);
   c.restore();
-  if (o.filled) { g.save(); g.globalAlpha *= a * 0.4; g.fillStyle = glowInk(col); rr(g, x0, y - h / 2, w, h, h / 2); g.fill(); g.restore(); }
+  if (o.filled) { g.save(); g.globalAlpha *= a * 0.5; g.strokeStyle = glowInk(col); g.lineWidth = 3; rr(g, x0, y - h / 2, w, h, h / 2); g.stroke(); g.restore(); }
   return w;
 }
 
 /** A headline at the top-left of a diagram: kicker + title, landing in. */
-export function heading(c: Ctx, kick: string, title: string, t: number, at = 0.1, x = 120, y = 150) {
-  const k1 = rev(t, at, 0.5), k2 = rev(t, at + 0.12, 0.7);
+export function heading(c: Ctx, kick: string, title: string, t: number, at = 0, x = 120, y = 150) {
+  const k1 = rev(t, at, 0.35), k2 = rev(t, at + 0.06, 0.45);
   kicker(c, kick, x, y - 62 + (1 - k1) * 14, k1);
-  text(c, title, x, y + (1 - k2) * 24, { size: 64, weight: 700, face: 'display', width: 87.5, alpha: k2 });
+  text(c, title, x, y + (1 - k2) * 24, { size: 70, weight: 700, face: 'display', width: 87.5, alpha: k2 });
 }

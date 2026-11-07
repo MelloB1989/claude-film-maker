@@ -52,6 +52,7 @@ export default class Buffer extends NfScene {
     kicker(c, 'next chunks', X0, 196, rev(t, 0.05, 0.35), 'fgDim');
     // chunks slide left as the playhead consumes them; one every 0.55 s
     const rate = 0.55;
+    c.save(); c.beginPath(); c.rect(X0 - 4, CY - 10, X1 - X0 + 8, ch + 20); c.clip();
     const n0 = Math.floor(t / rate);
     for (let j = -1; j < 9; j++) {
       const id = n0 + j;
@@ -71,6 +72,7 @@ export default class Buffer extends NfScene {
       c.restore();
       void arrive;
     }
+    c.restore();
     // the "softer" call-out
     const ks = land(t, T.tSoft - 0.15, 0.5);
     if (ks > 0) pill(c, g, 'a little softer', X0 + 6 * (cw + gap) - (t / rate - n0) * (cw + gap) + cw / 2, CY - 30, { a: clamp(ks), color: 'accent2', size: 22 });
@@ -84,11 +86,10 @@ export default class Buffer extends NfScene {
     const gr = c.createLinearGradient(X0, 0, X0 + lw, 0);
     gr.addColorStop(0, rgba('accentDim')); gr.addColorStop(1, rgba('accentBright'));
     c.fillStyle = gr; c.beginPath(); c.roundRect(X0, MY, lw, MH, MH / 2); c.fill();
-    g.fillStyle = glowInk('accent', 0.35); g.beginPath(); g.roundRect(X0, MY - 2, lw, MH + 4, MH / 2); g.fill();
+    g.fillStyle = glowInk('accent', 0.12); g.beginPath(); g.roundRect(X0, MY - 2, lw, MH + 4, MH / 2); g.fill();
     // the playhead at the meter's start, a tick for the "danger" line
     c.fillStyle = rgba('fg'); c.beginPath(); c.arc(X0 + 20, MY + MH / 2, 9, 0, TAU); c.fill();
     c.fillStyle = 'rgba(242,236,228,0.35)'; c.fillRect(X0 + (X1 - X0) * 0.15, MY - 8, 2, MH + 16);
-    text(c, 'healthy', X0 + lw - 16, MY + 28, { size: 20, weight: 600, color: 'bg', align: 'right', alpha: rev(t, 0.5, 0.3) });
     pill(c, g, 'No stall', X1 - 70, MY + MH + 50, { a: rev(t, T.tSoft + 0.25, 0.35), color: 'accent', filled: true, size: 22 });
     void f;
   }

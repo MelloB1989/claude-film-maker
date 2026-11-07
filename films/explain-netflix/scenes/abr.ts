@@ -14,7 +14,7 @@ export default class Abr extends NfScene {
     const rungs = this.p('rungs', [4, 4, 4, 3, 2, 2, 3, 4, 4, 4, 4, 4]);
     const net = this.p('net', [4.6, 4.5, 4.4, 3.4, 2.5, 2.3, 3.3, 4.3, 4.6, 4.7, 4.6, 4.6]);
     const N = rungs.length;
-    const X0 = 280, X1 = 1760, gap = 10, cw = (X1 - X0 - gap * (N - 1)) / N;
+    const X0 = 330, X1 = 1780, gap = 10, cw = (X1 - X0 - gap * (N - 1)) / N;
     const rowY = 400, ch = 60;
     const laneY = (r: number) => 900 - r * 72;
 
@@ -54,8 +54,8 @@ export default class Abr extends NfScene {
     // the player
     const kP = land(t, tPlayer, 0.6);
     if (kP > 0) {
-      screen(c, g, 140, 640, 'tv', 1.15 * clamp(kP), { a: clamp(kP * 1.5), on: rev(t, tPicks, 0.4) });
-      text(c, 'your player', 140, 720, { size: 22, color: 'fgDim', align: 'center', alpha: clamp(kP) });
+      screen(c, g, 110, 640, 'tv', 1.0 * clamp(kP), { a: clamp(kP * 1.5), on: rev(t, tPicks, 0.4) });
+      text(c, 'your player', 110, 712, { size: 22, color: 'fgDim', align: 'center', alpha: clamp(kP) });
     }
 
     // the chunks
@@ -95,7 +95,7 @@ export default class Abr extends NfScene {
       // a packet arriving at the player as each chunk is picked
       const kf = clamp((t - pickAt) / 0.5);
       if (kf > 0 && kf < 1) {
-        const px = lerp(xx + w / 2, 200, ease.inQuad(kf)), py = lerp(y, 640, ease.inQuad(kf));
+        const px = lerp(xx + w / 2, 170, ease.inQuad(kf)), py = lerp(y, 640, ease.inQuad(kf));
         c.fillStyle = rgba('accentBright', 0.9 * (1 - kf)); c.beginPath(); c.arc(px, py, 5, 0, TAU); c.fill();
       }
     }

@@ -9,7 +9,7 @@ export default class Title extends NfScene {
   protected scene(c: CanvasRenderingContext2D, g: CanvasRenderingContext2D, t: number) {
     const cx = 330, cy = H * 0.46;
     // spinner → play
-    const morph = rev(t, 0.22, 0.35, ease.inOutCubic);
+    const morph = rev(t, 0.12, 0.3, ease.inOutCubic);
     const spinA = 1 - morph;
     if (spinA > 0) {
       for (let i = 0; i < 12; i++) {
@@ -20,7 +20,7 @@ export default class Title extends NfScene {
         c.beginPath(); c.arc(cx + Math.cos(ang) * r, cy + Math.sin(ang) * r, 6, 0, TAU); c.fill();
       }
     }
-    const pk = land(t, 0.28, 0.6);
+    const pk = land(t, 0.16, 0.55);
     if (pk > 0) {
       const R = 92 * pk;
       g.strokeStyle = glowInk('accent', 0.9); g.lineWidth = 6;

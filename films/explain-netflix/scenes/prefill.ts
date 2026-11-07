@@ -9,7 +9,7 @@ const demand = (h: number) => {
   const eve = Math.exp(-Math.pow((h - 21) / 2.6, 2));
   const day = 0.32 * smoothstep(6, 13, h) * (1 - smoothstep(22, 26, h));
   const night = 0.28 * Math.exp(-Math.pow((h + 1) / 2.0, 2));
-  return clamp(0.06 + 0.82 * eve + day + night);
+  return clamp(0.85 * (0.06 + 0.82 * eve + day + night));
 };
 
 export default class Prefill extends NfScene {
@@ -19,7 +19,7 @@ export default class Prefill extends NfScene {
   protected scene(c: CanvasRenderingContext2D, g: CanvasRenderingContext2D, t: number, f: Frame) {
     const P = this.look.panel;
     const L = P
-      ? { X0: 40, X1: 470, Y0: 330, Y1: 90, lx: 670, ly: 110, ocas: [170, 425, 680], oy: 440, os: 0.78, pill: [425, 520] as const, txt: 0.9 }
+      ? { X0: 30, X1: 420, Y0: 300, Y1: 70, lx: 650, ly: 120, ocas: [150, 425, 700], oy: 400, os: 0.8, pill: [425, 525] as const, txt: 0.9 }
       : { X0: 140, X1: 900, Y0: 820, Y1: 400, lx: 1450, ly: 360, ocas: [1180, 1450, 1720], oy: 760, os: 1.0, pill: [1450, 980] as const, txt: 1 };
     if (!P) heading(c, this.p('kick', 'Step 2 · Fill it overnight'), this.p('title', 'Tomorrow’s hits, delivered tonight'), t);
 
@@ -34,7 +34,7 @@ export default class Prefill extends NfScene {
       text(c, h === 24 ? '24:00' : `${String(h).padStart(2, '0')}:00`, hx(h), Y0 + 36, { size: 20, color: 'fgFaint', align: 'center', face: 'mono' });
       c.fillStyle = 'rgba(255,225,200,0.2)'; c.fillRect(hx(h) - 0.75, Y0, 1.5, 8);
     }
-    text(c, 'viewing demand', X0, Y1 - 30, { size: 22, color: 'fgDim' });
+    text(c, 'viewing demand', X1, Y1 - 30, { size: 22, color: 'fgDim', align: 'right', alpha: 1 - rev(t, this.cue('near', 5.5) - 0.2, 0.3) });
     c.restore();
     // fill window band (quiet hours)
     const kW = rev(t, this.cue('night', 0.75), 0.45);
@@ -45,8 +45,7 @@ export default class Prefill extends NfScene {
       c.fillStyle = band; c.fillRect(a, Y1 - 10, (b - a) * kW, Y0 - Y1 + 10);
       c.strokeStyle = rgba('accent2', 0.5 * kW); c.setLineDash([4, 6]); c.lineWidth = 1.5;
       c.beginPath(); c.moveTo(a, Y1 - 10); c.lineTo(a, Y0); c.moveTo(b, Y1 - 10); c.lineTo(b, Y0); c.stroke(); c.setLineDash([]);
-      text(c, 'fill window', (a + b) / 2, Y1 - 24, { size: 22, weight: 600, color: 'accent2', align: 'center', alpha: kW });
-      text(c, 'quiet hours', (a + b) / 2, Y1 + 4 + 18, { size: 18, color: 'fgFaint', align: 'center', alpha: kW });
+      text(c, 'fill window', (a + b) / 2, Y1 - 22, { size: 22, weight: 600, color: 'accent2', align: 'center', alpha: kW });
     }
     // the curve draws itself
     const kD = rev(t, 0.1, 0.8, ease.inOutCubic);
@@ -75,7 +74,7 @@ export default class Prefill extends NfScene {
       c.fillStyle = rgba(toPeak > 0.5 ? 'accentBright' : 'accent2Bright'); c.beginPath(); c.arc(x, y, 8, 0, TAU); c.fill();
       g.fillStyle = glowInk(toPeak > 0.5 ? 'accent' : 'accent2', 0.8); g.beginPath(); g.arc(x, y, 13, 0, TAU); g.fill();
       const hh = Math.floor(hNow), mm = Math.floor((hNow - hh) * 60 / 15) * 15;
-      text(c, `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`, x, y - 22, { size: 22, weight: 600, face: 'mono', align: 'center' });
+      if (toPeak < 0.5) text(c, `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`, x, y - 22, { size: 22, weight: 600, face: 'mono', align: 'center' });
       if (toPeak > 0.6) text(c, 'evening peak', x, Y1 - 24, { size: 22, weight: 600, color: 'accentBright', align: 'center', alpha: rev(t, this.cue('near', 5.5) + 0.3, 0.3) });
     }
 

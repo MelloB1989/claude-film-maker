@@ -10,7 +10,7 @@ export default class Planes extends NfScene {
   protected scene(c: CanvasRenderingContext2D, g: CanvasRenderingContext2D, t: number, f: Frame) {
     const tPlay = this.cue('play', 0.55), tAws = this.cue('aws', 1.25), tPoints = this.cue('points', 1.9);
     const tBox = this.cue('box', 2.7), tStreams = this.cue('streams', 3.55), tVideo = this.cue('video', 4.1);
-    heading(c, this.p('kick', 'Two halves'), this.p('title', 'The cloud decides. The box delivers.'), t, 0.0);
+    heading(c, this.p('kick', 'Two halves'), this.p('title', 'Press play: AWS points, the box streams'), t);
 
     // ——— control plane: AWS ———
     const kA = rev(t, 0.05, 0.4);
@@ -51,7 +51,7 @@ export default class Planes extends NfScene {
         const r = 112 + 6 * Math.sin(t * 6);
         c.strokeStyle = rgba('accentBright', 0.8 * hotD); c.lineWidth = 3; c.beginPath(); c.ellipse(bx + 8, by + 4, r, r * 0.62, 0, 0, TAU); c.stroke();
         g.strokeStyle = glowInk('accent', 0.6 * hotD); g.lineWidth = 6; g.beginPath(); g.ellipse(bx + 8, by + 4, r, r * 0.62, 0, 0, TAU); g.stroke();
-        text(c, 'the box near you', bx + 8, by + 120, { size: 24, weight: 600, align: 'center', color: 'accentBright', alpha: hotD });
+        text(c, 'the box near you', bx + 50, by + 118, { size: 24, weight: 600, align: 'left', color: 'accentBright', alpha: hotD });
       }
     });
     text(c, 'the video bytes', dx + dw / 2, dy + dh - 40, { size: 22, color: 'fgDim', align: 'center', alpha: kD });
