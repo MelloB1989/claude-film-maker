@@ -129,6 +129,38 @@
    ],
    "guard": true,
    "why": "the orchestrator, 07 Nov: a still's face luma within +-10% of round 4's before any render"
+  },
+  "garment.cull_kept_moved_cm": {
+   "area": "garment",
+   "track": "K1",
+   "op": "<=",
+   "line": 0.01,
+   "unit": "cm",
+   "guard": true,
+   "what": "largest displacement of any KEPT face vertex after the chest-flange cull (cull_live): the cull removes, it never moves what stays",
+   "where": "his face mesh as built for the finals",
+   "how": "agent-02's cull_live proof (503571ee/3491ab65) -> r6/numbers/garment.json",
+   "must_fail": [
+    2.987,
+    "round 5b loop 2's shrink moved kept verts up to 2.99 cm and tore the open edge"
+   ],
+   "why": "the orchestrator, 07 Nov (r6n1): apply the cull only; nothing near the visible neck may move"
+  },
+  "garment.cull_min_below_collar_cm": {
+   "area": "garment",
+   "track": "K1",
+   "op": ">=",
+   "line": 3.0,
+   "unit": "cm",
+   "guard": true,
+   "what": "smallest distance below the tee's collar edge of any CULLED face vertex (every culled vertex is under the tee and at least 3 cm below the collar)",
+   "where": "his face mesh as built for the finals",
+   "how": "agent-02's cull_live proof -> r6/numbers/garment.json",
+   "must_fail": [
+    0.0,
+    "a cull reaching the collar line would open a hole at the visible neck"
+   ],
+   "why": "the orchestrator, 07 Nov: face verts under the tee and >= 3 cm below the collar edge only"
   }
  },
  "not_attempted": {
