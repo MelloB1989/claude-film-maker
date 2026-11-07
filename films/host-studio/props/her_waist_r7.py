@@ -66,7 +66,7 @@ def parse_args():
     ap.add_argument("--fit", default="", choices=("", "Trousers", "Top"), help="refit this garment and export it")
     ap.add_argument("--top", default="garment_Top.fbx", help="the Top FBX in --src")
     ap.add_argument("--fit-frame", type=int, default=1, help="the seated frame the fit is solved on")
-    ap.add_argument("--ue-posed", default="", help="dir with Unreal's POSED body.obj / trousers.obj (+ meta.json), "
+    ap.add_argument("--ue-posed", default="", help="'dir[:frame],...': dirs with Unreal's POSED body.obj / trousers.obj (+ meta.json), "
                     "world cm, UE axes: her skin as Unreal poses it (correctives included) joins the collider, and each "
                     "band vertex is measured where Unreal puts it")
     ap.add_argument("--trousers", default="garment_Trousers.fbx", help="the trousers FBX in --src (the live cut copy, "
@@ -310,8 +310,7 @@ class UEPosed:
     """Unreal's posed meshes brought into the rig's posed frame: first by her bones (meta.json), then ICP of Unreal's
     trousers onto the rig's posed trousers (the same garment, so what is left is the pose's own difference)."""
 
-    def __init__(self, a, rig, P_tr):
-        d = a.ue_posed
+    def __init__(self, d, rig, P_tr):
         meta = json.load(open(os.path.join(d, "meta.json")))
         bones = meta.get("bones") or meta
         names = [b for b in ("pelvis", "spine_01", "spine_02", "spine_03", "thigh_l", "thigh_r", "calf_l", "calf_r")
@@ -362,8 +361,21 @@ class UEPosed:
         return U, mv
 
 
+def posed_list(a):
+    """--ue-posed 'dir[:frame],dir[:frame]' -> [(dir, frame)]; none: [(None, --fit-frame)] (Blender's skin only)."""
+    if not a.ue_posed:
+        return [(None, a.fit_frame)]
+    out = []
+    for item in a.ue_posed.split(","):
+        d, _, f = item.strip().partition(":")
+        out.append((d, int(f) if f else a.fit_frame))
+    return out
+
+
 def fit(rig, a, src):
-    """Refit a.fit (Trousers or Top) at the waist in her seated pose and carry it back to the bind pose."""
+    """Refit a.fit (Trousers or Top) at the waist in her seated pose(s) and carry it back to the bind pose. With several
+    posed frames each is solved on its own and every vertex takes the most outward of its moves (the worst frame
+    wins: no poke anywhere; a pull-in only as far as every frame allows)."""
     ob = rig.tr if a.fit == "Trousers" else rig.top
     X0, T = G.world_cm(ob)
     z = X0[:, 2]
@@ -385,18 +397,53 @@ def fit(rig, a, src):
     W_b = GF.limit_normalize(W_b, 8)
     W, groups = GF.blend_weights(W_b, g_b, W_own, g_own, alpha)
     set_weights(ob, W, groups)
-    # 2. her seated pose: each zone vertex's distance to her posed skin, along her skin's normal
-    rig.pose(src, a.fit_frame)
+    # the panels are separate shells along their seams: coincident verts move together (no seam opens)
+    key = np.round(X0 / 0.002).astype(np.int64)
+    _, grp = np.unique(key, axis=0, return_inverse=True)
+    grp = grp.ravel()
+
+    def weld(v):
+        acc = np.zeros((grp.max() + 1,) + v.shape[1:])
+        np.add.at(acc, grp, v)
+        cnt = np.bincount(grp, minlength=grp.max() + 1).reshape((-1,) + (1,) * (v.ndim - 1))
+        return (acc / cnt)[grp]
+    log(f"seams: {int(len(grp) - (grp.max() + 1))} coincident verts weld in the move")
+    ctx = dict(ob=ob, T=T, z=z, alpha=alpha, zone=zone, nbrs=nbrs, weld=weld, W=W, groups=groups, target_in=target_in)
+    sols = [solve(rig, a, src, ctx, udir, f) for udir, f in posed_list(a)]
+    # 4. the most outward move per vertex over the frames, carried to the bind pose as that frame solved it
+    MV = np.stack([s_["mv"] for s_ in sols])
+    pick = MV.argmax(0)
+    Dr = np.stack([s_["Dr"] for s_ in sols])[pick, np.arange(len(X0))]
+    Dr = weld(Dr)
+    if len(sols) > 1:
+        log("worst frame per vertex: " + ", ".join(f"f{s_['frame']} {int((pick[zone] == k).sum())}"
+                                                   for k, s_ in enumerate(sols)))
+    rig.pose(None, 0)
+    G.set_world_cm(ob, X0 + Dr)
+    for s_ in sols:
+        if s_.get("ue") is not None:
+            ue_check(rig, a, src, ob, s_)
+    mag = np.linalg.norm(Dr, axis=1)
+    log(f"bind-pose move median {np.median(mag[mag > 1e-5]):.2f} cm, max {mag.max():.2f}")
+    return ob
+
+
+def solve(rig, a, src, ctx, udir, frame):
+    """One posed frame: each zone vertex's distance to her skin (Blender's, and Unreal's when given: the furthest out
+    wins), the move to target_in along her skin's normal, smoothed and welded; carried to the bind pose by the inverse
+    of that frame's skinning."""
+    ob, T, z, alpha, zone, nbrs, weld = (ctx[k] for k in ("ob", "T", "z", "alpha", "zone", "nbrs", "weld"))
+    rig.pose(src, frame)
     P, _ = G.world_cm(ob, evaluated=True)
     BX, BT = G.world_cm(rig.body, evaluated=True)
     bvhs = [BVHTree.FromPolygons(BX.tolist(), BT.tolist())]
-    if a.ue_posed:
-        ue = UEPosed(a, rig, P)
+    sol = {"frame": frame, "ue": None}
+    if udir:
+        ue = UEPosed(udir, rig, P)
         U, off = ue.where(P)
-        log(f"ue-posed: zone verts vs Unreal's own: moved median {np.median(off[zone]):.2f} cm, p95 "
+        log(f"f{frame} ue-posed: zone verts vs Unreal's own: moved median {np.median(off[zone]):.2f} cm, p95 "
             f"{np.percentile(off[zone], 95):.2f}, max {off[zone].max():.2f}")
-        rig.ue_off = U - P                      # Unreal's place minus the rig's, per vertex (for the after-check)
-        rig.ue = ue
+        sol.update(ue=ue, off=U - P)            # Unreal's place minus the rig's, per vertex (for the after-check)
         P = U                                   # measure each vertex where Unreal puts it
         bvhs.append(ue.bvh_body)
     vn = GF.vertex_normals(P, T)
@@ -418,13 +465,13 @@ def fit(rig, a, src):
         if best is None:
             continue
         d[i], N[i], src_ue[i] = best[0], best[1], best[2] == 1
-    if a.ue_posed:
-        log(f"collider: Unreal's skin decides {int(src_ue[zone].sum())} of {int(zone.sum())} zone verts")
+    if udir:
+        log(f"f{frame} collider: Unreal's skin decides {int(src_ue[zone].sum())} of {int(zone.sum())} zone verts")
     ok = zone & np.isfinite(d)
     inner = ok & (np.einsum("ij,ij->i", vn, N) < 0)      # the shell's inner face looks at her
     outer = ok & ~inner
     mv = np.zeros(len(P))
-    mv[inner] = target_in - d[inner]
+    mv[inner] = ctx["target_in"] - d[inner]
     # the outer face moves with its nearest inner vertex (the wall keeps its thickness)
     kd = KDTree(int(inner.sum()))
     ii = np.nonzero(inner)[0]
@@ -435,58 +482,42 @@ def fit(rig, a, src):
         _, k, _ = kd.find(Vector(P[i]))
         mv[i] = mv[ii[k]]
         N[i] = N[ii[k]]
-    log(f"seated f{a.fit_frame}: inner face off her skin median {np.median(d[inner]):.2f} cm (min "
-        f"{d[inner].min():.2f}, max {d[inner].max():.2f}); move median {np.median(mv[ok]):+.2f}, "
-        f"{mv[ok].min():+.2f}..{mv[ok].max():+.2f}")
+    log(f"f{frame}: inner face off her skin median {np.median(d[inner]):.2f} cm (min {d[inner].min():.2f}, max "
+        f"{d[inner].max():.2f}); move median {np.median(mv[ok]):+.2f}, {mv[ok].min():+.2f}..{mv[ok].max():+.2f}")
     # a nearest point across a fold (her seated hip crease) reads deep inside: not a clip the band can fix, left as is
     fold = ok & (d < -1.0)
     mv[fold] = 0.0
     if fold.any():
-        log(f"fold: {int(fold.sum())} zone verts read > 1 cm inside (left alone): z {np.percentile(z[fold], 5):.1f}.."
-            f"{np.percentile(z[fold], 95):.1f} cm (bind), alpha median {np.median(alpha[fold]):.2f}")
+        log(f"f{frame} fold: {int(fold.sum())} zone verts read > 1 cm inside (left alone): z "
+            f"{np.percentile(z[fold], 5):.1f}..{np.percentile(z[fold], 95):.1f} cm (bind), alpha median "
+            f"{np.median(alpha[fold]):.2f}")
     mv = np.clip(mv, -3.0, 1.0)
-    # the panels are separate shells along their seams: coincident verts move together (no seam opens)
-    key = np.round(X0 / 0.002).astype(np.int64)
-    _, grp = np.unique(key, axis=0, return_inverse=True)
-    grp = grp.ravel()
-
-    def weld(v):
-        acc = np.zeros((grp.max() + 1,) + v.shape[1:])
-        np.add.at(acc, grp, v)
-        cnt = np.bincount(grp, minlength=grp.max() + 1).reshape((-1,) + (1,) * (v.ndim - 1))
-        return (acc / cnt)[grp]
     for _ in range(3):
         mv = weld(GF.smooth_field(mv, nbrs, iters=2, pinned=~zone))
         N = weld(GF.smooth_field(N, nbrs, iters=1, pinned=~zone))
     mv = mv * alpha
-    log(f"seams: {int(len(grp) - (grp.max() + 1))} coincident verts welded in the move")
     N /= np.maximum(np.linalg.norm(N, axis=1, keepdims=True), 1e-9)
     D = mv[:, None] * N
-    # 3. back to the bind pose: the inverse of each vertex's blended skinning (3x3; the move is a vector)
-    S = np.einsum("vb,bij->vij", W, skin_mats(rig.arm, groups))
+    # back to the bind pose: the inverse of each vertex's blended skinning at this frame (3x3; the move is a vector)
+    S = np.einsum("vb,bij->vij", ctx["W"], skin_mats(rig.arm, ctx["groups"]))
     idx = np.nonzero(np.abs(mv) > 1e-5)[0]
     Dr = np.zeros_like(D)
     Dr[idx] = np.linalg.solve(S[idx], D[idx][:, :, None])[:, :, 0]
-    Dr = weld(Dr)
-    rig.pose(None, 0)
-    G.set_world_cm(ob, X0 + Dr)
-    if a.ue_posed:
-        ue_check(rig, a, src, ob, zone, inner, alpha)
-    log(f"bind-pose move median {np.median(np.linalg.norm(Dr[idx], axis=1)):.2f} cm, max "
-        f"{np.linalg.norm(Dr[idx], axis=1).max():.2f}")
-    return ob
+    sol.update(mv=mv, Dr=Dr, inner=inner)
+    return sol
 
 
-def ue_check(rig, a, src, ob, zone, inner, alpha):
+def ue_check(rig, a, src, ob, sol):
     """After the fit: the band where Unreal would put it (the rig's new posed band + Unreal's per-vertex offset),
     against the furthest-out skin: inner face off her skin, front half (|angle| < 90 deg) and all round."""
-    rig.pose(src, a.fit_frame)
+    rig.pose(src, sol["frame"])
     P2, _ = G.world_cm(ob, evaluated=True)
-    U2 = P2 + rig.ue_off
+    U2 = P2 + sol["off"]
     BX, BT = G.world_cm(rig.body, evaluated=True)
-    bvhs = [BVHTree.FromPolygons(BX.tolist(), BT.tolist()), rig.ue.bvh_body]
+    bvhs = [BVHTree.FromPolygons(BX.tolist(), BT.tolist()), sol["ue"].bvh_body]
     p, u, fr, side = axis(rig.arm)
-    band = inner & (alpha > 0.999)
+    X0, _ = G.world_cm(ob)
+    band = sol["inner"] & (X0[:, 2] > rig.z_edge - a.band - 0.5)
     dd, front = [], []
     for i in np.nonzero(band)[0]:
         best = None
@@ -506,7 +537,7 @@ def ue_check(rig, a, src, ob, zone, inner, alpha):
     dd, front = np.array(dd), np.array(front)
     for name, m in (("front half", front), ("all round", np.ones(len(dd), bool))):
         x = dd[m]
-        log(f"ue-check {name}: band inner face off her skin median {np.median(x):.2f}, p5 {np.percentile(x, 5):.2f}, "
+        log(f"ue-check f{sol['frame']} {name}: band inner face off her skin median {np.median(x):.2f}, p5 {np.percentile(x, 5):.2f}, "
             f"min {x.min():.2f}, p95 {np.percentile(x, 95):.2f} cm; under 0: {int((x < 0).sum())} of {len(x)}")
     rig.pose(None, 0)
 
