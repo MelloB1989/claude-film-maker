@@ -14,7 +14,10 @@ Timing conventions (agent-04 face, agent-01/agent-10 body):
 - smile: onset 0.30 s before the apex, apex on the word, held `hold` s, then eases to the line's base smile;
 - nod / tilt: apex on the stressed syllable (a nod is down-then-up, 0.35 s; a tilt holds until the next head move);
 - gesture: preparation from `prep` s before the stroke (default 0.30), stroke on the stressed syllable, held `hold`
-  s, then a retraction to a HIGH REST (hands up, elbows off the torso), not the desk, unless `rest` says so.
+  s, then a retraction to a HIGH REST (hands loosely together at the sternum, elbows off the torso: at the MCU
+  frame's bottom edge), not the desk, unless `rest` says so;
+- gesture space: `apex_height` per stroke (HEIGHT, by camera and size): chest to collarbone in front of the torso,
+  so the hands are IN the shot (CAM_MCU's bottom edge is at the sternum, z 85; CAM_CU's above the shoulders, z 102).
 
 Staging (the operator's notes, R7_common.md): hands off the body and above the desk while she speaks; elbows out so
 the upper arms clear the torso and breasts by >= 3 cm; the mic is on HER LEFT, so big gestures are her RIGHT hand, or
@@ -42,8 +45,8 @@ HER = {
     "film": "netflix", "who": "her",
     "pre": {  # before the first word (t 0-0.75 s, on CAM_MCU)
         "note": "Already alive when the cut opens: a soft closed-mouth smile building, a small head tilt to her right "
-                "(4 deg), an inhale with the shoulders rising 1 cm, hands up off the desk in a loose high rest "
-                "(fingertips touching, forearms just off the desk edge, elbows out). A small lean in from 0.4 s.",
+                "(4 deg), an inhale with the shoulders rising 1 cm, hands loosely together at the sternum in front "
+                "of her (fingertips touching, elbows out), at the bottom edge of the MCU frame, not on the desk. A small lean in from 0.4 s.",
         "face": [("smile_soft", 0.15, {"amount": 0.35}), ("tilt", 0.2, {"side": "R", "deg": 4})],
         "lean": [(0.4, 4)],
     },
@@ -277,10 +280,11 @@ HER = {
                      ("nod", ("N15", "delivers.", 1, 0.35), {}),
                      ("smile", ("N15", "delivers.", 1, 0.35), {"amount": 0.6, "hold": 0.5, "shape": "open lips, building to N16"})],
             "gestures": [
-                ("high_low", "R", ("N15", "cloud"), {"size": "medium", "target": "up, her right",
+                ("high_low", "R", ("N15", "cloud"), {"size": "medium", "target": "up, her right", "height": "chin",
                                                      "hold": 0.5, "note": "open palm raised to chin height: up there"}),
-                ("place", "both", ("N15", "box"), {"size": "medium", "target": "front, low",
-                                                    "note": "both hands come down to the front: right here"}),
+                ("place", "both", ("N15", "box"), {"size": "medium", "target": "front", "height": "sternum",
+                                                    "note": "both hands come down to the sternum, the frame's edge: "
+                                                            "right here"}),
                 ("beat", "both", ("N15", "delivers.", 1, 0.35), {"size": "medium", "target": "front"}),
             ],
             "lean": [(("N15", "cloud"), 4), (("N15", "box"), 7)],
@@ -309,8 +313,8 @@ HIM = {
     "film": "whatsapp", "who": "him",
     "pre": {
         "note": "Already alive when the cut opens: an easy closed-mouth grin building, a small head tilt to his right "
-                "(4 deg), an inhale with the shoulders rising 1 cm, hands up off the desk in a loose high rest "
-                "(fingers loosely laced, forearms just off the desk edge, elbows out). A small lean in from 0.4 s.",
+                "(4 deg), an inhale with the shoulders rising 1 cm, hands loosely together at the sternum in front "
+                "of him (fingers loosely laced, elbows out), at the bottom edge of the MCU frame, not on the desk. A small lean in from 0.4 s.",
         "face": [("smile_soft", 0.15, {"amount": 0.35}), ("tilt", 0.2, {"side": "R", "deg": 4})],
         "lean": [(0.4, 4)],
     },
@@ -648,7 +652,9 @@ def resolve(sheet: dict) -> dict:
             g = {"type": typ, "hand": hand, "word": w, "stroke_t": t, "stroke_f": fr(t),
                  "prep_t": round(t - prep, 3), "prep_f": fr(t - prep), "hold_s": x.get("hold", 0.25),
                  "size": x.get("size", "medium"), "amp": x.get("amp", AMP[x.get("size", "medium")]),
-                 "held": x.get("hold", 0.25) >= 0.5, "target": x.get("target", "camera")}
+                 "held": x.get("hold", 0.25) >= 0.5, "target": x.get("target", "camera"),
+                 "apex_height": x.get("height", apex_height(where[ln["id"]]["camera"], spec.get("off_cam", False),
+                                                            x.get("size", "medium")))}
             if "start" in x:
                 st, sw = word_t(lines, x["start"])
                 g["prep_t"], g["prep_f"], g["start_word"] = round(st - 0.15, 3), fr(st - 0.15), sw
@@ -707,6 +713,25 @@ def face04(row: dict) -> dict:
     return {k: x for k, x in v.items() if x != []}
 
 
+# Gesture space (orchestrator, side A review): the apex of a stroke sits chest-to-chin in front of the torso, never at
+# desk height. agent-10's framing check (her gesture plane): CAM_MCU's bottom edge is at her sternum point (z 85),
+# CAM_CU's above her shoulders (z 102). So in MCU a small beat peaks at the sternum (the hand at the frame's edge),
+# medium/big at the upper chest and collarbone (the hands in the frame's lower third); in CU the key strokes rise to the
+# chin. Heights, low to high: bust, lower_chest, sternum, upper_chest, collarbone, chin.
+HEIGHT = {"CAM_MCU": {"small": "sternum", "medium": "upper_chest", "big": "collarbone"},
+          "CAM_MCU_L": {"small": "sternum", "medium": "upper_chest", "big": "collarbone"},
+          "CAM_CU": {"small": "collarbone", "medium": "chin", "big": "chin"},
+          "CAM_WIDE": {"small": "lower_chest", "medium": "sternum", "big": "upper_chest"},
+          None: {"small": "sternum", "medium": "upper_chest", "big": "collarbone"}}  # off camera: MCU heights (the
+# TEST span plays N03 on CAM_MCU, and the next shot can open mid-gesture)
+# hands_in_frame_frac (>= 1 hand fully in frame, of the speaking frames), per camera: agent-09's gate row
+IN_FRAME = {"CAM_MCU": 0.6, "CAM_MCU_L": 0.6, "CAM_CU": 0.3, "CAM_WIDE": 1.0}
+
+
+def apex_height(camera: str | None, off_cam: bool, size: str) -> str:
+    return HEIGHT[None if off_cam else camera][size]
+
+
 BODY_TYPE = {"beat": "beat", "open_palm": "open", "release": "open", "point_viewer": "open", "sweep": "open",
              "count": "count", "deictic": "deictic", "size": "size", "pinch": "size", "ladder": "size",
              "place": "size", "carry": "size", "high_low": "deictic", "press": "beat", "chop": "beat",
@@ -717,8 +742,10 @@ def body01(row: dict) -> dict:
     """agent-01's shape: type in beat|open|count|deictic|size (`detail` keeps the sheet's own name), hand r|l|both."""
     g = [{"type": BODY_TYPE[x["type"]], "detail": x["type"], "hand": x["hand"].lower(), "word": x["word"],
           "word_i": x["word_i"], "stroke_t": x["stroke_t"], "prep_t": x["prep_t"], "hold_s": x["hold_s"],
-          "size": x["size"], "amp": x["amp"], "held": x["held"], "target": x["target"]} for x in row["gestures"]]
+          "size": x["size"], "amp": x["amp"], "held": x["held"], "target": x["target"],
+          "apex_height": x["apex_height"]} for x in row["gestures"]]
     return {"line": row["id"], "on_cam": row["on_cam"], "camera": row["camera"], "gestures": g,
+            "hands_in_frame_min": IN_FRAME.get(row["camera"]) if row["on_cam"] else None,
             "lean": [{"kind": "in" if x["deg"] >= 5 else "neutral", "deg": x["deg"], "word": x["word"], "t": x["t"]}
                      for x in row["lean"]],
             "rest_after": True}
@@ -775,7 +802,7 @@ def md(a: dict) -> str:
         o.append("- **Gestures:** " + "; ".join(
             f"{g['type'].replace('_', ' ')} [{g['hand']}, {g['size']} {g['amp']}, to {g['target']}]"
             + (f" HELD {g['hold_s']} s" if g["held"] else "") + f" stroke on *{g['word']}* "
-            f"{g['stroke_t']:.2f} s (f{g['stroke_f']}), prep from {g['prep_t']:.2f}"
+            f"{g['stroke_t']:.2f} s (f{g['stroke_f']}), apex at the {g['apex_height'].replace('_', ' ')}, prep from {g['prep_t']:.2f}"
             + (f" (from *{g['start_word']}*)" if "start_word" in g else "")
             + (f": {g['note']}" if "note" in g else "") for g in ln["gestures"]))
         if ln["lean"]:
@@ -808,6 +835,14 @@ the torso (00:44), her right upper arm into her breast, and the waist fit. This 
 five payoffs; mid-line smiles 0.4-0.6, varied in shape and asymmetry. Confident, not giddy. **Gestures:** the
 amplitude varies (`amp` 0-1: small 0.3, medium 0.55, big 0.85), and the HELD strokes keep the shape after the stroke
 for `hold_s` before retracting: deliberate, confident.
+
+**Gesture space (side A review, agent-10's framing check):** the apex of every stroke sits chest-to-chin in front of
+the torso, never at desk height. `CAM_MCU`'s bottom edge is at her sternum (z 85 on her gesture plane): small beats
+peak at the sternum (the hand at the edge), medium at the upper chest, big at the collarbone, so the hands sit in the
+frame's lower third. `CAM_CU`'s bottom edge is above her shoulders (z 102): small strokes at the collarbone, the key
+ones at the chin. Each gesture carries its `apex_height`; each on-camera line its `hands_in_frame_min` (at least
+one hand fully in frame: MCU/MCU_L 0.6, CU 0.3, WIDE 1.0 of the speaking frames). The high rest is hands together at
+the sternum, at the MCU frame's edge.
 
 **Staging, for every line:** hands off the body and above the desk while she speaks, rest (hands loosely together,
 forearms on the desk edge) only in the pauses; elbows out so the upper arms clear the torso and breasts by >= 3 cm;

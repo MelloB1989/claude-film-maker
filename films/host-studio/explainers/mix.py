@@ -3,6 +3,11 @@
 
     PYTHONPATH=tools python films/host-studio/explainers/music.py fit --film whatsapp --seed 1   # the bed
     PYTHONPATH=tools python films/host-studio/explainers/mix.py --film whatsapp                  # -> audio/<film>/mix.wav
+    PYTHONPATH=tools python films/host-studio/explainers/mix.py --film whatsapp --sfx            # + the graphics' SFX
+
+With --sfx the stems sfx.py placed (stem-sfx-hits.wav, stem-sfx-loops.wav) join at the voice's scale: they are
+normalised to the voice lines' reference level, so the voice's gain carries them and each hit's `gain` stays relative
+to the voice; the loops are ducked under the voice with the bed.
 
 The balance is set by loudness (the karma reel's method, films/host-studio/reel/mix.py): the voice to VOICE_LUFS over
 its speech, the bed to MUSIC_LUFS, the bed ducked under the voice (4:1, 25 ms attack, 250 ms hold, 450 ms release, at
@@ -57,24 +62,32 @@ def master(pre: np.ndarray) -> tuple[np.ndarray, float]:
     return out, gain
 
 
-def mix(film: str) -> dict:
+def mix(film: str, with_sfx: bool = False) -> dict:
     d = HERE / "audio" / film
     cues = json.loads((d / "cues.json").read_text())
     n = int(round(cues["duration"] * SR))
     v, sr = read_wav(d / "vo.wav")
     assert sr == SR
     voice = stereo(v, n)
-    voice *= 10 ** ((VOICE_LUFS - loudness(voice, SR)) / 20)
+    vgain = 10 ** ((VOICE_LUFS - loudness(voice, SR)) / 20)
+    voice *= vgain
     bed, sr = read_wav(d / "bed.flac", mono=False)
     assert sr == SR
     music = stereo(bed, n)
     music *= 10 ** ((MUSIC_LUFS - loudness(music, SR)) / 20)
     duck = sidechain_gain(voice.mean(1), n, SR, **DUCK)
     music *= duck[:, None]
-    out, gain = master(voice + music)
+    fx = np.zeros((n, 2))
+    if with_sfx:
+        hits, _ = read_wav(d / "stem-sfx-hits.wav")
+        loops, _ = read_wav(d / "stem-sfx-loops.wav")
+        fx = (stereo(hits, n) + stereo(loops, n) * duck[:, None]) * vgain
+    out, gain = master(voice + music + fx)
     write_wav(d / "mix.wav", out.astype(np.float32))
     write_wav(d / "stem-voice.wav", (voice * 10 ** (gain / 20)).astype(np.float32))
     write_wav(d / "stem-music.wav", (music * 10 ** (gain / 20)).astype(np.float32))
+    if with_sfx:
+        write_wav(d / "stem-sfx.wav", (fx * 10 ** (gain / 20)).astype(np.float32))
     duck_db = [round(float(np.median(20 * np.log10(duck[int(ln["start"] * SR):int(ln["end"] * SR)] + 1e-12))), 1)
                for ln in cues["lines"]]
     rep = {"film": film, "seconds": round(n / SR, 4), "samples": n,
@@ -82,7 +95,8 @@ def mix(film: str) -> dict:
            "true_peak_dbtp": round(max(true_peak(out[:, 0]), true_peak(out[:, 1])), 2),
            "master_gain_db": round(gain, 2), "voice_lufs": VOICE_LUFS, "music_lufs": MUSIC_LUFS,
            "duck_median_db_per_line": dict(zip([ln["id"] for ln in cues["lines"]], duck_db)),
-           "bed": json.loads((d / "bed.json").read_text())}
+           "bed": json.loads((d / "bed.json").read_text()),
+           "sfx": json.loads((d / "sfx.json").read_text()) if with_sfx else None}
     (d / "mix.json").write_text(json.dumps(rep, indent=1))
     print(f"{film}: {rep['lufs']} LUFS, {rep['true_peak_dbtp']} dBTP, {rep['seconds']} s, duck median "
           f"{np.median(duck_db):.1f} dB")
@@ -92,7 +106,9 @@ def mix(film: str) -> dict:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--film", required=True, choices=["whatsapp", "netflix"])
-    mix(ap.parse_args().film)
+    ap.add_argument("--sfx", action="store_true", help="add the graphics' SFX stems (sfx.py place first)")
+    a = ap.parse_args()
+    mix(a.film, a.sfx)
 
 
 if __name__ == "__main__":
