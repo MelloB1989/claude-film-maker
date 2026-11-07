@@ -60,16 +60,23 @@ elif STAGE == "apply":
     def has(kind, n):
         return isinstance(p.get(kind), list) and n in p[kind]
 
+    # the studio's Pbr kind (studio.py K.material: Tex x Color, Normal, Mask R rough / G metal, no AO) or the K lib
     if VARIANT in ("white", "all"):
-        if has("texture", "BaseColorMap"):
-            mid.set_texture_parameter_value("BaseColorMap", unreal.load_asset(WHITE))
-            done.append("BaseColorMap=white")
-        if has("vector", "Tint"):
-            mid.set_vector_parameter_value("Tint", unreal.LinearColor(1, 1, 1, 1))
-            done.append("Tint=1")
-    if VARIANT in ("flatnormal", "all") and has("scalar", "NormalStrength"):
-        mid.set_scalar_parameter_value("NormalStrength", 0.0)
-        done.append("NormalStrength=0")
+        for tp in ("Tex", "BaseColorMap"):
+            if has("texture", tp):
+                mid.set_texture_parameter_value(tp, unreal.load_asset(WHITE))
+                done.append(f"{tp}=white")
+        for vp in ("Color", "Tint"):
+            if has("vector", vp):
+                mid.set_vector_parameter_value(vp, unreal.LinearColor(1, 1, 1, 1))
+                done.append(f"{vp}=1")
+    if VARIANT in ("flatnormal", "all"):
+        if has("texture", "Normal"):
+            mid.set_texture_parameter_value("Normal", unreal.load_asset("/Engine/EngineMaterials/DefaultNormal"))
+            done.append("Normal=DefaultNormal")
+        if has("scalar", "NormalStrength"):
+            mid.set_scalar_parameter_value("NormalStrength", 0.0)
+            done.append("NormalStrength=0")
     if VARIANT in ("noao", "all") and has("scalar", "AOStrength"):
         mid.set_scalar_parameter_value("AOStrength", 0.0)
         done.append("AOStrength=0")
