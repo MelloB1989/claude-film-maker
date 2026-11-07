@@ -324,7 +324,9 @@ def _collar_local(axial, radial, gap, angle, wall, *, window, ring_cm, band_cm, 
     camera-facing ring tripled to 323-491 verts and read 2.4-4.5 cm 'gaps' to the culled skin under the tee). Per
     sector: its own innermost radius (2nd smallest), its own top (the highest of its innermost verts), and the ring =
     its innermost garment (within ring_cm) no deeper than COLLAR_RING_DEPTH_CM under that top. The roll's window
-    starts at each sector's own top. A gap that is NaN (no skin at the vertex's height: culled) is not measured."""
+    starts at each sector's own top. A gap that is NaN (no skin at the vertex's height: culled) is not measured.
+    Known blind spot (agent-09): a ring that slid DOWN off the neck, its nearest skin above it, reads 'not measured' at
+    those verts rather than as a gap; it is caught only if the frame ends up unmeasured (refused), or by the eye."""
     geo = [(a, r, g, an, (wall[i] if wall is not None else True)) for i, (a, r, g, an) in
            enumerate(zip(axial, radial, gap, angle)) if window[0] <= a <= window[1]]
     if not geo:
