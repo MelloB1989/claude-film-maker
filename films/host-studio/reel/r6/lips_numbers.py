@@ -15,7 +15,7 @@ SEQ_Reel plays on the box after K2c's place. Numbers only.
    while it is spoken; otherwise the row is an error, never a 0.
 
 Writes films/host-studio/reel/r6/numbers/lips.json ({"gate": {item: {value, where}}}) and keeps the raw reports
-beside it (lips_check_<who>.json, lipgap.json). render_lag_frames / render_conclusive are INFO (no render check).
+beside it (lips_check_<who>.json, lead_in.json). render_lag_frames / render_conclusive are INFO (no render check).
 """
 from __future__ import annotations
 
