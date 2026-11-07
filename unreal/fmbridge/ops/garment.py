@@ -430,7 +430,7 @@ def _collar(a, parts, gv, body: str = "Body", gs=None, cam=None) -> dict:
     n1 = math.sqrt(sum(c * c for c in e1)) or 1.0
     e1 = tuple(c / n1 for c in e1)
     e2 = (uy * e1[2] - uz * e1[1], uz * e1[0] - ux * e1[2], ux * e1[1] - uy * e1[0])
-    axial, radial, gap, angle, wall, facing = [], [], [], [], [], []
+    axial, radial, gap, angle, wall, facing, sdt = [], [], [], [], [], [], []
     lim = math.sin(math.radians(_look.COLLAR_WALL_DEG))
     for p in near:
         if gs is not None:
@@ -445,12 +445,15 @@ def _collar(a, parts, gv, body: str = "Body", gs=None, cam=None) -> dict:
         if cam is not None:
             c = unreal.Vector(float(cam[0]), float(cam[1]), float(cam[2]))
             facing.append(v.dot(c - p) > 0.0)
-        ds = [(p - r[0]).length() for r in (sk.nearest(p) for sk in skins) if r is not None]
-        gap.append(min(ds) if ds else float("nan"))
+        near_s = [r[0] for r in (sk.nearest(p) for sk in skins) if r is not None]
+        q = min(near_s, key=lambda x: (p - x).length()) if near_s else None
+        gap.append((p - q).length() if q is not None else float("nan"))
+        sdt.append((q - p).dot(u) if q is not None else None)  # + = the nearest skin is above the vertex
     wl = wall if gs is not None else None
-    out = _look.collar_stats(axial, radial, gap, angle=angle, wall=wl, facing=facing if cam is not None else None)
+    out = _look.collar_stats(axial, radial, gap, angle=angle, wall=wl, facing=facing if cam is not None else None,
+                             skin_dt=sdt)
     if cam is not None:  # the whole band too, as INFO (garment.collar_gap_all_cm / collar_roll_all)
-        al = _look.collar_stats(axial, radial, gap, angle=angle, wall=wl)
+        al = _look.collar_stats(axial, radial, gap, angle=angle, wall=wl, skin_dt=sdt)
         out["all"] = {k: al.get(k) for k in ("n", "gap_cm", "spread_cm", "spread_where", "roll")}
     return out
 
