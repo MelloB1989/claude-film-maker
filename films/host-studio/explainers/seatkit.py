@@ -183,6 +183,7 @@ LEGS = {s: ("thigh_" + s, "calf_" + s, "foot_" + s, "ball_" + s) for s in "lr"}
 ARMS = {s: ("clavicle_" + s, "upperarm_" + s, "lowerarm_" + s, "hand_" + s) for s in "lr"}
 SPINE = ("spine_01", "spine_02", "spine_03", "spine_04", "spine_05")
 NECK = ("neck_01", "neck_02", "head")
+FINGERS = ("thumb", "index", "middle", "ring", "pinky")
 REQUIRED = ("root", "pelvis") + SPINE + NECK + sum(LEGS.values(), ()) + sum(ARMS.values(), ()) + (
     "middle_01_l", "middle_01_r", "index_01_l", "index_01_r", "pinky_01_l", "pinky_01_r")
 
@@ -231,11 +232,21 @@ class Skeleton:
             raise ValueError("component space is not z-up (the head is below the pelvis)")
         fwd = sub(add(self.p("ball_l"), self.p("ball_r")), add(self.p("foot_l"), self.p("foot_r")))
         fwd = unit([fwd[0], fwd[1], 0.0])
-        right = unit(sub(self.p("thigh_r"), self.p("thigh_l")))
-        right = ortho(right, up)
-        if dot(cross(up, fwd), right) < 0 and dot(cross(fwd, up), right) < 0:
-            raise ValueError("could not tell right from left")
+        # the component's facing is an axis (a MetaHuman body faces +Y; its Blueprint turns it to the actor's +X):
+        # the base pose's few degrees of turn are the pose's, not the frame's
+        fwd = max(([1.0, 0.0, 0.0], [-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, -1.0, 0.0]), key=lambda a: dot(a, fwd))
+        right = cross(fwd, up)  # Unreal's numbers: forward x right = up
+        right = mul(right, -1.0)
+        hips = unit(sub(self.p("thigh_r"), self.p("thigh_l")))
+        if dot(hips, right) < 0.5:
+            raise ValueError(f"could not tell right from left (hips {hips}, right {right})")
         return {"fwd": fwd, "right": right, "left": mul(right, -1.0), "up": up}
+
+    def yaw_off(self) -> float:
+        """Degrees the base pose's hips are turned (about up, + toward the body's right) from the frame."""
+        F = self.frame()
+        h = sub(self.p("thigh_r"), self.p("thigh_l"))
+        return math.degrees(math.atan2(-dot(h, F["fwd"]), dot(h, F["right"])))
 
 
 # --- the seated pose -------------------------------------------------------------------------------------------------
@@ -249,6 +260,7 @@ class Set:
     desk_near: float = 30.0  # the desk's near edge, x
     desk_far: float = 100.0
     desk_under: float = 70.0  # the desk's underside (top minus its thickness / apron)
+    seat_front: float = 22.0  # the seat's front edge, x
     mic: list | None = None  # [x, y, z] of the mic head, actor frame (y to the presenter's right)
     mic_radius: float = 9.0  # a sphere around the mic head (and its pop filter) no hand may enter
     boom: list | None = None  # [[x, y, z], [x, y, z]]: the mic's arm, clamp to head, actor frame
@@ -277,6 +289,9 @@ class Style:
     pronation: float = 50.0  # degrees from palm-down toward thumb-up (0 = flat on the desk)
     hand_yaw_in: float = 14.0  # degrees the fingers point toward the midline
     forearm_clear: float = 2.8  # cm the forearm's axis keeps above the desk top (half its thickness, wrist end)
+    heel_lift: float = 0.0  # cm the heels come up off the floor (the balls stay down): short legs on a tall seat
+    thigh_radius: float = 6.5  # cm from the femur's axis to the thigh's underside (the seat-edge check)
+    finger_clear: float = 0.4  # cm the curled fingertips keep above the desk (the wrist extends until they do)
 
 
 @dataclass
@@ -318,6 +333,7 @@ class Seater:
         self.F = sk.frame()
         f, r, u = self.F["fwd"], self.F["right"], self.F["up"]
         self.root = list(sk.p("root"))
+        self.deyaw = axis_angle(u, -sk.yaw_off())
         hips = mul(add(sk.p("thigh_l"), sk.p("thigh_r")), 0.5)
         floor = self.root[2]
         # the pelvis moves so the hips' midpoint lands over the origin at the seat height
@@ -330,6 +346,27 @@ class Seater:
         self.fr = (f, r, u)
         # handedness of (forward, right, up): Unreal's component space is left-handed (x fwd, y right, z up)
         self._rhs = dot(cross(f, r), u) > 0
+        self.ext_base = {}
+        self.ext_base = self._solve_ext()
+
+    def _solve_ext(self) -> dict:
+        """Per hand, the least wrist extension (0..35 deg, 2.5 steps) that keeps every curled fingertip over the desk
+        at least finger_clear above it."""
+        out = {}
+        for s in "lr":
+            best = 35.0
+            for k in range(15):
+                e = 2.5 * k
+                self.ext_base = {**out, s: e}
+                A = self.fk(self.pose(-1.0, []))
+                tips = [self.actor(A[b][0]) for b in A if b.split("_")[0] in FINGERS
+                        and (b.endswith(f"_03_{s}") or b.endswith(f"_02_{s}"))]
+                tips = [p for p in tips if p[0] >= self.set.desk_near]
+                if not tips or min(p[2] for p in tips) >= self.set.desk_top + self.sy.finger_clear:
+                    best = e
+                    break
+            out[s] = best
+        return out
 
     def actor(self, v):
         """Component-space point -> actor frame [x forward, y right, z up from the floor]."""
@@ -347,7 +384,8 @@ class Seater:
         f, r, u = self.fr
         W = {}  # bone -> [t, q] component space, new
         # pelvis: moved, tilted back about the body's right axis (+ = forward pitch about right... see sign test)
-        tilt = axis_angle(r, -sy.pelvis_tilt)  # pitch back: top of the pelvis toward -forward
+        # the base pose's own turn undone (about up), then the pelvis pitched back (its top toward -forward)
+        tilt = qmul(axis_angle(r, -sy.pelvis_tilt), self.deyaw)
         # placed so the tilted pelvis still puts the hips' midpoint on the mark
         W["pelvis"] = [sub(self.hip_want, qrot(tilt, sub(self.hips_rest, sk.p("pelvis")))), qmul(tilt, sk.q("pelvis"))]
         # spine: rotate each bone's world rotation by the cumulative lean, positions by FK from the pelvis
@@ -359,10 +397,10 @@ class Seater:
             # with forward x right = up (Unreal's axes, as numbers), +angle about up turns forward toward the right
             # and +angle about right pitches the top forward
             W[b] = [self._fk_t(b, prev, W), qmul(axis_angle(u, tw if self._rhs else -tw),
-                                                 qmul(axis_angle(r, cum), sk.q(b)))]
+                                                 qmul(axis_angle(r, cum), qmul(self.deyaw, sk.q(b))))]
             prev = b
         d5 = qmul(W["spine_05"][1], qinv(sk.q("spine_05")))
-        dh = axis_angle(r, sy.head_pitch)
+        dh = qmul(axis_angle(r, sy.head_pitch), self.deyaw)
         for i, b in enumerate(NECK):
             d = qslerp(d5, dh, (i + 1) / len(NECK))
             W[b] = [self._fk_t(b, sk.parent[b], W), qmul(d, sk.q(b))]
@@ -371,7 +409,7 @@ class Seater:
             side = r if s == "r" else mul(r, -1.0)
             hip = self._fk_t(th, "pelvis", W)
             l1, l2 = self.L[s]
-            ankle_z = sk.p(fo)[2] + 0.0  # the feet keep their rest height
+            ankle_z = sk.p(fo)[2] + sy.heel_lift  # the feet keep their rest height (+ the heel lift)
             # knee: forward of the hip by the thigh, out by knee_out; then the shin down at shin_tilt to the floor
             ox = sy.knee_out
             # solve the thigh's drop so the shin (l2, tilted) lands at the ankle height
@@ -388,8 +426,19 @@ class Seater:
             q_th = self._aim(th, ca, sub(knee, hip), front, front_rest=f)
             W[th] = [hip, q_th]
             W[ca] = [self._fk_t(ca, th, W), self._aim(ca, fo, sub(ankle, knee), front, front_rest=f)]
-            W[fo] = [self._fk_t(fo, ca, W),
-                     qmul(axis_angle(u, sy.foot_out if s == "r" else -sy.foot_out), sk.q(fo))]
+            # the foot flat as at rest, its heel-to-ball line turned to forward +- foot_out (absolute, whatever
+            # the base pose's splay)
+            hb = sub(sk.p(ba), sk.p(fo))
+            have = math.degrees(math.atan2(dot(hb, r), dot(hb, f)))
+            want = sy.foot_out if s == "r" else -sy.foot_out
+            qf = qmul(axis_angle(u, (want - have) if self._rhs else (have - want)), sk.q(fo))
+            if sy.heel_lift:  # pitch the foot toes-down about the body's right axis so the ball stays on the floor
+                L = norm(sub(sk.p(ba), sk.p(fo)))
+                drop = sk.p(fo)[2] - sk.p(ba)[2]
+                a0 = math.degrees(math.asin(max(-1.0, min(1.0, drop / L))))
+                a1 = math.degrees(math.asin(max(-1.0, min(1.0, (drop + sy.heel_lift) / L))))
+                qf = qmul(axis_angle(r, a1 - a0), qf)
+            W[fo] = [self._fk_t(fo, ca, W), qf]
         # arms
         weights = {"l": [], "r": []}
         for g in gestures or []:
@@ -441,7 +490,8 @@ class Seater:
         d0 = sub(sk.p("middle_01_" + s), sk.p("hand_" + s))
         a0 = sub(sk.p("pinky_01_" + s), sk.p("index_01_" + s))
         sup = sum(KINDS.get(g.kind, KINDS["lift"])["supinate"] * g.size * w for g, w in active)
-        ext = sum(KINDS.get(g.kind, KINDS["lift"])["extend"] * g.size * w for g, w in active)
+        ext = self.ext_base.get(s, 0.0) + sum(KINDS.get(g.kind, KINDS["lift"])["extend"] * g.size * w
+                                               for g, w in active)
         yaw = math.radians(sy.hand_yaw_in)
         fingers = unit(add(mul(f, math.cos(yaw)), mul(side, -math.sin(yaw))))
         # wrist extension tilts the fingers up
@@ -523,9 +573,19 @@ def check(seater: Seater, posed: dict) -> dict:
         need(k[2] < st.desk_under - 6.0, "desk.knee", f"knee_{s} top would touch the desk underside (z {k[2]:.1f})",
              k[2])
         need(a[2] > floor, "floor.ankle", f"ankle_{s} below the floor", a[2])
-        rest = seater.sk.p("foot_" + s)[2] - seater.root[2]
-        need(abs(a[2] - rest) < 1.0, "floor.foot_lift", f"foot_{s} {a[2] - rest:+.1f} cm off its rest height",
+        rest = seater.sk.p("foot_" + s)[2] - seater.root[2] + seater.sy.heel_lift
+        need(abs(a[2] - rest) < 1.0, "floor.foot_lift", f"foot_{s} {a[2] - rest:+.1f} cm off its height",
              a[2] - rest)
+        if "ball_" + s in A:
+            rb = seater.sk.p("ball_" + s)[2] - seater.root[2]
+            need(abs(A["ball_" + s][2] - rb) < 1.0, "floor.ball", f"ball_{s} {A['ball_' + s][2] - rb:+.1f} cm off the "
+                 f"floor", A["ball_" + s][2] - rb)
+        hp, kn = A["thigh_" + s], A["calf_" + s]
+        if kn[0] > st.seat_front > hp[0]:
+            u_ = (st.seat_front - hp[0]) / (kn[0] - hp[0])
+            under = hp[2] + (kn[2] - hp[2]) * u_ - seater.sy.thigh_radius
+            need(under >= st.seat_top - 1.0, "seat.thigh_edge",
+                 f"thigh_{s} underside {under:.1f} at the seat edge, {st.seat_top - under:.1f} cm into the seat", under)
         h, e = A["hand_" + s], A["lowerarm_" + s]
         need(h[2] >= st.desk_top + seater.sy.forearm_clear - 0.3, "desk.wrist",
              f"wrist_{s} at z {h[2]:.1f} is inside the desk top {st.desk_top}", h[2])
@@ -592,3 +652,34 @@ def gestures_from_cues(cues: list, fps: float = 30.0, start_s: float = 0.0) -> l
         for h in (("l", "r") if hand == "both" else (hand,)):
             last[h] = t3
     return out
+
+
+def build(data: dict, st: Set, sy: Style, gs: list, length_s: float, fps: int = 30) -> tuple:
+    """The seated body animation's tracks on a read skeleton (perform.py READ: parent/local/world/tracks): constant
+    tracks for every bone the base animation has (its first pose) with the seated pose over them, per-key tracks for
+    the bones the gestures move. Returns (doc for the WRITE job, summary with the checks). Pure: runs in the editor's
+    Python as well (perform.py body, so a presenter's skeleton never leaves the box)."""
+    sk = Skeleton.from_read(data)
+    se = Seater(sk, st, sy)
+    n = int(round(length_s * fps)) + 1
+    still = se.pose(-1.0, [])
+    const = {b: data["local"][b] for b in data["tracks"] if b in data["local"]}
+    const.update(still)
+    moving = sorted({b for s in "lr" for b in ARMS[s][1:]})
+    keyed = {b: [] for b in moving}
+    issues = []
+    for i in range(n):
+        t = i / fps
+        loc = se.pose(t, gs) if any(g.weight(t) > 0 for g in gs) else still
+        for b in moving:
+            keyed[b].append({k: [round(x, 6) for x in v] for k, v in loc[b].items()})
+        if i % 6 == 0 and loc is not still:
+            c = check(se, se.fk({**const, **loc}))
+            issues.extend({**x, "t": round(t, 2)} for x in c["issues"])
+    for b in moving:
+        const.pop(b, None)
+    rest = check(se, se.fk({**const, **{b: keyed[b][0] for b in moving}}))
+    doc = {"length_s": length_s, "fps": fps, "n_keys": n, "const": const, "keyed": keyed}
+    summary = {"rest": rest, "gestures": len(gs), "pass": rest["pass"] and not issues, "issues": issues[:20],
+               "wrist_ext": se.ext_base, "yaw_off": round(sk.yaw_off(), 2)}
+    return doc, summary
