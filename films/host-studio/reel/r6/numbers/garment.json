@@ -1,0 +1,19 @@
+{
+ "subject": "Host (his karma finals state = r6n2: Epic's assembled default tee untouched, WPO 0; backstop OFF; face chest-flange cull 1.5 cm)",
+ "measured": "box A, 07 Nov 14:24 UTC (19:54 IST), core a7511df9 installed; qa.clip S13/S15/S17/S18 + S15 f1082-1198 every 6, ref_dir r4/clip/Host_after, neck_rule visible, tongue_cm 3.0; qa.garment_look f1082/1150/1397 (agent-06)",
+ "gate": {
+  "garment.neck_px": {"value": 0, "where": "qa.clip neck_rule=visible tongue_cm=3.0 (core a7511df9): islands 0, tongue px 0, max tongue 0.0 cm, every judged frame"},
+  "garment.neck_rim_px": {"value": 289, "where": "INFO: the old rim rule, S15 f1196 (at_opening 392): the neck continuing over the hugging collar's edge, passed by eye (r6n2)"},
+  "garment.open_edge_shrunk": {"value": 0, "where": "backstop shrink OFF (WI MaxShrink 0, forced build); shrink_live/cull_live kept verts moved 0.0 cm"},
+  "garment.cull_kept_moved_cm": {"value": 0.0, "where": "r6/cull_live.py vs SKM_Host_Op_FaceMesh_r5: 912 gone, gone z 144.2-153.3 (median 149.0), kept_max_moved_cm 0.0"},
+  "garment.cull_min_below_collar_cm": {"value": 1.5, "where": "neck_backstop CULL mode C1 on the uncut face: culled 970, covered 1160, min_depth_below_collar_cm 1.50 (CULL_DEPTH_CM 1.5, the orchestrator's pick (A); the row's line was drafted at 3.0)"},
+  "garment.collar_gap_cm": {"value": 1.514, "where": "garment_look f1150 (f1082 0.525, f1397 1.353). Before the cull 0.29-0.30 every frame (r6c1); after the 3.0 cull 0.30; after the 1.5 cull 0.498 (r6c3). See the note: the ring's nearest skin under the collar is culled"},
+  "garment.collar_roll": {"value": 3, "where": "wall-only roll (f41af577): spread 3.184 @f1082 below_top 3.0 angle 230; 2.854 @f1150 0.0/200; 2.801 @f1397 2.0/220; wall_verts 1380-1489"},
+  "garment.silhouette_pct": {"value": 31.73, "where": "S15 f1152 vs r4/clip/Host_after (S15 f1150-1198 +29.7..31.7; f1082-1128 +4.3..4.9; S13 f962 +4.3; S17 f1322-1390 -3.5..-4.0). The tee is the same asset as round 5b path (iv) (2.66 % there); round 4's reference is the WPO-inflated tee in round 4's pose: S15's late frames are the re-done turn, so this reads pose, not fit"},
+  "garment.silhouette_ratio": {"value": 2.302, "where": "INFO (untrusted reference-body capture, as in round 5b)"},
+  "garment.armor_index": {"value": 0.317, "where": "garment_look f1082/1150/1397"},
+  "garment.wpo_cm": {"value": 0, "where": "Epic's tee, no inflate parameters"},
+  "garment.pair_fraction": {"value": 0.0, "where": "Body>tee 0.0, Trousers>tee 0.0 (Face>tee 0.02957 / 685 px at S15 f1196 is the info pair the neck rows judge)"},
+  "garment.hem_flare_ratio": {"value": 0.5511, "where": "garment_look (hem ease -12.36 cm, hem angle 7.8 deg)"}
+ }
+}
