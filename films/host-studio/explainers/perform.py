@@ -76,12 +76,12 @@ STYLE = {  # forearms resting on the desk (the orchestrator, r3 stills): elbows 
 # The line solves' moods (speech.to_face): measured and calm, a little brighter on the hook and the close.
 MOOD = {"hook": ("CONFIDENCE", 0.8), "close": ("CONFIDENCE", 0.8)}
 MOOD_DEFAULT = ("CONFIDENCE", 0.65)
-SPEECH_GAIN = {"him": 1.7, "her": 1.0}
+SPEECH_GAIN = {"him": 1.7, "her": 1.0}  # the reel's: his rig gives little mouth travel (r4)
 # Each line's mouth is placed this many frames BEFORE its WAV's place: the solver opens the jaw 0.04-0.09 s AFTER the
 # first sound (box B, her 16 lines alone vs their own WAVs), people open it 100-300 ms before (Chandrasekaran 2009);
 # the orchestrator's bar is 0-2 frames before. Measured on her 16 composed lines (compose's 3-frame fade-in delays
 # the rise ~1 f): lead 0 -> 0.9-2.2 f LATE, 3 -> 0.9-2.2 f early, 2.5 -> ~0.4-1.7 f early.
-LEAD_FRAMES = 2.5  # the reel's: his rig gives little mouth travel (r4)
+LEAD_FRAMES = 2.5
 # body life on a seated body: calm breathing that shows (agent-09's breath rows: 8-22 /min, >= 2 mm sternum rise),
 # almost no weight shift (the seat holds the pelvis), no torso follow (r5: it rode the blinks)
 LIFE = {"state": "talk", "breath_deg": 1.35, "clavicle_deg": 1.0, "shift_cm": 0.25, "follow": 0.0}
