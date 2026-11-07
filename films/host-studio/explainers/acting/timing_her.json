@@ -44,6 +44,8 @@
    "energy": 0.517,
    "lead_s": 0.136,
    "peak_t": 1.875,
+   "camera": "CAM_MCU",
+   "apex_height": "bust",
    "apex_f": 42
   },
   {
@@ -262,6 +264,8 @@
    "energy": 0.969,
    "lead_s": 0.08,
    "peak_t": 12.935,
+   "camera": null,
+   "apex_height": "bust",
    "apex_f": 309
   },
   {
@@ -323,6 +327,8 @@
    "energy": 1.0,
    "lead_s": 0.08,
    "peak_t": 15.865,
+   "camera": null,
+   "apex_height": "bust",
    "apex_f": 379
   },
   {
@@ -442,6 +448,8 @@
    "lead_s": 0.118,
    "peak_t": 24.74,
    "chained": true,
+   "camera": "CAM_CU",
+   "apex_height": "upper_chest",
    "apex_f": 591
   },
   {
@@ -523,6 +531,8 @@
    "lead_s": 0.099,
    "peak_t": 27.94,
    "chained": true,
+   "camera": null,
+   "apex_height": "bust",
    "apex_f": 668
   },
   {
@@ -584,6 +594,8 @@
    "lead_s": 0.148,
    "peak_t": 31.39,
    "chained": true,
+   "camera": null,
+   "apex_height": "bust",
    "apex_f": 750
   },
   {
@@ -701,6 +713,8 @@
    "energy": 0.871,
    "lead_s": 0.091,
    "peak_t": 38.94,
+   "camera": null,
+   "apex_height": "bust",
    "apex_f": 932
   },
   {

@@ -114,6 +114,7 @@ def plan(film: str, seed: int = 72) -> dict:
     out.sort(key=lambda e: e["stroke_t"])
     out = add_beats(out, pros, sheet, spans, rng)
     chain(out)
+    heights(out, film)
     for e in out:
         e["apex_f"] = int(round(e["stroke_t"] * fps))
     return {"_doc": "agent-10's prosody timing for gesturekit.plan_from_sheet(timing=...): per gesture (line, word_i) "
@@ -123,6 +124,23 @@ def plan(film: str, seed: int = 72) -> dict:
                     "gesture/plan.py from gesture/prosody.py (vo.wav).",
             "film": film, "who": who, "fps": fps, "gap_merge": GAP_MERGE, "seed": seed,
             "gestures": out, "speech": spans, "stats": stats(out, spans)}
+
+
+APEX_HEIGHT = {"CAM_CU": "upper_chest"}  # agent-11's scale (bust..chin): added beats are small; the rest "bust"
+
+
+def heights(ev, film):
+    """Each added beat's apex_height from the camera on screen at its apex (edl/<film>.json; agent-11's sheet gives
+    the sheet's own): bust height or higher, never at the desk (the orchestrator on side A: hands under the MCU frame)."""
+    edl = json.loads((EXPL / "edl" / f"{film}.json").read_text())
+    for e in ev:
+        if e["src"] != "prosody":
+            continue
+        f = e["stroke_t"] * edl["fps"]
+        cam = next((s.get("camera") for s in edl["shots"] if s["f0"] <= f < s["f1"] and s["kind"] in ("pres", "panel")),
+                   None)
+        e["camera"] = cam
+        e["apex_height"] = APEX_HEIGHT.get(cam, "bust")
 
 
 def chain(ev):
