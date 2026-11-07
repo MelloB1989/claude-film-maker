@@ -430,7 +430,7 @@ def _collar(a, parts, gv, body: str = "Body", gs=None, cam=None) -> dict:
     n1 = math.sqrt(sum(c * c for c in e1)) or 1.0
     e1 = tuple(c / n1 for c in e1)
     e2 = (uy * e1[2] - uz * e1[1], uz * e1[0] - ux * e1[2], ux * e1[1] - uy * e1[0])
-    axial, radial, gap, angle, wall, facing, sdt = [], [], [], [], [], [], []
+    axial, radial, gap, angle, wall, facing = [], [], [], [], [], []
     lim = math.sin(math.radians(_look.COLLAR_WALL_DEG))
     for p in near:
         if gs is not None:
@@ -445,15 +445,17 @@ def _collar(a, parts, gv, body: str = "Body", gs=None, cam=None) -> dict:
         if cam is not None:
             c = unreal.Vector(float(cam[0]), float(cam[1]), float(cam[2]))
             facing.append(v.dot(c - p) > 0.0)
-        near_s = [r[0] for r in (sk.nearest(p) for sk in skins) if r is not None]
-        q = min(near_s, key=lambda x: (p - x).length()) if near_s else None
-        gap.append((p - q).length() if q is not None else float("nan"))
-        sdt.append((q - p).dot(u) if q is not None else None)  # + = the nearest skin is above the vertex
+        # the gap to the skin AT THIS HEIGHT: a ray from the vertex straight in toward the neck axis; the first skin it
+        # meets is the gap (a shrunk neck, round 5b loop 2's crevice: ~2 cm, fails); no skin before the axis = the
+        # face culled under the collar (round 6): NOT measured, never 0. (The nearest-skin distance measured the
+        # culled hole as a gap, and a nearest-skin-above rule would have let loop 2's shrunk skin pass.)
+        rl = v.length()
+        hits = [t2 for t2 in (sk.ray(p, v * (-1.0 / rl), rl) for sk in skins) if t2 is not None] if rl > 1e-6 else []
+        gap.append(min(hits) if hits else float("nan"))
     wl = wall if gs is not None else None
-    out = _look.collar_stats(axial, radial, gap, angle=angle, wall=wl, facing=facing if cam is not None else None,
-                             skin_dt=sdt)
+    out = _look.collar_stats(axial, radial, gap, angle=angle, wall=wl, facing=facing if cam is not None else None)
     if cam is not None:  # the whole band too, as INFO (garment.collar_gap_all_cm / collar_roll_all)
-        al = _look.collar_stats(axial, radial, gap, angle=angle, wall=wl, skin_dt=sdt)
+        al = _look.collar_stats(axial, radial, gap, angle=angle, wall=wl)
         out["all"] = {k: al.get(k) for k in ("n", "gap_cm", "spread_cm", "spread_where", "roll")}
     return out
 

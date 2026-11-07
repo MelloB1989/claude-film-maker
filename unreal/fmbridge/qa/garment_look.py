@@ -180,7 +180,8 @@ COLLAR_SPREAD_CM = 1.5  # a hugging band is one wall thick (~0.3 cm) radially; a
 
 
 COLLAR_SECTOR_DEG = 30.0  # the ring is found per sector round the neck (its own innermost radius and top)
-COLLAR_RING_DEPTH_CM = 2.0  # ... and is that sector's innermost garment within this much below its own top
+COLLAR_RING_DEPTH_CM = 2.0
+COLLAR_RING_REACH_CM = 6.0  # a garment vertex whose skin (straight in, at its height) is farther is not the collar ring  # ... and is that sector's innermost garment within this much below its own top
 COLLAR_HOLE_DT_CM = 0.8  # a ring vertex's nearest skin this far above it: no skin at its height (culled), not measured
 COLLAR_WALL_DEG = 50.0  # a vertex is "wall" when its normal is within this of perpendicular to the neck axis
 COLLAR_ROLL_DEPTH_CM = 3.0  # the collar band's height from its top: where a fold or a rolled lip would be
@@ -319,14 +320,16 @@ def collar_stats(axial: list, radial: list, gap: list, *, window=(-8.0, 4.0), ri
 
 
 def _collar_local(axial, radial, gap, angle, wall, *, window, ring_cm, band_cm, facing: bool) -> dict:
-    """collar_stats with angles: the RING found per COLLAR_SECTOR_DEG sector (round 6, box A: one innermost radius for
-    the whole band took his crew neck's front, which sits further from the neck axis and DIPS, as chest: the
-    camera-facing ring tripled to 323-491 verts and read 2.4-4.5 cm 'gaps' to the culled skin under the tee). Per
-    sector: its own innermost radius (2nd smallest), its own top (the highest of its innermost verts), and the ring =
-    its innermost garment (within ring_cm) no deeper than COLLAR_RING_DEPTH_CM under that top. The roll's window
-    starts at each sector's own top. A gap that is NaN (no skin at the vertex's height: culled) is not measured.
-    Known blind spot (agent-09): a ring that slid DOWN off the neck, its nearest skin above it, reads 'not measured' at
-    those verts rather than as a gap; it is caught only if the frame ends up unmeasured (refused), or by the eye."""
+    """collar_stats with angles. The RING is the garment that actually SURROUNDS the neck: verts whose gap (the
+    caller's ray straight in toward the neck axis, to the first skin at that height; NaN = no skin there, e.g. the
+    face culled under the collar) is within COLLAR_RING_REACH_CM, per COLLAR_SECTOR_DEG sector no deeper than
+    COLLAR_RING_DEPTH_CM under that sector's own top, and within ring_cm of the sector's smallest gap (the inner wall
+    and its rib). Round 6, box A: rings found by RADIUS from the (posterior) neck_01 axis took his crew neck's front,
+    which sits further out and dips, as chest, and sectors without a collar as shoulder: 2.4-4.5 cm 'gaps'. The roll's
+    window starts at each sector's own top.
+    Known blind spot (agent-09): a ring that slid DOWN off the neck onto culled skin has no skin behind it and reads
+    'not measured' at those verts rather than as a gap; it is caught only if the frame ends up unmeasured (refused),
+    or by the eye."""
     geo = [(a, r, g, an, (wall[i] if wall is not None else True)) for i, (a, r, g, an) in
            enumerate(zip(axial, radial, gap, angle)) if window[0] <= a <= window[1]]
     if not geo:
@@ -335,17 +338,15 @@ def _collar_local(axial, radial, gap, angle, wall, *, window, ring_cm, band_cm, 
     tops, ring_g, band_r = {}, [], []
     for s in range(ns):
         S = [x for x in geo if int(x[3] // COLLAR_SECTOR_DEG) % ns == s]
-        if len(S) < 3:
+        cand = [x for x in S if x[2] == x[2] and x[2] <= COLLAR_RING_REACH_CM]
+        if len(cand) < 2:
             continue
-        rs = sorted(x[1] for x in S)
-        r0 = rs[min(2, len(rs)) - 1]  # 2nd smallest: one stray vertex near the axis is not the ring
-        inner = [x for x in S if r0 - 0.5 <= x[1] <= r0 + ring_cm]
-        if not inner:
-            continue
-        tp = max(x[0] for x in inner)
+        tp = max(x[0] for x in cand)
+        cand = [x for x in cand if x[0] >= tp - COLLAR_RING_DEPTH_CM]
+        g0 = sorted(x[2] for x in cand)[min(2, len(cand)) - 1]  # 2nd smallest: one stray is not the inner wall
         tops[s] = tp
-        ring_g += [x[2] for x in inner if x[0] >= tp - COLLAR_RING_DEPTH_CM and x[2] == x[2]]
-        band_r += [x[1] - r0 for x in S if r0 - 0.5 <= x[1] <= r0 + band_cm and x[0] >= tp - COLLAR_ROLL_DEPTH_CM]
+        ring_g += [x[2] for x in cand if x[2] <= g0 + ring_cm]
+        band_r += [x[2] - g0 for x in cand if x[2] <= g0 + band_cm]
     if len(ring_g) < COLLAR_MIN_N:
         return {"n": 0, "too_few": len(ring_g)}
     out = {"n": len(ring_g), "gap_cm": round(percentile(ring_g, 0.75), 3), "sectors": len(tops),
