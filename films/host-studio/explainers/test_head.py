@@ -113,3 +113,33 @@ def test_cams_reaim():
         got = next(x for x in p["gaze"] if x["t"] == g["t"])
         assert abs(got["yaw"] - (ly + g["yaw"])) < 0.11
     assert any(a <= 14.0 <= b for a, b in p["avoid_blinks"])
+
+
+def test_lock_spans_skip_glances():
+    cue = _cue()
+    gl = H.glances(cue, "him")
+    spans = H.lock_spans(cue, "him")
+    for g in gl:
+        f0, f1 = round(g["t"] * FPS), round(g["back"] * FPS)
+        assert not any(a <= f <= b for a, b, _ in spans for f in range(f0, f1 + 1))
+    covered = sum(b - a + 1 for a, b, _ in spans)
+    assert covered > 0.8 * sum((b - a) * FPS for a, b, _ in cue["on_cam"])
+
+
+def test_lock_jitter_is_not_saccades():
+    # a locked eye: per-frame correction jitter 0.1-0.2 deg, plus one real flick every ~1.5 s
+    rng = np.random.default_rng(3)
+    n = 24 * 20
+    cam = [300.0, 0.0, 165.0]
+    gy = np.cumsum(rng.uniform(-0.15, 0.15, n)) * 0.0 + rng.uniform(-0.08, 0.08, n)
+    for k in range(10, n, 36):
+        gy[k:] += 0.5 * (1 if (k // 36) % 2 else -1)
+    bones = {"head": [], "FACIAL_L_Eye": [], "FACIAL_R_Eye": []}
+    for f in range(n):
+        for e, dy in (("FACIAL_L_Eye", 3.0), ("FACIAL_R_Eye", -3.0)):
+            d = np.array(cam) - np.array([8.0, dy, 165.0])
+            fw, sd, upv = _rot(math.degrees(math.atan2(d[1], d[0])) + gy[f], 0.0)
+            bones[e].append([8.0, dy, 165.0] + sd + fw + upv)
+        bones["head"].append([0] * 12)
+    m = H.eye_metrics({"spans": [{"frames": list(range(n)), "camera": "A", "cam": [cam] * n, "bones": bones}]}, 24)
+    assert 0.4 <= m["eyes.saccades_per_s"] <= 1.2, m
