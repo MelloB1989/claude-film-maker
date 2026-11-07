@@ -22,6 +22,10 @@ STAGE = globals().get("STAGE", "check")
 LABEL = globals().get("LABEL", "Presenter")
 COMP = globals().get("COMP", "Overshirt")
 DEST = globals().get("DEST", "/Game/Host/Presenter_Overshirt/SKM_Presenter_Overshirt_RW")
+# FAMILIES: only helpers whose name starts with one of these move (comma list); "" = every helper. Round 6 RW (all
+# helpers) fixed the balloon but opened holes where her collar meets the shoulder: the clavicle_*/spine_* helpers
+# also keep the collar/yoke on the body. RW2 = "upperarm,lowerarm": the cap and sleeve only.
+FAMILIES = tuple(f for f in globals().get("FAMILIES", "").split(",") if f)
 EAL = unreal.EditorAssetLibrary
 CORE = re.compile(r"^(root|pelvis|spine_0[1-5]|neck_0[12]|head|clavicle_[lr]|upperarm_[lr]|upperarm_twist_0[12]_[lr]|"
                   r"lowerarm_[lr]|lowerarm_twist_0[12]_[lr]|hand_[lr]|"
@@ -72,7 +76,7 @@ index = {n: i for i, n in enumerate(names)}
 
 def target(i: int) -> int:
     n = names[i]
-    if CORE.match(n):
+    if CORE.match(n) or (FAMILIES and not n.startswith(FAMILIES)):
         return i
     alt = n.replace("twistCor", "twist")
     if alt != n and alt in index and CORE.match(alt):
