@@ -370,10 +370,10 @@ def rows(curves: dict, cu: dict, only: set | None = None, fps: float = 24.0, rel
         elif on and (rv["smile"][i] < 0.8 * SMILE_PULL or rv["squint"][i] < 0.8 * SMILE_CHEEK):
             on = False
     flashes, start = 0, None
-    for i, v in enumerate(rv["brow"]):
+    for i, v in enumerate(rv["brow"]):  # the same hysteresis as agent-09's render rows (off below 80 %)
         if v >= FLASH_RISE and start is None:
             start = i
-        elif v < FLASH_RISE and start is not None:
+        elif v < 0.8 * FLASH_RISE and start is not None:
             flashes += (i - start) / fps < FLASH_MAX_S
             start = None
     minutes = n_talk / fps / 60.0
