@@ -77,6 +77,66 @@ def boundary_loops(tris: list, keys: list, min_len: int = 12) -> list:
     return loops
 
 
+def normals_and_span(tris: list, pos: list, keys: list) -> tuple:
+    """Per WELDED key: the area-weighted mean face normal (unit) and the SPAN, the largest angle (deg) between two
+    incident face normals. A thin closed shell folds over at its edges (outer face -> inner face): span ~90-180 there,
+    ~0-30 on the flat."""
+    acc, fn = {}, {}
+    for t in tris:
+        a, b, c = (pos[i] for i in t)
+        u = (b[0] - a[0], b[1] - a[1], b[2] - a[2])
+        v = (c[0] - a[0], c[1] - a[1], c[2] - a[2])
+        n = (u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0])
+        ln = math.sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2])
+        if ln < 1e-12:
+            continue
+        nu = (n[0] / ln, n[1] / ln, n[2] / ln)
+        for i in t:
+            k = keys[i]
+            m = acc.get(k, (0.0, 0.0, 0.0))
+            acc[k] = (m[0] + n[0], m[1] + n[1], m[2] + n[2])
+            fn.setdefault(k, []).append(nu)
+    nrm, span = {}, {}
+    for k, m in acc.items():
+        ln = math.sqrt(sum(c * c for c in m)) or 1.0
+        nrm[k] = (m[0] / ln, m[1] / ln, m[2] / ln)
+        ns = fn[k]
+        lo = min((a[0] * b[0] + a[1] * b[1] + a[2] * b[2] for i, a in enumerate(ns) for b in ns[i + 1:]), default=1.0)
+        span[k] = math.degrees(math.acos(max(-1.0, min(1.0, lo))))
+    return nrm, span
+
+
+def rim_components(tris: list, keys: list, span: dict, span_deg: float = 70.0, min_len: int = 12) -> list:
+    """The fold-over rims of a closed shell: connected sets (by mesh edges, welded) of keys whose span >= span_deg,
+    as [[vertex id (one per key), ...], ...], largest first."""
+    rep, adj = {}, {}
+    for t in tris:
+        for a, b in ((t[0], t[1]), (t[1], t[2]), (t[2], t[0])):
+            ka, kb = keys[a], keys[b]
+            rep.setdefault(ka, a)
+            rep.setdefault(kb, b)
+            if ka != kb and span.get(ka, 0) >= span_deg and span.get(kb, 0) >= span_deg:
+                adj.setdefault(ka, set()).add(kb)
+                adj.setdefault(kb, set()).add(ka)
+    seen, comps = set(), []
+    for k0 in adj:
+        if k0 in seen:
+            continue
+        comp, stack = [], [k0]
+        seen.add(k0)
+        while stack:
+            k = stack.pop()
+            comp.append(rep[k])
+            for n in adj[k]:
+                if n not in seen:
+                    seen.add(n)
+                    stack.append(n)
+        if len(comp) >= min_len:
+            comps.append(comp)
+    comps.sort(key=len, reverse=True)
+    return comps
+
+
 def sector(th: float) -> int:
     return int((th % 360.0) // (360.0 / NS)) % NS
 
@@ -205,9 +265,14 @@ def _editor(G: dict):
 
     def neckline(V, fr):
         P = [(p.x, p.y, p.z) for p in V]
-        loops = boundary_loops(tris_cache, weld_keys(P))
+        K = weld_keys(P)
+        loops, how = boundary_loops(tris_cache, K), "open boundary"
+        if not loops:  # her Top is a closed shell (round 6): the neckline is where it folds from outer to inner face
+            _, span = normals_and_span(tris_cache, P, K)
+            loops, how = rim_components(tris_cache, K, span, float(G.get("SPAN_DEG", 70.0))), "fold rim"
         if not loops:
-            raise RuntimeError("the Top has no open boundary loop")
+            raise RuntimeError("the Top has no open boundary and no fold rim (try SPAN_DEG lower)")
+        how_used[0] = how
         scored = []
         for lp in loops:
             cs = [fr.cyl(fr.local(V[i])) for i in lp]
@@ -217,6 +282,7 @@ def _editor(G: dict):
                                "t": [round(min(c[0] for c in s[2]), 1), round(max(c[0] for c in s[2]), 1)]}
                               for s in scored[:5]]
 
+    how_used = [""]
     host = actor(label)
     cs = {c.get_name(): c for c in host.get_components_by_class(unreal.SkeletalMeshComponent)}
     body, top = cs["Body"], cs[top_name]
@@ -266,6 +332,10 @@ def _editor(G: dict):
             if so:
                 rows[sector(th)].append((so[0], so[1], t))
         band = [[] for _ in range(NS)]
+        inner, outer = [[] for _ in range(NS)], [[] for _ in range(NS)]
+        Pt = [(p.x, p.y, p.z) for p in V]
+        Kt = weld_keys(Pt)
+        vn, _ = normals_and_span(tris_cache, Pt, Kt)
         loopset = set(loop)
         lo_t = min(fr.cyl(q)[0] for q in lp_local) - band_cm
         for i, p in enumerate(V):
@@ -280,6 +350,10 @@ def _editor(G: dict):
             so = standoff(p)
             if so:
                 band[sector(th)].append(so[0])
+                n = vn.get(Kt[i])
+                if n:  # the shell's own normal vs the skin's (local): towards the skin = its inner face
+                    nl = T.inverse_transform_direction(unreal.Vector(*n))
+                    (inner if nl.dot(so[1]) < 0 else outer)[sector(th)].append(so[0])
         sectors = []
         for s in range(NS):
             if not rows[s]:
@@ -291,10 +365,12 @@ def _editor(G: dict):
                             "loop_max": round(ss[-1], 3), "nrm": [round(c, 4) for c in nv],
                             "t": [round(min(x[2] for x in rows[s]), 1), round(max(x[2] for x in rows[s]), 1)],
                             "band_n": len(band[s]), "band_min": round(min(band[s]), 3) if band[s] else None,
-                            "band_lt0": sum(1 for x in band[s] if x < 0)})
+                            "band_lt0": sum(1 for x in band[s] if x < 0),
+                            "inner_p50": round(sorted(inner[s])[len(inner[s]) // 2], 3) if inner[s] else None,
+                            "outer_p50": round(sorted(outer[s])[len(outer[s]) // 2], 3) if outer[s] else None})
         fwd = T.inverse_transform_direction(host.get_actor_forward_vector())
         hd = body.get_socket_location("head")
-        return {"loop_candidates": cand, "loop_n": len(loop), "sectors": sectors,
+        return {"neckline_by": how_used[0], "loop_candidates": cand, "loop_n": len(loop), "sectors": sectors,
                 "actor_forward_deg": round(math.degrees(math.atan2(fwd.dot(fr.e2), fwd.dot(fr.e1))) % 360.0, 1),
                 "head_w": [round(hd.x, 2), round(hd.y, 2), round(hd.z, 2)], "top_mesh": top.get_skeletal_mesh_asset().get_path_name()}
 
@@ -369,7 +445,7 @@ def _editor(G: dict):
             for a, b in zip(back, orig):
                 if (a - b).length() > 0.01 and min((fr.local(b) - q).length() for q in lp_local) > rib + fall + 0.1:
                     far += 1
-        return {"dest": dest, "src": src.get_path_name(), "loop_candidates": cand, "loop_n": len(loop),
+        return {"dest": dest, "src": src.get_path_name(), "neckline_by": how_used[0], "loop_candidates": cand, "loop_n": len(loop),
                 "verts": [len(back), len(orig)], "moved_verts": moved, "max_pull_cm": round(mx, 3),
                 "rest_moved_gt_0.01": sum(1 for x in d_rest if x > 0.01) if d_rest else "vertex count changed",
                 "moved_outside_zone": far, "rest_max_cm": round(d_rest[-1], 3) if d_rest else None,
@@ -445,9 +521,11 @@ def main(argv=None) -> int:
                   f"{sum(s['band_lt0'] for s in res['sectors'] if s)}, forward at {res['actor_forward_deg']} deg",
                   flush=True)
         (out / "measure.json").write_text(json.dumps(per))
+        print("neckline by", next(iter(per.values()))["neckline_by"], "| sector rows: deg, [loop min, p50, max, band min, "
+              "band<0, t range, inner-face p50, outer-face p50]")
         print(json.dumps({"loop_candidates": next(iter(per.values()))["loop_candidates"],
                           "sectors_f0": [(k * 15, s and [s["loop_min"], s["loop_p50"], s["loop_max"], s["band_min"],
-                                                         s["band_lt0"], s["t"]]) for k, s in
+                                                         s["band_lt0"], s["t"], s["inner_p50"], s["outer_p50"]]) for k, s in
                                          enumerate(next(iter(per.values()))["sectors"])]}, indent=None))
         return 0
     per = json.loads((Path(a.src) / "measure.json").read_text())
@@ -466,8 +544,7 @@ def main(argv=None) -> int:
 
 
 if __name__ == "__main__" and "_G" not in globals():
-    try:
-        import unreal  # noqa: F401
-    except ImportError:
+    import sys as _sys
+    if len(_sys.argv) > 1:  # the driver CLI (an `unreal` stub may be importable off the box: never decide by that)
         raise SystemExit(main())
     result = _editor(globals())
