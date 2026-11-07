@@ -236,7 +236,11 @@ result = r.returncode""")
     op("level.spawn", label="ExpMic", asset=mesh.split(".")[0], loc=list(loc), rot_={"pitch": 0.0, "yaw": yaw, "roll": 0.0},
        scale=[1.0, 1.0, 1.0], replace=True)
     slots = op("look.slots", label="ExpMic") or {}
-    want = {sl: old[sl] for sl in slots if old.get(sl)}
+    # mic_boom.py's slots are not agent-05's boom's (M_PowderBlack, M_Steel, M_Rubber, …): dress them with those MIs
+    pm = f"{PROPS_DIR}/Materials"
+    want = {sl: old[sl] for sl in slots if old.get(sl)} or {
+        sl: f"{pm}/{mi}" for sl, mi in {"M_MatteBlack": "MI_Exp_PowderBlack", "M_Metal": "MI_Exp_Steel",
+                                        "M_Spring": "MI_Exp_Steel", "M_Foam": "MI_Exp_Rubber"}.items() if sl in slots}
     if want:
         op("look.slots", label="ExpMic", materials=want)
     op("look.channels", labels=["ExpMic"], channels=[0, 1])
