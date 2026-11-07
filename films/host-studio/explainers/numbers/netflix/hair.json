@@ -1,0 +1,24 @@
+{
+ "gate": {
+  "hair.lock": {
+   "value": 1,
+   "where": "groom.lock_check labels=[Presenter] on box B before the V2 close finals' state (LODSync forced 0, strands, no TRASH_, hair cvars live)"
+  },
+  "hair.render_cvars": {
+   "value": 1,
+   "where": "render.py CVARS in every final job's spec: r.HairStrands.LODMode 0, AutoLOD.Bias 1.0, UseCardsInsteadOfStrands 0 (+ SkyLighting 0)"
+  },
+  "hair.cut_reach_pct": {
+   "value": null,
+   "error": "not measured: r5/gate_numbers.py hair reads the reel's film-qa hair outputs vs round-4 references; no explainer equivalent was run"
+  },
+  "hair.pop_reach_pct": {
+   "value": null,
+   "error": "not measured (as above)"
+  },
+  "hair.cut_pop_ratio": {
+   "value": null,
+   "error": "not measured (as above); every explainer shot is pre-rolled from frame 0 of one continuous take"
+  }
+ }
+}

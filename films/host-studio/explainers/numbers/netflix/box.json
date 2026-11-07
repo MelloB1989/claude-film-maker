@@ -279,5 +279,9 @@
    "guard_ok": 1
   }
  ],
- "garment.leaders_ok": 1
+ "garment.leaders_ok": 1,
+ "shot.streaming_settled": {
+  "value": 1,
+  "where": "warm-up in the spec (r.Streaming.FullyLoadUsedTextures 1, PoolSize 12000, 22 engine + 24 render warm-up frames) + the orchestrator's 1:1 first frames CU f130 / MCU_L f438 / MCU f38 PASS, and the full v2 frame-wise watch"
+ }
 }

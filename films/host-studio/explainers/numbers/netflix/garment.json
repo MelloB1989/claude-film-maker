@@ -1,0 +1,28 @@
+{
+ "gate": {
+  "garment.neck_px": {
+   "value": 0,
+   "where": "qa.clip neck_rule=visible tongue_cm=3.0 neck_over=Top (core main e0ce370c), her V2 finals state, 8 frames x every camera: neck_visible px 0, islands 0, max_tongue_cm 0.0; neck_px (rim) 0; Face>Top 0"
+  },
+  "garment.wpo_cm": {
+   "value": 0,
+   "where": "qa.garment_look garment=Top ref_body=uncut SKM_Presenter_F_BodyMesh, frames 29/120/450/600/1000/1330 (e0ce370c)"
+  },
+  "garment.armor_index": {
+   "value": 0.0,
+   "where": "qa.garment_look (same run): ease spread 2.286, median 0.288 cm, thickness 0.158 cm, detail 0.10448; verdict string 'armor' is the collar fail below, index 0.0"
+  },
+  "garment.hem_flare_ratio": {
+   "value": 0.9546,
+   "where": "qa.garment_look hem vs the body, angle 4.1 deg"
+  },
+  "garment.collar_gap_cm": {
+   "value": 1.213,
+   "where": "INFO (scoop neck; unvalidated measure per agent-09/orchestrator)"
+  },
+  "garment.collar_roll": {
+   "value": 6,
+   "where": "INFO (scoop neck)"
+  }
+ }
+}

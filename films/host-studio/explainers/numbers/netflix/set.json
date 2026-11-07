@@ -1,0 +1,8 @@
+{
+ "gate": {
+  "set.props_overlap": {
+   "value": 0.883,
+   "where": "qa.overlaps (AXIS-ALIGNED BOUNDS) on the 8 set props, ignore_pairs mic/desk + plant/desk: ExpMic|ExpPlant fail 0.883 (13.3 cm); ExpChair|ExpDesk warn 0.229 (19.6 cm); ExpChair|ExpMic warn 0.097 (12.97 cm); ExpOlive|ExpSlats warn 0.086 (1.45 cm). ExpMic|ExpPlant: the boom's bounding box spans the plant beside its clamp (plant (80,-66), clamp (84.6,-50.3)); a bounds overlap, not a measured mesh contact; WIDE passed by the orchestrator's eye"
+  }
+ }
+}
