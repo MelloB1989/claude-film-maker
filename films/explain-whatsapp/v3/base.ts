@@ -70,6 +70,15 @@ export abstract class WaShot extends MotionScene {
     return this.band.upload();
   }
 
+  /**
+   * In panel mode the post works on the whole frame, so the hits stay out of it: a flash would veil the presenter
+   * outside the card (as alpha), a punch or a shake would move the card itself. The card's 3D emphasis carries the beat.
+   */
+  protected override post(t: number): PostOverrides {
+    const p = super.post(t);
+    return this.panel ? { ...p, zoom: 1, flash: 0, shake: [0, 0] } : p;
+  }
+
   override render(f: Frame, out: THREE.WebGLRenderTarget): PostOverrides | void {
     const post = super.render(f, out);
     if (!this.panel) this.ctx.comp.draw(this.ctx.renderer, this.bandLayer(), out, {});
