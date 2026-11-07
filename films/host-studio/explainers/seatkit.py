@@ -736,13 +736,40 @@ def gestures_from_cues(cues: list, fps: float = 30.0, start_s: float = 0.0) -> l
     return out
 
 
+TUNE = {"desk.elbow_off": ("lean", 1.0, 23.0), "seat.thigh_edge": ("hip_above_seat", 0.4, 12.5),
+        "desk.knee": ("hip_above_seat", -0.4, 9.0)}
+
+
+def autotune(sk: Skeleton, st: Set, sy: Style, steps: int = 8) -> tuple:
+    """A body this pipeline has not seen (his, built only on his box) may miss a contact rule at rest by a little:
+    lean 1 deg more while an elbow is off the desk edge, sit 0.4 cm higher while a thigh meets the seat's front edge,
+    lower while a knee meets the desk's apron; within TUNE's limits. Returns (Seater, [changes])."""
+    from dataclasses import replace
+    changes = []
+    se = Seater(sk, st, sy)
+    for _ in range(steps):
+        codes = {i["code"] for i in check(se, se.fk(se.pose(-1.0, [])))["issues"]}
+        knob = next((TUNE[c] for c in TUNE if c in codes), None)
+        if knob is None:
+            break
+        name, step, limit = knob
+        v = getattr(sy, name) + step
+        if (step > 0 and v > limit) or (step < 0 and v < limit):
+            break
+        sy = replace(sy, **{name: round(v, 2)})
+        changes.append({name: getattr(sy, name)})
+        se = Seater(sk, st, sy)
+    return se, changes
+
+
 def build(data: dict, st: Set, sy: Style, gs: list, length_s: float, fps: int = 30) -> tuple:
     """The seated body animation's tracks on a read skeleton (perform.py READ: parent/local/world/tracks): constant
     tracks for every bone the base animation has (its first pose) with the seated pose over them, per-key tracks for
     the bones the gestures move. Returns (doc for the WRITE job, summary with the checks). Pure: runs in the editor's
     Python as well (perform.py body, so a presenter's skeleton never leaves the box)."""
     sk = Skeleton.from_read(data)
-    se = Seater(sk, st, sy)
+    se, tuned = autotune(sk, st, sy)
+    sy = se.sy
     n = int(round(length_s * fps)) + 1
     still = se.pose(-1.0, [])
     const = {b: data["local"][b] for b in data["tracks"] if b in data["local"]}
@@ -777,6 +804,7 @@ def build(data: dict, st: Set, sy: Style, gs: list, length_s: float, fps: int = 
         keyed[b] = [{**k_, "t": anim_t(b, k_["t"])} for k_ in keyed[b]]
     doc = {"length_s": length_s, "fps": fps, "n_keys": n, "const": const, "keyed": keyed}
     summary = {"rest": rest, "gestures": len(gs), "pass": rest["pass"] and not issues, "issues": issues[:20],
+               "tuned": tuned,
                "wrist_ext": se.ext_base, "yaw_off": round(sk.yaw_off(), 2),
                "frame": {"fwd": se.F["fwd"], "right": se.F["right"]}}
     return doc, summary

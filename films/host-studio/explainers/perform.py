@@ -401,7 +401,8 @@ def cmd_body(who: str, force: bool = False) -> dict:
                          f"{r['summary']['rest']['issues'][:5]}")
     return {"anim": r["out"], "keys": r["keys"], "bones": r["bones"], "pass": r["pass"],
             "rest": {k: r["summary"]["rest"][k] for k in ("hips", "knees", "elbows", "wrists", "head", "issues")},
-            "wrist_ext": r["summary"]["wrist_ext"], "yaw_off": r["summary"]["yaw_off"]}
+            "wrist_ext": r["summary"]["wrist_ext"], "yaw_off": r["summary"]["yaw_off"],
+            "tuned": r["summary"].get("tuned")}
 
 
 def cmd_calibrate_body(who: str) -> dict:
