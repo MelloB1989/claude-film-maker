@@ -737,15 +737,15 @@
    "where": "every speaking + on-screen frame of the presenter (cue words x edl presenter spans)",
    "how": "agent-02's films/host-studio/reel/r7/garment_measure.py (fleet/agent-02/r7-garment c42b3aac): per frame, min over both sides of the SIGNED distance from the upper-arm skin (Body verts nearest upperarm_<s> at the ref pose, from 30 % shoulder->elbow) to the nearest torso triangle (torso skin + the Top's torso part, sleeves excluded), sign from the triangle normal, < 0 = inside -> numbers/<film>/garment.json. Cross-check (INFO): agent-09's qa.limb_clearance (bone-segment split, radial sign)",
    "must_fail": [
-    null,
-    "netflix v2b (the operator's REJECT, 07 Nov 23:45): measure on box B's v2b frames/curves and put the value here; the line must fail it"
+    -8.19,
+    "netflix v2b (agent-02 garment_measure, valid: the ref-pose self-check passes on every frame; arms_v2b3, fleet/agent-06/r7-boxb): -8.19 at f1044, -8.19..-8.16 through 00:43.5-00:46: both upper arms inside the Top/breast, the operator's complaint. Controls: ref pose +5.19 (0 verts inside), R7 elbows-out +5.7..+7.0"
    ],
    "guard": true,
    "why": "the operator, 07 Nov: 'her expression is pale, no emotion at all ... hands stuck to her body ... boob covering the upper limb ... these presenters must look confident, happy, full of energy, not robotic' (R7_common.md). The numbers support the eye; the operator decides",
    "info_for": "TEST",
    "r4": [
     null,
-    "INFO for the R7 TEST by the orchestrator's ruling (07 Nov), a scope change, not a waiver: no validated measure yet (agent-09's cross-check structurally constant at -10; agent-02's mesh measure failing its ref-pose self-check). The judge: the orchestrator's eye at 1x and 2x on the MCU + WIDE test frames (the 00:44 arm-under-breast case is obvious when present), with agent-01's design-time clearance from gesturekit (3.8/3.8 cm on a torso+breast model) as supporting evidence. It must be a real GATE (validated, must_fail = v2b) before the full re-render"
+    "VALIDATED 07 Nov (agent-02's measure with controls); INFO for the R7 TEST by the orchestrator's earlier ruling, a GATE for the full re-render (and for the TEST too if the orchestrator says so now that it is validated)"
    ],
    "info": true
   },
