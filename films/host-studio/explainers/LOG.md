@@ -203,7 +203,7 @@ tested in `test_seatkit.py`), `gestures.json` (the emphasis gestures per line).
 
 ## Round 7: performance (agent-11, director)
 
-- 07 Nov ~00:15 IST: her acting sheet, first draft. `acting.py` resolves a per-line sheet (emotion, intensity, base
+- 07 Nov 23:43 IST: her acting sheet, first draft. `acting.py` resolves a per-line sheet (emotion, intensity, base
   smile/brows, face moves and gestures on exact words, lean) against the VO alignment into `acting/her.json` (seconds +
   frames, plus `face04` / `body01` views for agent-04 and agent-01) and `ACTING.md`. On paper: 19.4 smiles/min, 20.6
   brow moves/min, 0.87 gesture onsets/s, longest neutral stretch inside a line 1.41 s, no gesture twice in a row.
