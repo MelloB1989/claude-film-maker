@@ -263,7 +263,7 @@ def _editor(G: dict):
             th = math.degrees(math.atan2(w.dot(self.e2), w.dot(self.e1))) % 360.0
             return t - self.o.length(), r, th, (w * (1.0 / r) if r > 1e-6 else self.e1)
 
-    def neckline(V, fr):
+    def neckline(V, fr, near):
         P = [(p.x, p.y, p.z) for p in V]
         K = weld_keys(P)
         loops, how = boundary_loops(tris_cache, K), "open boundary"
@@ -273,14 +273,58 @@ def _editor(G: dict):
         if not loops:
             raise RuntimeError("the Top has no open boundary and no fold rim (try SPAN_DEG lower)")
         how_used[0] = how
-        scored = []
+        # the neckline: every rim/loop piece lying ALONG her neck skin (round 6 m0: "nearest the spine axis" took a
+        # 26-vert fold at the back; a closed shell's neck rim comes in several pieces, armholes and hem are far off)
+        rows, keep = [], []
         for lp in loops:
-            cs = [fr.cyl(fr.local(V[i])) for i in lp]
-            scored.append((sum(c[1] for c in cs) / len(cs), lp, cs))
-        scored.sort(key=lambda x: x[0])
-        return scored[0][1], [{"n": len(s[1]), "mean_r": round(s[0], 2),
-                               "t": [round(min(c[0] for c in s[2]), 1), round(max(c[0] for c in s[2]), 1)]}
-                              for s in scored[:5]]
+            cs_ = [fr.cyl(fr.local(V[i])) for i in lp]
+            frac = sum(1 for i in lp[::2] if near(i)) / max(1, len(lp[::2]))
+            secs = sorted({sector(c[2]) for c in cs_})
+            rows.append({"n": len(lp), "near_frac": round(frac, 2), "sectors": len(secs),
+                         "mean_r": round(sum(c[1] for c in cs_) / len(cs_), 2),
+                         "t": [round(min(c[0] for c in cs_), 1), round(max(c[0] for c in cs_), 1)]})
+            if frac >= float(G.get("NEAR_FRAC", 0.3)):
+                keep.extend(lp)
+                rows[-1]["used"] = True
+        rows.sort(key=lambda r: (-r.get("used", False), -r["n"]))
+        if not keep:
+            raise RuntimeError(f"no {how} piece lies along the neck skin: {rows[:12]}")
+        return keep, rows[:12]
+
+    def view_rim(V, tdm):
+        """Per 4-px row of the box (1920x1080 picture of the sequence's camera at FRAME_NO): the Top vertex nearest
+        the box's SKIN side (SIDE 'left': smallest x; the strip sits inside the scoop on her left, image right, so
+        the skin is to its left), among Top verts the camera actually sees (a ray from the lens meets the Top first
+        at that vertex). That vertex row is the scoop's edge in that view."""
+        from fmbridge.ops import view as Vw
+        from fmbridge.qa import clip as Cq
+        x0, y0, x1, y1 = (int(v) for v in G["VIEW"])
+        info = Vw.camera_info(Vw.cut_camera(G["SEQ"], int(G["FRAME_NO"])), aspect=16 / 9)
+        org = unreal.Vector(*[float(v) for v in info["loc"]])
+        bvh = pick(SP.build_bvh_for_mesh(tdm), "GeometryScriptDynamicMeshBVH")
+        qo_ = unreal.GeometryScriptSpatialQueryOptions()
+        best, seen = {}, 0
+        for i, p in enumerate(V):
+            x, y, z = Cq.project_px(info, (p.x, p.y, p.z), 1920, 1080)
+            if not (z > 0 and x0 - 12 <= x <= x1 + 12 and y0 <= y <= y1):
+                continue
+            d = p - org
+            ln = d.length()
+            hit = pick(SP.find_nearest_ray_intersection_with_mesh(tdm, bvh, org, d * (1.0 / ln), qo_),
+                       "GeometryScriptRayHitResult")
+            if hit.get_editor_property("hit") and float(hit.get_editor_property("ray_parameter")) < ln - 0.3:
+                continue  # hidden behind the Top itself
+            seen += 1
+            row = int(y // 4)
+            key = x if G.get("SIDE", "left") == "left" else -x
+            if row not in best or key < best[row][0]:
+                best[row] = (key, i, x)
+        if not best:
+            raise RuntimeError(f"no visible Top vertex in the view box {G['VIEW']} on {info['name']}")
+        loop = [b[1] for b in best.values()]
+        xs = sorted(b[2] for b in best.values())
+        return loop, [{"camera": info["name"], "visible_in_box": seen, "rows": len(best),
+                       "edge_x_px": [round(xs[0]), round(xs[len(xs) // 2]), round(xs[-1])]}]
 
     how_used = [""]
     host = actor(label)
@@ -294,33 +338,53 @@ def _editor(G: dict):
         tdm = posed(top)
         V = verts(tdm)
         tris_cache = tris(tdm)
-        loop, cand = neckline(V, fr)
         skins = []
         for k in ("Face", "Body"):
             if k in cs and cs[k].is_visible():
                 dm = posed(cs[k])
-                skins.append((dm, pick(SP.build_bvh_for_mesh(dm), "GeometryScriptDynamicMeshBVH")))
+                skins.append((k, dm, pick(SP.build_bvh_for_mesh(dm), "GeometryScriptDynamicMeshBVH")))
         qo = unreal.GeometryScriptSpatialQueryOptions()
+        face = next((x for x in skins if x[0] == "Face"), None)
+        near_cm = float(G.get("NEAR_CM", 3.0))
+
+        def near(i):
+            if face is None:
+                return False
+            tp = pick(SP.find_nearest_point_on_mesh(face[1], face[2], V[i], qo), "GeometryScriptTrianglePoint")
+            return tp.get_editor_property("valid") and (V[i] - tp.get_editor_property("position")).length() <= near_cm
+
+        if G.get("VIEW"):  # the orchestrator's rule: the Top's visible boundary against the skin in a screen box
+            loop, cand = view_rim(V, tdm)
+            how_used[0] = "view box"
+        elif G.get("PTS"):  # another frame: the Top verts at the points the view frame picked (torso-rigid)
+            P0 = [unreal.Vector(*q) for q in G["PTS"]]
+            pc = float(G.get("PTS_CM", 1.0))
+            loop = [i for i, p in enumerate(V) if min((fr.local(p) - q).length() for q in P0) <= pc]
+            cand, how_used[0] = [{"n": len(loop), "pts": len(P0)}], "points"
+            if not loop:
+                raise RuntimeError("no Top vertex within PTS_CM of the view-frame points")
+        else:
+            loop, cand = neckline(V, fr, near)
 
         def standoff(p):
             best = None
-            for dm, bvh in skins:
+            for part, dm, bvh in skins:
                 tp = pick(SP.find_nearest_point_on_mesh(dm, bvh, p, qo), "GeometryScriptTrianglePoint")
                 if not tp.get_editor_property("valid"):
                     continue
                 q = tp.get_editor_property("position")
                 if best is None or (p - q).length() < best[0]:
                     n = pick(MQ.get_triangle_face_normal(dm, tp.get_editor_property("triangle_id")), "Vector")
-                    best = ((p - q).length(), q, n)
+                    best = ((p - q).length(), q, n, part)
             if best is None:
                 return None
-            _, q, n = best
+            _, q, n, part = best
             nl = T.inverse_transform_direction(n)
             ql = fr.local(q)
             radial = ql - fr.u * ql.dot(fr.u)  # away from the spine axis: outward on chest and neck
             if nl.dot(radial) < 0:
                 nl, n = nl * -1.0, n * -1.0
-            return (p - q).dot(n), nl
+            return (p - q).dot(n), nl, part
 
         rows = [[] for _ in range(NS)]
         lp_local = []
@@ -333,6 +397,7 @@ def _editor(G: dict):
                 rows[sector(th)].append((so[0], so[1], t))
         band = [[] for _ in range(NS)]
         inner, outer = [[] for _ in range(NS)], [[] for _ in range(NS)]
+        bpart = [{} for _ in range(NS)]
         Pt = [(p.x, p.y, p.z) for p in V]
         Kt = weld_keys(Pt)
         vn, _ = normals_and_span(tris_cache, Pt, Kt)
@@ -350,6 +415,8 @@ def _editor(G: dict):
             so = standoff(p)
             if so:
                 band[sector(th)].append(so[0])
+                bp = bpart[sector(th)]
+                bp[so[2]] = min(bp.get(so[2], 99.0), so[0])
                 n = vn.get(Kt[i])
                 if n:  # the shell's own normal vs the skin's (local): towards the skin = its inner face
                     nl = T.inverse_transform_direction(unreal.Vector(*n))
@@ -366,11 +433,14 @@ def _editor(G: dict):
                             "t": [round(min(x[2] for x in rows[s]), 1), round(max(x[2] for x in rows[s]), 1)],
                             "band_n": len(band[s]), "band_min": round(min(band[s]), 3) if band[s] else None,
                             "band_lt0": sum(1 for x in band[s] if x < 0),
+                            "band_min_by": {k: round(v, 3) for k, v in bpart[s].items()},
                             "inner_p50": round(sorted(inner[s])[len(inner[s]) // 2], 3) if inner[s] else None,
                             "outer_p50": round(sorted(outer[s])[len(outer[s]) // 2], 3) if outer[s] else None})
         fwd = T.inverse_transform_direction(host.get_actor_forward_vector())
         hd = body.get_socket_location("head")
+        pts = [[round(q.x, 2), round(q.y, 2), round(q.z, 2)] for q in lp_local[::max(1, len(lp_local) // 600)]]
         return {"neckline_by": how_used[0], "loop_candidates": cand, "loop_n": len(loop), "sectors": sectors,
+                "neck_pts_local": pts,
                 "actor_forward_deg": round(math.degrees(math.atan2(fwd.dot(fr.e2), fwd.dot(fr.e1))) % 360.0, 1),
                 "head_w": [round(hd.x, 2), round(hd.y, 2), round(hd.z, 2)], "top_mesh": top.get_skeletal_mesh_asset().get_path_name()}
 
@@ -407,7 +477,13 @@ def _editor(G: dict):
         dm = asset_dm(dup)
         V = verts(dm)
         tris_cache = tris(dm)
-        loop, cand = neckline(V, fr)
+        PTS = [unreal.Vector(*q) for q in G["PTS"]]
+        pts_cm = float(G.get("PTS_CM", 1.5))
+
+        loop = [i for i, p in enumerate(V) if min((fr.local(p) - q).length() for q in PTS) <= pts_cm]
+        cand, how_used[0] = [{"n": len(loop), "pts": len(PTS)}], "points"
+        if not loop:
+            raise RuntimeError("no rest Top vertex within PTS_CM of the measured edge points (torso frame)")
         lp_local = [fr.local(V[i]) for i in loop]
         ME = unreal.GeometryScript_MeshBasicEditing
         moved, mx, outside = 0, 0.0, 0
@@ -485,6 +561,11 @@ def main(argv=None) -> int:
     m.add_argument("--seq", required=True)
     m.add_argument("--frames", required=True, help="comma list (test30 f29 first)")
     m.add_argument("--out", required=True)
+    m.add_argument("--view", default="", help="x0,y0,x1,y1 at 1080p: pick the edge as the Top's visible boundary "
+                   "against the skin in this box at --view-frame (the orchestrator's rule); other frames reuse it")
+    m.add_argument("--view-frame", type=int, default=29)
+    m.add_argument("--side", default="left", help="which side of the box the skin is on (left = smaller x)")
+    m.add_argument("--pts-cm", type=float, default=1.0)
     p = sub.add_parser("pull")
     p.add_argument("--from", dest="src", required=True)
     p.add_argument("--dest", required=True)
@@ -506,13 +587,24 @@ def main(argv=None) -> int:
     if a.cmd == "measure":
         out = Path(a.out)
         out.mkdir(parents=True, exist_ok=True)
-        per, last = {}, None
-        for f in (int(x) for x in a.frames.split(",") if x):
+        per, last, pts = {}, None, None
+        fl = [int(x) for x in a.frames.split(",") if x]
+        if a.view:
+            fl = [a.view_frame] + [f for f in fl if f != a.view_frame]
+        for f in fl:
             for ff in (f + 1, f):
                 r = client.op("seq.scrub", path=a.seq, frame=ff)
                 if not r.get("ok"):
                     raise SystemExit(f"seq.scrub {ff}: {r}")
-            res = _exec(client, "measure", **g)
+            if a.view and pts is None:
+                res = _exec(client, "measure", **g, VIEW=[int(v) for v in a.view.split(",")], SEQ=a.seq, FRAME_NO=f,
+                            SIDE=a.side)
+                pts = res["neck_pts_local"]
+                print("view edge:", json.dumps(res["loop_candidates"]))
+            elif pts is not None:
+                res = _exec(client, "measure", **g, PTS=pts, PTS_CM=a.pts_cm)
+            else:
+                res = _exec(client, "measure", **g)
             if last is not None and res["head_w"] == last:
                 print(f"WARN f{f}: head did not move since the last frame (pose not updated?)")
             last = res["head_w"]
@@ -523,10 +615,10 @@ def main(argv=None) -> int:
                   flush=True)
         (out / "measure.json").write_text(json.dumps(per))
         print("neckline by", next(iter(per.values()))["neckline_by"], "| sector rows: deg, [loop min, p50, max, band min, "
-              "band<0, t range, inner-face p50, outer-face p50]")
-        print(json.dumps({"loop_candidates": next(iter(per.values()))["loop_candidates"],
+              "band<0, t range, inner-face p50, outer-face p50, band min by skin part]")
+        print(json.dumps({"loop_n": next(iter(per.values()))["loop_n"], "loop_candidates": next(iter(per.values()))["loop_candidates"],
                           "sectors_f0": [(k * 15, s and [s["loop_min"], s["loop_p50"], s["loop_max"], s["band_min"],
-                                                         s["band_lt0"], s["t"], s["inner_p50"], s["outer_p50"]]) for k, s in
+                                                         s["band_lt0"], s["t"], s["inner_p50"], s["outer_p50"], s["band_min_by"]]) for k, s in
                                          enumerate(next(iter(per.values()))["sectors"])]}, indent=None))
         return 0
     per = json.loads((Path(a.src) / "measure.json").read_text())
@@ -535,7 +627,8 @@ def main(argv=None) -> int:
     if a.dry:
         return 0
     try:
-        res = _exec(client, "pull", **g, DEST=a.dest, PULL=pl["pull"], NRM=pl["nrm"], RIB=a.rib, FALL=a.fall)
+        res = _exec(client, "pull", **g, DEST=a.dest, PULL=pl["pull"], NRM=pl["nrm"], RIB=a.rib, FALL=a.fall,
+                    PTS=next(iter(per.values()))["neck_pts_local"])
     finally:
         print("cleanup:", json.dumps(_exec(client, "cleanup", **g)))
     print(json.dumps(res, indent=1))
