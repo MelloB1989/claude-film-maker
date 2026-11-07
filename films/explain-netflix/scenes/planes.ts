@@ -68,7 +68,7 @@ export default class Planes extends NfScene {
       c.restore();
     }
     const rip = clamp((t - tPlay) / 0.6);
-    if (rip > 0 && rip < 1) { c.strokeStyle = rgba('fg', 0.6 * (1 - rip)); c.lineWidth = 2; c.beginPath(); c.arc(ux, uy, 30 + rip * 45, 0, TAU); c.stroke(); }
+    if (rip > 0 && rip < 1) { c.strokeStyle = rgba('fg', 0.6 * (1 - rip)); c.lineWidth = 2; c.beginPath(); c.arc(ux, uy, 30 + rip * 32, 0, TAU); c.stroke(); }
 
     // request: you → AWS (amber), answer: AWS → you, pointing at the box
     const req = clamp((t - tPlay) / Math.max(0.3, tAws - tPlay));

@@ -42,7 +42,7 @@ for arg in sys.argv[2:]:
         a = np.asarray(Image.open(p).convert('RGB')).astype(np.float64)
         y0 = lim * a.shape[0] // 1080
         L = a[max(0, y0 - 2 * R):].max(axis=2)
-        m = int(np.abs(highpass(L))[y0 - max(0, y0 - 2 * R):].max())
+        m = int(max(0.0, highpass(L)[y0 - max(0, y0 - 2 * R):].max()))  # brighter than around it: a mark in the band
         mx, n = max(mx, m), n + 1
         if m > THR:
             fails.append(p.name)
