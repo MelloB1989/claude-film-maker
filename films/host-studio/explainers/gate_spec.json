@@ -461,8 +461,8 @@
    "unit": "bool",
    "guard": true,
    "what": "HIS head state on the box that renders his explainer equals box A's passed karma state: every file of agent-06's list (the built Host_Op face mesh, its WI/cull texture, the r5b skin textures/MIs, anything his look changed since 16:14) matches by checksum, AND cull_live on that box reads the same culled count and the same lowest z as box A",
-   "where": "box B's project after the pull and restart, before his first explainer still",
-   "how": "agent-06's checksum list (private S3, KMS) vs box B's files after the pull; cull_live on both boxes -> numbers/whatsapp/box.json (agent-07)",
+   "where": "box B's project after the pull of private/r6/him_state/ and the editor restart, before his first explainer still",
+   "how": "agent-06's manifest + sha256 under private/r6/him_state/ (KMS) vs box B's files after the pull (every entry equal), AND cull_live on box B = box A's: 912 verts gone, culled z 144.2-153.3 -> numbers/whatsapp/box.json (box B's driver: agent-11 until 21:00, then agent-07)",
    "must_fail": [
     0,
     "his explainer on box B from the 16:14 clone: loop-2 neck (shrink 3.0, the 'cut'), not the passed cull"
