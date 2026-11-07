@@ -369,8 +369,15 @@ def job():
     exec(P["read"], g)  # one namespace: READ's comprehensions see its names
     data = g["result"]
     yield
-    gs = [S.Gesture(**x) for x in P["gestures"]]
-    doc, summary = S.build(data, S.Set(**P["set"]), S.Style(**P["style"]), gs, P["length_s"], P["fps"])
+    if P.get("perform"):  # r7: the presenter performance from the acting sheet (gesturekit, pushed beside seatkit)
+        import gesturekit as GK
+        importlib.reload(GK)
+        doc, summary = GK.build(data, S.Set(**P["set"]), S.Style(**P["style"]), P["perform"]["sheet"],
+                                P["perform"]["cues"], P["perform"]["tilts"], P["length_s"], P["fps"],
+                                timing=P["perform"].get("timing"))
+    else:
+        gs = [S.Gesture(**x) for x in P["gestures"]]
+        doc, summary = S.build(data, S.Set(**P["set"]), S.Style(**P["style"]), gs, P["length_s"], P["fps"])
     yield
     if P.get("probe") or (not summary["pass"] and not P["force"]):  # probe: read and solve only, nothing written
         return {"pass": summary["pass"], "summary": summary, "written": False}
@@ -416,17 +423,45 @@ def body_params(who: str) -> dict:
             "gestures": [g.__dict__ for g in gestures(who)], "length_s": length_s(who), "fps": 30}
 
 
-def cmd_body(who: str, force: bool = False) -> dict:
+PERFORM_STYLE = {"elbow_overhang": 10.0}  # r7: the desk rest in pauses has the forearms across the edge (upright)
+
+
+def perform_params(who: str) -> dict:
+    """The acting sheet (acting/<who>.json, agent-11), the cue sheet and agent-04's tilts (acting/tilts_<who>.json)
+    for gesturekit.build."""
+    a = HERE / "acting"
+    tilts = json.loads((a / f"tilts_{who}.json").read_text()) if (a / f"tilts_{who}.json").exists() else []
+    if isinstance(tilts, dict):
+        tilts = tilts.get("tilts", [])
+    timing = json.loads((a / f"timing_{who}.json").read_text()) if (a / f"timing_{who}.json").exists() else None
+    if isinstance(timing, dict):
+        timing = timing.get("gestures", [])
+    return {"sheet": json.loads((a / f"{who}.json").read_text()), "cues": cues(who), "tilts": tilts, "timing": timing}
+
+
+def cmd_body(who: str, force: bool = False, perform: bool = False) -> dict:
     """The seated body, built ON THE BOX (seatkit pushed next to the WAVs): the skeleton read there, the pose solved
     and checked there, AS_exp_<who>_seat written; only the check's numbers come back."""
     kit = box(who, "kit")
     client().push(str(HERE / "seatkit.py"), box(who, "kit", "seatkit.py"))
+    bp = body_params(who)
+    extra = {}
+    if perform:
+        client().push(str(HERE / "gesturekit.py"), box(who, "kit", "gesturekit.py"))
+        if (HERE / "gesture_style.py").exists():  # agent-08's generated kinematics (envelope / vary / fingers)
+            client().push(str(HERE / "gesture_style.py"), box(who, "kit", "gesture_style.py"))
+        bp["style"].update(PERFORM_STYLE)
+        extra = {"perform": perform_params(who)}
     r = run(BODY, {"kit_dir": kit, "read": READ, "label": LABEL[who], "idle": IDLE, "world": WORLD_BONES,
-                   "out": f"{ANIM}/AS_exp_{who}_seat", "force": force, **body_params(who)}, 1800)
+                   "out": f"{ANIM}/AS_exp_{who}_seat", "force": force, **bp, **extra}, 3600)
     keep(who, "body_check", r["summary"])
     if not r.get("written"):
         raise SystemExit(f"the seated pose fails its own check (nothing written): {r['summary']['issues'][:5]} "
                          f"{r['summary']['rest']['issues'][:5]}")
+    if perform:
+        return {"anim": r["out"], "keys": r["keys"], "bones": r["bones"], "pass": r["pass"],
+                "rows": r["summary"].get("rows"), "events": r["summary"].get("events"),
+                "issues": r["summary"].get("issues", [])[:10], "tuned": r["summary"].get("tuned")}
     return {"anim": r["out"], "keys": r["keys"], "bones": r["bones"], "pass": r["pass"],
             "rest": {k: r["summary"]["rest"][k] for k in ("hips", "knees", "elbows", "wrists", "head", "issues")},
             "wrist_ext": r["summary"]["wrist_ext"], "yaw_off": r["summary"]["yaw_off"],
@@ -1245,7 +1280,7 @@ def step(name: str, who: str, a) -> dict:
     else:
         r = {"push": lambda: cmd_push(who), "solve": lambda: cmd_solve(who, a.only, a.face_mesh), "bias": lambda: cmd_bias(who),
              "compose": lambda: cmd_compose(who), "workseq": lambda: cmd_workseq(who, a.fresh),
-             "body": lambda: cmd_body(who, a.force), "cams": lambda: cmd_cams(who), "life": lambda: cmd_life(who),
+             "body": lambda: cmd_body(who, a.force, a.perform), "cams": lambda: cmd_cams(who), "life": lambda: cmd_life(who),
              "face": lambda: cmd_face(who), "sync": lambda: cmd_sync(who, a.from_bake, a.restart_level, a.bake_chunk), "gaze": lambda: cmd_gaze(who),
              "place": lambda: cmd_place(who, a.seq), "preview": lambda: cmd_preview(who, a.seq),
              "numbers": lambda: cmd_numbers(who, a.seq),
@@ -1274,6 +1309,7 @@ def main() -> None:
     ap.add_argument("--chunk", type=int, default=120, help="bodycheck: frames per seq.sample call (0 = one call)")
     ap.add_argument("--span", default="", help="bodycheck: a:b frame range")
     ap.add_argument("--face-mesh", default="", help="solve: the face SkeletalMesh to solve on (another level open)")
+    ap.add_argument("--perform", action="store_true", help="body: r7, the performance from acting/<who>.json")
     ap.add_argument("--bless", action="store_true", help="signs: record the live head-signs file as this presenter's")
     ap.add_argument("--from", dest="start", default="body")
     ap.add_argument("--to", dest="stop", default="numbers")
