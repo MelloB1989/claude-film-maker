@@ -692,7 +692,7 @@ def check(seater: Seater, posed: dict) -> dict:
                     need(A[b][2] >= st.desk_top + 0.4, "desk.finger", f"{b} at z {A[b][2]:.1f} below the desk top",
                          A[b][2])
         if st.mic:
-            for b in ("hand_" + s, f"middle_03_{s}", f"index_03_{s}", f"thumb_03_{s}"):
+            for b in ("hand_" + s, "lowerarm_" + s, f"middle_03_{s}", f"index_03_{s}", f"thumb_03_{s}"):
                 if b in A:
                     d = norm(sub(A[b], st.mic))
                     need(d >= st.mic_radius, "mic.hand", f"{b} {d:.1f} cm from the mic head", d)

@@ -219,6 +219,14 @@ tested in `test_seatkit.py`), `gestures.json` (the emphasis gestures per line).
   5 payoffs, soft 0.4-0.6 elsewhere over a warm base, nods and a shake, and filler past 0.7 s of neutral speech.
   The lips stay the solve's (corner pull and dimple only, x0.75 while talking). Tilts go to agent-01's body.
   Offline rows pass: active 0.88, smiles 27/min, brows 22/min, neutral hold 0.79 s. FACE_R7.md is the driver's sheet.
+- 07 Nov 23:55-08 Nov 00:20 agent-08 (`fleet/agent-08/r7-humanize`): the mocap-library route was dropped (the operator:
+  no motion libraries, "we can't show same animations"; nothing was downloaded). `gesture_style.py` is the layer that
+  makes gesturekit's generated motion human: a seeded draw per gesture (film line + index + hand: amplitude, height,
+  wrist angles, finger offsets and spread, timing +-40 ms, path bulge), min-jerk preps skewed late, stroke overshoot
+  and settle, drifting holds, co-articulated retracts, the wrist leading in and following out, a pinky-to-index
+  finger cascade and never-frozen finger micro-motion. Her full take on her skeleton read: build passes, arm
+  clearance 3.8/3.8 cm, most similar gesture pair 0.842 (his 0.741, across 0.84; without it 25 identical pairs per
+  film). The left hand's draw is bounded (a 1.17x draw put her forearm on the mic arm, fingers in the desk).
 
 ## Speech-driven gestures (agent-10, branch fleet/agent-10/r7-gesture)
 

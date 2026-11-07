@@ -42,6 +42,46 @@ F=../films/host-studio/explainers/face_acting.py
 H=../films/host-studio/explainers/head.py
 ```
 
+## 0. The primary approach now (the orchestrator, after the operator's tutorial): a FULL-FACE solve with a mood per line
+
+Each line is solved with Process Mask FULL FACE, a solver mood and an intensity from `face_acting.SOLVE_MOOD`:
+- hook N01-N03: PLAYFULNESS 0.6-0.65;
+- body: CONFIDENCE 0.5 (N13 0.55);
+- payoff lines N07 / N15 / N16: EXCITEMENT 0.7;
+- N12 "Network dips?": SURPRISE 0.3.
+
+Blinks and head movement stay OFF. The word-timed events (brows, Duchenne peaks, the curious brow) ride on the solve
+as an additive layer. perf.face adds them to a COPY of the solve's curves, so the solve asset is untouched, and writes
+the baked face anim that renders. That is the tutorial's control-rig animation layer and its linked-sequence bake in
+one step, with the lips left as the solve made them. The warm base is halved over a full solve, whose mood already
+smiles. `FACE_SOLVE=mouth` in the environment gives round 6's mouth-only plan: that is the A side of the N01 test.
+
+### The N01 A/B (orchestrator: private stills + a 4 s N01 clip of each)
+
+| side | solve | layer |
+|---|---|---|
+| A | round 6 mouth-only solves (`AS_exp_<line>`, CONFIDENCE) | this plan, `FACE_SOLVE=mouth` |
+| B | full-face solves in SOLVE_MOOD (perform.py solve with agent-01's full mode) | this plan, `FACE_SOLVE=full` |
+
+```bash
+# A
+FACE_SOLVE=mouth uv run python $P all --who her --from face
+uv run python $F boxcheck --who her --lines N01 --spans ../films/host-studio/explainers/spans_netflix.json
+#   render A: CAM_MCU f0-96 (4 s) + stills f42, f60, f84 -> private/renders/r7/review/face/her/A/
+#   duplicate /Game/Explainer/Perf/AS_exp_her_* -> /Game/Explainer/Perf/r7A/
+# B (agent-01's perform.py solve --mask full: one full-face solve per line in face_acting.solve_mood)
+FACE_SOLVE=full uv run python $P all --who her --from solve
+uv run python $F boxcheck --who her --lines N01 --spans ../films/host-studio/explainers/spans_netflix.json
+#   render B: the same frames -> .../face/her/B/
+```
+
+Send agent-04:
+- both boxchecks, including agent-09's gate09 rows and `face.curves_frown_frac` (the tutorial's angry-brow risk);
+- `check --stage solve/face/final/placed` for both;
+- B's `bias` (each full solve's lag and onset against its WAV).
+
+The lips must stay within today's lines: lag <= 1 f, onset as v2b.
+
 ## 1. Full-face solve vs mouth-only, line N01 (assets only; nothing placed)
 
 `uv run python $F solvetest --who her --line N01`
