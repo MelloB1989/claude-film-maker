@@ -37,6 +37,7 @@ engine's Scene2D, timed by agent-11's EDL (`data/edl.json`, copied from fleet/ag
 | 17:00 | finals v1 rendered on the box (1028 full frames + 818 matte frames, 10 shards each, ~70 s per film at ~13 fps) |
 | 17:05 | self-review: Erlang callout, queue 'waits', key pill overflowed their boxes; fixed (5a90a2d1) |
 | 17:10 | finals v2 rendered from 5a90a2d1 and uploaded to s3://rf-render-788655295054-aps1/ue-linux/gfx/explain-whatsapp/ (the box role cannot write ue-linux/r6/gfx/) |
+| 17:25 | orchestrator approved; one fix: the '(2012)' label overflowed the counter pill: pill widened, label wrapped, re-rendered |
 
 ## Deliverables (s3://rf-render-788655295054-aps1/ue-linux/gfx/explain-whatsapp/)
 
