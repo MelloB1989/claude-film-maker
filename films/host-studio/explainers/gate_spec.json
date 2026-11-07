@@ -236,15 +236,7 @@
    "why": "the brief: the mic never covers the mouth in any camera"
   },
   "set.props_overlap": {
-   "area": "set",
-   "track": "agent-05",
-   "op": "==",
-   "line": 0,
-   "unit": "count",
-   "what": "prop pairs whose bounds interpenetrate (mic arm in the desk, chair in the desk)",
-   "where": "the set",
-   "how": "film-ue op qa.overlaps labels=[set props] ignore_pairs=[resting contacts]",
-   "why": "clean set; confirm a hit with a still"
+   "how": "film-ue op qa.overlaps (axis-aligned boxes) flags candidates; EACH flagged pair is confirmed or cleared by a depth check: qa.clip props={both props} pairs=[[A,B],[B,A]] (the intersection-edge rule), the count = pairs whose qa.clip px > 0 -> numbers/<film>/set.json"
   },
   "shot.render_matches_r4": {
    "info": true,
@@ -581,6 +573,13 @@
     null,
     "INFO with lips.render_lag_frames (the orchestrator's ruling, 07 Nov): a property of the invalid render measure"
    ]
+  },
+  "hair.cut_pop_ratio": {
+   "info_films": [
+    "netflix"
+   ],
+   "info_reason": "no held-camera cut in the netflix EDL (edl/netflix.json: no two consecutive shots share a camera; checked by agent-09): the item judges only held-camera cuts (pop_cuts), so it has nothing to measure there",
+   "where": "WHATSAPP shot 12 (panel CAM_MCU) -> 13 (CAM_MCU) f1121: the one held-camera cut; render 12+13 as ONE job (the karma S17+S18 lesson)"
   }
  },
  "not_attempted": {
@@ -601,5 +600,5 @@
   "shot.grain_sigma_close": "shot.grain_sigma",
   "shot.grain_sigma_wide": "shot.grain_wide_sigma"
  },
- "_films": "items with 'films' apply only to those films (gate_film.py --film filters them); 'aliases' maps a producer's key to the spec's id"
+ "_films": "items with 'films' apply only to those films (gate_film.py --film filters them); 'aliases' maps a producer's key to the spec's id; 'info_films' makes an item INFO for those films with 'info_reason'"
 }

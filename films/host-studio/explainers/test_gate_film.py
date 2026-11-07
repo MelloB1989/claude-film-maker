@@ -13,3 +13,9 @@ def test_merge_aliases_and_job_minimum(tmp_path):
 def test_scoped_drops_the_other_films_items():
     sp = scoped({"items": {"a": {"films": ["whatsapp"]}, "b": {}}}, "netflix")
     assert list(sp["items"]) == ["b"]
+
+
+def test_info_films_makes_an_item_info_for_that_film_only():
+    spec = {"items": {"hair.cut_pop_ratio": {"info_films": ["netflix"], "info_reason": "no held cut"}}}
+    assert scoped(spec, "netflix")["items"]["hair.cut_pop_ratio"]["info"] is True
+    assert "info" not in scoped(spec, "whatsapp")["items"]["hair.cut_pop_ratio"]
