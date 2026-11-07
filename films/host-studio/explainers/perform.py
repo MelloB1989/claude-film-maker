@@ -390,10 +390,16 @@ def set_of(who: str) -> S.Set:
     """The set for `who`: SET (her r3 set, agent-07) with any field overridden by set_<who>.json next to this file
     (agent-07 commits his: the mic is aimed at his mouth, so its capsule and arm move). Actor frame: x forward from the
     chair mark, y the presenter's right (studio y + 20), z up from the floor."""
+    import dataclasses
     p = HERE / f"set_{who}.json"
     if not p.exists():
         return SET
-    return S.Set(**{**SET.__dict__, **json.loads(p.read_text())})
+    given = json.loads(p.read_text())
+    known = {f.name for f in dataclasses.fields(S.Set)}
+    extra = sorted(k for k in given if k not in known and not k.startswith("_"))
+    if extra:  # e.g. desk_y: the desk's sides are not a contact rule here (her elbows sit well inside them)
+        print(f"set_{who}.json: not seatkit.Set fields, ignored: {extra}", file=sys.stderr)
+    return S.Set(**{**SET.__dict__, **{k: v for k, v in given.items() if k in known}})
 
 
 def body_params(who: str) -> dict:
