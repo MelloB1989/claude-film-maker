@@ -371,6 +371,11 @@ def job():
     data = g["result"]
     yield
     if P.get("perform"):  # r7: the presenter performance from the acting sheet (gesturekit, pushed beside seatkit)
+        try:  # agent-08's hooks: reloaded first, or the editor's Python keeps a stale copy across runs
+            import gesture_style
+            importlib.reload(gesture_style)
+        except ImportError:
+            pass
         import gesturekit as GK
         importlib.reload(GK)
         doc, summary = GK.build(data, S.Set(**P["set"]), S.Style(**P["style"]), P["perform"]["sheet"],

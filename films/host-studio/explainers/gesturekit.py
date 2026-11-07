@@ -27,6 +27,10 @@ FINGERS = ("index", "middle", "ring", "pinky", "thumb")
 #       (min-jerk, overshoot past 1 on the stroke, settle); default smoothstep in, hold 1, smoothstep out
 #     vary(pose: HandPose, event, hand) -> HandPose: seeded per-event variation of the goal (nothing repeats)
 #     fingers(event, hand, w) -> {finger: extra curl deg}: finger motion during the gesture (added to the shape)
+#     hand(performer, hand, t) -> (HandPose, big weight): the whole hand track instead of the envelope blend
+#     weights(performer, t) -> {event index: weight}: the events' presence for the torso's turn and lift
+#     finger_post(performer, hand, HandPose, W): after the finger curls (e.g. the spread in the palm's plane)
+#     report(performer, length_s) -> {"rows": {...}, "issues": [...]}: its own rows for build's summary
 #   timing JSON (agent-10's prosody planner), passed to plan_from_sheet(timing=...): [{"line", "word_i",
 #     "prep_t", "stroke_t", "hold_s", "retract_s", "amp", "energy"}] overriding the sheet's per gesture
 try:
@@ -331,33 +335,36 @@ class Performer(S.Seater):
         A_l, A_r = (self.actor(self._fk_t("upperarm_" + x, "clavicle_" + x, W)) for x in "lr")
         st_pt = [(A_l[0] + A_r[0]) / 2 + 8.0, (A_l[1] + A_r[1]) / 2, (A_l[2] + A_r[2]) / 2 - 14.0]
         ws = self.plan.speak_w(t)
-        parts = []  # (weight, HandPose)
-        big = 0.0
-        for e in self.plan.events:
-            w = e.weight(t)
-            if w <= 0:
-                continue
-            p = e.pose_r if s == "r" and e.hand in ("r", "both") else (
-                e.pose_l if s == "l" and e.hand in ("l", "both") else None)
-            if p is None:
-                continue
-            parts.append((w, p))
-            if e.big or e.kind in ("open", "size", "deictic", "count"):
-                big = max(big, w)
-        we = min(1.3, sum(w for w, _ in parts))  # > 1: an overshoot past the goal (envelope hook), then settle
-        extra = {}
-        if STYLE_HOOK is not None and hasattr(STYLE_HOOK, "fingers"):
+        if STYLE_HOOK is not None and hasattr(STYLE_HOOK, "hand"):
+            hp, big = STYLE_HOOK.hand(self, s, t)  # the whole hand track (co-articulation, wrist lead, cascade)
+        else:
+            parts = []  # (weight, HandPose)
+            big = 0.0
             for e in self.plan.events:
                 w = e.weight(t)
-                if w > 0 and (e.hand == s or e.hand == "both"):
-                    for k, v in (STYLE_HOOK.fingers(e, s, w) or {}).items():
-                        extra[k] = extra.get(k, 0.0) + float(v)
-        base = HIGH_REST
-        tot = sum(x for x, _ in parts) or 1.0
-        hp = blend_poses([(1.0 - we, base)] + [(w / tot * we, p) for w, p in parts])
-        if extra:
-            sh = dict(hp.shape) if isinstance(hp.shape, dict) else dict(SHAPES.get(hp.shape, {}))
-            hp = replace(hp, shape={k: sh.get(k, 0.0) + extra.get(k, 0.0) for k in FINGERS})
+                if w <= 0:
+                    continue
+                p = e.pose_r if s == "r" and e.hand in ("r", "both") else (
+                    e.pose_l if s == "l" and e.hand in ("l", "both") else None)
+                if p is None:
+                    continue
+                parts.append((w, p))
+                if e.big or e.kind in ("open", "size", "deictic", "count"):
+                    big = max(big, w)
+            we = min(1.3, sum(w for w, _ in parts))  # > 1: an overshoot past the goal (envelope hook), then settle
+            extra = {}
+            if STYLE_HOOK is not None and hasattr(STYLE_HOOK, "fingers"):
+                for e in self.plan.events:
+                    w = e.weight(t)
+                    if w > 0 and (e.hand == s or e.hand == "both"):
+                        for k, v in (STYLE_HOOK.fingers(e, s, w) or {}).items():
+                            extra[k] = extra.get(k, 0.0) + float(v)
+            base = HIGH_REST
+            tot = sum(x for x, _ in parts) or 1.0
+            hp = blend_poses([(1.0 - we, base)] + [(w / tot * we, p) for w, p in parts])
+            if extra:
+                sh = dict(hp.shape) if isinstance(hp.shape, dict) else dict(SHAPES.get(hp.shape, {}))
+                hp = replace(hp, shape={k: sh.get(k, 0.0) + extra.get(k, 0.0) for k in FINGERS})
         off = hp.off
         acc = self.accent(s, t)
         tgt = [st_pt[0] + off[0] + acc[0], st_pt[1] + sg * (off[1] + acc[1]), st_pt[2] + off[2] + acc[2]]
@@ -411,6 +418,8 @@ class Performer(S.Seater):
             W[la] = [self._fk_t(la, ua, W), self._aim(la, ha, sub(wrist, elbow), back, front_rest=mul(f, -1.0))]
             W[ha] = [self._fk_t(ha, la, W), self.hand_rot_p(s, hp, sub(wrist, elbow))]
             self._finger_pose(s, hp, W)
+            if STYLE_HOOK is not None and hasattr(STYLE_HOOK, "finger_post"):
+                STYLE_HOOK.finger_post(self, s, hp, W)  # e.g. the fingers' spread in the palm's plane
         return self._locals(W)
 
     def torso(self, t: float) -> tuple:
@@ -418,8 +427,9 @@ class Performer(S.Seater):
         gestures turn right, a deictic to her left turns left), the shoulders lift with big gestures. Override it
         (agent-10's track performer) together with hand_targets()."""
         turn, lift = 0.0, {"l": 0.0, "r": 0.0}
-        for e in self.plan.events:
-            w = e.weight(t)
+        hooked = STYLE_HOOK.weights(self, t) if STYLE_HOOK is not None and hasattr(STYLE_HOOK, "weights") else None
+        for i, e in enumerate(self.plan.events):
+            w = hooked.get(i, 0.0) if hooked is not None else e.weight(t)
             if w <= 0:
                 continue
             side = -1.0 if (e.kind == "deictic" and e.pose_r.off[1] < 0) else (1.0 if e.hand == "r" else 0.0)
@@ -551,7 +561,7 @@ def blend_poses(parts: list) -> HandPose:
     shapes = {}
     for w, p in parts:
         sh = SHAPES.get(p.shape, {}) if isinstance(p.shape, str) else p.shape
-        for k in FINGERS:
+        for k in FINGERS + tuple(x for x in sh if x.startswith("_")):  # "_spread" etc. (gesture_style) ride along
             shapes[k] = shapes.get(k, 0.0) + w * float(sh.get(k, 0.0)) / tw
     return HandPose(tuple(off), pron, ext, shapes)
 
@@ -637,6 +647,10 @@ def build(data: dict, st, sy, sheet: dict, cues: dict, tilts: list, length_s: fl
     for b in keyed:
         keyed[b] = [{**k_, "t": anim_t(b, k_["t"])} for k_ in keyed[b]]
     rows = {"upperarm_torso_clear_cm": {s: round(v, 1) for s, v in clear.items()}}
+    if STYLE_HOOK is not None and hasattr(STYLE_HOOK, "report"):  # the variation and never-frozen rows
+        extra = STYLE_HOOK.report(perf, length_s)
+        rows.update(extra.get("rows", {}))
+        issues.extend(extra.get("issues", []))
     ok_clear = min(clear.values()) >= 3.0
     if not ok_clear:
         issues.append({"code": "body.arm_torso", "message": f"upper arm within {min(clear.values()):.1f} cm of the "
