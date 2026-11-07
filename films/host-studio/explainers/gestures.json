@@ -1,5 +1,5 @@
 {
- "_doc": "Emphasis gestures (perform.py): per line a word (its text, or its index in the line) with the hand (l, r, both; none = alternate) and kind (seatkit.KINDS: lift, open, beat, point). Only on the lines where the presenter is on screen (pres/panel shots). The mic is on the presenter's LEFT (07 Nov r3 set): left-hand gestures stay small; HER left hand makes none at all (v1: her hand read behind the mic at N01, the orchestrator), only the tiny automatic settles.",
+ "_doc": "Emphasis gestures (perform.py): per line a word (its text, or its index in the line) with the hand (l, r, both; none = alternate) and kind (seatkit.KINDS: lift, open, beat, point). Only on the lines where the presenter is on screen (pres/panel shots). The mic is on the presenter's LEFT (07 Nov r3 set): left-hand gestures stay small; Neither presenter's left hand makes any (his W01 open brought it behind the mic in CAM_CU/WIDE) (v1: her hand read behind the mic at N01, the orchestrator), only the tiny automatic settles.",
  "her": [
   {
    "line": "N01",
@@ -79,8 +79,8 @@
   {
    "line": "W01",
    "word": "hundred",
-   "hand": "both",
-   "kind": "open",
+   "hand": "r",
+   "kind": "lift",
    "size": 0.8
   },
   {
@@ -104,7 +104,7 @@
   {
    "line": "W07",
    "word": "online?",
-   "hand": "l",
+   "hand": "r",
    "kind": "lift",
    "size": 0.7
   },
@@ -124,14 +124,14 @@
   {
    "line": "W11",
    "word": "Blue:",
-   "hand": "l",
+   "hand": "r",
    "kind": "lift",
    "size": 0.7
   },
   {
    "line": "W13",
    "word": "can't",
-   "hand": "both",
+   "hand": "r",
    "kind": "beat",
    "size": 0.7
   },
@@ -144,7 +144,7 @@
   {
    "line": "W15",
    "word": "key",
-   "hand": "l",
+   "hand": "r",
    "kind": "lift",
    "size": 0.7
   },
@@ -157,15 +157,15 @@
   {
    "line": "W16",
    "word": "linger.",
-   "hand": "l",
+   "hand": "r",
    "kind": "lift",
    "size": 0.7
   },
   {
    "line": "W16",
    "word": "never",
-   "hand": "both",
-   "kind": "open",
+   "hand": "r",
+   "kind": "lift",
    "size": 0.8
   },
   {
