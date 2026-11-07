@@ -139,11 +139,14 @@ def luma(path: str, box=None) -> float:
         h, w = a.shape[:2]
         a = a[int(box[1] * h):int(box[3] * h), int(box[0] * w):int(box[2] * w)]
     lin = np.where(a <= 0.04045, a / 12.92, ((a + 0.055) / 1.055) ** 2.4)
-    return float((lin @ np.array([0.2126, 0.7152, 0.0722], np.float32)).mean())
+    # the median: a hand or the mic crossing less than half of the face box does not move it; the light does
+    return float(np.median(lin @ np.array([0.2126, 0.7152, 0.0722], np.float32)))
 
 
 def exposure(frames_dir: str, shots: list, box=None, pattern: str = "*.png") -> dict:
-    """shots: [[name, first_frame, end_frame_exclusive], ...] on the frame numbers in the file names."""
+    """shots: [[name, first_frame, end_frame_exclusive], ...] on the frame numbers in the file names. box: one
+    [x0, y0, x1, y1] (fractions) for every frame, or {frame: box} (a face box tracked per frame, e.g. from the eye
+    bones through the shot camera): the face moves, the box follows, so a head turn is not read as light."""
     files = sorted(glob.glob(os.path.join(frames_dir, pattern)))
     by_num = {}
     for f in files:
@@ -154,7 +157,8 @@ def exposure(frames_dir: str, shots: list, box=None, pattern: str = "*.png") -> 
     for name, a, b in shots:
         got = [by_num.get(k) for k in range(int(a), int(b))]
         missing += [k for k, g in zip(range(int(a), int(b)), got) if g is None]
-        per[name] = [luma(g, box) for g in got if g]
+        per[name] = [luma(g, box.get(k) or box.get(str(k)) if isinstance(box, dict) else box)
+                     for k, g in zip(range(int(a), int(b)), got) if g]
     out = exposure_numbers(per)
     if missing:
         for k in out:
@@ -273,7 +277,9 @@ def main(argv=None) -> int:
     a = sub.add_parser("loudness"); a.add_argument("file")
     fm = sub.add_parser("format"); fm.add_argument("file")
     e = sub.add_parser("exposure"); e.add_argument("frames"); e.add_argument("--shots", required=True)
-    e.add_argument("--box", default=""); e.add_argument("--pattern", default="*.png")
+    e.add_argument("--box", default="", help="x0,y0,x1,y1 (fractions) for every frame")
+    e.add_argument("--boxes", default="", help="JSON {frame: [x0,y0,x1,y1]}: a face box tracked per frame")
+    e.add_argument("--pattern", default="*.png")
     c = sub.add_parser("captions"); c.add_argument("srt"); c.add_argument("vo")
     f = sub.add_parser("facts"); f.add_argument("vo"); f.add_argument("facts")
     al = sub.add_parser("all", help="every cut row at once: loudness, format, captions, facts, film-post qc")
@@ -289,7 +295,8 @@ def main(argv=None) -> int:
         except (OSError, subprocess.CalledProcessError) as e:  # no ffprobe here (run it on a box), or not a video
             g = {k: {"value": None, "error": str(e)} for k in ("deliver.format_ok", "deliver.duration_s")}
     elif x.cmd == "exposure":
-        box = [float(v) for v in x.box.split(",")] if x.box else None
+        box = ({int(k): v for k, v in json.loads(Path(x.boxes).read_text()).items()} if x.boxes else
+               [float(v) for v in x.box.split(",")] if x.box else None)
         g = exposure(x.frames, json.loads(Path(x.shots).read_text()), box, x.pattern)
     elif x.cmd == "all":
         g = all_rows(x.cut, x.srt, x.cues, x.facts or None)
