@@ -69,6 +69,8 @@ APEX_Z = {"bust": 8.0, "lower_chest": 11.0, "sternum": 14.0, "upper_chest": 19.0
 # (agent-10's projection: the CU's bottom edge sits at ~102 cm on her gesture plane, so collarbone strokes need the
 #  wrist near 110 cm = the sternum point + ~25)
 
+BEAT_MAX_Z = 16.0  # cm over the sternum point: a beat's apex never higher (N15 'delivers' at upper chest met the mic)
+
 # the poses a gesture moves to, per kind/detail and size; the right hand's (the left mirrors out)
 SIZE_OUT = {"small": 0.0, "medium": 5.0, "big": 10.0}
 
@@ -230,11 +232,13 @@ def plan_from_sheet(sheet: dict, cues: dict, tilts: list | None = None, base_lea
             k = 0.55 + 0.8 * amp  # 0.3 -> 0.79, 0.55 -> 0.99, 0.85 -> 1.23 of the pose's distance from the high rest
             pr = scaled(gesture_pose(g, "r", n_count), k)
             if g.get("apex_height") in APEX_Z:  # the sheet's height wins: in the shot, not at the desk
-                pr = replace(pr, off=(pr.off[0], pr.off[1], APEX_Z[g["apex_height"]]))
+                z = APEX_Z[g["apex_height"]]
+                if g.get("type") == "beat" and g.get("detail") in ("beat", "", None):
+                    z = min(z, BEAT_MAX_Z)  # beats can sit lower, still in frame (the orchestrator), off the mic
+                pr = replace(pr, off=(pr.off[0], pr.off[1], z))
             pl = scaled(gesture_pose(g, "l", n_count), k) if g.get("hand") in ("both", "l") else None
             if pl is not None:  # the left (mic side) stays below and inside the mic line, whatever the amp
-                pl = replace(pl, off=(min(pl.off[0], 22.0), min(pl.off[1], 2.0), -2.5), ext=max(pl.ext, 34.0),
-                             pron=min(pl.pron, 60.0))
+                pl = replace(pl, off=(pl.off[0], min(pl.off[1], LEFT_MAX_LAT), pl.off[2]))  # the mic is up at her mouth
             seed0 += 1
             prep = float(g["prep_t"])  # agent-10's prosody timing owns prep/stroke/hold/retract when present
             ev = Event(g.get("hand", "r"), prep, float(g["stroke_t"]), float(g.get("hold_s", 0.25)),
@@ -615,9 +619,10 @@ def blend_poses(parts: list) -> HandPose:
 
 YAW_BASE = {"r": 40.0, "l": 0.0}  # deg her right fingers always turn out a little: turned in, they reached the mic
 RIGHT_MIN_LAT = 15.0  # cm her right hand stays to her right of the sternum point while she speaks
-LEFT_RESTS = True  # r7b: the left hand rests on the desk between its own gestures (see hand_targets)
-LEFT_MAX_LAT = 0.0
-LEFT_MAX_Z = 8.0  # cm over the sternum point (bust height) for her left hand, except on two-hand moves  # cm: her left hand stays at least 3 cm to her RIGHT of the sternum point while she speaks
+LEFT_RESTS = False  # r7b: the left hand rested on the desk between its own gestures while the mic hung at her sternum;
+#                     with the mic moved up to her mouth (the orchestrator, 08 Nov) it gestures like the right
+LEFT_MAX_LAT = 9.0
+LEFT_MAX_Z = 40.0  # cm over the sternum point for her left hand (no cap with the mic at her mouth)  # cm: her left hand stays at least 3 cm to her RIGHT of the sternum point while she speaks
 
 FRAME_WANT = {"CAM_MCU": 0.6, "CAM_MCU_L": 0.6, "CAM_CU": 0.3, "CAM_WIDE": 0.95}  # the orchestrator's lines
 
