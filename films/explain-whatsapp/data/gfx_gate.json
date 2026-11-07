@@ -1,0 +1,9 @@
+{
+  "film": "explain-whatsapp",
+  "gate": {
+    "gfx.caption_band_clear": {
+      "value": 1,
+      "where": "films/explain-whatsapp/scenes/lib.ts Explainer.draw: every diagram mark (main and glow layers, full and panel layouts) is drawn under a clip to y < CAPTION_TOP * H (0.85); the headline column ends above 0.65 H; only the ground (floor grid, motes, near bokeh: no text) reaches the band"
+    }
+  }
+}
