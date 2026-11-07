@@ -190,13 +190,28 @@ def step_cameras(who: str) -> None:
         print(name, c["loc"], "->", c["look_at"], f"{c['focal']} mm f/{c['aperture']}")
 
 
+def shot_camera(s: dict) -> str | None:
+    """A shot's camera: agent-11's PANEL shots (her in the left half, a graphic panel on the right) use CAM_MCU_L."""
+    cam = s.get("camera")
+    if not cam or s.get("kind") == "gfx":
+        return None
+    return "CAM_MCU_L" if s.get("kind") == "panel" and cam == "CAM_MCU" else cam
+
+
+def render_plan(edl: dict, handles: int = 6) -> list:
+    """Every presenter shot as [n, camera, first, end) with ±handles, clamped to the sequence."""
+    end = int(edl.get("frames") or max(s["f1"] for s in edl["shots"]))
+    return [[s["n"], shot_camera(s), max(0, s["f0"] - handles), min(end, s["f1"] + handles)]
+            for s in edl["shots"] if shot_camera(s)]
+
+
 def edl_cuts(edl: dict) -> list:
     """agent-11's EDL → [[camera, first frame], …] over the presenter shots; graphics ranges hold the camera before
     them (they are never rendered from the presenter sequence)."""
     cuts = []
     for s in sorted(edl["shots"], key=lambda s: s["f0"]):
-        cam = s.get("camera") or s.get("cam")
-        if cam and cam.startswith("CAM_") and (not cuts or cuts[-1][0] != cam):
+        cam = shot_camera(s)
+        if cam and (not cuts or cuts[-1][0] != cam):
             cuts.append([cam, int(s["f0"])])
     if cuts:
         cuts[0][1] = 0
@@ -206,7 +221,7 @@ def edl_cuts(edl: dict) -> list:
 def step_seq(who: str, edl_path: str | None, length: int) -> None:
     seq, actor = SEQ[who], ACTOR[who]
     edl = json.loads(Path(edl_path).read_text()) if edl_path else None
-    end = int(edl.get("total_frames") or max(s["f1"] for s in edl["shots"])) if edl else length
+    end = int(edl.get("frames") or max(s["f1"] for s in edl["shots"])) if edl else length
     op("seq.new", path=seq, start=0, end=end, fps=24)
     op("seq.bind", path=seq, label=actor)
     op("seq.key_visible", path=seq, label=actor, keys=[[0, True]], attached=True)
