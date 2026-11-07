@@ -5,7 +5,8 @@
     per-finger offsets and a spread in the palm's plane; the fingers change shape in a cascade behind the wrist
     (pinky first, 30 ms, to the index last, 80 ms) and are never frozen: a slow micro-motion runs on every finger.
 (b) KINEMATICS. The prep is a minimum-jerk move skewed late, so the stroke is the fast part; it arrives with a small
-    overshoot and settles (~0.15 s). Held strokes drift a few millimetres and degrees. Retracts are co-articulated:
+    overshoot and settles (~0.15 s). A stroke whose goal is near where the hand already is gets a 0.12 s dip/push
+    at its apex (3-4.5 cm by energy), so it still reads as a stroke. Held strokes drift a few millimetres and degrees. Retracts are co-articulated:
     a gap under COART_S flows straight into the next gesture, a gap under PARTIAL_S only falls halfway to the rest,
     longer ones go home. The wrist's rotation leads the hand into a stroke and follows it out of one.
 (c) VARIATION. A seeded draw per gesture (seed = film + presenter + line + gesture index + hand): amplitude, path
@@ -178,6 +179,7 @@ class HandTrack:
         self.n_f = {f: Noise(sd + 20 + k, 0.5) for k, f in enumerate(GK.FINGERS)}
         self.n_f_common = Noise(sd + 40, 0.3)
         self.segs = self._build()
+        self.accents = self._accents()
 
     def var_of(self, i: int, e) -> Var:
         self.keys[i] = f"{getattr(e, 'line', '')}:{getattr(e, 'detail', '') or e.kind}:{e.word}"
@@ -221,6 +223,43 @@ class HandTrack:
             cur, cur_w, cur_ev, t = rest, 0.0, -1, t1
         return segs
 
+    def _accents(self) -> list:
+        """[(apex t, offset vector cm)]: a quick dip-and-push about the apex of every stroke whose goal is close to
+        where the hand already is (a count's next finger, a beat after an open palm), so it still reads as a
+        stroke (agent-10: 18/50 strokes stayed under the 40 cm/s beat line). Forward-down on the right (forward and
+        a little up when the hand is already low), a small pull back toward the body on the left (the mic and the
+        desk are there)."""
+        evs = dict(self.events)
+        out = []
+        for s in self.segs:
+            if s.kind not in ("stroke", "coart"):
+                continue
+            span = math.sqrt(sum((s.b.off[i] - s.a.off[i]) ** 2 for i in range(3)))
+            k = clip01((10.0 - span) / 6.0)
+            if k <= 0:
+                continue
+            e = evs[s.ev]
+            amp = (2.5 + 2.0 * float(getattr(e, "energy", 0.5))) * k
+            if self.side == "l":
+                vec = (-0.5 * amp, 0.0, 0.0)
+            elif s.b.off[2] > -1.0:
+                vec = (0.7 * amp, 0.0, -0.7 * amp)  # a dip
+            else:  # already low over the desk: a push forward and a little up (a dip put the fingers in the desk)
+                vec = (0.95 * amp, 0.0, 0.3 * amp)
+            out.append((s.t1, vec))
+        return out
+
+    def accent(self, t: float) -> tuple:
+        """The accents' offset at t: a cos^2 bump 0.12 s wide centred just before the apex (the impact)."""
+        off = [0.0, 0.0, 0.0]
+        for apex, vec in self.accents:
+            x = (t - (apex - 0.02)) / 0.06
+            if -1.0 < x < 1.0:
+                g = math.cos(0.5 * math.pi * x) ** 2
+                for i in range(3):
+                    off[i] += vec[i] * g
+        return off
+
     def micro(self, t: float, w: float, held: bool) -> tuple:
         """(offset cm, d_pron, d_ext, {finger: deg}): the never-frozen layer. Larger drift on a held stroke."""
         k = 1.0 + (0.8 if held else 0.0)
@@ -248,6 +287,8 @@ class HandTrack:
         else:
             hp, w, held = self._eval(seg, t)
         off, dp, de, fing = self.micro(t, sum(w.values()), held)
+        acc = self.accent(t)
+        off = tuple(off[i] + acc[i] for i in range(3))
         sh = shape_dict(hp.shape)
         sh = {f: sh[f] + fing[f] for f in GK.FINGERS} | {"_spread": sh["_spread"]}
         return GK.HandPose(tuple(hp.off[i] + off[i] for i in range(3)), hp.pron + dp, hp.ext + de, sh), w
