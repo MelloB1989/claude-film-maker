@@ -129,9 +129,10 @@
      "t": 2.689,
      "f": 65,
      "onset_t": 2.389,
-     "end_t": 3.589,
-     "amount": 0.7,
-     "hold": 0.6,
+     "end_t": 3.389,
+     "amount": 0.5,
+     "shape": "lopsided R, closed",
+     "hold": 0.4,
      "word_i": 5
     },
     {
@@ -142,7 +143,7 @@
      "onset_t": 3.167,
      "end_t": 4.267,
      "amount": 0.85,
-     "note": "full Duchenne: cheeks up, eyes squint",
+     "note": "full Duchenne (payoff 1/5): cheeks up, eyes squint",
      "hold": 0.5,
      "word_i": 7
     }
@@ -158,6 +159,8 @@
      "prep_f": 11,
      "hold_s": 0.25,
      "size": "small",
+     "amp": 0.3,
+     "held": false,
      "target": "camera",
      "note": "palm up and slightly out, chest height, presenting",
      "word_i": 0
@@ -170,8 +173,10 @@
      "stroke_f": 65,
      "prep_t": 1.924,
      "prep_f": 46,
-     "hold_s": 0.25,
+     "hold_s": 0.6,
      "size": "big",
+     "amp": 0.85,
+     "held": true,
      "target": "front",
      "start_word": "three",
      "note": "hands start 15 cm apart in front of her sternum on 'three', spread to shoulder width on 'million': a huge number; L hand stays below the mic",
@@ -187,6 +192,8 @@
      "prep_f": 67,
      "hold_s": 0.25,
      "size": "small",
+     "amp": 0.3,
+     "held": false,
      "target": "camera",
      "word_i": 6
     }
@@ -222,9 +229,10 @@
       "word": "million",
       "word_i": 5,
       "t": 2.689,
-      "kind": "duchenne",
-      "amount": 0.7,
-      "hold_s": 0.6
+      "kind": "soft",
+      "amount": 0.5,
+      "hold_s": 0.4,
+      "shape": "lopsided R, closed"
      },
      {
       "word": "members.",
@@ -232,7 +240,8 @@
       "t": 3.467,
       "kind": "duchenne",
       "amount": 0.85,
-      "hold_s": 0.5
+      "hold_s": 0.5,
+      "shape": null
      }
     ],
     "curious": [
@@ -278,6 +287,8 @@
       "prep_t": 0.45,
       "hold_s": 0.25,
       "size": "small",
+      "amp": 0.3,
+      "held": false,
       "target": "camera"
      },
      {
@@ -288,8 +299,10 @@
       "word_i": 5,
       "stroke_t": 2.689,
       "prep_t": 1.924,
-      "hold_s": 0.25,
+      "hold_s": 0.6,
       "size": "big",
+      "amp": 0.85,
+      "held": true,
       "target": "front"
      },
      {
@@ -302,6 +315,8 @@
       "prep_t": 2.795,
       "hold_s": 0.25,
       "size": "small",
+      "amp": 0.3,
+      "held": false,
       "target": "camera"
      }
     ],
@@ -385,6 +400,8 @@
      "prep_f": 102,
      "hold_s": 0.25,
      "size": "small",
+     "amp": 0.3,
+     "held": false,
      "target": "camera",
      "note": "index finger presses an imaginary play button toward the lens, collarbone height so it enters the CU",
      "word_i": 9
@@ -399,6 +416,8 @@
      "prep_f": 124,
      "hold_s": 0.25,
      "size": "medium",
+     "amp": 0.55,
+     "held": false,
      "target": "front",
      "note": "fingers spring open outward, 'ta-da', shoulders lift",
      "word_i": 13
@@ -437,7 +456,8 @@
       "t": 5.471,
       "kind": "duchenne",
       "amount": 0.9,
-      "hold_s": 0.6
+      "hold_s": 0.6,
+      "shape": null
      }
     ],
     "nod": [
@@ -464,6 +484,8 @@
       "prep_t": 4.24,
       "hold_s": 0.25,
       "size": "small",
+      "amp": 0.3,
+      "held": false,
       "target": "camera"
      },
      {
@@ -476,6 +498,8 @@
       "prep_t": 5.171,
       "hold_s": 0.25,
       "size": "medium",
+      "amp": 0.55,
+      "held": false,
       "target": "front"
      }
     ],
@@ -561,6 +585,8 @@
      "prep_f": 138,
      "hold_s": 0.25,
      "size": "small",
+     "amp": 0.3,
+     "held": false,
      "target": "up",
      "note": "'wait a second'",
      "word_i": 14
@@ -575,6 +601,8 @@
      "prep_f": 172,
      "hold_s": 0.25,
      "size": "medium",
+     "amp": 0.55,
+     "held": false,
      "target": "her right, up",
      "note": "a light palm-down wave away to her right",
      "word_i": 21
@@ -640,6 +668,8 @@
       "prep_t": 5.742,
       "hold_s": 0.25,
       "size": "small",
+      "amp": 0.3,
+      "held": false,
       "target": "up"
      },
      {
@@ -652,6 +682,8 @@
       "prep_t": 7.182,
       "hold_s": 0.25,
       "size": "medium",
+      "amp": 0.55,
+      "held": false,
       "target": "her right, up"
      }
     ],
@@ -718,7 +750,8 @@
      "f": 257,
      "onset_t": 10.425,
      "end_t": 11.625,
-     "amount": 0.55,
+     "amount": 0.5,
+     "shape": "closed, proud",
      "hold": 0.6,
      "word_i": 27
     },
@@ -750,8 +783,10 @@
      "stroke_f": 218,
      "prep_t": 8.764,
      "prep_f": 210,
-     "hold_s": 0.25,
+     "hold_s": 0.5,
      "size": "medium",
+     "amp": 0.55,
+     "held": true,
      "target": "front",
      "note": "palms facing, shoulder width, setting a box down in front of her on 'builds', firm on 'servers'",
      "word_i": 23
@@ -766,6 +801,8 @@
      "prep_f": 223,
      "hold_s": 0.25,
      "size": "small",
+     "amp": 0.3,
+     "held": false,
      "target": "camera",
      "word_i": 25
     },
@@ -779,6 +816,8 @@
      "prep_f": 259,
      "hold_s": 0.25,
      "size": "small",
+     "amp": 0.3,
+     "held": false,
      "target": "camera",
      "word_i": 28
     },
@@ -792,6 +831,8 @@
      "prep_f": 282,
      "hold_s": 0.25,
      "size": "small",
+     "amp": 0.3,
+     "held": false,
      "target": "camera",
      "note": "two descending beats, the naming",
      "word_i": 30
@@ -834,8 +875,9 @@
       "word_i": 27,
       "t": 10.725,
       "kind": "soft",
-      "amount": 0.55,
-      "hold_s": 0.6
+      "amount": 0.5,
+      "hold_s": 0.6,
+      "shape": "closed, proud"
      }
     ],
     "nod": [
@@ -866,8 +908,10 @@
       "word_i": 23,
       "stroke_t": 9.064,
       "prep_t": 8.764,
-      "hold_s": 0.25,
+      "hold_s": 0.5,
       "size": "medium",
+      "amp": 0.55,
+      "held": true,
       "target": "front"
      },
      {
@@ -880,6 +924,8 @@
       "prep_t": 9.275,
       "hold_s": 0.25,
       "size": "small",
+      "amp": 0.3,
+      "held": false,
       "target": "camera"
      },
      {
@@ -892,6 +938,8 @@
       "prep_t": 10.808,
       "hold_s": 0.25,
       "size": "small",
+      "amp": 0.3,
+      "held": false,
       "target": "camera"
      },
      {
@@ -904,6 +952,8 @@
       "prep_t": 11.768,
       "hold_s": 0.25,
       "size": "small",
+      "amp": 0.3,
+      "held": false,
       "target": "camera"
      }
     ],
@@ -960,9 +1010,10 @@
      "t": 14.354,
      "f": 344,
      "onset_t": 14.054,
-     "end_t": 15.154,
-     "amount": 0.7,
-     "hold": 0.5,
+     "end_t": 15.054,
+     "amount": 0.5,
+     "shape": "open lips",
+     "hold": 0.4,
      "word_i": 35
     },
     {
@@ -986,6 +1037,8 @@
      "prep_f": 337,
      "hold_s": 0.25,
      "size": "medium",
+     "amp": 0.55,
+     "held": false,
      "target": "camera",
      "note": "offering",
      "word_i": 35
@@ -1000,6 +1053,8 @@
      "prep_f": 353,
      "hold_s": 0.25,
      "size": "medium",
+     "amp": 0.55,
+     "held": false,
      "target": "front",
      "note": "hands circle a space in front of her",
      "word_i": 36
@@ -1030,9 +1085,10 @@
       "word": "free,",
       "word_i": 35,
       "t": 14.354,
-      "kind": "duchenne",
-      "amount": 0.7,
-      "hold_s": 0.5
+      "kind": "soft",
+      "amount": 0.5,
+      "hold_s": 0.4,
+      "shape": "open lips"
      }
     ],
     "nod": [
@@ -1059,6 +1115,8 @@
       "prep_t": 14.054,
       "hold_s": 0.25,
       "size": "medium",
+      "amp": 0.55,
+      "held": false,
       "target": "camera"
      },
      {
@@ -1071,6 +1129,8 @@
       "prep_t": 14.716,
       "hold_s": 0.25,
       "size": "medium",
+      "amp": 0.55,
+      "held": false,
       "target": "front"
      }
     ],
@@ -1135,7 +1195,8 @@
      "f": 452,
      "onset_t": 18.526,
      "end_t": 19.626,
-     "amount": 0.6,
+     "amount": 0.45,
+     "shape": "sly, lopsided R",
      "note": "sly",
      "hold": 0.5,
      "word_i": 43
@@ -1171,8 +1232,10 @@
      "stroke_f": 415,
      "prep_t": 16.992,
      "prep_f": 408,
-     "hold_s": 0.25,
+     "hold_s": 0.7,
      "size": "medium",
+     "amp": 0.55,
+     "held": true,
      "target": "panel (her left)",
      "note": "introduces the panel: cross-body open palm, chest height, stops 15 cm left of the sternum, under the mic head; head and eyes turn 10 deg with it, back by 'Netflix'",
      "word_i": 40
@@ -1187,6 +1250,8 @@
      "prep_f": 445,
      "hold_s": 0.25,
      "size": "medium",
+     "amp": 0.55,
+     "held": false,
      "target": "front",
      "note": "a small circle, palm up: a crystal ball",
      "word_i": 43
@@ -1201,6 +1266,8 @@
      "prep_f": 460,
      "hold_s": 0.25,
      "size": "small",
+     "amp": 0.3,
+     "held": false,
      "target": "camera",
      "note": "open hand toward the lens, not a jabbing finger",
      "word_i": 45
@@ -1244,8 +1311,9 @@
       "word_i": 43,
       "t": 18.826,
       "kind": "soft",
-      "amount": 0.6,
-      "hold_s": 0.5
+      "amount": 0.45,
+      "hold_s": 0.5,
+      "shape": "sly, lopsided R"
      }
     ],
     "nod": [
@@ -1288,8 +1356,10 @@
       "word_i": 40,
       "stroke_t": 17.292,
       "prep_t": 16.992,
-      "hold_s": 0.25,
+      "hold_s": 0.7,
       "size": "medium",
+      "amp": 0.55,
+      "held": true,
       "target": "panel (her left)"
      },
      {
@@ -1302,6 +1372,8 @@
       "prep_t": 18.526,
       "hold_s": 0.25,
       "size": "medium",
+      "amp": 0.55,
+      "held": false,
       "target": "front"
      },
      {
@@ -1314,6 +1386,8 @@
       "prep_t": 19.186,
       "hold_s": 0.25,
       "size": "small",
+      "amp": 0.3,
+      "held": false,
       "target": "camera"
      }
     ],
@@ -1394,6 +1468,8 @@
      "prep_f": 507,
      "hold_s": 0.25,
      "size": "medium",
+     "amp": 0.55,
+     "held": false,
      "target": "front",
      "note": "lifts a box from her right and carries it in an arc to the centre front, set down on 'box' (in front of the sternum, never past her left shoulder line)",
      "word_i": 50
@@ -1408,6 +1484,8 @@
      "prep_f": 536,
      "hold_s": 0.25,
      "size": "small",
+     "amp": 0.3,
+     "held": false,
      "target": "camera",
      "word_i": 56
     }
@@ -1432,7 +1510,8 @@
       "t": 22.421,
       "kind": "duchenne",
       "amount": 0.8,
-      "hold_s": 0.5
+      "hold_s": 0.5,
+      "shape": null
      }
     ],
     "nod": [
@@ -1459,6 +1538,8 @@
       "prep_t": 21.122,
       "hold_s": 0.25,
       "size": "medium",
+      "amp": 0.55,
+      "held": false,
       "target": "front"
      },
      {
@@ -1471,6 +1552,8 @@
       "prep_t": 22.33,
       "hold_s": 0.25,
       "size": "small",
+      "amp": 0.3,
+      "held": false,
       "target": "camera"
      }
     ],
@@ -1543,7 +1626,8 @@
      "f": 640,
      "onset_t": 26.353,
      "end_t": 27.453,
-     "amount": 0.55,
+     "amount": 0.45,
+     "shape": "lopsided L",
      "hold": 0.5,
      "word_i": 65
     }
@@ -1559,6 +1643,8 @@
      "prep_f": 605,
      "hold_s": 0.25,
      "size": "small",
+     "amp": 0.3,
+     "held": false,
      "target": "front",
      "note": "hands frame a small box on 'many'...",
      "word_i": 62
@@ -1571,8 +1657,10 @@
      "stroke_f": 619,
      "prep_t": 25.506,
      "prep_f": 612,
-     "hold_s": 0.25,
+     "hold_s": 0.5,
      "size": "big",
+     "amp": 0.85,
+     "held": true,
      "target": "front",
      "note": "...and widen to shoulder width on 'sizes'",
      "word_i": 63
@@ -1587,6 +1675,8 @@
      "prep_f": 632,
      "hold_s": 0.25,
      "size": "medium",
+     "amp": 0.55,
+     "held": false,
      "target": "up",
      "note": "flat palm steps up three rungs",
      "word_i": 65
@@ -1619,8 +1709,9 @@
       "word_i": 65,
       "t": 26.653,
       "kind": "soft",
-      "amount": 0.55,
-      "hold_s": 0.5
+      "amount": 0.45,
+      "hold_s": 0.5,
+      "shape": "lopsided L"
      }
     ],
     "nod": [
@@ -1656,6 +1747,8 @@
       "prep_t": 25.216,
       "hold_s": 0.25,
       "size": "small",
+      "amp": 0.3,
+      "held": false,
       "target": "front"
      },
      {
@@ -1666,8 +1759,10 @@
       "word_i": 63,
       "stroke_t": 25.806,
       "prep_t": 25.506,
-      "hold_s": 0.25,
+      "hold_s": 0.5,
       "size": "big",
+      "amp": 0.85,
+      "held": true,
       "target": "front"
      },
      {
@@ -1680,6 +1775,8 @@
       "prep_t": 26.353,
       "hold_s": 0.25,
       "size": "medium",
+      "amp": 0.55,
+      "held": false,
       "target": "up"
      }
     ],
@@ -1721,9 +1818,10 @@
      "t": 27.639,
      "f": 663,
      "onset_t": 27.339,
-     "end_t": 28.439,
-     "amount": 0.7,
-     "hold": 0.5,
+     "end_t": 28.339,
+     "amount": 0.55,
+     "shape": "amused, lopsided L",
+     "hold": 0.4,
      "word_i": 67
     },
     {
@@ -1766,6 +1864,8 @@
      "prep_f": 680,
      "hold_s": 0.25,
      "size": "small",
+     "amp": 0.3,
+     "held": false,
      "target": "front",
      "word_i": 69
     },
@@ -1779,6 +1879,8 @@
      "prep_f": 702,
      "hold_s": 0.25,
      "size": "big",
+     "amp": 0.85,
+     "held": false,
      "target": "front",
      "word_i": 73
     },
@@ -1792,6 +1894,8 @@
      "prep_f": 766,
      "hold_s": 0.25,
      "size": "medium",
+     "amp": 0.55,
+     "held": false,
      "target": "up",
      "word_i": 80
     }
@@ -1821,9 +1925,10 @@
       "word": "cartoon",
       "word_i": 67,
       "t": 27.639,
-      "kind": "duchenne",
-      "amount": 0.7,
-      "hold_s": 0.5
+      "kind": "soft",
+      "amount": 0.55,
+      "hold_s": 0.4,
+      "shape": "amused, lopsided L"
      }
     ],
     "warm": [
@@ -1858,6 +1963,8 @@
       "prep_t": 28.349,
       "hold_s": 0.25,
       "size": "small",
+      "amp": 0.3,
+      "held": false,
       "target": "front"
      },
      {
@@ -1870,6 +1977,8 @@
       "prep_t": 29.243,
       "hold_s": 0.25,
       "size": "big",
+      "amp": 0.85,
+      "held": false,
       "target": "front"
      },
      {
@@ -1882,6 +1991,8 @@
       "prep_t": 31.914,
       "hold_s": 0.25,
       "size": "medium",
+      "amp": 0.55,
+      "held": false,
       "target": "up"
      }
     ],
@@ -1947,6 +2058,8 @@
      "prep_f": 809,
      "hold_s": 0.25,
      "size": "medium",
+     "amp": 0.55,
+     "held": false,
      "target": "front",
      "word_i": 84
     },
@@ -1960,6 +2073,8 @@
      "prep_f": 836,
      "hold_s": 0.25,
      "size": "small",
+     "amp": 0.3,
+     "held": false,
      "target": "front",
      "note": "a few seconds: hands a short span apart",
      "word_i": 88
@@ -2002,6 +2117,8 @@
       "prep_t": 33.695,
       "hold_s": 0.25,
       "size": "medium",
+      "amp": 0.55,
+      "held": false,
       "target": "front"
      },
      {
@@ -2014,6 +2131,8 @@
       "prep_t": 34.844,
       "hold_s": 0.25,
       "size": "small",
+      "amp": 0.3,
+      "held": false,
       "target": "front"
      }
     ],
@@ -2049,7 +2168,8 @@
      "f": 893,
      "onset_t": 36.927,
      "end_t": 37.927,
-     "amount": 0.6,
+     "amount": 0.45,
+     "shape": "closed",
      "hold": 0.4,
      "word_i": 93
     },
@@ -2074,6 +2194,8 @@
      "prep_f": 865,
      "hold_s": 0.25,
      "size": "small",
+     "amp": 0.3,
+     "held": false,
      "target": "camera",
      "word_i": 91
     },
@@ -2087,6 +2209,8 @@
      "prep_f": 886,
      "hold_s": 0.25,
      "size": "small",
+     "amp": 0.3,
+     "held": false,
      "target": "front",
      "word_i": 93
     }
@@ -2110,8 +2234,9 @@
       "word_i": 93,
       "t": 37.227,
       "kind": "soft",
-      "amount": 0.6,
-      "hold_s": 0.4
+      "amount": 0.45,
+      "hold_s": 0.4,
+      "shape": "closed"
      }
     ],
     "nod": [
@@ -2138,6 +2263,8 @@
       "prep_t": 36.033,
       "hold_s": 0.25,
       "size": "small",
+      "amp": 0.3,
+      "held": false,
       "target": "camera"
      },
      {
@@ -2150,6 +2277,8 @@
       "prep_t": 36.927,
       "hold_s": 0.25,
       "size": "small",
+      "amp": 0.3,
+      "held": false,
       "target": "front"
      }
     ],
@@ -2214,8 +2343,8 @@
      "f": 1011,
      "onset_t": 41.811,
      "end_t": 43.011,
-     "amount": 0.8,
-     "note": "reassuring Duchenne",
+     "amount": 0.55,
+     "shape": "closed, reassuring",
      "hold": 0.6,
      "word_i": 107
     },
@@ -2249,6 +2378,8 @@
      "prep_f": 964,
      "hold_s": 0.25,
      "size": "medium",
+     "amp": 0.55,
+     "held": false,
      "target": "panel (her left)",
      "note": "flat palm-down hand dips toward the panel (cross-body, chest height, under the mic head)",
      "word_i": 101
@@ -2263,6 +2394,8 @@
      "prep_f": 984,
      "hold_s": 0.25,
      "size": "medium",
+     "amp": 0.55,
+     "held": false,
      "target": "camera",
      "note": "it's fine",
      "word_i": 103
@@ -2275,8 +2408,10 @@
      "stroke_f": 1011,
      "prep_t": 41.811,
      "prep_f": 1003,
-     "hold_s": 0.25,
+     "hold_s": 0.6,
      "size": "small",
+     "amp": 0.3,
+     "held": true,
      "target": "camera",
      "note": "thumb and index almost touching",
      "word_i": 107
@@ -2306,9 +2441,10 @@
       "word": "little",
       "word_i": 107,
       "t": 42.111,
-      "kind": "duchenne",
-      "amount": 0.8,
-      "hold_s": 0.6
+      "kind": "soft",
+      "amount": 0.55,
+      "hold_s": 0.6,
+      "shape": "closed, reassuring"
      }
     ],
     "curious": [
@@ -2361,6 +2497,8 @@
       "prep_t": 40.163,
       "hold_s": 0.25,
       "size": "medium",
+      "amp": 0.55,
+      "held": false,
       "target": "panel (her left)"
      },
      {
@@ -2373,6 +2511,8 @@
       "prep_t": 40.987,
       "hold_s": 0.25,
       "size": "medium",
+      "amp": 0.55,
+      "held": false,
       "target": "camera"
      },
      {
@@ -2383,8 +2523,10 @@
       "word_i": 107,
       "stroke_t": 42.111,
       "prep_t": 41.811,
-      "hold_s": 0.25,
+      "hold_s": 0.6,
       "size": "small",
+      "amp": 0.3,
+      "held": true,
       "target": "camera"
      }
     ],
@@ -2498,6 +2640,8 @@
      "prep_f": 1049,
      "hold_s": 0.25,
      "size": "medium",
+     "amp": 0.55,
+     "held": false,
      "target": "her right, chest height",
      "note": "index up (1)",
      "word_i": 110
@@ -2512,6 +2656,8 @@
      "prep_f": 1063,
      "hold_s": 0.25,
      "size": "medium",
+     "amp": 0.55,
+     "held": false,
      "target": "her right, chest height",
      "note": "+ middle (2)",
      "word_i": 111
@@ -2524,8 +2670,10 @@
      "stroke_f": 1100,
      "prep_t": 45.551,
      "prep_f": 1093,
-     "hold_s": 0.25,
+     "hold_s": 0.5,
      "size": "medium",
+     "amp": 0.55,
+     "held": true,
      "target": "her right, chest height",
      "note": "+ ring (3)",
      "word_i": 112
@@ -2538,8 +2686,10 @@
      "stroke_f": 1117,
      "prep_t": 46.252,
      "prep_f": 1110,
-     "hold_s": 0.25,
+     "hold_s": 0.7,
      "size": "big",
+     "amp": 0.85,
+     "held": true,
      "target": "front",
      "note": "palms up, spread to shoulder width: 'all of it'; L hand below and inside the mic line",
      "word_i": 113
@@ -2554,6 +2704,8 @@
      "prep_f": 1135,
      "hold_s": 0.25,
      "size": "medium",
+     "amp": 0.55,
+     "held": false,
      "target": "camera",
      "word_i": 117
     }
@@ -2603,7 +2755,8 @@
       "t": 47.609,
       "kind": "duchenne",
       "amount": 0.85,
-      "hold_s": 0.6
+      "hold_s": 0.6,
+      "shape": null
      }
     ],
     "nod": [
@@ -2645,6 +2798,8 @@
       "prep_t": 43.698,
       "hold_s": 0.25,
       "size": "medium",
+      "amp": 0.55,
+      "held": false,
       "target": "her right, chest height"
      },
      {
@@ -2657,6 +2812,8 @@
       "prep_t": 44.279,
       "hold_s": 0.25,
       "size": "medium",
+      "amp": 0.55,
+      "held": false,
       "target": "her right, chest height"
      },
      {
@@ -2667,8 +2824,10 @@
       "word_i": 112,
       "stroke_t": 45.851,
       "prep_t": 45.551,
-      "hold_s": 0.25,
+      "hold_s": 0.5,
       "size": "medium",
+      "amp": 0.55,
+      "held": true,
       "target": "her right, chest height"
      },
      {
@@ -2679,8 +2838,10 @@
       "word_i": 113,
       "stroke_t": 46.552,
       "prep_t": 46.252,
-      "hold_s": 0.25,
+      "hold_s": 0.7,
       "size": "big",
+      "amp": 0.85,
+      "held": true,
       "target": "front"
      },
      {
@@ -2693,6 +2854,8 @@
       "prep_t": 47.309,
       "hold_s": 0.25,
       "size": "medium",
+      "amp": 0.55,
+      "held": false,
       "target": "camera"
      }
     ],
@@ -2765,7 +2928,8 @@
      "f": 1246,
      "onset_t": 51.615,
      "end_t": 52.715,
-     "amount": 0.6,
+     "amount": 0.5,
+     "shape": "open lips",
      "hold": 0.5,
      "word_i": 128
     }
@@ -2781,6 +2945,8 @@
      "prep_f": 1167,
      "hold_s": 0.25,
      "size": "small",
+     "amp": 0.3,
+     "held": false,
      "target": "camera",
      "word_i": 119
     },
@@ -2794,6 +2960,8 @@
      "prep_f": 1199,
      "hold_s": 0.25,
      "size": "medium",
+     "amp": 0.55,
+     "held": false,
      "target": "her right",
      "word_i": 122
     },
@@ -2807,6 +2975,8 @@
      "prep_f": 1239,
      "hold_s": 0.25,
      "size": "medium",
+     "amp": 0.55,
+     "held": false,
      "target": "front",
      "word_i": 128
     }
@@ -2837,8 +3007,9 @@
       "word_i": 128,
       "t": 51.915,
       "kind": "soft",
-      "amount": 0.6,
-      "hold_s": 0.5
+      "amount": 0.5,
+      "hold_s": 0.5,
+      "shape": "open lips"
      }
     ],
     "nod": [
@@ -2865,6 +3036,8 @@
       "prep_t": 48.608,
       "hold_s": 0.25,
       "size": "small",
+      "amp": 0.3,
+      "held": false,
       "target": "camera"
      },
      {
@@ -2877,6 +3050,8 @@
       "prep_t": 49.943,
       "hold_s": 0.25,
       "size": "medium",
+      "amp": 0.55,
+      "held": false,
       "target": "her right"
      },
      {
@@ -2889,6 +3064,8 @@
       "prep_t": 51.615,
       "hold_s": 0.25,
       "size": "medium",
+      "amp": 0.55,
+      "held": false,
       "target": "front"
      }
     ],
@@ -2948,9 +3125,10 @@
      "t": 54.995,
      "f": 1320,
      "onset_t": 54.695,
-     "end_t": 55.695,
-     "amount": 0.7,
-     "hold": 0.4,
+     "end_t": 55.595,
+     "amount": 0.45,
+     "shape": "closed",
+     "hold": 0.3,
      "word_i": 135
     },
     {
@@ -2969,8 +3147,8 @@
      "f": 1341,
      "onset_t": 55.593,
      "end_t": 56.693,
-     "amount": 0.9,
-     "note": "Duchenne",
+     "amount": 0.6,
+     "shape": "open lips, building to N16",
      "hold": 0.5,
      "word_i": 138
     }
@@ -2984,8 +3162,10 @@
      "stroke_f": 1291,
      "prep_t": 53.511,
      "prep_f": 1284,
-     "hold_s": 0.25,
+     "hold_s": 0.5,
      "size": "medium",
+     "amp": 0.55,
+     "held": true,
      "target": "up, her right",
      "note": "open palm raised to chin height: up there",
      "word_i": 132
@@ -3000,6 +3180,8 @@
      "prep_f": 1313,
      "hold_s": 0.25,
      "size": "medium",
+     "amp": 0.55,
+     "held": false,
      "target": "front, low",
      "note": "both hands come down to the front: right here",
      "word_i": 135
@@ -3014,6 +3196,8 @@
      "prep_f": 1334,
      "hold_s": 0.25,
      "size": "medium",
+     "amp": 0.55,
+     "held": false,
      "target": "front",
      "word_i": 138
     }
@@ -3049,17 +3233,19 @@
       "word": "box",
       "word_i": 135,
       "t": 54.995,
-      "kind": "duchenne",
-      "amount": 0.7,
-      "hold_s": 0.4
+      "kind": "soft",
+      "amount": 0.45,
+      "hold_s": 0.3,
+      "shape": "closed"
      },
      {
       "word": "delivers.",
       "word_i": 138,
       "t": 55.893,
-      "kind": "duchenne",
-      "amount": 0.9,
-      "hold_s": 0.5
+      "kind": "soft",
+      "amount": 0.6,
+      "hold_s": 0.5,
+      "shape": "open lips, building to N16"
      }
     ],
     "nod": [
@@ -3090,8 +3276,10 @@
       "word_i": 132,
       "stroke_t": 53.811,
       "prep_t": 53.511,
-      "hold_s": 0.25,
+      "hold_s": 0.5,
       "size": "medium",
+      "amp": 0.55,
+      "held": true,
       "target": "up, her right"
      },
      {
@@ -3104,6 +3292,8 @@
       "prep_t": 54.695,
       "hold_s": 0.25,
       "size": "medium",
+      "amp": 0.55,
+      "held": false,
       "target": "front, low"
      },
      {
@@ -3116,6 +3306,8 @@
       "prep_t": 55.593,
       "hold_s": 0.25,
       "size": "medium",
+      "amp": 0.55,
+      "held": false,
       "target": "front"
      }
     ],
@@ -3173,8 +3365,8 @@
      "f": 1368,
      "onset_t": 56.699,
      "end_t": 58.299,
-     "amount": 1.0,
-     "note": "the biggest Duchenne of the film, held into the cut",
+     "amount": 0.9,
+     "note": "the last full Duchenne, held into the cut",
      "hold": 1.0,
      "word_i": 142
     },
@@ -3208,8 +3400,10 @@
      "stroke_f": 1372,
      "prep_t": 56.862,
      "prep_f": 1365,
-     "hold_s": 0.25,
+     "hold_s": 1.0,
      "size": "medium",
+     "amp": 0.55,
+     "held": true,
      "target": "front",
      "note": "palms up, a small outward 'ta-da', the shoulders lift; held to the cut",
      "word_i": 143
@@ -3247,8 +3441,9 @@
       "word_i": 142,
       "t": 56.999,
       "kind": "duchenne",
-      "amount": 1.0,
-      "hold_s": 1.0
+      "amount": 0.9,
+      "hold_s": 1.0,
+      "shape": null
      }
     ],
     "nod": [
@@ -3282,8 +3477,10 @@
       "word_i": 143,
       "stroke_t": 57.162,
       "prep_t": 56.862,
-      "hold_s": 0.25,
+      "hold_s": 1.0,
       "size": "medium",
+      "amp": 0.55,
+      "held": true,
       "target": "front"
      }
     ],
@@ -3374,7 +3571,7 @@
     "N06": 0.9,
     "N07": 0.8,
     "N08": 1.13,
-    "N09": 1.07,
+    "N09": 1.08,
     "N10": 1.0,
     "N11": 1.41,
     "N12": 0.4,
