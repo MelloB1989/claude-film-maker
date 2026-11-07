@@ -747,17 +747,17 @@
    "area": "garment",
    "track": "round 7 (agent-09 measure; agent-04 face, agent-01 body, agent-02 garment)",
    "op": "<=",
-   "line": 0.8,
+   "line": 0.75,
    "unit": "cm",
    "what": "the bottoms' waistband vs the body at the waist: the worst gap (stand-off) or poke, per frame, on the camera-facing half",
    "where": "every speaking + on-screen frame of the presenter (cue words x edl presenter spans)",
    "how": "agent-02's garment_measure.py: per frame, the worst over the camera/front half of the waistband GAP (trousers inner radius minus the layer under it, 1 cm cells down a 4 cm band, 24 sectors), POKE (under-layer through the band) and BARE SKIN (Top hem above the trousers' edge) -> numbers/<film>/garment.json; line set with the eye on v2b",
    "must_fail": [
-    null,
-    "netflix v2b (the operator's REJECT, 07 Nov 23:45): measure on box B's v2b frames/curves and put the value here; the line must fail it"
+    1.04,
+    "netflix v2b (UE, 67 frames, agent-02/agent-06): GAP 1.04 cm at the front centre (90 deg 0.56; no poke, no bare skin, tuck 6.79 cm), the same every frame; agent-05's Blender read 0.79-1.12 on v2b"
    ],
    "guard": true,
-   "why": "the operator, 07 Nov: 'her expression is pale, no emotion at all ... hands stuck to her body ... boob covering the upper limb ... these presenters must look confident, happy, full of energy, not robotic' (R7_common.md). The numbers support the eye; the operator decides"
+   "why": "the operator: 'her skirt or whatever she is wearing below is not fit to her'. Line 0.75 PROVISIONAL (agent-02): v2b fails by 0.29, agent-05's refit reads 0.41-0.52 in Blender; frozen after the UE number on the refit and the orchestrator's eye"
   },
   "body.limb_clearance_xcheck_cm": {
    "area": "performance",
