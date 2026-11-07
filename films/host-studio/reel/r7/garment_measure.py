@@ -14,7 +14,8 @@
          The Top's sleeves are left out the same way. Distance = to the nearest torso TRIANGLE; the sign from the
          triangle's normal (her skin's own; the Top's turned away from the spine chain: it is a closed shell).
   waist  garment.waist_fit_cm: her bottoms' waistband against what is under it, in 24 sectors (15 deg) round the
-         axis pelvis -> spine_03, 0 deg = the actor's forward, + towards her left. Per sector, in 1 cm cells down the
+         axis pelvis -> spine_03, 0 deg = HER forward (up x her left, from her thighs; checked by her knees), + towards
+         her left. Per sector, in 1 cm cells down the
          band (BAND_CM from the trousers' top edge): radii from the axis of the trousers (inner/outer) and of the
          outermost layer under them (the Top, else her skin). gap = trousers inner - under (stand-off), poke = under -
          trousers outer (> 0: skin or Top OUT through the waistband). Plus per sector: the edge height, the Top's
@@ -385,6 +386,19 @@ def _editor(G: dict):
         v = a.get_actor_forward_vector()
         return (v.x, v.y, v.z)
 
+    def facing(lb, rb, lo="pelvis", hi="spine_03"):
+        """Her own forward from her skeleton (not the actor's: v2b's angles came out 90 deg round): up x (left -
+        right) in UE's frame (X fwd, Y right, Z up), checked against her knees (seated: in front of the pelvis)."""
+        u = norm(sub(loc(body, hi), loc(body, lo)))
+        f = norm(cross(u, sub(loc(body, lb), loc(body, rb))))
+        knees = tuple((a + b) / 2 for a, b in zip(loc(body, "calf_l"), loc(body, "calf_r")))
+        flipped = dot(f, sub(knees, loc(body, "pelvis"))) < 0
+        if flipped:
+            f = (-f[0], -f[1], -f[2])
+        af = fwd_of(host)
+        ang = math.degrees(math.atan2(dot(cross(af, f), u), dot(af, f)))
+        return f, {"facing_vs_actor_deg": round(ang), "facing_flipped_by_knees": flipped}
+
     def loc(c, bone):
         v = c.get_socket_location(bone)
         return (v.x, v.y, v.z)
@@ -439,7 +453,8 @@ def _editor(G: dict):
         finally:
             cleanup()
         chain = [loc(body, b) for b in SPINE]
-        out = {"frame_head": [round(x, 2) for x in head], "parts": {}, "sides": {}}
+        out = {"frame_head": [round(x, 2) for x in head], "parts": {}, "sides": {},
+               **facing("clavicle_l", "clavicle_r")[1]}
         labels = {}
         for n, _ in parts:
             (Pp, Tp), (Pr, Tr) = posed[n], rest[n]
@@ -473,8 +488,8 @@ def _editor(G: dict):
                    "rest_clear_cm": rw and round(rw[0], 2), "rest_verts_lt0": rneg}
             if worst:
                 s, i, q, tag = worst
-                cy = Cyl(chain[0], chain[3], fwd_of(host),
-                         loc(body, "clavicle_l"))
+                cy = Cyl(chain[0], chain[3], facing("clavicle_l", "clavicle_r")[0],
+                         sub(loc(body, "clavicle_l"), loc(body, "clavicle_r")))  # her left, a direction
                 tq, _, thq = cy(q)
                 rec.update({"clear_cm": round(s, 2), "arm_t": round(seg_t(P[i], ua, la)[1], 2), "torso_part": tag,
                             "torso_t_cm": round(tq, 1), "torso_deg": round(thq)})
@@ -485,8 +500,9 @@ def _editor(G: dict):
 
     if stage == "waist":
         trou, top = cs[G.get("TROUSERS", "Trousers")], cs.get(G.get("TOP", "Top"))
-        cy = Cyl(loc(body, "pelvis"), loc(body, "spine_03"), fwd_of(host),
-                 loc(body, "clavicle_l"))
+        fw, fdiag = facing("thigh_l", "thigh_r")
+        cy = Cyl(loc(body, "pelvis"), loc(body, "spine_03"), fw,
+                 sub(loc(body, "clavicle_l"), loc(body, "clavicle_r")))  # her left, a direction
 
         def cyl_pts(c, rmax=40.0):
             P, T = mesh_of(c)
@@ -504,7 +520,7 @@ def _editor(G: dict):
         nw = natural_waist(skin, top_t - 15.0, top_t + 15.0)
         score, why = waist_score(secs, float(G.get("FRONT_DEG", 90.0)))
         front = [s for s in secs if s and abs(s["deg"]) <= 90]
-        res = {"frame_head": [round(x, 2) for x in head], "waist_fit_cm": score, "worst": why,
+        res = {"frame_head": [round(x, 2) for x in head], "waist_fit_cm": score, "worst": why, **fdiag,
                "trousers_mesh": trou.get_skeletal_mesh_asset().get_path_name(), "trousers_tris": tn,
                "top_tris": topn, "natural_waist_t": nw and round(nw[0], 1),
                "edge_above_natural_waist_cm": nw and round(sorted(s["edge_t"] for s in front)[len(front) // 2] - nw[0], 1)
@@ -580,12 +596,15 @@ def main(argv=None) -> int:
         last = res["frame_head"]
         per[f] = res
         if a.cmd == "arms":
-            print(f"f{f}: clear {res['upperarm_torso_clear_cm']} | " + " | ".join(
+            print(f"f{f}: clear {res['upperarm_torso_clear_cm']} (facing vs actor {res['facing_vs_actor_deg']} deg) | "
+                  + " | ".join(
                 f"{sd}: {r.get('clear_cm')} cm (arm_t {r.get('arm_t')}, {r.get('torso_part')} at t {r.get('torso_t_cm')}"
-                f" cm, {r.get('torso_deg')} deg; <0 {r['verts_lt0']}, <3 {r['verts_lt3']} of {r['arm_verts']})"
+                f" cm, {r.get('torso_deg')} deg; <0 {r['verts_lt0']}, <3 {r['verts_lt3']} of {r['arm_verts']}; arm_r "
+                f"{r.get('arm_r')}; rest {r.get('rest_clear_cm')}/{r.get('rest_verts_lt0')})"
                 for sd, r in res["sides"].items()), flush=True)
         else:
-            print(f"f{f}: waist_fit {res['waist_fit_cm']} cm ({res['worst']}); edge above waist "
+            print(f"f{f}: waist_fit {res['waist_fit_cm']} cm ({res['worst']}; facing vs actor "
+                  f"{res['facing_vs_actor_deg']} deg, knee flip {res['facing_flipped_by_knees']}); edge above waist "
                   f"{res['edge_above_natural_waist_cm']} cm, edge wave {res['edge_wave_front_cm']}; sectors "
                   "[deg, edge_t, tuck, gap_max, poke_max, top_over]: " + json.dumps(
                       [[s["deg"], s["edge_t"], s["tuck"], s["gap_max"], s["poke_max"], s["top_over_max"]]
