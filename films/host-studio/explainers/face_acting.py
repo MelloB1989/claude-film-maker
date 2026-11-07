@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import random
 import sys
 from itertools import groupby
@@ -87,6 +88,27 @@ KINDS = {"brow": ("brow_flash", 0.12, 0.35), "question": ("question", 0.14, 0.45
 PAYOFFS = {"her": {("N01", "members"), ("N02", "starts"), ("N07", "near"), ("N13", "aws"), ("N16", "just"),
                    ("N16", "plays")},
            "him": {("W01", "messages"), ("W03", "how"), ("W11", "read"), ("W16", "hands"), ("W17", "billion")}}
+# The audio solve (the orchestrator, 07 Nov, after the operator's tutorial + Epic's audio-driven animation docs): FULL
+# FACE with a solver mood per line, blinks and head off, so the solve moves brows, cheeks and lids with the speech; the
+# word-timed events above ride on it as an additive layer (perf.face adds them to the solve's curves in a copy:
+# the solve asset is untouched, the result is the baked face anim that renders). The mood per line follows the arc:
+# hook playful, body confident, payoff lines excited, the "Network dips?" question a light surprise.
+FULL_SOLVE = os.environ.get("FACE_SOLVE", "full") == "full"  # FACE_SOLVE=mouth: round 6's mouth-only solves (the A/B)
+SOLVE_MOOD = {
+    "her": {**{k: ("PLAYFULNESS", 0.65) for k in ("N01", "N02")}, "N03": ("PLAYFULNESS", 0.6),
+            **{k: ("CONFIDENCE", 0.5) for k in ("N04", "N05", "N06", "N08", "N09", "N10", "N11", "N14")},
+            "N12": ("SURPRISE", 0.3), "N13": ("CONFIDENCE", 0.55),
+            **{k: ("EXCITEMENT", 0.7) for k in ("N07", "N15", "N16")}},
+}
+SOLVE_DEFAULT = ("CONFIDENCE", 0.5)
+BASE_UNDER_SOLVE = 0.5  # the warm base's share over a full-face solve (its mood already smiles)
+
+
+def solve_mood(who: str, lid: str) -> tuple:
+    """(mood, intensity) for line `lid`'s audio solve (speech.to_face mood=, intensity=)."""
+    return SOLVE_MOOD.get(who, {}).get(lid, SOLVE_DEFAULT)
+
+
 MID_SMILE = (0.4, 0.6)
 BASE_SMILE = (0.2, 0.4)
 DEFAULT_AMOUNT = {"brow": 0.85, "question": 0.9, "curious": 0.85, "smile": 0.55, "soft": 0.5, "warm": 0.5,
@@ -247,6 +269,8 @@ def plan(who: str, only: set | None = None) -> dict:
         t0, t1 = words[0]["t0"], words[-1]["t1"]
         nxt = _next_word_t(cu, t1)
         base = min(BASE_SMILE[1], max(BASE_SMILE[0], float(L["base"].get("smile", 0.3))))
+        if FULL_SOLVE:
+            base *= BASE_UNDER_SOLVE
         # the warm base over the line (ramps in before the first word, out in the pause after)
         ev.append({"preset": RECIPES["warm"], "name": "base", "t": round(t0 - 0.45, 3),
                    "until": round(min(t1 + 0.3, nxt - 0.2), 3), "intensity": round(base, 3), "attack_s": 0.4,
@@ -417,7 +441,7 @@ def _sheet_line(who: str, lid: str) -> dict:
 
 def families(cur: dict) -> dict:
     """{curve family: peak} of a solve's curves (brow, cheek, squint, eyeLook, blink, mouth, head)."""
-    fam = {"brow": ("browRaise", "browDown", "browLateral"), "cheek": ("eyeCheekRaise",), "squint": ("eyeSquintInner",),
+    fam = {"brow_up": ("browRaise",), "brow_hard": ("browDown", "browLateral"), "cheek": ("eyeCheekRaise",), "squint": ("eyeSquintInner",),
            "smile": ("mouthCornerPull",), "eyeLook": ("eyeLook",), "blink": ("eyeBlink",), "lids": ("eyeWiden",
            "eyeLidPress", "eyeRelax", "eyeUpperLid", "eyeLowerLid"), "jaw": ("jawOpen",)}
     out = {}
@@ -430,18 +454,18 @@ def families(cur: dict) -> dict:
     return out
 
 
-def solvetest(who: str, lid: str, intensity: float | None = None) -> dict:
-    """On box B (the driver runs it): line `lid` solved FULL FACE in the sheet's solver mood, and MOUTH ONLY in the same
-    mood, beside round 6's mouth-only CONFIDENCE solve (AS_exp_<lid>). For each: the non-mouth families' peaks, the
+def solvetest(who: str, lid: str, intensity: float | None = None, mood_override: str = "") -> dict:
+    """On box B (the driver runs it): line `lid` solved FULL FACE in its solve mood (SOLVE_MOOD), and MOUTH ONLY in the
+    same mood, beside round 6's mouth-only CONFIDENCE solve (AS_exp_<lid>). For each: the non-mouth families' peaks, the
     gate's face rows over the line (as solved, no perfkit layer), the jaw against round 6's (the lips must not
     change), and lipsync.check of the full solve against its WAV (perform.py bias's call). Nothing is placed."""
     import perform as PF
     from perfkit import curves as C
     cl = PF.client()
     ln = next(x for x in PF.cues(who)["lines"] if x["id"] == lid)
-    sl = _sheet_line(who, lid)
-    mood = (sl.get("face04") or {}).get("solver_mood") or "HAPPINESS"
-    k = intensity if intensity is not None else float(sl.get("intensity", 0.75))
+    mood, k0 = solve_mood(who, lid)
+    mood = mood_override or mood
+    k = intensity if intensity is not None else k0
     mesh = PF.mesh_of(who, "Face")
     wav = PF.box(who, Path(ln["file"]).name)
     out = {"line": lid, "mood": mood, "intensity": k, "anims": {}}
@@ -481,7 +505,7 @@ def solvetest(who: str, lid: str, intensity: float | None = None) -> dict:
 def per_frame(cur: dict, length_s: float, fps: float = 24.0) -> dict:
     """{frame: {curve: value}} of the role curves (agent-09's qa_perf.face_rows_curves input), take frame = t * fps."""
     from perfkit import curves as C
-    stems = tuple(x for v in ROLES.values() for x in v)
+    stems = tuple(x for v in ROLES.values() for x in v) + ("browDown", "browLateral")  # + agent-09's frown_frac
     names = [n for n in cur if n.startswith(PREFIX) and n[len(PREFIX):].startswith(stems) and cur[n][0]]
     fr = list(range(int(length_s * fps) + 1))
     cols = {n: C.resample(*cur[n], [f / fps for f in fr]) for n in names}
@@ -532,7 +556,8 @@ def main() -> None:
     ap.add_argument("--spans", help="boxcheck: agent-09's spans_<film>.json (master frames) for the gate's rows")
     ap.add_argument("--anim", help="boxcheck: the face animation (default /Game/Explainer/Perf/AS_exp_<who>_gaze)")
     ap.add_argument("--line", default="N01", help="solvetest: the line")
-    ap.add_argument("--intensity", type=float, help="solvetest: the solver mood's intensity (default the sheet's)")
+    ap.add_argument("--intensity", type=float, help="solvetest: the solver mood's intensity (default SOLVE_MOOD's)")
+    ap.add_argument("--mood", help="solvetest: the solver mood (default SOLVE_MOOD's, e.g. PLAYFULNESS for N01)")
     ap.add_argument("--who", default="her")
     ap.add_argument("--lines", help="e.g. N01-N04,N13 (a test); default every line")
     a = ap.parse_args()
@@ -545,7 +570,7 @@ def main() -> None:
         p.write_text(json.dumps(plan(a.who, only)["tilts"], indent=1) + "\n")
         print(p)
     elif a.cmd == "solvetest":
-        r = solvetest(a.who, a.line, a.intensity)
+        r = solvetest(a.who, a.line, a.intensity, a.mood or "")
         out = ROOT / "out" / "explainers" / "face" / a.who / f"solvetest_{a.line}.json"
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(json.dumps(r, indent=1))
