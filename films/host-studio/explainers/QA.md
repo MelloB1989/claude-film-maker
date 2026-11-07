@@ -118,10 +118,10 @@ wood mosaic) at the bottom centre.
 
 ### Grain (box B, before the batch)
 
-**shot.grain_sigma ≤ 1.5 levels** is the worst Immerkaer noise sigma over fixed flat patches, picked by projection
+**shot.grain_sigma ≤ 1.0 levels (the orchestrator)** is the worst Immerkaer noise sigma over fixed flat patches, picked by projection
 through each camera: the wall, under her jaw, and the desk top. `qa_av.py grain FRAMES --patches patches.json`
 measures it. Calibrated on box B: the f300 speckle reads 3.10 and MCU_1330 reads 14.55 (both must fail), against
-0.689 on the finals-spec MCU test, which the orchestrator passed at 1:1. A FAIL blocks
+0.689 on the finals-spec MCU test, which the orchestrator passed at 1:1. Measure the first and last frame of each final job; a FAIL re-renders that job. A FAIL blocks
 the 9-shot batch.
 
 ### Exposure (agent-09 runs it on the box)

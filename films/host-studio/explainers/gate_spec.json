@@ -488,17 +488,17 @@
    "area": "shot",
    "track": "agent-07 (box B) / agent-09",
    "op": "<=",
-   "line": 1.5,
+   "line": 1.0,
    "unit": "8-bit levels",
    "what": "pixel noise (unconverged stochastic shadows / dither) in fixed FLAT patches picked by projection through each shot camera (the back-wall plaster, under her jaw at neck_01 + 6 cm forward, the desk top before her hands in the WIDE): the worst patch's Immerkaer noise sigma",
-   "where": "the finals-spec MCU test f29 before the batch, then each final shot's frames",
+   "where": "the first AND last frame of each final job (a FAIL re-renders that job), the finals-spec MCU test f29 before the batch",
    "how": "qa_av.py grain <full-res frames> --patches grain_patches.json (on box B: face data) -> numbers/<film>/grain.json",
    "must_fail": [
     3.104,
     "netflix r6c WIDE f300 (neck 3.104, desk 3.069), the speckle the orchestrator saw; r6b_v2_clip MCU_1330 read 14.553 (wall)"
    ],
    "guard": true,
-   "why": "the orchestrator, 07 Nov: the finals must be CLEAN; a FAIL blocks the batch. Calibrated on box B (agent-07): the must-fails 3.10 / 14.55 vs the finals-spec MCU test f29 0.689, which the orchestrator passed by eye at 1:1. The line sits 2x from both. An absolute line instead of a ratio to the karma finals, whose patches could not be placed without box A"
+   "why": "the orchestrator, 07 Nov: an ABSOLUTE line sigma <= 1.0 (8-bit, flat patches) until a karma reference exists; f300 (3.10) and MCU_1330 (14.55) fail it, the finals-spec MCU test f29 (0.69, passed by eye at 1:1) passes"
   }
  },
  "not_attempted": {
