@@ -17,6 +17,7 @@ and body made one skeleton, the eyes locked on each shot's lens or on the partne
     cd tools && uv run python ../films/host-studio/reel/perf.py stage           # Test_ sequences, cameras, marks
     cd tools && uv run python ../films/host-studio/reel/perf.py sync|gaze|stills [--who him]
     cd tools && uv run python ../films/host-studio/reel/perf.py place --seq /Game/Reel/SEQ_Reel   # for R7
+    cd tools && uv run python ../films/host-studio/reel/perf.py settle          # r6: no head jump where a section starts
 
 The work happens in one test sequence per presenter (`Test_agent-03_Him`/`_Her`, frame 0 = the master frame its
 performance starts on, the one actor in it, test cameras keyed like the reel's), because the bake ops sample a sequence
@@ -541,6 +542,18 @@ def _clash(a: list, b: list, pad: float = 2.0) -> list:
 NO_BLINK = {"him": [[1124, 1172]], "her": []}
 
 
+def tilt_moves(e: dict, ease_s: float = 0.5, pad: float = 0.1) -> list:
+    """[[t0, t1], ...] (s) where each planned tilt eases in or out (perfkit.head.Tilt: in over ease_s from t, out over
+    1.3 ease_s from until): no blink there (r6: the planner keeps blinks off gaze shifts and nods, not off tilts; a
+    tilt easing under a blink reads as the head moving with it)."""
+    out = []
+    for t in e.get("tilts", []):
+        es = float(t.get("ease_s", ease_s))
+        out += [[round(t["t"] - pad, 3), round(t["t"] + es + pad, 3)],
+                [round(t["until"] - pad, 3), round(t["until"] + 1.3 * es + pad, 3)]]
+    return out
+
+
 def naturalize(who: str, plot: bool = True, no_turn_blinks: bool = False) -> dict:
     """perf.face over the composed solve -> ANIM/AS_reel_<who>_face (what sync, gaze and place use, as in v2). Needs
     `compose` (r3) and perf.calibrate on the presenter's face (`calibrate`). When the other presenter's face has been
@@ -552,6 +565,7 @@ def naturalize(who: str, plot: bool = True, no_turn_blinks: bool = False) -> dic
     theirs_p = OUT / f"blinks_{other}.json"
     theirs = json.loads(theirs_p.read_text()) if theirs_p.exists() else []
     avoid = [[round((a - START[who]) / FPS, 3), round((b - START[who]) / FPS, 3)] for a, b in theirs + (NO_BLINK[who] if no_turn_blinks else [])]
+    avoid += tilt_moves(e)
     args = {"anim": f"{ANIM}/AS_reel_{who}_solve", "out": f"{ANIM}/AS_reel_{who}_face",
             # r5 (the operator on r4: "every time she blinks her head nods"): the solve's head is dropped (it comes out
             # of the same predictor run as its blinks and dips with them) and no blink moves the head
@@ -979,8 +993,28 @@ x = EAS.spawn_actor_from_class(src.get_class(), unreal.Vector(*P["loc"]), src.ge
 x.set_actor_label(P["label"])
 x.set_actor_hidden_in_game(False)
 x.set_is_temporarily_hidden_in_editor(False)
+# r6 (agent-06, box A): his copy spawned with its components ON his mark (bounds at z 92, not -2500), so it stood
+# inside him in every render since K2, and moving its root did not move them: components set to absolute location
+# (his Blueprint since host_swap). Each is made relative again with the source's own relative placement, then the
+# copy must be under the floor, or it is destroyed and this fails.
+srcc = {c.get_name(): c for c in src.get_components_by_class(unreal.SceneComponent)}
+fixed = []
+for c in x.get_components_by_class(unreal.SceneComponent):
+    if c.get_editor_property("absolute_location") or c.get_editor_property("absolute_rotation"):
+        c.set_absolute(False, False, c.get_editor_property("absolute_scale"))
+        s = srcc.get(c.get_name())
+        if s is not None:
+            c.set_relative_location_and_rotation(s.get_relative_location(), s.get_relative_rotation(), False, False)
+        fixed.append(c.get_name())
+far = []
+for c in x.get_components_by_class(unreal.PrimitiveComponent):
+    if c.get_world_location().z > P["loc"][2] + 1000.0:
+        far.append([c.get_name(), round(c.get_world_location().z, 1)])
+if far:
+    EAS.destroy_actor(x)
+    raise RuntimeError(f"{P['label']}: components not under the floor after spawn {far} (fixed {fixed}): destroyed")
 r = src.get_actor_rotation()
-result = {"label": P["label"], "class": src.get_class().get_name(), "yaw": r.yaw}
+result = {"label": P["label"], "class": src.get_class().get_name(), "yaw": r.yaw, "made_relative": fixed}
 """
 
 
@@ -1451,11 +1485,60 @@ def place(path: str) -> list:
         out.append(ok(client.op("seq.anim", path=path, label=LABEL[who], component="Body", sections=[
             {"anim": body, "start": s0 - PRE_ROLL, "end": s0, "rate": HOLD_RATE, "loop": False},
             # and at END (the film's last frame is END - 1, both in S18) the idle takes over off screen, uncross-faded
-            {"anim": body, "start": s0, "end": s1, "loop": False},
+            # r6 (agent-06's probe): the body's key at END - 1 is baked from a test frame where the face section had
+            # already ended (the face anims end at END - 1, exclusive), so f1559, the film's last frame, leaned 4 deg
+            # (her) / 1.8 deg (him) toward the idle. The last on-screen frame holds END - 2's pose instead.
+            {"anim": body, "start": s0, "end": s1 - 1, "loop": False},
+            {"anim": body, "start": s1 - 1, "end": s1, "rate": HOLD_RATE, "offset": (s1 - 2 - s0) / FPS, "loop": False},
             {"anim": idle, "start": s1, "end": s1 + POST_ROLL, "offset": phase(s1)},
             # round 3: the body life additive over all of it, on its own row
             *([{"anim": f"{ANIM}/AS_reel_{who}_life", "start": s0, "end": s1 + POST_ROLL, "loop": False,
                 "blend_in": BLEND, "row": 2}] if use_life else [])])))
+    return out
+
+
+# r6 (K2): the place() fix's AFTER samples. Each window spans a body's START (the pre-roll hold handing over to the
+# performance) or the last on-screen frames: f954-968 him (S13), f1074-1090 her (S15), f1546-1559 both (S18).
+SETTLE_WINDOWS = {"him": [(954, 968), (1546, 1559)], "her": [(1074, 1090), (1546, 1559)]}
+SETTLE_LINE = 0.6  # degrees a frame-to-frame head step may exceed the planned one (the orchestrator, r6)
+
+
+def _rot_step(a: list, b: list) -> float:
+    """Degrees the bone turned between two _xform samples (its axes), whatever its local axis convention."""
+    import math
+    A = np.array([a[3:6], a[6:9], a[9:12]]).T
+    B = np.array([b[3:6], b[6:9], b[9:12]]).T
+    c = (np.trace(A.T @ B) - 1.0) / 2.0
+    return math.degrees(math.acos(max(-1.0, min(1.0, c))))
+
+
+def settle(who: str, path: str = "/Game/Reel/SEQ_Reel") -> dict:
+    """Does the head jump where a placed section begins (the r5b tilt-in)? seq.sample of the Face's head over each
+    SETTLE_WINDOWS span; every frame-to-frame turn of the head bone against the step perfkit plans there
+    (planned_head: head yaw and pitch, the torso under them). Pass: no step over the plan by more than SETTLE_LINE.
+    The eyes' own steps are listed (saccades are planned, not judged here). Numbers only, kept in OUT/qa/."""
+    import math
+    out = {"who": who, "line": SETTLE_LINE, "windows": []}
+    for f0, f1 in SETTLE_WINDOWS[who]:
+        frames = list(range(f0, f1 + 1))
+        smp = ok(client.op("seq.sample", path=path, actor_label=LABEL[who], component="Face",
+                           bones=["head", "FACIAL_L_Eye"], frames=frames, ticks=4, timeout=900))
+        hb, eb = smp["bones"]["head"], smp["bones"]["FACIAL_L_Eye"]
+        rows = []
+        for i in range(1, len(frames)):
+            f = frames[i]
+            (y0, p0), _ = planned_head(who, max(f - 1, START[who]))
+            (y1, p1), _ = planned_head(who, max(f, START[who]))
+            plan = math.hypot(y1 - y0, p1 - p0)  # a hold before START plans no motion
+            got = _rot_step(hb[i - 1], hb[i])
+            rows.append({"f": f, "head_deg": round(got, 3), "plan_deg": round(plan, 3),
+                         "excess_deg": round(got - plan, 3), "eye_deg": round(_rot_step(eb[i - 1], eb[i]), 3)})
+        worst = max(rows, key=lambda r: r["excess_deg"])
+        out["windows"].append({"frames": [f0, f1], "worst": worst, "pass": worst["excess_deg"] <= SETTLE_LINE,
+                               "rows": rows})
+    out["pass"] = all(w["pass"] for w in out["windows"])
+    (OUT / "qa").mkdir(parents=True, exist_ok=True)
+    (OUT / "qa" / f"settle_after_{who}.json").write_text(json.dumps(out, indent=1))
     return out
 
 
@@ -1509,7 +1592,7 @@ def head_check(seq: str, rejudge: bool = False) -> dict:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("cmd", choices=["push", "solve", "compose", "stage", "signs", "sync", "gaze", "stills", "cleanup", "drive_faces", "restage",
-                                       "place", "arm_axes", "gesture", "calibrate", "naturalize", "check", "calibrate_body", "life", "verify", "looks",
+                                       "place", "settle", "arm_axes", "gesture", "calibrate", "naturalize", "check", "calibrate_body", "life", "verify", "looks",
                                        "head"])
     ap.add_argument("--who", default="him,her")
     ap.add_argument("--seq", default="/Game/Reel/SEQ_Reel", help="place: the sequence")
@@ -1556,6 +1639,10 @@ def main() -> None:
         r = head_check(a.seq, a.rejudge)
         print(json.dumps(r, default=str))
         sys.exit(0 if r["pass"] else 1)
+    elif a.cmd == "settle":
+        r = {w: settle(w, a.seq) for w in a.who.split(",")}
+        print(json.dumps({w: {"pass": x["pass"], "worst": [v["worst"] for v in x["windows"]]} for w, x in r.items()}))
+        sys.exit(0 if all(x["pass"] for x in r.values()) else 1)
     elif a.cmd == "cleanup":
         print(json.dumps(cleanup()))
     elif a.cmd == "drive_faces":

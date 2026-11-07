@@ -1,0 +1,1170 @@
+{
+ "film": "whatsapp",
+ "fps": 24,
+ "frames": 1352,
+ "duration": 56.3333,
+ "vo": "audio/whatsapp/vo.wav",
+ "presenter": "him",
+ "share": {
+  "presenter": 0.32,
+  "panel": 0.276,
+  "gfx": 0.405
+ },
+ "shots": [
+  {
+   "n": 1,
+   "kind": "pres",
+   "f0": 0,
+   "f1": 93,
+   "frames": 93,
+   "lines": [
+    "W01"
+   ],
+   "camera": "CAM_MCU",
+   "text": "Every day, WhatsApp moves over a hundred billion messages.",
+   "words": [
+    {
+     "w": "Every",
+     "f": 18,
+     "f_end": 26,
+     "line": "W01"
+    },
+    {
+     "w": "day,",
+     "f": 26,
+     "f_end": 31,
+     "line": "W01"
+    },
+    {
+     "w": "WhatsApp",
+     "f": 35,
+     "f_end": 47,
+     "line": "W01"
+    },
+    {
+     "w": "moves",
+     "f": 48,
+     "f_end": 54,
+     "line": "W01"
+    },
+    {
+     "w": "over",
+     "f": 54,
+     "f_end": 60,
+     "line": "W01"
+    },
+    {
+     "w": "a",
+     "f": 60,
+     "f_end": 61,
+     "line": "W01"
+    },
+    {
+     "w": "hundred",
+     "f": 62,
+     "f_end": 69,
+     "line": "W01"
+    },
+    {
+     "w": "billion",
+     "f": 70,
+     "f_end": 77,
+     "line": "W01"
+    },
+    {
+     "w": "messages.",
+     "f": 78,
+     "f_end": 90,
+     "line": "W01"
+    }
+   ]
+  },
+  {
+   "n": 2,
+   "kind": "gfx",
+   "f0": 93,
+   "f1": 152,
+   "frames": 59,
+   "lines": [
+    "W02"
+   ],
+   "gfx": "title",
+   "text": "And almost none of them stay on its servers.",
+   "words": [
+    {
+     "w": "And",
+     "f": 4,
+     "f_end": 13,
+     "line": "W02"
+    },
+    {
+     "w": "almost",
+     "f": 14,
+     "f_end": 23,
+     "line": "W02"
+    },
+    {
+     "w": "none",
+     "f": 24,
+     "f_end": 28,
+     "line": "W02"
+    },
+    {
+     "w": "of",
+     "f": 27,
+     "f_end": 30,
+     "line": "W02"
+    },
+    {
+     "w": "them",
+     "f": 30,
+     "f_end": 34,
+     "line": "W02"
+    },
+    {
+     "w": "stay",
+     "f": 34,
+     "f_end": 39,
+     "line": "W02"
+    },
+    {
+     "w": "on",
+     "f": 39,
+     "f_end": 42,
+     "line": "W02"
+    },
+    {
+     "w": "its",
+     "f": 42,
+     "f_end": 45,
+     "line": "W02"
+    },
+    {
+     "w": "servers.",
+     "f": 45,
+     "f_end": 56,
+     "line": "W02"
+    }
+   ]
+  },
+  {
+   "n": 3,
+   "kind": "pres",
+   "f0": 152,
+   "f1": 179,
+   "frames": 27,
+   "lines": [
+    "W03"
+   ],
+   "camera": "CAM_CU",
+   "text": "Here's how.",
+   "words": [
+    {
+     "w": "Here's",
+     "f": 4,
+     "f_end": 12,
+     "line": "W03"
+    },
+    {
+     "w": "how.",
+     "f": 12,
+     "f_end": 18,
+     "line": "W03"
+    }
+   ]
+  },
+  {
+   "n": 4,
+   "kind": "panel",
+   "f0": 179,
+   "f1": 273,
+   "frames": 94,
+   "lines": [
+    "W04"
+   ],
+   "camera": "CAM_MCU",
+   "gfx": "connect",
+   "text": "Open the app, and your phone keeps one connection open to WhatsApp.",
+   "words": [
+    {
+     "w": "Open",
+     "f": 9,
+     "f_end": 16,
+     "line": "W04"
+    },
+    {
+     "w": "the",
+     "f": 17,
+     "f_end": 20,
+     "line": "W04"
+    },
+    {
+     "w": "app,",
+     "f": 20,
+     "f_end": 26,
+     "line": "W04"
+    },
+    {
+     "w": "and",
+     "f": 31,
+     "f_end": 35,
+     "line": "W04"
+    },
+    {
+     "w": "your",
+     "f": 36,
+     "f_end": 39,
+     "line": "W04"
+    },
+    {
+     "w": "phone",
+     "f": 39,
+     "f_end": 46,
+     "line": "W04"
+    },
+    {
+     "w": "keeps",
+     "f": 46,
+     "f_end": 53,
+     "line": "W04"
+    },
+    {
+     "w": "one",
+     "f": 54,
+     "f_end": 59,
+     "line": "W04"
+    },
+    {
+     "w": "connection",
+     "f": 59,
+     "f_end": 69,
+     "line": "W04"
+    },
+    {
+     "w": "open",
+     "f": 70,
+     "f_end": 76,
+     "line": "W04"
+    },
+    {
+     "w": "to",
+     "f": 76,
+     "f_end": 79,
+     "line": "W04"
+    },
+    {
+     "w": "WhatsApp.",
+     "f": 79,
+     "f_end": 91,
+     "line": "W04"
+    }
+   ]
+  },
+  {
+   "n": 5,
+   "kind": "gfx",
+   "f0": 273,
+   "f1": 422,
+   "frames": 149,
+   "lines": [
+    "W05",
+    "W06"
+   ],
+   "gfx": "erlang",
+   "text": "On the server, each connection is its own tiny Erlang process. One server once held two million of them.",
+   "words": [
+    {
+     "w": "On",
+     "f": 4,
+     "f_end": 8,
+     "line": "W05"
+    },
+    {
+     "w": "the",
+     "f": 9,
+     "f_end": 11,
+     "line": "W05"
+    },
+    {
+     "w": "server,",
+     "f": 12,
+     "f_end": 21,
+     "line": "W05"
+    },
+    {
+     "w": "each",
+     "f": 28,
+     "f_end": 33,
+     "line": "W05"
+    },
+    {
+     "w": "connection",
+     "f": 33,
+     "f_end": 43,
+     "line": "W05"
+    },
+    {
+     "w": "is",
+     "f": 44,
+     "f_end": 47,
+     "line": "W05"
+    },
+    {
+     "w": "its",
+     "f": 47,
+     "f_end": 51,
+     "line": "W05"
+    },
+    {
+     "w": "own",
+     "f": 51,
+     "f_end": 58,
+     "line": "W05"
+    },
+    {
+     "w": "tiny",
+     "f": 58,
+     "f_end": 67,
+     "line": "W05"
+    },
+    {
+     "w": "Erlang",
+     "f": 68,
+     "f_end": 75,
+     "line": "W05"
+    },
+    {
+     "w": "process.",
+     "f": 76,
+     "f_end": 89,
+     "line": "W05"
+    },
+    {
+     "w": "One",
+     "f": 95,
+     "f_end": 100,
+     "line": "W06"
+    },
+    {
+     "w": "server",
+     "f": 100,
+     "f_end": 109,
+     "line": "W06"
+    },
+    {
+     "w": "once",
+     "f": 109,
+     "f_end": 115,
+     "line": "W06"
+    },
+    {
+     "w": "held",
+     "f": 114,
+     "f_end": 119,
+     "line": "W06"
+    },
+    {
+     "w": "two",
+     "f": 119,
+     "f_end": 123,
+     "line": "W06"
+    },
+    {
+     "w": "million",
+     "f": 124,
+     "f_end": 132,
+     "line": "W06"
+    },
+    {
+     "w": "of",
+     "f": 132,
+     "f_end": 135,
+     "line": "W06"
+    },
+    {
+     "w": "them.",
+     "f": 135,
+     "f_end": 140,
+     "line": "W06"
+    }
+   ]
+  },
+  {
+   "n": 6,
+   "kind": "pres",
+   "f0": 422,
+   "f1": 480,
+   "frames": 58,
+   "lines": [
+    "W07"
+   ],
+   "camera": "CAM_WIDE",
+   "text": "You hit send. Is your friend online?",
+   "words": [
+    {
+     "w": "You",
+     "f": 9,
+     "f_end": 13,
+     "line": "W07"
+    },
+    {
+     "w": "hit",
+     "f": 14,
+     "f_end": 18,
+     "line": "W07"
+    },
+    {
+     "w": "send.",
+     "f": 19,
+     "f_end": 28,
+     "line": "W07"
+    },
+    {
+     "w": "Is",
+     "f": 30,
+     "f_end": 35,
+     "line": "W07"
+    },
+    {
+     "w": "your",
+     "f": 35,
+     "f_end": 38,
+     "line": "W07"
+    },
+    {
+     "w": "friend",
+     "f": 38,
+     "f_end": 44,
+     "line": "W07"
+    },
+    {
+     "w": "online?",
+     "f": 45,
+     "f_end": 55,
+     "line": "W07"
+    }
+   ]
+  },
+  {
+   "n": 7,
+   "kind": "gfx",
+   "f0": 480,
+   "f1": 614,
+   "frames": 134,
+   "lines": [
+    "W08",
+    "W09"
+   ],
+   "gfx": "store",
+   "text": "Then it goes straight down their connection. If not, it waits. And once it's delivered, it's deleted.",
+   "words": [
+    {
+     "w": "Then",
+     "f": 4,
+     "f_end": 9,
+     "line": "W08"
+    },
+    {
+     "w": "it",
+     "f": 9,
+     "f_end": 12,
+     "line": "W08"
+    },
+    {
+     "w": "goes",
+     "f": 12,
+     "f_end": 17,
+     "line": "W08"
+    },
+    {
+     "w": "straight",
+     "f": 17,
+     "f_end": 25,
+     "line": "W08"
+    },
+    {
+     "w": "down",
+     "f": 25,
+     "f_end": 30,
+     "line": "W08"
+    },
+    {
+     "w": "their",
+     "f": 30,
+     "f_end": 34,
+     "line": "W08"
+    },
+    {
+     "w": "connection.",
+     "f": 34,
+     "f_end": 47,
+     "line": "W08"
+    },
+    {
+     "w": "If",
+     "f": 54,
+     "f_end": 58,
+     "line": "W09"
+    },
+    {
+     "w": "not,",
+     "f": 59,
+     "f_end": 65,
+     "line": "W09"
+    },
+    {
+     "w": "it",
+     "f": 68,
+     "f_end": 72,
+     "line": "W09"
+    },
+    {
+     "w": "waits.",
+     "f": 72,
+     "f_end": 82,
+     "line": "W09"
+    },
+    {
+     "w": "And",
+     "f": 85,
+     "f_end": 89,
+     "line": "W09"
+    },
+    {
+     "w": "once",
+     "f": 89,
+     "f_end": 95,
+     "line": "W09"
+    },
+    {
+     "w": "it's",
+     "f": 94,
+     "f_end": 99,
+     "line": "W09"
+    },
+    {
+     "w": "delivered,",
+     "f": 99,
+     "f_end": 110,
+     "line": "W09"
+    },
+    {
+     "w": "it's",
+     "f": 110,
+     "f_end": 115,
+     "line": "W09"
+    },
+    {
+     "w": "deleted.",
+     "f": 115,
+     "f_end": 126,
+     "line": "W09"
+    }
+   ]
+  },
+  {
+   "n": 8,
+   "kind": "panel",
+   "f0": 614,
+   "f1": 769,
+   "frames": 155,
+   "lines": [
+    "W10",
+    "W11"
+   ],
+   "camera": "CAM_MCU",
+   "gfx": "ticks",
+   "text": "Your ticks? One: the server has it. Two: it reached their phone. Blue: they've read it.",
+   "words": [
+    {
+     "w": "Your",
+     "f": 9,
+     "f_end": 15,
+     "line": "W10"
+    },
+    {
+     "w": "ticks?",
+     "f": 15,
+     "f_end": 25,
+     "line": "W10"
+    },
+    {
+     "w": "One:",
+     "f": 32,
+     "f_end": 40,
+     "line": "W10"
+    },
+    {
+     "w": "the",
+     "f": 44,
+     "f_end": 48,
+     "line": "W10"
+    },
+    {
+     "w": "server",
+     "f": 48,
+     "f_end": 57,
+     "line": "W10"
+    },
+    {
+     "w": "has",
+     "f": 57,
+     "f_end": 61,
+     "line": "W10"
+    },
+    {
+     "w": "it.",
+     "f": 62,
+     "f_end": 65,
+     "line": "W10"
+    },
+    {
+     "w": "Two:",
+     "f": 72,
+     "f_end": 79,
+     "line": "W11"
+    },
+    {
+     "w": "it",
+     "f": 87,
+     "f_end": 91,
+     "line": "W11"
+    },
+    {
+     "w": "reached",
+     "f": 92,
+     "f_end": 99,
+     "line": "W11"
+    },
+    {
+     "w": "their",
+     "f": 99,
+     "f_end": 103,
+     "line": "W11"
+    },
+    {
+     "w": "phone.",
+     "f": 102,
+     "f_end": 112,
+     "line": "W11"
+    },
+    {
+     "w": "Blue:",
+     "f": 118,
+     "f_end": 128,
+     "line": "W11"
+    },
+    {
+     "w": "they've",
+     "f": 133,
+     "f_end": 140,
+     "line": "W11"
+    },
+    {
+     "w": "read",
+     "f": 139,
+     "f_end": 144,
+     "line": "W11"
+    },
+    {
+     "w": "it.",
+     "f": 144,
+     "f_end": 147,
+     "line": "W11"
+    }
+   ]
+  },
+  {
+   "n": 9,
+   "kind": "gfx",
+   "f0": 769,
+   "f1": 870,
+   "frames": 101,
+   "lines": [
+    "W12"
+   ],
+   "gfx": "group",
+   "text": "In a group, your phone encrypts once. The server fans it out to everyone.",
+   "words": [
+    {
+     "w": "In",
+     "f": 9,
+     "f_end": 13,
+     "line": "W12"
+    },
+    {
+     "w": "a",
+     "f": 13,
+     "f_end": 15,
+     "line": "W12"
+    },
+    {
+     "w": "group,",
+     "f": 15,
+     "f_end": 21,
+     "line": "W12"
+    },
+    {
+     "w": "your",
+     "f": 21,
+     "f_end": 24,
+     "line": "W12"
+    },
+    {
+     "w": "phone",
+     "f": 24,
+     "f_end": 31,
+     "line": "W12"
+    },
+    {
+     "w": "encrypts",
+     "f": 31,
+     "f_end": 40,
+     "line": "W12"
+    },
+    {
+     "w": "once.",
+     "f": 41,
+     "f_end": 48,
+     "line": "W12"
+    },
+    {
+     "w": "The",
+     "f": 52,
+     "f_end": 56,
+     "line": "W12"
+    },
+    {
+     "w": "server",
+     "f": 56,
+     "f_end": 64,
+     "line": "W12"
+    },
+    {
+     "w": "fans",
+     "f": 64,
+     "f_end": 70,
+     "line": "W12"
+    },
+    {
+     "w": "it",
+     "f": 70,
+     "f_end": 72,
+     "line": "W12"
+    },
+    {
+     "w": "out",
+     "f": 72,
+     "f_end": 76,
+     "line": "W12"
+    },
+    {
+     "w": "to",
+     "f": 76,
+     "f_end": 79,
+     "line": "W12"
+    },
+    {
+     "w": "everyone.",
+     "f": 80,
+     "f_end": 93,
+     "line": "W12"
+    }
+   ]
+  },
+  {
+   "n": 10,
+   "kind": "pres",
+   "f0": 870,
+   "f1": 929,
+   "frames": 59,
+   "lines": [
+    "W13"
+   ],
+   "camera": "CAM_CU",
+   "text": "And the server can't read a word of it.",
+   "words": [
+    {
+     "w": "And",
+     "f": 9,
+     "f_end": 14,
+     "line": "W13"
+    },
+    {
+     "w": "the",
+     "f": 14,
+     "f_end": 17,
+     "line": "W13"
+    },
+    {
+     "w": "server",
+     "f": 17,
+     "f_end": 27,
+     "line": "W13"
+    },
+    {
+     "w": "can't",
+     "f": 27,
+     "f_end": 34,
+     "line": "W13"
+    },
+    {
+     "w": "read",
+     "f": 34,
+     "f_end": 39,
+     "line": "W13"
+    },
+    {
+     "w": "a",
+     "f": 39,
+     "f_end": 41,
+     "line": "W13"
+    },
+    {
+     "w": "word",
+     "f": 41,
+     "f_end": 49,
+     "line": "W13"
+    },
+    {
+     "w": "of",
+     "f": 49,
+     "f_end": 52,
+     "line": "W13"
+    },
+    {
+     "w": "it.",
+     "f": 52,
+     "f_end": 56,
+     "line": "W13"
+    }
+   ]
+  },
+  {
+   "n": 11,
+   "kind": "gfx",
+   "f0": 929,
+   "f1": 997,
+   "frames": 68,
+   "lines": [
+    "W14"
+   ],
+   "gfx": "e2e",
+   "text": "The Signal protocol keeps the keys on your phones.",
+   "words": [
+    {
+     "w": "The",
+     "f": 4,
+     "f_end": 8,
+     "line": "W14"
+    },
+    {
+     "w": "Signal",
+     "f": 8,
+     "f_end": 16,
+     "line": "W14"
+    },
+    {
+     "w": "protocol",
+     "f": 16,
+     "f_end": 27,
+     "line": "W14"
+    },
+    {
+     "w": "keeps",
+     "f": 28,
+     "f_end": 34,
+     "line": "W14"
+    },
+    {
+     "w": "the",
+     "f": 34,
+     "f_end": 37,
+     "line": "W14"
+    },
+    {
+     "w": "keys",
+     "f": 37,
+     "f_end": 43,
+     "line": "W14"
+    },
+    {
+     "w": "on",
+     "f": 43,
+     "f_end": 46,
+     "line": "W14"
+    },
+    {
+     "w": "your",
+     "f": 46,
+     "f_end": 49,
+     "line": "W14"
+    },
+    {
+     "w": "phones.",
+     "f": 49,
+     "f_end": 59,
+     "line": "W14"
+    }
+   ]
+  },
+  {
+   "n": 12,
+   "kind": "panel",
+   "f0": 997,
+   "f1": 1121,
+   "frames": 124,
+   "lines": [
+    "W15"
+   ],
+   "camera": "CAM_MCU",
+   "gfx": "media",
+   "text": "Photos go to a blob store, encrypted. Only the key rides in the message.",
+   "words": [
+    {
+     "w": "Photos",
+     "f": 9,
+     "f_end": 20,
+     "line": "W15"
+    },
+    {
+     "w": "go",
+     "f": 21,
+     "f_end": 24,
+     "line": "W15"
+    },
+    {
+     "w": "to",
+     "f": 25,
+     "f_end": 28,
+     "line": "W15"
+    },
+    {
+     "w": "a",
+     "f": 29,
+     "f_end": 30,
+     "line": "W15"
+    },
+    {
+     "w": "blob",
+     "f": 31,
+     "f_end": 38,
+     "line": "W15"
+    },
+    {
+     "w": "store,",
+     "f": 39,
+     "f_end": 49,
+     "line": "W15"
+    },
+    {
+     "w": "encrypted.",
+     "f": 49,
+     "f_end": 66,
+     "line": "W15"
+    },
+    {
+     "w": "Only",
+     "f": 75,
+     "f_end": 82,
+     "line": "W15"
+    },
+    {
+     "w": "the",
+     "f": 82,
+     "f_end": 85,
+     "line": "W15"
+    },
+    {
+     "w": "key",
+     "f": 85,
+     "f_end": 91,
+     "line": "W15"
+    },
+    {
+     "w": "rides",
+     "f": 92,
+     "f_end": 101,
+     "line": "W15"
+    },
+    {
+     "w": "in",
+     "f": 101,
+     "f_end": 103,
+     "line": "W15"
+    },
+    {
+     "w": "the",
+     "f": 103,
+     "f_end": 106,
+     "line": "W15"
+    },
+    {
+     "w": "message.",
+     "f": 105,
+     "f_end": 116,
+     "line": "W15"
+    }
+   ]
+  },
+  {
+   "n": 13,
+   "kind": "pres",
+   "f0": 1121,
+   "f1": 1252,
+   "frames": 131,
+   "lines": [
+    "W16"
+   ],
+   "camera": "CAM_MCU",
+   "text": "Tiny processes. Messages that don't linger. Keys that never leave your hands.",
+   "words": [
+    {
+     "w": "Tiny",
+     "f": 9,
+     "f_end": 19,
+     "line": "W16"
+    },
+    {
+     "w": "processes.",
+     "f": 20,
+     "f_end": 37,
+     "line": "W16"
+    },
+    {
+     "w": "Messages",
+     "f": 46,
+     "f_end": 57,
+     "line": "W16"
+    },
+    {
+     "w": "that",
+     "f": 57,
+     "f_end": 61,
+     "line": "W16"
+    },
+    {
+     "w": "don't",
+     "f": 61,
+     "f_end": 67,
+     "line": "W16"
+    },
+    {
+     "w": "linger.",
+     "f": 68,
+     "f_end": 79,
+     "line": "W16"
+    },
+    {
+     "w": "Keys",
+     "f": 87,
+     "f_end": 95,
+     "line": "W16"
+    },
+    {
+     "w": "that",
+     "f": 95,
+     "f_end": 99,
+     "line": "W16"
+    },
+    {
+     "w": "never",
+     "f": 100,
+     "f_end": 106,
+     "line": "W16"
+    },
+    {
+     "w": "leave",
+     "f": 107,
+     "f_end": 112,
+     "line": "W16"
+    },
+    {
+     "w": "your",
+     "f": 112,
+     "f_end": 116,
+     "line": "W16"
+    },
+    {
+     "w": "hands.",
+     "f": 116,
+     "f_end": 128,
+     "line": "W16"
+    }
+   ]
+  },
+  {
+   "n": 14,
+   "kind": "pres",
+   "f0": 1252,
+   "f1": 1316,
+   "frames": 64,
+   "lines": [
+    "W17"
+   ],
+   "camera": "CAM_CU",
+   "text": "That's over a hundred billion messages a day.",
+   "words": [
+    {
+     "w": "That's",
+     "f": 3,
+     "f_end": 11,
+     "line": "W17"
+    },
+    {
+     "w": "over",
+     "f": 11,
+     "f_end": 17,
+     "line": "W17"
+    },
+    {
+     "w": "a",
+     "f": 17,
+     "f_end": 19,
+     "line": "W17"
+    },
+    {
+     "w": "hundred",
+     "f": 19,
+     "f_end": 26,
+     "line": "W17"
+    },
+    {
+     "w": "billion",
+     "f": 26,
+     "f_end": 34,
+     "line": "W17"
+    },
+    {
+     "w": "messages",
+     "f": 34,
+     "f_end": 44,
+     "line": "W17"
+    },
+    {
+     "w": "a",
+     "f": 45,
+     "f_end": 46,
+     "line": "W17"
+    },
+    {
+     "w": "day.",
+     "f": 47,
+     "f_end": 52,
+     "line": "W17"
+    }
+   ]
+  },
+  {
+   "n": 15,
+   "kind": "gfx",
+   "gfx": "end",
+   "f0": 1316,
+   "f1": 1352,
+   "frames": 36,
+   "lines": [],
+   "text": "",
+   "words": []
+  }
+ ]
+}

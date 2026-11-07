@@ -414,3 +414,25 @@ The orchestrator by eye: the L1, L2 and L4 onsets are at 0-2 f. The measure is n
   - round 4's L1 must read near its P1 curve-chain lag (about -17 f);
   - an r5 cut muxed +6 f late must read +6 on every line;
   - the r5 cut must read |lag| ≤ 1.
+
+## Round 6 (explainers, 07 Nov): the onset window, and a deliberate 2.5-frame anticipation
+
+Approved by the orchestrator, 07 Nov ~19:00 IST. The proof is in `films/host-studio/explainers/proof/`
+(`lipproof.json`, `lipproof_N04-N07.png`): her 16 Netflix lines, the curves read from box B.
+
+- **The "mouth 1.0 s early" on every line was the measure.** lipsync.check's onset search reached back `max_lag_s`
+  (1.0 s). The explainers' lines are only 0.34 s apart, so the window began inside the previous line and read that
+  line's mouth as this one opening early: exactly 1.00 s on N02-N16, and −0.05 s on N01, which has no line before
+  it. Each solve checked alone against its own WAV opens at 0.000-0.002 s (16/16), and the composed face matches
+  each line's solve (|lag| 0.03-0.85 f, r 0.90-0.995).
+  - Fix: the search stops `ONSET_GAP_S` (0.12 s) after the previous line's last word (core
+    `fleet/agent-01/r6-lipsync-onset` 341ae3c2, with a test that a mouth really opening in the gap is still
+    caught).
+- **Under it, a real lag: the solver opens the jaw 1-2 frames AFTER the first sound.** compose's 3-frame fade-in
+  adds about 1 frame. Measured on her composed lines: 0.9-2.2 f late. People open the mouth 100-300 ms ahead of
+  the voice (Chandrasekaran 2009), and the orchestrator's bar is 0-2 f before.
+  - So each line's mouth is placed **LEAD_FRAMES = 2.5** frames before its WAV's place (`explainers/perform.py`;
+    the reference solves move with it, so the strict ref-lag gate still reads ~0).
+  - The same curves with the lead: every line opens **0.4-1.7 f before its sound**; ref lag ≤ 0.85 f; silences
+    0.001; check PASS. Lead 3 gives 0.9-2.2 f (N07 over the bar); lead 0 gives 0.9-2.2 f late.
+  - This is a deliberate anticipation on top of a correct timebase, not a correction for a misplaced section.

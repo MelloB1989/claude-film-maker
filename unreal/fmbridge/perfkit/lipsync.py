@@ -79,6 +79,9 @@ def is_speech_curve(name: str) -> bool:
     return not any(n.startswith(x) for x in EXPRESSION_ONLY)
 
 
+ONSET_GAP_S = 0.12  # the previous line's mouth closes this long after its last word (lipsync.compose fades 3 f)
+
+
 def aperture(curves: dict, times: list) -> list:
     """The mouth's opening at `times` (jawOpen units, >= 0) from whichever APERTURE curves are present."""
     out = [0.0] * len(times)
@@ -281,8 +284,13 @@ def check(env, curves: dict, lines: list, fps: float = 24.0, limits: dict | None
 
     out_lines, lags = {}, []
     speed_on = []
+    prev_t1 = None
     for ln in lines:
         lid, t0, t1 = ln["id"], float(ln["t0"]), float(ln["t1"])
+        # the onset search reaches back max_lag_s, but never into the line before (r6 explainers: 0.34 s gaps read
+        # the previous line's mouth as this one opening ~1 s early); ONSET_GAP_S after its last word
+        lo = t0 - max_lag_s if prev_t1 is None else max(t0 - max_lag_s, min(t0 - 0.05, prev_t1 + ONSET_GAP_S))
+        prev_t1 = t1
         i0, i1 = window(t0 - max_lag_s, t1 + max_lag_s)
         # two stages: the words' envelope (0.25-2.5 Hz) finds the lag over +-max_lag_s without locking onto a
         # neighbouring syllable (round-5 P1: real solves read r 0.4-0.5 in the syllable band, and its peak jumped
@@ -291,7 +299,7 @@ def check(env, curves: dict, lines: list, fps: float = 24.0, limits: dict | None
         x = xcorr(aud[i0:i1], mth[i0:i1], rate, 0.15, center_s=xc["lag_s"])
         lag = x["lag_s"] - expected_lag_s
         # the mouth's own onset: first rise above the rest by a quarter of the line's opening
-        j0, j1 = window(t0 - max_lag_s, t1)
+        j0, j1 = window(lo, t1)
         seg = mouth_raw[j0:j1]
         k0, k1 = window(t0, t1)
         on_line = mouth_raw[k0:k1] or [0.0]
