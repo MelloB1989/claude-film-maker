@@ -56,25 +56,36 @@ SEED = {"him": 71, "her": 72}
 # The set (agent-07 / agent-05's props.json, 07 Nov 17:0x IST), in the ACTOR's frame: x forward (to camera), y the presenter's right, z up
 # from the floor; the actor root sits on the chair mark (studio (20, -20, 0), yaw 0: studio +X forward, studio +Y the
 # presenter's LEFT). Studio -> actor: x - 20, -(y + 20), z.
-SET = S.Set(seat_top=45.0, seat_front=24.5, desk_top=74.0, desk_near=30.5, desk_far=85.5, desk_under=63.4,
-            mic=[24.0, 14.0, 99.0], mic_radius=9.0,
-            boom=[[50.0, 52.6, 74.0], [43.8, 42.9, 119.3], [24.0, 14.0, 99.0]])  # agent-05 props.json (16:5x IST)
-# How each sits (seatkit.Style). The cameras are at studio -Y (azimuth -20 MCU/CU, -8 WIDE): facing +X in Unreal that
-# is the presenter's LEFT-front (+Y is their right; the mic is there), so twist < 0. The chest
+SET = S.Set(seat_top=45.0, seat_front=24.5, desk_top=74.0, desk_near=18.0, desk_far=73.0, desk_under=63.4,
+            mic=[24.0, -14.0, 99.0], mic_radius=9.0,
+            boom=[[50.0, -52.6, 74.0], [43.8, -42.9, 119.3], [29.5, -20.4, 103.4], [24.0, -14.0, 99.0]])
+# ^ agent-07's set after the orchestrator's r3 notes (07 Nov ~18:3x IST): desk in (studio x 38..93), the mic mirrored
+#   to the presenter's LEFT (studio -Y), the cameras on her right (studio +Y, azimuth +17..+24)
+# How each sits (seatkit.Style). The cameras are at studio +Y (azimuth +17..+24): facing +X in Unreal that is the
+# presenter's RIGHT-front (the mic is on their left). The chest
 # turns a little toward them, the head and eyes do the rest (face + gaze).
-STYLE = {
-    "her": S.Style(lean=12.0, twist=-6.0, knee_out=4.0, foot_out=6.0, wrist_in=5.0, pronation=52.0, shin_tilt=6.0,
-                   clavicle_fwd=5.0),
-    "him": S.Style(lean=14.0, twist=-6.0, knee_out=8.0, foot_out=9.0, wrist_in=3.0, pronation=48.0,
-                   clavicle_fwd=6.0),
+STYLE = {  # forearms resting on the desk (the orchestrator, r3 stills): elbows planted ~2 cm in from the near edge,
+    #          the chest square to the desk (a turn pulls the camera-side elbow off it), hands on their little-finger
+    #          edge, shoulders down
+    "her": S.Style(lean=18.0, twist=0.0, knee_out=4.0, foot_out=6.0, pronation=75.0, shin_tilt=6.0, elbow_out=3.0,
+                   clavicle_fwd=4.0, clavicle_drop=4.0),
+    "him": S.Style(lean=18.0, twist=0.0, knee_out=8.0, foot_out=9.0, pronation=72.0, elbow_out=3.0,
+                   clavicle_fwd=5.0, clavicle_drop=3.0),
 }
+
 # The line solves' moods (speech.to_face): measured and calm, a little brighter on the hook and the close.
 MOOD = {"hook": ("CONFIDENCE", 0.8), "close": ("CONFIDENCE", 0.8)}
 MOOD_DEFAULT = ("CONFIDENCE", 0.65)
 SPEECH_GAIN = {"him": 1.7, "her": 1.0}  # the reel's: his rig gives little mouth travel (r4)
+# Each line's mouth is placed this many frames BEFORE its WAV's place: the solver opens the jaw 0.04-0.09 s AFTER the
+# first sound (box B, her 16 lines alone vs their own WAVs), people open it 100-300 ms before (Chandrasekaran 2009);
+# the orchestrator's bar is 0-2 frames before. Measured on her 16 composed lines (compose's 3-frame fade-in delays
+# the rise ~1 f): lead 0 -> 0.9-2.2 f LATE, 3 -> 0.9-2.2 f early, 2.5 -> ~0.4-1.7 f early.
+LEAD_FRAMES = 2.5
 # body life on a seated body: calm breathing that shows (agent-09's breath rows: 8-22 /min, >= 2 mm sternum rise),
 # almost no weight shift (the seat holds the pelvis), no torso follow (r5: it rode the blinks)
-LIFE = {"state": "talk", "breath_deg": 0.9, "clavicle_deg": 0.8, "shift_cm": 0.25, "follow": 0.0}
+LIFE = {"state": "talk", "breath_deg": 1.35, "clavicle_deg": 1.0, "shift_cm": 0.25, "follow": 0.0}
+# (box B, 07 Nov: breath_deg 0.9 / clavicle 0.8 gave 14.1 breaths/min at 1.6 mm sternum rise; agent-09's line is >= 2)
 
 
 def ok(res: dict):
@@ -178,7 +189,8 @@ def lines_of(who: str) -> list:
 
 
 def reference(who: str) -> list:
-    return [{"anim": line_anim(ln["id"]), "frame": ln["file_start_f"]} for ln in cues(who)["lines"]]
+    """Each line's own solve where the face plays it (its WAV's place, LEAD_FRAMES earlier): the strict reference."""
+    return [{"anim": line_anim(ln["id"]), "frame": ln["file_start_f"] - LEAD_FRAMES} for ln in cues(who)["lines"]]
 
 
 def cmd_bias(who: str) -> dict:
@@ -199,7 +211,7 @@ def cmd_bias(who: str) -> dict:
 
 
 def cmd_compose(who: str) -> dict:
-    parts = [{"anim": line_anim(ln["id"]), "frame": ln["file_start_f"]} for ln in cues(who)["lines"]]
+    parts = reference(who)
     r = ok(client().op("lipsync.compose", parts=parts, out=f"{ANIM}/AS_exp_{who}_solve", start_frame=0,
                        length_frames=frames(who), fps=FPS, skeleton=mesh_of(who, "Face"), fade_frames=3.0,
                        timeout=1800))
@@ -207,17 +219,42 @@ def cmd_compose(who: str) -> dict:
     return r
 
 
+CHECK = r"""
+import json, sys, importlib.util
+import fmbridge.ops.lipsync as OL
+P = json.loads(PARAMS)
+spec = importlib.util.spec_from_file_location("fmbridge.perfkit.lipsync_r6", P["kit"])
+m = importlib.util.module_from_spec(spec)
+m.__package__ = "fmbridge.perfkit"
+spec.loader.exec_module(m)
+old = OL.LS
+OL.LS = m  # this one call only: the bridge's own perfkit is left as installed
+try:
+    result = OL.check(**P["args"])
+finally:
+    OL.LS = old
+"""
+
+
+def lipcheck(who: str, **args) -> dict:
+    """lipsync.check with this tree's perfkit.lipsync (pushed beside the WAVs): r6's onset window stops at the line
+    before (0.34 s gaps read the previous line's mouth as this one opening 1.0 s early: box B, 07 Nov). Until the core
+    fix is installed on the boxes; then it is the same as client.op("lipsync.check")."""
+    client().push(str(ROOT / "unreal" / "fmbridge" / "perfkit" / "lipsync.py"), box(who, "kit", "lipsync_r6.py"))
+    return run(CHECK, {"kit": box(who, "kit", "lipsync_r6.py"), "args": args}, 900)
+
+
 STAGE_ANIM = {"solve": "AS_exp_{w}_solve", "face": "AS_exp_{w}_face", "final": "AS_exp_{w}_gaze"}
 
 
 def cmd_check(who: str, stage: str) -> dict:
     if stage == "placed":
-        r = ok(client().op("lipsync.check", sequence=SEQ[who], label=LABEL[who], wav=box(who, "vo.wav"),
-                           lines=lines_of(who), fps=FPS, reference=reference(who), timeout=600))
+        r = lipcheck(who, sequence=SEQ[who], label=LABEL[who], wav=box(who, "vo.wav"), lines=lines_of(who), fps=FPS,
+                     reference=reference(who))
     else:
         anim = f"{ANIM}/" + STAGE_ANIM[stage].format(w=who)
-        r = ok(client().op("lipsync.check", anim=anim, anim_frame=0, wav=box(who, "vo.wav"), wav_frame=0,
-                           lines=lines_of(who), fps=FPS, reference=reference(who), timeout=600))
+        r = lipcheck(who, anim=anim, anim_frame=0, wav=box(who, "vo.wav"), wav_frame=0, lines=lines_of(who), fps=FPS,
+                     reference=reference(who))
     keep(who, f"lips_{stage}", r)
     s = {"stage": stage, "pass": r["pass"], "diagnosis": r.get("diagnosis"),
          "lines": {k: [v.get("ref_lag_frames"), v.get("ref_corr"), v.get("lag_frames"), v.get("corr"),
@@ -297,7 +334,7 @@ def gestures(who: str) -> list:
             pool = [w for w in words if t - 1.5 <= w["start"] <= t + 1.5]
             if pool:
                 w = max(pool, key=lambda w: w["end"] - w["start"])
-                cs.append({"t": w["start"], "hand": side, "kind": "beat", "size": 0.35 if side == "l" else 0.25,
+                cs.append({"t": w["start"], "hand": side, "kind": "beat", "size": 0.35 if side == "r" else 0.25,
                            "hold": 0.3})
                 side = "r" if side == "l" else "l"
             t += SETTLE_GAP
@@ -499,7 +536,7 @@ def cmd_sync(who: str) -> dict:
                 timeout=3600))
     e = ok(c.op("perf.turn_head", anim=f"{ANIM}/AS_exp_{who}_body", face_anim=face, timeout=900))
     ok(c.op("seq.set_anim", path=path, component="Face", anim=f"{ANIM}/AS_exp_{who}_follow", label=lab))
-    res = {"follow_head": a, "body": b, "follow": d, "turn": e}
+    res = {"follow_head": a, "body": b, "follow": d, "turn": e, "leaders": lead(who)}
     keep(who, "sync", res)
     return res
 
@@ -525,6 +562,16 @@ def cmd_gaze(who: str) -> dict:
     return {"spans": res}
 
 
+def lead(who: str) -> dict:
+    """Every garment back on leader pose to the body (they drop after sequence/animation work: box B, 07 Nov), then
+    the check: exit on a garment that still does not follow."""
+    ok(client().op("mh.leader", label=LABEL[who]))
+    r = ok(client().op("mh.leader_check", label=LABEL[who]))
+    if not r.get("pass"):
+        raise SystemExit(f"garments not following {LABEL[who]}'s body: {r.get('why')}")
+    return {"pass": True, "metric": r.get("metric")}
+
+
 def cmd_preview(who: str, seq: str = "") -> list:
     """Only the seated body on the sequence (for the set's first stills, before the face exists): Body = the seat
     animation (+ the life layer when it exists); the Face track is left as it is."""
@@ -535,7 +582,8 @@ def cmd_preview(who: str, seq: str = "") -> list:
     secs = [{"anim": f"{ANIM}/AS_exp_{who}_seat", "start": 0, "end": n, "loop": False}]
     if have:
         secs.append({"anim": life, "start": 0, "end": n, "loop": False, "row": 2})
-    return ok(client().op("seq.anim", path=path, label=LABEL[who], component="Body", sections=secs))
+    r = ok(client().op("seq.anim", path=path, label=LABEL[who], component="Body", sections=secs))
+    return {"sections": r, "leaders": lead(who)}
 
 
 def cmd_place(who: str, seq: str = "") -> list:
@@ -547,8 +595,9 @@ def cmd_place(who: str, seq: str = "") -> list:
            ok(c.op("seq.anim", path=path, label=LABEL[who], component="Body", sections=[
                {"anim": f"{ANIM}/AS_exp_{who}_body", "start": 0, "end": n, "loop": False},
                {"anim": f"{ANIM}/AS_exp_{who}_life", "start": 0, "end": n, "loop": False, "row": 2}]))]
-    keep(who, "place", out)
-    return out
+    res = {"sections": out, "leaders": lead(who)}
+    keep(who, "place", res)
+    return res
 
 
 # ------------------------------------------------------------------------------------------------------- body check
@@ -715,7 +764,7 @@ def cmd_numbers(who: str, seq: str = "") -> dict:
     return {"gate": g}
 
 
-STEPS = ["body", "life", "preview", "cams", "push", "solve", "bias", "compose", "check:solve", "workseq", "face",
+STEPS = ["body", "life", "preview", "push", "solve", "bias", "cams", "compose", "check:solve", "workseq", "face",
          "check:face", "sync", "gaze", "check:final", "place", "check:placed", "bodycheck", "numbers"]
 
 

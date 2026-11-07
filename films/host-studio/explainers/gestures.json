@@ -1,33 +1,178 @@
 {
- "_doc": "Emphasis gestures (perform.py): per line a word (its text, or its index in the line) with the hand (l, r, both; none = alternate) and kind (seatkit.KINDS: lift, open, beat, point). Only on the lines where the presenter is on screen (pres/panel shots). The mic is on the presenter's right: right-hand gestures stay small.",
+ "_doc": "Emphasis gestures (perform.py): per line a word (its text, or its index in the line) with the hand (l, r, both; none = alternate) and kind (seatkit.KINDS: lift, open, beat, point). Only on the lines where the presenter is on screen (pres/panel shots). The mic is on the presenter's LEFT (07 Nov r3 set): left-hand gestures stay small.",
  "her": [
-  {"line": "N01", "word": "three", "hand": "both", "kind": "open", "size": 0.8},
-  {"line": "N02", "word": "play", "hand": "l", "kind": "beat"},
-  {"line": "N04", "word": "own", "hand": "l", "kind": "lift"},
-  {"line": "N06", "word": "predicts", "hand": "l", "kind": "lift", "size": 0.9},
-  {"line": "N07", "word": "near", "hand": "r", "kind": "beat", "size": 0.7},
-  {"line": "N08", "word": "many", "hand": "both", "kind": "open", "size": 0.8},
-  {"line": "N12", "word": "dips?", "hand": "l", "kind": "lift"},
-  {"line": "N13", "word": "AWS.", "hand": "l", "kind": "lift", "size": 0.9},
-  {"line": "N15", "word": "decides.", "hand": "l", "kind": "lift"},
-  {"line": "N15", "word": "delivers.", "hand": "r", "kind": "lift", "size": 0.7},
-  {"line": "N16", "word": "plays.", "hand": "both", "kind": "open", "size": 0.6}
+  {
+   "line": "N01",
+   "word": "three",
+   "hand": "both",
+   "kind": "open",
+   "size": 0.8
+  },
+  {
+   "line": "N02",
+   "word": "play",
+   "hand": "r",
+   "kind": "beat"
+  },
+  {
+   "line": "N04",
+   "word": "own",
+   "hand": "r",
+   "kind": "lift"
+  },
+  {
+   "line": "N06",
+   "word": "predicts",
+   "hand": "r",
+   "kind": "lift",
+   "size": 0.9
+  },
+  {
+   "line": "N07",
+   "word": "near",
+   "hand": "l",
+   "kind": "beat",
+   "size": 0.7
+  },
+  {
+   "line": "N08",
+   "word": "many",
+   "hand": "both",
+   "kind": "open",
+   "size": 0.8
+  },
+  {
+   "line": "N12",
+   "word": "dips?",
+   "hand": "r",
+   "kind": "lift"
+  },
+  {
+   "line": "N13",
+   "word": "AWS.",
+   "hand": "r",
+   "kind": "lift",
+   "size": 0.9
+  },
+  {
+   "line": "N15",
+   "word": "decides.",
+   "hand": "r",
+   "kind": "lift"
+  },
+  {
+   "line": "N15",
+   "word": "delivers.",
+   "hand": "l",
+   "kind": "lift",
+   "size": 0.7
+  },
+  {
+   "line": "N16",
+   "word": "plays.",
+   "hand": "both",
+   "kind": "open",
+   "size": 0.6
+  }
  ],
  "him": [
-  {"line": "W01", "word": "hundred", "hand": "both", "kind": "open", "size": 0.8},
-  {"line": "W03", "word": "how.", "hand": "l", "kind": "beat"},
-  {"line": "W04", "word": "one", "hand": "l", "kind": "lift"},
-  {"line": "W07", "word": "send.", "hand": "l", "kind": "beat"},
-  {"line": "W07", "word": "online?", "hand": "r", "kind": "lift", "size": 0.7},
-  {"line": "W10", "word": "One:", "hand": "l", "kind": "point", "size": 0.8},
-  {"line": "W11", "word": "Two:", "hand": "l", "kind": "lift"},
-  {"line": "W11", "word": "Blue:", "hand": "r", "kind": "lift", "size": 0.7},
-  {"line": "W13", "word": "can't", "hand": "both", "kind": "beat", "size": 0.7},
-  {"line": "W15", "word": "blob", "hand": "l", "kind": "lift"},
-  {"line": "W15", "word": "key", "hand": "r", "kind": "lift", "size": 0.7},
-  {"line": "W16", "word": "Tiny", "hand": "l", "kind": "lift"},
-  {"line": "W16", "word": "linger.", "hand": "r", "kind": "lift", "size": 0.7},
-  {"line": "W16", "word": "never", "hand": "both", "kind": "open", "size": 0.8},
-  {"line": "W17", "word": "hundred", "hand": "l", "kind": "beat"}
+  {
+   "line": "W01",
+   "word": "hundred",
+   "hand": "both",
+   "kind": "open",
+   "size": 0.8
+  },
+  {
+   "line": "W03",
+   "word": "how.",
+   "hand": "r",
+   "kind": "beat"
+  },
+  {
+   "line": "W04",
+   "word": "one",
+   "hand": "r",
+   "kind": "lift"
+  },
+  {
+   "line": "W07",
+   "word": "send.",
+   "hand": "r",
+   "kind": "beat"
+  },
+  {
+   "line": "W07",
+   "word": "online?",
+   "hand": "l",
+   "kind": "lift",
+   "size": 0.7
+  },
+  {
+   "line": "W10",
+   "word": "One:",
+   "hand": "r",
+   "kind": "point",
+   "size": 0.8
+  },
+  {
+   "line": "W11",
+   "word": "Two:",
+   "hand": "r",
+   "kind": "lift"
+  },
+  {
+   "line": "W11",
+   "word": "Blue:",
+   "hand": "l",
+   "kind": "lift",
+   "size": 0.7
+  },
+  {
+   "line": "W13",
+   "word": "can't",
+   "hand": "both",
+   "kind": "beat",
+   "size": 0.7
+  },
+  {
+   "line": "W15",
+   "word": "blob",
+   "hand": "r",
+   "kind": "lift"
+  },
+  {
+   "line": "W15",
+   "word": "key",
+   "hand": "l",
+   "kind": "lift",
+   "size": 0.7
+  },
+  {
+   "line": "W16",
+   "word": "Tiny",
+   "hand": "r",
+   "kind": "lift"
+  },
+  {
+   "line": "W16",
+   "word": "linger.",
+   "hand": "l",
+   "kind": "lift",
+   "size": 0.7
+  },
+  {
+   "line": "W16",
+   "word": "never",
+   "hand": "both",
+   "kind": "open",
+   "size": 0.8
+  },
+  {
+   "line": "W17",
+   "word": "hundred",
+   "hand": "r",
+   "kind": "beat"
+  }
  ]
 }

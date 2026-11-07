@@ -58,7 +58,7 @@ def test_fk_roundtrip_rest():
 
 def test_seated_pose():
     sk = skeleton()
-    st = S.Set(mic=[24, -14, 99])
+    st = S.Set(mic=[24, -14, 99], desk_near=12.0)
     se = S.Seater(sk, st)
     loc = se.pose()
     posed = se.fk(loc)
@@ -140,3 +140,22 @@ def test_boom_clearance_flags():
     A = se.actor(posed["hand_r"][0])
     se2 = S.Seater(sk, S.Set(boom=[[A[0], A[1], 60], [A[0], A[1], 100]]))
     assert not S.check(se2, se2.fk(se2.pose()))["pass"]
+
+
+def test_forearms_rest_on_the_desk_and_gestures_pivot_on_the_elbow():
+    sk = skeleton()
+    se = S.Seater(sk, S.Set(desk_near=12.0))
+    g = [S.Gesture(1.0, 1.4, 1.9, 2.5, "r", "lift")]
+    A0 = {b: se.actor(v[0]) for b, v in se.fk(se.pose(0.5, g)).items()}
+    A1 = {b: se.actor(v[0]) for b, v in se.fk(se.pose(1.6, g)).items()}
+    for s in "lr":
+        assert abs(A0[f"lowerarm_{s}"][2] - (74 + se.sy.elbow_r)) < 0.5  # the elbow on the desk
+        assert abs(A0[f"hand_{s}"][2] - (74 + se.sy.wrist_r)) < 0.5     # the forearm lying on it
+    assert S.norm(S.sub(A1["lowerarm_r"], A0["lowerarm_r"])) < 0.5  # the elbow stays planted
+    assert A1["hand_r"][2] - A0["hand_r"][2] > 6
+
+
+def test_wrists_mode_still_works():
+    sk = skeleton()
+    se = S.Seater(sk, S.Set(), S.Style(rest="wrists"))
+    assert S.check(se, se.fk(se.pose()))["pass"]
