@@ -434,8 +434,6 @@ def perform_params(who: str) -> dict:
     if isinstance(tilts, dict):
         tilts = tilts.get("tilts", [])
     timing = json.loads((a / f"timing_{who}.json").read_text()) if (a / f"timing_{who}.json").exists() else None
-    if isinstance(timing, dict):
-        timing = timing.get("gestures", [])
     return {"sheet": json.loads((a / f"{who}.json").read_text()), "cues": cues(who), "tilts": tilts, "timing": timing}
 
 
