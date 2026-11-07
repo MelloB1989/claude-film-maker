@@ -382,8 +382,18 @@ WORLD_BONES = list(S.REQUIRED) + [f"{f}_{j}_{s}" for f in ("index", "middle", "r
                                   for j in ("01", "02", "03") for s in "lr"]
 
 
+def set_of(who: str) -> S.Set:
+    """The set for `who`: SET (her r3 set, agent-07) with any field overridden by set_<who>.json next to this file
+    (agent-07 commits his: the mic is aimed at his mouth, so its capsule and arm move). Actor frame: x forward from the
+    chair mark, y the presenter's right (studio y + 20), z up from the floor."""
+    p = HERE / f"set_{who}.json"
+    if not p.exists():
+        return SET
+    return S.Set(**{**SET.__dict__, **json.loads(p.read_text())})
+
+
 def body_params(who: str) -> dict:
-    return {"set": dict(SET.__dict__), "style": {k: (list(v) if isinstance(v, tuple) else v)
+    return {"set": dict(set_of(who).__dict__), "style": {k: (list(v) if isinstance(v, tuple) else v)
                                                  for k, v in STYLE[who].__dict__.items()},
             "gestures": [g.__dict__ for g in gestures(who)], "length_s": length_s(who), "fps": 30}
 
@@ -662,7 +672,7 @@ def cmd_bodycheck(who: str, seq: str = "", every: int = 2) -> dict:
         q = [lx, ly, dz]
         return [S.dot(q, fr_["fwd"]), S.dot(q, fr_["right"]), dz]
 
-    st = SET
+    st = set_of(who)
     issues, worst = [], {}
     sz = []
     for i, f in enumerate(fr):
