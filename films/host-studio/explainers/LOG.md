@@ -228,3 +228,11 @@ tested in `test_seatkit.py`), `gestures.json` (the emphasis gestures per line).
 | 23:35 | `props/her_waist_r7.py` probe (24 sectors x 5 heights through the band, AS_exp_her_body seated): the uncut band stands 0.62-1.97 cm off her waist (front 0.7-0.9, sides 0.9-2.0); the live cut copy has lost 7.4k verts incl. the band's INNER face (r6b's Trousers-under-Top 6 cm cut): a hollow band, gap 0.7-2.2 cm, and a step down to the Top |
 | 23:50 | Refit in her seated pose, carried back to the bind pose by each vertex's inverse skinning: Top tuck 0.12 cm off her skin (under the band), the band 0.42 cm over it, her body's weights unsmoothed through the band ramping to the trousers' own 5-13 cm under it, seams welded. Seated after: band gap 0.41-0.52 cm in every sector, 0 body/Top pokes. Standing it would sit up to 0.7 cm inside her belly: a seated-only asset (_R7W). ~3k verts at her seated front hip crease (9-13 cm under the edge) read inside her skin: left alone; Body-under-Trousers now hides her skin there |
 | 23:58 | setplan: GARMENT_SRC Top/Trousers → SKM_Presenter_{Top,Trousers}_R7W; GARMENT_HIDES her: the inner layer under the outer one (Top under Trousers 2.5, Body under Top 6, Body under Trousers 2.5), the Trousers-under-Top cut dropped. Import: `her_outfit_ue/import_r7_waist.py` (agent-06) |
+- 07 Nov 23:55-08 Nov 00:20 agent-08 (`fleet/agent-08/r7-humanize`): the mocap-library route was dropped (the operator:
+  no motion libraries, "we can't show same animations"; nothing was downloaded). `gesture_style.py` is the layer that
+  makes gesturekit's generated motion human: a seeded draw per gesture (film line + index + hand: amplitude, height,
+  wrist angles, finger offsets and spread, timing +-40 ms, path bulge), min-jerk preps skewed late, stroke overshoot
+  and settle, drifting holds, co-articulated retracts, the wrist leading in and following out, a pinky-to-index
+  finger cascade and never-frozen finger micro-motion. Her full take on her skeleton read: build passes, arm
+  clearance 3.8/3.8 cm, most similar gesture pair 0.842 (his 0.741, across 0.84; without it 25 identical pairs per
+  film). The left hand's draw is bounded (a 1.17x draw put her forearm on the mic arm, fingers in the desk).

@@ -73,7 +73,8 @@ STYLE = {  # forearms resting on the desk (the orchestrator, r3 stills): elbows 
     # back, elbows tucked by her sides, the upper arm as near vertical as the desk allows (a lower desk, set_her.json)
     "her": S.Style(lean=12.0, twist=0.0, hip_above_seat=11.0, knee_out=3.0, foot_out=6.0, pronation=75.0, shin_tilt=6.0,
                    elbow_out=-2.0, clavicle_fwd=-1.0, clavicle_drop=5.0, forearm_in=5.0,
-                   elbow_r=4.6, wrist_r=3.7),  # bare forearms (V2, no overshirt): 1 cm of air read in the WIDE
+                   elbow_r=4.6, wrist_r=3.7,  # bare forearms (V2, no overshirt): 1 cm of air read in the WIDE
+                   forearm_in_l=22.0),  # r7: her left resting wrist toward her midline, off the mic arm's base
     # him: the same seat rules as hers (elbows tucked by his sides on the top, near-parallel forearms, bare forearms
     # in his tee); he is taller: at the 71 cm desk his elbows land under his shoulders, 4-7 cm short of the near edge
     # (box B, 07 Nov), so they rest just OFF the edge with the forearms lying across it (elbow_overhang)
@@ -370,10 +371,16 @@ def job():
     data = g["result"]
     yield
     if P.get("perform"):  # r7: the presenter performance from the acting sheet (gesturekit, pushed beside seatkit)
+        try:  # agent-08's hooks: reloaded first, or the editor's Python keeps a stale copy across runs
+            import gesture_style
+            importlib.reload(gesture_style)
+        except ImportError:
+            pass
         import gesturekit as GK
         importlib.reload(GK)
         doc, summary = GK.build(data, S.Set(**P["set"]), S.Style(**P["style"]), P["perform"]["sheet"],
-                                P["perform"]["cues"], P["perform"]["tilts"], P["length_s"], P["fps"])
+                                P["perform"]["cues"], P["perform"]["tilts"], P["length_s"], P["fps"],
+                                timing=P["perform"].get("timing"))
     else:
         gs = [S.Gesture(**x) for x in P["gestures"]]
         doc, summary = S.build(data, S.Set(**P["set"]), S.Style(**P["style"]), gs, P["length_s"], P["fps"])
@@ -432,7 +439,8 @@ def perform_params(who: str) -> dict:
     tilts = json.loads((a / f"tilts_{who}.json").read_text()) if (a / f"tilts_{who}.json").exists() else []
     if isinstance(tilts, dict):
         tilts = tilts.get("tilts", [])
-    return {"sheet": json.loads((a / f"{who}.json").read_text()), "cues": cues(who), "tilts": tilts}
+    timing = json.loads((a / f"timing_{who}.json").read_text()) if (a / f"timing_{who}.json").exists() else None
+    return {"sheet": json.loads((a / f"{who}.json").read_text()), "cues": cues(who), "tilts": tilts, "timing": timing}
 
 
 def cmd_body(who: str, force: bool = False, perform: bool = False) -> dict:
@@ -444,6 +452,8 @@ def cmd_body(who: str, force: bool = False, perform: bool = False) -> dict:
     extra = {}
     if perform:
         client().push(str(HERE / "gesturekit.py"), box(who, "kit", "gesturekit.py"))
+        if (HERE / "gesture_style.py").exists():  # agent-08's generated kinematics (envelope / vary / fingers)
+            client().push(str(HERE / "gesture_style.py"), box(who, "kit", "gesture_style.py"))
         bp["style"].update(PERFORM_STYLE)
         extra = {"perform": perform_params(who)}
     r = run(BODY, {"kit_dir": kit, "read": READ, "label": LABEL[who], "idle": IDLE, "world": WORLD_BONES,
