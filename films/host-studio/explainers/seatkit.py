@@ -299,8 +299,9 @@ class Style:
     rest: str = "forearms"  # "forearms": elbows and forearms resting ON the desk (a podcaster leaning on it);
     #                         "wrists": only the wrists on the desk, elbows in the air (round 6's first stills)
     elbow_out: float = 4.0  # cm each elbow sits outside its shoulder
-    elbow_r: float = 3.6  # cm from the elbow joint to the desk under it (the forearm's thickness there)
-    wrist_r: float = 2.6  # cm from the wrist joint to the desk
+    elbow_r: float = 4.2  # cm from the elbow joint to the desk under it (the forearm's thickness there)
+    wrist_r: float = 3.4  # cm from the wrist joint to the desk (box B: at 2.6 each exhale took a pronated hand's edge
+    #                       0.8 cm lower, into the top; this keeps >= 2 cm through the breath)
     forearm_in: float = 26.0  # degrees each forearm points in toward the midline
     wrist_fwd: float = 36.0  # cm the wrist sits in front of the shoulder line (forward)
     wrist_in: float = 4.0  # cm the wrist sits inside the shoulder (toward the midline)
