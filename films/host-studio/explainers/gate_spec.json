@@ -191,7 +191,10 @@
     92,
     "karma round 5b loop 2: 92/92, the operator's 'cut'"
    ],
-   "why": "his explainer must carry the neck fix (only box A has it)"
+   "why": "his explainer must carry the neck fix (only box A has it)",
+   "films": [
+    "whatsapp"
+   ]
   },
   "garment.silhouette_pct": {
    "info": true,
@@ -285,6 +288,14 @@
    "why": "the brief: true peak <= -1 dBTP"
   },
   "captions.text_match": {
+   "area": "captions",
+   "track": "agent-11",
+   "op": "==",
+   "line": 1,
+   "unit": "bool",
+   "what": "the captions' words in order equal the VO lines' words (case, punctuation ignored)",
+   "where": "the cut's SRT vs audio/<film>/cues.json",
+   "how": "qa_av.py captions CUT.srt audio/<film>/cues.json (or qa_av.py all)",
    "why": "the brief: captions match the VO; the orchestrator's ruling (07 Nov): EVERY line captioned, including over the graphics"
   },
   "captions.onset_ms": {
@@ -467,7 +478,10 @@
     0,
     "his explainer on box B from the 16:14 clone: loop-2 neck (shrink 3.0, the 'cut'), not the passed cull"
    ],
-   "why": "the orchestrator, 07 Nov: his explainer moves to box B; it must carry exactly the neck fix that passed on box A"
+   "why": "the orchestrator, 07 Nov: his explainer moves to box B; it must carry exactly the neck fix that passed on box A",
+   "films": [
+    "whatsapp"
+   ]
   },
   "shot.streaming_settled": {
    "area": "shot",
@@ -546,7 +560,17 @@
     0.119,
     "karma r6n0: the dark face (leaders/material state)"
    ],
-   "why": "the orchestrator, 07 Nov: face-luma vs karma r6 among his guards on box B"
+   "why": "the orchestrator, 07 Nov: face-luma vs karma r6 among his guards on box B",
+   "films": [
+    "whatsapp"
+   ]
+  },
+  "lips.render_conclusive": {
+   "info": true,
+   "r4": [
+    null,
+    "INFO with lips.render_lag_frames (the orchestrator's ruling, 07 Nov): a property of the invalid render measure"
+   ]
   }
  },
  "not_attempted": {
@@ -562,5 +586,10 @@
    "reason": "Round 6 explainers: his tee is MetaHuman's default garment (closed shell) and her overshirt stays skinned, the same ruling as the karma reel (cc-64d05f6e, 07 Nov). armor_index, wpo_cm, neck_px and pair_fraction stay hard lines.",
    "by": "cc-64d05f6e"
   }
- }
+ },
+ "aliases": {
+  "shot.grain_sigma_close": "shot.grain_sigma",
+  "shot.grain_sigma_wide": "shot.grain_wide_sigma"
+ },
+ "_films": "items with 'films' apply only to those films (gate_film.py --film filters them); 'aliases' maps a producer's key to the spec's id"
 }
