@@ -171,9 +171,14 @@ result = {{"rc": r.returncode, "err": r.stderr[-500:], "props": json.load(open(p
                                        folder=f"{PROPS_DIR}/Materials"))
     mats["M_LampBulb"] = (op("look.material", name="MI_Exp_LampBulb", kind="Emissive", color=[1.0, 0.72, 0.42],
                                      intensity=12.0, folder=f"{PROPS_DIR}/Materials"))
-    desk_panel = P.DESK_PANEL in by_name
+    waterfall = P.DESK_WATERFALL in by_name
+    desk_panel = waterfall or P.DESK_PANEL in by_name
     for label, (name, loc, yaw, scale) in P.PROPS.items():
-        if label == "ExpDesk" and desk_panel:
+        if label == "ExpDesk" and waterfall:
+            # r6b: agent-05's waterfall desk, built at the final height (no Z scale), dressed with the studio walnut
+            name, scale = P.DESK_WATERFALL, [1.0, 1.0, 1.0]
+            mats.update(P.DESK_WATERFALL_SLOTS)
+        elif label == "ExpDesk" and desk_panel:
             name = P.DESK_PANEL  # agent-05's desk with the modesty panel replaces the walnut slab
         if name not in by_name:
             print(f"MISSING {label}: no {name}.fbx under {PROPS_S3} (agent-05)")
