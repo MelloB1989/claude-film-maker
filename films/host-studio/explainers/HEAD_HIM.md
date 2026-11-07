@@ -1,9 +1,9 @@
-# His WhatsApp explainer on box B: the head pass (agent-04)
+# His WhatsApp explainer on box A: the head pass (agent-04)
 
-The orchestrator's plan (07 Nov): his explainer moves to box B after her finals, once agent-06's fixed head state is
-in box B's project (QA.md: garment.head_state_parity == 1 first). agent-07 drives box B; agent-01's perform.py does the
-performance and calls `head.face_args` (this branch, `head.py`) for the face's gaze, nods and blinks. Every command
-runs from the kali driver tree with box B's film-ue config, passing box B's instance (i-0d7684b44eacf7043) explicitly.
+The orchestrator's plan (07 Nov, revised): his explainer runs on BOX A after the karma finals (his fixed face is native
+there: no asset transfer). agent-06 drives box A with agent-07's set.py and agent-01's PERF_HIM.md; agent-01's
+perform.py calls `head.face_args` (this branch, `head.py`) for the face's gaze, nods and blinks. Every command runs from
+the kali driver tree with box A's film-ue config, passing box A's instance (i-0284d544cdf14905e) explicitly.
 
 ```bash
 cd tools
@@ -12,16 +12,16 @@ H=../films/host-studio/explainers/head.py
 CUE=../films/host-studio/explainers/cues/him.json     # agent-11's (fleet/agent-11/r6-explainers)
 ```
 
-## 1. Before his performance (after her finals are queued or done)
+## 1. Before his performance (after the karma finals)
 
 | step | command | expect | if not |
 |---|---|---|---|
 | 1a | keep her calibration: copy `<project>/Saved/.../signs_Face_Archetype_Skeleton.json` to `….her_r6` | file kept | — |
-| 1b | `film-ue op perf.calibrate label=Host turn_by=auto` | `turn_on` Face, `turn_strength` ~1.04 (box A K2c 1.041), a fresh yaw_table | over 10 % from 1.04: stop and tell agent-04 (the face is not box A's) |
+| 1b | `film-ue op perf.calibrate label=Host turn_by=auto` (skip if K2c's calibration of his CURRENT face is the last one on box A) | `turn_on` Face, `turn_strength` ~1.04 (K2c 1.041), a fresh yaw_table | over 10 % from 1.04: stop and tell agent-04 (his face changed since K2c) |
 | 1c | `uv run python $P rolltest --who him` (agent-01, 2334f626+) | HeadRoll (or whichever curve the signs call roll) turns the head about its FORWARD axis, ~5° lateral elevation, forward elevation ~0 | roll pitches the head: `head.py` keeps ROLL_OK False (no rest tilt, no lean). Send agent-04 the table either way |
 
 The signs file belongs to the face's SKELETON (Face_Archetype_Skeleton), which both presenters share: 1b overwrites
-hers. Her face is done by then; never re-run her face step after 1b without restoring `.her_r6`. Never reuse a signs
+hers on box A (her karma face is done; never re-run her karma naturalize after 1b without restoring the copy). Never reuse a signs
 file after a face rebuild (r5b: its yaw_gain and yaw_table belong to the old face).
 
 ## 2. His performance (agent-01's chain)
