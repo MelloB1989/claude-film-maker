@@ -449,46 +449,14 @@ def cmd_cams(who: str) -> dict:
 
 # ------------------------------------------------------------------------------------------------------- the face
 
-HEAD_SHARE = 0.65  # of a camera's direction the head takes; the eyes the rest (gaze_lock makes them exact)
-
-
 def face_args(who: str) -> dict:
-    """agent-04's head plan (head_plans/<who>.json: yaw 0 = straight ahead) turned to each shot's camera: every gaze
-    shift gets the camera direction of the on-camera span it falls in (or the next one: between spans the presenter
-    is off screen), and a shift is added at each span start whose camera direction changes."""
-    plan = json.loads((HERE / "head_plans" / f"{who}.json").read_text())
+    """agent-04's head plan made camera-aware by head.py itself (cue["cams"] = cams step's directions from the seated
+    eyes): glances off the active lens, re-aims mid-gap or on a direct cut, no blink on any gaze move. Nothing is added
+    here but the mouth gain for him."""
+    import head as HD
     cams = json.loads((OUT / who / "cams.json").read_text())["cams"]
-    on = cue_sheet(who)["on_cam"]
-
-    def cam_at(t):
-        for a, b, c in on:
-            if a <= t < b:
-                return c
-        later = [x for x in on if x[0] > t]
-        return (later[0] if later else on[-1])[2]
-
-    def dirn(c):
-        v = cams.get(c) or cams.get(c.replace("_L", "")) or {"yaw": 0.0, "pitch": 0.0}
-        return v["yaw"], v["pitch"]
-
-    gaze = []
-    for g in plan["gaze"]:
-        y0, p0 = dirn(cam_at(g["t"]))
-        gaze.append({**g, "yaw": round(g["yaw"] + y0, 2), "pitch": round(g["pitch"] + p0, 2),
-                     "head": g.get("head", 1.0) * (HEAD_SHARE if g.get("scan") == "lens" else 1.0)})
-    prev = None
-    for a, b, c in on:
-        d = dirn(c)
-        if prev is not None and (abs(d[0] - prev[0]) > 1.5 or abs(d[1] - prev[1]) > 1.5):
-            # turn over the off-screen gap if there is one, else on the cut (a presenter re-finding the lens)
-            t = max(0.0, a - 0.5) if not any(x[1] == a for x in on) else a
-            if not any(abs(x["t"] - t) < 0.3 for x in gaze):
-                gaze.append({"t": round(t, 3), "yaw": d[0], "pitch": d[1], "scan": "lens", "head": HEAD_SHARE})
-        prev = d
-    gaze.sort(key=lambda x: x["t"])
-    y, p = dirn(on[0][2])
-    args = {k: v for k, v in plan.items() if k not in ("gaze", "start_gaze", "glances")}
-    args.update({"gaze": gaze, "start_gaze": [y, p]})
+    cue = {**cue_sheet(who), "cams": {c: [v["yaw"], v["pitch"]] for c, v in cams.items() if v}}
+    args = HD.face_args(cue, who)
     if SPEECH_GAIN.get(who, 1.0) != 1.0:
         args["speech_gain"] = [[0.0, round(length_s(who), 3), SPEECH_GAIN[who]]]
     return args
