@@ -2,7 +2,7 @@
 anyone may take over once they expire. A worker that dies (a spot reclaim, a crash) stops renewing, and its chunk
 goes back to the queue on its own.
 
-    s3://<bucket>/<root>/                     root = farm/<farm>/<job>/ (public) or ue-linux/private/farm/<farm>/<job>/
+    s3://<bucket>/<root>/                     root = farm/<farm>/<job>/ (ids, sizes, hashes: never a frame)
       job.json                                the validated job
       chunks.json                             the plan: [{"id", "start", "end", "render_from", "preroll", ...}]
       c/<chunk>/lease.json                    {"worker", "attempt", "expires", "claimed", "beat", "state"}
@@ -34,9 +34,11 @@ def farm_key(farm: str) -> str:
 
 
 def job_root(farm: str, job: dict, private_root: str = "ue-linux/private/") -> str:
-    """Where a job's queue lives: under the private root for a private job, so nothing about it is outside."""
-    base = private_root if job["privacy"] == "private" else ""
-    return f"{base}farm/{farm}/{job['id']}/"
+    """Where a job's queue lives: farm/<farm>/<job>/ for every job. It holds ids, frame numbers, sizes, hashes and
+    timings, never a frame. A private job's FRAMES go only under its private output prefix. The queue stays outside
+    private/ on purpose: the bucket lets only the box role read private/, and the machine running film-farm must
+    read the queue."""
+    return f"farm/{farm}/{job['id']}/"
 
 
 class Queue:

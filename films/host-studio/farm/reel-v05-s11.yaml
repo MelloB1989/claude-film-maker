@@ -1,0 +1,35 @@
+# film-farm acceptance B: the reel's empty-room wide (V05, bar 11-13) and the karma sign push-in (S11, bar 13-14),
+# no presenter in frame, at the explainers' final settings, on 2 boxes with a 24-frame pre-roll per chunk.
+# The level still holds the presenters, so the job is PRIVATE (the face rule): frames only under ue-linux/private/,
+# SSE-KMS; compare and assemble run on a worker.
+#   film-farm submit F films/host-studio/farm/reel-v05-s11.yaml
+#   film-farm submit F films/host-studio/farm/reel-v05-s11-1box.yaml
+#   film-farm compare F reel-v05-s11 reel-v05-s11-1box
+id: reel-v05-s11
+engine: ue
+frames: [600, 780]
+cuts: [720]
+chunk: 40
+preroll: 24
+privacy: private
+presenter: false
+output: {prefix: "s3://BUCKET/ue-linux/private/farm/tests/reel-v05-s11/frames/", ext: png, pad: 4, fps: 24}
+ue:
+  fresh_editor: true
+  wait_compile: true
+  stall_s: 900
+  spec:
+    sequence: /Game/Reel/SEQ_Reel
+    level: /Game/Studio/Studio
+    preset: final
+    spatial: 4
+    temporal: 8
+    width: 1920
+    height: 1080
+    aa_method: none
+    warmup_engine: 22
+    warmup_render: 24
+    shutter_timing: open
+    cvars: {r.SSS.Quality: 1, r.SSS.HalfRes: 0, r.HairStrands.LODMode: 0, r.HairStrands.AutoLOD.Bias: 1.0,
+            r.HairStrands.UseCardsInsteadOfStrands: 0, r.HairStrands.SkyLighting: 0,
+            r.Streaming.FullyLoadUsedTextures: 1, r.Streaming.PoolSize: 12000}

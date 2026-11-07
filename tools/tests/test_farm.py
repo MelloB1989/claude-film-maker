@@ -128,7 +128,7 @@ def test_submit_is_idempotent_and_refuses_a_changed_job():
         q.submit(job(chunk=10))
     assert len(q.jobs()) == 1 and root == "farm/f1/j1/"
     _, qp, rp = make_q(privacy="private", output={"prefix": f"s3://{B}/ue-linux/private/out/j1/"})
-    assert rp == "ue-linux/private/farm/f1/j1/"
+    assert rp == "farm/f1/j1/"  # the queue never holds a frame; the frames go to the private prefix
 
 
 def test_two_workers_never_hold_the_same_chunk():
