@@ -838,6 +838,22 @@
    ],
    "guard": true,
    "why": "the operator: 'her expression is pale, no emotion at all'; the orchestrator's ruling (07 Nov), a scope change, not a waiver: on our CG face MediaPipe reads talking into the brow/cheek channels (v2b, mouth-only solves: expr_active 0.535, brow flashes 61.96/min, neutral hold 1.42 s on the render), so the render reading doesn't discriminate; the face CURVES gate instead (face.curves_*), and the orchestrator's eye on the TEST judges what shows"
+  },
+  "face.curves_frown_frac": {
+   "area": "performance",
+   "track": "agent-04 / agent-09",
+   "op": "<=",
+   "line": 0.1,
+   "unit": "fraction",
+   "info": true,
+   "what": "speaking frames with browDown/browLateral (the frown) above 0.25 on the face curves",
+   "where": "spans_<film>.json",
+   "how": "qa_perf.face_rows_curves (core r7-perf-gate)",
+   "r4": [
+    null,
+    "INFO: the full-face audio solve can read angry at a neutral/auto mood (the orchestrator, round 7, from the tutorial's tip); a mood override + a happy layer fix it"
+   ],
+   "why": "a confident, happy presenter, not a hard brow"
   }
  },
  "not_attempted": {
