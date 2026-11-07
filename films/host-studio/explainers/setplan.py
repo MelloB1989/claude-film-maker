@@ -53,6 +53,16 @@ SIGN_DROP = -30.0  # r3: out of the close frames; wholly in the WIDE beside her 
 SIGN = (WALL + 4.0, 25.0, 228.0 + SIGN_DROP)
 
 # the studio's standing-host rig and reel cameras: not this set's (deleted in the explainer level only)
+# seated garment cuts (body.hide_under on copies, this level's instance only): (component, under garment, reach cm),
+# applied in order from the original meshes. Her r3 shoulder: the Top through the Overshirt seam.
+GARMENT_HIDES = {
+    "her": [("Top", "Overshirt", 6.0), ("Trousers", "Top", 4.0), ("Body", "Top", 4.0)],
+    "him": [],
+}
+GARMENT_SRC = {"her": {"Top": "/Game/Host/Presenter_Outfit/SKM_Presenter_Top",
+                       "Trousers": "/Game/Host/Presenter_Outfit/SKM_Presenter_Trousers",
+                       "Body": "/Game/Host/Unpacked/Presenter/Body/SKM_Presenter_F_BodyMesh"}, "him": {}}
+
 STUDIO_HOST_LIGHTS = ["Key", "Fill", "HairLight", "RimWarm", "RimWindow", "EyeLight"]
 STUDIO_CAMS = ["KarmaHost", "KarmaWide", "KarmaVertical", "KarmaShelf", "KarmaCredenza", "KarmaSign"]
 
@@ -60,9 +70,9 @@ FILMBACK = [36.0, 20.25]  # full frame 16:9, every camera
 # exposure, locked: manual, NOT physical-camera (so f/2 and f/2.8 cameras cut with no brightness jump). Bias is a
 # compensation (higher = brighter). Box B 17:20 IST: -0.7 put her face at 164/255 with the studio's rig; one stop
 # lower with her rig one stop up (LIGHT_GAIN 2) keeps the face and takes the bright window down a stop
-EXPOSURE_BIAS = -1.4
+EXPOSURE_BIAS = -0.7
 SUN_LUX = 9000.0           # FM_Sun in this level (studio 17000): r3, the sun patches on the floor in the WIDE
-LIGHT_GAIN = 2.0          # her rig (channel 1 only) x this; the set's own light (channel 0) is untouched
+LIGHT_GAIN = 2.8          # her rig (channel 1 only) x this; the set's own light (channel 0) is untouched
 
 
 def face(who: str) -> dict:

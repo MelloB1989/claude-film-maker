@@ -44,7 +44,7 @@ BOX_PROPS = "/srv/ue/explainer/props"
 REVIEW_S3 = f"{BUCKET}/private/renders/r6/review/explain/"
 ACTOR = {"her": "Presenter", "him": "Host"}
 SEQ = {"her": f"{FOLDER}/SEQ_Explain_Her", "him": f"{FOLDER}/SEQ_Explain_Him"}
-STEPS = ["level", "props", "light", "cameras", "seq", "dress", "save"]
+STEPS = ["level", "props", "light", "cameras", "seq", "garments", "dress", "save"]
 # the presenter's dress pass (leaders, hair look, accessories; saves the level) and what she wears, per presenter
 DRESS = {"her": HERE.parent / "props/her_outfit_ue/dress_her.py", "him": HERE.parent / "props/his_outfit_ue/dress_him.py"}
 client = None  # filmtools.unreal.client, imported once FILM_UE_BOX is set
@@ -259,6 +259,26 @@ def step_seq(who: str, edl_path: str | None, length: int) -> None:
     print(f"{seq}: 0-{end}, cuts {cuts}")
 
 
+def step_garments(who: str) -> None:
+    """The seated garment cuts: each component back on its original mesh, then body.hide_under in order (each cut
+    is a copy named <mesh>_Under_<garment>; the originals and the studio are untouched)."""
+    src = P.GARMENT_SRC[who]
+    if not src:
+        return print("no garment cuts for", who)
+    print("reset:", ex(f"""import unreal
+from fmbridge.ops import level as L
+out = {{}}
+for c in L.actor({ACTOR[who]!r}).get_components_by_class(unreal.SkeletalMeshComponent):
+    m = {src!r}.get(c.get_name())
+    if m:
+        c.set_skeletal_mesh_asset(unreal.load_asset(m))
+        out[c.get_name()] = m
+result = out"""))
+    for comp, over, reach in P.GARMENT_HIDES[who]:
+        r = op("body.hide_under", label=ACTOR[who], body=comp, garment=over, reach_cm=reach, apply=True)
+        print(f"{comp} under {over} (reach {reach}): hidden {r.get('hidden')} ({r.get('fraction')}) → {r.get('mesh')}")
+
+
 def step_dress(who: str) -> None:
     """Leaders back on every garment (any step that touches her components drops them: box B after agent-01's body
     step), her hair look and accessories, the groom lock (render cvars) — then the leaders check must pass."""
@@ -362,7 +382,7 @@ def main() -> int:
             print(f"== {s}")
             {"level": lambda: step_level(a.who), "props": lambda: step_props(a.who),
              "light": lambda: step_light(a.who), "cameras": lambda: step_cameras(a.who),
-             "seq": lambda: step_seq(a.who, a.edl, a.length), "dress": lambda: step_dress(a.who),
+             "seq": lambda: step_seq(a.who, a.edl, a.length), "garments": lambda: step_garments(a.who), "dress": lambda: step_dress(a.who),
              "save": step_save}[s]()
     return 0
 
