@@ -731,6 +731,12 @@ def bake(who: str, source: str, target: str, anim: str, out: str, bones, head_co
                             "fps": FPS, "head_control_off": head_control_off}, 3600)
 
 
+# head_to_body's bones (the face's motion onto the body). Him: neck and head only. His built face carries its own
+# spine_04/05 pose: baked onto his body it tipped his chest and lifted both resting wrists 3.6 cm off the desk
+# (box B bodycheck, 07 Nov 23:1x; hips/knees 0). Her spine bake read 0 cm, so hers keeps the reel's set.
+H2B_BONES = {"her": ["spine_04", "spine_05", "neck_01", "neck_02", "head"], "him": ["neck_01", "neck_02", "head"]}
+
+
 def cmd_sync(who: str, from_bake: int = 1) -> dict:
     """The reel's sync on the seated body: the face rides the body with its head control on, the body takes the head
     motion that makes, the shared skeleton is baked back onto the face; then perf.face's planned head turn goes on the
@@ -757,7 +763,7 @@ def cmd_sync(who: str, from_bake: int = 1) -> dict:
         ok(c.op("seq.set_anim", path=path, component="Face", anim=follow, label=lab))
     if from_bake <= 2:
         print("sync 2/3: head_to_body", file=sys.stderr, flush=True)
-        b = bake(who, "Face", "Body", seat, body, ["spine_04", "spine_05", "neck_01", "neck_02", "head"], stage="b2")
+        b = bake(who, "Face", "Body", seat, body, H2B_BONES[who], stage="b2")
     ok(c.op("seq.set_anim", path=path, component="Body", anim=body, label=lab))
     print("sync 3/3: bake_follow (head control off)", file=sys.stderr, flush=True)
     d = bake(who, "Body", "Face", face, follow, "shared", head_control_off=True, stage="b3")
