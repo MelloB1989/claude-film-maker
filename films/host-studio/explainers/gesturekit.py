@@ -233,8 +233,7 @@ def plan_from_sheet(sheet: dict, cues: dict, tilts: list | None = None, base_lea
                 pr = replace(pr, off=(pr.off[0], pr.off[1], APEX_Z[g["apex_height"]]))
             pl = scaled(gesture_pose(g, "l", n_count), k) if g.get("hand") in ("both", "l") else None
             if pl is not None:  # the left (mic side) stays below and inside the mic line, whatever the amp
-                pl = replace(pl, off=(min(pl.off[0], 22.0), min(pl.off[1], 2.0), -2.5), ext=max(pl.ext, 34.0),
-                             pron=min(pl.pron, 60.0))
+                pl = replace(pl, off=(pl.off[0], min(pl.off[1], LEFT_MAX_LAT), pl.off[2]))  # the mic is up at her mouth
             seed0 += 1
             prep = float(g["prep_t"])  # agent-10's prosody timing owns prep/stroke/hold/retract when present
             ev = Event(g.get("hand", "r"), prep, float(g["stroke_t"]), float(g.get("hold_s", 0.25)),
@@ -614,10 +613,11 @@ def blend_poses(parts: list) -> HandPose:
 
 
 YAW_BASE = {"r": 40.0, "l": 0.0}  # deg her right fingers always turn out a little: turned in, they reached the mic
-RIGHT_MIN_LAT = 15.0  # cm her right hand stays to her right of the sternum point while she speaks
-LEFT_RESTS = True  # r7b: the left hand rests on the desk between its own gestures (see hand_targets)
-LEFT_MAX_LAT = 0.0
-LEFT_MAX_Z = 8.0  # cm over the sternum point (bust height) for her left hand, except on two-hand moves  # cm: her left hand stays at least 3 cm to her RIGHT of the sternum point while she speaks
+RIGHT_MIN_LAT = 10.0  # cm her right hand stays to her right of the sternum point while she speaks
+LEFT_RESTS = False  # r7b: the left hand rested on the desk between its own gestures while the mic hung at her sternum;
+#                     with the mic moved up to her mouth (the orchestrator, 08 Nov) it gestures like the right
+LEFT_MAX_LAT = 12.0
+LEFT_MAX_Z = 40.0  # cm over the sternum point for her left hand (no cap with the mic at her mouth)  # cm: her left hand stays at least 3 cm to her RIGHT of the sternum point while she speaks
 
 FRAME_WANT = {"CAM_MCU": 0.6, "CAM_MCU_L": 0.6, "CAM_CU": 0.3, "CAM_WIDE": 0.95}  # the orchestrator's lines
 
