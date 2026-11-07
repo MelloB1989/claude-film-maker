@@ -8,6 +8,7 @@ import type { Frame } from '@engine/scene';
 import { THREE, F, Mat, Circle, hdr, KineticText, Label, MotionScene, glowMat, surfaceMat, playGeometry, emFor, v, type CamPose } from './lib';
 
 const DIST = 6.2, FOV = 30;
+const SHIFT = 0.32, CAMD = 7.4;
 
 export default class Title extends MotionScene {
   private ring!: Circle;
@@ -24,7 +25,7 @@ export default class Title extends MotionScene {
   private buf!: THREE.Mesh;
   private head!: THREE.Mesh;
   private knob!: THREE.Mesh;
-  private P = v(-2.05, 0.1, 0.2);
+  private P = v(-2.25, 0.1, 0.2);
 
   protected build() {
     const s = this.stage.scene;
@@ -44,15 +45,15 @@ export default class Title extends MotionScene {
     this.play.position.copy(P).add(v(0.05, 0, 0));
     s.add(this.play);
     // the type
-    const x0 = -1.18;
+    const x0 = -1.3;
     this.kicker = this.own(new Label('SYSTEM DESIGN IN 60 SECONDS', { size: emFor(34, DIST, FOV), family: F.mono(500), role: 'accent2', k: 1.2, align: 'left', tracking: 0.06 }));
     this.kicker.group.position.set(x0, 0.98, 0);
-    const em1 = emFor(80, DIST, FOV);
+    const em1 = emFor(88, DIST, FOV);
     this.l1 = this.own(new KineticText('How Netflix streams to', { size: em1, align: 'left' }));
     this.l1.group.position.set(x0, 0.42, 0);
-    this.hero = this.own(new KineticText('300+', { size: emFor(150, DIST, FOV), align: 'left', accentWords: [0], accentMat: accentSolid('accent', 1.4), depth: 0.22 }));
+    this.hero = this.own(new KineticText('300+', { size: emFor(165, DIST, FOV), align: 'left', accentWords: [0], accentMat: accentSolid('accent', 1.4), depth: 0.22 }));
     this.hero.group.position.set(x0, -0.36, 0);
-    this.l2b = this.own(new KineticText('million people', { size: em1, align: 'left' }));
+    this.l2b = this.own(new KineticText('million members', { size: em1, align: 'left' }));
     this.l2b.group.position.set(x0 + this.hero.width + 0.12, -0.36, 0);
     this.l3 = this.own(new KineticText('without buffering.', { size: em1, align: 'left' }));
     this.l3.group.position.set(x0, -0.98, 0);
@@ -74,8 +75,8 @@ export default class Title extends MotionScene {
   protected cam(t: number): CamPose {
     // a slow push and a few degrees of orbit through the shot
     const k = Math.min(1, t / this.len);
-    const az = THREE.MathUtils.degToRad(-6 + 9 * k), d = DIST * (1.0 - 0.07 * k);
-    return { pos: [Math.sin(az) * d - 0.1, 0.25 - 0.15 * k, Math.cos(az) * d], target: [-0.1, -0.02, 0], fov: FOV };
+    const az = THREE.MathUtils.degToRad(-6 + 9 * k), d = CAMD * (1.0 - 0.035 * k);
+    return { pos: [Math.sin(az) * d + SHIFT, 0.25 - 0.15 * k, Math.cos(az) * d], target: [SHIFT, -0.02, 0], fov: FOV };
   }
 
   protected pose(t: number, _f: Frame) {

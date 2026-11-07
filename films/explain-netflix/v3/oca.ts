@@ -56,17 +56,17 @@ export default class Oca extends MotionScene {
     s.add(this.box.group);
     // the far library: a tall red-lit rack, far back left
     this.lib = this.own(new ServerBox(1.6, 0.34, 1.0, 7));
-    this.lib.group.position.set(-6.0, 0.3, -16);
+    this.lib.group.position.set(-9.2, 0.65, -16);
     this.lib.group.rotation.y = 0.5;
     s.add(this.lib.group);
     this.cloud = this.own(new Cloud(1.25));
-    this.cloud.group.position.set(-3.0, 1.0, -8.5);
+    this.cloud.group.position.set(-2.6, 1.2, -7);
     s.add(this.cloud.group);
     // the long haul: sparse, slow grey packets from the library through the cloud to each home
-    const libTop = v(-5.4, 1.4, -15.4);
+    const libTop = v(-8.6, 1.4, -15.4);
     this.homesAt.forEach((h, i) => {
-      const c = new THREE.CatmullRomCurve3([libTop, v(-4.4, 1.9, -12.5), v(-3.0, 1.05 + i * 0.12, -8.5), v((h.x - 3.0) / 2, 1.1, (h.z - 8.5) / 2), h]);
-      const f = this.own(new Flow(c, { rate: 3.5, speed: 2.4, radius: 0.026, length: 0.2, role: '#a89e92', hot: '#c8bdb0', k: 1.3, vary: 0.5, max: 40, seed: 3 + i }));
+      const c = new THREE.CatmullRomCurve3([libTop, v(-6.4, 2.1, -12.0), v(-2.6, 1.25 + i * 0.12, -7), v((h.x - 2.6) / 2, 1.2, (h.z - 7) / 2), h]);
+      const f = this.own(new Flow(c, { rate: 3.5, speed: 2.4, radius: 0.04, length: 0.26, role: '#a89e92', hot: '#c8bdb0', k: 1.6, vary: 0.5, max: 40, seed: 3 + i }));
       this.far.push(f); s.add(f.mesh);
     });
     // the short hop: dense red streams from the box to each home
@@ -78,13 +78,12 @@ export default class Oca extends MotionScene {
       this.near.push(f); s.add(f.mesh);
     });
     // labels
-    this.ispLabel = this.own(new Label('YOUR INTERNET PROVIDER', { size: emFor(40, 7, FOV), family: F.mono(500), role: 'accent2', k: 1.3, tracking: 0.06, align: 'right' }));
-    this.ispLabel.group.position.set(PLAT.x - 1.95, PLAT.y + 0.45, PLAT.z + 1.0);
-    this.ispLabel.group.rotation.y = 0.15;
+    this.ispLabel = this.own(new Label('YOUR INTERNET PROVIDER', { size: emFor(40, 7, FOV), family: F.mono(500), role: 'accent2', k: 1.3, tracking: 0.06 }));
+    this.ispLabel.group.position.set(PLAT.x, PLAT.y + 1.3, PLAT.z - 1.4);
     this.libLabel = this.own(new Label('Netflix library', { size: emFor(56, 18, FOV), role: 'fgDim' }));
-    this.libLabel.group.position.set(-5.7, 2.5, -15.6);
+    this.libLabel.group.position.set(-8.9, -0.95, -15.6);
     this.slow = this.own(new Label('far away · slow to start', { size: emFor(44, 8, FOV), family: F.mono(500), role: 'fgDim', tracking: 0.04 }));
-    this.slow.group.position.set(-1.6, 0.35, -4.0);
+    this.slow.group.position.set(-0.2, 1.25, -5.0);
     this.boxLabel = this.own(new Label('Open Connect Appliance', { size: emFor(56, 5.5, FOV) }));
     this.boxLabel.group.position.set(PLAT.x - 0.55, PLAT.y + 1.5, PLAT.z + 0.3);
     this.free = this.own(new KineticText('FREE', { size: emFor(150, 5.5, FOV), align: 'left', accentWords: [0], accentMat: accentSolid('accent', 1.5), depth: 0.24 }));
@@ -98,7 +97,7 @@ export default class Oca extends MotionScene {
     // wide on the whole route, then a push and a swing onto the box after "inside"
     const tIn = this.cue('inside', 2.3);
     const k = smooth(t, tIn - 0.5, 1.9);
-    const w = { pos: v(-0.4, 2.0, 8.4), tgt: v(-0.9, -0.55, -2.4) };
+    const w = { pos: v(0.2, 2.0, 8.4), tgt: v(-0.3, -0.55, -2.4) };
     const c = { pos: v(1.7, 1.1, 5.1), tgt: v(PLAT.x + 0.05, PLAT.y + 0.6, PLAT.z) };
     const drift = t * 0.06;
     const p = w.pos.clone().lerp(c.pos, k).add(v(drift, 0, -drift * 0.5)), g = w.tgt.clone().lerp(c.tgt, k);
@@ -117,7 +116,7 @@ export default class Oca extends MotionScene {
       h.group.visible = k > 0.001;
       h.win.color.copy(hdr('accent2', 1.6 + 1.6 * win(t, tIn + 0.4 + i * 0.08, 0.2)));
     });
-    this.ispLabel.pose(t, tProv + 0.1, 'rise');
+    this.ispLabel.pose(t, tProv + 0.1, 'rise', 1 - win(t, tGet - 0.1, 0.3));
     // the long haul, fading once the box serves
     const farA = 1 - win(t, tIn + 0.2, 0.7);
     this.far.forEach((f) => f.pose(t, -2.5, tIn + 0.2, farA > 0 ? 1 : 0));
