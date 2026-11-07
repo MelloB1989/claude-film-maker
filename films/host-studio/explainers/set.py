@@ -38,7 +38,6 @@ STUDIO = "/Game/Studio/Studio"
 LEVEL = "/Game/Explainer/ExplainerSet"
 FOLDER = "/Game/Explainer"
 PROPS_DIR = f"{FOLDER}/Props"
-STUDIO_M = "/Game/Studio/Materials"
 BUCKET = "s3://rf-render-788655295054-aps1/ue-linux"
 PROPS_S3 = f"{BUCKET}/props/explainer/"
 BOX_PROPS = "/srv/ue/explainer/props"
@@ -46,11 +45,6 @@ REVIEW_S3 = f"{BUCKET}/private/renders/r6/review/explain/"
 ACTOR = {"her": "Presenter", "him": "Host"}
 SEQ = {"her": f"{FOLDER}/SEQ_Explain_Her", "him": f"{FOLDER}/SEQ_Explain_Him"}
 STEPS = ["level", "props", "light", "cameras", "seq", "save"]
-# the props' material slots dressed with the studio's own surfaces where the names say what they are (agent-05's FBX
-# slot names; an unknown slot keeps the FBX's imported material and is reported)
-SLOT_MI = {"M_Walnut": "MI_K_Walnut", "M_Oak": "MI_K_Oak", "M_Wool": "MI_K_Wool", "M_Linen": "MI_K_Linen",
-           "M_Leather": "MI_K_Leather", "M_Felt": "MI_K_Felt"}
-
 client = None  # filmtools.unreal.client, imported once FILM_UE_BOX is set
 
 
@@ -130,34 +124,48 @@ result = [round(p.x, 2), round(p.y, 2), round(p.z, 2), round(r.yaw, 2)]"""))
 
 
 def step_props(who: str) -> None:
-    files = ex(f"""import subprocess, glob, os
+    """agent-05's props: sync, a PBR instance per texture set (props.json: base colour, DirectX normal, packed ORM,
+    tile_m), import each FBX, place it, dress its slots by name."""
+    got = ex(f"""import subprocess, glob, os, json
 os.makedirs({BOX_PROPS!r}, exist_ok=True)
 r = subprocess.run(["aws", "s3", "sync", {PROPS_S3!r}, {BOX_PROPS!r}, "--only-show-errors"], capture_output=True, text=True)
-result = {{"rc": r.returncode, "err": r.stderr[-500:], "fbx": sorted(glob.glob({BOX_PROPS!r} + "/**/*.fbx", recursive=True))}}""")
-    if files["rc"]:
-        raise SystemExit(f"props sync failed: {files['err']}")
-    by_name = {Path(f).stem: f for f in files["fbx"]}
+pj = os.path.join({BOX_PROPS!r}, "props.json")
+result = {{"rc": r.returncode, "err": r.stderr[-500:], "props": json.load(open(pj)) if os.path.exists(pj) else None,
+          "fbx": sorted(glob.glob({BOX_PROPS!r} + "/**/*.fbx", recursive=True))}}""")
+    if got["rc"] or not got["props"]:
+        raise SystemExit(f"props sync failed or no props.json: {got['err']}")
+    meta, by_name = got["props"], {Path(f).stem: f for f in got["fbx"]}
     print("props on the box:", sorted(by_name))
-    mic = P.mic(who)
+    mats = {}
+    for slot, t in meta.get("textures", {}).items():
+        mi = f"{PROPS_DIR}/Materials/MI_Exp_{slot[2:]}"
+        tiling = 1.0 / t["tile_m"] if P.UV_METRES and t.get("tile_m") else 1.0
+        tx = f"{BOX_PROPS}/textures"
+        op("mat.pbr", path=mi, maps={"base_color": f"{tx}/{t['BaseColor']}", "normal": f"{tx}/{t['Normal_DirectX']}",
+                                     "orm": f"{tx}/{t['ORM']}"},
+           texture_dest=f"{PROPS_DIR}/Textures", params={"Tiling": round(tiling, 4)})
+        mats[slot] = mi
+    print("materials:", sorted(mats))
     for label, (name, loc, yaw) in P.PROPS.items():
         if name not in by_name:
             print(f"MISSING {label}: no {name}.fbx under {PROPS_S3} (agent-05)")
             continue
-        dest = f"{PROPS_DIR}/{name}"
-        paths = op("assets.import", files=[by_name[name]], dest=dest, replace=True, combine=True, kind="static",
-                   nanite=False, collision="none", materials=True, textures=True)
-        mesh = next((p for p in paths if "StaticMesh" in p or p.split(".")[-1] == name), paths[0] if paths else "")
+        place = meta.get("assets", {}).get(name, {}).get("placement_ue")
+        if place:  # agent-05's own transform for a posed prop wins over the plan's
+            loc, yaw = place["location"], place["yaw"]
+        paths = op("assets.import", files=[by_name[name]], dest=PROPS_DIR, replace=True, combine=True, kind="static",
+                   nanite=False, collision="none", materials=False, textures=False, name=name)
+        mesh = next((x for x in paths if x.split("/")[-1].split(".")[0] == name), paths[0] if paths else "")
         if not mesh:
             raise SystemExit(f"{name}: import returned nothing")
-        y = mic["yaw"] if yaw is None else yaw
         op("level.spawn", label=label, asset=mesh.split(".")[0], loc=list(loc),
-           rot_={"pitch": 0.0, "yaw": y, "roll": 0.0}, replace=True)
+           rot_={"pitch": 0.0, "yaw": yaw, "roll": 0.0}, replace=True)
         slots = op("look.slots", label=label) or {}
-        want = {s: f"{STUDIO_M}/{SLOT_MI[s]}" for s in slots if s in SLOT_MI}
+        want = {sl: mats[sl] for sl in slots if sl in mats}
         if want:
             op("look.slots", label=label, materials=want)
-        print(f"{label}: {mesh} at {loc} yaw {y:.1f}; slots {sorted(slots)} dressed {sorted(want)}")
-    op("look.channels", labels=[lab for lab in P.PROPS], channels=[0, 1])
+        print(f"{label}: {mesh} at {list(loc)} yaw {yaw}; slots {sorted(slots)}; undressed {sorted(set(slots) - set(want))}")
+    op("look.channels", labels=list(P.PROPS), channels=[0, 1])
 
 
 def step_light(who: str) -> None:
@@ -190,13 +198,28 @@ def step_cameras(who: str) -> None:
         print(name, c["loc"], "->", c["look_at"], f"{c['focal']} mm f/{c['aperture']}")
 
 
+def shot_camera(s: dict) -> str | None:
+    """A shot's camera: agent-11's PANEL shots (her in the left half, a graphic panel on the right) use CAM_MCU_L."""
+    cam = s.get("camera")
+    if not cam or s.get("kind") == "gfx":
+        return None
+    return "CAM_MCU_L" if s.get("kind") == "panel" and cam == "CAM_MCU" else cam
+
+
+def render_plan(edl: dict, handles: int = 6) -> list:
+    """Every presenter shot as [n, camera, first, end) with ±handles, clamped to the sequence."""
+    end = int(edl.get("frames") or max(s["f1"] for s in edl["shots"]))
+    return [[s["n"], shot_camera(s), max(0, s["f0"] - handles), min(end, s["f1"] + handles)]
+            for s in edl["shots"] if shot_camera(s)]
+
+
 def edl_cuts(edl: dict) -> list:
     """agent-11's EDL → [[camera, first frame], …] over the presenter shots; graphics ranges hold the camera before
     them (they are never rendered from the presenter sequence)."""
     cuts = []
     for s in sorted(edl["shots"], key=lambda s: s["f0"]):
-        cam = s.get("camera") or s.get("cam")
-        if cam and cam.startswith("CAM_") and (not cuts or cuts[-1][0] != cam):
+        cam = shot_camera(s)
+        if cam and (not cuts or cuts[-1][0] != cam):
             cuts.append([cam, int(s["f0"])])
     if cuts:
         cuts[0][1] = 0
@@ -206,7 +229,7 @@ def edl_cuts(edl: dict) -> list:
 def step_seq(who: str, edl_path: str | None, length: int) -> None:
     seq, actor = SEQ[who], ACTOR[who]
     edl = json.loads(Path(edl_path).read_text()) if edl_path else None
-    end = int(edl.get("total_frames") or max(s["f1"] for s in edl["shots"])) if edl else length
+    end = int(edl.get("frames") or max(s["f1"] for s in edl["shots"])) if edl else length
     op("seq.new", path=seq, start=0, end=end, fps=24)
     op("seq.bind", path=seq, label=actor)
     op("seq.key_visible", path=seq, label=actor, keys=[[0, True]], attached=True)

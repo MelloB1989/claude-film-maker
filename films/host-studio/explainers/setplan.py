@@ -37,8 +37,11 @@ PROPS = {  # label: (FBX stem, loc, yaw; None = aimed at the capsule target)
     "ExpChair": ("SM_PodcastChair", (MARK[0], MARK[1], 0.0), 0.0),   # seat top 45, faces +X
     "ExpDesk": ("SM_WalnutDesk", (78.0, -20.0, 0.0), 0.0),           # top 110 (Y) x 55 (X) at z 74
     # posed by agent-05 for this clamp → capsule (44,-6,99) aimed at the mouth (32,-20,113); SOCKET_Capsule to check
-    "ExpMic": ("SM_MicBoom", (70.0, 32.6, DESK_TOP), 0.0),
+    "ExpMic": ("SM_MicBoom", (70.0, 32.6, DESK_TOP), -90.0),
+    "ExpPlant": ("SM_DeskPlant", (100.0, 25.0, DESK_TOP), 25.0),      # 13 x 44 cm, the far +Y corner by the mic
 }
+PLANT_TOP = DESK_TOP + 44.0
+UV_METRES = False  # agent-05: tile_m is baked into UV0 (1 UV = tile_m metres), so Tiling 1
 MIC_FROM_MOUTH = (12.0, 14.0, -14.0)  # the capsule's centre from the mouth: forward, to her left (+Y), down
 MIC_LEN = 19.0                       # the capsule body's length (props/mic_boom.py)
 
@@ -214,6 +217,13 @@ def check(who: str) -> list:
         if name == "CAM_WIDE":
             cu, cv, _ = project(cam, (MARK[0], MARK[1], 0.0))
             rows.append(("CAM_WIDE chair feet in frame", 0.0 < cu < 1.0 and cv < 0.98, f"u {cu:.3f} v {cv:.3f}"))
+    for name, cam in cams.items():  # the desk plant stays off her face and mouth
+        x, y, _ = PROPS["ExpPlant"][1]
+        mu, mv, _ = project(cam, fc["mouth"])
+        pts = [project(cam, (x + dx, y + dy, PLANT_TOP)) for dx in (-8, 8) for dy in (-8, 8)]
+        clear = all(pv > mv + 0.05 or abs(pu - mu) > 0.15 for pu, pv, _ in pts)
+        rows.append((f"{name} desk plant off the mouth", clear,
+                     "top corners " + ", ".join(f"({pu:.2f},{pv:.2f})" for pu, pv, _ in pts) + f" mouth ({mu:.2f},{mv:.2f})"))
     rows.append(("mic boom reach (prop: ~45 cm, +35 cm)", 30.0 <= mc["reach_cm"] <= 60.0,
                  f"reach {mc['reach_cm']:.1f} cm, rise {mc['rise_cm']:.1f} cm, yaw {mc['yaw']:.1f}°"))
     return rows
