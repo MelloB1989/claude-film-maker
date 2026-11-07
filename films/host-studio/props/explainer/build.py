@@ -34,6 +34,7 @@ ap.add_argument("--samples", type=int, default=128)
 ap.add_argument("--res", type=int, default=1400)
 ap.add_argument("--only", default="", help="comma list of assets (chair,desk,mic,plant)")
 ap.add_argument("--no-render", action="store_true")
+ap.add_argument("--no-denoise", action="store_true")
 ap.add_argument("--tex-size", type=int, default=P.N)
 args = ap.parse_args(argv)
 
@@ -620,7 +621,7 @@ def preview_stage(lo, hi, view_dir, path, lens=55, res=None, aim=None, margin=1.
     sc.render.engine = "CYCLES"
     sc.cycles.device = "CPU"
     sc.cycles.samples = args.samples
-    sc.cycles.use_denoising = True
+    sc.cycles.use_denoising = not args.no_denoise
     sc.render.threads_mode = "FIXED"
     sc.render.threads = 6
     sc.view_settings.view_transform = "AgX"
