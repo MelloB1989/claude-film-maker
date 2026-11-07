@@ -54,6 +54,16 @@ rows (`gate_spec.json`):
 
 Each row's must_fail is v2b, measured on box B. The numbers support the eye; the operator decides.
 
+**Round 7 rulings (the orchestrator, 07 Nov):**
+
+| ruling | what it changes |
+|---|---|
+| face rows | Gated on the face anim CURVES (face.curves_*), with brow line 0.40. v2b's real anim reads 0.22 / 0 / 0 / 3.0 s, so all four fail. The render smile row stays a gate (v2b 0.0/min). The render expr/brow/neutral rows are INFO: MediaPipe reads talking as expression on our face. |
+| body rows | Calibrated on v2b's samples. A gesture is the hand going up off the desk (wrist > desk + 10 cm) plus beats while it is up. v2b reads 0.347/s with hands up 0.356; both fail. |
+| waist fit | Line 0.75, PROVISIONAL. v2b reads 1.04 at her left side (front half, her facing). It freezes after the refit's UE number and the eye. |
+| arm clearance | INFO for the TEST: no validated measure yet. The judge is the orchestrator's eye at 1x/2x, with agent-01's design clearance (3.8 cm) as supporting evidence. It must be a real gate before the full re-render. |
+| frown | face.curves_frown_frac is INFO: the full-face solve's angry-brow risk. |
+
 
 ### Netflix v2b: SIGN (07 Nov, about 23:45 IST)
 

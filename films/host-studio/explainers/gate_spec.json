@@ -741,7 +741,13 @@
     "netflix v2b (the operator's REJECT, 07 Nov 23:45): measure on box B's v2b frames/curves and put the value here; the line must fail it"
    ],
    "guard": true,
-   "why": "the operator, 07 Nov: 'her expression is pale, no emotion at all ... hands stuck to her body ... boob covering the upper limb ... these presenters must look confident, happy, full of energy, not robotic' (R7_common.md). The numbers support the eye; the operator decides"
+   "why": "the operator, 07 Nov: 'her expression is pale, no emotion at all ... hands stuck to her body ... boob covering the upper limb ... these presenters must look confident, happy, full of energy, not robotic' (R7_common.md). The numbers support the eye; the operator decides",
+   "info_for": "TEST",
+   "r4": [
+    null,
+    "INFO for the R7 TEST by the orchestrator's ruling (07 Nov), a scope change, not a waiver: no validated measure yet (agent-09's cross-check structurally constant at -10; agent-02's mesh measure failing its ref-pose self-check). The judge: the orchestrator's eye at 1x and 2x on the MCU + WIDE test frames (the 00:44 arm-under-breast case is obvious when present), with agent-01's design-time clearance from gesturekit (3.8/3.8 cm on a torso+breast model) as supporting evidence. It must be a real GATE (validated, must_fail = v2b) before the full re-render"
+   ],
+   "info": true
   },
   "garment.waist_fit_cm": {
    "area": "garment",
