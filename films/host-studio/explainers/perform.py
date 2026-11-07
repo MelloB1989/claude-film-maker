@@ -600,6 +600,136 @@ def cmd_face(who: str) -> dict:
     return {"out": r.get("out"), "report": r.get("report"), "curves": r.get("curves")}
 
 
+# --- chunked bakes (box B, 07 Nov: his sync died in one whole-take bake, like a whole-take seq.sample; in 120-frame
+#     jobs the same playback passed): anim.bake_pose's sampling split across jobs, its writing kept as one short job
+
+BAKE_SAMPLE = r"""
+import json, os, unreal
+from fmbridge.ops.seq import component_of
+from fmbridge.ops._scrub import set_frame
+from fmbridge.ops.assets import load
+P = json.loads(PARAMS)
+LSE = unreal.LevelSequenceEditorBlueprintLibrary
+def job():
+    src = component_of(P["label"], P["source"])
+    bones = P["bones"]
+    if bones == "shared":  # bake_follow's set: every non-facial bone the leader and follower share
+        lead, foll = component_of(P["label"], P["source"]), component_of(P["label"], P["follower"])
+        lb = {str(lead.get_bone_name(i)) for i in range(lead.get_num_bones())}
+        bones = [n for n in (str(foll.get_bone_name(i)) for i in range(foll.get_num_bones()))
+                 if n in lb and not n.startswith("FACIAL")]
+    seq = load(P["seq"])
+    if LSE.get_current_level_sequence() != seq:
+        LSE.open_level_sequence(seq)
+    space = unreal.RelativeTransformSpace.RTS_PARENT_BONE_SPACE
+    out = {}
+    set_frame(P["frames"][0] + 1)
+    yield
+    for f in P["frames"]:
+        set_frame(f)
+        for _ in range(P["ticks"]):
+            yield
+        row = {}
+        for b in bones:
+            t = src.get_socket_transform(b, space)
+            p, q, sc = t.translation, t.rotation, t.scale3d
+            row[b] = [[p.x, p.y, p.z], [q.x, q.y, q.z, q.w], [sc.x, sc.y, sc.z]]
+        out[str(f)] = row
+    os.makedirs(os.path.dirname(P["file"]), exist_ok=True)
+    with open(P["file"], "w") as fh:
+        json.dump({"bones": bones, "frames": out}, fh)
+    return {"frames": len(out), "bones": len(bones), "file": P["file"]}
+result = job()
+"""
+
+BAKE_WRITE = r"""
+import json, math, unreal
+from fmbridge.ops.assets import EAL, free, load
+from fmbridge.ops.anim import model_keys, _nlerp, _set
+from fmbridge.ops.seq import set_anim
+AL = unreal.AnimationLibrary
+P = json.loads(PARAMS)
+def job():
+    data, bones = {}, None
+    for fn in P["files"]:
+        with open(fn) as fh:
+            d = json.load(fh)
+        bones = bones or d["bones"]
+        data.update({int(k): v for k, v in d["frames"].items()})
+    frames = sorted(data)
+    if frames != list(range(frames[0], frames[0] + len(frames))):
+        raise RuntimeError(f"chunked bake: frames missing between {frames[0]} and {frames[-1]}")
+    free(P["out"])
+    EAL.duplicate_asset(P["anim"], P["out"])
+    a = load(P["out"])
+    fps = P["fps"]
+    n_keys = model_keys(a)
+    length = float(AL.get_sequence_length(a))
+    span = (len(frames) - 1) / fps
+    tracks = {str(n) for n in AL.get_animation_track_names(a)}
+    ctrl = a.get_editor_property("controller")
+    own_poses = {}
+    def own(b, t):
+        if b not in tracks:
+            return unreal.Transform()
+        if t not in own_poses:
+            own_poses[t] = unreal.AnimPoseExtensions.get_anim_pose_at_time(a, t, unreal.AnimPoseEvaluationOptions())
+        return unreal.AnimPoseExtensions.get_bone_pose(own_poses[t], b, unreal.AnimPoseSpaces.LOCAL)
+    yield
+    ctrl.open_bracket("perform chunked bake", True)
+    try:
+        for j, b in enumerate(bones):
+            Pp, R, S = [], [], []
+            for k in range(n_keys):
+                t = k * length / max(1, n_keys - 1)
+                if t > span:
+                    o = own(b, t)
+                    Pp.append(o.translation); R.append(o.rotation); S.append(o.scale3d)
+                    continue
+                x = min(t * fps, len(frames) - 1.0001)
+                i, u = int(x), x - int(x)
+                r0, r1 = data[frames[i]][b], data[frames[i + 1]][b]
+                Pp.append(unreal.Vector(*[p0 + (p1 - p0) * u for p0, p1 in zip(r0[0], r1[0])]))
+                q = _nlerp(r0[1], r1[1], u)
+                R.append(unreal.Quat(q[0], q[1], q[2], q[3]))
+                S.append(unreal.Vector(*[s0 + (s1 - s0) * u for s0, s1 in zip(r0[2], r1[2])]))
+            if b not in tracks:
+                ctrl.add_bone_curve(b)
+            ctrl.set_bone_track_keys(b, Pp, R, S)
+            if j % 40 == 39:
+                yield
+    finally:
+        ctrl.close_bracket(True)
+    if P.get("head_control_off"):
+        _set(a, "headcontrolswitch", [0.0, length], [0.0, 0.0])
+    EAL.save_asset(P["out"])
+    set_anim(P["seq"], P["target"], P["out"], label=P["label"])
+    return {"anim": P["out"], "bones": len(bones), "keys": n_keys, "frames": len(frames)}
+result = job()
+"""
+
+BAKE_CHUNK = 240
+
+
+def bake(who: str, source: str, target: str, anim: str, out: str, bones, head_control_off: bool = False,
+         chunk: int = BAKE_CHUNK) -> dict:
+    """anim.bake_pose / bake_follow, sampled in `chunk`-frame jobs (each prints before it runs) and written once."""
+    c = client()
+    path, lab = WORK[who], LABEL[who]
+    n = frames(who)
+    files = []
+    tag = out.rsplit("/", 1)[-1]
+    for f0 in range(0, n, chunk):
+        part = list(range(f0, min(n, f0 + chunk)))
+        fn = box(who, "bake", f"{tag}_{f0:05d}.json")
+        print(f"bake {tag}: frames {part[0]}-{part[-1]}", file=sys.stderr, flush=True)
+        run(BAKE_SAMPLE, {"seq": path, "label": lab, "source": source, "follower": target, "bones": bones,
+                          "frames": part, "ticks": 2, "file": fn}, 3600)
+        files.append(fn)
+    return run(BAKE_WRITE, {"seq": path, "label": lab, "target": target, "anim": anim, "out": out, "files": files,
+                            "fps": FPS, "head_control_off": head_control_off}, 3600)
+
+
 def cmd_sync(who: str) -> dict:
     """The reel's sync on the seated body: the face rides the body with its head control on, the body takes the head
     motion that makes, the shared skeleton is baked back onto the face; then perf.face's planned head turn goes on the
@@ -613,13 +743,16 @@ def cmd_sync(who: str) -> dict:
                                                                           "loop": False}]))
     ok(c.op("seq.anim", path=path, label=lab, component="Face", sections=[{"anim": face, "start": 0, "end": n,
                                                                           "loop": False}]))
-    a = ok(c.op("anim.bake_follow", sequence=path, actor_label=lab, anim=face, out=f"{ANIM}/AS_exp_{who}_follow",
-                head_control=True, timeout=3600))
-    b = ok(c.op("anim.head_to_body", sequence=path, actor_label=lab, body_anim=seat, out=f"{ANIM}/AS_exp_{who}_body",
-                timeout=3600))
+    # the reel's three bakes, each sampled in BAKE_CHUNK-frame jobs (bake_follow = the Body's shared bones onto the
+    # Face; head_to_body = the Face's spine/neck/head onto the Body)
+    print("sync 1/3: bake_follow (head control on)", file=sys.stderr, flush=True)
+    a = bake(who, "Body", "Face", face, f"{ANIM}/AS_exp_{who}_follow", "shared", head_control_off=False)
+    print("sync 2/3: head_to_body", file=sys.stderr, flush=True)
+    b = bake(who, "Face", "Body", seat, f"{ANIM}/AS_exp_{who}_body",
+             ["spine_04", "spine_05", "neck_01", "neck_02", "head"])
     ok(c.op("seq.set_anim", path=path, component="Body", anim=f"{ANIM}/AS_exp_{who}_body", label=lab))
-    d = ok(c.op("anim.bake_follow", sequence=path, actor_label=lab, anim=face, out=f"{ANIM}/AS_exp_{who}_follow",
-                timeout=3600))
+    print("sync 3/3: bake_follow (head control off)", file=sys.stderr, flush=True)
+    d = bake(who, "Body", "Face", face, f"{ANIM}/AS_exp_{who}_follow", "shared", head_control_off=True)
     e = ok(c.op("perf.turn_head", anim=f"{ANIM}/AS_exp_{who}_body", face_anim=face, timeout=900))
     ok(c.op("seq.set_anim", path=path, component="Face", anim=f"{ANIM}/AS_exp_{who}_follow", label=lab))
     res = {"follow_head": a, "body": b, "follow": d, "turn": e, "leaders": lead(who)}
