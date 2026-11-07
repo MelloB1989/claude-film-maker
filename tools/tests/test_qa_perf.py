@@ -101,7 +101,7 @@ def test_curve_precheck_on_metahuman_controls():
                   "CTRL_expressions_eyeCheekRaiseL": 0.0} for f in range(240)}
     assert P.face_rows_curves(curves, FPS, [[0, 240]])["face.curves_expr_active_frac"]["value"] == 0.0
     for f in range(20, 30):
-        curves[f]["CTRL_expressions_browRaiseInL"] = 0.5
+        curves[f]["CTRL_expressions_browRaiseInL"] = 0.6
     for f in range(60, 70):
         curves[f].update({"CTRL_expressions_mouthCornerPullL": 0.4, "CTRL_expressions_eyeCheekRaiseL": 0.3})
     r = P.face_rows_curves(curves, FPS, [[0, 240]])

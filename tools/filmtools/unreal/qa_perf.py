@@ -105,7 +105,8 @@ def face_rows_curves(curves: dict, fps: float, spans: list) -> dict:
     """The PRE-CHECK on the face anim's curves (agent-04, round 7), offline before box time: {frame: {control: value}}
     with MetaHuman CTRL_expressions_* names. Roles: brow = browRaiseIn / browRaiseOuter (L/R); squint = eyeCheekRaise /
     eyeSquintInner (L/R); smile = mouthCornerPull (L/R). Lines on the rig's scale (agent-04): active 0.15, smile
-    corner pull 0.25 with cheek raise 0.2, a brow flash a rise of 0.2 for under 1.2 s. INFO: the gate reads the RENDER
+    corner pull 0.25 with cheek raise 0.2, a brow flash a rise of 0.40 for under 1.2 s (v2b had perfkit brow flashes peaking
+    0.22-0.27 that the operator still saw as pale: at 0.40 v2b reads 0/min and the R7 plan 31.3/min; agent-04). INFO: the gate reads the RENDER
     (face_rows on MediaPipe blendshapes), because the viewer sees pixels, not curves."""
     def pick(row, *keys):
         vals = [v for k, v in row.items() if any(x in k for x in keys)]
@@ -118,7 +119,7 @@ def face_rows_curves(curves: dict, fps: float, spans: list) -> dict:
         series[int(f)] = {"browInnerUp": b, "browOuterUpLeft": b, "browOuterUpRight": b, "cheekSquintLeft": q,
                           "cheekSquintRight": q, "eyeSquintLeft": q, "eyeSquintRight": q, "mouthSmileLeft": m,
                           "mouthSmileRight": m}
-    out = face_rows(series, fps, spans, lines={"active": 0.15, "smile": 0.25, "squint": 0.20, "brow": 0.20,
+    out = face_rows(series, fps, spans, lines={"active": 0.15, "smile": 0.25, "squint": 0.20, "brow": 0.40,
                                                 "brow_max_s": 1.2}, neutral=False)
     return {k.replace("face.", "face.curves_"): v for k, v in out.items()}
 
