@@ -41,6 +41,9 @@ ACCENT = {"whatsapp": (37, 211, 102), "netflix": (229, 9, 20)}
 INK, INK2 = (18, 14, 11), (30, 24, 19)
 TEXT, TEXT2 = (242, 236, 228), (168, 158, 146)
 SERIES = "SYSTEM DESIGN IN 60 SECONDS"
+# The lower third's topic line: the titles with their numbers softened as the voice says them (and as the title cards do)
+TOPIC = {"whatsapp": "How WhatsApp delivers 100+ billion messages a day",
+         "netflix": "How Netflix streams to 300+ million members without buffering"}
 LT_F0, LT_F1 = 12, 84         # the lower third's frames (on the first presenter shot)
 CAP_Y = 1000                  # caption baseline centre (y of the text's vertical middle)
 CAP_SIZE = 50
@@ -363,7 +366,7 @@ def main() -> None:
     edl = json.loads((HERE / "edl" / f"{a.film}.json").read_text())
     cues = json.loads((HERE / "audio" / a.film / "cues.json").read_text())
     mix = HERE / "audio" / a.film / "mix.wav"
-    title = json.loads((HERE / "scripts.json").read_text())["explainers"][a.film]["title"]
+    title = TOPIC[a.film]
     a.out.mkdir(parents=True, exist_ok=True)
     name = f"{a.film}_r6{('_' + a.tag) if a.tag else ''}"
     work = Path(tempfile.mkdtemp(prefix=f"comp_{a.film}_", dir=a.out))
