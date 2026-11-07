@@ -76,7 +76,12 @@ STYLE = {  # forearms resting on the desk (the orchestrator, r3 stills): elbows 
 # The line solves' moods (speech.to_face): measured and calm, a little brighter on the hook and the close.
 MOOD = {"hook": ("CONFIDENCE", 0.8), "close": ("CONFIDENCE", 0.8)}
 MOOD_DEFAULT = ("CONFIDENCE", 0.65)
-SPEECH_GAIN = {"him": 1.7, "her": 1.0}  # the reel's: his rig gives little mouth travel (r4)
+SPEECH_GAIN = {"him": 1.7, "her": 1.0}
+# Each line's mouth is placed this many frames BEFORE its WAV's place: the solver opens the jaw 0.04-0.09 s AFTER the
+# first sound (box B, her 16 lines alone vs their own WAVs), people open it 100-300 ms before (Chandrasekaran 2009);
+# the orchestrator's bar is 0-2 frames before. Measured on her 16 composed lines (compose's 3-frame fade-in delays
+# the rise ~1 f): lead 0 -> 0.9-2.2 f LATE, 3 -> 0.9-2.2 f early, 2.5 -> ~0.4-1.7 f early.
+LEAD_FRAMES = 2.5  # the reel's: his rig gives little mouth travel (r4)
 # body life on a seated body: calm breathing that shows (agent-09's breath rows: 8-22 /min, >= 2 mm sternum rise),
 # almost no weight shift (the seat holds the pelvis), no torso follow (r5: it rode the blinks)
 LIFE = {"state": "talk", "breath_deg": 1.35, "clavicle_deg": 1.0, "shift_cm": 0.25, "follow": 0.0}
@@ -184,7 +189,8 @@ def lines_of(who: str) -> list:
 
 
 def reference(who: str) -> list:
-    return [{"anim": line_anim(ln["id"]), "frame": ln["file_start_f"]} for ln in cues(who)["lines"]]
+    """Each line's own solve where the face plays it (its WAV's place, LEAD_FRAMES earlier): the strict reference."""
+    return [{"anim": line_anim(ln["id"]), "frame": ln["file_start_f"] - LEAD_FRAMES} for ln in cues(who)["lines"]]
 
 
 def cmd_bias(who: str) -> dict:
@@ -205,7 +211,7 @@ def cmd_bias(who: str) -> dict:
 
 
 def cmd_compose(who: str) -> dict:
-    parts = [{"anim": line_anim(ln["id"]), "frame": ln["file_start_f"]} for ln in cues(who)["lines"]]
+    parts = reference(who)
     r = ok(client().op("lipsync.compose", parts=parts, out=f"{ANIM}/AS_exp_{who}_solve", start_frame=0,
                        length_frames=frames(who), fps=FPS, skeleton=mesh_of(who, "Face"), fade_frames=3.0,
                        timeout=1800))
@@ -213,17 +219,42 @@ def cmd_compose(who: str) -> dict:
     return r
 
 
+CHECK = r"""
+import json, sys, importlib.util
+import fmbridge.ops.lipsync as OL
+P = json.loads(PARAMS)
+spec = importlib.util.spec_from_file_location("fmbridge.perfkit.lipsync_r6", P["kit"])
+m = importlib.util.module_from_spec(spec)
+m.__package__ = "fmbridge.perfkit"
+spec.loader.exec_module(m)
+old = OL.LS
+OL.LS = m  # this one call only: the bridge's own perfkit is left as installed
+try:
+    result = OL.check(**P["args"])
+finally:
+    OL.LS = old
+"""
+
+
+def lipcheck(who: str, **args) -> dict:
+    """lipsync.check with this tree's perfkit.lipsync (pushed beside the WAVs): r6's onset window stops at the line
+    before (0.34 s gaps read the previous line's mouth as this one opening 1.0 s early: box B, 07 Nov). Until the core
+    fix is installed on the boxes; then it is the same as client.op("lipsync.check")."""
+    client().push(str(ROOT / "unreal" / "fmbridge" / "perfkit" / "lipsync.py"), box(who, "kit", "lipsync_r6.py"))
+    return run(CHECK, {"kit": box(who, "kit", "lipsync_r6.py"), "args": args}, 900)
+
+
 STAGE_ANIM = {"solve": "AS_exp_{w}_solve", "face": "AS_exp_{w}_face", "final": "AS_exp_{w}_gaze"}
 
 
 def cmd_check(who: str, stage: str) -> dict:
     if stage == "placed":
-        r = ok(client().op("lipsync.check", sequence=SEQ[who], label=LABEL[who], wav=box(who, "vo.wav"),
-                           lines=lines_of(who), fps=FPS, reference=reference(who), timeout=600))
+        r = lipcheck(who, sequence=SEQ[who], label=LABEL[who], wav=box(who, "vo.wav"), lines=lines_of(who), fps=FPS,
+                     reference=reference(who))
     else:
         anim = f"{ANIM}/" + STAGE_ANIM[stage].format(w=who)
-        r = ok(client().op("lipsync.check", anim=anim, anim_frame=0, wav=box(who, "vo.wav"), wav_frame=0,
-                           lines=lines_of(who), fps=FPS, reference=reference(who), timeout=600))
+        r = lipcheck(who, anim=anim, anim_frame=0, wav=box(who, "vo.wav"), wav_frame=0, lines=lines_of(who), fps=FPS,
+                     reference=reference(who))
     keep(who, f"lips_{stage}", r)
     s = {"stage": stage, "pass": r["pass"], "diagnosis": r.get("diagnosis"),
          "lines": {k: [v.get("ref_lag_frames"), v.get("ref_corr"), v.get("lag_frames"), v.get("corr"),
