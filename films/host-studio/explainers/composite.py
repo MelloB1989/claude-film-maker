@@ -56,7 +56,11 @@ except ImportError:  # pragma: no cover
 
 
 def font(name: str, size: int) -> ImageFont.FreeTypeFont:
-    return ImageFont.truetype(str(FONTS / name), size)
+    p = FONTS / name
+    if not p.is_file():
+        sys.exit(f"no font {p}: composite.py needs the repo's app/public/fonts/ (a full checkout of the branch, or "
+                 f"--fonts DIR)")
+    return ImageFont.truetype(str(p), size)
 
 
 def ff(args: list, ffmpeg: str) -> None:
@@ -350,7 +354,11 @@ def main() -> None:
     ap.add_argument("--no-prores", action="store_true", help="skip the ProRes master (quick reviews)")
     ap.add_argument("--ffmpeg", default=shutil.which("ffmpeg") or "ffmpeg")
     ap.add_argument("--keep", action="store_true", help="keep the work directory")
+    ap.add_argument("--fonts", type=Path, help="the fonts directory (default: the repo's app/public/fonts)")
     a = ap.parse_args()
+    if a.fonts:
+        global FONTS
+        FONTS = a.fonts
 
     edl = json.loads((HERE / "edl" / f"{a.film}.json").read_text())
     cues = json.loads((HERE / "audio" / a.film / "cues.json").read_text())
