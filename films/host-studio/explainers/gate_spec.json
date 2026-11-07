@@ -484,20 +484,21 @@
    ],
    "why": "the orchestrator: it must not exist in any final frame"
   },
-  "shot.grain_ratio": {
+  "shot.grain_sigma": {
    "area": "shot",
    "track": "agent-07 (box B) / agent-09",
    "op": "<=",
    "line": 1.5,
-   "unit": "x",
-   "what": "pixel noise (unconverged stochastic shadows / dither) in fixed FLAT patches, the desk top under her hands, the plaster wall, her neck/chest shadow: the worst patch's Immerkaer noise sigma (8-bit levels) over the karma r6 finals' converged level measured the same way on their flat patches",
-   "where": "the first 30 frames of MCU (f+29) before the 9-shot batch, then every final shot's last frame",
-   "how": "qa_av.py grain <full-res frames> --patches patches.json --ref <karma r6 finals sigma> (on the box: face data) -> numbers/<film>/grain.json",
+   "unit": "8-bit levels",
+   "what": "pixel noise (unconverged stochastic shadows / dither) in fixed FLAT patches picked by projection through each shot camera (the back-wall plaster, under her jaw at neck_01 + 6 cm forward, the desk top before her hands in the WIDE): the worst patch's Immerkaer noise sigma",
+   "where": "the finals-spec MCU test f29 before the batch, then each final shot's frames",
+   "how": "qa_av.py grain <full-res frames> --patches grain_patches.json (on box B: face data) -> numbers/<film>/grain.json",
    "must_fail": [
-    null,
-    "netflix r6c f300 still and r6b_v2_clip MCU_1330 (the orchestrator, 07 Nov: speckle under her hands, on her neck/chest shadow, the wall, hair edges, forearm skin): measure it and put the value here; the line must fail it"
+    3.104,
+    "netflix r6c WIDE f300 (neck 3.104, desk 3.069), the speckle the orchestrator saw; r6b_v2_clip MCU_1330 read 14.553 (wall)"
    ],
-   "why": "the orchestrator, 07 Nov: the finals must be CLEAN; a FAIL blocks the batch. Line 1.5 is provisional until the f300 must_fail and the karma reference are measured"
+   "guard": true,
+   "why": "the orchestrator, 07 Nov: the finals must be CLEAN; a FAIL blocks the batch. Calibrated on box B (agent-07): the must-fails 3.10 / 14.55 vs the finals-spec MCU test f29 0.689, which the orchestrator passed by eye at 1:1. The line sits 2x from both. An absolute line instead of a ratio to the karma finals, whose patches could not be placed without box A"
   }
  },
  "not_attempted": {

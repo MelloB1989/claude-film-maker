@@ -118,9 +118,10 @@ wood mosaic) at the bottom centre.
 
 ### Grain (box B, before the batch)
 
-**shot.grain_ratio ≤ 1.5 (provisional)** is pixel noise in fixed flat patches: the desk under her hands, the wall, and
-her neck/chest shadow. It is Immerkaer's noise sigma, divided by the karma r6 finals' level measured the same way.
-`qa_av.py grain FRAMES --patches patches.json --ref SIGMA` measures it. The f300 still is its must-fail. A FAIL blocks
+**shot.grain_sigma ≤ 1.5 levels** is the worst Immerkaer noise sigma over fixed flat patches, picked by projection
+through each camera: the wall, under her jaw, and the desk top. `qa_av.py grain FRAMES --patches patches.json`
+measures it. Calibrated on box B: the f300 speckle reads 3.10 and MCU_1330 reads 14.55 (both must fail), against
+0.689 on the finals-spec MCU test, which the orchestrator passed at 1:1. A FAIL blocks
 the 9-shot batch.
 
 ### Exposure (agent-09 runs it on the box)
