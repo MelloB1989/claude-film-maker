@@ -479,6 +479,7 @@ def main(argv=None) -> int:
     ap.add_argument("--box", required=True, help="workstation profile (FILM_UE_BOX); 'conf' = the conf dir's default")
     ap.add_argument("--label", default="Presenter")
     ap.add_argument("--top", default="Top")
+    ap.add_argument("--span", type=float, default=70.0, help="fold-rim threshold, deg (closed shell): lower if no rim")
     sub = ap.add_subparsers(dest="cmd", required=True)
     m = sub.add_parser("measure")
     m.add_argument("--seq", required=True)
@@ -498,7 +499,7 @@ def main(argv=None) -> int:
         os.environ["FILM_UE_BOX"] = a.box
     sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "tools"))
     from filmtools.unreal import client
-    g = {"LABEL": a.label, "TOP": a.top}
+    g = {"LABEL": a.label, "TOP": a.top, "SPAN_DEG": a.span}
     if a.cmd == "cleanup":
         print(json.dumps(_exec(client, "cleanup", **g)))
         return 0
