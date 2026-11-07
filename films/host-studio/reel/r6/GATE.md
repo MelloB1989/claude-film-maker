@@ -9,7 +9,7 @@ S16 and the set shots stay) and the 65 s + 45 s cuts under `private/renders/r6/r
   | file | source |
   |---|---|
   | `box.json` | agent-06, `fleet/agent-06/r6-boxa` 228c108f |
-  | `garment.json` | agent-02, `fleet/agent-02/r6-neck` 436832f2 |
+  | `garment.json` | agent-02, `fleet/agent-02/r6-neck` 4dcb8113 (final: INFO rows carry null + the reason; measured values in `*_info` rows: collar gap 3.562, roll 3, silhouette 31.73) |
   | `lips.json` | agent-01's `lips_numbers.py`, run by agent-06 |
   | `head.json` | agent-04 |
   | `eye_onsets.json` | the orchestrator's signed strip |
