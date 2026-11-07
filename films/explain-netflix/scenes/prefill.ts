@@ -19,7 +19,7 @@ export default class Prefill extends NfScene {
   protected scene(c: CanvasRenderingContext2D, g: CanvasRenderingContext2D, t: number, f: Frame) {
     const P = this.look.panel;
     const L = P
-      ? { X0: 30, X1: 330, Y0: 290, Y1: 70, lx: 640, ly: 120, ocas: [150, 425, 700], oy: 400, os: 0.8, pill: [425, 525] as const, txt: 0.9 }
+      ? { X0: 30, X1: 360, Y0: 290, Y1: 70, lx: 640, ly: 120, ocas: [150, 425, 700], oy: 400, os: 0.8, pill: [425, 525] as const, txt: 0.9 }
       : { X0: 140, X1: 900, Y0: 790, Y1: 370, lx: 1450, ly: 360, ocas: [1180, 1450, 1720], oy: 655, os: 1.0, pill: [1450, 846] as const, txt: 1 };
     if (!P) heading(c, this.p('kick', 'Step 2 · Fill it overnight'), this.p('title', 'Tomorrow’s hits, delivered tonight'), t);
 
