@@ -199,6 +199,19 @@
     null,
     "INFO with lips.render_lag_frames (the orchestrator's ruling, 07 Nov): it is a property of that render measure (its own r4 note), which round 5b showed invalid; it returns as a hard line with agent-01's landmark measure"
    ]
+  },
+  "garment.silhouette_pct": {
+   "info": true,
+   "r4": [
+    2.23,
+    "INFO for round 6 by the orchestrator's ruling (cc-64d05f6e, 07 Nov): the reference (r4/clip/Host_after) is round 4's DIFFERENT performance (pose), the garment is the same (Epic's default tee); the finals read +31.73 at S15 f1152 on the head turn, +4.3-4.9 at f1082-1128. A self-reference (r6n2 = the finals state) would be a fake 0. armor_index (0.317, line 0.5) is the bulk guard and passes. Round 7 item: a pose-matched reference (same performance, previous accepted garment state). A scope change, not a waiver"
+   ]
+  },
+  "garment.collar_gap_cm": {
+   "why_r6": "PENDING the orchestrator's measure-scope ruling (07 Nov): judged on the CAMERA-FACING half of the band (sectors whose outward normal faces the active shot camera, per frame); agent-02 implements on core with must-fails (Fit5 gap, rolled lip, fold, a synthetic FRONT stand-off) still failing; recorded as a measure fix, not a waiver. Finals before the fix: gap 1.514 (S15 f1150, side/back on the head turn), roll 3 (side/back cells 200-230 deg)"
+  },
+  "garment.collar_roll": {
+   "why_r6": "PENDING the orchestrator's measure-scope ruling (07 Nov): judged on the CAMERA-FACING half of the band (sectors whose outward normal faces the active shot camera, per frame); agent-02 implements on core with must-fails (Fit5 gap, rolled lip, fold, a synthetic FRONT stand-off) still failing; recorded as a measure fix, not a waiver. Finals before the fix: gap 1.514 (S15 f1150, side/back on the head turn), roll 3 (side/back cells 200-230 deg)"
   }
  },
  "not_attempted": {
