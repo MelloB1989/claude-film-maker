@@ -542,6 +542,18 @@ def _clash(a: list, b: list, pad: float = 2.0) -> list:
 NO_BLINK = {"him": [[1124, 1172]], "her": []}
 
 
+def tilt_moves(e: dict, ease_s: float = 0.5, pad: float = 0.1) -> list:
+    """[[t0, t1], ...] (s) where each planned tilt eases in or out (perfkit.head.Tilt: in over ease_s from t, out over
+    1.3 ease_s from until): no blink there (r6: the planner keeps blinks off gaze shifts and nods, not off tilts; a
+    tilt easing under a blink reads as the head moving with it)."""
+    out = []
+    for t in e.get("tilts", []):
+        es = float(t.get("ease_s", ease_s))
+        out += [[round(t["t"] - pad, 3), round(t["t"] + es + pad, 3)],
+                [round(t["until"] - pad, 3), round(t["until"] + 1.3 * es + pad, 3)]]
+    return out
+
+
 def naturalize(who: str, plot: bool = True, no_turn_blinks: bool = False) -> dict:
     """perf.face over the composed solve -> ANIM/AS_reel_<who>_face (what sync, gaze and place use, as in v2). Needs
     `compose` (r3) and perf.calibrate on the presenter's face (`calibrate`). When the other presenter's face has been
@@ -553,6 +565,7 @@ def naturalize(who: str, plot: bool = True, no_turn_blinks: bool = False) -> dic
     theirs_p = OUT / f"blinks_{other}.json"
     theirs = json.loads(theirs_p.read_text()) if theirs_p.exists() else []
     avoid = [[round((a - START[who]) / FPS, 3), round((b - START[who]) / FPS, 3)] for a, b in theirs + (NO_BLINK[who] if no_turn_blinks else [])]
+    avoid += tilt_moves(e)
     args = {"anim": f"{ANIM}/AS_reel_{who}_solve", "out": f"{ANIM}/AS_reel_{who}_face",
             # r5 (the operator on r4: "every time she blinks her head nods"): the solve's head is dropped (it comes out
             # of the same predictor run as its blinks and dips with them) and no blink moves the head
