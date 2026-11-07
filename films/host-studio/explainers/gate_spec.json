@@ -483,6 +483,21 @@
     "netflix V2 her_CAM_CU_f1300 (orchestrator, 07 Nov): two rectangular blocks at the bottom centre (x 1055-1250, y 1010-1080), a pale one and a wood mosaic: an unresolved VT/streaming tile or a near-camera object"
    ],
    "why": "the orchestrator: it must not exist in any final frame"
+  },
+  "shot.grain_ratio": {
+   "area": "shot",
+   "track": "agent-07 (box B) / agent-09",
+   "op": "<=",
+   "line": 1.5,
+   "unit": "x",
+   "what": "pixel noise (unconverged stochastic shadows / dither) in fixed FLAT patches, the desk top under her hands, the plaster wall, her neck/chest shadow: the worst patch's Immerkaer noise sigma (8-bit levels) over the karma r6 finals' converged level measured the same way on their flat patches",
+   "where": "the first 30 frames of MCU (f+29) before the 9-shot batch, then every final shot's last frame",
+   "how": "qa_av.py grain <full-res frames> --patches patches.json --ref <karma r6 finals sigma> (on the box: face data) -> numbers/<film>/grain.json",
+   "must_fail": [
+    null,
+    "netflix r6c f300 still and r6b_v2_clip MCU_1330 (the orchestrator, 07 Nov: speckle under her hands, on her neck/chest shadow, the wall, hair edges, forearm skin): measure it and put the value here; the line must fail it"
+   ],
+   "why": "the orchestrator, 07 Nov: the finals must be CLEAN; a FAIL blocks the batch. Line 1.5 is provisional until the f300 must_fail and the karma reference are measured"
   }
  },
  "not_attempted": {

@@ -116,6 +116,13 @@ Both checks are the core `qa.clip` extension (`0ce1c3ae`, branch `fleet/agent-09
 That first frame, in every camera, shows no hard-edged rectangular block. Netflix V2's CU f1300 had two (a pale one and a
 wood mosaic) at the bottom centre.
 
+### Grain (box B, before the batch)
+
+**shot.grain_ratio ≤ 1.5 (provisional)** is pixel noise in fixed flat patches: the desk under her hands, the wall, and
+her neck/chest shadow. It is Immerkaer's noise sigma, divided by the karma r6 finals' level measured the same way.
+`qa_av.py grain FRAMES --patches patches.json --ref SIGMA` measures it. The f300 still is its must-fail. A FAIL blocks
+the 9-shot batch.
+
 ### Exposure (agent-09 runs it on the box)
 
     python3 qa_av.py exposure <final frames> --shots shots.json --box <face box x0,y0,x1,y1> --out numbers/<film>/exposure.json
