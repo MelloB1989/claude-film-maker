@@ -100,6 +100,13 @@ SOLVE_MOOD = {
             **{k: ("CONFIDENCE", 0.5) for k in ("N04", "N05", "N06", "N08", "N09", "N10", "N11", "N14")},
             "N12": ("SURPRISE", 0.3), "N13": ("CONFIDENCE", 0.55),
             **{k: ("EXCITEMENT", 0.8) for k in ("N07", "N15", "N16")}},  # payoffs 0.8-1.0 (FACE_RESEARCH.md)
+    # him (agent-11's acting/him.json, the orchestrator: "warmer/playful"): hook W01-W03 playful, the body HAPPINESS
+    # as his sheet has it (warmer than her confident), the "read" reveal and the payoff lines W16-W17 excited; his set
+    # has the cameras on his right too (set_him.json), so CAMERA_SIDE holds
+    "him": {**{k: ("PLAYFULNESS", 0.65) for k in ("W01", "W02")}, "W03": ("PLAYFULNESS", 0.7),
+            **{k: ("HAPPINESS", 0.5) for k in ("W04", "W05", "W06", "W08", "W09", "W12", "W14", "W15")},
+            "W07": ("PLAYFULNESS", 0.55), "W10": ("PLAYFULNESS", 0.55), "W13": ("HAPPINESS", 0.6),
+            "W11": ("EXCITEMENT", 0.7), **{k: ("EXCITEMENT", 0.8) for k in ("W16", "W17")}},
 }
 SOLVE_DEFAULT = ("CONFIDENCE", 0.5)
 BASE_UNDER_SOLVE = 0.5  # the warm base's share over a full-face solve (its mood already smiles)
