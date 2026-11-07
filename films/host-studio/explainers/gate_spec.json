@@ -171,7 +171,7 @@
    "where": "the SEATED pose, every presenter camera of the film (qa.clip / qa.garment_look on the explainer sequence)"
   },
   "garment.pair_fraction": {
-   "where": "the SEATED pose on the finals' own state, every presenter camera. NETFLIX V2 (the orchestrator, 07 Nov): her fitted white ribbed Top, NO overshirt, so clip_r7's occlusion baseline (taken with the overshirt) no longer applies: every pair counts RAW again (Body>Top, Trousers>Top, Top/Body vs Chair/Desk) until the orchestrator rules a V2 occlusion by eye on a fresh run, which then becomes that pair's baseline (qa.clip before=)",
+   "where": "the SEATED pose on the finals' own state, every presenter camera. NETFLIX V2 (no overshirt): the orchestrator ruled (07 Nov, box B r6b_v2_clip) Body>Top at MCU f1330 / MCU_L f1015 = her forearm/elbow IN FRONT of the top, and Trousers>Top at WIDE f1176 = her hands/forearms in front of the hem: OCCLUSIONS, not poke-through. r6b_v2_clip is V2's baseline: those pairs count only their excess over its worst (+0.01, qa.clip before=.../r6b_v2_clip/clip.json); every other pair counts raw",
    "how": "film-ue op qa.clip ... (pairs without Overshirt) on the finals' state -> worst raw fraction, or the excess over a V2 baseline the orchestrator ruled -> numbers/<film>/clip.json"
   },
   "garment.hem_flare_ratio": {
@@ -483,6 +483,70 @@
     "netflix V2 her_CAM_CU_f1300 (orchestrator, 07 Nov): two rectangular blocks at the bottom centre (x 1055-1250, y 1010-1080), a pale one and a wood mosaic: an unresolved VT/streaming tile or a near-camera object"
    ],
    "why": "the orchestrator: it must not exist in any final frame"
+  },
+  "shot.grain_sigma": {
+   "area": "shot",
+   "track": "agent-07 (box B) / agent-09",
+   "op": "<=",
+   "line": 1.0,
+   "unit": "8-bit levels",
+   "what": "CLOSE shots (MCU, CU, MCU_L): pixel noise in fixed flat patches by projection (the back-wall plaster, under her jaw at neck_01 + 6 cm forward): the worst patch's Immerkaer noise sigma",
+   "where": "the first AND last frame of each final job (a FAIL re-renders that job), the finals-spec MCU test f29 before the batch",
+   "how": "qa_av.py grain <full-res frames> --patches grain_patches.json (on box B: face data) -> numbers/<film>/grain.json",
+   "must_fail": [
+    3.104,
+    "netflix r6c WIDE f300 (neck 3.104, desk 3.069), the speckle the orchestrator saw; r6b_v2_clip MCU_1330 read 14.553 (wall)"
+   ],
+   "guard": true,
+   "why": "the orchestrator, 07 Nov: an ABSOLUTE line sigma <= 1.0 (8-bit, flat patches) until a karma reference exists; f300 (3.10) and MCU_1330 (14.55) fail it, the finals-spec MCU test f29 (0.69, passed by eye at 1:1) passes"
+  },
+  "shot.grain_wide_sigma": {
+   "area": "shot",
+   "track": "agent-07 (box B)",
+   "op": "<=",
+   "line": 0.8,
+   "unit": "8-bit levels",
+   "what": "WIDE shots: the same noise sigma on FLAT patches only (the back-wall plaster right of the shelves, the higher plaster further right; no neck, no desk)",
+   "where": "the first AND last frame of each WIDE final job (a FAIL re-renders that job)",
+   "how": "qa_av.py grain <frames> --patches grain_patches_wide.json (wall, wall2) -> numbers/<film>/grain.json",
+   "must_fail": [
+    1.002,
+    "netflix r6c WIDE f300's wall (wall2 0.606): the speckle"
+   ],
+   "guard": true,
+   "why": "the orchestrator's ruling (07 Nov), a measure scope change: at WIDE scale the neck and desk patches hold texture (jaw line, hair edge, walnut pores), so they are INFO; evidence = the orchestrator's 1:1 look at shot 11 f1100 (orch/wide_1100.png): the desk shadow smooth, the pores real, face, hair and wall clean. Netflix V2 shot 11 reads 0.552/0.543 (wall2 0.377/0.386): PASS"
+  },
+  "shot.grain_wide_texture": {
+   "area": "shot",
+   "track": "agent-07 (box B)",
+   "op": "<=",
+   "line": 1.0,
+   "unit": "8-bit levels",
+   "info": true,
+   "what": "WIDE shots' neck and desk patches (texture at that scale), reported beside the flat-patch row",
+   "where": "each WIDE final job",
+   "how": "qa_av.py grain (neck, desk patches)",
+   "r4": [
+    null,
+    "netflix V2 shot 11: desk 1.28/1.05, neck 1.80/1.79 (v1's WIDE read 1.58, passed by eye)"
+   ],
+   "why": "the orchestrator's ruling: INFO, texture not noise at WIDE scale"
+  },
+  "shot.face_luma_vs_karma": {
+   "area": "camera",
+   "track": "agent-07 (box B)",
+   "op": ">=",
+   "line": 0.6,
+   "unit": "ratio",
+   "guard": true,
+   "what": "WHATSAPP (him): his face-box median luma on a seated still over his karma r6 finals' (S15 f1128), per-image face boxes: a FLOOR that catches a broken face state (r6n0 read 0.119-0.24), not a lighting match (the explainer set is lit differently; the 0.9-1.1 band is reported as INFO in the where)",
+   "where": "his MCU and CU seated stills before his first finals job",
+   "how": "films/host-studio/reel/r6/face_luma.py-style per-image boxes (agent-06) on box B vs private/renders/r6/box_a karma frames -> numbers/whatsapp/box.json",
+   "must_fail": [
+    0.119,
+    "karma r6n0: the dark face (leaders/material state)"
+   ],
+   "why": "the orchestrator, 07 Nov: face-luma vs karma r6 among his guards on box B"
   }
  },
  "not_attempted": {

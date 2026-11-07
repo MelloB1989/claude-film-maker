@@ -76,7 +76,9 @@ sequence, every presenter camera**, not on the karma shots:
   and cull_live reads the same culled count and lowest z on both boxes.
 - **Netflix V2 (the orchestrator's pick, 07 Nov): her fitted white ribbed Top with NO overshirt.** clip_r7's
   occlusion baseline was taken with the overshirt, so it no longer applies. Every pair counts raw again until the
-  orchestrator rules a V2 occlusion by eye on a fresh run.
+  orchestrator rules a V2 occlusion by eye on a fresh run. **Ruled (07 Nov): r6b_v2_clip is V2's baseline.** Body>Top at
+  MCU f1330 / MCU_L f1015 is her forearm in front of the top, and Trousers>Top at WIDE f1176 is her hands in front of the
+  hem: occlusions. Later runs are judged against it +0.01.
 - **(Superseded by V2) Her occlusions (the orchestrator, by eye on box B clip_r7):** Top>Overshirt at the open front, Body>Top where the
   wrist sits in front of the torso, and Trousers>Top at the waist are occlusions, not clipping. From then on these
   pairs count only their excess over clip_r7's own worst (`qa.clip before=…/clip_r7/clip.json`), so a NEW poke still
@@ -113,6 +115,24 @@ Both checks are the core `qa.clip` extension (`0ce1c3ae`, branch `fleet/agent-09
 **shot.streaming_settled == 1**: every final job warms texture and virtual-texture streaming before its first frame.
 That first frame, in every camera, shows no hard-edged rectangular block. Netflix V2's CU f1300 had two (a pale one and a
 wood mosaic) at the bottom centre.
+
+### Grain (box B, before the batch)
+
+**shot.grain_sigma ≤ 1.0 levels (the orchestrator)** is the worst Immerkaer noise sigma over fixed flat patches, picked by projection
+through each camera: the wall, under her jaw, and the desk top. `qa_av.py grain FRAMES --patches patches.json`
+measures it. Calibrated on box B: the f300 speckle reads 3.10 and MCU_1330 reads 14.55 (both must fail), against
+0.689 on the finals-spec MCU test, which the orchestrator passed at 1:1. Measure the first and last frame of each final job; a FAIL re-renders that job. A FAIL blocks
+the 9-shot batch.
+
+**WIDE shots (the orchestrator's ruling, 07 Nov):** grain is read on flat patches only (the wall, plus a second
+plaster patch), with line **0.8**:
+
+- f300's wall at 1.002 must FAIL.
+- Netflix V2 shot 11 reads 0.55 and passes.
+
+At that scale the neck and desk patches hold texture (jaw line, hair edges, walnut pores), so they are reported as
+INFO. The evidence is the orchestrator's 1:1 look at shot 11 f1100: the desk shadow is smooth and the pores are real.
+Close shots stay at wall + neck ≤ 1.0.
 
 ### Exposure (agent-09 runs it on the box)
 

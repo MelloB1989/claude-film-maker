@@ -8,6 +8,7 @@ film-qa gate --spec films/host-studio/explainers/gate_spec.json. QA.md says whic
     python3 qa_av.py exposure FRAMES_DIR --shots shots.json [--box x0,y0,x1,y1] [--pattern '*.png'] [--out n.json]
     python3 qa_av.py captions CUT.srt VO_CUES.json [--out n.json]
     python3 qa_av.py facts VO_CUES.json FACTS.json [--out n.json]
+    python3 qa_av.py grain F1.png [F2.png ...] --patches patches.json [--ref SIGMA]                   # on the box
     python3 qa_av.py all CUT.mp4 CUT.srt VO_CUES.json --facts FACTS.json --out numbers/<film>/cut.json   # on the box
 
 FACE RULE: frames and cuts with a presenter in them are private. Run `exposure` and `loudness` on a cut ON THE BOX
@@ -166,6 +167,51 @@ def exposure(frames_dir: str, shots: list, box=None, pattern: str = "*.png") -> 
     return out
 
 
+# --- grain -------------------------------------------------------------------------------------------------------
+def noise_sigma(gray) -> float:
+    """Immerkaer's fast noise estimate (1996) on an 8-bit grey patch: |I * M| summed, M = the difference of two
+    Laplacians, which cancels smooth gradients and most edges, so what is left is pixel noise (unconverged stochastic
+    shadows, dither). Returns sigma in 8-bit levels."""
+    import numpy as np
+    g = np.asarray(gray, dtype=np.float64)
+    h, w = g.shape
+    if h < 3 or w < 3:
+        return float("nan")
+    m = (g[:-2, :-2] - 2 * g[:-2, 1:-1] + g[:-2, 2:] - 2 * g[1:-1, :-2] + 4 * g[1:-1, 1:-1] - 2 * g[1:-1, 2:]
+         + g[2:, :-2] - 2 * g[2:, 1:-1] + g[2:, 2:])
+    return float(np.sqrt(np.pi / 2) * np.abs(m).sum() / (6.0 * (w - 2) * (h - 2)))
+
+
+def grain(frames: list, patches: dict) -> dict:
+    """{patch: sigma} worst over frames, for named fixed patches {name: [x0, y0, x1, y1] fractions} (flat areas:
+    the desk under the hands, the wall, the neck shadow). Reads full-res PNGs; numbers only."""
+    import numpy as np
+    from PIL import Image
+    worst = {}
+    for f in frames:
+        a = np.asarray(Image.open(f).convert("L"), dtype=np.float64)
+        h, w = a.shape
+        for name, b in patches.items():
+            p = a[int(b[1] * h):int(b[3] * h), int(b[0] * w):int(b[2] * w)]
+            v = noise_sigma(p)
+            if v == v and v > worst.get(name, (-1.0, ""))[0]:
+                worst[name] = (v, os.path.basename(f))
+    return {k: [round(v, 3), at] for k, (v, at) in worst.items()}
+
+
+def grain_numbers(frames: list, patches: dict, ref: float | None) -> dict:
+    """shot.grain_ratio = the worst patch's noise sigma over `ref` (the karma r6 finals' converged level, measured with
+    the same tool on their flat patches); without ref, the raw sigma (shot.grain_sigma)."""
+    g = grain(frames, patches)
+    if not g:
+        return {"shot.grain_ratio": {"value": None, "error": "no patch measured"}}
+    name, (v, at) = max(g.items(), key=lambda kv: kv[1][0])
+    where = f"worst {name} {v} levels at {at}; " + ", ".join(f"{k} {x[0]}" for k, x in g.items())
+    if ref:
+        return {"shot.grain_ratio": row(round(v / ref, 3), where + f" (ref {ref})"), "shot.grain_sigma": row(v, where)}
+    return {"shot.grain_sigma": row(v, where)}
+
+
 # --- captions ----------------------------------------------------------------------------------------------------
 def words(t: str) -> list:
     t = t.lower().replace("’", "'").replace("—", " ").replace("–", " ")
@@ -282,9 +328,12 @@ def main(argv=None) -> int:
     e.add_argument("--pattern", default="*.png")
     c = sub.add_parser("captions"); c.add_argument("srt"); c.add_argument("vo")
     f = sub.add_parser("facts"); f.add_argument("vo"); f.add_argument("facts")
+    gr = sub.add_parser("grain", help="pixel noise (unconverged shadows/dither) in fixed flat patches, numbers only")
+    gr.add_argument("frames", nargs="+"); gr.add_argument("--patches", required=True, help="JSON {name: [x0,y0,x1,y1]}")
+    gr.add_argument("--ref", type=float, default=0.0, help="the karma r6 finals' sigma on their flat patches")
     al = sub.add_parser("all", help="every cut row at once: loudness, format, captions, facts, film-post qc")
     al.add_argument("cut"); al.add_argument("srt"); al.add_argument("cues"); al.add_argument("--facts", default="")
-    for p in (a, fm, e, c, f, al):
+    for p in (a, fm, e, c, f, al, gr):
         p.add_argument("--out", default="")
     x = ap.parse_args(argv)
     if x.cmd == "loudness":
@@ -298,6 +347,8 @@ def main(argv=None) -> int:
         box = ({int(k): v for k, v in json.loads(Path(x.boxes).read_text()).items()} if x.boxes else
                [float(v) for v in x.box.split(",")] if x.box else None)
         g = exposure(x.frames, json.loads(Path(x.shots).read_text()), box, x.pattern)
+    elif x.cmd == "grain":
+        g = grain_numbers(x.frames, json.loads(Path(x.patches).read_text()), x.ref or None)
     elif x.cmd == "all":
         g = all_rows(x.cut, x.srt, x.cues, x.facts or None)
     elif x.cmd == "captions":

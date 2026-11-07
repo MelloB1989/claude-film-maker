@@ -108,3 +108,18 @@ def test_exposure_takes_a_box_per_frame(tmp_path):
     boxes = {k: [10 * k / 80, 10 / 40, (10 * k + 20) / 80, 30 / 40] for k in range(3)}
     g = exposure(str(tmp_path), [["S", 0, 3]], boxes)
     assert g["shot.exposure_jump_stops"]["value"] < 0.01
+
+
+def test_grain_noise_vs_smooth_and_gradient(tmp_path):
+    import numpy as np
+    from PIL import Image
+    from qa_av import grain, noise_sigma
+    rng = np.random.default_rng(1)
+    ramp = np.tile(np.linspace(40, 200, 200), (100, 1))  # a smooth gradient: no noise
+    assert noise_sigma(ramp) < 0.5
+    noisy = np.clip(ramp + rng.normal(0, 6, ramp.shape), 0, 255)
+    assert 4.5 < noise_sigma(noisy) < 7.5  # ~ the 6-level noise put in
+    Image.fromarray(ramp.astype(np.uint8)).save(tmp_path / "clean.png")
+    Image.fromarray(noisy.astype(np.uint8)).save(tmp_path / "speckle.png")
+    g = grain([str(tmp_path / "clean.png"), str(tmp_path / "speckle.png")], {"wall": [0, 0, 1, 1]})
+    assert g["wall"][1] == "speckle.png" and g["wall"][0] > 4
