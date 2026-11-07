@@ -141,9 +141,9 @@ def tex_brushed(n, seed=2, base=(0.86, 0.865, 0.87)):
     s = noise(n, 0.9, seed, aniso=60) * 0.7 + noise(n, 3, seed + 1, aniso=40) * 0.3
     scratches = np.clip(noise(n, 0.7, seed + 2, aniso=200) - 2.2, 0, None)
     h = 0.6 * s - 1.5 * scratches
-    t = np.clip(0.5 + 0.12 * s + 0.08 * noise(n, 200, seed + 3), 0, 1)
+    t = np.clip(0.5 + 0.12 * s + 0.03 * noise(n, 900, seed + 3, aniso=8), 0, 1)
     col = mix(base, (0.70, 0.705, 0.71), t * 0.6)
-    rough = np.clip(0.30 + 0.03 * s + 0.03 * noise(n, 120, seed + 4) + 0.08 * scratches, 0.2, 0.45)
+    rough = np.clip(0.32 + 0.025 * s + 0.06 * scratches, 0.25, 0.45)
     return col, normal_from_height(h, 0.02), np.ones((n, n)), rough, np.ones((n, n))
 
 
@@ -348,8 +348,6 @@ def pbr_material(name, paths):
     if name == "ChairFabric":                                       # a little fuzz for the previews
         bsdf.inputs["Sheen Weight"].default_value = 0.35
         bsdf.inputs["Sheen Roughness"].default_value = 0.4
-    if name == "Leaf":
-        bsdf.inputs["Subsurface Weight"].default_value = 0.08
     return m
 
 
