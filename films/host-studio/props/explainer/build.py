@@ -266,7 +266,7 @@ def build_chair(M):
 
 # =========================================================================== desk
 
-def build_desk(M):
+def build_desk(M, panel=False):
     """A small mid-century walnut desk: 110 x 55 cm top 3 cm thick with an undercut edge, a 7 cm apron, four round
     tapered legs splayed 5 deg, black glides."""
     parts = []
@@ -299,6 +299,16 @@ def build_desk(M):
             parts.append(S.lathe(f"foot{sx}{sy}", [(0, 0), (0.013, 0), (0.0145, 0.003), (0.0145, 0.009), (0, 0.009)],
                                  [M["Rubber"]], segs=24, matrix=Matrix.Translation((b.x, b.y, 0))))
             hulls.append(P.cyl_pts((b.x, b.y), 0.016, 0.0, 0.01, 8) + P.cyl_pts((t.x, t.y), 0.026, t.z - 0.01, t.z, 8))
+    if panel:
+        # modesty panel on the camera side (+X), 2 cm in from the top's edge, 8 cm off the floor up under the top;
+        # a short return at the set's +Y end (Blender -Y)
+        px1 = D / 2 - 0.02
+        pan = S.box("modesty", (px1 - 0.018, -0.44, 0.08), (px1, 0.44, z1 - 0.004), M["Walnut"])
+        bevel(pan, 0.002, 2)
+        parts.append(pan)
+        ret = S.box("modesty_return", (0.02, -0.44, 0.08), (px1 - 0.018, -0.422, z1 - 0.004), M["Walnut"])
+        bevel(ret, 0.002, 2)
+        parts.append(ret)
     # UVs on the walnut parts, grain along each part's length, before the bevels are applied
     baked = []
     for p in parts:
@@ -309,11 +319,17 @@ def build_desk(M):
             baked.append(bp)
         else:
             baked.append(p)
-    ob = S.join("SM_WalnutDesk", baked)
+    ob = S.join("SM_WalnutDesk_Panel" if panel else "SM_WalnutDesk", baked)
     hulls = [P.box_pts((-D / 2, -W / 2, TOP - TH - 0.006 - ap_h), (D / 2, W / 2, TOP))] + hulls
+    if panel:
+        hulls.append(P.box_pts((D / 2 - 0.038, -0.44, 0.08), (D / 2 - 0.02, 0.44, z1)))
     info = {"origin": "floor, centre of the top", "faces": "+X (long side along Y)", "top_cm": [W * 100, D * 100],
             "top_height_cm": TOP * 100, "top_thickness_cm": TH * 100, "apron_underside_cm": round((z1 - ap_h) * 100, 1),
             "knee_clearance_cm": round((z1 - ap_h) * 100, 1)}
+    if panel:
+        info["modesty_panel"] = {"x_cm": [round((D / 2 - 0.038) * 100, 1), round((D / 2 - 0.02) * 100, 1)],
+                                 "y_cm": [-44, 44], "z_cm": [8, round((z1 - 0.004) * 100, 1)],
+                                 "return": "at the set's +Y end (Unreal y +42.2..+44), x 2..23.7"}
     return ob, hulls, [], info
 
 
@@ -512,23 +528,28 @@ def build_mic(M):
 
 # =========================================================================== plant
 
-def build_plant(M):
-    """A snake plant (sansevieria): eight banded blades in a satin off-white stoneware pot, 12 cm across."""
+def build_plant(M, floor=False):
+    """A snake plant (sansevieria): eight banded blades in a satin off-white stoneware pot, 12 cm across; `floor`:
+    the 1.1 m floor version, fourteen blades in a 36 cm pot."""
     import random
-    rnd = random.Random(7)
+    rnd = random.Random(11 if floor else 7)
+    K = 2.8 if floor else 1.0
     parts = []
     pot = [(0.0, 0.0), (0.050, 0.0), (0.054, 0.002), (0.056, 0.006), (0.0605, 0.060), (0.0635, 0.118),
            (0.0640, 0.123), (0.0625, 0.126), (0.0575, 0.126), (0.0565, 0.122), (0.0535, 0.060), (0.047, 0.012),
            (0.0, 0.012)]
-    parts.append(S.lathe("pot", pot, [M["Ceramic"]], segs=72))
-    parts.append(S.lathe("soil", [(0.0, 0.108), (0.0560, 0.108), (0.0566, 0.104), (0.0, 0.104)], [M["Soil"]], segs=48))
+    pot = [(r * K, z * K) for r, z in pot]
+    parts.append(S.lathe("pot", pot, [M["Ceramic"]], segs=96 if floor else 72))
+    parts.append(S.lathe("soil", [(0.0, 0.108 * K), (0.0560 * K, 0.108 * K), (0.0566 * K, 0.104 * K), (0.0, 0.104 * K)],
+                         [M["Soil"]], segs=48))
     leaves = []
-    for i in range(8):
-        a = 2 * math.pi * i / 8 + rnd.uniform(-0.3, 0.3)
-        rr = rnd.uniform(0.008, 0.026)
-        base = Vector((rr * math.cos(a), rr * math.sin(a), 0.095))
-        L = rnd.uniform(0.24, 0.40)
-        W = rnd.uniform(0.032, 0.046)
+    NB = 14 if floor else 8
+    for i in range(NB):
+        a = 2 * math.pi * i / NB + rnd.uniform(-0.3, 0.3)
+        rr = rnd.uniform(0.008, 0.026) * K * (0.8 if floor else 1.0)
+        base = Vector((rr * math.cos(a), rr * math.sin(a), 0.095 * K))
+        L = rnd.uniform(0.55, 0.85) if floor else rnd.uniform(0.24, 0.40)
+        W = rnd.uniform(0.055, 0.080) if floor else rnd.uniform(0.032, 0.046)
         lean = rnd.uniform(0.08, 0.22) * (0.6 + rr / 0.026 * 0.4)
         twist = rnd.uniform(-0.6, 0.6)
         face = a + rnd.uniform(-0.8, 0.8)
@@ -556,15 +577,60 @@ def build_plant(M):
             for li in poly.loop_indices:
                 uvl.data[li].uv = uvs[ob.data.loops[li].vertex_index]
         sol = ob.modifiers.new("Solid", "SOLIDIFY")
-        sol.thickness = 0.0025
+        sol.thickness = 0.004 if floor else 0.0025
         sol.offset = 0.0
         subsurf(ob, 1)
         leaves.append(ob)
     parts += leaves
-    ob = S.join("SM_DeskPlant", parts)
-    hulls = [P.cyl_pts((0, 0), 0.064, 0.0, 0.126, 12)]
-    info = {"origin": "bottom centre of the pot", "pot_diameter_cm": 12.8, "pot_height_cm": 12.6}
+    ob = S.join("SM_FloorSnakePlant" if floor else "SM_DeskPlant", parts)
+    hulls = [P.cyl_pts((0, 0), 0.064 * K, 0.0, 0.126 * K, 12)]
+    info = {"origin": "bottom centre of the pot", "pot_diameter_cm": round(12.8 * K, 1), "pot_height_cm": round(12.6 * K, 1)}
     return ob, hulls, [], info
+
+
+# =========================================================================== floor lamp
+
+def build_lamp(M):
+    """A floor lamp, 152 cm: weighted black base, satin brass stem, a warm linen drum shade (open top and bottom,
+    3 mm wall, two-sided in Unreal) on a brass spider, a bulb in a black socket. A practical: SOCKET_Bulb is the
+    bulb's centre for a point light; M_LampBulb is the slot for an emissive material."""
+    parts = []
+    parts.append(S.lathe("base", [(0, 0), (0.135, 0), (0.140, 0.004), (0.140, 0.018), (0.128, 0.026), (0.03, 0.030),
+                                  (0, 0.030)], [M["PowderBlack"]], segs=72))
+    parts.append(S.lathe("base_pad", [(0, -0.0001), (0.125, -0.0001), (0.125, 0.002), (0, 0.002)], [M["Rubber"]], segs=48))
+    parts.append(S.cylinder("stem", (0, 0, 0.028), (0, 0, 1.30), 0.0105, M["Brass"], segs=32))
+    parts.append(S.lathe("collar", [(0, 0.60), (0.0145, 0.60), (0.016, 0.605), (0.016, 0.625), (0.0145, 0.63), (0, 0.63)],
+                         [M["Brass"]], segs=32))
+    parts.append(S.lathe("socket", [(0, 1.29), (0.020, 1.29), (0.021, 1.30), (0.021, 1.345), (0.016, 1.35), (0, 1.35)],
+                         [M["PowderBlack"]], segs=40))
+    bulb_c = Vector((0, 0, 1.385))
+    bulb = S.lathe("bulb", [(0, 1.345), (0.012, 1.346), (0.014, 1.355), (0.030, 1.375), (0.032, 1.39), (0.027, 1.41),
+                            (0.015, 1.42), (0, 1.423)], [S.material("M_LampBulb", (1.0, 0.93, 0.80), 0.2)], segs=40)
+    parts.append(bulb)
+    # drum shade 44 cm at the bottom, 40 cm at the top, 30 cm tall, bottom at 1.20
+    SB, ST, R0, R1 = 1.20, 1.50, 0.22, 0.20
+    shade = S.lathe("shade", [(R0, SB), (R1, ST)], [M["ShadeLinen"]], segs=96)
+    sol = shade.modifiers.new("Solid", "SOLIDIFY")
+    sol.thickness = 0.003
+    sol.offset = -1.0
+    parts.append(shade)
+    for z, r in ((SB, R0), (ST, R1)):
+        parts.append(S.lathe(f"rim{z}", [(r - 0.004, z - 0.003), (r + 0.0015, z - 0.003), (r + 0.0015, z + 0.003),
+                                         (r - 0.004, z + 0.003)], [M["Brass"]], segs=96))
+    for k in range(3):
+        a = 2 * math.pi * k / 3
+        tip = Vector((math.cos(a) * (R1 - 0.004), math.sin(a) * (R1 - 0.004), ST))
+        parts.append(S.cylinder(f"spoke{k}", Vector((0, 0, ST - 0.005)) + (tip - Vector((0, 0, ST))) * 0.08, tip, 0.0022,
+                                M["Brass"], segs=10))
+    parts.append(S.cylinder("harp", (0, 0, 1.35), (0, 0, ST + 0.004), 0.004, M["Brass"], segs=16))
+    parts.append(S.lathe("finial", [(0, ST + 0.003), (0.010, ST + 0.003), (0.012, ST + 0.012), (0.007, ST + 0.022),
+                                    (0, ST + 0.024)], [M["Brass"]], segs=24))
+    ob = S.join("SM_FloorLamp", parts)
+    hulls = [P.cyl_pts((0, 0), 0.14, 0.0, 0.03, 12), P.cyl_pts((0, 0), 0.012, 0.03, SB),
+             P.cyl_pts((0, 0), R0, SB, ST, 16)]
+    info = {"origin": "floor, centre of the base", "height_cm": 152.4, "shade": "44 cm bottom / 40 top, 30 tall, 120..150 cm",
+            "bulb_centre_cm": [0, 0, 138.5], "practical": "point light ~2700 K at SOCKET_Bulb; M_ShadeLinen two-sided + subsurface/translucent; M_LampBulb emissive"}
+    return ob, hulls, [P.socket("Bulb", bulb_c, (0, 0, 1))], info
 
 
 # =========================================================================== previews
@@ -647,7 +713,9 @@ def main():
     paths = P.write_textures(os.path.join(out, "textures"), n=args.tex_size)
     log("textures written")
     M = {k: P.pbr_material(k, p) for k, p in paths.items()}
-    builders = {"chair": build_chair, "desk": build_desk, "mic": build_mic, "plant": build_plant}
+    builders = {"chair": build_chair, "desk": build_desk, "mic": build_mic, "plant": build_plant,
+                "desk_panel": lambda m: build_desk(m, panel=True), "lamp": build_lamp,
+                "floorplant": lambda m: build_plant(m, floor=True)}
     only = [s for s in args.only.split(",") if s] or list(builders)
     manifest = {"units": "FBX in cm; Blender (x, y, z) -> Unreal (x, -y, z)", "textures": {}, "assets": {}}
     for k, p in paths.items():
@@ -677,7 +745,8 @@ def main():
     if args.no_render:
         return
     allobs = [b[0] for b in built.values()]
-    views = {"chair": (1.0, -0.75, 0.42), "desk": (1.0, -0.8, 0.55), "mic": (0.35, -1.0, 0.25), "plant": (1.0, -0.6, 0.35)}
+    views = {"chair": (1.0, -0.75, 0.42), "desk": (1.0, -0.8, 0.55), "mic": (0.35, -1.0, 0.25), "plant": (1.0, -0.6, 0.35),
+             "desk_panel": (1.0, -0.8, 0.30), "lamp": (1.0, -0.5, 0.25), "floorplant": (1.0, -0.6, 0.3)}
     for key, (ob, _, _) in built.items():
         hide(allobs, True)
         ob.hide_render = False
@@ -696,8 +765,11 @@ def main():
             preview_stage(Vector((0.1, -0.3, 0.70)), Vector((0.28, 0.0, 0.745)), (0.8, -0.5, 0.6),
                           os.path.join(out, "preview", f"{ob.name}_grain.png"), lens=85)
     # the set as laid out (Blender frame = set frame with y negated; Unreal yaw psi = Blender rotation -psi)
-    if len(built) == 4:
+    if all(k in built for k in ("chair", "desk", "mic", "plant")):
         hide(allobs, False)
+        for k in ("desk_panel", "lamp", "floorplant"):
+            if k in built:
+                built[k][0].hide_render = True
         place = {"chair": (CHAIR_UE, 0), "desk": (DESK_UE, 0), "mic": (MIC_CLAMP_UE, -90),
                  "plant": (Vector((100.0, 25.0, 74.0)), 0)}
         for key, (loc, yaw) in place.items():

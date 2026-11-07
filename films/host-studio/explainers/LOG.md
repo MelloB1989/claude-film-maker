@@ -168,3 +168,8 @@ tested in `test_seatkit.py`), `gestures.json` (the emphasis gestures per line).
 | 17:02 | Full run: textures 70 s; FBX + textures + props.json → `s3://…/ue-linux/props/explainer/` |
 | 17:10 | By eye: walnut figure too burl-like, leaf bands lost in noise → redrawn (rift-sawn walnut, clean sansevieria bands), job restarted |
 | 17:15 | agent-07: UV0 has the tile baked in (material Tiling 1); plant moved to (100,25,74) by the clamp; headphones skipped (optional) |
+| 17:25 | Chair preview: the desk's legs were never joined into SM_WalnutDesk (they floated in the scene) → fixed, re-uploaded; gentler normals on fine metals/rubber/plastic |
+| 17:50 | Previews by eye: chair, desk, mic, plant, set (agent-07 frame) good; brushed alu still read hammered: not denoise (256 spp no-denoise test showed it) but low-frequency ROUGHNESS blotches on a mirror-like metal → alu varies only along its streaks; fixed (test render clean) |
+| 18:05 | agent-07 moved the desk in (near edge x 38) and mirrored the boom to the -Y edge (scale -1 at yaw -90): no re-pose needed. Armrest 63.0 vs apron underside 63.4 noted |
+| 18:30 | A full re-run died at once: `cd && rm && nohup … &` on one line ran the whole chain in a subshell that SSM killed with the command → relaunch with `setsid nohup` on its own line |
+| 18:45 | Orchestrator (via agent-07): her feet never seen, WIDE's empty right → SM_WalnutDesk_Panel, SM_FloorLamp (practical, SOCKET_Bulb), SM_FloorSnakePlant; all 7 FBX re-import at size; uploaded with all textures |
