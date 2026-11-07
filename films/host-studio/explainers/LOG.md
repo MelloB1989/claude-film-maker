@@ -72,7 +72,7 @@ Every number on screen or in the voice is softened or sourced; the sources are i
     python3 -m pip install --user pillow imageio-ffmpeg     # if the box's ffmpeg lacks libx264/prores_ks, pass
                                                             # --ffmpeg "$(python3 -c 'import imageio_ffmpeg as i;print(i.get_ffmpeg_exe())')"
     aws s3 sync s3://rf-render-788655295054-aps1/ue-linux/private/renders/r6/explain/<film>/final/ /srv/r6/<film>/presenter/
-    aws s3 sync s3://rf-render-788655295054-aps1/ue-linux/r6/gfx/<film>/ /srv/r6/<film>/gfx/
+    aws s3 sync s3://rf-render-788655295054-aps1/ue-linux/gfx/explain-<film>/ /srv/r6/<film>/gfx/
     python3 /srv/r6/explainers-src/films/host-studio/explainers/composite.py --film <film> \
         --presenter /srv/r6/<film>/presenter --gfx /srv/r6/<film>/gfx --out /srv/r6/<film>/out --tag v1
     aws s3 cp --recursive /srv/r6/<film>/out/ s3://rf-render-788655295054-aps1/ue-linux/private/renders/r6/review/explain/

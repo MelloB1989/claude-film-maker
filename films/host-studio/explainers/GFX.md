@@ -39,7 +39,7 @@ panels sit naturally next to the warm presenter shots.**
   x 1010-1860, y 150-930 (presenter sits left of x 960), on a frosted card (`#1A1410` at 78 %, 18 px radius,
   1 px `#3B3129`); everything outside the card transparent.
 - Keep a full-frame version of every panel scene too (fallback if a presenter shot fails).
-- Upload: `s3://rf-render-788655295054-aps1/ue-linux/r6/gfx/<film>/` (graphics carry no face data), or hand the box
+- Upload: `s3://rf-render-788655295054-aps1/ue-linux/gfx/explain-<film>/` (graphics carry no face data), or hand the box
   driver a branch + render command. `composite.py` reads `<scene>_full.mov` / `<scene>_panel.mov` from that folder.
 - Captions are NOT the graphics' job: composite.py draws word-chunk captions over EVERY shot, full-frame scenes
   included (QA: every VO word captioned, in order; ruling 07 Nov 16:50). So on ALL scenes, full and panel, keep the
