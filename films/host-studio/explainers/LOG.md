@@ -1,6 +1,6 @@
 # Explainers (round 6): log
 
-Times IST. Box B driver: agent-07 (set, light, cameras, HER explainer). Box A: agent-06 (HIS explainer, replays set.py).
+Times IST. One section per author, rebuilt from each author's branch tip at integration (agent-09, assemble_log.py); edit your own section on your own branch.
 
 ## Set, light, cameras (agent-07)
 
@@ -71,6 +71,9 @@ Every number on screen or in the voice is softened or sourced; the sources are i
   server). "once" keeps it in the past.
 - **"almost none of them stay on its servers"**: messages are deleted once delivered; undelivered ones wait up to 30
   days; backups are the user's choice, not WhatsApp's servers' store. "almost" covers the queue.
+- **On-screen extras (graphics, approved by the orchestrator)**: groups up to 1,024 members (Meta, Nov 2022, with
+  Communities: https://about.fb.com/news/2022/11/whatsapp-communities-launch/); end-to-end encryption by default
+  since April 2016 (https://blog.whatsapp.com/end-to-end-encryption).
 - **Ticks**: one grey = sent to the server; two grey = delivered to the phone; blue = read (WhatsApp Help Center).
 - **Groups**: Sender Keys: encrypt once, server-side fan-out (WhatsApp security whitepaper).
 - **Media**: AES-256 key per attachment, the encrypted blob uploaded, key + hash in the E2E message (whitepaper).
@@ -83,6 +86,28 @@ Every number on screen or in the voice is softened or sourced; the sources are i
 - **Chunks "a few seconds long"**: kept vague on purpose (Netflix segment lengths vary by client and codec).
 - **Control plane on AWS, data plane on OCAs**: Open Connect overview and Netflix's AWS material; the player asks AWS,
   AWS returns the OCAs to fetch from.
+- 16:40 `composite.py` written; WhatsApp placeholder rendered on the build host (3 m 52 s with the ProRes master).
+  First look: cuts, panels, lower third and the kinetic captions land; captions split "over a hundred / billion" →
+  chunking rewritten (clauses at punctuation, long clauses split evenly, never after a lead-in word).
+- 16:46 placeholder cuts of both films (graphics + VO + mix + captions + lower third + grey presenter slugs), timing
+  locked: out/explainers/placeholder/{whatsapp,netflix}_r6_placeholder.mp4 (+ .srt) in the shared worktree.
+- 16:55 ruling: captions on every line, over graphics too, one band in the bottom 15 %. Placeholders re-rendered.
+  agent-09 QA on them: captions.text_match 1 (157/157, 144/144), onset 84 ms, -14.1/-1.7 and -14.0/-1.7, 1080p 48 kHz.
+
+### Running the composite on a box (drivers)
+
+    git -C <repo> fetch origin fleet/agent-11/r6-explainers
+    git -C <repo> worktree add /srv/r6/explainers-src origin/fleet/agent-11/r6-explainers   # code, audio, fonts
+    python3 -m pip install --user pillow imageio-ffmpeg     # if the box's ffmpeg lacks libx264/prores_ks, pass
+                                                            # --ffmpeg "$(python3 -c 'import imageio_ffmpeg as i;print(i.get_ffmpeg_exe())')"
+    aws s3 sync s3://rf-render-788655295054-aps1/ue-linux/private/renders/r6/explain/<film>/final/ /srv/r6/<film>/presenter/
+    aws s3 sync s3://rf-render-788655295054-aps1/ue-linux/r6/gfx/<film>/ /srv/r6/<film>/gfx/
+    python3 /srv/r6/explainers-src/films/host-studio/explainers/composite.py --film <film> \
+        --presenter /srv/r6/<film>/presenter --gfx /srv/r6/<film>/gfx --out /srv/r6/<film>/out --tag v1
+    aws s3 cp --recursive /srv/r6/<film>/out/ s3://rf-render-788655295054-aps1/ue-linux/private/renders/r6/review/explain/
+
+`--placeholder` lets any missing presenter shot or graphic stand in as a labelled slug (a partial cut for review);
+without it a missing input stops the run and names the file.
 
 ## Performances (agent-01, branch `fleet/agent-01/r6-perf`)
 
@@ -105,38 +130,12 @@ tested in `test_seatkit.py`), `gestures.json` (the emphasis gestures per line).
 - 17:30 small automatic hand settles where nothing is scripted for 5.5 s.
 
 ## Props (agent-05, branch fleet/agent-05/r6-props)
+
 | IST | |
+|---|---|
 | 16:20 | Brief: chair, broadcast mic on desk boom with cable, walnut desk, optional headphones/plant; Blender headless on box A CPU (agent-06's slot: `/srv/ue/props_r6`, nice 15, `-t 6`, never the editor/project/reel paths) |
 | 16:35 | `props/explainer/_pbr.py` (12 tileable 2K PBR sets drawn in numpy, UVs, UCX, FBX) + `build.py`; dims matched to agent-07's layout (chair (20,-20,0), desk centre (78,-20,0) top 74, mic from her left +Y) |
 | 16:58 | Debug run on box A (256 px textures, no renders): all four FBX re-import at the built size in cm (chair 79.7 x 69 x 86, desk 55 x 110 x 74, mic boom 48 x 30.9 x 77, plant 12.9 x 12.8 x 43.9) |
 | 17:02 | Full run: textures 70 s; FBX + textures + props.json → `s3://…/ue-linux/props/explainer/` |
 | 17:10 | By eye: walnut figure too burl-like, leaf bands lost in noise → redrawn (rift-sawn walnut, clean sansevieria bands), job restarted |
 | 17:15 | agent-07: UV0 has the tile baked in (material Tiling 1); plant moved to (100,25,74) by the clamp; headphones skipped (optional) |
-
-## agent-11
-
-- **On-screen extras (graphics, approved by the orchestrator)**: groups up to 1,024 members (Meta, Nov 2022, with
-  Communities: https://about.fb.com/news/2022/11/whatsapp-communities-launch/); end-to-end encryption by default
-  since April 2016 (https://blog.whatsapp.com/end-to-end-encryption).
-- 16:40 `composite.py` written; WhatsApp placeholder rendered on the build host (3 m 52 s with the ProRes master).
-  First look: cuts, panels, lower third and the kinetic captions land; captions split "over a hundred / billion" →
-  chunking rewritten (clauses at punctuation, long clauses split evenly, never after a lead-in word).
-- 16:46 placeholder cuts of both films (graphics + VO + mix + captions + lower third + grey presenter slugs), timing
-  locked: out/explainers/placeholder/{whatsapp,netflix}_r6_placeholder.mp4 (+ .srt) in the shared worktree.
-### Running the composite on a box (drivers)
-    git -C <repo> fetch origin fleet/agent-11/r6-explainers
-    git -C <repo> worktree add /srv/r6/explainers-src origin/fleet/agent-11/r6-explainers   # code, audio, fonts
-    python3 -m pip install --user pillow imageio-ffmpeg     # if the box's ffmpeg lacks libx264/prores_ks, pass
-                                                            # --ffmpeg "$(python3 -c 'import imageio_ffmpeg as i;print(i.get_ffmpeg_exe())')"
-    aws s3 sync s3://rf-render-788655295054-aps1/ue-linux/private/renders/r6/explain/<film>/final/ /srv/r6/<film>/presenter/
-    aws s3 sync s3://rf-render-788655295054-aps1/ue-linux/r6/gfx/<film>/ /srv/r6/<film>/gfx/
-    python3 /srv/r6/explainers-src/films/host-studio/explainers/composite.py --film <film> \
-        --presenter /srv/r6/<film>/presenter --gfx /srv/r6/<film>/gfx --out /srv/r6/<film>/out --tag v1
-    aws s3 cp --recursive /srv/r6/<film>/out/ s3://rf-render-788655295054-aps1/ue-linux/private/renders/r6/review/explain/
-`--placeholder` lets any missing presenter shot or graphic stand in as a labelled slug (a partial cut for review);
-without it a missing input stops the run and names the file.
-
-## agent-11
-
-- 16:55 ruling: captions on every line, over graphics too, one band in the bottom 15 %. Placeholders re-rendered.
-  agent-09 QA on them: captions.text_match 1 (157/157, 144/144), onset 84 ms, -14.1/-1.7 and -14.0/-1.7, 1080p 48 kHz.
