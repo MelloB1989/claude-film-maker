@@ -276,7 +276,7 @@ def check_alpha(mov: Path, ffmpeg: str) -> None:
     """An alpha overlay must have transparency: the mean alpha of a frame 1 s in is under 250 (a panel card or a lower
     third covers a small part of the frame). A file with no alpha, or opaque everywhere, would cover the presenter."""
     r = subprocess.run([ffmpeg, "-hide_banner", "-ss", "1", "-i", str(mov), "-vf",
-                        "alphaextract,signalstats,metadata=print:key=lavfi.signalstats.YAVG", "-frames:v", "1",
+                        "alphaextract,format=gray,signalstats,metadata=print:key=lavfi.signalstats.YAVG", "-frames:v", "1",
                         "-f", "null", "-"], capture_output=True, text=True)
     avg = [float(ln.rsplit("=", 1)[1]) for ln in r.stderr.splitlines() if "lavfi.signalstats.YAVG=" in ln]
     if r.returncode or not avg:
