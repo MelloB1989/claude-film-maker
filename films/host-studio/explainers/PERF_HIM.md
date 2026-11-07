@@ -17,7 +17,11 @@ P=../films/host-studio/explainers/perform.py
   `films/host-studio/explainers/set_him.json` (any `seatkit.Set` field, in the actor frame: x forward from the
   mark, y the presenter's right = studio y + 20, z up). Typically `mic` and `boom` (clamp, elbow, tip, capsule);
   `desk_*` too if the desk moved. Without the file his body uses her set.
-- His garments led, his neck state as agent-06 left it (agent-07's guards).
+- His head state pulled from `private/r6/him_state/` into box B's project (box A is terminated after the karma cuts:
+  the orchestrator, 07 Nov), with the guards passing: strays, leaders, face luma vs round 4, cull_live parity with box A
+  (912 gone, z 144.2-153.3), qa.clip neck on a seated still (agent-09's head_state_parity row). His garments led.
+- `set.py --who him` writes `set_him.json` (setplan.set_for_perf): commit it before `body`. Keys that are not
+  `seatkit.Set` fields are ignored and named.
 
 ## 1. The run
 
