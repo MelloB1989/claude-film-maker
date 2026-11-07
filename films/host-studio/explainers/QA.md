@@ -119,9 +119,13 @@ Lock the exposure in the render spec, with no eye adaptation.
 | captions.text_match | == 1 | `qa_av.py captions CUT.srt audio/<film>/cues.json`: the caption words, in order, are the VO words |
 | captions.onset_ms | ≤ 200 | same: the worst gap between a caption start and its line start |
 | facts.sourced | == 1 | `qa_av.py facts audio/<film>/cues.json facts_<film>.json`: every number is softened ("over", "about", "nearly"…) or has a claim with a source |
+| gfx.caption_band_clear | == 1 | agent-08 / agent-12 from their layout: no diagram text below y 0.85 (the caption band) in any frame, full and panel layouts |
 | deliver.format_ok | == 1 | `qa_av.py format CUT.mp4`: 1920x1080, 16:9, 24/25/30 fps, 48 kHz |
 | deliver.qc_ok | == 1 | `film-post qc CUT.mp4 --edl … --captions …`: no black or frozen runs, captions in the safe area |
 | deliver.duration_s | 50-70 s, INFO | same as format |
+
+**Captions ruling (the orchestrator, 07 Nov):** every VO line is captioned, over the graphics too (people watch
+muted), in one consistent band at the bottom; the graphics keep that band clear.
 
 The facts file (agent-11) is `facts_<film>.json`:
 
