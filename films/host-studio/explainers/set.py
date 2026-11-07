@@ -232,7 +232,7 @@ result = out"""))
        **{k: (list(v) if isinstance(v, tuple) else v) for k, v in g.items()})
     op("look.channels", labels=["ExpSideGrazer"], channels=[0])
     if any(a[0] == "ExpDesk" for a in op("level.actors", contains="ExpDesk")) and \
-            "Panel" in json.dumps(op("level.get", label="ExpDesk", components=True)):
+            any(k in json.dumps(op("level.get", label="ExpDesk", components=True)) for k in ("Panel", "Waterfall")):
         return print("desk has its own modesty panel")
     m = P.MODESTY
     op("level.spawn", label="ExpModesty", shape="cube", loc=list(m["loc"]), size=list(m["size"]), replace=True)
