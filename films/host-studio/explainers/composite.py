@@ -1,4 +1,4 @@
-"""The explainers' final composite: presenter renders + graphics (full frame and alpha side panels) + kinetic captions +
+"""The explainers' final composite: presenter renders + graphics (full frame and alpha side panels) + kinetic captions (every VO word) +
 the lower third + the mix, cut to edl/<film>.json. Runs ON THE BOX (presenter frames are private: they never leave it
 except to private/ on S3).
 
@@ -41,6 +41,9 @@ ACCENT = {"whatsapp": (37, 211, 102), "netflix": (229, 9, 20)}
 INK, INK2 = (18, 14, 11), (30, 24, 19)
 TEXT, TEXT2 = (242, 236, 228), (168, 158, 146)
 SERIES = "SYSTEM DESIGN IN 60 SECONDS"
+# The lower third's topic line: the titles with their numbers softened as the voice says them (and as the title cards do)
+TOPIC = {"whatsapp": "How WhatsApp delivers 100+ billion messages a day",
+         "netflix": "How Netflix streams to 300+ million members without buffering"}
 LT_F0, LT_F1 = 12, 84         # the lower third's frames (on the first presenter shot)
 CAP_Y = 1000                  # caption baseline centre (y of the text's vertical middle)
 CAP_SIZE = 50
@@ -56,7 +59,11 @@ except ImportError:  # pragma: no cover
 
 
 def font(name: str, size: int) -> ImageFont.FreeTypeFont:
-    return ImageFont.truetype(str(FONTS / name), size)
+    p = FONTS / name
+    if not p.is_file():
+        sys.exit(f"no font {p}: composite.py needs the repo's app/public/fonts/ (a full checkout of the branch, or "
+                 f"--fonts DIR)")
+    return ImageFont.truetype(str(p), size)
 
 
 def ff(args: list, ffmpeg: str) -> None:
@@ -208,11 +215,11 @@ def caption_image(path: Path, words: list[str], lit: int, film: str) -> None:
 
 
 def captions(edl: dict, cues: dict, film: str, work: Path) -> tuple[Path, list]:
-    """The caption track as an ffconcat of stills (one per word state) and the SRT entries. Captions show on the
-    presenter and panel shots only, each chunk from 2 frames before its first word to 8 after its last (or the next
-    chunk, or the shot's cut)."""
+    """The caption track as an ffconcat of stills (one per word state) and the SRT entries. Every VO word is captioned,
+    on every shot (QA: the captions are the VO, in order), each chunk from 2 frames before its first word to 8 after
+    its last (or the next chunk, or the shot's cut). The graphics keep the bottom caption band clear (GFX.md)."""
     shots = edl["shots"]
-    on = [(s["f0"], s["f1"]) for s in shots if s["kind"] in ("pres", "panel")]
+    on = [(s["f0"], s["f1"]) for s in shots if s["lines"]]
     events, srt = [], []  # (f0, f1, still)
     blank = work / "cap_blank.png"
     Image.new("RGBA", (W, H), (0, 0, 0, 0)).save(blank)
@@ -350,12 +357,16 @@ def main() -> None:
     ap.add_argument("--no-prores", action="store_true", help="skip the ProRes master (quick reviews)")
     ap.add_argument("--ffmpeg", default=shutil.which("ffmpeg") or "ffmpeg")
     ap.add_argument("--keep", action="store_true", help="keep the work directory")
+    ap.add_argument("--fonts", type=Path, help="the fonts directory (default: the repo's app/public/fonts)")
     a = ap.parse_args()
+    if a.fonts:
+        global FONTS
+        FONTS = a.fonts
 
     edl = json.loads((HERE / "edl" / f"{a.film}.json").read_text())
     cues = json.loads((HERE / "audio" / a.film / "cues.json").read_text())
     mix = HERE / "audio" / a.film / "mix.wav"
-    title = json.loads((HERE / "scripts.json").read_text())["explainers"][a.film]["title"]
+    title = TOPIC[a.film]
     a.out.mkdir(parents=True, exist_ok=True)
     name = f"{a.film}_r6{('_' + a.tag) if a.tag else ''}"
     work = Path(tempfile.mkdtemp(prefix=f"comp_{a.film}_", dir=a.out))
