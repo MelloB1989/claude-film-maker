@@ -34,6 +34,15 @@ X, Y, Z = Vector((1, 0, 0)), Vector((0, 1, 0)), Vector((0, 0, 1))
 MIC_C = Vector((0.45, 0.0, 0.35))       # centre of the mic body (its pivot in the yoke)
 MIC_TILT = math.radians(15)             # nose down
 MIC_DIR = Vector((-math.cos(MIC_TILT), 0.0, -math.sin(MIC_TILT)))   # where the mic points
+# r7 (the orchestrator: the mic head at the presenter's mouth height, aimed up at the mouth): a posed variant per
+# presenter from the environment, in the clamp's frame (cm): MIC_C_CM="x,z" (the arm stays in the XZ plane) and
+# MIC_AIM_CM="x,y,z" (the point the mic's grille points at: the mouth); MIC_NAME names the FBX (SM_MicBoom_<who>)
+NAME = os.environ.get("MIC_NAME", "mic_boom")
+if os.environ.get("MIC_C_CM"):
+    _x, _z = (float(v) / 100 for v in os.environ["MIC_C_CM"].split(","))
+    MIC_C = Vector((_x, 0.0, _z))
+if os.environ.get("MIC_AIM_CM"):
+    MIC_DIR = (Vector([float(v) / 100 for v in os.environ["MIC_AIM_CM"].split(",")]) - MIC_C).normalized()
 YOKE_TOP = 0.060                        # yoke crown above the pivot
 J0 = Vector((0.0, 0.0, 0.165))          # top of the mast
 J2 = MIC_C + Vector((0, 0, YOKE_TOP + 0.048))   # boom tip, above the yoke
@@ -175,7 +184,7 @@ foam_profile = [
     (0.0338, 0.088), (0.0318, 0.097), (0.0280, 0.104), (0.0215, 0.1095), (0.0130, 0.1125), (0.0, 0.1135)]
 parts.append(S.lathe("mic_foam", foam_profile, [FOAM], segs=48, matrix=mic_m))
 
-S.finish("mic_boom", parts, origin=(0, 0, 0), view_dir=(-0.45, -1.0, 0.32), args=args,
+S.finish(NAME, parts, origin=(0, 0, 0), view_dir=(-0.45, -1.0, 0.32), args=args,
          sharp_angle=40, lens=55, floor=False)  # the clamp hangs below the desk
 print(f"mic_boom: J0 {tuple(round(c * 100, 1) for c in J0)} J1 {tuple(round(c * 100, 1) for c in J1)} "
       f"J2 {tuple(round(c * 100, 1) for c in J2)} cm; mic centre {tuple(round(c * 100, 1) for c in MIC_C)} cm, "

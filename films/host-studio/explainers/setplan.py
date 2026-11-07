@@ -92,6 +92,59 @@ def boom_points() -> dict:
         out[k] = (MIC_CLAMP[0] + x * math.cos(r) - y * math.sin(r), MIC_CLAMP[1] + x * math.sin(r) + y * math.cos(r),
                   MIC_CLAMP[2] + z)
     return out
+# r7 (the orchestrator, 00:20 IST): the mic moves UP to the presenter's mouth. The old boom hung the capsule at sternum
+# height on her left (14.6 cm under the mouth) and boxed her left arm in (0.4-0.5 cm off her breast), and a studio
+# mic sits 10-15 cm from the mouth. Now, per presenter: the mic's centre MIC_POSE[who] from the mouth (forward, to
+# -Y = their left, down), its grille aimed UP at the mouth; the clamp on the desk's far edge on the line mouth -> mic
+# carried on, so the arm (props/mic_boom.py, posed by MIC_C_CM / MIC_AIM_CM, one FBX per presenter) rises from the
+# clamp, peaks above and comes DOWN to the mic in one vertical plane with the mouth. setplan --check proves the mic
+# and the arm stay off the face in every camera before set.py places it.
+# the orchestrator asked 12-18 cm forward, 10-15 cm left, mouth/chin height; every camera sits forward-right of her
+# (+X+Y), so a mic 12 cm left lands on her face in CAM_CU / CAM_WIDE: 16 cm left is the nearest pose with the capsule
+# and the arm off the face in all four cameras (setplan --check; a grid over 8-20 x 12-20 x 0-10 cm). Its tail
+# still crosses CAM_MCU_L's panel edge (u 0.557 vs 0.51): no pose keeps the mic left of the panel (best 0.532).
+MIC_POSE = {"her": (16.0, -16.0, -3.0), "him": (16.0, -16.0, -3.0)}  # cm from the mouth: forward, -Y (their left), up (- = below)
+MIC_CLAMP_X = DESK_C[0] + 27.5 - 2.4  # the clamp's jaw 2.4 cm inside the far edge
+MIC_YOKE_TIP = 6.0 + 4.8              # props/mic_boom.py: the boom tip above the mic's pivot (YOKE_TOP + 4.8 cm)
+MIC_MAST, MIC_L1, MIC_L2 = 16.5, 40.0, 40.0
+
+
+def mic_rig(who: str) -> dict:
+    """The presenter's boom: clamp (studio), yaw (UE degrees, local +X from the clamp toward the mic), the mic's pivot
+    and aim in the clamp frame (cm, for mic_boom.py), and the world points clamp / mast top / elbow / tip / capsule."""
+    m = face(who)["mouth"]
+    f, side, dz = MIC_POSE[who]
+    cap = (m[0] + f, m[1] + side, m[2] + dz)
+    hx, hy = cap[0] - m[0], cap[1] - m[1]
+    n = math.hypot(hx, hy)
+    ux, uy = hx / n, hy / n                       # plan direction mouth -> mic, carried on to the clamp
+    k = (MIC_CLAMP_X - cap[0]) / ux
+    clamp = (MIC_CLAMP_X, cap[1] + uy * k, DESK_TOP)
+    yaw = math.degrees(math.atan2(cap[1] - clamp[1], cap[0] - clamp[0]))
+    reach, rise = math.hypot(cap[0] - clamp[0], cap[1] - clamp[1]), cap[2] - clamp[2]
+    aim = (reach + math.hypot(m[0] - cap[0], m[1] - cap[1]), 0.0, m[2] - clamp[2])  # the mouth, clamp frame
+    j0, j2 = (0.0, MIC_MAST), (reach, rise + MIC_YOKE_TIP)  # (local x, z): mast top, boom tip above the yoke
+    dx, dz2 = j2[0] - j0[0], j2[1] - j0[1]
+    dist = math.hypot(dx, dz2)
+    a = (MIC_L1 ** 2 - MIC_L2 ** 2 + dist ** 2) / (2 * dist)
+    h = math.sqrt(max(0.0, MIC_L1 ** 2 - a ** 2))
+    u = (dx / dist, dz2 / dist)
+    j1 = (j0[0] + u[0] * a - u[1] * h, j0[1] + u[1] * a + u[0] * h)  # elbow up (mic_boom.py's perp)
+    r = math.radians(yaw)
+    w = lambda x, z: (clamp[0] + x * math.cos(r), clamp[1] + x * math.sin(r), clamp[2] + z)
+    return {"clamp": clamp, "yaw": yaw, "reach_cm": reach, "rise_cm": rise, "mic_c_cm": (round(reach, 2), round(rise, 2)),
+            "aim_cm": tuple(round(v, 2) for v in aim), "elbow_reach_ok": dist <= MIC_L1 + MIC_L2,
+            "points": {"clamp": clamp, "mast": w(*j0), "elbow": w(*j1), "tip": w(*j2), "capsule": cap}}
+
+
+def props(who: str) -> dict:
+    """PROPS with this presenter's boom (SM_MicBoom_<who>: no mirror, turned by its yaw about the clamp)."""
+    rig = mic_rig(who)
+    out = dict(PROPS)
+    out["ExpMic"] = (f"SM_MicBoom_{who}", tuple(round(v, 2) for v in rig["clamp"]), round(rig["yaw"], 2), None)
+    return out
+
+
 LAMP_BULB = dict(kind="point", z=138.5, intensity=6.0, temperature=2700, radius=320)  # candela, channel 0
 PLANT_TOP = DESK_TOP + 44.0
 UV_METRES = False  # agent-05: tile_m is baked into UV0 (1 UV = tile_m metres), so Tiling 1
@@ -178,18 +231,16 @@ def face(who: str) -> dict:
 
 
 def mic(who: str) -> dict:
-    """The capsule's centre, where it points (the mouth) and the boom's yaw from its clamp."""
+    """The capsule's centre, where it points (the mouth) and the boom's yaw from its clamp (r7: mic_rig)."""
     m = face(who)["mouth"]
-    cap = tuple(a + b for a, b in zip(m, MIC_FROM_MOUTH))
-    clamp = PROPS["ExpMic"][1]
-    yaw = math.degrees(math.atan2(cap[1] - clamp[1], cap[0] - clamp[0]))
+    rig = mic_rig(who)
+    cap, clamp = rig["points"]["capsule"], rig["clamp"]
     d = [m[i] - cap[i] for i in range(3)]
     n = math.sqrt(sum(x * x for x in d))
     back = tuple(cap[i] - d[i] / n * MIC_LEN / 2 for i in range(3))   # the capsule's tail
     front = tuple(cap[i] + d[i] / n * MIC_LEN / 2 for i in range(3))  # its grille, nearest the mouth
-    reach = math.hypot(cap[0] - clamp[0], cap[1] - clamp[1])
-    return {"capsule": cap, "front": front, "back": back, "clamp": clamp, "yaw": yaw, "reach_cm": reach,
-            "rise_cm": cap[2] - clamp[2]}
+    return {"capsule": cap, "front": front, "back": back, "clamp": clamp, "yaw": rig["yaw"], "reach_cm": rig["reach_cm"],
+            "rise_cm": rig["rise_cm"]}
 
 
 def _orbit(target, az_deg, el_deg, dist):
@@ -328,8 +379,17 @@ def check(who: str) -> list:
         rows.append((f"{name} mic clear of the mouth", near > 2.0 * mouth_h,
                      f"nearest {near:.3f} frame-h vs mouth {mouth_h:.3f}; capsule below the mouth: "
                      f"{all(pv > mv for _, pv, _ in pts)}"))
-        rows.append((f"{name} mic below the mouth", all(pv > mv for _, pv, _ in pts),
-                     ", ".join(f"v {pv:.3f}" for _, pv, _ in pts) + f" (mouth v {mv:.3f})"))
+        # r7: the mic sits at mouth height, so 'below the mouth' gives way to 'off the face': no point of the capsule
+        # (tail, centre, grille, and the 3.4 cm foam radius around them) inside the face's box on screen (the eyes'
+        # line minus a brow margin down to the chin, the face's width at the eyes' depth)
+        cu_, cv_, _ = project(cam, fc["chin"])
+        half_w = 8.5 / ez * cam["focal"] / cam["filmback"][0]  # half a face width (~17 cm with the hair line)
+        pad = 3.4 / ez * cam["focal"] / cam["filmback"][1]
+        on = [(round(pu, 3), round(pv, 3)) for pu, pv, _ in pts
+              if abs(pu - eu) < half_w + pad * 9 / 16 and ev - 0.06 - pad < pv < cv_ + pad]
+        rows.append((f"{name} mic off the face", not on, f"capsule on the face at {on}" if on else
+                     "capsule " + ", ".join(f"({pu:.3f},{pv:.3f})" for pu, pv, _ in pts) +
+                     f" face u {eu - half_w:.3f}..{eu + half_w:.3f} v {ev - 0.06:.3f}..{cv_:.3f}"))
         # r3: no window in any presenter frame (its opening on the back wall, y 130..280, z 0..285)
         wp = [project(cam, (WALL + 2, y, z)) for y in (130, 170, 205, 240, 280) for z in (10, 80, 150, 220, 285)]
         inside = [p for p in wp if -0.01 <= p[0] <= 1.01 and -0.01 <= p[1] <= 1.01]
@@ -350,20 +410,21 @@ def check(who: str) -> list:
         clear = all(pv > mv + 0.05 or abs(pu - mu) > 0.15 for pu, pv, _ in pts)
         rows.append((f"{name} desk plant off the mouth", clear,
                      "top corners " + ", ".join(f"({pu:.2f},{pv:.2f})" for pu, pv, _ in pts) + f" mouth ({mu:.2f},{mv:.2f})"))
-    bp = boom_points()
+    bp = mic_rig(who)["points"]
     for name, cam in cams.items():  # r6b: the boom's arm (elbow, tip) stays off her face on screen
         eu, ev, _ = project(cam, fc["eyes"])
         cu, cv, _ = project(cam, fc["chin"])
         on_face = []
-        for k in ("elbow", "tip"):
+        for k in ("mast", "elbow", "tip"):
             for t in (0.0, 0.25, 0.5, 0.75, 1.0):
-                a, b = bp[k], bp["tip" if k == "elbow" else "capsule"]
+                a, b = bp[k], bp[{"mast": "elbow", "elbow": "tip", "tip": "capsule"}[k]]
                 q = tuple(a[i] + (b[i] - a[i]) * t for i in range(3))
                 pu, pv, _ = project(cam, q)
                 if abs(pu - eu) < 0.07 and ev - 0.08 < pv < cv + 0.02:
                     on_face.append((k, t, round(pu, 3), round(pv, 3)))
         rows.append((f"{name} boom arm off her face", not on_face, f"{on_face[:3]}" if on_face else
                      f"elbow {tuple(round(v, 3) for v in project(cam, bp['elbow'])[:2])} eyes ({eu:.3f},{ev:.3f})"))
+    rows.append(("mic boom arm reaches (2 x 40 cm)", mic_rig(who)["elbow_reach_ok"], f"rig {mic_rig(who)['mic_c_cm']}"))
     rows.append(("mic boom reach (prop: ~45 cm, +35 cm)", 30.0 <= mc["reach_cm"] <= 60.0,
                  f"reach {mc['reach_cm']:.1f} cm, rise {mc['rise_cm']:.1f} cm, yaw {mc['yaw']:.1f}°"))
     return rows
@@ -373,7 +434,7 @@ def set_for_perf(who: str) -> dict:
     """agent-01's perform.py set file (set_<who>.json), in the actor frame (studio - MARK): the desk and the boom as
     the solve checks hands, elbows and knees against them. The boom polyline is agent-05's posed clamp → elbow →
     arm tip → capsule, mirrored to -Y, turned by MIC_ROT about its clamp on the far edge (boom_points)."""
-    pts = boom_points()
+    pts = mic_rig(who)["points"]
     a = lambda p: [round(p[0] - MARK[0], 2), round(p[1] - MARK[1], 2), round(p[2] - MARK[2], 2)]
     return {"desk_top": DESK_TOP, "desk_near": round(DESK_C[0] - 27.5 - MARK[0], 2),
             "desk_far": round(DESK_C[0] + 27.5 - MARK[0], 2), "desk_y": [round(DESK_C[1] - 55 - MARK[1], 2),
@@ -384,7 +445,7 @@ def set_for_perf(who: str) -> dict:
 
 def spec(who: str) -> dict:
     """Everything set.py builds, as one JSON-able dict (the hand-off to box A)."""
-    return {"who": who, "mark": MARK, "yaw": YAW, "face": face(who), "mic": mic(who), "props": PROPS,
+    return {"who": who, "mark": MARK, "yaw": YAW, "face": face(who), "mic": mic(who), "mic_rig": mic_rig(who), "props": props(who),
             "sign_drop": SIGN_DROP, "cameras": cameras(who), "lights": lights(who), "exposure_bias": EXPOSURE_BIAS}
 
 
