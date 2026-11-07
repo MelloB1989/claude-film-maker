@@ -718,12 +718,13 @@ BAKE_CHUNK = 240
 
 
 def bake(who: str, source: str, target: str, anim: str, out: str, bones, head_control_off: bool = False,
-         chunk: int = BAKE_CHUNK, stage: str = "", rot_only: bool = False) -> dict:
+         chunk: int = 0, stage: str = "", rot_only: bool = False) -> dict:
     """anim.bake_pose / bake_follow, sampled in `chunk`-frame jobs (each prints before it runs) and written once."""
     c = client()
     path, lab = WORK[who], LABEL[who]
     n = frames(who)
     files = []
+    chunk = chunk or BAKE_CHUNK
     tag = out.rsplit("/", 1)[-1] + (f"_{stage}" if stage else "")  # bakes 1 and 3 write the same asset
     for f0 in range(0, n, chunk):
         part = list(range(f0, min(n, f0 + chunk)))
@@ -801,7 +802,7 @@ def fresh_editor(who: str, level: str) -> dict:
     return {"restart": r.get("action"), "level": level, "leaders": lead(who)}
 
 
-def cmd_sync(who: str, from_bake: int = 1, restart_level: str = "") -> dict:
+def cmd_sync(who: str, from_bake: int = 1, restart_level: str = "", bake_chunk: int = 0) -> dict:
     """The reel's sync on the seated body: the face rides the body with its head control on, the body takes the head
     motion that makes, the shared skeleton is baked back onto the face; then perf.face's planned head turn goes on the
     body (on 5.8 the face takes its neck from the body)."""
@@ -820,6 +821,9 @@ def cmd_sync(who: str, from_bake: int = 1, restart_level: str = "") -> dict:
     # work sequence's tracks are put back to what bake N expects (an editor restart can drop unsaved track changes)
     follow, body = f"{ANIM}/AS_exp_{who}_follow", f"{ANIM}/AS_exp_{who}_body"
     a = b = {"skipped": True}
+    global BAKE_CHUNK
+    if bake_chunk:
+        BAKE_CHUNK = bake_chunk
     if from_bake <= 1:
         print("sync 1/3: bake_follow (head control on)", file=sys.stderr, flush=True)
         a = bake(who, "Body", "Face", face, follow, "shared", head_control_off=False, stage="b1")
@@ -1242,7 +1246,7 @@ def step(name: str, who: str, a) -> dict:
         r = {"push": lambda: cmd_push(who), "solve": lambda: cmd_solve(who, a.only, a.face_mesh), "bias": lambda: cmd_bias(who),
              "compose": lambda: cmd_compose(who), "workseq": lambda: cmd_workseq(who, a.fresh),
              "body": lambda: cmd_body(who, a.force), "cams": lambda: cmd_cams(who), "life": lambda: cmd_life(who),
-             "face": lambda: cmd_face(who), "sync": lambda: cmd_sync(who, a.from_bake, a.restart_level), "gaze": lambda: cmd_gaze(who),
+             "face": lambda: cmd_face(who), "sync": lambda: cmd_sync(who, a.from_bake, a.restart_level, a.bake_chunk), "gaze": lambda: cmd_gaze(who),
              "place": lambda: cmd_place(who, a.seq), "preview": lambda: cmd_preview(who, a.seq),
              "numbers": lambda: cmd_numbers(who, a.seq),
              "trackcheck": lambda: cmd_trackcheck(who, a.anim, a.span, a.bones), "signs": lambda: cmd_signs(who, a.bless), "rolltest": lambda: cmd_rolltest(who), "bodycheck": lambda: cmd_bodycheck(who, a.seq, a.every, a.chunk, a.span),
@@ -1261,6 +1265,7 @@ def main() -> None:
     ap.add_argument("--fresh", action="store_true")
     ap.add_argument("--force", action="store_true", help="body: write even if the pose fails its own check")
     ap.add_argument("--from-bake", type=int, default=1, help="sync: resume at bake 2 or 3 after a crash")
+    ap.add_argument("--bake-chunk", type=int, default=0, help="sync: frames per sampling job (default 240)")
     ap.add_argument("--restart-level", default="", help="sync: restart the editor before bakes 2 and 3 and reopen "
                     "this level (a long run of sampling jobs kills it on his scene)")
     ap.add_argument("--anim", default="", help="trackcheck: the animation (default AS_exp_<who>_body)")
