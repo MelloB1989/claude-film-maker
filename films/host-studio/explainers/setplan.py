@@ -129,8 +129,8 @@ GARMENT_SRC = {"her": {"Overshirt": "/Game/Host/Presenter_Overshirt/SKM_Presente
                        "Body": "/Game/Host/Unpacked/Presenter/Body/SKM_Presenter_F_BodyMesh"}, "him": {}}
 
 # r6b (the orchestrator rejected RW: skin holes at both shoulders, a shredded collar): her overshirt is a choice made by
-# eye from stills. set.py reads $EXPL_OVERSHIRT: "orig" (the round-4 weights, the default again), "rw" (agent-02's
-# reweight), "none" (no overshirt: her top alone, so the Top is not cut under it), "rw2" (arms-only reweight)
+# eye from stills. set.py reads $EXPL_OVERSHIRT: "orig" (the round-4 weights), "rw" (agent-02's
+# reweight), "none" (no overshirt: her top alone, so the Top is not cut under it; the DEFAULT since the V2 pick), "rw2" (arms-only reweight)
 OVERSHIRT = {"orig": "/Game/Host/Presenter_Overshirt/SKM_Presenter_Overshirt",
              "rw": "/Game/Host/Presenter_Overshirt/SKM_Presenter_Overshirt_RW", "none": None,
              # agent-02's narrower reweight (df8947b2): only the upper-arm/forearm helpers (the cap balloon); the
@@ -139,7 +139,7 @@ OVERSHIRT = {"orig": "/Game/Host/Presenter_Overshirt/SKM_Presenter_Overshirt",
 
 
 def overshirt_variant() -> str:
-    v = os.environ.get("EXPL_OVERSHIRT", "orig")
+    v = os.environ.get("EXPL_OVERSHIRT", "none")  # r6b: the orchestrator picked V2 (no overshirt) by eye
     if v not in OVERSHIRT:
         raise SystemExit(f"EXPL_OVERSHIRT={v!r}: one of {sorted(OVERSHIRT)}")
     return v
@@ -207,7 +207,10 @@ def cameras(who: str) -> dict:
         # r6 (the operator: the desk front looked weird): higher and tighter, the desk top's front edge in the lower
         # third, the set behind her; within 1° of CAM_MCU_L (her look to the lens across the 43.3 s cut)
         # within 4° of CAM_MCU_L (her look to the lens across the 43.3 s cut) and the window just out of frame
-        "CAM_WIDE": (22.0, 14.0, 230.0, 35.0, 2.8, (eyes[0] + 8.0, eyes[1] - 16.0, eyes[2] - 22.0)),
+        # r6b (the orchestrator: the 14° high angle read as a security camera): back near her eye level, the lens at
+        # ~125 cm with a slight tilt down (el 5.5° at 280 cm), same azimuth and look point, the desk front still in the
+        # lower third and the set behind
+        "CAM_WIDE": (22.0, 5.5, 280.0, 35.0, 2.8, (eyes[0] + 8.0, eyes[1] - 16.0, eyes[2] - 22.0)),
     }
     out = {}
     for name, (az, el, dist, focal, stop, look) in plan.items():
