@@ -435,6 +435,22 @@
    "where": "every graphics frame of the film",
    "how": "the graphics film's own layout: every text/label element's screen box vs y 0.85 -> numbers/<film>/gfx.json (agent-08 whatsapp, agent-12 netflix)",
    "why": "the orchestrator's ruling (07 Nov): every line is captioned, over the graphics too (people watch muted); captions sit in one band at the bottom"
+  },
+  "garment.leaders_ok": {
+   "area": "garment",
+   "track": "box drivers (agent-06 him, agent-07 her)",
+   "op": "==",
+   "line": 1,
+   "unit": "bool",
+   "guard": true,
+   "what": "every garment of the presenter follows Body (leader pose == Body), his body-hide mask on, read right before EVERY final job",
+   "where": "the explainer level, before each final job",
+   "how": "the driver's pre-render leaders read-back (dress + seq_dress) -> numbers/<film>/box.json",
+   "must_fail": [
+    0,
+    "karma r6n0 baseline (07 Nov): his tee stopped following his body, a dark band through the chest"
+   ],
+   "why": "the orchestrator, 07 Nov: a hard pre-render check on every box"
   }
  },
  "not_attempted": {
