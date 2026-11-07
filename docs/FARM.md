@@ -116,6 +116,10 @@ box:  worker ─ claim ─► c/<chunk>/lease.json   created If-None-Match: *   
 - Cost (`film-farm cost`): each worker records its sessions (boot to last word), priced at its launch price (the
   on-demand list price from the Pricing API, or the spot price then) plus its disk. It is close (per-second billing)
   but misses the minute between power-on and the worker's first word.
+- Measured (farm r7a, 2026-11-07, 2x g6e.2xlarge on-demand at $2.69/h, AMI ue-host-r6-final): boot to first claim
+  ~4 min. UE final 4x8 1080p ~0.5 fps per box. A warm editor restart takes 15-30 s (the first after boot ~4 min with
+  the shader wait). A 40-frame UE chunk takes ~2 min wall. Blender (Cycles 64 spp 960x540) 0.43 fps per box, plus ~2
+  min to install Blender the first time.
 - Rough numbers (ap-south-1, Nov 2026): g6e.2xlarge on-demand $2.69/h. At final 4x8, 1080p, an L40S gives about
   0.35-0.4 fps including warm-ups, and a fresh editor plus level open adds ~3-5 min per chunk. So a 60 s explainer
   (1440 frames) is about 1 h of render on one box, or ~20 min on 4 boxes with chunks of ~120.
@@ -134,5 +138,9 @@ box:  worker ─ claim ─► c/<chunk>/lease.json   created If-None-Match: *   
   farm prefixes are cleaned with the admin profile.
 - **AWS CLI.** The leases need `put-object --if-match` (AWS CLI v2 from late 2024). The worker's fetch script updates an
   older CLI at boot.
+- **Stopping a UE box takes minutes** (~6 min in the drill): the editor's unit saves the Epic sign-in on the way
+  down. Its lease expires meanwhile and the chunk is taken over. Do not count on a quick stop and start.
+- **Cost from the workers' sessions undercounts** the boot (~1-2 min per start) and the time before the worker's first
+  word. The bill is per second from `running`.
 - **Persistent spot.** A spot box stopped by a reclaim restarts by itself when capacity returns, and its worker service
   starts again (cloud-init does not run twice; the settings stay in /etc/film-farm).
