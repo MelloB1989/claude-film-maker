@@ -23,7 +23,7 @@ const scenes = {
   abr: () => import('./v3/abr'),
   buffer: () => import('./v3/buffer'),
   planes: () => import('./v3/planes'),
-  end: () => import('./scenes/endcard'),
+  end: () => import('./v3/endcard'),
 };
 
 /** The film, over the studio (matte '') or cleared to black or grey for the alpha passes. */
@@ -43,7 +43,7 @@ return defineFilm({
   scenes: [
     // a 1.5 frame lead: every cut then falls half way between two frames, so a shot owns exactly its frame count
     // (frame 2 is title's first; FRAMES.md lists each shot's frames) whatever the float sum of the lengths
-    { id: 'lead', scene: scenes.end, length: 1.5 / FPS, params: { background: BG, matte: MATTE } },
+    { id: 'lead', scene: () => import('./scenes/endcard'), length: 1.5 / FPS, params: { background: BG, matte: MATTE } },
     cut('title', 'title'),
     cut('oca', 'oca'),
     cut('prefill', 'prefill'),
