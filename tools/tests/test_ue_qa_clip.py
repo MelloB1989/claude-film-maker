@@ -123,6 +123,42 @@ def test_gate_flags_a_shot_error_and_missing_neck():
 
 # --- armor index ----------------------------------------------------------------------------------------------------
 
+def test_project_px_center_and_offsets():
+    cam = {"loc": [0, 0, 0], "rot": {"pitch": 0, "yaw": 0, "roll": 0}, "fov": 90.0}
+    x, y, z = clip.project_px(cam, (100, 0, 0), 160, 90)
+    assert (round(x, 3), round(y, 3), z) == (80.0, 45.0, 100.0)
+    x, y, _ = clip.project_px(cam, (100, 50, 0), 160, 90)  # half-way to the right edge at tan(45) = 1
+    assert round(x, 3) == 120.0
+    x, y, _ = clip.project_px(cam, (100, 0, 25), 160, 90)  # up: 25 / 100 of the half-width, scaled to the height
+    assert round(y, 3) == round(45 - 0.25 * 80, 3)
+    assert clip.project_px(cam, (-10, 0, 0), 160, 90)[2] < 0
+
+
+def test_mouth_blocked_by_a_mic_in_front_and_clear_below():
+    face = rect(layer(), 10, 5, 30, 25, 100.0)
+    mic = rect(layer(), 17, 16, 23, 30, 80.0)  # a mic in front, its head at rows 16+
+    centers = [(20, 12, 100.0)]  # the mouth at row 12, radius 3: clear of the mic
+    r = clip.mouth_blocked({"Face": face, "Mic": mic}, centers, 3, w=W, h=H)
+    assert r["blocked_px"] == 0 and r["disc_px"] > 20
+    r = clip.mouth_blocked({"Face": face, "Mic": mic}, [(20, 16, 100.0)], 3, w=W, h=H)
+    assert r["blocked_px"] > 0 and r["box"]
+    behind = rect(layer(), 17, 10, 23, 30, 120.0)  # behind the face: never covers the mouth
+    assert clip.mouth_blocked({"Face": face, "Mic": behind}, [(20, 12, 100.0)], 3, w=W, h=H)["blocked_px"] == 0
+
+
+def test_gate_mouth_and_set_pairs():
+    frames = {"WA_C1": {10: {"Body>Chair": {"fraction": 0.0, "px": 0},
+                             "mouth": {"disc_px": 30, "blocked_px": 0, "share": 0.0}},
+                        20: {"Body>Chair": {"fraction": 0.02, "px": 12, "clusters": [{"worst_cm": 1.1}]},
+                             "mouth": {"disc_px": 30, "blocked_px": 4, "share": 0.13, "blocker": "Mic"}},
+                        30: {"mouth": {"error": "the face has no bone 'X'"}}}}
+    codes = [(i["code"], i["frame"]) for i in clip.gate(frames, "Host")]
+    assert ("clip.pair", 20) in codes and ("clip.mouth", 20) in codes and ("clip.mouth", 30) in codes
+    assert ("clip.mouth", 10) not in codes
+    w = clip.summarize(frames)
+    assert w["mouth"]["blocked_px"] == 4 and w["Body>Chair"]["fraction"] == 0.02
+
+
 def test_ease_stats_shell_vs_drape():
     shell = GL.ease_stats([1.0 + 0.05 * math.sin(i) for i in range(500)])
     drape = GL.ease_stats([0.3 + 4.0 * (i / 499) ** 2 for i in range(500)])
@@ -296,3 +332,160 @@ def test_hem_angle_independent_of_the_body():
     assert st["angle_deg"] == pytest.approx(20.2, abs=0.1) and "ratio" not in st
     straight = GL.hem_stats([17.0] * 20, [16.0] * 20, upper_r=[16.6] * 20)
     assert straight["angle_deg"] < 3 and straight["ratio"] == pytest.approx(1.0625)
+
+
+def yoke(a, r, g, ang, n=72, top=0.0):
+    """The yoke of a crew neck flowing out over the shoulder at the side/back, inside the roll depth: a near-flat
+    surface 0.3-1.6 cm below the band's top, from just outside the band to 4 cm out (its normals ALONG the neck)."""
+    wall = [True] * len(a)
+    for k in range(n):
+        t = 2 * math.pi * k / n
+        if not (math.cos(t) > 0.3):  # one side only, like the shoulder
+            continue
+        for j in range(8):
+            a.append(top - 0.3 - 0.15 * j)
+            r.append(6.0 + 0.5 * j)
+            g.append(1.0)
+            ang.append(math.degrees(t) % 360)
+            wall.append(False)
+    return a, r, g, ang, wall
+
+
+def test_collar_roll_ignores_the_yoke_but_not_a_lip():
+    # round 6 box A: Epic's hugging crew neck read spread 3.1-3.9 cm at the side/back (roll 6/6) with gap 0.29-0.30:
+    # the yoke over the shoulder, not a layer. With the wall flags it is not judged; lips, folds, Fit5 still fail
+    a, r, g, ang, wall = yoke(*band())
+    assert GL.collar_stats(a, r, g, angle=ang)["roll"]  # without flags: the false roll
+    ok = GL.collar_stats(a, r, g, angle=ang, wall=wall)
+    assert not ok["roll"] and ok["spread_cm"] < 0.8 and ok["wall_verts"] < len(a), ok
+    a, r, g, ang, wall = yoke(*band(lip=1.8))
+    assert GL.collar_stats(a, r, g, angle=ang, wall=wall)["roll"]
+    a, r, g, ang, wall = yoke(*band(fold=1.6))
+    assert GL.collar_stats(a, r, g, angle=ang, wall=wall)["roll"]
+    a, r, g, ang, wall = yoke(*band(gap=2.447, lip=1.2))  # Fit5
+    assert GL.collar_stats(a, r, g, angle=ang, wall=wall)["roll"]
+
+
+def test_neck_visible_counts_islands_and_deep_tongues_not_the_rim_hug():
+    # round 6 (orchestrator): r6n1's blob, a skin ISLAND under the collar, must fail; r6n2's neck continuing a little
+    # over the hugging collar's edge (one cluster joined to the opening) must pass; a long tongue still fails
+    L = neck_scene()
+    assert clip.judge_frame(L, W, H, 30.0)["neck_visible"]["px"] == 0
+    L = neck_scene(patch_rows=3)  # 18 px enclosed by cloth, rows 20-22
+    nv = clip.judge_frame(L, W, H, 30.0)["neck_visible"]
+    assert nv["px"] == 18 and nv["island_px"] == 18 and nv["islands"] == 1 and nv["clusters"][0]["kind"] == "island"
+    L = neck_scene()
+    rect(L["Face"], 14, 12, 26, 14, 99.5)  # the neck 2 rows (~2.7 cm here) over the collar edge, joined to the opening
+    fr = clip.judge_frame(L, W, H, 30.0)
+    assert fr["neck_visible"]["px"] == 0 and fr["neck_visible"]["max_tongue_cm"] < 4.0
+    assert fr["neck_px"]["px"] > 0  # the old rim rule counted this hug
+    L = neck_scene()
+    rect(L["Face"], 17, 12, 23, 22, 99.5)  # a tongue of skin 10 rows (~13 cm) down from the rim: fails
+    nv = clip.judge_frame(L, W, H, 30.0)["neck_visible"]
+    assert nv["tongue_px"] > 0 and nv["island_px"] == 0 and nv["max_tongue_cm"] > 4.0
+    L = neck_scene(patch_rows=3)  # hair over the island: not seen, not counted
+    L["Hair"] = rect(layer(), 15, 18, 25, 25, 90.0)
+    assert clip.judge_frame(L, W, H, 30.0, pair_list=[("Face", "tee")])["neck_visible"]["px"] == 0
+
+
+def test_gate_neck_rule_visible():
+    L = neck_scene()
+    rect(L["Face"], 14, 12, 26, 14, 99.5)  # the hug: neck_px > 0, neck_visible 0
+    fr = clip.judge_frame(L, W, H, 30.0)
+    assert [i["code"] for i in clip.gate({"S15": {1128: fr}}, "Host")] == ["clip.neck"]
+    assert clip.gate({"S15": {1128: fr}}, "Host", neck_rule="visible") == []
+    fr = clip.judge_frame(neck_scene(patch_rows=3), W, H, 30.0)
+    assert [i["code"] for i in clip.gate({"S15": {1128: fr}}, "Host", neck_rule="visible")] == ["clip.neck"]
+    old = {k: v for k, v in fr.items() if k != "neck_visible"}  # an out_dir judged before this measure: refused
+    assert "clip.neck_missing" in [i["code"] for i in clip.gate({"S15": {1128: old}}, "Host", neck_rule="visible")]
+    assert clip.summarize({"S15": {1128: fr}})["neck_visible"]["island_px"] == 18
+
+
+def test_collar_camera_facing_scope():
+    # round 6 (orchestrator): the collar rows judge the half of the band facing the shot camera. His neck turning
+    # inside a static crew-neck opens the far side (S15 f1150): passes; a stand-off, a lip, a fold or Fit5 on the
+    # camera side still fail; a frame with too few facing verts is not measured (refused)
+    def facing(ang, cam_deg):  # outward direction at `ang` faces a camera at `cam_deg` round the neck
+        return [math.cos(math.radians(x - cam_deg)) > 0 for x in ang]
+
+    def standoff(a, r, g, ang, side_deg, extra):  # the band stands `extra` cm off the neck on one half
+        f = facing(ang, side_deg)
+        return a, [x + extra if s else x for x, s in zip(r, f)], [x + extra if s else x for x, s in zip(g, f)], ang
+
+    a, r, g, ang = standoff(*band(), 180.0, 1.5)  # the far (back) half stands off on the turn
+    assert GL.collar_stats(a, r, g, angle=ang)["roll"]  # the whole band: fails (kept as INFO)
+    ok = GL.collar_stats(a, r, g, angle=ang, facing=facing(ang, 0.0))
+    assert not ok["roll"] and ok["gap_cm"] <= GL.COLLAR_GAP_CM and ok["facing"], ok
+    a, r, g, ang = standoff(*band(), 0.0, 1.5)  # a FRONT stand-off facing the camera: fails
+    front = GL.collar_stats(a, r, g, angle=ang, facing=facing(ang, 0.0))
+    assert front["roll"] and front["gap_cm"] > GL.COLLAR_GAP_CM
+    for kw in ({"lip": 1.8}, {"fold": 1.6}, {"gap": 2.447, "lip": 1.2}):  # lip, fold, Fit5 on the camera side
+        a, r, g, ang = band(**kw)
+        assert GL.collar_stats(a, r, g, angle=ang, facing=facing(ang, 0.0))["roll"], kw
+    a, r, g, ang = band(n=12, heights=(0.0,))
+    blind = GL.collar_stats(a, r, g, angle=ang, facing=[False] * len(a))  # nothing faces the camera
+    assert blind["n"] == 0
+
+
+def test_collar_one_sloped_surface_is_not_a_roll_and_the_culled_hole_is_not_a_gap():
+    # round 6 box A (collar_cells at f1082/1150/1397): the worst wall-only cells were ONE surface whose radius rose
+    # steadily with depth (the crew neck's front on the chest): raw p90-p10 2.2-3.2 cm. The gap's worst ring verts had
+    # their nearest skin 1.0-1.24 cm ABOVE them (the face culled under the collar)
+    ax, rad, gp, ang = [], [], [], []
+    for k in range(72):
+        t = 2 * math.pi * k / 72
+        for j in range(12):  # 3 cm of band, its radius rising 2.5 cm per cm of depth (a sloped front), both walls
+            d = 0.25 * j
+            for w in (0.0, 0.34):
+                ax.append(-d)
+                rad.append(6.0 + 2.5 * d + w)
+                gp.append(0.2 + w)
+                ang.append(math.degrees(t) % 360)
+    assert GL.local_spread(ax, rad, ang, 0.0)[0] < 0.8  # one surface: thin
+    raw = []
+    for key in {(int(math.floor(a)), int(g // 10)) for a, g in zip(ax, ang)}:
+        rs = [r for a, r, g in zip(ax, rad, ang) if (int(math.floor(a)), int(g // 10)) == key]
+        raw.append(GL.percentile(rs, 0.9) - GL.percentile(rs, 0.1))
+    assert max(raw) > GL.COLLAR_SPREAD_CM  # what the raw spread read
+    lip_a = ax + [0.0] * 72
+    lip_r = rad + [6.0 + 1.8] * 72  # a rolled lip standing out at the top of the same sloped band: still a roll
+    lip_g = ang + [5.0 * k for k in range(72)]
+    assert GL.local_spread(lip_a, lip_r, lip_g, 0.0)[0] > GL.COLLAR_SPREAD_CM
+    # the gap: a hugging ring whose lower verts face the culled hole (nearest skin 1.2 cm above, gap 2 cm)
+    a, r, g, an = band()
+    dt = [1.2 if x <= -1.0 else 0.1 for x in a]
+    g2 = [x + 1.8 if x0 <= -1.0 else x for x, x0 in zip(g, a)]
+    assert GL.collar_stats(a, r, g2, angle=an)["gap_cm"] > GL.COLLAR_GAP_CM  # without skin_dt: the hole reads as a gap
+    ok = GL.collar_stats(a, r, g2, angle=an, skin_dt=dt)
+    assert ok["gap_cm"] <= GL.COLLAR_GAP_CM and not ok["roll"], ok
+    a, r, g, an = band(gap=2.447, lip=1.2)  # Fit5 floats at its own height (skin beside it): still fails
+    assert GL.collar_stats(a, r, g, angle=an, skin_dt=[0.0] * len(a))["roll"]
+    a, r, g, an = band()  # every ring vert over a hole: not measured, never a pass
+    assert GL.collar_stats(a, r, g, angle=an, skin_dt=[2.0] * len(a))["n"] == 0
+
+
+def test_collar_ring_is_found_per_sector_front_dip():
+    # round 6 box A: his crew neck's FRONT sits further from the (posterior) neck axis and dips ~3 cm; one innermost
+    # radius for the camera-facing half took the chest as the ring (n 323-491, 'gap' 2.4-4.5 cm to the culled skin)
+    a, r, g, ang = [], [], [], []
+    for k in range(72):
+        deg = 5.0 * k
+        front = math.cos(math.radians(deg)) > 0.5  # the front 120 deg
+        r0, top = (9.0, -3.0) if front else (5.5, 0.0)
+        for h in (0.0, -0.5, -1.0, -1.5, -2.0):
+            for w in (0.0, 0.34):
+                a.append(top + h)
+                r.append(r0 + w)
+                g.append(0.2 + w)
+                ang.append(deg)
+        if front:  # the tee's chest under the front neckline, over culled skin: far from any skin
+            for d in (1.0, 2.0, 3.0):
+                a.append(top - 2.0 - d)
+                r.append(r0 + 0.6 * d)
+                g.append(3.5)
+                ang.append(deg)
+    face = [math.cos(math.radians(x)) > 0 for x in ang]
+    st = GL.collar_stats(a, r, g, angle=ang, facing=face)
+    assert st["gap_cm"] <= GL.COLLAR_GAP_CM and not st["roll"] and st["sectors"] >= 5, st
+    g2 = [x + 1.5 if f and abs(x - 0.2) < 0.5 else x for x, f in zip(g, face)]  # the camera-facing ring stands off
+    assert GL.collar_stats(a, r, g2, angle=ang, facing=face)["roll"]

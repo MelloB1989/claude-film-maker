@@ -1,0 +1,446 @@
+{
+ "frames": {
+  "pass": true,
+  "failed": [],
+  "shots": {
+   "V01": {
+    "range": [
+     -12,
+     180
+    ],
+    "expected": 192,
+    "on_disk": 192,
+    "missing": [],
+    "n_missing": 0,
+    "unreadable": [],
+    "black": [],
+    "white": [],
+    "wrong_size": [],
+    "lum_jumps": [],
+    "lum_min_max": [
+     0.635,
+     0.746
+    ]
+   },
+   "V02": {
+    "range": [
+     180,
+     360
+    ],
+    "expected": 180,
+    "on_disk": 180,
+    "missing": [],
+    "n_missing": 0,
+    "unreadable": [],
+    "black": [],
+    "white": [],
+    "wrong_size": [],
+    "lum_jumps": [],
+    "lum_min_max": [
+     0.507,
+     0.648
+    ]
+   },
+   "V03": {
+    "range": [
+     360,
+     480
+    ],
+    "expected": 120,
+    "on_disk": 120,
+    "missing": [],
+    "n_missing": 0,
+    "unreadable": [],
+    "black": [],
+    "white": [],
+    "wrong_size": [],
+    "lum_jumps": [],
+    "lum_min_max": [
+     0.47,
+     0.675
+    ]
+   },
+   "V04": {
+    "range": [
+     480,
+     600
+    ],
+    "expected": 120,
+    "on_disk": 120,
+    "missing": [],
+    "n_missing": 0,
+    "unreadable": [],
+    "black": [],
+    "white": [],
+    "wrong_size": [],
+    "lum_jumps": [],
+    "lum_min_max": [
+     0.195,
+     0.54
+    ]
+   },
+   "V05": {
+    "range": [
+     600,
+     720
+    ],
+    "expected": 120,
+    "on_disk": 120,
+    "missing": [],
+    "n_missing": 0,
+    "unreadable": [],
+    "black": [],
+    "white": [],
+    "wrong_size": [],
+    "lum_jumps": [],
+    "lum_min_max": [
+     0.168,
+     0.273
+    ]
+   },
+   "S11": {
+    "range": [
+     720,
+     780
+    ],
+    "expected": 60,
+    "on_disk": 60,
+    "missing": [],
+    "n_missing": 0,
+    "unreadable": [],
+    "black": [],
+    "white": [],
+    "wrong_size": [],
+    "lum_jumps": [],
+    "lum_min_max": [
+     0.015,
+     0.196
+    ]
+   },
+   "S12": {
+    "range": [
+     780,
+     840
+    ],
+    "expected": 60,
+    "on_disk": 60,
+    "missing": [],
+    "n_missing": 0,
+    "unreadable": [],
+    "black": [],
+    "white": [],
+    "wrong_size": [],
+    "lum_jumps": [],
+    "lum_min_max": [
+     0.089,
+     0.154
+    ]
+   },
+   "N01": {
+    "range": [
+     840,
+     960
+    ],
+    "expected": 120,
+    "on_disk": 120,
+    "missing": [],
+    "n_missing": 0,
+    "unreadable": [],
+    "black": [],
+    "white": [],
+    "wrong_size": [],
+    "lum_jumps": [],
+    "lum_min_max": [
+     0.273,
+     0.588
+    ]
+   },
+   "S13": {
+    "range": [
+     960,
+     1080
+    ],
+    "expected": 120,
+    "on_disk": 120,
+    "missing": [],
+    "n_missing": 0,
+    "unreadable": [],
+    "black": [],
+    "white": [],
+    "wrong_size": [],
+    "lum_jumps": [],
+    "lum_min_max": [
+     0.248,
+     0.298
+    ]
+   },
+   "S15": {
+    "range": [
+     1080,
+     1200
+    ],
+    "expected": 120,
+    "on_disk": 120,
+    "missing": [],
+    "n_missing": 0,
+    "unreadable": [],
+    "black": [],
+    "white": [],
+    "wrong_size": [],
+    "lum_jumps": [],
+    "lum_min_max": [
+     0.531,
+     0.558
+    ]
+   },
+   "S16": {
+    "range": [
+     1200,
+     1320
+    ],
+    "expected": 120,
+    "on_disk": 120,
+    "missing": [],
+    "n_missing": 0,
+    "unreadable": [],
+    "black": [],
+    "white": [],
+    "wrong_size": [],
+    "lum_jumps": [],
+    "lum_min_max": [
+     0.432,
+     0.447
+    ]
+   },
+   "S17": {
+    "range": [
+     1320,
+     1440
+    ],
+    "expected": 120,
+    "on_disk": 120,
+    "missing": [],
+    "n_missing": 0,
+    "unreadable": [],
+    "black": [],
+    "white": [],
+    "wrong_size": [],
+    "lum_jumps": [],
+    "lum_min_max": [
+     0.138,
+     0.158
+    ]
+   },
+   "S18": {
+    "range": [
+     1440,
+     1572
+    ],
+    "expected": 132,
+    "on_disk": 132,
+    "missing": [],
+    "n_missing": 0,
+    "unreadable": [],
+    "black": [],
+    "white": [],
+    "wrong_size": [],
+    "lum_jumps": [],
+    "lum_min_max": [
+     0.115,
+     0.137
+    ]
+   }
+  }
+ },
+ "cut": {
+  "pass": true,
+  "failed": [],
+  "cuts": {
+   "65s": {
+    "report": "cut.json",
+    "outputs": {
+     "karma-reel-1080p-clean-h264.mp4": {
+      "frames": 1560,
+      "size": [
+       1920,
+       1080
+      ],
+      "codec": "h264",
+      "audio_s": 65.0,
+      "loud": {
+       "I": -14.0,
+       "TP": -1.7
+      },
+      "problems": []
+     },
+     "karma-reel-1080p-h264.mp4": {
+      "frames": 1560,
+      "size": [
+       1920,
+       1080
+      ],
+      "codec": "h264",
+      "audio_s": 65.0,
+      "loud": {
+       "I": -14.0,
+       "TP": -1.7
+      },
+      "problems": []
+     },
+     "karma-reel-1080p-textless-prores4444.mov": {
+      "frames": 1560,
+      "size": [
+       1920,
+       1080
+      ],
+      "codec": "prores",
+      "audio_s": 65.0,
+      "loud": {
+       "I": -14.0,
+       "TP": -1.7
+      },
+      "problems": []
+     }
+    },
+    "captions": {
+     "pass": true,
+     "failed": [],
+     "cues": 6,
+     "lines": {
+      "L1": {
+       "pass": true,
+       "caption_at": 1020.0,
+       "word_at": 1019.76,
+       "off_frames": 0.2
+      },
+      "L2": {
+       "pass": true,
+       "caption_at": 1094.0,
+       "word_at": 1094.4,
+       "off_frames": -0.4
+      },
+      "L3a": {
+       "pass": true,
+       "caption_at": 1158.0,
+       "word_at": 1157.76,
+       "off_frames": 0.2
+      },
+      "L3b": {
+       "pass": true,
+       "caption_at": 1215.0,
+       "word_at": 1214.88,
+       "off_frames": 0.1
+      },
+      "L4a": {
+       "pass": true,
+       "caption_at": 1350.0,
+       "word_at": 1350.0,
+       "off_frames": 0.0
+      },
+      "L4b": {
+       "pass": true,
+       "caption_at": 1386.0,
+       "word_at": 1385.52,
+       "off_frames": 0.5
+      }
+     },
+     "timed_from": "cues.json"
+    },
+    "cut_json_missing": 0
+   },
+   "45s": {
+    "report": "cut-45s.json",
+    "outputs": {
+     "karma-reel-45s-1080p-clean-h264.mp4": {
+      "frames": 1080,
+      "size": [
+       1920,
+       1080
+      ],
+      "codec": "h264",
+      "audio_s": 45.0,
+      "loud": {
+       "I": -14.1,
+       "TP": -1.7
+      },
+      "problems": []
+     },
+     "karma-reel-45s-1080p-h264.mp4": {
+      "frames": 1080,
+      "size": [
+       1920,
+       1080
+      ],
+      "codec": "h264",
+      "audio_s": 45.0,
+      "loud": {
+       "I": -14.1,
+       "TP": -1.7
+      },
+      "problems": []
+     },
+     "karma-reel-45s-1080p-textless-prores4444.mov": {
+      "frames": 1080,
+      "size": [
+       1920,
+       1080
+      ],
+      "codec": "prores",
+      "audio_s": 45.0,
+      "loud": {
+       "I": -14.1,
+       "TP": -1.7
+      },
+      "problems": []
+     }
+    },
+    "captions": {
+     "pass": true,
+     "failed": [],
+     "cues": 6,
+     "lines": {
+      "L1": {
+       "pass": true,
+       "caption_at": 540.0,
+       "word_at": 539.76,
+       "off_frames": 0.2
+      },
+      "L2": {
+       "pass": true,
+       "caption_at": 614.0,
+       "word_at": 614.4000000000001,
+       "off_frames": -0.4
+      },
+      "L3a": {
+       "pass": true,
+       "caption_at": 678.0,
+       "word_at": 677.76,
+       "off_frames": 0.2
+      },
+      "L3b": {
+       "pass": true,
+       "caption_at": 735.0,
+       "word_at": 734.8800000000001,
+       "off_frames": 0.1
+      },
+      "L4a": {
+       "pass": true,
+       "caption_at": 870.0,
+       "word_at": 870.0,
+       "off_frames": 0.0
+      },
+      "L4b": {
+       "pass": true,
+       "caption_at": 906.0,
+       "word_at": 905.52,
+       "off_frames": 0.5
+      }
+     },
+     "timed_from": "cues.json"
+    },
+    "cut_json_missing": 0
+   }
+  }
+ },
+ "pass": true
+}

@@ -1,0 +1,37 @@
+{
+ "gate": {
+  "audio.lufs_err_lu": {
+   "value": 0.0,
+   "where": "netflix_r6_v1.mp4: -14.0 LUFS, -1.7 dBTP"
+  },
+  "audio.true_peak_dbtp": {
+   "value": -1.7,
+   "where": "netflix_r6_v1.mp4: -14.0 LUFS, -1.7 dBTP"
+  },
+  "deliver.format_ok": {
+   "value": 1,
+   "where": "1920x1080, 16:9"
+  },
+  "deliver.duration_s": {
+   "value": 59.46,
+   "where": "the cut"
+  },
+  "captions.text_match": {
+   "value": 1,
+   "where": "144 words, 37 captions"
+  },
+  "captions.onset_ms": {
+   "value": 84,
+   "where": "N06: caption 17.21 s, VO 17.29 s"
+  },
+  "facts.sourced": {
+   "value": 1,
+   "where": "every number softened or sourced"
+  },
+  "deliver.qc_ok": {
+   "value": 0,
+   "where": "audio 56.106 s against picture 59.458 s; cue 14 'And copies it' overlaps the cue before it by 0.12 s; cue 23 'Your player picks' overlaps the cue before it by 0.12 s"
+  }
+ }
+}
+

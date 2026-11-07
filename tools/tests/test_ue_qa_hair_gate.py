@@ -321,3 +321,11 @@ def test_cameras_item_restored():
     assert r["verdict"] == "REFUSE" and "probe_cam" in r["issues"][0]["fix"]
     assert gate.lines_fail()["shot.cameras_ok"] is True
     assert gate.lines_fail()["shot.render_matches_r4"] is True  # 0.19: the S15 wrong-view preview fails it
+
+
+def test_range_line_alive_not_wandering():
+    spec = {"items": {"head.drift_deg": {"area": "head", "op": "range", "line": [0.15, 1.5], "unit": "deg"}}}
+    rows = lambda v: {r["id"]: r for r in gate.judge({"head.drift_deg": v}, spec=spec)["rows"]}["head.drift_deg"]
+    assert rows(0.4)["state"] == "PASS"
+    assert rows(0.05)["state"] == "FAIL" and rows(2.0)["state"] == "FAIL"  # frozen, wandering
+    assert gate.lines_fail({"head.drift_deg": 0.02}, spec=spec)["head.drift_deg"] is True

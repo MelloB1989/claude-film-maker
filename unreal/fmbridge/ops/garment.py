@@ -123,13 +123,54 @@ def _mask_image(d: dict, clipped: set, w: int, h: int):
     return _image.Image(w, h, 3, data)
 
 
+MOUTH_BONES = ("FACIAL_C_LipUpper", "FACIAL_C_LipLower", "FACIAL_L_LipCorner", "FACIAL_R_LipCorner")
+
+
+def _props(props: dict | None) -> dict:
+    """{role: "Label" | "Label:Component"} -> {role: [visible mesh components]} for qa.clip's set-piece layers."""
+    out = {}
+    for role, ref in (props or {}).items():
+        label, _, comp = str(ref).partition(":")
+        act = find_actor(label)
+        cs = [c for cls in (unreal.StaticMeshComponent, unreal.SkeletalMeshComponent)
+              for c in act.get_components_by_class(cls) if c.is_visible() and (not comp or c.get_name() == comp)]
+        if not cs:
+            raise OpError(f"prop {role}={ref!r}: no visible mesh component", code="not_found",
+                          hint="level.actors lists the labels; the component is optional (Label or Label:Component)")
+        out[role] = cs
+    return out
+
+
+def _mouth(parts: dict, layers: dict, info: dict, w: int, h: int, spec: dict) -> dict:
+    """qa.clip's mouth check at one frame: the face's mouth bones projected through the shot camera, then
+    qa.clip.mouth_blocked against the blocker's layer."""
+    blocker = spec.get("blocker", "Mic")
+    face = parts.get("Face")
+    if blocker not in layers or face is None:
+        return {"error": f"needs the Face and the {blocker!r} layer (props={{{blocker!r}: label}})", "blocker": blocker}
+    names = {str(b) for b in face.get_all_socket_names()} if hasattr(face, "get_all_socket_names") else None
+    centers = []
+    for b in spec.get("bones") or MOUTH_BONES:
+        if names is not None and b not in names:
+            return {"error": f"the face has no bone {b!r}", "blocker": blocker}
+        p = face.get_socket_location(b)
+        centers.append(_clip.project_px(info, (p.x, p.y, p.z), w, h))
+    zs = [c[2] for c in centers if c[2] > 0]
+    if not zs:
+        return {"error": "the mouth is behind the camera", "blocker": blocker}
+    r_px = float(spec.get("radius_cm", 2.0)) / (2 * min(zs) * math.tan(math.radians(float(info["fov"])) / 2)) * w
+    return {**_clip.mouth_blocked(layers, centers, r_px, blocker=blocker, w=w, h=h,
+                                  tol_cm=float(spec.get("tol_cm", 0.5))), "blocker": blocker, "radius_px": round(r_px, 1)}
+
+
 @op("qa.clip", mutates=False, idempotent=True, tags=["gpu", "slow", "metahuman"])
 def clip(*, label: str, sequence: str, shots: list | None = None, n: int = 6, extra: dict | None = None,
          width_px: int = 480, roles_map: dict | None = None, pairs: list | None = None, ref_dir: str = "",
          before: str = "", out_dir: str = "", stills: bool = True, layer_masks: bool = False, neck_over: str = "",
          tol_cm: float = 0.3,
          band_cm: float = 3.0, near_cm: float = 1.5, neck_margin_cm: float = 1.0, at_open_960: float = 5.0,
-         pair_fraction: float = 0.001, neck_max_px: int = 0, silhouette_pct: float = 2.0):
+         pair_fraction: float = 0.001, neck_max_px: int = 0, silhouette_pct: float = 2.0, props: dict | None = None,
+         mouth: dict | None = None, mouth_max_px: int = 0, neck_rule: str = "rim", tongue_cm: float = 3.0):
     """Skin or an under-garment coming out through a garment, as the shot's camera sees it, per shot and frame.
 
     Each part (Body, Face, each garment) is depth-captured ALONE from the shot's camera; every (under, over) pair is
@@ -145,10 +186,16 @@ def clip(*, label: str, sequence: str, shots: list | None = None, n: int = 6, ex
     pairs: [[under, over], ...] (default fmbridge.qa.clip.pairs). out_dir (on the box; face data stays there): per frame
     <shot>_<frame>_mask.png (body red, face orange, tee green, trousers blue, clip magenta), _depth.bin, with
     `stills` _final.png, with `layer_masks` <shot>_<frame>_<role>.png per part (grey, 255 where that part alone
-    covers the pixel, 0 elsewhere: occlusion by other parts NOT applied). Gate knobs: pair_fraction, neck_max_px, silhouette_pct.
+    covers the pixel, 0 elsewhere: occlusion by other parts NOT applied). Gate knobs: pair_fraction, neck_max_px, silhouette_pct; neck_rule "rim" (neck_px) or "visible" (neck_visible: skin islands + tongues deeper than tongue_cm from the opening, the round-6 re-scope; both reported either way).
+    props {role: "Label" | "Label:Component"}: set pieces captured as layers too (every visible mesh component of the
+    actor, or the one named), for pairs such as [["Body","Chair"],["Chair","Trousers"],["Body","Desk"]] (a presenter
+    sinking into a seat or a desk). mouth {"blocker": role (default "Mic", a prop), "bones": [face bones] (default
+    MOUTH_BONES), "radius_cm": 2.0, "tol_cm": 0.5}: per frame, the mouth's pixels the blocker covers (qa.clip.mouth_blocked);
+    over mouth_max_px fails. A bone the face lacks is an error in that frame (not measured), never a pass.
     Returns: {"pass", "issues", "metrics": {"worst", "shots": {shot: {frame: {"U>G": {...}, "neck_px", "silhouette"}}}},
     "out_dir"}. Multi-tick (~10 s a frame at 480 px).
     Example: film-ue op qa.clip label=Host sequence=/Game/Reel/SEQ_Reel 'shots=["Reel_S15"]' out_dir=/srv/ue/qa/clip/now
+    Example: film-ue op qa.clip label=Host sequence=/Game/Expl/SEQ_WA 'props={"Chair":"Chair","Mic":"StudioMic"}' 'pairs=[["Body","Chair"],["Chair","Trousers"]]' 'mouth={"blocker":"Mic"}'
     """
     a = find_actor(label)
     w, h = int(width_px), round(int(width_px) * 9 / 16)
@@ -156,7 +203,7 @@ def clip(*, label: str, sequence: str, shots: list | None = None, n: int = 6, ex
     if out_dir:
         os.makedirs(out_dir, exist_ok=True)
     knobs = dict(tol_cm=tol_cm, band_cm=band_cm, near_cm=near_cm, neck_margin_cm=neck_margin_cm,
-                 at_open_960=at_open_960)
+                 at_open_960=at_open_960, tongue_cm=tongue_cm)
     rep = {}
     try:
         for shot, frames in plan.items():
@@ -169,14 +216,17 @@ def clip(*, label: str, sequence: str, shots: list | None = None, n: int = 6, ex
                 info = camera_info(cut_camera(sequence, f), aspect=16 / 9)
                 fov = float(info["fov"])
                 parts = roles(a, roles_map)  # afresh each frame: a construction script may re-create components
+                parts.update(_props(props))
                 d = {}
                 for name, c in parts.items():
-                    rt = yield from capture(info, w, h, "depth", show_only=[c], warmup=1)
+                    rt = yield from capture(info, w, h, "depth", show_only=c if isinstance(c, list) else [c], warmup=1)
                     d[name] = read_pixels(rt, "r")[0]
                     yield
                 fr = _clip.judge_frame(d, w, h, fov, pair_list=[tuple(p) for p in pairs] if pairs else None,
                                        neck_over=neck_over, **knobs)
                 mask = fr.pop("_mask")
+                if mouth:
+                    fr["mouth"] = _mouth(parts, d, info, w, h, mouth)
                 base = os.path.join(out_dir, f"{shot}_{f:04d}") if out_dir else ""
                 if ref_dir:
                     rp = os.path.join(ref_dir, f"{shot}_{f:04d}_depth.bin")
@@ -209,7 +259,7 @@ def clip(*, label: str, sequence: str, shots: list | None = None, n: int = 6, ex
             b = json.load(fh)
         prior = b.get("metrics", b).get("shots", b.get("shots"))
     issues = _clip.gate(rep, label, pair_fraction=pair_fraction, neck_max_px=neck_max_px,
-                        silhouette_pct=silhouette_pct, before=prior)
+                        silhouette_pct=silhouette_pct, before=prior, mouth_max_px=mouth_max_px, neck_rule=neck_rule)
     out = _result(issues, {"worst": _clip.summarize(rep), "shots": rep, "size": [w, h], **knobs}, out_dir=out_dir)
     if out_dir:
         with open(os.path.join(out_dir, "clip.json"), "w") as fh:
@@ -357,9 +407,13 @@ def _shown_verts(comp, dm, skip=("short", "hidden")):
     return sorted(keep) if keep and len(keep) >= 0.3 * n else None
 
 
-def _collar(a, parts, gv, body: str = "Body") -> dict:
+def _collar(a, parts, gv, body: str = "Body", gs=None, cam=None) -> dict:
     """fmbridge.qa.garment_look.collar_stats at this pose: the garment's verts in the neck's frame (neck_01 ->
-    head axis of the Body) and their distance to the skin (the Face's lower neck, or the Body)."""
+    head axis of the Body) and their distance to the skin (the Face's lower neck, or the Body). With `gs` (the
+    garment's own _Surface) each vertex is also flagged as WALL (its triangle's normal within COLLAR_WALL_DEG of
+    perpendicular to the neck axis), so the local roll ignores the yoke flowing out over the shoulder. With `cam` (the
+    shot camera's world location [x, y, z]) only the verts whose outward direction from the neck axis faces it are
+    judged (collar_stats facing: the gate is about what is seen)."""
     b = parts.get(body) or parts.get("Body")
     if b is None:
         return {"n": 0, "error": "no Body"}
@@ -376,17 +430,32 @@ def _collar(a, parts, gv, body: str = "Body") -> dict:
     n1 = math.sqrt(sum(c * c for c in e1)) or 1.0
     e1 = tuple(c / n1 for c in e1)
     e2 = (uy * e1[2] - uz * e1[1], uz * e1[0] - ux * e1[2], ux * e1[1] - uy * e1[0])
-    axial, radial, gap, angle = [], [], [], []
+    axial, radial, gap, angle, wall, facing, sdt = [], [], [], [], [], [], []
+    lim = math.sin(math.radians(_look.COLLAR_WALL_DEG))
     for p in near:
+        if gs is not None:
+            r = gs.nearest(p)
+            wall.append(r is None or abs(r[2].dot(u)) <= lim)
         t = (p - n0).dot(u)
         v = p - n0 - u * t
         radial.append(v.length())
         angle.append(math.degrees(math.atan2(v.x * e2[0] + v.y * e2[1] + v.z * e2[2],
                                              v.x * e1[0] + v.y * e1[1] + v.z * e1[2])) % 360.0)
         axial.append(t)
-        ds = [(p - r[0]).length() for r in (sk.nearest(p) for sk in skins) if r is not None]
-        gap.append(min(ds) if ds else float("nan"))
-    return _look.collar_stats(axial, radial, gap, angle=angle)
+        if cam is not None:
+            c = unreal.Vector(float(cam[0]), float(cam[1]), float(cam[2]))
+            facing.append(v.dot(c - p) > 0.0)
+        near_s = [r[0] for r in (sk.nearest(p) for sk in skins) if r is not None]
+        q = min(near_s, key=lambda x: (p - x).length()) if near_s else None
+        gap.append((p - q).length() if q is not None else float("nan"))
+        sdt.append((q - p).dot(u) if q is not None else None)  # + = the nearest skin is above the vertex
+    wl = wall if gs is not None else None
+    out = _look.collar_stats(axial, radial, gap, angle=angle, wall=wl, facing=facing if cam is not None else None,
+                             skin_dt=sdt)
+    if cam is not None:  # the whole band too, as INFO (garment.collar_gap_all_cm / collar_roll_all)
+        al = _look.collar_stats(axial, radial, gap, angle=angle, wall=wl, skin_dt=sdt)
+        out["all"] = {k: al.get(k) for k in ("n", "gap_cm", "spread_cm", "spread_where", "roll")}
+    return out
 
 
 def _hem(parts, gv, rc, body: str = "Body") -> dict:
@@ -496,7 +565,14 @@ def garment_look(*, label: str, garment: str = "", ref_body: str = "", sequence:
             fr["walls"] = len(walls)
             yield
             if collar:
-                fr["collar"] = _collar(a, parts, gv, body)
+                cam = None
+                if f is not None and sequence:
+                    try:
+                        cam = camera_info(cut_camera(sequence, f), aspect=16 / 9)["loc"]
+                    except OpError:
+                        cam = None  # no camera cut at f: every side judged (stricter)
+                fr["collar"] = _collar(a, parts, gv, body, gs=gs, cam=cam)
+                fr["collar"]["camera_facing"] = cam is not None
                 yield
             if hem:
                 fr["hem"] = _hem(parts, gv, rc, body)
@@ -564,15 +640,23 @@ def garment_look(*, label: str, garment: str = "", ref_body: str = "", sequence:
     det = [v["detail"]["energy"] for v in vals if v.get("detail", {}).get("energy") is not None]
     if det:
         m["detail"] = min(det)
-    cols = [v["collar"] for v in vals if v.get("collar", {}).get("n")]
-    if cols:
+    every = [v["collar"] for v in vals if "collar" in v]
+    cols = [c for c in every if c.get("n")]
+    # a camera-facing frame whose facing half had too few band verts is NOT measured: it refuses, never drops out
+    blind = [c for c in every if not c.get("n") and c.get("camera_facing")]
+    if cols or blind:
         meas = [c for c in cols if c.get("spread_cm") is not None]
         w = max(meas, key=lambda c: c["spread_cm"]) if meas else {}
-        m["collar"] = {"frames": len(cols), "gap_cm": max(c["gap_cm"] for c in cols),
+        m["collar"] = {"frames": len(cols) + len(blind), "gap_cm": max((c["gap_cm"] for c in cols), default=0.0),
                        "spread_cm": w.get("spread_cm"), "spread_where": w.get("spread_where"),
                        "spread_window_cm": max((c.get("spread_window_cm") or 0) for c in cols),
                        "roll_frames": sum(1 for c in cols if c["roll"] is True),
-                       "roll_unmeasured": sum(1 for c in cols if c["roll"] is None)}
+                       "roll_unmeasured": sum(1 for c in cols if c["roll"] is None) + len(blind),
+                       "camera_facing": any(c.get("camera_facing") for c in every)}
+        alls = [c["all"] for c in cols if c.get("all") and c["all"].get("n")]
+        if alls:
+            m["collar"]["all"] = {"gap_cm": max(x["gap_cm"] for x in alls),
+                                  "roll_frames": sum(1 for x in alls if x.get("roll") is True)}
     hems = [v["hem"] for v in vals if v.get("hem", {}).get("n")]
     if hems:
         rs = [h for h in hems if h.get("ratio")]

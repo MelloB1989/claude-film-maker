@@ -1,0 +1,25 @@
+{
+ "gate": {
+  "body.breath_cycles_per_min": {
+   "value": 14.12,
+   "where": "/Game/Explainer/SEQ_Explain_Her f0-1426 every 2"
+  },
+  "body.breath_amp_mm": {
+   "value": 2.71,
+   "where": "/Game/Explainer/SEQ_Explain_Her f0-1426 every 2"
+  },
+  "body.desk_through": {
+   "value": 0,
+   "where": "/Game/Explainer/SEQ_Explain_Her f0-1426 every 2"
+  },
+  "body.mic_touch": {
+   "value": 0,
+   "where": "/Game/Explainer/SEQ_Explain_Her f0-1426 every 2"
+  },
+  "body.knee_desk": {
+   "value": 0,
+   "where": "/Game/Explainer/SEQ_Explain_Her f0-1426 every 2"
+  }
+ },
+ "source": "perform.py bodycheck --who her"
+}

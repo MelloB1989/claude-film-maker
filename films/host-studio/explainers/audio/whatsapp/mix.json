@@ -1,0 +1,33 @@
+{
+ "film": "whatsapp",
+ "seconds": 56.3333,
+ "samples": 2703998,
+ "lufs": -14.05,
+ "true_peak_dbtp": -1.71,
+ "master_gain_db": 1.19,
+ "voice_lufs": -15.0,
+ "music_lufs": -21.0,
+ "duck_median_db_per_line": {
+  "W01": -7.0,
+  "W02": -7.0,
+  "W03": -7.0,
+  "W04": -7.0,
+  "W05": -7.0,
+  "W06": -7.0,
+  "W07": -7.0,
+  "W08": -7.0,
+  "W09": -7.0,
+  "W10": -7.0,
+  "W11": -7.0,
+  "W12": -7.0,
+  "W13": -7.0,
+  "W14": -7.0,
+  "W15": -7.0,
+  "W16": -7.0,
+  "W17": -7.0
+ },
+ "bed": {
+  "take": "out/host-studio/explainers/music/whatsapp/seed1-af95f095d417.wav",
+  "seed": 1
+ }
+}

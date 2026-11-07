@@ -1,0 +1,16 @@
+n,kind,camera,gfx,f0,f1,t0,t1,lines,text
+1,pres,CAM_MCU,,0,93,0.000,3.875,W01,"Every day, WhatsApp moves over a hundred billion messages."
+2,gfx,,title,93,152,3.875,6.333,W02,And almost none of them stay on its servers.
+3,pres,CAM_CU,,152,179,6.333,7.458,W03,Here's how.
+4,panel,CAM_MCU,connect,179,273,7.458,11.375,W04,"Open the app, and your phone keeps one connection open to WhatsApp."
+5,gfx,,erlang,273,422,11.375,17.583,W05 W06,"On the server, each connection is its own tiny Erlang process. One server once held two million of them."
+6,pres,CAM_WIDE,,422,480,17.583,20.000,W07,You hit send. Is your friend online?
+7,gfx,,store,480,614,20.000,25.583,W08 W09,"Then it goes straight down their connection. If not, it waits. And once it's delivered, it's deleted."
+8,panel,CAM_MCU,ticks,614,769,25.583,32.042,W10 W11,Your ticks? One: the server has it. Two: it reached their phone. Blue: they've read it.
+9,gfx,,group,769,870,32.042,36.250,W12,"In a group, your phone encrypts once. The server fans it out to everyone."
+10,pres,CAM_CU,,870,929,36.250,38.708,W13,And the server can't read a word of it.
+11,gfx,,e2e,929,997,38.708,41.542,W14,The Signal protocol keeps the keys on your phones.
+12,panel,CAM_MCU,media,997,1121,41.542,46.708,W15,"Photos go to a blob store, encrypted. Only the key rides in the message."
+13,pres,CAM_MCU,,1121,1252,46.708,52.167,W16,Tiny processes. Messages that don't linger. Keys that never leave your hands.
+14,pres,CAM_CU,,1252,1316,52.167,54.833,W17,That's over a hundred billion messages a day.
+15,gfx,,end,1316,1352,54.833,56.333,,

@@ -1,0 +1,509 @@
+{
+ "verdict": "SIGN",
+ "rows": [
+  {
+   "id": "lips.lead_in_cm",
+   "value": null,
+   "line": 0.05,
+   "op": "<=",
+   "unit": "cm/frame",
+   "area": "lips",
+   "where": "every line, the 24 frames before its first word",
+   "state": "INFO",
+   "reason": "not measured (info only)"
+  },
+  {
+   "id": "lips.onset_lead_ms",
+   "value": 10,
+   "line": 250,
+   "op": "<=",
+   "unit": "ms",
+   "area": "lips",
+   "where": "him L2 f1094",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "lips.lag_frames",
+   "value": 0.8,
+   "line": 1,
+   "op": "<=",
+   "unit": "frames",
+   "area": "lips",
+   "where": "him L2 f1094",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "lips.track_r",
+   "value": 0.972,
+   "line": 0.8,
+   "op": ">=",
+   "unit": "r",
+   "area": "lips",
+   "where": "her L3b f1215",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "lips.measured_against",
+   "value": 1,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "lips",
+   "where": "1 = each line's own solve, 0 = the voice",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "lips.silence_open",
+   "value": 0.001,
+   "line": 0.1,
+   "op": "<=",
+   "unit": "jawOpen",
+   "area": "lips",
+   "where": "him f1060-1088",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "lips.silence_busy",
+   "value": 0.0,
+   "line": 0.25,
+   "op": "<=",
+   "unit": "ratio",
+   "area": "lips",
+   "where": "him f972-1014",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "lips.render_lag_frames",
+   "value": null,
+   "line": 1,
+   "op": "<=",
+   "unit": "frames",
+   "area": "lips",
+   "where": "every spoken line",
+   "state": "INFO",
+   "reason": "not measured (info only)"
+  },
+  {
+   "id": "lips.render_conclusive",
+   "value": null,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "lips",
+   "where": "every spoken line",
+   "state": "INFO",
+   "reason": "not measured (info only)"
+  },
+  {
+   "id": "lips.cues_fresh",
+   "value": 1,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "lips",
+   "where": "cues.json",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "head.blink_nod_deg",
+   "value": 0.466,
+   "line": 0.6,
+   "op": "<=",
+   "unit": "deg",
+   "area": "head",
+   "where": "Presenter f1303-1307 (him 0.0)",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "head.blink_locked_deg",
+   "value": 0.128,
+   "line": 0.3,
+   "op": "<=",
+   "unit": "deg",
+   "area": "head",
+   "where": "Presenter (him 0.084)",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "garment.neck_px",
+   "value": 0,
+   "line": 0,
+   "op": "<=",
+   "unit": "px",
+   "area": "garment",
+   "where": "qa.clip neck_rule=visible tongue_cm=3.0 (core a7511df9): islands 0, tongue px 0, max tongue 0.0 cm, every judged frame",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "garment.silhouette_pct",
+   "value": null,
+   "line": 2.0,
+   "op": "<=",
+   "unit": "%",
+   "area": "garment",
+   "where": "S15 hold, S17, S18",
+   "state": "INFO",
+   "reason": "not measured (info only)"
+  },
+  {
+   "id": "garment.wpo_cm",
+   "value": 0,
+   "line": 0.2,
+   "op": "<=",
+   "unit": "cm",
+   "area": "garment",
+   "where": "Epic's tee, no inflate parameters",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "garment.armor_index",
+   "value": 0.317,
+   "line": 0.5,
+   "op": "<=",
+   "unit": "index",
+   "area": "garment",
+   "where": "garment_look f1082/1150/1397",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "garment.pair_fraction",
+   "value": 0.0,
+   "line": 0.001,
+   "op": "<=",
+   "unit": "fraction",
+   "area": "garment",
+   "where": "Body>tee 0.0, Trousers>tee 0.0 (Face>tee 0.02957 / 685 px at S15 f1196 is the info pair the neck rows judge)",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "garment.collar_gap_cm",
+   "value": null,
+   "line": 0.8,
+   "op": "<=",
+   "unit": "cm",
+   "area": "garment",
+   "where": "the CAMERA-FACING half of the band (per vertex: outward radial direction from the neck axis . (the cut camera at that frame - vertex) > 0), S13, S15, S17 (every measured frame); a facing half with too few band verts is NOT measured and refuses",
+   "state": "INFO",
+   "reason": "not measured (info only)"
+  },
+  {
+   "id": "garment.collar_roll",
+   "value": null,
+   "line": 0,
+   "op": "==",
+   "unit": "count",
+   "area": "garment",
+   "where": "the CAMERA-FACING half of the band (per vertex: outward radial direction from the neck axis . (the cut camera at that frame - vertex) > 0), S13, S15, S17 (every measured frame); a facing half with too few band verts is NOT measured and refuses",
+   "state": "INFO",
+   "reason": "not measured (info only)"
+  },
+  {
+   "id": "garment.hem_flare_ratio",
+   "value": 0.5511,
+   "line": 1.15,
+   "op": "<=",
+   "unit": "ratio",
+   "area": "garment",
+   "where": "garment_look (hem ease -12.36 cm, hem angle 7.8 deg)",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "garment.silhouette_ratio",
+   "value": 2.302,
+   "line": 1.12,
+   "op": "<=",
+   "unit": "ratio",
+   "area": "garment",
+   "where": "INFO (untrusted reference-body capture, as in round 5b)",
+   "state": "INFO",
+   "reason": "2.302 ratio is not <= 1.12 (info only)"
+  },
+  {
+   "id": "garment.cloth_alive",
+   "value": null,
+   "line": 0.3,
+   "op": ">=",
+   "unit": "cm",
+   "area": "garment",
+   "where": "S13, S15 gesture frames",
+   "state": "NOT_ATTEMPTED",
+   "reason": "not measured: run film-ue op qa.cloth per shot -> r5/cloth_gate.py (agent-08, T3b)",
+   "decision": {
+    "reason": "His tee is MetaHuman's own default garment (assembled to his body, WPO 0). It is a closed-shell mesh, and Chaos cloth on a closed shell collapses (round 5: her overshirt shredded), so no sim this round. The armour complaint is addressed by WPO 0 and the assembled fit (armor_index, wpo_cm and neck_px stay hard lines). Proxy-sim cloth (single-layer sim section + FMCloth mesh-to-mesh) is round 6.",
+    "by": "cc-64d05f6e"
+   }
+  },
+  {
+   "id": "garment.cloth_sound",
+   "value": null,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "garment",
+   "where": "S13, S15, S17, S18",
+   "state": "NOT_ATTEMPTED",
+   "reason": "not measured: run film-ue op qa.cloth (T3b)",
+   "decision": {
+    "reason": "His tee is MetaHuman's own default garment (assembled to his body, WPO 0). It is a closed-shell mesh, and Chaos cloth on a closed shell collapses (round 5: her overshirt shredded), so no sim this round. The armour complaint is addressed by WPO 0 and the assembled fit (armor_index, wpo_cm and neck_px stay hard lines). Proxy-sim cloth (single-layer sim section + FMCloth mesh-to-mesh) is round 6.",
+    "by": "cc-64d05f6e"
+   }
+  },
+  {
+   "id": "garment.cloth_detail_ratio",
+   "value": null,
+   "line": 1.25,
+   "op": ">=",
+   "unit": "ratio",
+   "area": "garment",
+   "where": "S13, S15 close shots",
+   "state": "NOT_ATTEMPTED",
+   "reason": "not measured: run agent-08's writer (T3b) from agent-02's qa.clip tee mask",
+   "decision": {
+    "reason": "His tee is MetaHuman's own default garment (assembled to his body, WPO 0). It is a closed-shell mesh, and Chaos cloth on a closed shell collapses (round 5: her overshirt shredded), so no sim this round. The armour complaint is addressed by WPO 0 and the assembled fit (armor_index, wpo_cm and neck_px stay hard lines). Proxy-sim cloth (single-layer sim section + FMCloth mesh-to-mesh) is round 6.",
+    "by": "cc-64d05f6e"
+   }
+  },
+  {
+   "id": "shot.cameras_ok",
+   "value": 1,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "camera",
+   "where": "the 13 shots (13/13)",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "shot.render_matches_r4",
+   "value": 0.8099,
+   "line": 0.5,
+   "op": ">=",
+   "unit": "ssim",
+   "area": "camera",
+   "where": "S15 f1080",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "hair.cut_reach_pct",
+   "value": 3.47,
+   "line": 12.0,
+   "op": "<=",
+   "unit": "%",
+   "area": "hair",
+   "where": "every cut both presenters span; S17->S18 f1440 first",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "hair.pop_reach_pct",
+   "value": 1.61,
+   "line": 8.0,
+   "op": "<=",
+   "unit": "%",
+   "area": "hair",
+   "where": "editor qa.hair_continuity S15-S18 (incl. S15 f1082), round 5b 8.93",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "hair.cut_pop_ratio",
+   "value": 1.304,
+   "line": 1.8,
+   "op": "<=",
+   "unit": "x",
+   "area": "hair",
+   "where": "S17 -> S18 f1440 (the operator's 01:00)",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "hair.lock",
+   "value": 1,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "hair",
+   "where": "the level, before the render",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "hair.render_cvars",
+   "value": 1,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "hair",
+   "where": "30-final.yaml",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "shot.start_motion_ratio",
+   "value": 3.355,
+   "line": 1.8,
+   "op": "<=",
+   "unit": "x",
+   "area": "head",
+   "where": "S15 f1080-1084 (INFO; round 5b 13.65)",
+   "state": "INFO",
+   "reason": "3.355 x is not <= 1.8 (info only)"
+  },
+  {
+   "id": "garment.open_edge_shrunk",
+   "value": 0,
+   "line": 0,
+   "op": "==",
+   "unit": "verts",
+   "area": "garment",
+   "where": "backstop shrink OFF (WI MaxShrink 0, forced build); shrink_live/cull_live kept verts moved 0.0 cm",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "lips.eye_onsets",
+   "value": 1,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "lips",
+   "where": "private/renders/r6/review/karma/cut/karma-reel-1080p-clean-h264.mp4: L1 1, L2 1, L3a occluded, L3b 2, L4a 2, L4b 1",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "shot.settle_step_deg",
+   "value": 0.253,
+   "line": 0.6,
+   "op": "<=",
+   "unit": "deg",
+   "area": "head",
+   "where": "Presenter f1559 (him f1559 0.244; section starts him f961 0.074, her f1081 0.088); INFO: frame-to-frame head turn beyond perfkit's plan, line 0.6",
+   "state": "INFO",
+   "reason": ""
+  },
+  {
+   "id": "garment.leaders_ok",
+   "value": 1,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "garment",
+   "where": "min over the 3 final jobs (S13, S15, S17S18), read right before each render: ['leaders_ok True', 'leaders_ok True', 'leaders_ok True']",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "shot.face_luma_ratio",
+   "value": 1.035,
+   "line": [
+    0.9,
+    1.1
+   ],
+   "op": "range",
+   "unit": "ratio",
+   "area": "camera",
+   "where": "worst |ratio-1| S15 f1175, per-image mediapipe face boxes, finals vs r3/final_d; all: S13 f985 0.989, S13 f1040 0.994, S15 f1085 1.029, S15 f1128 1.013, S15 f1175 1.035, S17 f1340 1.001, S17 f1397 0.991, S18 f1442 0.986, S18 f1500 0.967",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "garment.cull_kept_moved_cm",
+   "value": 0.0,
+   "line": 0.01,
+   "op": "<=",
+   "unit": "cm",
+   "area": "garment",
+   "where": "r6/cull_live.py vs SKM_Host_Op_FaceMesh_r5: 912 gone, gone z 144.2-153.3 (median 149.0), kept_max_moved_cm 0.0",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "garment.cull_min_below_collar_cm",
+   "value": 1.5,
+   "line": 1.5,
+   "op": ">=",
+   "unit": "cm",
+   "area": "garment",
+   "where": "neck_backstop CULL mode C1 on the uncut face: culled 970, covered 1160, min_depth_below_collar_cm 1.50 (CULL_DEPTH_CM 1.5, the orchestrator's pick (A); the row's line was drafted at 3.0) -- the orchestrator's pick (A) 1.5 cm is the line for this row",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "garment.neck_rim_px",
+   "value": 289,
+   "line": 0,
+   "op": "<=",
+   "unit": "px",
+   "area": "garment",
+   "where": "INFO: the old rim rule, S15 f1196 (at_opening 392): the neck continuing over the hugging collar's edge, passed by eye (r6n2)",
+   "state": "INFO",
+   "reason": "289 px is not <= 0 (info only)"
+  },
+  {
+   "id": "garment.collar_gap_all_cm",
+   "value": null,
+   "line": 0.8,
+   "op": "<=",
+   "unit": "cm",
+   "area": "garment",
+   "where": "S13, S15, S17",
+   "state": "INFO",
+   "reason": "not measured (info only)"
+  },
+  {
+   "id": "garment.collar_roll_all",
+   "value": null,
+   "line": 0,
+   "op": "==",
+   "unit": "count",
+   "area": "garment",
+   "where": "S13, S15, S17",
+   "state": "INFO",
+   "reason": "not measured (info only)"
+  }
+ ],
+ "issues": [],
+ "refused_waivers": [],
+ "not_attempted": [
+  {
+   "id": "garment.cloth_alive",
+   "reason": "His tee is MetaHuman's own default garment (assembled to his body, WPO 0). It is a closed-shell mesh, and Chaos cloth on a closed shell collapses (round 5: her overshirt shredded), so no sim this round. The armour complaint is addressed by WPO 0 and the assembled fit (armor_index, wpo_cm and neck_px stay hard lines). Proxy-sim cloth (single-layer sim section + FMCloth mesh-to-mesh) is round 6.",
+   "by": "cc-64d05f6e"
+  },
+  {
+   "id": "garment.cloth_sound",
+   "reason": "His tee is MetaHuman's own default garment (assembled to his body, WPO 0). It is a closed-shell mesh, and Chaos cloth on a closed shell collapses (round 5: her overshirt shredded), so no sim this round. The armour complaint is addressed by WPO 0 and the assembled fit (armor_index, wpo_cm and neck_px stay hard lines). Proxy-sim cloth (single-layer sim section + FMCloth mesh-to-mesh) is round 6.",
+   "by": "cc-64d05f6e"
+  },
+  {
+   "id": "garment.cloth_detail_ratio",
+   "reason": "His tee is MetaHuman's own default garment (assembled to his body, WPO 0). It is a closed-shell mesh, and Chaos cloth on a closed shell collapses (round 5: her overshirt shredded), so no sim this round. The armour complaint is addressed by WPO 0 and the assembled fit (armor_index, wpo_cm and neck_px stay hard lines). Proxy-sim cloth (single-layer sim section + FMCloth mesh-to-mesh) is round 6.",
+   "by": "cc-64d05f6e"
+  }
+ ],
+ "complaints": [
+  "garment",
+  "hair",
+  "head",
+  "lips"
+ ],
+ "summary": "SIGN with 3 item(s) NOT ATTEMPTED by decision: garment.cloth_alive (cc-64d05f6e), garment.cloth_sound (cc-64d05f6e), garment.cloth_detail_ratio (cc-64d05f6e)",
+ "pass": true
+}

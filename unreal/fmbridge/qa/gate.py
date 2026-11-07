@@ -42,7 +42,8 @@ import math
 
 from .issues import issue
 
-OPS = {"<=": lambda v, t: v <= t, ">=": lambda v, t: v >= t, "==": lambda v, t: v == t}
+OPS = {"<=": lambda v, t: v <= t, ">=": lambda v, t: v >= t, "==": lambda v, t: v == t,
+       "range": lambda v, t: t[0] <= v <= t[1]}  # line [lo, hi]: alive but not wandering (round 6 head/eye lines)
 
 # id -> spec. area: the operator's words the item answers (complaints are matched on it). r4: what round 4 measured
 # (None: not measured in round 4; the item's round-5 probe gives it), with its source.

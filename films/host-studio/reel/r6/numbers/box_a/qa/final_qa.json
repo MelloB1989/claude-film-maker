@@ -1,0 +1,256 @@
+{
+ "frames": {
+  "pass": true,
+  "failed": [],
+  "shots": {
+   "V01": {
+    "range": [
+     -12,
+     180
+    ],
+    "expected": 192,
+    "on_disk": 192,
+    "missing": [],
+    "n_missing": 0,
+    "unreadable": [],
+    "black": [],
+    "white": [],
+    "wrong_size": [],
+    "lum_jumps": [],
+    "lum_min_max": [
+     0.635,
+     0.746
+    ]
+   },
+   "V02": {
+    "range": [
+     180,
+     360
+    ],
+    "expected": 180,
+    "on_disk": 180,
+    "missing": [],
+    "n_missing": 0,
+    "unreadable": [],
+    "black": [],
+    "white": [],
+    "wrong_size": [],
+    "lum_jumps": [],
+    "lum_min_max": [
+     0.507,
+     0.648
+    ]
+   },
+   "V03": {
+    "range": [
+     360,
+     480
+    ],
+    "expected": 120,
+    "on_disk": 120,
+    "missing": [],
+    "n_missing": 0,
+    "unreadable": [],
+    "black": [],
+    "white": [],
+    "wrong_size": [],
+    "lum_jumps": [],
+    "lum_min_max": [
+     0.47,
+     0.675
+    ]
+   },
+   "V04": {
+    "range": [
+     480,
+     600
+    ],
+    "expected": 120,
+    "on_disk": 120,
+    "missing": [],
+    "n_missing": 0,
+    "unreadable": [],
+    "black": [],
+    "white": [],
+    "wrong_size": [],
+    "lum_jumps": [],
+    "lum_min_max": [
+     0.195,
+     0.54
+    ]
+   },
+   "V05": {
+    "range": [
+     600,
+     720
+    ],
+    "expected": 120,
+    "on_disk": 120,
+    "missing": [],
+    "n_missing": 0,
+    "unreadable": [],
+    "black": [],
+    "white": [],
+    "wrong_size": [],
+    "lum_jumps": [],
+    "lum_min_max": [
+     0.168,
+     0.273
+    ]
+   },
+   "S11": {
+    "range": [
+     720,
+     780
+    ],
+    "expected": 60,
+    "on_disk": 60,
+    "missing": [],
+    "n_missing": 0,
+    "unreadable": [],
+    "black": [],
+    "white": [],
+    "wrong_size": [],
+    "lum_jumps": [],
+    "lum_min_max": [
+     0.015,
+     0.196
+    ]
+   },
+   "S12": {
+    "range": [
+     780,
+     840
+    ],
+    "expected": 60,
+    "on_disk": 60,
+    "missing": [],
+    "n_missing": 0,
+    "unreadable": [],
+    "black": [],
+    "white": [],
+    "wrong_size": [],
+    "lum_jumps": [],
+    "lum_min_max": [
+     0.089,
+     0.154
+    ]
+   },
+   "N01": {
+    "range": [
+     840,
+     960
+    ],
+    "expected": 120,
+    "on_disk": 120,
+    "missing": [],
+    "n_missing": 0,
+    "unreadable": [],
+    "black": [],
+    "white": [],
+    "wrong_size": [],
+    "lum_jumps": [],
+    "lum_min_max": [
+     0.273,
+     0.588
+    ]
+   },
+   "S13": {
+    "range": [
+     960,
+     1080
+    ],
+    "expected": 120,
+    "on_disk": 120,
+    "missing": [],
+    "n_missing": 0,
+    "unreadable": [],
+    "black": [],
+    "white": [],
+    "wrong_size": [],
+    "lum_jumps": [],
+    "lum_min_max": [
+     0.248,
+     0.298
+    ]
+   },
+   "S15": {
+    "range": [
+     1080,
+     1200
+    ],
+    "expected": 120,
+    "on_disk": 120,
+    "missing": [],
+    "n_missing": 0,
+    "unreadable": [],
+    "black": [],
+    "white": [],
+    "wrong_size": [],
+    "lum_jumps": [],
+    "lum_min_max": [
+     0.531,
+     0.558
+    ]
+   },
+   "S16": {
+    "range": [
+     1200,
+     1320
+    ],
+    "expected": 120,
+    "on_disk": 120,
+    "missing": [],
+    "n_missing": 0,
+    "unreadable": [],
+    "black": [],
+    "white": [],
+    "wrong_size": [],
+    "lum_jumps": [],
+    "lum_min_max": [
+     0.432,
+     0.447
+    ]
+   },
+   "S17": {
+    "range": [
+     1320,
+     1440
+    ],
+    "expected": 120,
+    "on_disk": 120,
+    "missing": [],
+    "n_missing": 0,
+    "unreadable": [],
+    "black": [],
+    "white": [],
+    "wrong_size": [],
+    "lum_jumps": [],
+    "lum_min_max": [
+     0.138,
+     0.158
+    ]
+   },
+   "S18": {
+    "range": [
+     1440,
+     1572
+    ],
+    "expected": 132,
+    "on_disk": 132,
+    "missing": [],
+    "n_missing": 0,
+    "unreadable": [],
+    "black": [],
+    "white": [],
+    "wrong_size": [],
+    "lum_jumps": [],
+    "lum_min_max": [
+     0.115,
+     0.137
+    ]
+   }
+  }
+ },
+ "pass": true
+}
