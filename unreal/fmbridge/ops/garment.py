@@ -681,7 +681,7 @@ def limb_clearance(*, label: str, sequence: str, frames: list | None = None, sho
             yield from _scrub(sequence, f, 10)
             pts = []
             for c in [comp] + upper:
-                pts += [(v.x, v.y, v.z) for v in _verts(_posed(c))[::max(1, int(stride))]]
+                pts += [(v.x, v.y, v.z) for v in list(_verts(_posed(c)))[::max(1, int(stride))]]  # unreal.Array: no slice step
             yield
             loc = {b: comp.get_socket_location(b) for b in ("spine_03", "neck_01", "upperarm_l", "lowerarm_l",
                                                           "upperarm_r", "lowerarm_r")}
