@@ -160,10 +160,10 @@ result = {{"rc": r.returncode, "err": r.stderr[-500:], "props": json.load(open(p
         mats[slot] = mi
     print("materials:", sorted(mats))
     # the lamp's shade glows through (thin linen lit from inside), its bulb is emissive
-    mats.setdefault("M_ShadeLinen", op("look.material", name="MI_Exp_ShadeLinen", kind="Sheer",
+    mats["M_ShadeLinen"] = (op("look.material", name="MI_Exp_ShadeLinen", kind="Sheer",
                                        color=[0.78, 0.72, 0.62], transmission=[1.0, 0.75, 0.5], glow=0.6,
                                        folder=f"{PROPS_DIR}/Materials"))
-    mats.setdefault("M_LampBulb", op("look.material", name="MI_Exp_LampBulb", kind="Emissive", color=[1.0, 0.72, 0.42],
+    mats["M_LampBulb"] = (op("look.material", name="MI_Exp_LampBulb", kind="Emissive", color=[1.0, 0.72, 0.42],
                                      intensity=12.0, folder=f"{PROPS_DIR}/Materials"))
     desk_panel = P.DESK_PANEL in by_name
     for label, (name, loc, yaw, scale) in P.PROPS.items():

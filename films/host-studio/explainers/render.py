@@ -42,19 +42,26 @@ def spec(who: str, film: str, n: int, cam: str, f0: int, f1: int, preset: str) -
             **{k: v for k, v in PRESETS[preset].items()}}
 
 
-def post(film: str, preset: str, shots: list) -> None:
-    """On the box: an h264 preview per shot (24 fps, the VO not muxed: agent-11 mixes), then sync to s3 (KMS)."""
+def post(film: str, preset: str, shots: list, audio: str = "") -> None:
+    """On the box: an h264 preview per shot (24 fps; with `audio`, an s3 key or box path of the film's mix, its slice
+    from the shot's first frame muxed in, for judging lips), then sync to s3 (KMS)."""
     base = f"{OUT}/{film}/{preset}"
     dirs = [f"shot{n:02d}_{cam}" for n, cam, _, _ in shots]
     code = f"""import subprocess, os, glob
-base, res = {base!r}, {{}}
+base, res, audio = {base!r}, {{}}, {audio!r}
+if audio.startswith("s3://"):
+    local = f"{{base}}/_mix.wav"
+    subprocess.run(["aws", "s3", "cp", "--only-show-errors", audio, local])
+    audio = local
 for d in {dirs!r}:
     pngs = sorted(glob.glob(f"{{base}}/{{d}}/[0-9]*.png"))
     if not pngs:
         res[d] = "no frames"; continue
     first = int(os.path.basename(pngs[0])[:-4])
+    a = ["-ss", f"{{first / 24:.4f}}", "-i", audio, "-map", "0:v", "-map", "1:a", "-c:a", "aac", "-b:a", "192k",
+         "-shortest"] if audio else []
     r = subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-framerate", "24", "-start_number", str(first),
-                        "-i", f"{{base}}/{{d}}/%04d.png", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "16",
+                        "-i", f"{{base}}/{{d}}/%04d.png", *a, "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "16",
                         f"{{base}}/{{d}}.mp4"], capture_output=True, text=True)
     res[d] = [len(pngs), first, r.returncode, r.stderr[-200:]]
 r = subprocess.run(["aws", "s3", "sync", base, {f"{S3}/{film}/{preset}/"!r}, "--sse", "aws:kms", "--only-show-errors"],
@@ -74,6 +81,7 @@ def main() -> int:
     ap.add_argument("--preset", default="preview", choices=sorted(PRESETS))
     ap.add_argument("--shots", help="only these shot numbers (comma list)")
     ap.add_argument("--dry", action="store_true", help="print the plan and the specs, touch nothing")
+    ap.add_argument("--audio", default="", help="the film's mix (s3 key or box path) muxed into each preview")
     a = ap.parse_args()
     edl = json.loads(Path(a.edl).read_text())
     plan = S.render_plan(edl)
@@ -102,7 +110,7 @@ def main() -> int:
     finally:  # the edit back, whatever happened
         S.op("seq.camera_cuts", path=seq, cuts=S.edl_cuts(edl))
         S.op("assets.save", paths=[seq])
-    post(a.film, a.preset, plan)
+    post(a.film, a.preset, plan, a.audio)
     print("FAILED shots:", failed if failed else "none")
     return 1 if failed else 0
 
