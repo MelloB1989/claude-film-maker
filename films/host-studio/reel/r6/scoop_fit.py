@@ -156,8 +156,10 @@ def falloff(d: float, rib: float, fall: float) -> float:
     return 0.5 * (1.0 + math.cos(math.pi * x)) if x < 1.0 else 0.0
 
 
-def plan(frames: list, target: float = TARGET, floor: float = FLOOR, cap: float = CAP) -> dict:
-    """frames: [measure result, ...] -> {"pull": [NS] cm, "nrm": [NS] local unit vectors, "why": [NS]}."""
+def plan(frames: list, target: float = TARGET, floor: float = FLOOR, cap: float = CAP, room_key: str = "band_min") -> dict:
+    """frames: [measure result, ...] -> {"pull": [NS] cm, "nrm": [NS] local unit vectors, "why": [NS]}. room_key: the
+    band stand-off that limits the pull: band_min (every band vert), band_min_seen (ignoring verts already > 0.3 cm
+    inside the skin: masked skin under the Top, not seen), band_p10, or "" (no room limit; qa.clip judges)."""
     raw, why, nrm, rooms = [0.0] * NS, [""] * NS, [[0.0, 0.0, 0.0] for _ in range(NS)], [cap] * NS
     for s in range(NS):
         want, room, nv = None, None, [0.0, 0.0, 0.0]
@@ -167,8 +169,8 @@ def plan(frames: list, target: float = TARGET, floor: float = FLOOR, cap: float 
                 continue
             w = row["loop_p50"] - target
             want = w if want is None else min(want, w)
-            if row.get("band_min") is not None:
-                r = row["band_min"] - floor
+            if room_key and row.get(room_key) is not None and row[room_key] < 98.0:
+                r = row[room_key] - floor
                 room = r if room is None else min(room, r)
             nv = [a + b for a, b in zip(nv, row["nrm"])]
         ln = math.sqrt(sum(c * c for c in nv))
@@ -433,6 +435,8 @@ def _editor(G: dict):
                             "t": [round(min(x[2] for x in rows[s]), 1), round(max(x[2] for x in rows[s]), 1)],
                             "band_n": len(band[s]), "band_min": round(min(band[s]), 3) if band[s] else None,
                             "band_lt0": sum(1 for x in band[s] if x < 0),
+                            "band_p10": round(sorted(band[s])[len(band[s]) // 10], 3) if band[s] else None,
+                            "band_min_seen": round(min((x for x in band[s] if x >= -0.3), default=99.0), 3),
                             "band_min_by": {k: round(v, 3) for k, v in bpart[s].items()},
                             "inner_p50": round(sorted(inner[s])[len(inner[s]) // 2], 3) if inner[s] else None,
                             "outer_p50": round(sorted(outer[s])[len(outer[s]) // 2], 3) if outer[s] else None})
@@ -574,6 +578,7 @@ def main(argv=None) -> int:
     p.add_argument("--rib", type=float, default=1.0)
     p.add_argument("--fall", type=float, default=2.5)
     p.add_argument("--dry", action="store_true", help="print the plan only")
+    p.add_argument("--room", default="band_min", help="band_min | band_min_seen | band_p10 | none")
     sub.add_parser("cleanup")
     a = ap.parse_args(argv)
     if a.box != "conf":
@@ -615,14 +620,14 @@ def main(argv=None) -> int:
                   flush=True)
         (out / "measure.json").write_text(json.dumps(per))
         print("neckline by", next(iter(per.values()))["neckline_by"], "| sector rows: deg, [loop min, p50, max, band min, "
-              "band<0, t range, inner-face p50, outer-face p50, band min by skin part]")
+              "band<0, t range, inner-face p50, outer-face p50, band min by skin part, band min seen]")
         print(json.dumps({"loop_n": next(iter(per.values()))["loop_n"], "loop_candidates": next(iter(per.values()))["loop_candidates"],
                           "sectors_f0": [(k * 15, s and [s["loop_min"], s["loop_p50"], s["loop_max"], s["band_min"],
-                                                         s["band_lt0"], s["t"], s["inner_p50"], s["outer_p50"], s["band_min_by"]]) for k, s in
+                                                         s["band_lt0"], s["t"], s["inner_p50"], s["outer_p50"], s["band_min_by"], s["band_min_seen"]]) for k, s in
                                          enumerate(next(iter(per.values()))["sectors"])]}, indent=None))
         return 0
     per = json.loads((Path(a.src) / "measure.json").read_text())
-    pl = plan(list(per.values()), target=a.target, cap=a.cap)
+    pl = plan(list(per.values()), target=a.target, cap=a.cap, room_key="" if a.room == "none" else a.room)
     print(json.dumps({"pull": [(k * 15, pl["pull"][k], pl["why"][k]) for k in range(NS)]}))
     if a.dry:
         return 0
