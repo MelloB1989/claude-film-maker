@@ -220,3 +220,16 @@ tested in `test_seatkit.py`), `gestures.json` (the emphasis gestures per line).
   facts 1, qc_ok 1. SFX for the v3 graphics: `sfx.py` made 9 cues x 2 takes (~118 credits) with ElevenLabs sound
   generation, picked by measurement; `place` lays each film's sfx_v3.json on the timeline and `mix.py --sfx` adds the
   stems (a fake list held -14.03/-1.67). The v3 graphics and hit lists land ~07:30 IST (agent-12 netflix, agent-13 whatsapp).
+- 08 Nov 02:14-03:20 IST (agent-11, interim box B driver: agent-06 and the pc2 agents unreachable): box B was
+  spot-reclaimed at 02:14:51 (no g6e capacity in ap-south-1a; the persistent request restarted it itself at 02:21). Nothing
+  was lost: agent-06's cams + `FACE_SOLVE=full all --from face` had been saved (assets 01:58-02:10, level 02:12). After
+  the restart the editor opened /Game/Studio, and the SSM tunnel was stale (`film-ue close` + `tunnel`). Her level was
+  reopened and the garments re-led, then agent-06's chain_T2 resumed from head sample. Head gate on fresh data:
+  on_lens 0.916, every span >= 0.82 (the head's own aim off the lens: 1.1-1.8 deg MCU/WIDE, 6.9-7.4 deg CU). Face
+  (gate09, whole take): active 0.83, smiles 20.8/min, brows 29.2/min, neutral 0.79 s, frown 0. Hands in frame: MCU 1.0,
+  CU 0.89, WIDE 1.0. ARMS FAIL: the left upper arm is inside the Top by up to 7.05 cm at f66 and f1118-1136, the two
+  big two-hand spreads where the sheet keeps the left hand inside the mic line (N01 "million", N13 "that"); the right
+  arm is 5.8-8.5 cm clear. The arms measure's cleanup leaves the garments unled: re-lead (`mh.leader`) before any
+  render. The TEST render (shots 1,2,11) started anyway, so the face can be judged while the arms are fixed.
+- 08 Nov 02:20-02:45 IST: agent-13's WhatsApp v3 batch 1 (12 files) synced to gfx/v3/explain-whatsapp; graphics-only dry
+  composite g3a on box B: all 9 graphics, 1352 f, lufs err 0.1, TP -1.7, text_match 1, onset 84 ms, facts 1, qc_ok 1.
