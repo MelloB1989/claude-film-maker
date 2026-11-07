@@ -118,14 +118,14 @@
    "unit": "ratio",
    "what": "each presenter's face-box mean luma on a still of the shot over round 4's same frame (same camera), worst presenter shot, read before the finals",
    "where": "S13 f1040, S15 f1128 (and each presenter shot's first frame)",
-   "how": "qa.exposure regions={face box} on a still vs round 4's final_d frame (on the box: face data) -> r6/numbers/box.json",
+   "how": "films/host-studio/reel/r6/face_luma.py (agent-06, fleet/agent-06/r6-boxa 8b80bacc) on a still vs round 4's final_d frame, on the box -> r6/numbers/box.json. The face box must come from EACH image's own face (a pose that moved since round 4 reads as light otherwise: her S15 f1128 read 1.142 from position alone)",
    "r4": [
     null,
     "round 4 is the reference"
    ],
    "must_fail": [
-    null,
-    "round 6 r6n0 baseline: his face and neck very dark vs round 4 (orchestrator, by eye; measure it on r6n0 to set the must_fail)"
+    0.119,
+    "round 6 r6n0 broken baseline (agent-06, final-spec still): his face S13 f1040 0.119, S15 f1128 0.236 of round 4 (0.131 / 0.266 of round 5b's final): the 'very dark face' the orchestrator saw"
    ],
    "guard": true,
    "why": "the orchestrator, 07 Nov: a still's face luma within +-10% of round 4's before any render"
