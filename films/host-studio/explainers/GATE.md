@@ -38,6 +38,12 @@ The orchestrator ruled on 07 Nov, about 23:10 IST.
 
 ## Verdicts
 
-- **Netflix V2:** shot 11 (WIDE) passes grain. The neckline is fixed (`Top.cast_shadow` off), so her 8 close shots are
-  rendering. The full gate runs on composite v2.
+- **Netflix v2** (box B, agent-07): all 9 shots rendered, the guard OK on every job.
+  - Cut rows: -14.0 LUFS / -1.7 dBTP, format 1, 59.46 s, captions 144/144 words, onset 84 ms, facts 1, qc 1.
+  - The orchestrator's frame-wise watch: picture, lips (~1.7 f lead), hair at the cuts, neckline, grain and mix all
+    PASS.
+  - ONE fix, composite only (agent-11): the captions over her white top are too faint. The fix is a black backing
+    plate at about 45 % alpha behind every caption, dimmed upcoming words at >= 70 % opacity, the same position and
+    size, and the 56.08 s audio cut fixed. That makes v2b. The cut rows are re-run on v2b.
+  - Still to come from box B: grain per job, clip vs r6b_v2_clip, exposure (tracked boxes), box.json.
 - **WhatsApp:** not started. The head-state pull to box B comes first.
