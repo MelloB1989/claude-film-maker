@@ -7,9 +7,9 @@ export const TAIL = 12;
 const FPS = edl.fps;
 
 const scenes: Record<string, ShotSpec['scene']> = {
-  title: () => import('./scenes/title'),
-  connect: () => import('./scenes/connect'),
-  erlang: () => import('./scenes/erlang'),
+  title: () => import('./v3/title'),
+  connect: () => import('./v3/connect'),
+  erlang: () => import('./v3/erlang'),
   store: () => import('./scenes/store'),
   ticks: () => import('./scenes/ticks'),
   group: () => import('./scenes/group'),
@@ -29,6 +29,6 @@ export function shots(o: { layout: (kind: string) => 'full' | 'panel'; suffix?: 
     id: s.gfx + (o.suffix ?? ''),
     scene: scenes[s.gfx]!,
     length: (s.frames + TAIL) / FPS,
-    params: { layout: o.layout(s.kind), words: s.words.map((w) => ({ w: w.w, t: w.f / FPS })), cut: s.frames / FPS, ...(o.params ?? {}) },
+    params: { layout: o.layout(s.kind), words: s.words.map((w) => ({ w: w.w, f: w.f, t: w.f / FPS })), cut: s.frames / FPS, ...(o.params ?? {}) },
   }));
 }

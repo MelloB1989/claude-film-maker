@@ -1,15 +1,28 @@
 {
   "id": "explain-whatsapp",
-  "title": "How WhatsApp delivers 100 billion messages a day (explainer graphics)",
+  "title": "How WhatsApp delivers 100 billion messages a day (explainer graphics v3)",
   "format": "landscape",
   "fps": 24,
   "theme": {
     "extends": "ember",
-    "bg": "#120e0b", "bg2": "#1e1813", "surface": "#241d18", "surface2": "#2e251f", "rule": "#3b3129", "ruleStrong": "#54473b",
-    "fg": "#f2ece4", "fgDim": "#a89e92", "fgFaint": "#6e655b",
-    "accent": "#25d366", "accentBright": "#5fe08f", "accentDim": "#137a3c",
-    "accent2": "#53bdeb", "accent2Bright": "#8ad3f2", "accent2Dim": "#1d4a5e"
+    "bg": "#120E0B",
+    "bg2": "#1E1813",
+    "surface": "#211A15",
+    "surface2": "#2E251F",
+    "rule": "#3b3129",
+    "ruleStrong": "#54473b",
+    "fg": "#FFF6EC",
+    "fgDim": "#A89E92",
+    "fgFaint": "#6e655b",
+    "accent": "#25D366",
+    "accentBright": "#6BFFA8",
+    "accentDim": "#137A3C",
+    "accent2": "#FFB547",
+    "accent2Bright": "#FFD08A",
+    "accent2Dim": "#7A5320"
   },
   "look": "clean",
-  "audio": { "bpm": 120 }
+  "audio": {
+    "bpm": 120
+  }
 }

@@ -174,13 +174,13 @@ function drawChat(c: CanvasRenderingContext2D, W: number, H: number, s: ScreenSt
   c.arc(62, 84, 30, 0, Math.PI * 2);
   c.fill();
   c.fillStyle = BONE;
-  c.font = font(F.ui(600), 34);
+  c.font = font(F.ui(600), 44);
   c.textBaseline = 'alphabetic';
   c.fillText(s.name ?? 'Friend', 108, 80);
   if (s.status) {
     c.fillStyle = s.status === 'online' ? GREEN : DIM;
-    c.font = font(F.ui(500), 24);
-    c.fillText(s.status, 108, 112);
+    c.font = font(F.ui(500), 30);
+    c.fillText(s.status, 108, 118);
   }
   // bubbles from the bottom up
   let y = H - 120;
@@ -188,11 +188,11 @@ function drawChat(c: CanvasRenderingContext2D, W: number, H: number, s: ScreenSt
   for (const m of msgs) {
     const k = m.k ?? 1;
     if (k <= 0) continue;
-    c.font = font(F.ui(500), 30);
-    const lines = wrap(c, m.text, 330);
+    c.font = font(F.ui(600), 46);
+    const lines = wrap(c, m.text, 360);
     const ph = m.photo !== undefined ? 230 : 0;
     const bw = Math.max(200, ...lines.map((l) => c.measureText(l).width + (m.lock ? 40 : 0))) + 44;
-    const bh = lines.length * 40 + 58 + ph;
+    const bh = lines.length * 56 + 64 + ph;
     const x = m.mine ? W - 24 - bw : 24;
     y -= bh;
     c.save();
@@ -204,7 +204,7 @@ function drawChat(c: CanvasRenderingContext2D, W: number, H: number, s: ScreenSt
     c.fillStyle = m.mine ? '#0e6b47' : '#26302b';
     rr(c, x, y, bw, bh, 22);
     c.fill();
-    let ty = y + 46;
+    let ty = y + 60;
     if (ph) {
       drawPhoto(c, x + 14, y + 14, bw - 28, ph - 10, m.photo!);
       ty += ph;
@@ -213,10 +213,10 @@ function drawChat(c: CanvasRenderingContext2D, W: number, H: number, s: ScreenSt
     lines.forEach((l, i) => {
       let lx = x + 22;
       if (m.lock && i === 0) {
-        lockGlyph(c, lx + 12, ty + i * 40 - 11, 13, GREEN);
+        lockGlyph(c, lx + 14, ty + i * 56 - 15, 17, GREEN);
         lx += 38;
       }
-      c.fillText(l, lx, ty + i * 40);
+      c.fillText(l, lx, ty + i * 56);
     });
     // time + ticks
     c.font = font(F.ui(500), 20);
