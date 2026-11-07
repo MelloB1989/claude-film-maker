@@ -109,8 +109,8 @@ def test_waist_fitted_band_reads_small():
     s0 = secs[0]
     assert s0["deg"] == 0 and abs(s0["edge_t"] - 5.5) < 1e-6
     assert abs(s0["gap_max"] - 0.4) < 1e-6 and s0["poke_max"] < 0 and s0["tuck"] == 9.0
-    score, why = gm.waist_score(secs)
-    assert score == 0.4 and why.startswith("gap")
+    score, why, poke, _ = gm.waist_score(secs)
+    assert score == 0.4 and why.startswith("gap") and poke < 0
 
 
 def test_waist_loose_front_and_bare_skin():
@@ -121,7 +121,7 @@ def test_waist_loose_front_and_bare_skin():
     secs = gm.waist_sectors(trou, top, skin, 4.0)
     front = secs[0]
     assert front["tuck"] == -2.0 and abs(front["gap_max"] - 3.0) < 1e-6
-    score, why = gm.waist_score(secs)
+    score, why, _, _ = gm.waist_score(secs)
     assert score == 3.0 and "gap at" in why
     back = secs[12]
     assert back["deg"] == 180 and abs(back["gap_max"] - 0.8) < 1e-6
@@ -135,7 +135,8 @@ def test_waist_poke_and_arms_ignored():
     secs = gm.waist_sectors(trou, [], skin, 4.0)
     assert abs(secs[0]["poke_max"] - 0.8) < 1e-6
     assert secs[6]["deg"] == 90 and secs[6]["poke_max"] < 0
-    assert gm.waist_score(secs)[0] == 0.8
+    fit, _, poke, where = gm.waist_score(secs)
+    assert fit == 0.6 and poke == 0.8 and where.startswith("skin at 0 deg")
 
 
 def test_natural_waist_and_cyl():

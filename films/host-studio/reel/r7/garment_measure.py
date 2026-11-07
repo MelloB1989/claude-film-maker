@@ -21,7 +21,8 @@
          trousers outer (> 0: skin or Top OUT through the waistband). Plus per sector: the edge height, the Top's
          lowest point vs the edge (tuck > 0 = tucked; < 0 = a band of bare skin between them), the Top lying OVER the
          band (blousing), and the edge height above her natural waist (the narrowest girth of her skin).
-         waist_fit_cm (the gate number) = the worst of front-half gap and poke and bare skin (cm).
+         Gate keys (agent-09's split, front half): waist_fit_cm = worst gap or bare skin (<= 0.75; v2b 1.04);
+         waist_poke_cm = worst poke (<= 0.1; R7W +0.46, seen as qa.clip Body>Trousers in the WIDE).
 
 Run where film-ue runs (the box driver); per frame it scrubs F+1 then F (as qa.clip):
     cd <tree>/tools && uv run python ../films/host-studio/reel/r7/garment_measure.py --box conf arms \\
@@ -297,12 +298,14 @@ def waist_sectors(trou, top, skin, band_cm=4.0, out_cm=2.5):
                 continue
             if j >= 1:  # the edge row itself is the band's rim (its own thickness folds there)
                 gaps.append(round(c["tin"] - under, 2))
-            pokes.append(round(max(c["top"], c["skin"]) - c["tout"], 2))
+            pokes.append((round(max(c["top"], c["skin"]) - c["tout"], 2), j,
+                          "Top" if c["top"] >= c["skin"] else "skin"))
             over.append(round(c["top"] - c["tout"], 2) if c["top"] else None)
         tuck = round(edge[s] - hem[s], 2) if hem[s] is not None else None
         out.append({"deg": sector_deg(s), "edge_t": round(edge[s], 2), "tuck": tuck,
                     "gap_max": max(gaps) if gaps else None, "gap_p50": sorted(gaps)[len(gaps) // 2] if gaps else None,
-                    "poke_max": max(pokes) if pokes else None,
+                    "poke_max": max(pokes)[0] if pokes else None,
+                    "poke_row": max(pokes)[1] if pokes else None, "poke_by": max(pokes)[2] if pokes else None,
                     "top_over_max": max((x for x in over if x is not None), default=None), "cells": len(gaps)})
     return out
 
@@ -325,16 +328,19 @@ def natural_waist(skin, lo, hi):
 
 
 def waist_score(sectors, front=90.0, bare_tol=0.0):
-    """The gate number: the worst over the front half (|deg| <= front) of gap_max, poke_max and bare skin (-tuck)."""
-    worst, why = 0.0, None
+    """The gate numbers over the front half (|deg| <= front), agent-09's split (r7: one number hid R7W's poke):
+    waist_fit_cm = the worst of gap_max and bare skin (-tuck), floored at 0; waist_poke_cm = the worst poke_max
+    (> 0: skin or Top out past the band). Returns (fit, why, poke, poke_why)."""
+    fit, why, poke, pwhy = 0.0, None, None, None
     for s in sectors:
         if not s or abs(s["deg"]) > front:
             continue
-        for k, v in (("gap", s["gap_max"]), ("poke", s["poke_max"]),
-                     ("bare_skin", -s["tuck"] - bare_tol if s["tuck"] is not None else None)):
-            if v is not None and v > worst:
-                worst, why = v, f"{k} at {s['deg']} deg"
-    return round(worst, 2), why
+        for k, v in (("gap", s["gap_max"]), ("bare_skin", -s["tuck"] - bare_tol if s["tuck"] is not None else None)):
+            if v is not None and v > fit:
+                fit, why = v, f"{k} at {s['deg']} deg"
+        if s["poke_max"] is not None and (poke is None or s["poke_max"] > poke):
+            poke, pwhy = s["poke_max"], f"{s.get('poke_by')} at {s['deg']} deg, row {s.get('poke_row')}"
+    return round(fit, 2), why, poke, pwhy
 
 
 def parse_frames(spec):
@@ -544,9 +550,10 @@ def _editor(G: dict):
         lo = min(t for t, _, _ in tp) if tp else -5.0
         top_t = max(s["edge_t"] for s in secs if s) if any(secs) else 0.0
         nw = natural_waist(skin, top_t - 15.0, top_t + 15.0)
-        score, why = waist_score(secs, float(G.get("FRONT_DEG", 90.0)))
+        score, why, poke, pwhy = waist_score(secs, float(G.get("FRONT_DEG", 90.0)))
         front = [s for s in secs if s and abs(s["deg"]) <= 90]
-        res = {"frame_head": [round(x, 2) for x in head], "waist_fit_cm": score, "worst": why, **fdiag,
+        res = {"frame_head": [round(x, 2) for x in head], "waist_fit_cm": score, "worst": why,
+               "waist_poke_cm": poke, "poke_where": pwhy, **fdiag,
                "trousers_mesh": trou.get_skeletal_mesh_asset().get_path_name(), "trousers_tris": tn,
                "top_tris": topn, "natural_waist_t": nw and round(nw[0], 1),
                "edge_above_natural_waist_cm": nw and round(sorted(s["edge_t"] for s in front)[len(front) // 2] - nw[0], 1)
@@ -633,19 +640,21 @@ def main(argv=None) -> int:
                 f"{' WHY ' + json.dumps(r['rest_worst']) if r.get('rest_worst') else ''})"
                 for sd, r in res["sides"].items()), flush=True)
         else:
-            print(f"f{f}: waist_fit {res['waist_fit_cm']} cm ({res['worst']}; facing vs actor "
+            print(f"f{f}: waist_fit {res['waist_fit_cm']} cm ({res['worst']}), waist_poke {res['waist_poke_cm']} cm "
+                  f"({res['poke_where']}; facing vs actor "
                   f"{res['facing_vs_actor_deg']} deg, knee flip {res['facing_flipped_by_knees']}); edge above waist "
                   f"{res['edge_above_natural_waist_cm']} cm, edge wave {res['edge_wave_front_cm']}; sectors "
                   "[deg, edge_t, tuck, gap_max, poke_max, top_over]: " + json.dumps(
                       [[s["deg"], s["edge_t"], s["tuck"], s["gap_max"], s["poke_max"], s["top_over_max"]]
                        for s in res["sectors"] if s]), flush=True)
     (out / f"{a.cmd}.json").write_text(json.dumps(per))
-    key = "upperarm_torso_clear_cm" if a.cmd == "arms" else "waist_fit_cm"
-    vals = {f: r[key] for f, r in per.items() if r.get(key) is not None}
-    if vals:
-        fw = (min if a.cmd == "arms" else max)(vals, key=vals.get)
-        print(json.dumps({"measure": key, "worst_frame": fw, "worst": vals[fw], "frames": len(per),
-                          "file": str(out / f"{a.cmd}.json")}))
+    keys = ["upperarm_torso_clear_cm"] if a.cmd == "arms" else ["waist_fit_cm", "waist_poke_cm"]
+    for key in keys:
+        vals = {f: r[key] for f, r in per.items() if r.get(key) is not None}
+        if vals:
+            fw = (min if key == "upperarm_torso_clear_cm" else max)(vals, key=vals.get)
+            print(json.dumps({"measure": key, "worst_frame": fw, "worst": vals[fw], "frames": len(per),
+                              "file": str(out / f"{a.cmd}.json")}))
     return 0
 
 
