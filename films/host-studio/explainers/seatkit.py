@@ -283,7 +283,8 @@ class Set:
 @dataclass
 class Style:
     """How this presenter sits. Defaults: a calm podcast posture."""
-    hip_above_seat: float = 9.5  # hip joints above the seat top (the soft tissue under the ischia)
+    hip_above_seat: float = 10.3  # hip joints above the seat top (the soft tissue under the ischia; 9.5 put the
+    #                               trousers 3-4 px into the cushion in qa.clip, box B)
     hip_back: float = 0.0  # hips this far behind the actor origin
     pelvis_tilt: float = 6.0  # degrees, back (posterior tilt seated)
     lean: float = 14.0  # degrees of forward lean, spread over the spine (beyond undoing the pelvis tilt)
@@ -299,9 +300,10 @@ class Style:
     rest: str = "forearms"  # "forearms": elbows and forearms resting ON the desk (a podcaster leaning on it);
     #                         "wrists": only the wrists on the desk, elbows in the air (round 6's first stills)
     elbow_out: float = 4.0  # cm each elbow sits outside its shoulder
-    elbow_r: float = 4.2  # cm from the elbow joint to the desk under it (the forearm's thickness there)
-    wrist_r: float = 3.4  # cm from the wrist joint to the desk (box B: at 2.6 each exhale took a pronated hand's edge
-    #                       0.8 cm lower, into the top; this keeps >= 2 cm through the breath)
+    elbow_r: float = 5.0  # cm from the elbow joint to the desk under it (the forearm's thickness there + the sleeve:
+    #                       4.2 left the overshirt 21 px into the desk in qa.clip, box B)
+    wrist_r: float = 4.0  # cm from the wrist joint to the desk (box B: at 2.6 each exhale took a pronated hand's edge
+    #                       0.8 cm lower, into the top; 3.4 still touched the body in qa.clip)
     forearm_in: float = 26.0  # degrees each forearm points in toward the midline
     wrist_fwd: float = 36.0  # cm the wrist sits in front of the shoulder line (forward)
     wrist_in: float = 4.0  # cm the wrist sits inside the shoulder (toward the midline)

@@ -66,7 +66,7 @@ def test_seated_pose():
     assert chk["pass"], chk["issues"]
     A = {b: se.actor(v[0]) for b, v in posed.items()}
     hips = [(A["thigh_l"][i] + A["thigh_r"][i]) / 2 for i in range(3)]
-    assert abs(hips[0]) < 0.5 and abs(hips[1]) < 0.5 and abs(hips[2] - 55.5) < 0.5
+    assert abs(hips[0]) < 0.5 and abs(hips[1]) < 0.5 and abs(hips[2] - 56.3) < 0.5
     for s in "lr":
         assert A[f"calf_{s}"][0] > 30  # knees forward
         assert abs(A[f"foot_{s}"][2] - sk.p(f"foot_{s}")[2]) < 0.5  # feet on the floor
