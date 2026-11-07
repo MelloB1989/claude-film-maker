@@ -576,10 +576,11 @@
   },
   "hair.cut_pop_ratio": {
    "info_films": [
-    "netflix"
+    "netflix",
+    "whatsapp"
    ],
-   "info_reason": "no held-camera cut in the netflix EDL (edl/netflix.json: no two consecutive shots share a camera; checked by agent-09): the item judges only held-camera cuts (pop_cuts), so it has nothing to measure there",
-   "where": "WHATSAPP shot 12 (panel CAM_MCU) -> 13 (CAM_MCU) f1121: the one held-camera cut; render 12+13 as ONE job (the karma S17+S18 lesson)"
+   "info_reason": "no held-camera cut in either explainer: no two consecutive shots share a camera (edl/<film>.json), and the panel shots render through CAM_MCU_L (agent-07: the same lens position as CAM_MCU, turned), so whatsapp 12 -> 13 is a camera change too. Every explainer job is pre-rolled from frame 0 of the one continuous take (render.py preroll=cut), so the hair state matches at every cut whatever the job split; hair.cut_reach_pct still judges every cut",
+   "where": "no held-camera cut in the explainers"
   }
  },
  "not_attempted": {
