@@ -161,7 +161,10 @@ export class Label {
   readonly mat: THREE.MeshBasicMaterial;
   constructor(text: string, o: { size: number; family?: string; role?: PaletteKey | `#${string}`; k?: number; align?: 'left' | 'center' | 'right'; tracking?: number }) {
     this.mat = inkMat(o.role ?? 'fg', o.k ?? 1);
+    // labels draw on top of streams and objects (no depth test, late in the order): a packet never cuts a word
+    this.mat.depthTest = false;
     this.kt = new KineticText(text, { family: o.family ?? F.ui(600), size: o.size, depth: 0.03, bevel: 0.002, mat: this.mat, align: o.align ?? 'center', tracking: o.tracking });
+    for (const g of this.kt.type.glyphs) g.mesh.renderOrder = 10;
   }
   get group() { return this.kt.group; }
   get width() { return this.kt.width; }
