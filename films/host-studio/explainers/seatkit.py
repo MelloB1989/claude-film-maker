@@ -198,6 +198,8 @@ class Skeleton:
 
     @classmethod
     def from_read(cls, data: dict) -> "Skeleton":
+        """From perform.py's READ: parent and local transforms per bone (world: component-space transforms, or None
+        to put them together here by FK from the root)."""
         missing = [b for b in REQUIRED if b not in data["local"]]
         if missing:
             raise ValueError(f"the body skeleton lacks {missing} (expects the MetaHuman / UE5 body)")
@@ -214,7 +216,18 @@ class Skeleton:
 
         for b in data["local"]:
             visit(b)
-        return cls(dict(data["parent"]), data["local"], data["world"], order)
+        world = data.get("world")
+        if not world:
+            world = {}
+            for b in order:
+                loc = data["local"][b]
+                p = data["parent"].get(b)
+                if not p or p not in world:
+                    world[b] = {"t": list(loc["t"]), "q": qnorm(list(loc["q"]))}
+                    continue
+                pt, pq = world[p]["t"], world[p]["q"]
+                world[b] = {"t": add(pt, qrot(pq, loc["t"])), "q": qnorm(qmul(pq, loc["q"]))}
+        return cls(dict(data["parent"]), data["local"], world, order)
 
     def p(self, b):
         return self.world[b]["t"]
@@ -682,7 +695,22 @@ def build(data: dict, st: Set, sy: Style, gs: list, length_s: float, fps: int = 
     for b in moving:
         const.pop(b, None)
     rest = check(se, se.fk({**const, **{b: keyed[b][0] for b in moving}}))
+    # the tracks' translations: the engine plays a bone at its animated translation + (mesh ref - skeleton ref)
+    # (perform.py READ), so each is written as wanted - that: the skeleton's own for an unmoved bone, the pelvis
+    # moved by the seat. Bones translated "Skeleton"-style ignore it either way.
+    sref = data.get("skel_t") or {}
+
+    def anim_t(b, t):
+        if b not in sref:
+            return t
+        return [x - (m - k) for x, m, k in zip(t, sk.local[b]["t"], sref[b])]
+
+    for b in list(const):
+        const[b] = {**const[b], "t": anim_t(b, const[b]["t"])}
+    for b in keyed:
+        keyed[b] = [{**k_, "t": anim_t(b, k_["t"])} for k_ in keyed[b]]
     doc = {"length_s": length_s, "fps": fps, "n_keys": n, "const": const, "keyed": keyed}
     summary = {"rest": rest, "gestures": len(gs), "pass": rest["pass"] and not issues, "issues": issues[:20],
-               "wrist_ext": se.ext_base, "yaw_off": round(sk.yaw_off(), 2)}
+               "wrist_ext": se.ext_base, "yaw_off": round(sk.yaw_off(), 2),
+               "frame": {"fwd": se.F["fwd"], "right": se.F["right"]}}
     return doc, summary
