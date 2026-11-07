@@ -756,7 +756,7 @@
    "line": 0.75,
    "unit": "cm",
    "what": "the bottoms' waistband vs the body at the waist: max(front-half GAP, BARE SKIN) per frame, the front half = |angle| <= 90 deg from HER skeleton's facing (do not narrow it); the POKE is its own row (garment.waist_poke_cm)",
-   "where": "every speaking + on-screen frame of the presenter (cue words x edl presenter spans)",
+   "where": "every frame with the presenter ON SCREEN (edl/<film>.json presenter + panel shots, speaking or not), as the clip rows: off-screen frames (graphics shots) don't count",
    "how": "agent-02's garment_measure.py: per frame, the worst over the camera/front half of the waistband GAP (trousers inner radius minus the layer under it, 1 cm cells down a 4 cm band, 24 sectors), POKE (under-layer through the band) and BARE SKIN (Top hem above the trousers' edge) -> numbers/<film>/garment.json; line set with the eye on v2b",
    "must_fail": [
     1.04,
@@ -869,7 +869,7 @@
    "unit": "cm",
    "guard": true,
    "what": "the worst SKIN (or under-layer) radius past the bottoms' OUTER face at the waistband, front half (her facing), per frame (> 0 = out through the band)",
-   "where": "every measured frame of the seated performance",
+   "where": "every frame with the presenter ON SCREEN (edl/<film>.json presenter + panel shots, speaking or not), as the clip rows: off-screen frames (graphics shots) don't count",
    "how": "agent-02's garment_measure.py waist POKE term -> numbers/<film>/garment.json; visibility cross-checked by qa.clip's Body>Trousers pair (garment.pair_fraction)",
    "must_fail": [
     0.49,
