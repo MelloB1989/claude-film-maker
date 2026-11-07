@@ -61,6 +61,13 @@ class HandPose:
     shape: str = "relaxed"
 
 
+# r7b (the orchestrator on side A: the gestures were BELOW the MCU frame): the sheet's apex_height per gesture
+# (agent-11) as the wrist's height over the sternum point (shoulders - 14 cm, ~84 cm seated on her). MCU's bottom edge
+# is about her bust line (~85 cm): bust puts the fingertips just inside it
+APEX_Z = {"bust": 8.0, "lower_chest": 11.0, "sternum": 14.0, "upper_chest": 19.0, "collarbone": 25.0, "chin": 30.0}
+# (agent-10's projection: the CU's bottom edge sits at ~102 cm on her gesture plane, so collarbone strokes need the
+#  wrist near 110 cm = the sternum point + ~25)
+
 # the poses a gesture moves to, per kind/detail and size; the right hand's (the left mirrors out)
 SIZE_OUT = {"small": 0.0, "medium": 5.0, "big": 10.0}
 
@@ -96,7 +103,8 @@ def gesture_pose(g: dict, hand: str, count_n: int) -> HandPose:
     return HandPose((29.0, 12.0 + so * 0.4, -2.0), pron=35.0, ext=12.0, shape="relaxed")
 
 
-HIGH_REST = HandPose((22.0, 8.0, -1.0), pron=70.0, ext=14.0, shape="relaxed")  # loose, fingertips near each other
+HIGH_REST = HandPose((22.0, 11.0, 8.0), pron=60.0, ext=16.0, shape="relaxed")  # r7b: bust height, in frame, on
+#   her right of centre (the mic hangs at chest-to-face height on her left: hands at the midline sat over it)  # loose, fingertips near each other
 
 
 @dataclass
@@ -140,6 +148,7 @@ class Plan:
     tilts: list = field(default_factory=list)  # [{"t", "until", "roll_deg", "ease_s"}]
     base_lean: float = 4.0
     gap_merge: float = 0.9  # pauses shorter than this keep the hands up (agent-10's timing can set it)
+    on_cam: list = field(default_factory=list)  # [[t0, t1, camera label]] the shots she is in
 
     def speak_w(self, t: float, pre: float = 0.5, post: float = 0.6, gap_merge: float | None = None) -> float:
         """1 while speaking (lines merged across gaps under gap_merge s), eased in/out."""
@@ -186,7 +195,7 @@ def scaled(p: HandPose, k: float) -> HandPose:
 
 
 def plan_from_sheet(sheet: dict, cues: dict, tilts: list | None = None, base_lean: float = 4.0,
-                    timing: list | None = None) -> Plan:
+                    timing: list | None = None, on_cam: list | None = None) -> Plan:
     """agent-11's acting sheet (lines[].body01) + the cue sheet (speaking spans) -> Plan. `timing` (agent-10's
     prosody planner) overrides each gesture's prep/stroke/hold/retract/amp/energy by (line, word_i)."""
     events, lean = [], []
@@ -218,6 +227,8 @@ def plan_from_sheet(sheet: dict, cues: dict, tilts: list | None = None, base_lea
             amp = float(g.get("amp", {"small": 0.3, "medium": 0.55, "big": 0.85}.get(g.get("size"), 0.55)))
             k = 0.55 + 0.8 * amp  # 0.3 -> 0.79, 0.55 -> 0.99, 0.85 -> 1.23 of the pose's distance from the high rest
             pr = scaled(gesture_pose(g, "r", n_count), k)
+            if g.get("apex_height") in APEX_Z:  # the sheet's height wins: in the shot, not at the desk
+                pr = replace(pr, off=(pr.off[0], pr.off[1], APEX_Z[g["apex_height"]]))
             pl = scaled(gesture_pose(g, "l", n_count), k) if g.get("hand") in ("both", "l") else None
             if pl is not None:  # the left (mic side) stays below and inside the mic line, whatever the amp
                 pl = replace(pl, off=(min(pl.off[0], 26.0), min(pl.off[1], 4.5), -2.5), ext=max(pl.ext, 34.0),
@@ -236,7 +247,7 @@ def plan_from_sheet(sheet: dict, cues: dict, tilts: list | None = None, base_lea
         for k in b.get("lean", []):
             lean.append((float(k["t"]), float(k["deg"])))
     speaking = [(float(c["start"]), float(c["end"])) for c in cues["lines"]]
-    return Plan(events, speaking, lean, tilts or [], base_lean, gap_merge)
+    return Plan(events, speaking, lean, tilts or [], base_lean, gap_merge, on_cam or [])
 
 
 # --- torso model and the arm clearance ---------------------------------------------------------------------------
@@ -370,8 +381,12 @@ class Performer(S.Seater):
         off = hp.off
         acc = self.accent(s, t)
         tgt = [st_pt[0] + off[0] + acc[0], st_pt[1] + sg * (off[1] + acc[1]), st_pt[2] + off[2] + acc[2]]
-        if s == "l":  # the mic-side hand sits 1 cm back and a little lower than the right, whatever drew its pose
+        if s == "l":  # the mic-side hand: 1 cm back, a little lower, and never more than 2 cm to her own left of the
+            #           sternum point (it works at the centre, away from the mic), whatever drew its pose
             tgt = [tgt[0] - 1.0, tgt[1], tgt[2] - 0.8]
+            lat = dot(sub(tgt, st_pt), [0.0, -1.0, 0.0])  # how far to her left of the sternum point
+            if lat > 2.0:
+                tgt = [tgt[0], tgt[1] + (lat - 2.0), tgt[2]]
         # pauses: down to the desk rest (forearms on the edge)
         e0, w0, _ = self.elbow_rest(s, W)
         tgt = [w0[i] + (tgt[i] - w0[i]) * ws for i in range(3)]
@@ -580,6 +595,19 @@ def blend_poses(parts: list) -> HandPose:
     return HandPose(tuple(off), pron, ext, shapes)
 
 
+FRAME_WANT = {"CAM_MCU": 0.6, "CAM_MCU_L": 0.6, "CAM_CU": 0.3, "CAM_WIDE": 0.95}  # the orchestrator's lines
+
+
+def hands_in_frame(rig: dict, A: dict, margin: float = 0.01) -> bool:
+    """At least one hand fully in the picture: its wrist and the index/middle/pinky/thumb tips (agent-09's gate)."""
+    for s in "lr":
+        pts = [A.get(b) for b in ("hand_" + s, f"index_03_{s}", f"middle_03_{s}", f"pinky_03_{s}", f"thumb_03_{s}")]
+        uv = [S.project(rig, p) for p in pts if p is not None]
+        if uv and all(x is not None and margin <= x[0] <= 1 - margin and margin <= x[1] <= 1 - margin for x in uv):
+            return True
+    return False
+
+
 def metrics(perf: Performer, t0: float, t1: float, fps: float = 30.0) -> dict:
     """Numbers for the body rows on [t0, t1): gesture onsets/s while speaking, hands-above-desk share while speaking,
     wrist travel cm/s, the minimum upper-arm clearance (per side) and every seatkit contact issue."""
@@ -616,12 +644,12 @@ def metrics(perf: Performer, t0: float, t1: float, fps: float = 30.0) -> dict:
 
 
 def build(data: dict, st, sy, sheet: dict, cues: dict, tilts: list, length_s: float, fps: int = 30,
-          check_every: int = 6, timing: list | None = None) -> tuple:
+          check_every: int = 6, timing: list | None = None, on_cam: list | None = None) -> tuple:
     """seatkit.build for the performance: the seated pose with the plan driving the upper body, as tracks (constant
     for the bones that never move, per key for spine, neck, head, clavicles, arms, hands and fingers). Returns (doc
     for perform.py's WRITE, summary with the checks and the body rows' numbers)."""
     sk = S.Skeleton.from_read(data)
-    plan = plan_from_sheet(sheet, cues, tilts, timing=timing)
+    plan = plan_from_sheet(sheet, cues, tilts, timing=timing, on_cam=on_cam)
     se, tuned = S.autotune(sk, st, sy)
     perf = Performer(sk, st, se.sy, plan)
     n = int(round(length_s * fps)) + 1
@@ -631,6 +659,7 @@ def build(data: dict, st, sy, sheet: dict, cues: dict, tilts: list, length_s: fl
     moving = sorted(set(first) - {"pelvis"} - {b for s in "lr" for b in S.LEGS[s]})
     keyed = {b: [] for b in moving}
     issues, clear = [], {"l": 1e9, "r": 1e9}
+    framing = {}
     for i in range(n):
         t = i / fps
         loc = perf.pose(t)
@@ -647,6 +676,11 @@ def build(data: dict, st, sy, sheet: dict, cues: dict, tilts: list, length_s: fl
                 A = {b: perf.actor(v[0]) for b, v in F.items()}
                 for s in "lr":
                     clear[s] = min(clear[s], clearance(A, F, s, perf.tor))
+                cam = next((c for a, b, c in plan.on_cam if a <= t < b), None)
+                if cam and st.rigs and cam in st.rigs:
+                    fr = framing.setdefault(cam, [0, 0])
+                    fr[1] += 1
+                    fr[0] += int(hands_in_frame(st.rigs[cam], A))
     for b in moving:
         const.pop(b, None)
     sref = data.get("skel_t") or {}
@@ -660,7 +694,13 @@ def build(data: dict, st, sy, sheet: dict, cues: dict, tilts: list, length_s: fl
         const[b] = {**const[b], "t": anim_t(b, const[b]["t"])}
     for b in keyed:
         keyed[b] = [{**k_, "t": anim_t(b, k_["t"])} for k_ in keyed[b]]
-    rows = {"upperarm_torso_clear_cm": {s: round(v, 1) for s, v in clear.items()}}
+    rows = {"upperarm_torso_clear_cm": {s: round(v, 1) for s, v in clear.items()},
+            "hands_in_frame_frac": {c: round(a / b, 3) for c, (a, b) in framing.items() if b}}
+    for c, want in FRAME_WANT.items():
+        got = rows["hands_in_frame_frac"].get(c)
+        if got is not None and got < want:
+            issues.append({"code": "body.hands_out_of_frame", "message": f"hands in frame in {got:.0%} of {c}'s "
+                           f"speaking frames (line {want:.0%})", "value": got})
     if STYLE_HOOK is not None and hasattr(STYLE_HOOK, "report"):  # the variation and never-frozen rows
         extra = STYLE_HOOK.report(perf, length_s)
         rows.update(extra.get("rows", {}))

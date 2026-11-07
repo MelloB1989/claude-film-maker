@@ -279,6 +279,7 @@ class Set:
     boom: list | None = None  # [[x, y, z], ...]: the mic's arm as a polyline, clamp -> elbow -> head, actor frame
     boom_radius: float = 4.0
     cams: dict | None = None  # {label: [x, y, z]} actor frame: no hand may pass BEHIND the mic from any of them
+    rigs: dict | None = None  # {label: {"loc": [x,y,z] actor frame, "yaw", "pitch" (deg), "focal" mm, "sensor": [w,h]}}
 
 
 @dataclass
@@ -728,6 +729,25 @@ def seg_dist(p, a, b) -> float:
     ab = sub(b, a)
     u = max(0.0, min(1.0, dot(sub(p, a), ab) / max(1e-9, dot(ab, ab))))
     return norm(sub(p, add(a, mul(ab, u))))
+
+
+def project(rig: dict, p) -> tuple | None:
+    """A point (actor frame) in a camera's picture: (u, v) with (0, 0) the top-left corner and (1, 1) the bottom-right
+    (16:9 on the rig's sensor), or None when it is behind the camera. Unreal's camera: yaw about up from +X, pitch up."""
+    yw, pt = math.radians(rig["yaw"]), math.radians(rig["pitch"])
+    fwd = [math.cos(pt) * math.cos(yw), math.cos(pt) * math.sin(yw), math.sin(pt)]
+    right = [-math.sin(yw), math.cos(yw), 0.0]
+    up = cross(right, fwd)
+    if up[2] < 0:
+        up = mul(up, -1.0)
+    d = sub(p, rig["loc"])
+    x = dot(d, fwd)
+    if x <= 1.0:
+        return None
+    f, (sw, sh) = rig["focal"], rig["sensor"]
+    u = 0.5 + (dot(d, right) / x) * f / sw
+    v = 0.5 - (dot(d, up) / x) * f / sh
+    return u, v
 
 
 def behind_mic(cam, p, st: "Set", hand_r: float = 6.0):
