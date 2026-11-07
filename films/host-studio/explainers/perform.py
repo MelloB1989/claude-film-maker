@@ -60,6 +60,13 @@ SET = S.Set(seat_top=45.0, seat_front=24.5, desk_top=71.0, desk_near=12.0, desk_
             mic=[21.0, -14.0, 96.0], mic_radius=9.0,
             boom=[[64.6, -30.28, 71.0], [53.9, -26.0, 116.3], [29.2, -16.0, 100.4], [21.0, -14.0, 96.0]],
             cams={"CAM_MCU": [167.5, 78.0, 121.3], "CAM_CU": [132.7, 38.7, 121.0], "CAM_WIDE": [277.0, 89.7, 125.3]})
+# her cameras' full rigs (box B, 08 Nov ~02:00 IST, read-only): the framing check projects her hands into each shot
+SET.rigs = {
+    "CAM_MCU": {"loc": [167.83, 77.66, 121.31], "yaw": -154.14, "pitch": -2.55, "focal": 60.0, "sensor": [36.0, 20.25]},
+    "CAM_MCU_L": {"loc": [168.0, 77.87, 121.1], "yaw": -145.22, "pitch": -2.43, "focal": 60.0, "sensor": [36.0, 20.25]},
+    "CAM_CU": {"loc": [133.16, 38.44, 121.13], "yaw": -163.21, "pitch": -2.03, "focal": 85.0, "sensor": [36.0, 20.25]},
+    "CAM_WIDE": {"loc": [277.31, 89.53, 125.43], "yaw": -158.08, "pitch": -5.49, "focal": 35.0, "sensor": [36.0, 20.25]},
+}
 # ^ her set as on box B, 07 Nov ~22:00 IST (agent-11): the waterfall desk (top 71, near edge studio x 32), the mic on her
 #   left with its clamp at the desk's far edge (the same numbers as set_her.json, which still wins when present)
 #   (history: r3 set 18:3x IST moved the mic to her LEFT (studio -Y) and the cameras to her right, azimuth +17..+24)
@@ -397,7 +404,7 @@ def job():
         importlib.reload(GK)
         doc, summary = GK.build(data, S.Set(**P["set"]), S.Style(**P["style"]), P["perform"]["sheet"],
                                 P["perform"]["cues"], P["perform"]["tilts"], P["length_s"], P["fps"],
-                                timing=P["perform"].get("timing"))
+                                timing=P["perform"].get("timing"), on_cam=P["perform"].get("on_cam"))
     else:
         gs = [S.Gesture(**x) for x in P["gestures"]]
         doc, summary = S.build(data, S.Set(**P["set"]), S.Style(**P["style"]), gs, P["length_s"], P["fps"])
@@ -446,7 +453,8 @@ def body_params(who: str) -> dict:
             "gestures": [g.__dict__ for g in gestures(who)], "length_s": length_s(who), "fps": 30}
 
 
-PERFORM_STYLE = {"elbow_overhang": 10.0}  # r7: the desk rest in pauses has the forearms across the edge (upright)
+PERFORM_STYLE = {"elbow_overhang": 14.0, "elbow_out": 13.0}  # r7b: elbows rest OUT (her left forearm rests on the desk
+#   while she speaks; tucked, its upper arm met her torso; the tuck was r6's overshirt fix, and V2 has no overshirt)  # r7: the desk rest in pauses has the forearms across the edge (upright)
 
 
 def perform_params(who: str) -> dict:
@@ -457,7 +465,8 @@ def perform_params(who: str) -> dict:
     if isinstance(tilts, dict):
         tilts = tilts.get("tilts", [])
     timing = json.loads((a / f"timing_{who}.json").read_text()) if (a / f"timing_{who}.json").exists() else None
-    return {"sheet": json.loads((a / f"{who}.json").read_text()), "cues": cues(who), "tilts": tilts, "timing": timing}
+    return {"sheet": json.loads((a / f"{who}.json").read_text()), "cues": cues(who), "tilts": tilts, "timing": timing,
+            "on_cam": cue_sheet(who)["on_cam"]}
 
 
 def cmd_body(who: str, force: bool = False, perform: bool = False) -> dict:

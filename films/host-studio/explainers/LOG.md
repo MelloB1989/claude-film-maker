@@ -234,6 +234,13 @@ tested in `test_seatkit.py`), `gestures.json` (the emphasis gestures per line).
   finger cascade and never-frozen finger micro-motion. Her full take on her skeleton read: build passes, arm
   clearance 3.8/3.8 cm, most similar gesture pair 0.842 (his 0.741, across 0.84; without it 25 identical pairs per
   film). The left hand's draw is bounded (a 1.17x draw put her forearm on the mic arm, fingers in the desk).
+- 08 Nov 01:10 IST: overnight prep for composite v3. `comp_box.sh` runs the whole composite on a box in one command,
+  CPU only (graphics sync, composite.py, contact + stills, qa_av all with filmtools so qc_ok runs, upload to private review).
+  It's staged on box B as /srv/ue/explain/src4 (src3 + qa_av.py + comp_box.sh). WhatsApp graphics-only dry run
+  `PLACEHOLDER=1 comp_box.sh whatsapp p1 none`: 1352 f, -14.1/-1.7, text_match 1 (157 words / 46 captions), onset 84 ms,
+  facts 1, qc_ok 1. SFX for the v3 graphics: `sfx.py` made 9 cues x 2 takes (~118 credits) with ElevenLabs sound
+  generation, picked by measurement; `place` lays each film's sfx_v3.json on the timeline and `mix.py --sfx` adds the
+  stems (a fake list held -14.03/-1.67). The v3 graphics and hit lists land ~07:30 IST (agent-12 netflix, agent-13 whatsapp).
 
 ## Speech-driven gestures (agent-10, branch fleet/agent-10/r7-gesture)
 
