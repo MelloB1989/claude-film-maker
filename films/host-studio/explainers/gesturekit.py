@@ -153,12 +153,13 @@ class Plan:
     base_lean: float = 4.0
     gap_merge: float = 0.9  # pauses shorter than this keep the hands up (agent-10's timing can set it)
     on_cam: list = field(default_factory=list)  # [[t0, t1, camera label]] the shots she is in
+    bridges: list = field(default_factory=list)  # [[t0, t1]] pauses that keep the hands up (agent-10's timing)
 
     def speak_w(self, t: float, pre: float = 0.5, post: float = 0.6, gap_merge: float | None = None) -> float:
         """1 while speaking (lines merged across gaps under gap_merge s), eased in/out."""
         gap_merge = self.gap_merge if gap_merge is None else gap_merge
         spans = []
-        for a, b in sorted(self.speaking):
+        for a, b in sorted(list(self.speaking) + [tuple(x) for x in self.bridges]):  # a bridged pause counts as speech
             if not spans and a < 1.5:  # the take opens alive, hands already up (the sheet's 'pre')
                 a = -1.0
             if spans and a - spans[-1][1] < gap_merge:
@@ -204,8 +205,10 @@ def plan_from_sheet(sheet: dict, cues: dict, tilts: list | None = None, base_lea
     prosody planner) overrides each gesture's prep/stroke/hold/retract/amp/energy by (line, word_i)."""
     events, lean = [], []
     gap_merge = 0.9
+    bridges = []
     if isinstance(timing, dict):
         gap_merge = float(timing.get("gap_merge", gap_merge))
+        bridges = [[float(a), float(b)] for a, b in timing.get("bridge", [])]
         timing = timing.get("gestures", [])
     tmap = {(str(x.get("line")), int(x.get("word_i", -1))): x for x in (timing or []) if not x.get("add")}
     adds = {}
@@ -253,7 +256,7 @@ def plan_from_sheet(sheet: dict, cues: dict, tilts: list | None = None, base_lea
         for k in b.get("lean", []):
             lean.append((float(k["t"]), float(k["deg"])))
     speaking = [(float(c["start"]), float(c["end"])) for c in cues["lines"]]
-    return Plan(events, speaking, lean, tilts or [], base_lean, gap_merge, on_cam or [])
+    return Plan(events, speaking, lean, tilts or [], base_lean, gap_merge, on_cam or [], bridges)
 
 
 # --- torso model and the arm clearance ---------------------------------------------------------------------------
