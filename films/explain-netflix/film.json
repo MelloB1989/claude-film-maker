@@ -1,0 +1,15 @@
+{
+  "id": "explain-netflix",
+  "title": "How Netflix streams without buffering (graphics)",
+  "format": "landscape",
+  "fps": 24,
+  "theme": {
+    "extends": "ember",
+    "bg": "#120e0b", "bg2": "#1e1813", "surface": "#241d18", "surface2": "#2c231d", "rule": "#3b3129", "ruleStrong": "#4d4036",
+    "fg": "#f2ece4", "fgDim": "#a89e92", "fgFaint": "#6e655c",
+    "accent": "#e50914", "accentBright": "#ff3a42", "accentDim": "#8c0a10",
+    "accent2": "#c8874a", "accent2Bright": "#e6a86c", "accent2Dim": "#4a3320"
+  },
+  "look": "film",
+  "audio": { "bpm": 120 }
+}
