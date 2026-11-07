@@ -1,10 +1,12 @@
 {
- "shot.exposure_jump_stops": {
-  "value": 0.635,
-  "where": "shot13_CAM_MCU frame 34->35; face boxes per camera {\"CAM_MCU\": [0.45, 0.3, 0.56, 0.52], \"CAM_CU\": [0.42, 0.24, 0.6, 0.62], \"CAM_MCU_L\": [0.19, 0.3, 0.3, 0.52], \"CAM_WIDE\": [0.37, 0.25, 0.43, 0.37]}; her FINAL frames, edl ranges (no handles)"
- },
- "shot.exposure_drift_stops": {
-  "value": 0.291,
-  "where": "shot13_CAM_MCU (74 frames); face boxes per camera {\"CAM_MCU\": [0.45, 0.3, 0.56, 0.52], \"CAM_CU\": [0.42, 0.24, 0.6, 0.62], \"CAM_MCU_L\": [0.19, 0.3, 0.3, 0.52], \"CAM_WIDE\": [0.37, 0.25, 0.43, 0.37]}; her FINAL frames, edl ranges (no handles)"
+ "gate": {
+  "shot.exposure_jump_stops": {
+   "value": 0.17,
+   "where": "shot02_CAM_CU frame 2->3; per-shot face boxes (eye+lip bones at mid-shot), her V2 FINAL frames, EDL ranges"
+  },
+  "shot.exposure_drift_stops": {
+   "value": 0.27,
+   "where": "shot07_CAM_CU (100 frames); per-shot face boxes (eye+lip bones at mid-shot), her V2 FINAL frames, EDL ranges"
+  }
  }
 }

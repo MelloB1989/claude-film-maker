@@ -1,0 +1,86 @@
+{
+ "gate": {
+  "shot.grain_sigma_close": {
+   "value": 0.742,
+   "where": "shot04_CAM_MCU/0190.png: worst neck 0.742 levels at 0190.png; wall 0.359, neck 0.742; first+last frame of every close final job, wall + neck patches projected per camera/frame; line 1.0"
+  },
+  "shot.grain_sigma_wide": {
+   "value": 0.552,
+   "where": "shot11_CAM_WIDE/1034.png: worst wall 0.552 levels at 1034.png; wall 0.552, wall2 0.377; flat wall patches only (ruling); line 0.8"
+  }
+ },
+ "frames": {
+  "shot01_CAM_MCU/0000.png": {
+   "sigma": 0.607,
+   "where": "worst neck 0.607 levels at 0000.png; wall 0.356, neck 0.607"
+  },
+  "shot01_CAM_MCU/0103.png": {
+   "sigma": 0.626,
+   "where": "worst neck 0.626 levels at 0103.png; wall 0.363, neck 0.626"
+  },
+  "shot02_CAM_CU/0092.png": {
+   "sigma": 0.356,
+   "where": "worst neck 0.356 levels at 0092.png; neck 0.356"
+  },
+  "shot02_CAM_CU/0146.png": {
+   "sigma": 0.367,
+   "where": "worst neck 0.367 levels at 0146.png; neck 0.367"
+  },
+  "shot04_CAM_MCU/0190.png": {
+   "sigma": 0.742,
+   "where": "worst neck 0.742 levels at 0190.png; wall 0.359, neck 0.742"
+  },
+  "shot04_CAM_MCU/0310.png": {
+   "sigma": 0.582,
+   "where": "worst neck 0.582 levels at 0310.png; wall 0.367, neck 0.582"
+  },
+  "shot06_CAM_MCU_L/0400.png": {
+   "sigma": 0.678,
+   "where": "worst neck 0.678 levels at 0400.png; wall 0.353, neck 0.678"
+  },
+  "shot06_CAM_MCU_L/0561.png": {
+   "sigma": 0.653,
+   "where": "worst neck 0.653 levels at 0561.png; wall 0.364, neck 0.653"
+  },
+  "shot07_CAM_CU/0550.png": {
+   "sigma": 0.352,
+   "where": "worst neck 0.352 levels at 0550.png; neck 0.352"
+  },
+  "shot07_CAM_CU/0661.png": {
+   "sigma": 0.36,
+   "where": "worst neck 0.36 levels at 0661.png; neck 0.36"
+  },
+  "shot10_CAM_MCU_L/0948.png": {
+   "sigma": 0.727,
+   "where": "worst neck 0.727 levels at 0948.png; wall 0.35, neck 0.727"
+  },
+  "shot10_CAM_MCU_L/1045.png": {
+   "sigma": 0.621,
+   "where": "worst neck 0.621 levels at 1045.png; wall 0.363, neck 0.621"
+  },
+  "shot11_CAM_WIDE/1034.png": {
+   "sigma": 0.552,
+   "where": "worst wall 0.552 levels at 1034.png; wall 0.552, wall2 0.377"
+  },
+  "shot11_CAM_WIDE/1167.png": {
+   "sigma": 0.546,
+   "where": "worst wall 0.546 levels at 1167.png; wall 0.546, wall2 0.386"
+  },
+  "shot13_CAM_MCU/1272.png": {
+   "sigma": 0.735,
+   "where": "worst neck 0.735 levels at 1272.png; wall 0.351, neck 0.735"
+  },
+  "shot13_CAM_MCU/1357.png": {
+   "sigma": 0.624,
+   "where": "worst neck 0.624 levels at 1357.png; wall 0.37, neck 0.624"
+  },
+  "shot14_CAM_CU/1346.png": {
+   "sigma": 0.354,
+   "where": "worst neck 0.354 levels at 1346.png; neck 0.354"
+  },
+  "shot14_CAM_CU/1396.png": {
+   "sigma": 0.368,
+   "where": "worst neck 0.368 levels at 1396.png; neck 0.368"
+  }
+ }
+}

@@ -2,11 +2,11 @@
  "gate": {
   "audio.lufs_err_lu": {
    "value": 0.0,
-   "where": "netflix_r6_v1.mp4: -14.0 LUFS, -1.7 dBTP"
+   "where": "netflix_r6_v2.mp4: -14.0 LUFS, -1.7 dBTP"
   },
   "audio.true_peak_dbtp": {
    "value": -1.7,
-   "where": "netflix_r6_v1.mp4: -14.0 LUFS, -1.7 dBTP"
+   "where": "netflix_r6_v2.mp4: -14.0 LUFS, -1.7 dBTP"
   },
   "deliver.format_ok": {
    "value": 1,
@@ -29,9 +29,8 @@
    "where": "every number softened or sourced"
   },
   "deliver.qc_ok": {
-   "value": 0,
-   "where": "audio 56.106 s against picture 59.458 s; cue 14 'And copies it' overlaps the cue before it by 0.12 s; cue 23 'Your player picks' overlaps the cue before it by 0.12 s"
+   "value": 1,
+   "where": "pass"
   }
  }
 }
-
