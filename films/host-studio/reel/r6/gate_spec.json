@@ -192,6 +192,13 @@
     "r6n2 read 262 at the rim on a collar the orchestrator passed by eye: the measure's blind spot (r5b)"
    ],
    "why": "transparency: the re-scope must be visible, not silent"
+  },
+  "lips.render_conclusive": {
+   "info": true,
+   "r4": [
+    null,
+    "INFO with lips.render_lag_frames (the orchestrator's ruling, 07 Nov): it is a property of that render measure (its own r4 note), which round 5b showed invalid; it returns as a hard line with agent-01's landmark measure"
+   ]
   }
  },
  "not_attempted": {
