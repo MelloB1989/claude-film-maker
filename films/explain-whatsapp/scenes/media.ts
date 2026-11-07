@@ -18,7 +18,7 @@ export default class Media extends Explainer {
     phone(c, g, B.x, B.y, 250, { a: ramp(t, 0, 0.25), label: 'friend', on: 0.5 + 0.5 * ramp(t, msg, 0.3) });
     cylinder(c, D.x, D.y, 220, 150, { a: ramp(t, blob - 0.35, 0.35), label: '' });
     note(c, 'blob store', D.x, D.y + 135, ramp(t, blob, 0.35), { size: 24 * L, color: TXT });
-    note(c, 'served via CDN', D.x, D.y + 168, ramp(t, blob + 0.4, 0.35), { size: 17 * L, color: TXT2 });
+    note(c, 'served via CDN', D.x, D.y + 182, ramp(t, blob + 0.4, 0.35), { size: 17 * L, color: TXT2 });
     // the photo: a little framed landscape, sealed, then up to the store
     const up = curve({ x: A.x, y: A.y - 150 }, { x: D.x - 120, y: D.y }, 0.2);
     const u = ease.inOutCubic(clamp((t - (blob - 0.55)) / 0.75));
