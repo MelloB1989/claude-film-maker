@@ -1,0 +1,1090 @@
+{
+ "film": "netflix",
+ "fps": 24,
+ "frames": 1427,
+ "duration": 59.4583,
+ "vo": "audio/netflix/vo.wav",
+ "presenter": "her",
+ "share": {
+  "presenter": 0.41,
+  "panel": 0.165,
+  "gfx": 0.425
+ },
+ "shots": [
+  {
+   "n": 1,
+   "kind": "pres",
+   "f0": 0,
+   "f1": 98,
+   "frames": 98,
+   "lines": [
+    "N01"
+   ],
+   "camera": "CAM_MCU",
+   "text": "Netflix has over three hundred million paying members.",
+   "words": [
+    {
+     "w": "Netflix",
+     "f": 18,
+     "f_end": 32,
+     "line": "N01"
+    },
+    {
+     "w": "has",
+     "f": 35,
+     "f_end": 41,
+     "line": "N01"
+    },
+    {
+     "w": "over",
+     "f": 42,
+     "f_end": 49,
+     "line": "N01"
+    },
+    {
+     "w": "three",
+     "f": 49,
+     "f_end": 55,
+     "line": "N01"
+    },
+    {
+     "w": "hundred",
+     "f": 55,
+     "f_end": 64,
+     "line": "N01"
+    },
+    {
+     "w": "million",
+     "f": 64,
+     "f_end": 73,
+     "line": "N01"
+    },
+    {
+     "w": "paying",
+     "f": 74,
+     "f_end": 82,
+     "line": "N01"
+    },
+    {
+     "w": "members.",
+     "f": 83,
+     "f_end": 95,
+     "line": "N01"
+    }
+   ]
+  },
+  {
+   "n": 2,
+   "kind": "pres",
+   "f0": 98,
+   "f1": 141,
+   "frames": 43,
+   "lines": [
+    "N02"
+   ],
+   "camera": "CAM_CU",
+   "text": "Hit play, and it just starts.",
+   "words": [
+    {
+     "w": "Hit",
+     "f": 4,
+     "f_end": 11,
+     "line": "N02"
+    },
+    {
+     "w": "play,",
+     "f": 10,
+     "f_end": 18,
+     "line": "N02"
+    },
+    {
+     "w": "and",
+     "f": 19,
+     "f_end": 23,
+     "line": "N02"
+    },
+    {
+     "w": "it",
+     "f": 23,
+     "f_end": 26,
+     "line": "N02"
+    },
+    {
+     "w": "just",
+     "f": 26,
+     "f_end": 30,
+     "line": "N02"
+    },
+    {
+     "w": "starts.",
+     "f": 30,
+     "f_end": 40,
+     "line": "N02"
+    }
+   ]
+  },
+  {
+   "n": 3,
+   "kind": "gfx",
+   "f0": 141,
+   "f1": 196,
+   "frames": 55,
+   "lines": [
+    "N03"
+   ],
+   "gfx": "title",
+   "text": "But the video doesn't come from the cloud.",
+   "words": [
+    {
+     "w": "But",
+     "f": 4,
+     "f_end": 9,
+     "line": "N03"
+    },
+    {
+     "w": "the",
+     "f": 9,
+     "f_end": 11,
+     "line": "N03"
+    },
+    {
+     "w": "video",
+     "f": 12,
+     "f_end": 19,
+     "line": "N03"
+    },
+    {
+     "w": "doesn't",
+     "f": 19,
+     "f_end": 26,
+     "line": "N03"
+    },
+    {
+     "w": "come",
+     "f": 26,
+     "f_end": 31,
+     "line": "N03"
+    },
+    {
+     "w": "from",
+     "f": 31,
+     "f_end": 35,
+     "line": "N03"
+    },
+    {
+     "w": "the",
+     "f": 36,
+     "f_end": 38,
+     "line": "N03"
+    },
+    {
+     "w": "cloud.",
+     "f": 38,
+     "f_end": 47,
+     "line": "N03"
+    }
+   ]
+  },
+  {
+   "n": 4,
+   "kind": "pres",
+   "f0": 196,
+   "f1": 305,
+   "frames": 109,
+   "lines": [
+    "N04"
+   ],
+   "camera": "CAM_MCU",
+   "text": "Netflix builds its own servers, called Open Connect Appliances.",
+   "words": [
+    {
+     "w": "Netflix",
+     "f": 9,
+     "f_end": 20,
+     "line": "N04"
+    },
+    {
+     "w": "builds",
+     "f": 21,
+     "f_end": 29,
+     "line": "N04"
+    },
+    {
+     "w": "its",
+     "f": 29,
+     "f_end": 33,
+     "line": "N04"
+    },
+    {
+     "w": "own",
+     "f": 33,
+     "f_end": 39,
+     "line": "N04"
+    },
+    {
+     "w": "servers,",
+     "f": 40,
+     "f_end": 54,
+     "line": "N04"
+    },
+    {
+     "w": "called",
+     "f": 61,
+     "f_end": 69,
+     "line": "N04"
+    },
+    {
+     "w": "Open",
+     "f": 70,
+     "f_end": 78,
+     "line": "N04"
+    },
+    {
+     "w": "Connect",
+     "f": 78,
+     "f_end": 87,
+     "line": "N04"
+    },
+    {
+     "w": "Appliances.",
+     "f": 87,
+     "f_end": 106,
+     "line": "N04"
+    }
+   ]
+  },
+  {
+   "n": 5,
+   "kind": "gfx",
+   "f0": 305,
+   "f1": 406,
+   "frames": 101,
+   "lines": [
+    "N05"
+   ],
+   "gfx": "oca",
+   "text": "Internet providers get them free, inside their own networks.",
+   "words": [
+    {
+     "w": "Internet",
+     "f": 3,
+     "f_end": 14,
+     "line": "N05"
+    },
+    {
+     "w": "providers",
+     "f": 14,
+     "f_end": 27,
+     "line": "N05"
+    },
+    {
+     "w": "get",
+     "f": 28,
+     "f_end": 33,
+     "line": "N05"
+    },
+    {
+     "w": "them",
+     "f": 33,
+     "f_end": 37,
+     "line": "N05"
+    },
+    {
+     "w": "free,",
+     "f": 39,
+     "f_end": 48,
+     "line": "N05"
+    },
+    {
+     "w": "inside",
+     "f": 55,
+     "f_end": 68,
+     "line": "N05"
+    },
+    {
+     "w": "their",
+     "f": 68,
+     "f_end": 74,
+     "line": "N05"
+    },
+    {
+     "w": "own",
+     "f": 74,
+     "f_end": 78,
+     "line": "N05"
+    },
+    {
+     "w": "networks.",
+     "f": 78,
+     "f_end": 93,
+     "line": "N05"
+    }
+   ]
+  },
+  {
+   "n": 6,
+   "kind": "panel",
+   "f0": 406,
+   "f1": 556,
+   "frames": 150,
+   "lines": [
+    "N06",
+    "N07"
+   ],
+   "camera": "CAM_MCU",
+   "gfx": "prefill",
+   "text": "Every night, Netflix predicts what your area will watch. And copies it to the box near you.",
+   "words": [
+    {
+     "w": "Every",
+     "f": 9,
+     "f_end": 17,
+     "line": "N06"
+    },
+    {
+     "w": "night,",
+     "f": 17,
+     "f_end": 25,
+     "line": "N06"
+    },
+    {
+     "w": "Netflix",
+     "f": 30,
+     "f_end": 42,
+     "line": "N06"
+    },
+    {
+     "w": "predicts",
+     "f": 42,
+     "f_end": 53,
+     "line": "N06"
+    },
+    {
+     "w": "what",
+     "f": 55,
+     "f_end": 61,
+     "line": "N06"
+    },
+    {
+     "w": "your",
+     "f": 61,
+     "f_end": 66,
+     "line": "N06"
+    },
+    {
+     "w": "area",
+     "f": 66,
+     "f_end": 76,
+     "line": "N06"
+    },
+    {
+     "w": "will",
+     "f": 79,
+     "f_end": 85,
+     "line": "N06"
+    },
+    {
+     "w": "watch.",
+     "f": 85,
+     "f_end": 95,
+     "line": "N06"
+    },
+    {
+     "w": "And",
+     "f": 102,
+     "f_end": 107,
+     "line": "N07"
+    },
+    {
+     "w": "copies",
+     "f": 108,
+     "f_end": 116,
+     "line": "N07"
+    },
+    {
+     "w": "it",
+     "f": 116,
+     "f_end": 119,
+     "line": "N07"
+    },
+    {
+     "w": "to",
+     "f": 119,
+     "f_end": 121,
+     "line": "N07"
+    },
+    {
+     "w": "the",
+     "f": 122,
+     "f_end": 124,
+     "line": "N07"
+    },
+    {
+     "w": "box",
+     "f": 124,
+     "f_end": 131,
+     "line": "N07"
+    },
+    {
+     "w": "near",
+     "f": 132,
+     "f_end": 136,
+     "line": "N07"
+    },
+    {
+     "w": "you.",
+     "f": 137,
+     "f_end": 141,
+     "line": "N07"
+    }
+   ]
+  },
+  {
+   "n": 7,
+   "kind": "pres",
+   "f0": 556,
+   "f1": 656,
+   "frames": 100,
+   "lines": [
+    "N08"
+   ],
+   "camera": "CAM_CU",
+   "text": "Each title is encoded at many sizes and bitrates.",
+   "words": [
+    {
+     "w": "Each",
+     "f": 9,
+     "f_end": 16,
+     "line": "N08"
+    },
+    {
+     "w": "title",
+     "f": 16,
+     "f_end": 28,
+     "line": "N08"
+    },
+    {
+     "w": "is",
+     "f": 30,
+     "f_end": 35,
+     "line": "N08"
+    },
+    {
+     "w": "encoded",
+     "f": 36,
+     "f_end": 49,
+     "line": "N08"
+    },
+    {
+     "w": "at",
+     "f": 50,
+     "f_end": 54,
+     "line": "N08"
+    },
+    {
+     "w": "many",
+     "f": 56,
+     "f_end": 62,
+     "line": "N08"
+    },
+    {
+     "w": "sizes",
+     "f": 63,
+     "f_end": 75,
+     "line": "N08"
+    },
+    {
+     "w": "and",
+     "f": 76,
+     "f_end": 83,
+     "line": "N08"
+    },
+    {
+     "w": "bitrates.",
+     "f": 83,
+     "f_end": 97,
+     "line": "N08"
+    }
+   ]
+  },
+  {
+   "n": 8,
+   "kind": "gfx",
+   "f0": 656,
+   "f1": 791,
+   "frames": 135,
+   "lines": [
+    "N09"
+   ],
+   "gfx": "ladder",
+   "text": "A cartoon needs fewer bits than an action film, so each gets its own ladder.",
+   "words": [
+    {
+     "w": "A",
+     "f": 4,
+     "f_end": 6,
+     "line": "N09"
+    },
+    {
+     "w": "cartoon",
+     "f": 7,
+     "f_end": 18,
+     "line": "N09"
+    },
+    {
+     "w": "needs",
+     "f": 23,
+     "f_end": 30,
+     "line": "N09"
+    },
+    {
+     "w": "fewer",
+     "f": 31,
+     "f_end": 38,
+     "line": "N09"
+    },
+    {
+     "w": "bits",
+     "f": 39,
+     "f_end": 45,
+     "line": "N09"
+    },
+    {
+     "w": "than",
+     "f": 45,
+     "f_end": 49,
+     "line": "N09"
+    },
+    {
+     "w": "an",
+     "f": 49,
+     "f_end": 52,
+     "line": "N09"
+    },
+    {
+     "w": "action",
+     "f": 53,
+     "f_end": 62,
+     "line": "N09"
+    },
+    {
+     "w": "film,",
+     "f": 63,
+     "f_end": 71,
+     "line": "N09"
+    },
+    {
+     "w": "so",
+     "f": 81,
+     "f_end": 89,
+     "line": "N09"
+    },
+    {
+     "w": "each",
+     "f": 95,
+     "f_end": 101,
+     "line": "N09"
+    },
+    {
+     "w": "gets",
+     "f": 101,
+     "f_end": 107,
+     "line": "N09"
+    },
+    {
+     "w": "its",
+     "f": 107,
+     "f_end": 111,
+     "line": "N09"
+    },
+    {
+     "w": "own",
+     "f": 111,
+     "f_end": 116,
+     "line": "N09"
+    },
+    {
+     "w": "ladder.",
+     "f": 117,
+     "f_end": 126,
+     "line": "N09"
+    }
+   ]
+  },
+  {
+   "n": 9,
+   "kind": "gfx",
+   "f0": 791,
+   "f1": 954,
+   "frames": 163,
+   "lines": [
+    "N10",
+    "N11"
+   ],
+   "gfx": "abr",
+   "text": "The video is cut into chunks a few seconds long. Your player picks the right rung for every chunk.",
+   "words": [
+    {
+     "w": "The",
+     "f": 9,
+     "f_end": 13,
+     "line": "N10"
+    },
+    {
+     "w": "video",
+     "f": 13,
+     "f_end": 20,
+     "line": "N10"
+    },
+    {
+     "w": "is",
+     "f": 21,
+     "f_end": 24,
+     "line": "N10"
+    },
+    {
+     "w": "cut",
+     "f": 24,
+     "f_end": 29,
+     "line": "N10"
+    },
+    {
+     "w": "into",
+     "f": 29,
+     "f_end": 34,
+     "line": "N10"
+    },
+    {
+     "w": "chunks",
+     "f": 35,
+     "f_end": 45,
+     "line": "N10"
+    },
+    {
+     "w": "a",
+     "f": 48,
+     "f_end": 50,
+     "line": "N10"
+    },
+    {
+     "w": "few",
+     "f": 52,
+     "f_end": 57,
+     "line": "N10"
+    },
+    {
+     "w": "seconds",
+     "f": 58,
+     "f_end": 66,
+     "line": "N10"
+    },
+    {
+     "w": "long.",
+     "f": 67,
+     "f_end": 74,
+     "line": "N10"
+    },
+    {
+     "w": "Your",
+     "f": 81,
+     "f_end": 87,
+     "line": "N11"
+    },
+    {
+     "w": "player",
+     "f": 87,
+     "f_end": 96,
+     "line": "N11"
+    },
+    {
+     "w": "picks",
+     "f": 102,
+     "f_end": 109,
+     "line": "N11"
+    },
+    {
+     "w": "the",
+     "f": 109,
+     "f_end": 112,
+     "line": "N11"
+    },
+    {
+     "w": "right",
+     "f": 113,
+     "f_end": 119,
+     "line": "N11"
+    },
+    {
+     "w": "rung",
+     "f": 120,
+     "f_end": 127,
+     "line": "N11"
+    },
+    {
+     "w": "for",
+     "f": 132,
+     "f_end": 138,
+     "line": "N11"
+    },
+    {
+     "w": "every",
+     "f": 140,
+     "f_end": 151,
+     "line": "N11"
+    },
+    {
+     "w": "chunk.",
+     "f": 152,
+     "f_end": 160,
+     "line": "N11"
+    }
+   ]
+  },
+  {
+   "n": 10,
+   "kind": "panel",
+   "f0": 954,
+   "f1": 1040,
+   "frames": 86,
+   "lines": [
+    "N12"
+   ],
+   "camera": "CAM_MCU",
+   "gfx": "buffer",
+   "text": "Network dips? The next chunk is a little softer.",
+   "words": [
+    {
+     "w": "Network",
+     "f": 4,
+     "f_end": 16,
+     "line": "N12"
+    },
+    {
+     "w": "dips?",
+     "f": 17,
+     "f_end": 25,
+     "line": "N12"
+    },
+    {
+     "w": "The",
+     "f": 32,
+     "f_end": 36,
+     "line": "N12"
+    },
+    {
+     "w": "next",
+     "f": 36,
+     "f_end": 43,
+     "line": "N12"
+    },
+    {
+     "w": "chunk",
+     "f": 43,
+     "f_end": 49,
+     "line": "N12"
+    },
+    {
+     "w": "is",
+     "f": 50,
+     "f_end": 54,
+     "line": "N12"
+    },
+    {
+     "w": "a",
+     "f": 55,
+     "f_end": 56,
+     "line": "N12"
+    },
+    {
+     "w": "little",
+     "f": 56,
+     "f_end": 63,
+     "line": "N12"
+    },
+    {
+     "w": "softer.",
+     "f": 63,
+     "f_end": 77,
+     "line": "N12"
+    }
+   ]
+  },
+  {
+   "n": 11,
+   "kind": "pres",
+   "f0": 1040,
+   "f1": 1162,
+   "frames": 122,
+   "lines": [
+    "N13"
+   ],
+   "camera": "CAM_WIDE",
+   "text": "Your login, profile, recommendations: that all runs on AWS.",
+   "words": [
+    {
+     "w": "Your",
+     "f": 9,
+     "f_end": 15,
+     "line": "N13"
+    },
+    {
+     "w": "login,",
+     "f": 15,
+     "f_end": 25,
+     "line": "N13"
+    },
+    {
+     "w": "profile,",
+     "f": 29,
+     "f_end": 44,
+     "line": "N13"
+    },
+    {
+     "w": "recommendations:",
+     "f": 47,
+     "f_end": 69,
+     "line": "N13"
+    },
+    {
+     "w": "that",
+     "f": 77,
+     "f_end": 82,
+     "line": "N13"
+    },
+    {
+     "w": "all",
+     "f": 83,
+     "f_end": 89,
+     "line": "N13"
+    },
+    {
+     "w": "runs",
+     "f": 89,
+     "f_end": 95,
+     "line": "N13"
+    },
+    {
+     "w": "on",
+     "f": 96,
+     "f_end": 101,
+     "line": "N13"
+    },
+    {
+     "w": "AWS.",
+     "f": 102,
+     "f_end": 119,
+     "line": "N13"
+    }
+   ]
+  },
+  {
+   "n": 12,
+   "kind": "gfx",
+   "f0": 1162,
+   "f1": 1278,
+   "frames": 116,
+   "lines": [
+    "N14"
+   ],
+   "gfx": "planes",
+   "text": "Press play, and AWS points you to that box. It streams the video.",
+   "words": [
+    {
+     "w": "Press",
+     "f": 4,
+     "f_end": 11,
+     "line": "N14"
+    },
+    {
+     "w": "play,",
+     "f": 11,
+     "f_end": 19,
+     "line": "N14"
+    },
+    {
+     "w": "and",
+     "f": 22,
+     "f_end": 27,
+     "line": "N14"
+    },
+    {
+     "w": "AWS",
+     "f": 28,
+     "f_end": 42,
+     "line": "N14"
+    },
+    {
+     "w": "points",
+     "f": 43,
+     "f_end": 52,
+     "line": "N14"
+    },
+    {
+     "w": "you",
+     "f": 52,
+     "f_end": 55,
+     "line": "N14"
+    },
+    {
+     "w": "to",
+     "f": 55,
+     "f_end": 58,
+     "line": "N14"
+    },
+    {
+     "w": "that",
+     "f": 58,
+     "f_end": 63,
+     "line": "N14"
+    },
+    {
+     "w": "box.",
+     "f": 63,
+     "f_end": 72,
+     "line": "N14"
+    },
+    {
+     "w": "It",
+     "f": 78,
+     "f_end": 83,
+     "line": "N14"
+    },
+    {
+     "w": "streams",
+     "f": 83,
+     "f_end": 93,
+     "line": "N14"
+    },
+    {
+     "w": "the",
+     "f": 94,
+     "f_end": 96,
+     "line": "N14"
+    },
+    {
+     "w": "video.",
+     "f": 96,
+     "f_end": 107,
+     "line": "N14"
+    }
+   ]
+  },
+  {
+   "n": 13,
+   "kind": "pres",
+   "f0": 1278,
+   "f1": 1352,
+   "frames": 74,
+   "lines": [
+    "N15"
+   ],
+   "camera": "CAM_MCU",
+   "text": "The cloud decides. The box next door delivers.",
+   "words": [
+    {
+     "w": "The",
+     "f": 9,
+     "f_end": 13,
+     "line": "N15"
+    },
+    {
+     "w": "cloud",
+     "f": 13,
+     "f_end": 20,
+     "line": "N15"
+    },
+    {
+     "w": "decides.",
+     "f": 20,
+     "f_end": 32,
+     "line": "N15"
+    },
+    {
+     "w": "The",
+     "f": 37,
+     "f_end": 41,
+     "line": "N15"
+    },
+    {
+     "w": "box",
+     "f": 41,
+     "f_end": 48,
+     "line": "N15"
+    },
+    {
+     "w": "next",
+     "f": 49,
+     "f_end": 54,
+     "line": "N15"
+    },
+    {
+     "w": "door",
+     "f": 54,
+     "f_end": 59,
+     "line": "N15"
+    },
+    {
+     "w": "delivers.",
+     "f": 59,
+     "f_end": 71,
+     "line": "N15"
+    }
+   ]
+  },
+  {
+   "n": 14,
+   "kind": "pres",
+   "f0": 1352,
+   "f1": 1391,
+   "frames": 39,
+   "lines": [
+    "N16"
+   ],
+   "camera": "CAM_CU",
+   "text": "That's why it just plays.",
+   "words": [
+    {
+     "w": "That's",
+     "f": 4,
+     "f_end": 10,
+     "line": "N16"
+    },
+    {
+     "w": "why",
+     "f": 10,
+     "f_end": 14,
+     "line": "N16"
+    },
+    {
+     "w": "it",
+     "f": 13,
+     "f_end": 15,
+     "line": "N16"
+    },
+    {
+     "w": "just",
+     "f": 15,
+     "f_end": 20,
+     "line": "N16"
+    },
+    {
+     "w": "plays.",
+     "f": 19,
+     "f_end": 27,
+     "line": "N16"
+    }
+   ]
+  },
+  {
+   "n": 15,
+   "kind": "gfx",
+   "gfx": "end",
+   "f0": 1391,
+   "f1": 1427,
+   "frames": 36,
+   "lines": [],
+   "text": "",
+   "words": []
+  }
+ ]
+}

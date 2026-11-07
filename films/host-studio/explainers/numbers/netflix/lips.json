@@ -1,0 +1,41 @@
+{
+ "gate": {
+  "lips.lag_frames": {
+   "value": 0.77,
+   "where": "her N07 f508"
+  },
+  "lips.track_r": {
+   "value": 0.897,
+   "where": "her N07 f508"
+  },
+  "lips.measured_against": {
+   "value": 1,
+   "where": "1 = each line's own solve, 0 = the voice"
+  },
+  "lips.onset_lead_ms": {
+   "value": 77,
+   "where": "her N07 f508"
+  },
+  "lips.silence_open": {
+   "value": -0.0,
+   "where": "her f-30-12"
+  },
+  "lips.silence_busy": {
+   "value": 0.001,
+   "where": "her f192-199"
+  },
+  "lips.render_lag_frames": {
+   "value": null,
+   "error": "INFO: the render measure is invalid (07 Nov ruling)"
+  },
+  "lips.cues_fresh": {
+   "value": 1,
+   "where": "every line WAV = the one solved"
+  },
+  "lips.lead_in_cm": {
+   "value": 0.0001,
+   "where": "N06 f402-410"
+  }
+ },
+ "source": "perform.py numbers --who her on /Game/Explainer/SEQ_Explain_Her"
+}

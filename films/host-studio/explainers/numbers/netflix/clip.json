@@ -1,0 +1,78 @@
+{
+ "gate": {
+  "set.clip_px": {
+   "value": 0,
+   "where": "box B clip_final (her finals state), worst over Chair/Desk pairs"
+  },
+  "set.mic_mouth_px": {
+   "value": 0,
+   "where": "box B clip_final, every camera"
+  },
+  "garment.pair_fraction": {
+   "value": 0.0,
+   "where": "excess over the eye-confirmed baseline clip_r7 (orchestrator: open front / wrist / waist are occlusions); clip_final read with before=clip_r7 on the finals state: pass true, worst identical (Top>Overshirt 0.2154, Body>Top 0.01645, Trousers>Top 0.09293); every other pair raw 0"
+  }
+ },
+ "worst": {
+  "Body>Chair": {
+   "fraction": 0.0,
+   "px": 0,
+   "at": "CAM_CU@1425"
+  },
+  "Trousers>Chair": {
+   "fraction": 0.0,
+   "px": 0,
+   "at": "CAM_CU@1425"
+  },
+  "Chair>Trousers": {
+   "fraction": 0.0,
+   "px": 0,
+   "at": "CAM_CU@1425"
+  },
+  "Chair>Overshirt": {
+   "fraction": 0.0,
+   "px": 0,
+   "at": "CAM_CU@1425"
+  },
+  "Body>Desk": {
+   "fraction": 0.0,
+   "px": 0,
+   "at": "CAM_CU@1425"
+  },
+  "Desk>Overshirt": {
+   "fraction": 0.0,
+   "px": 0,
+   "at": "CAM_CU@1425"
+  },
+  "Desk>Top": {
+   "fraction": 0.0,
+   "px": 0,
+   "at": "CAM_CU@1425"
+  },
+  "Body>Top": {
+   "fraction": 0.01645,
+   "px": 264,
+   "at": "CAM_MCU@1340"
+  },
+  "Top>Overshirt": {
+   "fraction": 0.2154,
+   "px": 5798,
+   "at": "CAM_CU@1354"
+  },
+  "Trousers>Top": {
+   "fraction": 0.09293,
+   "px": 230,
+   "at": "CAM_WIDE@1176"
+  },
+  "Body>Overshirt": {
+   "fraction": 0.0,
+   "px": 0,
+   "at": "CAM_CU@1425"
+  },
+  "mouth": {
+   "blocked_px": 0,
+   "share": 0.0,
+   "at": "CAM_CU@1425"
+  }
+ }
+}
