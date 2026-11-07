@@ -118,6 +118,11 @@ SUN_LUX = 0.0  # r5: the floor sun patches; her rig gives ~20 lux at her face, a
 
 # seated garment cuts (body.hide_under on copies, this level's instance only): (component, under garment, reach cm),
 # applied in order from the original meshes. Her r3 shoulder: the Top through the Overshirt seam.
+# garment components that cast no shadow (r6b, the orchestrator 23:0x IST): her tight V2 Top's rim threw the KEY's
+# shadow onto her skin inside the scoop (a dark strap-like band, MCU f29: band/top 0.717, p10 77; Top cast_shadow off
+# 0.884, p10 188; texture-white 0.734, flat normal 0.716, mesh-normal fix 0.712: not material, not normals)
+NO_SHADOW = {"her": ["Top"], "him": []}
+
 GARMENT_HIDES = {
     # r6b (V2, no overshirt; agent-02): the seated waist (Trousers>Top 12 % in the WIDE) and her side (Body>Top 1.3 %,
     # the same spot in every frame, so the garment and not a gesture) need 6 cm instead of 4

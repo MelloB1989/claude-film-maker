@@ -361,6 +361,15 @@ def step_dress(who: str) -> None:
         ok(client.exec_code(DRESS[who].read_text()))
     else:
         op("mh.leader", label=ACTOR[who])
+    if P.NO_SHADOW.get(who):  # after the dress: a re-created component comes back casting shadows
+        print("no shadow:", ex(f"""import unreal
+from fmbridge.ops import level as L
+out = {{}}
+for c in L.actor({ACTOR[who]!r}).get_components_by_class(unreal.SkeletalMeshComponent):
+    if c.get_name() in {P.NO_SHADOW[who]!r}:
+        c.set_cast_shadow(False)
+        out[c.get_name()] = c.get_editor_property("cast_shadow")
+result = out"""))
     op("groom.lock", labels=[ACTOR[who]])
     lead = op("mh.leader_check", label=ACTOR[who])
     if not lead.get("pass"):
