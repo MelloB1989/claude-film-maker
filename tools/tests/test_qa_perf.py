@@ -150,3 +150,9 @@ def test_smooth_min_jerk_beats_count_and_two_hands_count_once():
         return [s, 10.0 if h == "r" else -10.0, 90.0]
     r = P.body_rows(samples(240, path), FPS, [[0, 240]], 71.0)
     assert 0.8 <= r["body.gesture_onsets_per_s"]["value"] <= 1.3  # ~1/s, once for the two hands together
+
+
+def test_a_hand_already_up_at_a_span_start_is_not_an_onset():
+    still_up = samples(120, lambda i, h: [0.0, 10.0 if h == "r" else -10.0, 92.0 if h == "r" else 75.0])
+    r = P.body_rows(still_up, FPS, [[0, 40], [60, 120]], 71.0)  # two spans, the right hand up and still
+    assert r["body.gesture_onsets_per_s"]["value"] == 0

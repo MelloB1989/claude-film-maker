@@ -181,11 +181,15 @@ def body_rows(samples: dict, fps: float, spans: list, desk_z: float, hands=("han
     last = {h: -1e9 for h in hands}
     up = {h: False for h in hands}
     rest_at = {h: -1e9 for h in hands}  # the last frame each hand was at rest (< REST_CMS)
+    prev = None
     for i in idx:
         Z = {h: samples["bones"][h][i][2] for h in hands}
         if any(z > line for z in Z.values()):
             above += 1
-        cont = i > 0 and fr[i] == fr[i - 1] + 1
+        # continuous only within a speaking run: at a span's first frame the hand's up/down state is SEEDED, never an
+        # onset (agent-10: a hand already up at a span start counted as 'goes up', a phantom per window)
+        cont = prev == i - 1 and fr[i] == fr[i - 1] + 1
+        prev = i
         for h in hands:
             was_up, up[h] = up[h], Z[h] > line
             if not cont:
