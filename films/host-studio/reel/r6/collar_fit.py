@@ -108,10 +108,18 @@ def sample(P: list, th: float, t: float) -> float:
 
 
 def worst_need(frames: dict, clear: float) -> tuple:
-    """frames {frame: {"face": [[r|None]*NB]*NS, "tee": [...]}} -> (need[s][b] worst over frames, where[s][b])."""
+    """frames {frame: {"poke": {"grid": need[s][b]}} (rays, clear already in) or the old {"face", "tee"} radii}
+    -> (need[s][b] worst over frames, where[s][b])."""
     need = [[None] * NB for _ in range(NS)]
     where = [[None] * NB for _ in range(NS)]
     for f, g in frames.items():
+        if "poke" in g:
+            P = g["poke"]["grid"]
+            for s in range(NS):
+                for b in range(NB):
+                    if P[s][b] is not None and (need[s][b] is None or P[s][b] > need[s][b]):
+                        need[s][b], where[s][b] = P[s][b], f
+            continue
         F, T = g["face"], g["tee"]
         for s in range(NS):
             for b in range(NB):
@@ -232,6 +240,39 @@ def _editor(G: dict):
                 g[s][b] = r
         return [[None if x is None else round(x, 3) for x in row] for row in g]
 
+    def poke_grid(F, tdm, T, fr0, clear):
+        """need per (sector, bin) by RAYS, not radii: for each face vertex near the collar, a ray from the neck axis
+        (at its height) out through it; h = the first hit on the posed tee. need = r + clear - h (> 0: the face is
+        outside the tee's inner wall there, or closer than `clear`). A ray that meets no tee within r + 3 cm is the
+        visible neck above the collar: not counted. The min-tee-radius vs max-face-radius of a bin compared the
+        face's lower flange under the shoulder with the collar ring (round 6 m1b: 8-15 cm 'needs')."""
+        SP = unreal.GeometryScript_MeshSpatial
+        bvh = pick(SP.build_bvh_for_mesh(tdm), "GeometryScriptDynamicMeshBVH")
+        q = unreal.GeometryScriptSpatialQueryOptions()
+        g = [[None] * NB for _ in range(NS)]
+        n_rays = n_hit = 0
+        for p in F[::int(G.get("FACE_STEP", 2))]:
+            ql = inv_pos(T, p)
+            t, r, th, rad = fr0.cyl(ql)
+            if r > R_MAX or not (T0 <= t < T1) or r < 0.5:
+                continue
+            o = T.transform_location(fr0.o + fr0.u * t)
+            d = T.transform_direction(rad)
+            d = d * (1.0 / (d.length() or 1.0))
+            n_rays += 1
+            hit = pick(SP.find_nearest_ray_intersection_with_mesh(tdm, bvh, o, d, q), "GeometryScriptRayHitResult")
+            if not hit.get_editor_property("hit"):
+                continue
+            h = float(hit.get_editor_property("ray_parameter"))
+            if h > r + 3.0:
+                continue
+            n_hit += 1
+            need = r + clear - h
+            s_, b_ = _sector(th), _bin(t)
+            if g[s_][b_] is None or need > g[s_][b_]:
+                g[s_][b_] = round(need, 3)
+        return {"grid": g, "rays": n_rays, "covered": n_hit}
+
     def pose_check(F, T):
         """Sanity per frame: the face's median radius 2-4 cm above neck_01 (his neck: ~5-7 cm; a face read at rest
         while the body moves reads far off) and how many face verts fall in that slab at all."""
@@ -285,7 +326,9 @@ def _editor(G: dict):
         ref = actor(REF_FACE)
         fc = ref.get_editor_property("skeletal_mesh_component") if ref else cs["Face"]
         F = verts(posed(fc))
-        out = {"face": grids(F, Ts, fr, keep_max=True), "tee": grids(verts(posed(tee_comp(cs))), Ts, fr, keep_max=False),
+        tdm = posed(tee_comp(cs))
+        out = {"face": grids(F, Ts, fr, keep_max=True), "tee": grids(verts(tdm), Ts, fr, keep_max=False),
+               "poke": poke_grid(F, tdm, Ts, fr, float(G.get("CLEAR", 0.3))),
                "neck01_w": [round(c, 2) for c in (lambda v: (v.x, v.y, v.z))(body.get_socket_location("neck_01"))],
                "head_w": [round(c, 2) for c in (lambda v: (v.x, v.y, v.z))(body.get_socket_location("head"))],
                "face_src": "ref" if ref else "Face", "pose": pose_check(F, Ts)}
@@ -475,6 +518,7 @@ def main(argv=None) -> int:
                    "1442,1500")
     m.add_argument("--clear", type=float, default=0.3)
     m.add_argument("--frames", default="", help="only these frames (comma list)")
+    m.add_argument("--last", type=int, default=1559, help="the film's last frame (the 65 s cut ends at 1559)")
     p = sub.add_parser("push")
     p.add_argument("--from", dest="src", required=True, help="a measure --out dir")
     p.add_argument("--dest", required=True)
@@ -508,13 +552,14 @@ def main(argv=None) -> int:
         print(json.dumps({k: v for k, v in setup.items() if k != "tee_rest_inner"}, indent=1))
         frames = ([int(x) for x in a.frames.split(",")] if a.frames else
                   his_frames(client, a.seq, a.shots.split(","), a.step, [int(x) for x in a.extra.split(",") if x]))
+        frames = [f for f in frames if f <= a.last]
         per, last = {}, None
         for i, f in enumerate(frames):
             for ff in (f + 1, f):
                 r = client.op("seq.scrub", path=a.seq, frame=ff)
                 if not r.get("ok"):
                     raise SystemExit(f"seq.scrub {ff}: {r}")
-            g2 = {**g, "FRAME": setup["frame"], "CHECK_REF": bool(a.face_ref) and i == 0}
+            g2 = {**g, "FRAME": setup["frame"], "CHECK_REF": bool(a.face_ref) and i == 0, "CLEAR": a.clear}
             res = _exec(client, "frame", **g2)
             if res.get("ref_vs_face_above_t3"):
                 print("ref face vs worn face above the collar:", res["ref_vs_face_above_t3"])
