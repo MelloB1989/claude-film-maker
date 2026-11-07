@@ -171,7 +171,7 @@
    "where": "the SEATED pose, every presenter camera of the film (qa.clip / qa.garment_look on the explainer sequence)"
   },
   "garment.pair_fraction": {
-   "where": "the SEATED pose on the finals' own state, every presenter camera. NETFLIX V2 (the orchestrator, 07 Nov): her fitted white ribbed Top, NO overshirt, so clip_r7's occlusion baseline (taken with the overshirt) no longer applies: every pair counts RAW again (Body>Top, Trousers>Top, Top/Body vs Chair/Desk) until the orchestrator rules a V2 occlusion by eye on a fresh run, which then becomes that pair's baseline (qa.clip before=)",
+   "where": "the SEATED pose on the finals' own state, every presenter camera. NETFLIX V2 (no overshirt): the orchestrator ruled (07 Nov, box B r6b_v2_clip) Body>Top at MCU f1330 / MCU_L f1015 = her forearm/elbow IN FRONT of the top, and Trousers>Top at WIDE f1176 = her hands/forearms in front of the hem: OCCLUSIONS, not poke-through. r6b_v2_clip is V2's baseline: those pairs count only their excess over its worst (+0.01, qa.clip before=.../r6b_v2_clip/clip.json); every other pair counts raw",
    "how": "film-ue op qa.clip ... (pairs without Overshirt) on the finals' state -> worst raw fraction, or the excess over a V2 baseline the orchestrator ruled -> numbers/<film>/clip.json"
   },
   "garment.hem_flare_ratio": {

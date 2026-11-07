@@ -76,7 +76,9 @@ sequence, every presenter camera**, not on the karma shots:
   and cull_live reads the same culled count and lowest z on both boxes.
 - **Netflix V2 (the orchestrator's pick, 07 Nov): her fitted white ribbed Top with NO overshirt.** clip_r7's
   occlusion baseline was taken with the overshirt, so it no longer applies. Every pair counts raw again until the
-  orchestrator rules a V2 occlusion by eye on a fresh run.
+  orchestrator rules a V2 occlusion by eye on a fresh run. **Ruled (07 Nov): r6b_v2_clip is V2's baseline.** Body>Top at
+  MCU f1330 / MCU_L f1015 is her forearm in front of the top, and Trousers>Top at WIDE f1176 is her hands in front of the
+  hem: occlusions. Later runs are judged against it +0.01.
 - **(Superseded by V2) Her occlusions (the orchestrator, by eye on box B clip_r7):** Top>Overshirt at the open front, Body>Top where the
   wrist sits in front of the torso, and Trousers>Top at the waist are occlusions, not clipping. From then on these
   pairs count only their excess over clip_r7's own worst (`qa.clip before=…/clip_r7/clip.json`), so a NEW poke still
