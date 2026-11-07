@@ -77,7 +77,7 @@ export default class Store extends Explainer {
     }
     packet(c, g, pb, leave, { kind: 'msg', size: 15, a: leave > 0 && leave < 1 ? 1 : 0 });
     ripple(g, B.x, B.y, 140, t, deliv, 'accent', 0.7);
-    pill(c, 'delivered', B.x, B.y + 185, 20 * L, { a: ramp(t, deliv, 0.3), color: GREEN });
+    pill(c, 'delivered', B.x, B.y - 225, 20 * L, { a: ramp(t, deliv, 0.3), color: GREEN });
     pill(c, 'deleted from server', q.x, q.y + 85, 20 * L, { a: ramp(t, del, 0.3), color: TXT });
   }
 }

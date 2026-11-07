@@ -1,7 +1,7 @@
 // Erlang (W05-W06): "On the server, each connection is its own tiny Erlang process. One server once held two million
 // of them." Phones on the left wire into a server; inside it a grid of process cells, one lighting per connection;
 // a callout names one Erlang process; on "two million" the grid goes dense and a counter rolls to 2,000,000.
-import { Explainer, phone, curve, wire, packet, note, ramp, rr, withA, text, GREEN, TXT, BORDER, CARD, type Ctx } from './lib';
+import { Explainer, shadow, slab, phone, curve, wire, packet, note, ramp, rr, withA, text, GREEN, TXT, BORDER, CARD, type Ctx } from './lib';
 import { glowInk } from '@kit/scene2d';
 import { clamp, ease, hash, lerp } from '@engine/util';
 
@@ -17,12 +17,8 @@ export default class Erlang extends Explainer {
     // the server: a big card on the right holding the process grid
     const bx = 400, by = 120, bw = 560, bh = 640;
     const ka = ramp(t, Math.max(0, srv - 0.3), 0.45);
-    c.save();
-    c.globalAlpha = ka;
-    c.shadowColor = 'rgba(0,0,0,0.5)'; c.shadowBlur = 50; c.shadowOffsetY = 18;
-    rr(c, bx, by, bw, bh, 22); c.fillStyle = CARD; c.fill();
-    c.shadowColor = 'transparent'; c.strokeStyle = BORDER; c.lineWidth = 2; c.stroke();
-    c.restore();
+    shadow(c, bx + bw / 2, by + bh + 20, bw * 0.9, ka);
+    slab(c, bx, by, bw, bh, 22, { a: ka, d: 18 });
     text(c, 'ONE SERVER', bx + 30, by + 36, 20 * L, { face: 'mono', align: 'left', color: '#A89E92', a: ka });
     // the grid: 12 x 12 cells, then (dense) 60 x 60 dots
     const dense = ease.inOutCubic(ramp(t, two - 0.2, 0.9, (x) => x));
