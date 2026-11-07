@@ -606,7 +606,12 @@
     "netflix v2b (the operator's REJECT, 07 Nov 23:45): measure on box B's v2b frames/curves and put the value here; the line must fail it"
    ],
    "guard": true,
-   "why": "the operator, 07 Nov: 'her expression is pale, no emotion at all ... hands stuck to her body ... boob covering the upper limb ... these presenters must look confident, happy, full of energy, not robotic' (R7_common.md). The numbers support the eye; the operator decides"
+   "why": "the operator, 07 Nov: 'her expression is pale, no emotion at all ... hands stuck to her body ... boob covering the upper limb ... these presenters must look confident, happy, full of energy, not robotic' (R7_common.md). The numbers support the eye; the operator decides",
+   "info": true,
+   "r4": [
+    null,
+    "INFO by the orchestrator's ruling (07 Nov), a scope change, not a waiver: on our CG face MediaPipe reads talking into the brow/cheek channels (v2b, mouth-only solves: expr_active 0.535, brow flashes 61.96/min, neutral hold 1.42 s on the render), so the render reading doesn't discriminate; the face CURVES gate instead (face.curves_*), and the orchestrator's eye on the TEST judges what shows"
+   ]
   },
   "face.smile_events_per_min": {
    "area": "performance",
@@ -618,8 +623,8 @@
    "where": "every speaking + on-screen frame of the presenter (cue words x edl presenter spans)",
    "how": "film-qa perf-face <final frames> --speaking spans.json --box <face box> (MediaPipe blendshapes, each channel vs the shot's own neutral; on the box) -> numbers/<film>/perf_face.json; pre-check offline: qa_perf.face_rows_curves on the face anim (agent-04)",
    "must_fail": [
-    null,
-    "netflix v2b (the operator's REJECT, 07 Nov 23:45): measure on box B's v2b frames/curves and put the value here; the line must fail it"
+    0.0,
+    "netflix v2b on the RENDER (agent-06, MediaPipe, 581 speaking frames): 0.0/min. Kept as a GATE by the orchestrator: it discriminates, and it proves the smiles SHOW on the rendered face, not just in the curves"
    ],
    "guard": true,
    "why": "the operator, 07 Nov: 'her expression is pale, no emotion at all ... hands stuck to her body ... boob covering the upper limb ... these presenters must look confident, happy, full of energy, not robotic' (R7_common.md). The numbers support the eye; the operator decides"
@@ -638,7 +643,12 @@
     "netflix v2b (the operator's REJECT, 07 Nov 23:45): measure on box B's v2b frames/curves and put the value here; the line must fail it"
    ],
    "guard": true,
-   "why": "the operator, 07 Nov: 'her expression is pale, no emotion at all ... hands stuck to her body ... boob covering the upper limb ... these presenters must look confident, happy, full of energy, not robotic' (R7_common.md). The numbers support the eye; the operator decides"
+   "why": "the operator, 07 Nov: 'her expression is pale, no emotion at all ... hands stuck to her body ... boob covering the upper limb ... these presenters must look confident, happy, full of energy, not robotic' (R7_common.md). The numbers support the eye; the operator decides",
+   "info": true,
+   "r4": [
+    null,
+    "INFO by the orchestrator's ruling (07 Nov), a scope change, not a waiver: on our CG face MediaPipe reads talking into the brow/cheek channels (v2b, mouth-only solves: expr_active 0.535, brow flashes 61.96/min, neutral hold 1.42 s on the render), so the render reading doesn't discriminate; the face CURVES gate instead (face.curves_*), and the orchestrator's eye on the TEST judges what shows"
+   ]
   },
   "face.neutral_hold_max_s": {
    "area": "performance",
@@ -654,7 +664,12 @@
     "netflix v2b (the operator's REJECT, 07 Nov 23:45): measure on box B's v2b frames/curves and put the value here; the line must fail it"
    ],
    "guard": true,
-   "why": "the operator, 07 Nov: 'her expression is pale, no emotion at all ... hands stuck to her body ... boob covering the upper limb ... these presenters must look confident, happy, full of energy, not robotic' (R7_common.md). The numbers support the eye; the operator decides"
+   "why": "the operator, 07 Nov: 'her expression is pale, no emotion at all ... hands stuck to her body ... boob covering the upper limb ... these presenters must look confident, happy, full of energy, not robotic' (R7_common.md). The numbers support the eye; the operator decides",
+   "info": true,
+   "r4": [
+    null,
+    "INFO by the orchestrator's ruling (07 Nov), a scope change, not a waiver: on our CG face MediaPipe reads talking into the brow/cheek channels (v2b, mouth-only solves: expr_active 0.535, brow flashes 61.96/min, neutral hold 1.42 s on the render), so the render reading doesn't discriminate; the face CURVES gate instead (face.curves_*), and the orchestrator's eye on the TEST judges what shows"
+   ]
   },
   "body.gesture_onsets_per_s": {
    "area": "performance",
@@ -665,12 +680,12 @@
     1.2
    ],
    "unit": "/s",
-   "what": "a hand's speed rising from rest (<10 cm/s) past 25 cm/s, >= 0.25 s apart, per speaking second",
+   "what": "a hand going UP off the desk (wrist bone > desk top + 10 cm; her resting wrist sits ~6 cm up) plus each beat while it stays up (speed from < 10 past 40 cm/s, not moving down), >= 0.25 s apart, per speaking second",
    "where": "every speaking + on-screen frame of the presenter (cue words x edl presenter spans)",
    "how": "film-ue op seq.sample (hand_l, hand_r every frame of the speaking spans) -> film-qa perf-body SAMPLES.json --speaking spans.json --desk-z <the desk top z> -> numbers/<film>/perf_body.json",
    "must_fail": [
-    null,
-    "netflix v2b (the operator's REJECT, 07 Nov 23:45): measure on box B's v2b frames/curves and put the value here; the line must fail it"
+    0.347,
+    "netflix v2b (box B seq.sample, 691 speaking frames, agent-06): 0.347/s: about 8 right-hand lifts at shot starts, the left hand never up"
    ],
    "guard": true,
    "why": "the operator, 07 Nov: 'her expression is pale, no emotion at all ... hands stuck to her body ... boob covering the upper limb ... these presenters must look confident, happy, full of energy, not robotic' (R7_common.md). The numbers support the eye; the operator decides"
@@ -681,12 +696,12 @@
    "op": ">=",
    "line": 0.5,
    "unit": "fraction",
-   "what": "speaking frames with either wrist bone more than 8 cm above the desk top (a resting forearm puts it ~3-4 cm up)",
+   "what": "speaking frames with either wrist bone more than 10 cm above the desk top",
    "where": "every speaking + on-screen frame of the presenter (cue words x edl presenter spans)",
    "how": "film-ue op seq.sample (hand_l, hand_r every frame of the speaking spans) -> film-qa perf-body SAMPLES.json --speaking spans.json --desk-z <the desk top z> -> numbers/<film>/perf_body.json",
    "must_fail": [
-    null,
-    "netflix v2b (the operator's REJECT, 07 Nov 23:45): measure on box B's v2b frames/curves and put the value here; the line must fail it"
+    0.356,
+    "netflix v2b: 0.356 (only the right hand, at shot starts)"
    ],
    "guard": true,
    "why": "the operator, 07 Nov: 'her expression is pale, no emotion at all ... hands stuck to her body ... boob covering the upper limb ... these presenters must look confident, happy, full of energy, not robotic' (R7_common.md). The numbers support the eye; the operator decides"
@@ -706,7 +721,11 @@
    ],
    "guard": true,
    "info": true,
-   "why": "the operator, 07 Nov: 'her expression is pale, no emotion at all ... hands stuck to her body ... boob covering the upper limb ... these presenters must look confident, happy, full of energy, not robotic' (R7_common.md). The numbers support the eye; the operator decides"
+   "why": "the operator, 07 Nov: 'her expression is pale, no emotion at all ... hands stuck to her body ... boob covering the upper limb ... these presenters must look confident, happy, full of energy, not robotic' (R7_common.md). The numbers support the eye; the operator decides",
+   "r4": [
+    4.87,
+    "netflix v2b: 4.87 cm/s (pinned hands): the take to beat"
+   ]
   },
   "body.upperarm_torso_clear_cm": {
    "area": "performance",
@@ -755,6 +774,70 @@
     "INFO: agent-02's triangle-normal measure is the gated one"
    ],
    "why": "two independent readings of the operator's arm complaint"
+  },
+  "face.curves_expr_active_frac": {
+   "area": "performance",
+   "track": "agent-04 (face) / agent-09",
+   "op": ">=",
+   "line": 0.6,
+   "unit": "fraction",
+   "what": "speaking frames with browRaise, eyeCheekRaise/eyeSquintInner or mouthCornerPull above 0.15 (rig scale)",
+   "where": "every speaking + on-screen frame (spans_<film>.json)",
+   "how": "qa_perf.face_rows_curves on the face anim (anim.read_curves of the take's face anim, CTRL_expressions_*), over spans_<film>.json (agent-04's boxcheck) -> numbers/<film>/perf_curves.json",
+   "must_fail": [
+    0.314,
+    "netflix v2b APPROX (agent-04: a perfkit rebuild with r6 face args, no solve base; the real v2b anim is being read on box B): 0.314 (R7 plan 0.851)"
+   ],
+   "guard": true,
+   "why": "the operator: 'her expression is pale, no emotion at all'; the orchestrator's ruling (07 Nov), a scope change, not a waiver: on our CG face MediaPipe reads talking into the brow/cheek channels (v2b, mouth-only solves: expr_active 0.535, brow flashes 61.96/min, neutral hold 1.42 s on the render), so the render reading doesn't discriminate; the face CURVES gate instead (face.curves_*), and the orchestrator's eye on the TEST judges what shows"
+  },
+  "face.curves_smile_events_per_min": {
+   "area": "performance",
+   "track": "agent-04 (face) / agent-09",
+   "op": ">=",
+   "line": 4,
+   "unit": "/min",
+   "what": "smiles: mouthCornerPull >= 0.25 WITH eyeCheekRaise >= 0.2, hysteresis 80 %, held >= 4 frames",
+   "where": "every speaking + on-screen frame (spans_<film>.json)",
+   "how": "qa_perf.face_rows_curves on the face anim (anim.read_curves of the take's face anim, CTRL_expressions_*), over spans_<film>.json (agent-04's boxcheck) -> numbers/<film>/perf_curves.json",
+   "must_fail": [
+    0.0,
+    "netflix v2b APPROX (agent-04: a perfkit rebuild with r6 face args, no solve base; the real v2b anim is being read on box B): 0.0 (R7 plan 27.1)"
+   ],
+   "guard": true,
+   "why": "the operator: 'her expression is pale, no emotion at all'; the orchestrator's ruling (07 Nov), a scope change, not a waiver: on our CG face MediaPipe reads talking into the brow/cheek channels (v2b, mouth-only solves: expr_active 0.535, brow flashes 61.96/min, neutral hold 1.42 s on the render), so the render reading doesn't discriminate; the face CURVES gate instead (face.curves_*), and the orchestrator's eye on the TEST judges what shows"
+  },
+  "face.curves_brow_flash_per_min": {
+   "area": "performance",
+   "track": "agent-04 (face) / agent-09",
+   "op": ">=",
+   "line": 6,
+   "unit": "/min",
+   "what": "brow flashes: browRaise >= 0.40 for 0.12-1.2 s, hysteresis 80 % (v2b's flashes peaked 0.22-0.27 and read pale)",
+   "where": "every speaking + on-screen frame (spans_<film>.json)",
+   "how": "qa_perf.face_rows_curves on the face anim (anim.read_curves of the take's face anim, CTRL_expressions_*), over spans_<film>.json (agent-04's boxcheck) -> numbers/<film>/perf_curves.json",
+   "must_fail": [
+    0.0,
+    "netflix v2b APPROX (agent-04: a perfkit rebuild with r6 face args, no solve base; the real v2b anim is being read on box B): 0/min at 0.40 (4.2 at 0.30; R7 plan 31.3)"
+   ],
+   "guard": true,
+   "why": "the operator: 'her expression is pale, no emotion at all'; the orchestrator's ruling (07 Nov), a scope change, not a waiver: on our CG face MediaPipe reads talking into the brow/cheek channels (v2b, mouth-only solves: expr_active 0.535, brow flashes 61.96/min, neutral hold 1.42 s on the render), so the render reading doesn't discriminate; the face CURVES gate instead (face.curves_*), and the orchestrator's eye on the TEST judges what shows"
+  },
+  "face.curves_neutral_hold_max_s": {
+   "area": "performance",
+   "track": "agent-04 (face) / agent-09",
+   "op": "<=",
+   "line": 1.5,
+   "unit": "s",
+   "what": "the longest speaking run with nothing active",
+   "where": "every speaking + on-screen frame (spans_<film>.json)",
+   "how": "qa_perf.face_rows_curves on the face anim (anim.read_curves of the take's face anim, CTRL_expressions_*), over spans_<film>.json (agent-04's boxcheck) -> numbers/<film>/perf_curves.json",
+   "must_fail": [
+    2.46,
+    "netflix v2b APPROX (agent-04: a perfkit rebuild with r6 face args, no solve base; the real v2b anim is being read on box B): 2.46 s (R7 plan 0.79)"
+   ],
+   "guard": true,
+   "why": "the operator: 'her expression is pale, no emotion at all'; the orchestrator's ruling (07 Nov), a scope change, not a waiver: on our CG face MediaPipe reads talking into the brow/cheek channels (v2b, mouth-only solves: expr_active 0.535, brow flashes 61.96/min, neutral hold 1.42 s on the render), so the render reading doesn't discriminate; the face CURVES gate instead (face.curves_*), and the orchestrator's eye on the TEST judges what shows"
   }
  },
  "not_attempted": {
