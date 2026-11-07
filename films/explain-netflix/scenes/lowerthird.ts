@@ -1,5 +1,5 @@
 // The series lower third (GFX.md): SYSTEM DESIGN IN 60 SECONDS in Geist 600 caps, tracked +8 %, over the topic line in
-// Geist 400, on a soft plate, wiping in and out. An alpha overlay (render with VITE_NF_MATTE).
+// Geist 400, on a soft plate, wiping in and out. An alpha overlay (tools/matte.sh: the explain-netflix-black and -grey passes).
 // params: tag, topic
 import { NfScene, rev, text, rgba, glowInk, clamp, ease, F, font, type Frame } from './lib';
 

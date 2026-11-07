@@ -4,7 +4,7 @@
 
 (@918 for a panel shot, which plays flat: its frosted card ends at y 915.)
 
-Each dir holds PNG frames of a shot rendered over black (VITE_NF_MATTE=black: no studio, the diagram alone, laid out
+Each dir holds PNG frames of a shot rendered over black (the film explain-netflix-black: no studio, the diagram alone, laid out
 flat). A frame passes when nothing in rows y >= LIMIT stands out of its surroundings by more than THR: the test is on
 the high-passed brightness (the brightest channel minus its 41 px box blur), so a mark, an edge or a letter fails it
 while the smooth haze the bloom and halation lay over the whole frame (up to ~90/255 in red under a bright bar) does not. LIMIT is

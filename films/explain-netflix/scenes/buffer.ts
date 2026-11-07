@@ -63,7 +63,8 @@ export default class Buffer extends NfScene {
       // the chunk requested during the dip comes in softer (720p, lighter, a little blurred look)
       const soft = id >= Math.round(T.tChunk / rate) + 6 && id <= Math.round(T.tChunk / rate) + 8;
       const label = soft ? '720' : '1080';
-      const a = clamp((X1 - cw - x) / 50 + 1) * clamp((x - X0) / 50 + 1) * clamp((x - X0 + cw * 0.5) / 40) * rev(t, 0.1, 0.3);
+      // a chunk fades out whole before it reaches either edge of the row (nothing looks sliced)
+      const a = clamp((x - X0 + 6) / 60) * clamp((X1 - x - cw + 6) / 60) * rev(t, 0.1, 0.3);
       c.save(); c.globalAlpha *= a;
       c.fillStyle = 'rgba(70,6,10,0.95)'; c.beginPath(); c.roundRect(x + 4, CY + 6, cw, ch, 6); c.fill();
       c.fillStyle = soft ? rgba('accentDim', 0.85) : rgba('accent', 0.95);

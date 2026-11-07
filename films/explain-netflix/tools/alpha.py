@@ -1,4 +1,4 @@
-"""Straight-alpha PNGs from a black pass and a grey pass of the same frames (VITE_NF_MATTE=black|grey).
+"""Straight-alpha PNGs from a black pass and a grey pass of the same frames (the films explain-netflix-black and explain-netflix-grey).
 
     python3 alpha.py <black_dir> <grey_dir> <out_dir> [grey_level=90]
 

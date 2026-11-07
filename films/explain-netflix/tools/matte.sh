@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # matte.sh <shot> <first_frame> <nframes> <out.mov> [nshards=8] [port_base=5450]
 # An alpha deliverable of one shot: its frames rendered as lossless PNG stills over black and over grey
-# (VITE_NF_MATTE), in parallel shards (one Vite server each), turned into straight-alpha PNGs (alpha.py) and encoded as
+# (the films explain-netflix-black and -grey), in parallel shards (one Vite server each), turned into straight-alpha PNGs (alpha.py) and encoded as
 # ProRes 4444 with alpha. Frames are film frames (24 fps; FRAMES.md). Run from the repo checkout, on a render host with
 # bun, Chromium (or Chrome), ffmpeg and python3-numpy/PIL.
 set -euo pipefail
@@ -14,9 +14,9 @@ for m in black grey; do
   for ((i = 0; i < NS; i++)); do
     times=$(python3 -c "import sys; f0,n,ns,i=map(int,sys.argv[1:]); print(','.join(f'{k/24:.6f}' for k in range(f0+i*n//ns, f0+(i+1)*n//ns)))" "$F0" "$N" "$NS" "$i")
     [ -n "$times" ] || continue
-    ( port=$((BASE + i)); VITE_NF_MATTE=$m FILM_NO_HMR=1 node node_modules/vite/bin/vite.js --host 127.0.0.1 --port $port --strictPort > "$TMP/vite_${m}_$i.log" 2>&1 & vp=$!
+    ( port=$((BASE + i)); FILM_NO_HMR=1 node node_modules/vite/bin/vite.js --host 127.0.0.1 --port $port --strictPort > "$TMP/vite_${m}_$i.log" 2>&1 & vp=$!
       for k in $(seq 300); do curl -sf -o /dev/null http://127.0.0.1:$port/ && break; sleep 0.2; done
-      bun scripts/render.ts stills --film explain-netflix --allow-software --url http://127.0.0.1:$port --only "$SHOT" --t "$times" --out "$TMP/$m" > "$TMP/render_${m}_$i.log" 2>&1; rc=$?
+      bun scripts/render.ts stills --film explain-netflix-$m --allow-software --url http://127.0.0.1:$port --only "$SHOT" --t "$times" --out "$TMP/$m" > "$TMP/render_${m}_$i.log" 2>&1; rc=$?
       kill $vp 2>/dev/null || true; exit $rc ) &
     PIDS+=($!)
   done

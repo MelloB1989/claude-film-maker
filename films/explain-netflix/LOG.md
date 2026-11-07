@@ -16,7 +16,8 @@ Timing, look and deliverables follow agent-11's `films/host-studio/explainers/GF
   at different depths, a slow seeded dolly + drift, the engine's depth of field (the studio falls well out of focus,
   cards sit just behind their content); chunk blocks and appliances drawn with depth; labels min 28 px; non-essential
   labels dropped.
-- Alpha: panel shots and the lower third render twice, over black and over grey (VITE_NF_MATTE), and tools/alpha.py
+- Alpha: panel shots and the lower third render twice, over black and over grey (the films explain-netflix-black / -grey: this timeline with the matte baked in; an env var
+  does not reach the page), and tools/alpha.py
   recovers straight alpha (glow kept as coverage max(a, max(B))); ProRes 4444 with alpha.
 
 ## Facts on screen
