@@ -128,3 +128,14 @@ def test_desk_twitches_are_not_gestures():
 def test_frown_is_reported():
     curves = {f: {"CTRL_expressions_browDownL": 0.5 if f < 60 else 0.0} for f in range(240)}
     assert P.face_rows_curves(curves, FPS, [[0, 240]])["face.curves_frown_frac"]["value"] == 0.25
+
+
+def test_hands_in_frame_by_camera_kind():
+    L = _limbs()
+    assert L.cam_kind("CAM_MCU_L") == "MCU" and L.cam_kind("CAM_CU") == "CU" and L.cam_kind("CAM_WIDE") == "WIDE"
+    assert L.hand_in([(100, 100, 50), (120, 90, 50)], 1920, 1080)
+    assert not L.hand_in([(100, 100, 50), (120, 1100, 50)], 1920, 1080)  # a fingertip below the frame
+    rows = {f: {"camera": "CAM_MCU", "in": f % 5 == 0} for f in range(20)}
+    rows.update({f: {"camera": "CAM_WIDE", "in": True} for f in range(20, 30)})
+    k = L.hands_fracs(rows)
+    assert k["MCU"]["frac"] == 0.2 and k["MCU"]["frac"] < k["MCU"]["line"] and k["WIDE"]["frac"] == 1.0

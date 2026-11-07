@@ -63,3 +63,34 @@ def clearance(arm_pts, torso_pts, torso, *, cell: float = 3.0, reach: float = 10
             best, at = signed, p
     return {"cm": round(best, 2), "at": [round(c, 1) for c in at] if at else None, "n_arm": len(arm_pts),
             "n_torso": len(torso_pts)}
+
+
+# --- hands in the shot's frame (round 7: 'the gestures happen BELOW the MCU frame'; the orchestrator) --------------
+HAND_LINES = {"MCU": 0.6, "CU": 0.3, "WIDE": 0.95}  # >= 1 hand fully in frame, share of speaking frames, by camera kind
+
+
+def cam_kind(camera: str) -> str:
+    """CAM_MCU / CAM_MCU_L -> MCU, CAM_CU -> CU, CAM_WIDE -> WIDE (by name)."""
+    c = camera.upper()
+    return "WIDE" if "WIDE" in c else "CU" if "_CU" in c and "MCU" not in c else "MCU"
+
+
+def hand_in(points_px: list, w: int, h: int, margin: int = 0) -> bool:
+    """A hand is fully in frame when every one of its points (wrist + fingertips, projected) is inside the picture
+    and in front of the lens."""
+    return bool(points_px) and all(z > 0 and margin <= x < w - margin and margin <= y < h - margin
+                                   for x, y, z in points_px)
+
+
+def hands_fracs(rows: dict) -> dict:
+    """rows: {frame: {"camera": name, "in": bool (>= 1 hand fully in frame)}} -> {kind: {"frac", "n", "line",
+    "cameras"}} per camera kind."""
+    out = {}
+    for f, r in rows.items():
+        k = cam_kind(r["camera"])
+        o = out.setdefault(k, {"in": 0, "n": 0, "line": HAND_LINES[k], "cameras": set()})
+        o["n"] += 1
+        o["in"] += int(bool(r["in"]))
+        o["cameras"].add(r["camera"])
+    return {k: {"frac": round(o["in"] / o["n"], 3), "n": o["n"], "line": o["line"], "cameras": sorted(o["cameras"])}
+            for k, o in out.items()}
