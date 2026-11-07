@@ -313,6 +313,7 @@ class Style:
     hand_yaw_in: float = 14.0  # degrees the fingers point toward the midline
     forearm_clear: float = 2.8  # cm the forearm's axis keeps above the desk top (half its thickness, wrist end)
     heel_lift: float = 0.0  # cm the heels come up off the floor (the balls stay down): short legs on a tall seat
+    sole: float = 0.0  # cm of shoe sole under the foot (the whole foot rides this much higher)
     thigh_radius: float = 6.5  # cm from the femur's axis to the thigh's underside (the seat-edge check)
     finger_clear: float = 0.4  # cm the curled fingertips keep above the desk (the wrist extends until they do)
 
@@ -432,7 +433,7 @@ class Seater:
             side = r if s == "r" else mul(r, -1.0)
             hip = self._fk_t(th, "pelvis", W)
             l1, l2 = self.L[s]
-            ankle_z = sk.p(fo)[2] + sy.heel_lift  # the feet keep their rest height (+ the heel lift)
+            ankle_z = sk.p(fo)[2] + sy.heel_lift + sy.sole  # the feet keep their rest height (+ heel lift, sole)
             # knee: forward of the hip by the thigh, out by knee_out; then the shin down at shin_tilt to the floor
             ox = sy.knee_out
             # solve the thigh's drop so the shin (l2, tilted) lands at the ankle height
@@ -646,11 +647,11 @@ def check(seater: Seater, posed: dict) -> dict:
         need(k[2] < st.desk_under - 6.0, "desk.knee", f"knee_{s} top would touch the desk underside (z {k[2]:.1f})",
              k[2])
         need(a[2] > floor, "floor.ankle", f"ankle_{s} below the floor", a[2])
-        rest = seater.sk.p("foot_" + s)[2] - seater.root[2] + seater.sy.heel_lift
+        rest = seater.sk.p("foot_" + s)[2] - seater.root[2] + seater.sy.heel_lift + seater.sy.sole
         need(abs(a[2] - rest) < 1.0, "floor.foot_lift", f"foot_{s} {a[2] - rest:+.1f} cm off its height",
              a[2] - rest)
         if "ball_" + s in A:
-            rb = seater.sk.p("ball_" + s)[2] - seater.root[2]
+            rb = seater.sk.p("ball_" + s)[2] - seater.root[2] + seater.sy.sole
             need(abs(A["ball_" + s][2] - rb) < 1.0, "floor.ball", f"ball_{s} {A['ball_' + s][2] - rb:+.1f} cm off the "
                  f"floor", A["ball_" + s][2] - rb)
         hp, kn = A["thigh_" + s], A["calf_" + s]
