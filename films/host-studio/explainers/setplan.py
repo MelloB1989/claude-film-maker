@@ -34,6 +34,7 @@ FACE_ESTIMATED = {"him"}  # framing rules that hinge on the exact eye height (th
 # the props (agent-05; s3 …/props/explainer/). Origins: chair and desk on the floor at their centre, the mic boom at its
 # desk clamp on the desk top (props/mic_boom.py's convention). Yaw in degrees about +Z.
 DESK_TOP = 74.0
+SIDE_WALL = -330.0     # the room's -Y wall (room_shell: side walls at y = ±330)
 DESK_C = (65.5, -20.0)  # orchestrator r3: the desk 12.5 cm in, so her knees go under and her forearms rest on it
 PROPS = {  # label: (FBX stem, loc, yaw, scale)
     "ExpChair": ("SM_PodcastChair", (MARK[0], MARK[1], 0.0), 0.0, None),  # seat top 45, front edge +24.5, faces +X
@@ -43,7 +44,12 @@ PROPS = {  # label: (FBX stem, loc, yaw, scale)
     # scale -1 at yaw -90 mirrors world Y → clamp (70,-72.6,74), capsule (44,-34,99), still aimed at the mouth
     "ExpMic": ("SM_MicBoom", (70.0, 2 * DESK_C[1] - 32.6, DESK_TOP), -90.0, [-1.0, 1.0, 1.0]),
     "ExpPlant": ("SM_DeskPlant", (85.0, -66.0, DESK_TOP), 25.0, None),  # 13 x 44 cm: the far -Y corner, behind the boom
+    # r5: the WIDE's right side (the -Y wall) — agent-05's floor lamp (a real practical) and a snake plant
+    "ExpLamp": ("SM_FloorLamp", (-110.0, SIDE_WALL + 30.0, 0.0), 0.0, None),
+    "ExpSnake": ("SM_FloorSnakePlant", (-215.0, SIDE_WALL + 32.0, 0.0), 30.0, None),
 }
+DESK_PANEL = "SM_WalnutDesk_Panel"  # agent-05's desk with the modesty panel; set.py uses it when it is on the box
+LAMP_BULB = dict(kind="point", z=138.5, intensity=6.0, temperature=2700, radius=320)  # candela, channel 0
 PLANT_TOP = DESK_TOP + 44.0
 UV_METRES = False  # agent-05: tile_m is baked into UV0 (1 UV = tile_m metres), so Tiling 1
 MIC_FROM_MOUTH = (11.5, -15.3, -14.6)  # the capsule's centre from the mouth: forward, to -Y (away from the cameras), down
@@ -56,7 +62,6 @@ SIGN = (WALL + 4.0, 25.0, 228.0 + SIGN_DROP)
 # the studio's standing-host rig and reel cameras: not this set's (deleted in the explainer level only)
 # r5 (the orchestrator): the WIDE's right half was the bare -Y side wall (y -330, x -240..0) → dressed with copies of
 # the studio's own dressed actors (their materials come along), plus a warm grazing light on the new slats (channel 0)
-SIDE_WALL = -330.0
 DRESSING = {  # new label: (studio actor to copy, loc, yaw)
     "ExpSlats": ("SlatPanel", (-150.0, SIDE_WALL, 0.0), 90.0),
     "ExpOlive": ("OliveTree", (-25.0, SIDE_WALL + 55.0, 0.0), 160.0),
@@ -66,7 +71,7 @@ SIDE_GRAZER = dict(kind="rect", loc=(-150.0, SIDE_WALL + 30.0, 265.0), look_at=(
 # the desk's modesty panel until agent-05's SM_WalnutDesk_Panel lands: a 2 cm walnut slab inside the +X (camera) edge,
 # from 8 cm up to the apron, so her feet and lower legs are never seen
 MODESTY = {"loc": (DESK_C[0] + 25.5, DESK_C[1], 8.0 + (63.4 - 8.0) / 2), "size": (2.0, 98.0, 63.4 - 8.0)}
-SUN_LUX = 6000.0  # r5: the floor sun streaks toned down again (studio 17000)
+SUN_LUX = 0.0  # r5: the floor sun patches; her rig gives ~20 lux at her face, any real sun clips (the window is out of frame)
 
 # seated garment cuts (body.hide_under on copies, this level's instance only): (component, under garment, reach cm),
 # applied in order from the original meshes. Her r3 shoulder: the Top through the Overshirt seam.
@@ -85,7 +90,7 @@ FILMBACK = [36.0, 20.25]  # full frame 16:9, every camera
 # exposure, locked: manual, NOT physical-camera (so f/2 and f/2.8 cameras cut with no brightness jump). Bias is a
 # compensation (higher = brighter). Box B 17:20 IST: -0.7 put her face at 164/255 with the studio's rig; one stop
 # lower with her rig one stop up (LIGHT_GAIN 2) keeps the face and takes the bright window down a stop
-EXPOSURE_BIAS = -0.7
+EXPOSURE_BIAS = -0.4
 LIGHT_GAIN = 2.8          # her rig (channel 1 only) x this; the set's own light (channel 0) is untouched
 
 
