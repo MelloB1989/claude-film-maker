@@ -1,0 +1,41 @@
+{
+ "gate": {
+  "lips.lag_frames": {
+   "value": 0.8,
+   "where": "him L2 f1094"
+  },
+  "lips.track_r": {
+   "value": 0.972,
+   "where": "her L3b f1215"
+  },
+  "lips.measured_against": {
+   "value": 1,
+   "where": "1 = each line's own solve, 0 = the voice"
+  },
+  "lips.onset_lead_ms": {
+   "value": 10,
+   "where": "him L2 f1094"
+  },
+  "lips.silence_open": {
+   "value": 0.001,
+   "where": "him f1060-1088"
+  },
+  "lips.silence_busy": {
+   "value": 0.0,
+   "where": "him f972-1014"
+  },
+  "lips.render_lag_frames": {
+   "value": null,
+   "error": "INFO: the render measure is invalid (07 Nov ruling)"
+  },
+  "lips.cues_fresh": {
+   "value": 1,
+   "where": "cues.json"
+  },
+  "lips.lead_in_cm": {
+   "value": null,
+   "error": "invalid read: the editor lip-bone readers return a frozen face on SEQ_Reel (agent-01); INFO by the orchestrator's ruling"
+  }
+ },
+ "source": "reel/r6/lips_numbers.py on SEQ_Reel"
+}

@@ -1,6 +1,6 @@
 # Explainers (round 6): log
 
-Times IST. Box B driver: agent-07 (set, light, cameras, HER explainer). Box A: agent-06 (HIS explainer, replays set.py).
+Times IST. One section per author, rebuilt from each author's branch tip at integration (agent-09, assemble_log.py); edit your own section on your own branch.
 
 ## Set, light, cameras (agent-07)
 
@@ -56,12 +56,11 @@ Times IST. Box B driver: agent-07 (set, light, cameras, HER explainer). Box A: a
   (set.py handles it); any perform/body step can drop the garment leaders (run `--steps dress,save` after it); an
   unsaved change is lost when a tool reopens the level (save after every step).
 
-<!-- merged in the box-B tree: the log from the other branch follows -->
-# Round 6 explainers — log
+## Producer (agent-11)
 
 Producer: agent-11. Times IST, 07 Nov 2026. Branch `fleet/agent-11/r6-explainers` (off `film/host-studio`).
 
-## What is here
+### What is here
 
 | File | What |
 |---|---|
@@ -76,7 +75,7 @@ Producer: agent-11. Times IST, 07 Nov 2026. Branch `fleet/agent-11/r6-explainers
 | `facts_<film>.json` | every claim with its source (agent-09's `qa_av.py facts`) |
 | `composite.py` | the final composite (runs on a box) |
 
-## Timeline
+### Timeline
 
 - 16:19 brief in. Worktree, voices found in `films/host-studio/reel/vo.py`.
 - 16:21 scripts v1 (162 / 167 words). Two takes a line at speed 1.0: Tripti reads at 2.2 words/s, Netflix ran ~85 s.
@@ -91,7 +90,7 @@ Producer: agent-11. Times IST, 07 Nov 2026. Branch `fleet/agent-11/r6-explainers
   56.33 s (1352 f), only shots 14-15 moved. Mixes: WhatsApp −14.05 LUFS / −1.71 dBTP, Netflix −14.03 / −1.68,
   bed ducked a median 7 dB under the voice.
 
-## Fact check
+### Fact check
 
 Every number on screen or in the voice is softened or sourced; the sources are in `facts_whatsapp.json` and
 `facts_netflix.json`. Notes on the wording:
@@ -124,7 +123,7 @@ Every number on screen or in the voice is softened or sourced; the sources are i
 - 16:55 ruling: captions on every line, over graphics too, one band in the bottom 15 %. Placeholders re-rendered.
   agent-09 QA on them: captions.text_match 1 (157/157, 144/144), onset 84 ms, -14.1/-1.7 and -14.0/-1.7, 1080p 48 kHz.
 
-## Running the composite on a box (drivers)
+### Running the composite on a box (drivers)
 
     git -C <repo> fetch origin fleet/agent-11/r6-explainers
     git -C <repo> worktree add /srv/r6/explainers-src origin/fleet/agent-11/r6-explainers   # code, audio, fonts
@@ -138,6 +137,19 @@ Every number on screen or in the voice is softened or sourced; the sources are i
 
 `--placeholder` lets any missing presenter shot or graphic stand in as a labelled slug (a partial cut for review);
 without it a missing input stops the run and names the file.
+
+### Netflix v2b (delivered)
+
+- v2 (agent-07, box B): composite.py's one-pass mux cut the audio to 56.08 of 59.46 s (`-frames:v` ended the file
+  while the audio lagged the graph); agent-07 remuxed it by hand. Fixed in f6239dd5: the picture is encoded alone,
+  then each file is remuxed with the mix (`-c:v copy -t`).
+- Orchestrator's look: picture, lips, hair, neckline, grain and mix pass; captions too faint over her white top.
+  e60e5a39: a rounded backing plate on every caption (black 45 %, 16/8 px pad, radius 12) and the waiting words at
+  70 %.
+- v2b on box B (CPU, beside the editor): `/srv/ue/explain/comp3.sh netflix v2b "48 240 600"` (agent-07's comp2.sh on
+  src3 = src2 + the new composite.py). Both files 1427 f / 59.458 s; qa_av all: -14.0/-1.7, text_match 1 (144 words,
+  37 captions), onset 84 ms, facts 1, qc_ok 1 (needs `PYTHONPATH=<tools> uv run --with numpy --with pillow`).
+  Approved and delivered by the orchestrator.
 
 ## Performances (agent-01, branch `fleet/agent-01/r6-perf`)
 
@@ -173,32 +185,18 @@ tested in `test_seatkit.py`), `gestures.json` (the emphasis gestures per line).
   exhale: forearms rest 0.6-0.8 cm higher. Her face chain goes next (cams, compose with the lead, face, sync, gaze,
   place, numbers).
 
-## agent-11 driving box B (19:0x-21:06 IST, agent-07 rate-limited)
+## Props (agent-05, branch fleet/agent-05/r6-props)
 
-Driver: kali `/tmp/fleet-agent-11-ue/r6` (tree = this branch `fleet/agent-11/r6-boxb`, wrapper `fu` on agent-07's
-conf dir, profile boxb; helpers `sether`, `perf`, `variant.sh`, `onepass2.sh`).
-
-| IST | What |
+| IST | |
 |---|---|
-| ~19:00 | Found the editor had crashed 18:44 (SIGSEGV), back on Studio; ExplainerSet still had the old desk (74 / x 38) and stale cameras: agent-07's last set changes were never saved |
-| 19:10 | set.py all steps: agent-05's SM_WalnutDesk_Waterfall (top 71, MI_K_Walnut, no Z scale; panel desk + slab gone); mic clamp moved to the desk's far edge (84.6,-50.3,71), boom turned 35.6° so the capsule is unchanged (setplan MIC_CLAMP/MIC_ROT/boom_points; boom arm off her face row); props step skips the lamp's shade/bulb PBR (a drawn instance cannot be reparented) |
-| 19:20 | agent-01 a22617ca/6544eb44 body → preview → bodycheck → all --from sync: PASS; stills r6b_pose_f48/f400/f1300 → orchestrator REJECTED (RW overshirt: skin holes at both shoulders; a hand at the mic) |
-| 19:40 | agent-01 8a4bd9b6 (gestures outward); variants V1 orig / V2 none / V4 rw2 (agent-02's arms-only reweight, helper share 0.50→0.18) stills + 1:1 shoulder crops; walnut A/B (WalnutFine, K at 1.0, K at 0.5 copy). T_Walnut is authored at 1 m/tile, so Tiling 1 is right on metre UVs |
-| 20:15 | Orchestrator picked V2 (no overshirt). CAM_WIDE to eye level (lens ~125 cm, el 5.5° at 280 cm, same azimuth/look); all --from cams --fresh PASS (MCU_L→WIDE 7.9°) |
-| 20:30 | Head judge: eyes fail (saccades 7.97/s, glances 0: the gaze lock erased the think glances) → agent-01 1df38a6c/fc774288 → on_lens 0.677 → d282173a (key-reduced eye curves; uniform grid). qa.clip V2 at 4 cm: Trousers>Top 0.12 (WIDE waist), Body>Top 0.0135 (static spot) → hides at 6 cm. render.py: streaming warm-up (FullyLoadUsedTextures, 12 GB pool, warmup_render) for the CU f1300 tile blocks |
-| 20:45 | agent-01 03666495 lower forearm rest: body pass; preview crashed on a NameError (fixed in d282173a) |
-| 21:06 | Handed to agent-07 (state verified live: V2, waterfall, far-edge clamp, eye-level WIDE). Open: onepass2.sh (preview → all --from sync → dress → head judge), qa.clip V2 at 6 cm, WIDE still f300, walnut pick, all 9 finals, composite v2 |
-
-## Box B, agent-07 again (21:05-23:00 IST, after agent-11's session)
-
-| IST | What |
-|---|---|
-| 21:05 | Driver back from agent-11 (their V2 state: no overshirt, waterfall desk at 71, far-edge mic, eye-level WIDE). Pass 2 (agent-01 d282173a): all --from sync PASS, head judge PASS (on_lens 0.915) |
-| 21:15-21:25 | Walnut A/B (K_Walnut / WalnutFine / a lower-spec copy) → orchestrator: K_Walnut. The 'speckle' = unconverged single stills: test30 (her MCU f0-29 at the finals' spec) CLEAN by eye, grain sigma 0.69 (f300 still 3.10, r6b_v2_clip 14.55) → agent-09's shot.grain line |
-| 21:24-21:28 | Her V2 WIDE final (shot 11): guard ok; grain flat patches 0.55 (WIDE neck/desk patches hold texture, ruled INFO) |
-| 21:30-22:00 | Strip inside her neckline: strip_id (front faces only: Top + Face), qa.clip ID masks, strip_cols; scoop_fit: no pull (the edge lies on her skin). An 8x16 high-sample frame crashed the editor (SIGSEGV; not repeated) |
-| 21:35-21:50 | HIS state pulled into box B (editor stopped): 102/102 sha256 = box A's manifest, cull_live 912 / z 144.2-153.3 / kept 0 = box A; his level ExplainerSet_Him from Studio (set.py --who him); his Trousers component was UNATTACHED (frozen at his old Studio mark (30,40)) → attached to Body; signs identical to box A (turn_strength 1.041), blessed for both |
-| 21:48-22:06 | His solves, body (agent-01 elbow-overhang at 71), life, preview PASS; whole-sequence single jobs (bodycheck, sync's bakes) killed the editor → agent-01 chunked bodycheck (17dad15c) and sync (61634c94); chunked bodycheck PASS |
-| 22:10-23:00 | Her neckline band split at MCU f29 (band/Top-beside ratio, p10): as-is 0.717/77, flat white texture 0.734/84, flat normal map 0.716/77, agent-02's Edge1N mesh normals 0.712/77, KEY shadows off 0.898/191, Top cast_shadow off 0.884/188 (self_shadow_only identical; key 3x softer 0.772/123, face darker). Cause: the key light's shadow of the Top's rim on her skin. Orchestrator: Top cast_shadow OFF (setplan.NO_SHADOW, set.py dress step) |
-| 22:21-22:40 | Her 8 close finals V2 (shots 2, 6 first, then 1, 4, 13, 7, 14, 10): guard ok every job; first frames PASS by eye. Post via SSM (the bridge timed out on the encode); all 9 → private/renders/r6/explain/netflix/final_v2/ |
-| 22:47 | Composite v2 (agent-11 feedd693): its delivery check failed on box B (audio 56.08 s) → remuxed the finished picture with the full mix (video copied): 1427 f, 59.458 s; qa_av all: -14.0/-1.7, captions 1, onset 84 ms, facts 1, qc_ok 1 → private/renders/r6/review/explain/netflix_r6_v2* |
+| 16:20 | Brief: chair, broadcast mic on desk boom with cable, walnut desk, optional headphones/plant; Blender headless on box A CPU (agent-06's slot: `/srv/ue/props_r6`, nice 15, `-t 6`, never the editor/project/reel paths) |
+| 16:35 | `props/explainer/_pbr.py` (12 tileable 2K PBR sets drawn in numpy, UVs, UCX, FBX) + `build.py`; dims matched to agent-07's layout (chair (20,-20,0), desk centre (78,-20,0) top 74, mic from her left +Y) |
+| 16:58 | Debug run on box A (256 px textures, no renders): all four FBX re-import at the built size in cm (chair 79.7 x 69 x 86, desk 55 x 110 x 74, mic boom 48 x 30.9 x 77, plant 12.9 x 12.8 x 43.9) |
+| 17:02 | Full run: textures 70 s; FBX + textures + props.json → `s3://…/ue-linux/props/explainer/` |
+| 17:10 | By eye: walnut figure too burl-like, leaf bands lost in noise → redrawn (rift-sawn walnut, clean sansevieria bands), job restarted |
+| 17:15 | agent-07: UV0 has the tile baked in (material Tiling 1); plant moved to (100,25,74) by the clamp; headphones skipped (optional) |
+| 17:25 | Chair preview: the desk's legs were never joined into SM_WalnutDesk (they floated in the scene) → fixed, re-uploaded; gentler normals on fine metals/rubber/plastic |
+| 17:50 | Previews by eye: chair, desk, mic, plant, set (agent-07 frame) good; brushed alu still read hammered: not denoise (256 spp no-denoise test showed it) but low-frequency ROUGHNESS blotches on a mirror-like metal → alu varies only along its streaks; fixed (test render clean) |
+| 18:05 | agent-07 moved the desk in (near edge x 38) and mirrored the boom to the -Y edge (scale -1 at yaw -90): no re-pose needed. Armrest 63.0 vs apron underside 63.4 noted |
+| 18:30 | A full re-run died at once: `cd && rm && nohup … &` on one line ran the whole chain in a subshell that SSM killed with the command → relaunch with `setsid nohup` on its own line |
+| 18:45 | Orchestrator (via agent-07): her feet never seen, WIDE's empty right → SM_WalnutDesk_Panel, SM_FloorLamp (practical, SOCKET_Bulb), SM_FloorSnakePlant; all 7 FBX re-import at size; uploaded with all textures |

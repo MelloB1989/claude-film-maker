@@ -19,12 +19,13 @@ CUE=../films/host-studio/explainers/cues/him.json     # agent-11's (fleet/agent-
 
 | step | command | expect | if not |
 |---|---|---|---|
-| 1a | keep her calibration: copy `<project>/Saved/.../signs_Face_Archetype_Skeleton.json` to `….her_r6` | file kept | — |
-| 1b | `film-ue op perf.calibrate label=Host turn_by=auto` (always on box B: its Saved/ calibration is her face's) | `turn_on` Face, `turn_strength` ~1.04 (box A K2c 1.041; box A's file is in him_state/ as a reference), a fresh yaw_table | over 10 % from 1.04: stop and tell agent-04 (the pulled face is not box A's) |
+| 1a | keep her calibration: copy `<project>/Saved/.../signs_Face_Archetype_Skeleton.json` to `….her_r6`, and `uv run python $P signs --who her --bless` (agent-01, 7891afdb+) | file kept, her sha recorded | — |
+| 1b | `film-ue op perf.calibrate label=Host turn_by=auto` (always on box B: its Saved/ calibration is her face's), then copy it to `….him_r6` and `uv run python $P signs --who him --bless` | `turn_on` Face, curves/signs/yaw_table/eye_deg as box A's file in him_state/ (yaw_table identity, eye_deg within 10 %); `turn_strength` (~1.04, box A K2c 1.041) is only in the op response's `raw`: the saved file keeps yaw_gain 1.0 for any strength >= 0.9 | a mismatch, or turn_strength over 10 % from 1.04: stop and tell agent-04 (the pulled face is not box A's) |
 | 1c | `uv run python $P rolltest --who him` (agent-01, 2334f626+) | HeadRoll (or whichever curve the signs call roll) turns the head about its FORWARD axis, ~5° lateral elevation, forward elevation ~0 | roll pitches the head: `head.py` keeps ROLL_OK False (no rest tilt, no lean). Send agent-04 the table either way |
 
 The signs file belongs to the face's SKELETON (Face_Archetype_Skeleton), which both presenters share: 1b overwrites
-hers on box B (her v2 face is done by then; never re-run her face step after 1b without restoring `.her_r6`). Never reuse a signs
+hers on box B (her v2 face is done by then; never re-run her face step after 1b without restoring `.her_r6`; perform.py's
+face and sync refuse a signs file whose sha is not the blessed one for `--who`). Never reuse a signs
 file after a face rebuild (r5b: its yaw_gain and yaw_table belong to the old face).
 
 ## 2. His performance (agent-01's chain)

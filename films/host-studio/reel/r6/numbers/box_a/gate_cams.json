@@ -1,0 +1,9 @@
+{
+ "gate": {
+  "shot.cameras_ok": {
+   "value": 1,
+   "where": "the 13 shots (13/13)",
+   "failed": []
+  }
+ }
+}

@@ -260,7 +260,7 @@ def _unit(v):
 def eye_metrics(eyes: dict, fps: float) -> dict:
     """From seq.sample of both eyes + the camera: the angle (deg) of each eye's gaze off its line to the lens, per
     frame. The gaze axis is the eye bone's axis that points most at the lens over the span (signed)."""
-    off_all, sacc, glance_n, dur_s, steps_on = [], 0, 0, 0.0, []
+    off_all, sacc, glance_n, dur_s, steps_on, per_span = [], 0, 0, 0.0, [], []
     for sp in eyes["spans"]:
         cam = np.asarray(sp["cam"], float)
         offs = []
@@ -299,6 +299,15 @@ def eye_metrics(eyes: dict, fps: float) -> dict:
                 run = 0
         off_all.append(off)
         dur_s += len(off) / fps
+        q = max(1, len(off) // 4)  # where in the span the eyes are off: its quarters (a slow lock shows at the start)
+        per_span.append({"frames": [sp["frames"][0], sp["frames"][-1]], "camera": sp.get("camera", ""),
+                         "on_lens": round(float(np.mean(off < 3.0)), 2), "off_med_deg": round(float(np.median(off)), 2),
+                         "off_quarters_deg": [round(float(np.median(off[k * q:(k + 1) * q])), 2) for k in range(4)
+                                              if len(off[k * q:(k + 1) * q])],
+                         # the eyes' off-lens direction (+ right/up in the image as the camera sees it is not known
+                         # here; the signed mean of the gaze-minus-lens vector's z says above/below)
+                         "off_up_deg": round(float(np.degrees(np.mean(np.arcsin(np.clip(g[:, 2], -1, 1)) -
+                                                                      np.arcsin(np.clip(to_cam[:, 2], -1, 1))))), 2)})
     off = np.concatenate(off_all) if off_all else np.zeros(0)
     on_s = float(np.sum(off < 3.0)) / fps
     return {"eyes.on_lens_share": round(float(np.mean(off < 3.0)), 3) if len(off) else None,
@@ -307,7 +316,8 @@ def eye_metrics(eyes: dict, fps: float) -> dict:
             "eyes.off_lens_p95_deg": round(float(np.percentile(off, 95)), 2) if len(off) else None,
             # INFO: the eyes' frame-to-frame motion on the lens (a lock's jitter shows here: p50 over ~0.08 deg buzzes)
             "eyes.step_p50_deg": round(float(np.median(np.concatenate(steps_on))), 3) if steps_on and
-            sum(len(x) for x in steps_on) else None}
+            sum(len(x) for x in steps_on) else None,
+            "eyes.spans": per_span}
 
 
 def _smooth(x: np.ndarray, n: int) -> np.ndarray:

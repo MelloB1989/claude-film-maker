@@ -1,0 +1,296 @@
+{
+ "_about": "Round 6's karma gate spec for qa/gate.py (film-qa gate --spec). Built on r5/gate_spec.json. complaints: no waiver on these areas. Round 6 adds garment.open_edge_shrunk (the operator, 07 Nov: 'his neck looks very weird, also it looks like it has a cut') and lips.eye_onsets (the orchestrator's signed per-line strip check); lips.render_lag_frames becomes INFO by the orchestrator's ruling (an invalid measure, a scope change, not a waiver). Numbers: r6/numbers/*.json in the gate contract, merged by r6/merge_numbers.py.",
+ "complaints": [
+  "lips",
+  "head",
+  "garment",
+  "hair"
+ ],
+ "items": {
+  "shot.start_motion_ratio": {
+   "area": "head",
+   "track": "T4",
+   "op": "<=",
+   "line": 1.8,
+   "unit": "x",
+   "info": true,
+   "what": "head-box motion in a presenter shot's first 4 frame pairs over the median of the next 12 (r5/gate_numbers.py settle on the rendered frames): a head snapping into its pose or a hair sim settling at the cut",
+   "where": "S15 f1080-1084 (her head tilts in ~10 deg)",
+   "how": "r5/gate_numbers.py settle --frames <finals> --spec her_spec.json --shot S15",
+   "r4": [
+    13.81,
+    "round 4's S15 final_d, the same shape as round 5 (12.33): her head tilt-in is pre-existing"
+   ],
+   "why": "orchestrator, 06 Nov round 5b: her S15 start tilt is pre-existing (round 4 the same), NOT a blocker tonight, but REPORTED in the gate, not hidden; INFO until calibrated (shot starts move by design: S16 reads 2.8)"
+  },
+  "garment.open_edge_shrunk": {
+   "area": "garment",
+   "track": "K1",
+   "op": "==",
+   "line": 0,
+   "unit": "verts",
+   "guard": true,
+   "what": "face-mesh vertices on its OPEN lower edge (the stitch to the body at the neck base) that the neck backstop shrinks: a shrunk open edge pulls the face off the body and reads as a torn lip / dark crevice above the collar",
+   "where": "his face mesh as built for the finals (S13, S15 sharp frames show it)",
+   "how": "r5/neck_backstop.py mask report shrunk_on_open_edge (agent-02 b07e8fd1) on the mask the finals' build used; 0 by construction when no backstop shrink is applied (say so in the number's where)",
+   "r4": [
+    null,
+    "round 4 had no backstop"
+   ],
+   "must_fail": [
+    92,
+    "round 5b loop 2 (the delivered candidate): 92/92 open-edge verts shrunk; the orchestrator saw a ragged lip + crevice at f1085/1100/1128 and the operator 'a cut'"
+   ],
+   "why": "neck_px cannot see a torn skin edge ABOVE the collar (gate v2, round 5b); this is the geometric cause, measured"
+  },
+  "lips.render_lag_frames": {
+   "info": true,
+   "r4": [
+    null,
+    "INFO in round 6 by the orchestrator's ruling (cc-64d05f6e, 07 Nov): an invalid measure. Round 5b evidence: the round-4 control fails too (L1 +6.64, L2 +16.95, L4a +12.38), the sign is random, it is not repeatable (round 4 L1 -1.36 -> +6.64 on new boxes). A scope change, not a waiver; the curve items stay hard. agent-01's landmark measure replaces it as a hard line once validated (null control, round 4 L1, a +6 f shifted mux)"
+   ]
+  },
+  "lips.eye_onsets": {
+   "area": "lips",
+   "track": "orchestrator",
+   "op": "==",
+   "line": 1,
+   "unit": "bool",
+   "what": "the orchestrator's by-eye check of mouth onset vs audio onset on EVERY line of the rendered cut: 1 only if every line reads a 0-2 frame lead (mouth opens 0-2 f before the sound) or is occluded with the occlusion named",
+   "where": "every VO line of the 65 s cut (L1, L2, L3a, L3b, L4a, L4b)",
+   "how": "strip file signed by cc-64d05f6e: r6/numbers/eye_onsets.json {\"lines\": {line: {\"lead_f\": n | null, \"verdict\": \"pass\"|\"fail\"|\"occluded\", \"note\"}}, \"by\": \"cc-64d05f6e\"} -> r6/merge_numbers.py",
+   "r4": [
+    0,
+    "round 4: lips moved before the audio on L1 (the operator)"
+   ],
+   "why": "the render measure is invalid; the eye is the judge the operator is, line by line, written down"
+  },
+  "hair.pop_reach_pct": {
+   "r4": [
+    null,
+    "round 5b read 8.93 at S15 f1082 (her pre-existing start tilt-in, place() cross-fade on screen): round 6 renders S15 WITH agent-04's place fix (b475dfe5, b22f3372); no exclusion window"
+   ]
+  },
+  "shot.settle_step_deg": {
+   "area": "head",
+   "track": "K2",
+   "op": "<=",
+   "line": 0.6,
+   "unit": "deg",
+   "info": true,
+   "what": "worst frame-to-frame head turn beyond perfkit's plan at a section's start or the film's end (perf.py settle, AFTER samples)",
+   "where": "each presenter section start and the film's last frame f1559",
+   "how": "perf.py settle (agent-04 1dad107b) -> r6/numbers/head.json",
+   "r4": [
+    null,
+    "round 5b read 13.65 on the rendered S15 start (start_motion_ratio); before e4c9c01f f1559 read him 1.999 / her 4.201"
+   ],
+   "why": "agent-04 K2: INFO until calibrated; shot.start_motion_ratio stays the render-side diagnostic"
+  },
+  "garment.leaders_ok": {
+   "area": "garment",
+   "track": "K (agent-06)",
+   "op": "==",
+   "line": 1,
+   "unit": "bool",
+   "what": "every garment of each presenter (his Tee/Trousers/shoes, her Top/Overshirt/Trousers/shoes) follows Body (leader pose == Body) AND his body-hide mask is on, read right before EVERY final job",
+   "where": "the level, before each final render job (the worst job counts)",
+   "how": "agent-06's pre-render check (dress_him/dress_her + seq_dress, then the leaders read-back) -> r6/numbers/box.json",
+   "r4": [
+    null,
+    "round 4 passed it"
+   ],
+   "must_fail": [
+    0,
+    "round 6 r6n0 baseline (07 Nov): the tee stopped following his body, a dark band of body through the whole upper chest (orchestrator)"
+   ],
+   "guard": true,
+   "why": "the orchestrator, 07 Nov: a hard pre-render check, every garment's leader == Body"
+  },
+  "shot.face_luma_ratio": {
+   "area": "camera",
+   "track": "K (agent-06)",
+   "op": "range",
+   "line": [
+    0.9,
+    1.1
+   ],
+   "unit": "ratio",
+   "what": "each presenter's face-box mean luma on a still of the shot over round 4's same frame (same camera), worst presenter shot, read before the finals",
+   "where": "S13 f1040, S15 f1128 (and each presenter shot's first frame)",
+   "how": "films/host-studio/reel/r6/face_luma.py (agent-06, fleet/agent-06/r6-boxa 8b80bacc) on a still vs round 4's final_d frame, on the box -> r6/numbers/box.json. The face box must come from EACH image's own face (a pose that moved since round 4 reads as light otherwise: her S15 f1128 read 1.142 from position alone)",
+   "r4": [
+    null,
+    "round 4 is the reference"
+   ],
+   "must_fail": [
+    0.119,
+    "round 6 r6n0 broken baseline (agent-06, final-spec still): his face S13 f1040 0.119, S15 f1128 0.236 of round 4 (0.131 / 0.266 of round 5b's final): the 'very dark face' the orchestrator saw"
+   ],
+   "guard": true,
+   "why": "the orchestrator, 07 Nov: a still's face luma within +-10% of round 4's before any render"
+  },
+  "garment.cull_kept_moved_cm": {
+   "area": "garment",
+   "track": "K1",
+   "op": "<=",
+   "line": 0.01,
+   "unit": "cm",
+   "guard": true,
+   "what": "largest displacement of any KEPT face vertex after the chest-flange cull (cull_live): the cull removes, it never moves what stays",
+   "where": "his face mesh as built for the finals",
+   "how": "agent-02's cull_live proof (503571ee/3491ab65) -> r6/numbers/garment.json",
+   "must_fail": [
+    2.987,
+    "round 5b loop 2's shrink moved kept verts up to 2.99 cm and tore the open edge"
+   ],
+   "why": "the orchestrator, 07 Nov (r6n1): apply the cull only; nothing near the visible neck may move"
+  },
+  "garment.cull_min_below_collar_cm": {
+   "area": "garment",
+   "track": "K1",
+   "op": ">=",
+   "line": 1.5,
+   "unit": "cm",
+   "guard": true,
+   "what": "smallest distance below the tee's collar edge of any CULLED face vertex (every culled vertex is under the tee and at least 3 cm below the collar)",
+   "where": "his face mesh as built for the finals",
+   "how": "agent-02's cull_live proof -> r6/numbers/garment.json",
+   "must_fail": [
+    0.0,
+    "a cull reaching the collar line would open a hole at the visible neck"
+   ],
+   "why": "the orchestrator, 07 Nov: cull only, under the tee; the accepted state is r6n2 = 'Epic's tee untouched + the 1.5 cm cull' (the orchestrator's GO for the finals), so the line is that cull's depth; neck_visible (0 on the finals) is the independent check that no hole shows"
+  },
+  "garment.neck_px": {
+   "what": "VISIBLE neck poke-through, worst frame (qa.clip neck_visible, agent-02 e71f06fa/a670ea02): Face skin the render shows through his tee, as ISLANDS (skin enclosed by cloth, any size) plus TONGUES (skin joined to the collar opening that runs more than tongue_cm down into the cloth, walked in cm at its depth). Known blind spot: a poke joined to the rim cluster and shallower than tongue_cm passes; the orchestrator's crops judge that case",
+   "where": "S13, S15, S17, S18 (6 frames each, the finals' state)",
+   "how": "film-ue op qa.clip ... neck_rule=visible tongue_cm=3.0 (agent-02 a7511df9: 2x r6n2's max tongue 1.49 cm) -> metrics.worst.neck_visible.px; or python -m filmtools.unreal.neckscan <out_dir> on its depth files",
+   "r4": [
+    3,
+    "round 4 S15 1-3 px on the OLD rim measure, waived then; not re-read on the visible measure"
+   ],
+   "must_fail": [
+    39,
+    "round 6 r6n1 (box A clipr6c1, agent-06's neckscan): a 39 px skin island under the collar at S15 f1128, islands in all 4 shots: the blob the orchestrator saw. r6n2 (clipr6c3, passed by eye) reads 0, max tongue 1.49 cm"
+   ],
+   "guard": true,
+   "why": "the orchestrator, 07 Nov: re-scope neck_px to VISIBLE poke-through, honestly and calibrated; a measure fix with must_fail, not a waiver (the rim measure read 262 on a hug the eye passed)"
+  },
+  "garment.neck_rim_px": {
+   "area": "garment",
+   "track": "K1",
+   "op": "<=",
+   "line": 0,
+   "unit": "px",
+   "info": true,
+   "what": "the OLD neck_px (Face>tee px more than neck_margin_cm under the collar rim), kept beside the visible measure so the change shows in the gate log",
+   "where": "S13, S15, S17, S18",
+   "how": "qa.clip metrics.worst.neck_px (reported by neck_rule=visible as info)",
+   "r4": [
+    null,
+    "r6n2 read 262 at the rim on a collar the orchestrator passed by eye: the measure's blind spot (r5b)"
+   ],
+   "why": "transparency: the re-scope must be visible, not silent"
+  },
+  "lips.render_conclusive": {
+   "info": true,
+   "r4": [
+    null,
+    "INFO with lips.render_lag_frames (the orchestrator's ruling, 07 Nov): it is a property of that render measure (its own r4 note), which round 5b showed invalid; it returns as a hard line with agent-01's landmark measure"
+   ]
+  },
+  "garment.silhouette_pct": {
+   "info": true,
+   "r4": [
+    2.23,
+    "INFO for round 6 by the orchestrator's ruling (cc-64d05f6e, 07 Nov): the reference (r4/clip/Host_after) is round 4's DIFFERENT performance (pose), the garment is the same (Epic's default tee); the finals read +31.73 at S15 f1152 on the head turn, +4.3-4.9 at f1082-1128. A self-reference (r6n2 = the finals state) would be a fake 0. armor_index (0.317, line 0.5) is the bulk guard and passes. Round 7 item: a pose-matched reference (same performance, previous accepted garment state). A scope change, not a waiver"
+   ]
+  },
+  "garment.collar_gap_cm": {
+   "where": "the CAMERA-FACING half of the band (per vertex: outward radial direction from the neck axis . (the cut camera at that frame - vertex) > 0), S13, S15, S17 (every measured frame); a facing half with too few band verts is NOT measured and refuses",
+   "how": "qa.garment_look collar on core b454f979 (agent-02) -> r6/numbers/garment.json",
+   "why_r6": "a MEASURE FIX by the orchestrator's ruling (07 Nov), not a waiver: his neck turns inside a static crew-neck; the far side's gap/roll (finals: gap 1.514 at S15 f1150, roll 3 at side/back 200-230 deg) faces no camera. Must-fails still fail on the facing half: Fit5 (gap 2.447 + lip), the rolled lip, the fold, a synthetic FRONT stand-off 1.5 cm",
+   "info": true,
+   "r4": [
+    null,
+    "INFO for the r6 karma by the orchestrator's ruling (cc-64d05f6e, 07 Nov), a scope change, not a waiver: measure unvalidated on Epic's default tee with a face cull: three iterations on 07 Nov disagreed (0.29 to 3.56 cm on the same state); round-7 tool item. The collar is judged instead by the orchestrator's eye on the finals' 1:1 crops (S13 f985/f1040, S15 f1100/f1128/f1150, S17 f1340/f1397, S18 f1500): natural crew-neck, no stand-off, no see-through, from every camera; backed by neck_visible 0 (validated, must_fail 39), armor 0.317 and wpo 0."
+   ]
+  },
+  "garment.collar_roll": {
+   "where": "the CAMERA-FACING half of the band (per vertex: outward radial direction from the neck axis . (the cut camera at that frame - vertex) > 0), S13, S15, S17 (every measured frame); a facing half with too few band verts is NOT measured and refuses",
+   "how": "qa.garment_look collar on core b454f979 (agent-02) -> r6/numbers/garment.json",
+   "why_r6": "a MEASURE FIX by the orchestrator's ruling (07 Nov), not a waiver: his neck turns inside a static crew-neck; the far side's gap/roll (finals: gap 1.514 at S15 f1150, roll 3 at side/back 200-230 deg) faces no camera. Must-fails still fail on the facing half: Fit5 (gap 2.447 + lip), the rolled lip, the fold, a synthetic FRONT stand-off 1.5 cm",
+   "info": true,
+   "r4": [
+    null,
+    "INFO for the r6 karma by the orchestrator's ruling (cc-64d05f6e, 07 Nov), a scope change, not a waiver: measure unvalidated on Epic's default tee with a face cull: three iterations on 07 Nov disagreed (0.29 to 3.56 cm on the same state); round-7 tool item. The collar is judged instead by the orchestrator's eye on the finals' 1:1 crops (S13 f985/f1040, S15 f1100/f1128/f1150, S17 f1340/f1397, S18 f1500): natural crew-neck, no stand-off, no see-through, from every camera; backed by neck_visible 0 (validated, must_fail 39), armor 0.317 and wpo 0."
+   ]
+  },
+  "garment.collar_gap_all_cm": {
+   "area": "garment",
+   "track": "K1",
+   "op": "<=",
+   "line": 0.8,
+   "unit": "cm",
+   "info": true,
+   "what": "the collar gap over the WHOLE band (both sides), beside the camera-facing row",
+   "where": "S13, S15, S17",
+   "how": "qa.garment_look terms.collar_gap_all",
+   "r4": [
+    null,
+    "finals before the scope fix: 1.514 at S15 f1150"
+   ],
+   "why": "transparency: the scope change shows in the gate log"
+  },
+  "garment.collar_roll_all": {
+   "area": "garment",
+   "track": "K1",
+   "op": "==",
+   "line": 0,
+   "unit": "count",
+   "info": true,
+   "what": "collar roll frames over the WHOLE band (both sides)",
+   "where": "S13, S15, S17",
+   "how": "qa.garment_look terms.collar_roll_all",
+   "r4": [
+    null,
+    "finals before the scope fix: 3 frames"
+   ],
+   "why": "transparency"
+  },
+  "lips.lead_in_cm": {
+   "info": true,
+   "r4": [
+    0.33,
+    "INFO for the r6 karma by the orchestrator's ruling (cc-64d05f6e, 07 Nov), a scope change, not a waiver: editor lip-bone readers return a frozen face on SEQ_Reel (cast_gate scrub+level.bone and seq.sample both read open 0.0 while talking, all 6 lines, after a fresh install; agent-01's guard voided the row; tool bug, round-7 item). The same property is covered tonight by lips.silence_open 0.001 / silence_busy 0.0 over every pre-line silence, read from the placed curves, AND the orchestrator's eye on the rendered cut (6 frames before each line: mouth closed; 1-2 f lead on every visible line)"
+   ]
+  }
+ },
+ "not_attempted": {
+  "garment.cloth_alive": {
+   "reason": "His tee is MetaHuman's own default garment (assembled to his body, WPO 0). It is a closed-shell mesh, and Chaos cloth on a closed shell collapses (round 5: her overshirt shredded), so no sim this round. The armour complaint is addressed by WPO 0 and the assembled fit (armor_index, wpo_cm and neck_px stay hard lines). Proxy-sim cloth (single-layer sim section + FMCloth mesh-to-mesh) is round 6.",
+   "by": "cc-64d05f6e"
+  },
+  "garment.cloth_sound": {
+   "reason": "His tee is MetaHuman's own default garment (assembled to his body, WPO 0). It is a closed-shell mesh, and Chaos cloth on a closed shell collapses (round 5: her overshirt shredded), so no sim this round. The armour complaint is addressed by WPO 0 and the assembled fit (armor_index, wpo_cm and neck_px stay hard lines). Proxy-sim cloth (single-layer sim section + FMCloth mesh-to-mesh) is round 6.",
+   "by": "cc-64d05f6e"
+  },
+  "garment.cloth_detail_ratio": {
+   "reason": "His tee is MetaHuman's own default garment (assembled to his body, WPO 0). It is a closed-shell mesh, and Chaos cloth on a closed shell collapses (round 5: her overshirt shredded), so no sim this round. The armour complaint is addressed by WPO 0 and the assembled fit (armor_index, wpo_cm and neck_px stay hard lines). Proxy-sim cloth (single-layer sim section + FMCloth mesh-to-mesh) is round 6.",
+   "by": "cc-64d05f6e"
+  }
+ },
+ "round7_tool_items": [
+  {
+   "item": "editor lip-bone readers (cast_gate lipgap scrub+level.bone, seq.sample) return a frozen face on SEQ_Reel's rig (box A, r6), so lips.lead_in_cm cannot be measured editor-side; fix the reader or replace it with agent-01's landmark measure on rendered frames",
+   "by": "cc-64d05f6e",
+   "found": "agent-01, 07 Nov"
+  },
+  {
+   "item": "qa.garment_look collar gap/roll on Epic's default tee with a face cull: three iterations disagreed (0.29-3.56 cm on one state); validate against the eye on known collars before it gates again",
+   "by": "cc-64d05f6e",
+   "found": "agent-09/agent-02, 07 Nov"
+  }
+ ]
+}

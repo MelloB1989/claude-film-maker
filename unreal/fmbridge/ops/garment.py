@@ -408,11 +408,13 @@ def _shown_verts(comp, dm, skip=("short", "hidden")):
     return sorted(keep) if keep and len(keep) >= 0.3 * n else None
 
 
-def _collar(a, parts, gv, body: str = "Body", gs=None) -> dict:
+def _collar(a, parts, gv, body: str = "Body", gs=None, cam=None) -> dict:
     """fmbridge.qa.garment_look.collar_stats at this pose: the garment's verts in the neck's frame (neck_01 ->
     head axis of the Body) and their distance to the skin (the Face's lower neck, or the Body). With `gs` (the
     garment's own _Surface) each vertex is also flagged as WALL (its triangle's normal within COLLAR_WALL_DEG of
-    perpendicular to the neck axis), so the local roll ignores the yoke flowing out over the shoulder."""
+    perpendicular to the neck axis), so the local roll ignores the yoke flowing out over the shoulder. With `cam` (the
+    shot camera's world location [x, y, z]) only the verts whose outward direction from the neck axis faces it are
+    judged (collar_stats facing: the gate is about what is seen)."""
     b = parts.get(body) or parts.get("Body")
     if b is None:
         return {"n": 0, "error": "no Body"}
@@ -429,7 +431,7 @@ def _collar(a, parts, gv, body: str = "Body", gs=None) -> dict:
     n1 = math.sqrt(sum(c * c for c in e1)) or 1.0
     e1 = tuple(c / n1 for c in e1)
     e2 = (uy * e1[2] - uz * e1[1], uz * e1[0] - ux * e1[2], ux * e1[1] - uy * e1[0])
-    axial, radial, gap, angle, wall = [], [], [], [], []
+    axial, radial, gap, angle, wall, facing, sdt = [], [], [], [], [], [], []
     lim = math.sin(math.radians(_look.COLLAR_WALL_DEG))
     for p in near:
         if gs is not None:
@@ -441,9 +443,20 @@ def _collar(a, parts, gv, body: str = "Body", gs=None) -> dict:
         angle.append(math.degrees(math.atan2(v.x * e2[0] + v.y * e2[1] + v.z * e2[2],
                                              v.x * e1[0] + v.y * e1[1] + v.z * e1[2])) % 360.0)
         axial.append(t)
-        ds = [(p - r[0]).length() for r in (sk.nearest(p) for sk in skins) if r is not None]
-        gap.append(min(ds) if ds else float("nan"))
-    return _look.collar_stats(axial, radial, gap, angle=angle, wall=wall if gs is not None else None)
+        if cam is not None:
+            c = unreal.Vector(float(cam[0]), float(cam[1]), float(cam[2]))
+            facing.append(v.dot(c - p) > 0.0)
+        near_s = [r[0] for r in (sk.nearest(p) for sk in skins) if r is not None]
+        q = min(near_s, key=lambda x: (p - x).length()) if near_s else None
+        gap.append((p - q).length() if q is not None else float("nan"))
+        sdt.append((q - p).dot(u) if q is not None else None)  # + = the nearest skin is above the vertex
+    wl = wall if gs is not None else None
+    out = _look.collar_stats(axial, radial, gap, angle=angle, wall=wl, facing=facing if cam is not None else None,
+                             skin_dt=sdt)
+    if cam is not None:  # the whole band too, as INFO (garment.collar_gap_all_cm / collar_roll_all)
+        al = _look.collar_stats(axial, radial, gap, angle=angle, wall=wl, skin_dt=sdt)
+        out["all"] = {k: al.get(k) for k in ("n", "gap_cm", "spread_cm", "spread_where", "roll")}
+    return out
 
 
 def _hem(parts, gv, rc, body: str = "Body") -> dict:
@@ -553,7 +566,14 @@ def garment_look(*, label: str, garment: str = "", ref_body: str = "", sequence:
             fr["walls"] = len(walls)
             yield
             if collar:
-                fr["collar"] = _collar(a, parts, gv, body, gs=gs)
+                cam = None
+                if f is not None and sequence:
+                    try:
+                        cam = camera_info(cut_camera(sequence, f), aspect=16 / 9)["loc"]
+                    except OpError:
+                        cam = None  # no camera cut at f: every side judged (stricter)
+                fr["collar"] = _collar(a, parts, gv, body, gs=gs, cam=cam)
+                fr["collar"]["camera_facing"] = cam is not None
                 yield
             if hem:
                 fr["hem"] = _hem(parts, gv, rc, body)
@@ -621,15 +641,23 @@ def garment_look(*, label: str, garment: str = "", ref_body: str = "", sequence:
     det = [v["detail"]["energy"] for v in vals if v.get("detail", {}).get("energy") is not None]
     if det:
         m["detail"] = min(det)
-    cols = [v["collar"] for v in vals if v.get("collar", {}).get("n")]
-    if cols:
+    every = [v["collar"] for v in vals if "collar" in v]
+    cols = [c for c in every if c.get("n")]
+    # a camera-facing frame whose facing half had too few band verts is NOT measured: it refuses, never drops out
+    blind = [c for c in every if not c.get("n") and c.get("camera_facing")]
+    if cols or blind:
         meas = [c for c in cols if c.get("spread_cm") is not None]
         w = max(meas, key=lambda c: c["spread_cm"]) if meas else {}
-        m["collar"] = {"frames": len(cols), "gap_cm": max(c["gap_cm"] for c in cols),
+        m["collar"] = {"frames": len(cols) + len(blind), "gap_cm": max((c["gap_cm"] for c in cols), default=0.0),
                        "spread_cm": w.get("spread_cm"), "spread_where": w.get("spread_where"),
                        "spread_window_cm": max((c.get("spread_window_cm") or 0) for c in cols),
                        "roll_frames": sum(1 for c in cols if c["roll"] is True),
-                       "roll_unmeasured": sum(1 for c in cols if c["roll"] is None)}
+                       "roll_unmeasured": sum(1 for c in cols if c["roll"] is None) + len(blind),
+                       "camera_facing": any(c.get("camera_facing") for c in every)}
+        alls = [c["all"] for c in cols if c.get("all") and c["all"].get("n")]
+        if alls:
+            m["collar"]["all"] = {"gap_cm": max(x["gap_cm"] for x in alls),
+                                  "roll_frames": sum(1 for x in alls if x.get("roll") is True)}
     hems = [v["hem"] for v in vals if v.get("hem", {}).get("n")]
     if hems:
         rs = [h for h in hems if h.get("ratio")]

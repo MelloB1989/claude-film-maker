@@ -1,0 +1,71 @@
+{
+ "subject": "Host (his karma finals state = r6n2: Epic's assembled default tee untouched, WPO 0; backstop OFF; face chest-flange cull 1.5 cm)",
+ "measured": "box A, 07 Nov 14:24 UTC (19:54 IST), core a7511df9 installed; qa.clip S13/S15/S17/S18 + S15 f1082-1198 every 6, ref_dir r4/clip/Host_after, neck_rule visible, tongue_cm 3.0; qa.garment_look f1082/1150/1397 (agent-06)",
+ "gate": {
+  "garment.neck_px": {
+   "value": 0,
+   "where": "qa.clip neck_rule=visible tongue_cm=3.0 (core a7511df9): islands 0, tongue px 0, max tongue 0.0 cm, every judged frame"
+  },
+  "garment.neck_rim_px": {
+   "value": 289,
+   "where": "INFO: the old rim rule, S15 f1196 (at_opening 392): the neck continuing over the hugging collar's edge, passed by eye (r6n2)"
+  },
+  "garment.open_edge_shrunk": {
+   "value": 0,
+   "where": "backstop shrink OFF (WI MaxShrink 0, forced build); shrink_live/cull_live kept verts moved 0.0 cm"
+  },
+  "garment.cull_kept_moved_cm": {
+   "value": 0.0,
+   "where": "r6/cull_live.py vs SKM_Host_Op_FaceMesh_r5: 912 gone, gone z 144.2-153.3 (median 149.0), kept_max_moved_cm 0.0"
+  },
+  "garment.cull_min_below_collar_cm": {
+   "value": 1.5,
+   "where": "neck_backstop CULL mode C1 on the uncut face: culled 970, covered 1160, min_depth_below_collar_cm 1.50 (CULL_DEPTH_CM 1.5, the orchestrator's pick (A); the row's line was drafted at 3.0) -- the orchestrator's pick (A) 1.5 cm is the line for this row"
+  },
+  "garment.collar_gap_cm": {
+   "value": null,
+   "error": "INFO for round 6 (orchestrator ruling A): the collar measure is not validated on this tee + cull. Finals (core 8bc9bc3b, camera-facing): 2.433/3.562/3.236 at f1082/1150/1397; whole band 1.926/2.275/2.861; pre-8bc9bc3b whole band 0.525/1.514/1.353; before any cull 0.29-0.30. Ring found by radius from the posterior neck axis + nearest-skin gap to skin culled under the tee (collar_cells dump). Eye: r6n2 passes. Round 7: fleet/agent-02/r6-collar-ray 950d4ccc (ray-at-height gap) + the round-5b loop-2 must-fail"
+  },
+  "garment.collar_roll": {
+   "value": null,
+   "error": "INFO for round 6 (orchestrator ruling A). Finals (8bc9bc3b, camera-facing): roll 3/3 on the GAP; spread 0.595/1.139/0.825 (one hugging wall; line 1.5). Wall-only whole-band spread 2.8-3.2 was one sloped surface (collar_cells)"
+  },
+  "garment.silhouette_pct": {
+   "value": null,
+   "error": "INFO for round 6 (orchestrator ruling): the reference is round 4's different performance (pose) on the same garment; armor_index 0.317 is the bulk guard and passes. Measured +31.73 (S15 f1152). Round 7: a pose-matched reference"
+  },
+  "garment.silhouette_ratio": {
+   "value": 2.302,
+   "where": "INFO (untrusted reference-body capture, as in round 5b)"
+  },
+  "garment.armor_index": {
+   "value": 0.317,
+   "where": "garment_look f1082/1150/1397"
+  },
+  "garment.wpo_cm": {
+   "value": 0,
+   "where": "Epic's tee, no inflate parameters"
+  },
+  "garment.pair_fraction": {
+   "value": 0.0,
+   "where": "Body>tee 0.0, Trousers>tee 0.0 (Face>tee 0.02957 / 685 px at S15 f1196 is the info pair the neck rows judge)"
+  },
+  "garment.hem_flare_ratio": {
+   "value": 0.5511,
+   "where": "garment_look (hem ease -12.36 cm, hem angle 7.8 deg)"
+  },
+  "garment.collar_gap_info_cm": {
+   "value": 3.562,
+   "where": "INFO: camera-facing ring, core 8bc9bc3b, S15 f1150"
+  },
+  "garment.collar_roll_info": {
+   "value": 3,
+   "where": "INFO: frames rolled (driven by the unvalidated gap), 8bc9bc3b camera-facing; facing spread worst 1.139 (f1150)"
+  },
+  "garment.silhouette_info_pct": {
+   "value": 31.73,
+   "where": "INFO: S15 f1152 vs r4/clip/Host_after"
+  }
+ },
+ "rulings": "orchestrator 07 Nov: silhouette INFO; collar_gap/collar_roll INFO (ruling A, round-7 item: ray gap 950d4ccc + loop-2 must-fail); cull depth 1.5 cm (pick A); neck = neck_visible tongue_cm 3.0"
+}

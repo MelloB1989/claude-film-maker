@@ -306,6 +306,9 @@ class Style:
     wrist_r: float = 4.0  # cm from the wrist joint to the desk (box B: at 2.6 each exhale took a pronated hand's edge
     #                       0.8 cm lower, into the top; 3.4 still touched the body in qa.clip)
     forearm_in: float = 26.0  # degrees each forearm points in toward the midline
+    elbow_overhang: float = 0.0  # cm the resting elbow may sit IN FRONT of the desk's near edge, the forearm lying
+    #                              across the edge (a tall presenter: his elbows land under his shoulders); the
+    #                              forearm must still have >= 55 % of its length over the top
     forearm_in_l: float | None = None  # her LEFT forearm's own (the mic side: kept out of the mic in the picture)
     wrist_back_l: float = 0.0  # cm the left wrist rests nearer the body (the forearm shortened in plan by sliding it)
     wrist_fwd: float = 36.0  # cm the wrist sits in front of the shoulder line (forward)
@@ -670,8 +673,14 @@ def check(seater: Seater, posed: dict) -> dict:
         need(h[2] >= st.desk_top + seater.sy.forearm_clear - 0.3, "desk.wrist",
              f"wrist_{s} at z {h[2]:.1f} is inside the desk top {st.desk_top}", h[2])
         if seater.sy.rest == "forearms":
-            need(e[0] >= st.desk_near + 2.0, "desk.elbow_off", f"elbow_{s} at x {e[0]:.1f} is off the desk's near "
-                 f"edge {st.desk_near} (bring the desk in or lean more)", e[0])
+            ov = seater.sy.elbow_overhang
+            need(e[0] >= st.desk_near + 2.0 - ov, "desk.elbow_off", f"elbow_{s} at x {e[0]:.1f} is off the desk's "
+                 f"near edge {st.desk_near} by more than {ov:g} cm (bring the desk in or lean more)", e[0])
+            if ov > 0 and e[0] < st.desk_near:  # resting across the edge: most of the forearm on the top
+                fa = norm(sub(h, e))
+                on_top = max(0.0, h[0] - st.desk_near) / max(1e-6, h[0] - e[0])
+                need(on_top >= 0.55, "desk.forearm_unsupported", f"only {on_top:.0%} of forearm_{s} is over the "
+                     f"desk ({fa:.0f} cm forearm)", on_top)
             need(e[2] <= st.desk_top + seater.sy.elbow_r + 1.0, "desk.elbow_hangs",
                  f"elbow_{s} at z {e[2]:.1f} hangs above the desk", e[2])
         if e[0] >= st.desk_near:  # an elbow over the desk must stay on it
@@ -783,7 +792,7 @@ TUNE = {"desk.elbow_off": ("lean", 1.0, 23.0), "seat.thigh_edge": ("hip_above_se
         "desk.knee": ("hip_above_seat", -0.4, 9.0)}
 
 
-def autotune(sk: Skeleton, st: Set, sy: Style, steps: int = 8) -> tuple:
+def autotune(sk: Skeleton, st: Set, sy: Style, steps: int = 10) -> tuple:
     """A body this pipeline has not seen (his, built only on his box) may miss a contact rule at rest by a little:
     lean 1 deg more while an elbow is off the desk edge, sit 0.4 cm higher while a thigh meets the seat's front edge,
     lower while a knee meets the desk's apron; within TUNE's limits. Returns (Seater, [changes])."""

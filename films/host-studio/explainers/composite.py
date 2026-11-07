@@ -48,6 +48,8 @@ LT_F0, LT_F1 = 12, 84         # the lower third's frames (on the first presenter
 CAP_Y = 1000                  # caption baseline centre (y of the text's vertical middle)
 CAP_SIZE = 50
 CAP_MAX_WORDS, CAP_MAX_CHARS = 6, 34
+CAP_PLATE = (16, 8, 12, 115)  # the caption's backing plate: x pad, y pad, radius (px), black alpha (45 %)
+CAP_DIM = 179                 # alpha of the words still to come (70 %)
 # a chunk never ends on these (no "over a hundred / billion", no "the / server")
 NO_BREAK_AFTER = {"a", "an", "the", "over", "of", "to", "on", "in", "its", "your", "their", "and", "so", "than",
                   "hundred", "three", "two", "few", "many", "right", "fewer", "one", "is", "it's", "into", "at", "per"}
@@ -194,22 +196,29 @@ def chunks(line: dict) -> list[list[dict]]:
 
 
 def caption_image(path: Path, words: list[str], lit: int, film: str) -> None:
-    """A chunk with its first `lit` words bright and the rest waiting, on a soft shadow (no box)."""
+    """A chunk with its first `lit` words bright and the rest waiting (CAP_DIM), on a rounded dark plate (CAP_PLATE):
+    white on a shadow alone vanished over her white top (orchestrator, Netflix v2)."""
     im = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     f = font("Geist-600.ttf", CAP_SIZE)
     d = ImageDraw.Draw(im)
     space = d.textlength(" ", font=f)
     widths = [d.textlength(w, font=f) for w in words]
-    x = (W - (sum(widths) + space * (len(words) - 1))) / 2
+    tw = sum(widths) + space * (len(words) - 1)
+    x = (W - tw) / 2
+    _, top, _, bot = d.textbbox((0, CAP_Y), "Hgjy", font=f, anchor="lm")  # one plate height for every chunk
+    px, py, r, a = CAP_PLATE
+    d.rounded_rectangle((round(x - px), round(top - py), round(x + tw + px), round(bot + py)), radius=r,
+                        fill=(0, 0, 0, a))
     sh = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     ds = ImageDraw.Draw(sh)
     xs = x
     for w, wd in zip(words, widths):
-        ds.text((xs, CAP_Y + 3), w, font=f, fill=(0, 0, 0, 200), anchor="lm")
+        ds.text((xs, CAP_Y + 2), w, font=f, fill=(0, 0, 0, 140), anchor="lm")
         xs += wd + space
-    im.alpha_composite(sh.filter(ImageFilter.GaussianBlur(6)))
+    im.alpha_composite(sh.filter(ImageFilter.GaussianBlur(3)))
+    d = ImageDraw.Draw(im)
     for i, (w, wd) in enumerate(zip(words, widths)):
-        d.text((x, CAP_Y), w, font=f, fill=TEXT + (255,) if i < lit else TEXT + (120,), anchor="lm")
+        d.text((x, CAP_Y), w, font=f, fill=TEXT + ((255,) if i < lit else (CAP_DIM,)), anchor="lm")
         x += wd + space
     im.save(path)
 
@@ -450,21 +459,26 @@ def main() -> None:
                          f"format=auto[v2]")
             last, idx = "[v2]", idx + 1
         frames = edl["frames"]
-        # both streams run the film's exact length: the picture by frame count, the mix (exactly that long, mix.py)
-        # by -t; no -shortest (with two outputs from one graph it cut the audio 3.35 s early, QA 07 Nov)
+        # two passes: the picture alone (by frame count), then each file remuxed with the mix (video copied, audio cut
+        # by -t). Muxing the mix in the graph pass cut it short twice: -shortest with two outputs (3.35 s, QA 07 Nov),
+        # then -frames:v ending the output while the audio lagged the filter graph (56.08 of 59.46 s, box B)
         dur = f"{frames / FPS:.6f}"
         chain.append(f"{last}trim=end_frame={frames},setpts=PTS-STARTPTS,split=2[vh][vp]")
         mp4, mov = a.out / f"{name}.mp4", a.out / f"{name}_master.mov"
-        outs = ["-map", "[vh]", "-map", "1:a", "-c:v", "libx264", "-preset", "slow", "-crf", "16",
+        vmp4, vmov = work / "pic_h264.mp4", work / "pic_master.mov"
+        outs = ["-map", "[vh]", "-c:v", "libx264", "-preset", "slow", "-crf", "16",
                 "-profile:v", "high", "-pix_fmt", "yuv420p", "-colorspace", "bt709", "-color_primaries", "bt709",
-                "-color_trc", "bt709", "-r", FPS, "-frames:v", frames, "-c:a", "aac", "-b:a", "320k", "-ar", 48000,
-                "-movflags", "+faststart", "-t", dur, mp4]
+                "-color_trc", "bt709", "-r", FPS, "-frames:v", frames, "-an", vmp4]
         if not a.no_prores:
-            outs += ["-map", "[vp]", "-map", "1:a", *PRORES, "-r", FPS, "-frames:v", frames, "-c:a", "pcm_s24le",
-                     "-t", dur, mov]
+            outs += ["-map", "[vp]", *PRORES, "-r", FPS, "-frames:v", frames, "-an", vmov]
         else:
             chain[-1] = chain[-1].replace(",split=2[vh][vp]", "[vh]")
         ff([*inputs, "-filter_complex", ";".join(chain), *outs], a.ffmpeg)
+        ff(["-i", vmp4, "-i", mix, "-map", "0:v", "-map", "1:a", "-c:v", "copy", "-c:a", "aac", "-b:a", "320k",
+            "-ar", 48000, "-t", dur, "-movflags", "+faststart", mp4], a.ffmpeg)
+        if not a.no_prores:
+            ff(["-i", vmov, "-i", mix, "-map", "0:v", "-map", "1:a", "-c:v", "copy", "-c:a", "pcm_s24le",
+                "-t", dur, mov], a.ffmpeg)
         write_srt(a.out / f"{name}.srt", srt)
         bad = [b for o in [mp4] + ([] if a.no_prores else [mov]) for b in verify(o, frames, srt, a.ffmpeg)]
         bad = list(dict.fromkeys(bad))

@@ -74,7 +74,11 @@ STYLE = {  # forearms resting on the desk (the orchestrator, r3 stills): elbows 
     "her": S.Style(lean=12.0, twist=0.0, hip_above_seat=11.0, knee_out=3.0, foot_out=6.0, pronation=75.0, shin_tilt=6.0,
                    elbow_out=-2.0, clavicle_fwd=-1.0, clavicle_drop=5.0, forearm_in=5.0,
                    elbow_r=4.6, wrist_r=3.7),  # bare forearms (V2, no overshirt): 1 cm of air read in the WIDE
-    "him": S.Style(lean=18.0, twist=0.0, knee_out=8.0, foot_out=9.0, pronation=72.0, elbow_out=3.0, forearm_in=8.0,
+    # him: the same seat rules as hers (elbows tucked by his sides on the top, near-parallel forearms, bare forearms
+    # in his tee); he is taller: at the 71 cm desk his elbows land under his shoulders, 4-7 cm short of the near edge
+    # (box B, 07 Nov), so they rest just OFF the edge with the forearms lying across it (elbow_overhang)
+    "him": S.Style(lean=18.0, twist=0.0, knee_out=8.0, foot_out=9.0, pronation=72.0, elbow_out=-2.0, forearm_in=6.0,
+                   elbow_r=4.6, wrist_r=3.7, elbow_overhang=10.0,
                    clavicle_fwd=5.0, clavicle_drop=3.0),
 }
 
@@ -163,8 +167,11 @@ def cmd_push(who: str) -> list:
     return [client().push(str(p), box(who, p.name)) for p in files]
 
 
-def cmd_solve(who: str, only=None) -> dict:
-    mesh = mesh_of(who, "Face")
+def cmd_solve(who: str, only=None, face_mesh: str = "") -> dict:
+    """One mouth-only speech.to_face per line. The face mesh is the presenter's in the open level, or `face_mesh`
+    (--face-mesh) when another level is open: both faces share Face_Archetype_Skeleton, so a solve on either mesh
+    plays on both (only the skeleton matters to the exported animation)."""
+    mesh = face_mesh or mesh_of(who, "Face")
     out = {}
     for ln in cues(who)["lines"]:
         k = ln["id"]
@@ -540,7 +547,51 @@ def face_args(who: str) -> dict:
     return args
 
 
+SIGNS = r"""
+import json, hashlib, os, unreal
+from fmbridge.ops.seq import component_of
+from fmbridge.ops.anim import _skeleton_path
+from fmbridge.ops.perf import _signs_file
+P = json.loads(PARAMS)
+mesh = component_of(P["label"], "Face").get_skeletal_mesh_asset()
+path = _signs_file(_skeleton_path(mesh))
+result = {"file": path, "sha256": hashlib.sha256(open(path, "rb").read()).hexdigest() if os.path.exists(path) else None}
+"""
+
+
+def cmd_signs(who: str, bless: bool = False) -> dict:
+    """The face's head-signs calibration (perf.calibrate's signs_<skeleton>.json) is ONE file for both presenters
+    (they share Face_Archetype_Skeleton), so it belongs to whoever was calibrated last (agent-04). --bless records its
+    sha256 as `who`'s: run it right after perf.calibrate label=<who> (HEAD_HIM 1b); face and sync then refuse to run on a
+    file that is not `who`'s."""
+    r = run(SIGNS, {"label": LABEL[who]})
+    p = OUT / who / "signs_sha256.txt"
+    if bless:
+        if not r["sha256"]:
+            raise SystemExit(f"no signs file at {r['file']}: run perf.calibrate label={LABEL[who]} first")
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(r["sha256"] + "\n")
+    r["blessed"] = p.read_text().strip() if p.exists() else None
+    r["match"] = bool(r["blessed"]) and r["blessed"] == r["sha256"]
+    return r
+
+
+def signs_guard(who: str) -> None:
+    r = cmd_signs(who)
+    if r["blessed"] is None:
+        print(f"WARNING: no blessed signs for {who} (perform.py signs --who {who} --bless after perf.calibrate)",
+              file=sys.stderr)
+        return
+    if not r["match"]:
+        other = "her" if who == "him" else "him"
+        raise SystemExit(f"the live head-signs file is not {who}'s (sha {str(r['sha256'])[:12]} != blessed "
+                         f"{r['blessed'][:12]}): it was calibrated for {other} since. Restore {who}'s copy "
+                         f"(signs_Face_Archetype_Skeleton.json.{who}_r6) or re-run perf.calibrate label={LABEL[who]} "
+                         f"and bless it")
+
+
 def cmd_face(who: str) -> dict:
+    signs_guard(who)
     args = face_args(who)
     keep(who, "face_args", args)
     r = ok(client().op("perf.face", anim=f"{ANIM}/AS_exp_{who}_solve", out=f"{ANIM}/AS_exp_{who}_face",
@@ -549,10 +600,212 @@ def cmd_face(who: str) -> dict:
     return {"out": r.get("out"), "report": r.get("report"), "curves": r.get("curves")}
 
 
-def cmd_sync(who: str) -> dict:
+# --- chunked bakes (box B, 07 Nov: his sync died in one whole-take bake, like a whole-take seq.sample; in 120-frame
+#     jobs the same playback passed): anim.bake_pose's sampling split across jobs, its writing kept as one short job
+
+BAKE_SAMPLE = r"""
+import json, os, unreal
+from fmbridge.ops.seq import component_of
+from fmbridge.ops._scrub import set_frame
+from fmbridge.ops.assets import load
+P = json.loads(PARAMS)
+LSE = unreal.LevelSequenceEditorBlueprintLibrary
+def job():
+    src = component_of(P["label"], P["source"])
+    bones = P["bones"]
+    if bones == "shared":  # bake_follow's set: every non-facial bone the leader and follower share
+        lead, foll = component_of(P["label"], P["source"]), component_of(P["label"], P["follower"])
+        lb = {str(lead.get_bone_name(i)) for i in range(lead.get_num_bones())}
+        bones = [n for n in (str(foll.get_bone_name(i)) for i in range(foll.get_num_bones()))
+                 if n in lb and not n.startswith("FACIAL")]
+    seq = load(P["seq"])
+    if LSE.get_current_level_sequence() != seq:
+        LSE.open_level_sequence(seq)
+    space = unreal.RelativeTransformSpace.RTS_PARENT_BONE_SPACE
+    out = {}
+    set_frame(P["frames"][0] + 1)
+    yield
+    for f in P["frames"]:
+        set_frame(f)
+        for _ in range(P["ticks"]):
+            yield
+        row = {}
+        for b in bones:
+            t = src.get_socket_transform(b, space)
+            p, q, sc = t.translation, t.rotation, t.scale3d
+            row[b] = [[p.x, p.y, p.z], [q.x, q.y, q.z, q.w], [sc.x, sc.y, sc.z]]
+        out[str(f)] = row
+    os.makedirs(os.path.dirname(P["file"]), exist_ok=True)
+    with open(P["file"], "w") as fh:
+        json.dump({"bones": bones, "frames": out}, fh)
+    unreal.SystemLibrary.collect_garbage()  # box B: his 14th sampling job in a row died: drop what the job held
+    return {"frames": len(out), "bones": len(bones), "file": P["file"]}
+result = job()
+"""
+
+BAKE_WRITE = r"""
+import json, math, unreal
+from fmbridge.ops.assets import EAL, free, load
+from fmbridge.ops.anim import model_keys, _nlerp, _set
+from fmbridge.ops.seq import set_anim
+AL = unreal.AnimationLibrary
+P = json.loads(PARAMS)
+def job():
+    data, bones = {}, None
+    for fn in P["files"]:
+        with open(fn) as fh:
+            d = json.load(fh)
+        bones = bones or d["bones"]
+        data.update({int(k): v for k, v in d["frames"].items()})
+    frames = sorted(data)
+    if frames != list(range(frames[0], frames[0] + len(frames))):
+        raise RuntimeError(f"chunked bake: frames missing between {frames[0]} and {frames[-1]}")
+    free(P["out"])
+    EAL.duplicate_asset(P["anim"], P["out"])
+    a = load(P["out"])
+    fps = P["fps"]
+    n_keys = model_keys(a)
+    length = float(AL.get_sequence_length(a))
+    span = (len(frames) - 1) / fps
+    tracks = {str(n) for n in AL.get_animation_track_names(a)}
+    ctrl = a.get_editor_property("controller")
+    own_poses = {}
+    def own(b, t):
+        if b not in tracks:
+            return unreal.Transform()
+        if t not in own_poses:
+            own_poses[t] = unreal.AnimPoseExtensions.get_anim_pose_at_time(a, t, unreal.AnimPoseEvaluationOptions())
+        return unreal.AnimPoseExtensions.get_bone_pose(own_poses[t], b, unreal.AnimPoseSpaces.LOCAL)
+    yield
+    ctrl.open_bracket("perform chunked bake", True)
+    try:
+        for j, b in enumerate(bones):
+            Pp, R, S = [], [], []
+            for k in range(n_keys):
+                t = k * length / max(1, n_keys - 1)
+                if t > span:
+                    o = own(b, t)
+                    Pp.append(o.translation); R.append(o.rotation); S.append(o.scale3d)
+                    continue
+                x = min(t * fps, len(frames) - 1.0001)
+                i, u = int(x), x - int(x)
+                r0, r1 = data[frames[i]][b], data[frames[i + 1]][b]
+                q = _nlerp(r0[1], r1[1], u)
+                R.append(unreal.Quat(q[0], q[1], q[2], q[3]))
+                if P.get("rot_only"):  # the target animation keeps its own bone lengths (another mesh's offsets)
+                    o = own(b, t)
+                    Pp.append(o.translation)
+                    S.append(o.scale3d)
+                else:
+                    Pp.append(unreal.Vector(*[p0 + (p1 - p0) * u for p0, p1 in zip(r0[0], r1[0])]))
+                    S.append(unreal.Vector(*[s0 + (s1 - s0) * u for s0, s1 in zip(r0[2], r1[2])]))
+            if b not in tracks:
+                ctrl.add_bone_curve(b)
+            ctrl.set_bone_track_keys(b, Pp, R, S)
+            if j % 40 == 39:
+                yield
+    finally:
+        ctrl.close_bracket(True)
+    if P.get("head_control_off"):
+        _set(a, "headcontrolswitch", [0.0, length], [0.0, 0.0])
+    EAL.save_asset(P["out"])
+    set_anim(P["seq"], P["target"], P["out"], label=P["label"])
+    return {"anim": P["out"], "bones": len(bones), "keys": n_keys, "frames": len(frames)}
+result = job()
+"""
+
+BAKE_CHUNK = 240
+
+
+def bake(who: str, source: str, target: str, anim: str, out: str, bones, head_control_off: bool = False,
+         chunk: int = BAKE_CHUNK, stage: str = "", rot_only: bool = False) -> dict:
+    """anim.bake_pose / bake_follow, sampled in `chunk`-frame jobs (each prints before it runs) and written once."""
+    c = client()
+    path, lab = WORK[who], LABEL[who]
+    n = frames(who)
+    files = []
+    tag = out.rsplit("/", 1)[-1] + (f"_{stage}" if stage else "")  # bakes 1 and 3 write the same asset
+    for f0 in range(0, n, chunk):
+        part = list(range(f0, min(n, f0 + chunk)))
+        fn = box(who, "bake", f"{tag}_{f0:05d}.json")
+        print(f"bake {tag}: frames {part[0]}-{part[-1]}", file=sys.stderr, flush=True)
+        run(BAKE_SAMPLE, {"seq": path, "label": lab, "source": source, "follower": target, "bones": bones,
+                          "frames": part, "ticks": 2, "file": fn}, 3600)
+        files.append(fn)
+    return run(BAKE_WRITE, {"seq": path, "label": lab, "target": target, "anim": anim, "out": out, "files": files,
+                            "fps": FPS, "head_control_off": head_control_off, "rot_only": rot_only}, 3600)
+
+
+# head_to_body's bones (the face's motion onto the body). Him: neck and head only. His built face carries its own
+# spine_04/05 pose: baked onto his body it tipped his chest and lifted both resting wrists 3.6 cm off the desk
+# (box B bodycheck, 07 Nov 23:1x; hips/knees 0). Her spine bake read 0 cm, so hers keeps the reel's set. His bake 2
+# also takes ROTATIONS only: the face's neck offsets are another mesh's; with them his bake 3 killed the editor at
+# frames 240-479 every time.
+H2B_BONES = {"her": ["spine_04", "spine_05", "neck_01", "neck_02", "head"], "him": ["neck_01", "neck_02", "head"]}
+
+
+TRACKCHECK = r"""
+import json, math, unreal
+AL, APE = unreal.AnimationLibrary, unreal.AnimPoseExtensions
+P = json.loads(PARAMS)
+def job():
+    a = unreal.load_asset(P["anim"])
+    L = float(AL.get_sequence_length(a))
+    names = [str(n) for n in AL.get_animation_track_names(a)]
+    bones = [b for b in names if not P["bones"] or b in P["bones"]]
+    out = {"anim": P["anim"], "length_s": L, "tracks": len(names), "bad": [], "jumps": []}
+    prev = {}
+    f0, f1 = P["span"]
+    for f in range(f0, f1):
+        t = min(L, f / P["fps"])
+        pose = APE.get_anim_pose_at_time(a, t, unreal.AnimPoseEvaluationOptions())
+        for b in bones:
+            tr = APE.get_bone_pose(pose, b, unreal.AnimPoseSpaces.LOCAL)
+            q, p_ = tr.rotation, tr.translation
+            vals = [q.x, q.y, q.z, q.w, p_.x, p_.y, p_.z]
+            n = math.sqrt(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w)
+            if any(v != v or abs(v) > 1e5 for v in vals) or abs(n - 1.0) > 1e-2:
+                if len(out["bad"]) < 40:
+                    out["bad"].append({"frame": f, "bone": b, "q": [round(v, 4) for v in vals[:4]], "norm": round(n, 4),
+                                       "t": [round(v, 2) for v in vals[4:]]})
+            if b in prev:
+                pq = prev[b]
+                d = abs(sum(x * y for x, y in zip(pq, vals[:4])))
+                ang = math.degrees(2 * math.acos(min(1.0, d))) if n > 0 else 0.0
+                if ang > P["jump_deg"] and len(out["jumps"]) < 40:
+                    out["jumps"].append({"frame": f, "bone": b, "deg": round(ang, 1)})
+            prev[b] = vals[:4]
+        if f % 30 == 29:
+            yield
+    return out
+result = job()
+"""
+
+
+def cmd_trackcheck(who: str, anim: str = "", span: str = "", bones: str = "") -> dict:
+    """Read-only, nothing played: an animation's bone tracks key by key (AnimPose), flagging NaN/huge values,
+    non-unit quaternions and frame-to-frame turns over 25 deg (box B: his bake 3 killed the editor at frames 240-479
+    on top of the new bake 2, every time). Default anim: AS_exp_<who>_body (bake 2's output)."""
+    a0, a1 = (int(x) for x in span.split(":")) if span else (0, frames(who))
+    return run(TRACKCHECK, {"anim": anim or f"{ANIM}/AS_exp_{who}_body", "span": [a0, a1], "fps": FPS,
+                            "bones": [b for b in bones.split(",") if b], "jump_deg": 25.0}, 1800)
+
+
+def fresh_editor(who: str, level: str) -> dict:
+    """Save what's dirty, restart the editor, reopen `level`, re-lead the garments (box B, 07 Nov: his 8th-14th
+    sampling job in a row killed the editor even with a GC after each; a fresh editor ran bake 3's 6 jobs clean)."""
+    from filmtools.unreal import editorsvc
+    run("import unreal\nunreal.EditorLoadingAndSavingUtils.save_dirty_packages(True, True)\nresult = True", {}, 900)
+    r = editorsvc.control("restart", wait=True, wait_s=3600)
+    ok(client().op("level.open", path=level, timeout=1800))
+    return {"restart": r.get("action"), "level": level, "leaders": lead(who)}
+
+
+def cmd_sync(who: str, from_bake: int = 1, restart_level: str = "") -> dict:
     """The reel's sync on the seated body: the face rides the body with its head control on, the body takes the head
     motion that makes, the shared skeleton is baked back onto the face; then perf.face's planned head turn goes on the
     body (on 5.8 the face takes its neck from the body)."""
+    signs_guard(who)
     c = client()
     path, lab = WORK[who], LABEL[who]
     face, seat = f"{ANIM}/AS_exp_{who}_face", f"{ANIM}/AS_exp_{who}_seat"
@@ -561,13 +814,32 @@ def cmd_sync(who: str) -> dict:
                                                                           "loop": False}]))
     ok(c.op("seq.anim", path=path, label=lab, component="Face", sections=[{"anim": face, "start": 0, "end": n,
                                                                           "loop": False}]))
-    a = ok(c.op("anim.bake_follow", sequence=path, actor_label=lab, anim=face, out=f"{ANIM}/AS_exp_{who}_follow",
-                head_control=True, timeout=3600))
-    b = ok(c.op("anim.head_to_body", sequence=path, actor_label=lab, body_anim=seat, out=f"{ANIM}/AS_exp_{who}_body",
-                timeout=3600))
-    ok(c.op("seq.set_anim", path=path, component="Body", anim=f"{ANIM}/AS_exp_{who}_body", label=lab))
-    d = ok(c.op("anim.bake_follow", sequence=path, actor_label=lab, anim=face, out=f"{ANIM}/AS_exp_{who}_follow",
-                timeout=3600))
+    # the reel's three bakes, each sampled in BAKE_CHUNK-frame jobs (bake_follow = the Body's shared bones onto the
+    # Face; head_to_body = the Face's spine/neck/head onto the Body)
+    # --from-bake N resumes after a crash: the earlier bakes' assets are on disk (each bake saves its own), and the
+    # work sequence's tracks are put back to what bake N expects (an editor restart can drop unsaved track changes)
+    follow, body = f"{ANIM}/AS_exp_{who}_follow", f"{ANIM}/AS_exp_{who}_body"
+    a = b = {"skipped": True}
+    if from_bake <= 1:
+        print("sync 1/3: bake_follow (head control on)", file=sys.stderr, flush=True)
+        a = bake(who, "Body", "Face", face, follow, "shared", head_control_off=False, stage="b1")
+    else:
+        ok(c.op("seq.set_anim", path=path, component="Face", anim=follow, label=lab))
+    if from_bake <= 2:
+        if restart_level and from_bake < 2:
+            print("sync: fresh editor before bake 2", file=sys.stderr, flush=True)
+            fresh_editor(who, restart_level)
+            ok(c.op("seq.set_anim", path=path, component="Face", anim=follow, label=lab))
+            ok(c.op("seq.set_anim", path=path, component="Body", anim=seat, label=lab))
+        print("sync 2/3: head_to_body", file=sys.stderr, flush=True)
+        b = bake(who, "Face", "Body", seat, body, H2B_BONES[who], stage="b2", rot_only=(who == "him"))
+    if restart_level and from_bake < 3:
+        print("sync: fresh editor before bake 3", file=sys.stderr, flush=True)
+        fresh_editor(who, restart_level)
+        ok(c.op("seq.set_anim", path=path, component="Face", anim=follow, label=lab))
+    ok(c.op("seq.set_anim", path=path, component="Body", anim=body, label=lab))
+    print("sync 3/3: bake_follow (head control off)", file=sys.stderr, flush=True)
+    d = bake(who, "Body", "Face", face, follow, "shared", head_control_off=True, stage="b3")
     e = ok(c.op("perf.turn_head", anim=f"{ANIM}/AS_exp_{who}_body", face_anim=face, timeout=900))
     ok(c.op("seq.set_anim", path=path, component="Face", anim=f"{ANIM}/AS_exp_{who}_follow", label=lab))
     res = {"follow_head": a, "body": b, "follow": d, "turn": e, "leaders": lead(who)}
@@ -756,16 +1028,25 @@ def breath(t: list, pts: list) -> dict:
             "cycles": len(amps), "axis": [round(float(v), 3) for v in vt[0]]}
 
 
-def cmd_bodycheck(who: str, seq: str = "", every: int = 2) -> dict:
+def cmd_bodycheck(who: str, seq: str = "", every: int = 2, chunk: int = 120, span: str = "") -> dict:
     """What the sequence plays, in the actor's frame: every BODY_BONES position against the desk, seat, floor and
     mic (seatkit.check's rules on the real bones), the posed hips/knees/wrists against seatkit's prediction (proves
     the conventions on this rig), and the breathing (sternum = spine_05 height) for agent-09's body rows."""
     path = seq or SEQ[who]
     n = frames(who)
-    fr = list(range(0, n, every))
+    a0, a1 = (int(x) for x in span.split(":")) if span else (0, n)
+    fr = list(range(a0, min(a1, n), every))
     c = client()
-    m = ok(c.op("seq.sample", path=path, actor_label=LABEL[who], component="Body", bones=BODY_BONES, frames=fr,
-                ticks=2, timeout=3600))
+    # chunk > 0: one seq.sample per `chunk` frames (box B, 07 Nov: one 1352-frame play of his sequence killed the editor
+    # twice; chunks show where, and keep each job short)
+    m = {"bones": {b: [] for b in BODY_BONES}}
+    for i0 in range(0, len(fr), chunk or len(fr)):
+        part = fr[i0:i0 + (chunk or len(fr))]
+        print(f"bodycheck: frames {part[0]}-{part[-1]}", file=sys.stderr, flush=True)
+        r = ok(c.op("seq.sample", path=path, actor_label=LABEL[who], component="Body", bones=BODY_BONES,
+                    frames=part, ticks=2, timeout=3600))
+        for b in BODY_BONES:
+            m["bones"][b].extend(r["bones"].get(b, []))
     body = run(CAMS, {"label": LABEL[who], "cams": []})["body"]
     fr_ = json.loads((OUT / who / "body_check.json").read_text())["frame"]
     yaw = math.radians(body["yaw"])  # the component's world yaw
@@ -929,7 +1210,20 @@ def cmd_numbers(who: str, seq: str = "") -> dict:
             v = sum(d) / len(d) if d else 0.0
             if worst is None or v > worst[0]:
                 worst = (v, f"{k} f{lo}-{f0 - 1}")
-        g["lips.lead_in_cm"] = {"value": round(worst[0], 4), "where": worst[1]}
+        # guard (box A, 07 Nov: the editor read his lip bones FROZEN, 0.0 everywhere): the same sampler on a spoken
+        # stretch of each judged line must see the lips open >= 0.3 cm, else the row is an error, never a 0
+        by = {ln["id"]: ln for ln in lines}
+        spoken = sorted({f for k, _, f0 in wins for f in range(f0, min(by[k]["end_f"], f0 + 24))})
+        m2 = ok(client().op("seq.sample", path=path, actor_label=LABEL[who], component="Face", bones=list(LIP_GAP),
+                            frames=spoken, ticks=2, timeout=3600))
+        g2 = [S.norm(S.sub(m2["bones"][LIP_GAP[0]][i][:3], m2["bones"][LIP_GAP[1]][i][:3])) for i in range(len(spoken))]
+        opening = (max(g2) - min(g2)) if g2 else 0.0
+        if opening < 0.3:
+            g["lips.lead_in_cm"] = {"value": None, "error": f"the lip gap does not open while speaking ({opening:.2f} cm "
+                                                            f"over the judged lines' first second): the sampler read a "
+                                                            f"frozen face"}
+        else:
+            g["lips.lead_in_cm"] = {"value": round(worst[0], 4), "where": worst[1], "open_cm": round(opening, 2)}
     d = HERE / "numbers" / FILM[who]
     d.mkdir(parents=True, exist_ok=True)
     (d / "lips.json").write_text(json.dumps({"gate": g, "source": f"perform.py numbers --who {who} on {path}"},
@@ -945,12 +1239,13 @@ def step(name: str, who: str, a) -> dict:
     if name.startswith("check:"):
         r = cmd_check(who, name.split(":")[1])
     else:
-        r = {"push": lambda: cmd_push(who), "solve": lambda: cmd_solve(who, a.only), "bias": lambda: cmd_bias(who),
+        r = {"push": lambda: cmd_push(who), "solve": lambda: cmd_solve(who, a.only, a.face_mesh), "bias": lambda: cmd_bias(who),
              "compose": lambda: cmd_compose(who), "workseq": lambda: cmd_workseq(who, a.fresh),
              "body": lambda: cmd_body(who, a.force), "cams": lambda: cmd_cams(who), "life": lambda: cmd_life(who),
-             "face": lambda: cmd_face(who), "sync": lambda: cmd_sync(who), "gaze": lambda: cmd_gaze(who),
+             "face": lambda: cmd_face(who), "sync": lambda: cmd_sync(who, a.from_bake, a.restart_level), "gaze": lambda: cmd_gaze(who),
              "place": lambda: cmd_place(who, a.seq), "preview": lambda: cmd_preview(who, a.seq),
-             "numbers": lambda: cmd_numbers(who, a.seq), "rolltest": lambda: cmd_rolltest(who), "bodycheck": lambda: cmd_bodycheck(who, a.seq),
+             "numbers": lambda: cmd_numbers(who, a.seq),
+             "trackcheck": lambda: cmd_trackcheck(who, a.anim, a.span, a.bones), "signs": lambda: cmd_signs(who, a.bless), "rolltest": lambda: cmd_rolltest(who), "bodycheck": lambda: cmd_bodycheck(who, a.seq, a.every, a.chunk, a.span),
              "calibrate_body": lambda: cmd_calibrate_body(who)}[name]()
     return r
 
@@ -958,13 +1253,23 @@ def step(name: str, who: str, a) -> dict:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("cmd", choices=["push", "solve", "bias", "compose", "check", "workseq", "cams", "body", "life",
-                                    "calibrate_body", "face", "sync", "gaze", "place", "preview", "numbers", "rolltest", "bodycheck", "all", "dry"])
+                                    "calibrate_body", "face", "sync", "gaze", "place", "preview", "numbers", "rolltest", "signs", "trackcheck", "bodycheck", "all", "dry"])
     ap.add_argument("--who", required=True, choices=list(FILM))
     ap.add_argument("--stage", default="solve", choices=["solve", "face", "final", "placed"])
     ap.add_argument("--only", type=lambda s: s.split(","))
     ap.add_argument("--seq", default="")
     ap.add_argument("--fresh", action="store_true")
     ap.add_argument("--force", action="store_true", help="body: write even if the pose fails its own check")
+    ap.add_argument("--from-bake", type=int, default=1, help="sync: resume at bake 2 or 3 after a crash")
+    ap.add_argument("--restart-level", default="", help="sync: restart the editor before bakes 2 and 3 and reopen "
+                    "this level (a long run of sampling jobs kills it on his scene)")
+    ap.add_argument("--anim", default="", help="trackcheck: the animation (default AS_exp_<who>_body)")
+    ap.add_argument("--bones", default="", help="trackcheck: comma list (default all tracks)")
+    ap.add_argument("--every", type=int, default=2, help="bodycheck: every n-th frame")
+    ap.add_argument("--chunk", type=int, default=120, help="bodycheck: frames per seq.sample call (0 = one call)")
+    ap.add_argument("--span", default="", help="bodycheck: a:b frame range")
+    ap.add_argument("--face-mesh", default="", help="solve: the face SkeletalMesh to solve on (another level open)")
+    ap.add_argument("--bless", action="store_true", help="signs: record the live head-signs file as this presenter's")
     ap.add_argument("--from", dest="start", default="body")
     ap.add_argument("--to", dest="stop", default="numbers")
     a = ap.parse_args()
