@@ -591,6 +591,154 @@
    ],
    "info_reason": "no held-camera cut in either explainer: no two consecutive shots share a camera (edl/<film>.json), and the panel shots render through CAM_MCU_L (agent-07: the same lens position as CAM_MCU, turned), so whatsapp 12 -> 13 is a camera change too. Every explainer job is pre-rolled from frame 0 of the one continuous take (render.py preroll=cut), so the hair state matches at every cut whatever the job split; hair.cut_reach_pct still judges every cut",
    "where": "no held-camera cut in the explainers"
+  },
+  "face.expr_active_frac": {
+   "area": "performance",
+   "track": "round 7 (agent-09 measure; agent-04 face, agent-01 body, agent-02 garment)",
+   "op": ">=",
+   "line": 0.6,
+   "unit": "fraction",
+   "what": "speaking frames with a NON-MOUTH expression active (brows, cheek/eye squint, smile) above 0.15 over the shot's neutral",
+   "where": "every speaking + on-screen frame of the presenter (cue words x edl presenter spans)",
+   "how": "film-qa perf-face <final frames> --speaking spans.json --box <face box> (MediaPipe blendshapes, each channel vs the shot's own neutral; on the box) -> numbers/<film>/perf_face.json; pre-check offline: qa_perf.face_rows_curves on the face anim (agent-04)",
+   "must_fail": [
+    null,
+    "netflix v2b (the operator's REJECT, 07 Nov 23:45): measure on box B's v2b frames/curves and put the value here; the line must fail it"
+   ],
+   "guard": true,
+   "why": "the operator, 07 Nov: 'her expression is pale, no emotion at all ... hands stuck to her body ... boob covering the upper limb ... these presenters must look confident, happy, full of energy, not robotic' (R7_common.md). The numbers support the eye; the operator decides"
+  },
+  "face.smile_events_per_min": {
+   "area": "performance",
+   "track": "round 7 (agent-09 measure; agent-04 face, agent-01 body, agent-02 garment)",
+   "op": ">=",
+   "line": 4,
+   "unit": "/min",
+   "what": "Duchenne smiles (mouthSmile up WITH cheek or eye squint, held >= 4 frames) per speaking minute",
+   "where": "every speaking + on-screen frame of the presenter (cue words x edl presenter spans)",
+   "how": "film-qa perf-face <final frames> --speaking spans.json --box <face box> (MediaPipe blendshapes, each channel vs the shot's own neutral; on the box) -> numbers/<film>/perf_face.json; pre-check offline: qa_perf.face_rows_curves on the face anim (agent-04)",
+   "must_fail": [
+    null,
+    "netflix v2b (the operator's REJECT, 07 Nov 23:45): measure on box B's v2b frames/curves and put the value here; the line must fail it"
+   ],
+   "guard": true,
+   "why": "the operator, 07 Nov: 'her expression is pale, no emotion at all ... hands stuck to her body ... boob covering the upper limb ... these presenters must look confident, happy, full of energy, not robotic' (R7_common.md). The numbers support the eye; the operator decides"
+  },
+  "face.brow_flash_per_min": {
+   "area": "performance",
+   "track": "round 7 (agent-09 measure; agent-04 face, agent-01 body, agent-02 garment)",
+   "op": ">=",
+   "line": 6,
+   "unit": "/min",
+   "what": "brow flashes (inner or outer brows up 0.2 for 0.12-1.0 s) per speaking minute",
+   "where": "every speaking + on-screen frame of the presenter (cue words x edl presenter spans)",
+   "how": "film-qa perf-face <final frames> --speaking spans.json --box <face box> (MediaPipe blendshapes, each channel vs the shot's own neutral; on the box) -> numbers/<film>/perf_face.json; pre-check offline: qa_perf.face_rows_curves on the face anim (agent-04)",
+   "must_fail": [
+    null,
+    "netflix v2b (the operator's REJECT, 07 Nov 23:45): measure on box B's v2b frames/curves and put the value here; the line must fail it"
+   ],
+   "guard": true,
+   "why": "the operator, 07 Nov: 'her expression is pale, no emotion at all ... hands stuck to her body ... boob covering the upper limb ... these presenters must look confident, happy, full of energy, not robotic' (R7_common.md). The numbers support the eye; the operator decides"
+  },
+  "face.neutral_hold_max_s": {
+   "area": "performance",
+   "track": "round 7 (agent-09 measure; agent-04 face, agent-01 body, agent-02 garment)",
+   "op": "<=",
+   "line": 1.5,
+   "unit": "s",
+   "what": "the longest run of speaking frames with nothing active",
+   "where": "every speaking + on-screen frame of the presenter (cue words x edl presenter spans)",
+   "how": "film-qa perf-face <final frames> --speaking spans.json --box <face box> (MediaPipe blendshapes, each channel vs the shot's own neutral; on the box) -> numbers/<film>/perf_face.json; pre-check offline: qa_perf.face_rows_curves on the face anim (agent-04)",
+   "must_fail": [
+    null,
+    "netflix v2b (the operator's REJECT, 07 Nov 23:45): measure on box B's v2b frames/curves and put the value here; the line must fail it"
+   ],
+   "guard": true,
+   "why": "the operator, 07 Nov: 'her expression is pale, no emotion at all ... hands stuck to her body ... boob covering the upper limb ... these presenters must look confident, happy, full of energy, not robotic' (R7_common.md). The numbers support the eye; the operator decides"
+  },
+  "body.gesture_onsets_per_s": {
+   "area": "performance",
+   "track": "round 7 (agent-09 measure; agent-04 face, agent-01 body, agent-02 garment)",
+   "op": "range",
+   "line": [
+    0.5,
+    1.2
+   ],
+   "unit": "/s",
+   "what": "a hand's speed rising from rest (<10 cm/s) past 25 cm/s, >= 0.25 s apart, per speaking second",
+   "where": "every speaking + on-screen frame of the presenter (cue words x edl presenter spans)",
+   "how": "film-ue op seq.sample (hand_l, hand_r every frame of the speaking spans) -> film-qa perf-body SAMPLES.json --speaking spans.json --desk-z <the desk top z> -> numbers/<film>/perf_body.json",
+   "must_fail": [
+    null,
+    "netflix v2b (the operator's REJECT, 07 Nov 23:45): measure on box B's v2b frames/curves and put the value here; the line must fail it"
+   ],
+   "guard": true,
+   "why": "the operator, 07 Nov: 'her expression is pale, no emotion at all ... hands stuck to her body ... boob covering the upper limb ... these presenters must look confident, happy, full of energy, not robotic' (R7_common.md). The numbers support the eye; the operator decides"
+  },
+  "body.hands_above_desk_frac": {
+   "area": "performance",
+   "track": "round 7 (agent-09 measure; agent-04 face, agent-01 body, agent-02 garment)",
+   "op": ">=",
+   "line": 0.5,
+   "unit": "fraction",
+   "what": "speaking frames with either wrist bone more than 8 cm above the desk top (a resting forearm puts it ~3-4 cm up)",
+   "where": "every speaking + on-screen frame of the presenter (cue words x edl presenter spans)",
+   "how": "film-ue op seq.sample (hand_l, hand_r every frame of the speaking spans) -> film-qa perf-body SAMPLES.json --speaking spans.json --desk-z <the desk top z> -> numbers/<film>/perf_body.json",
+   "must_fail": [
+    null,
+    "netflix v2b (the operator's REJECT, 07 Nov 23:45): measure on box B's v2b frames/curves and put the value here; the line must fail it"
+   ],
+   "guard": true,
+   "why": "the operator, 07 Nov: 'her expression is pale, no emotion at all ... hands stuck to her body ... boob covering the upper limb ... these presenters must look confident, happy, full of energy, not robotic' (R7_common.md). The numbers support the eye; the operator decides"
+  },
+  "body.wrist_travel_cm_per_s": {
+   "area": "performance",
+   "track": "round 7 (agent-09 measure; agent-04 face, agent-01 body, agent-02 garment)",
+   "op": ">=",
+   "line": 0,
+   "unit": "cm/s",
+   "what": "mean hand speed while speaking: reported against v2b",
+   "where": "every speaking + on-screen frame of the presenter (cue words x edl presenter spans)",
+   "how": "film-ue op seq.sample (hand_l, hand_r every frame of the speaking spans) -> film-qa perf-body SAMPLES.json --speaking spans.json --desk-z <the desk top z> -> numbers/<film>/perf_body.json",
+   "must_fail": [
+    null,
+    "netflix v2b (the operator's REJECT, 07 Nov 23:45): measure on box B's v2b frames/curves and put the value here; the line must fail it"
+   ],
+   "guard": true,
+   "info": true,
+   "why": "the operator, 07 Nov: 'her expression is pale, no emotion at all ... hands stuck to her body ... boob covering the upper limb ... these presenters must look confident, happy, full of energy, not robotic' (R7_common.md). The numbers support the eye; the operator decides"
+  },
+  "body.upperarm_torso_clear_cm": {
+   "area": "performance",
+   "track": "round 7 (agent-09 measure; agent-04 face, agent-01 body, agent-02 garment)",
+   "op": ">=",
+   "line": 3.0,
+   "unit": "cm",
+   "what": "min over frames and sides of the upper arm's distance to the torso (posed Body + upper garment), NEGATIVE = the arm inside the torso's volume (the breast covering it)",
+   "where": "every speaking + on-screen frame of the presenter (cue words x edl presenter spans)",
+   "how": "film-ue op qa.limb_clearance label=<presenter> sequence=<SEQ> frames=[every 6th speaking frame] (core fleet/agent-09/r7-perf-gate) -> metrics.worst_cm -> numbers/<film>/limbs.json",
+   "must_fail": [
+    null,
+    "netflix v2b (the operator's REJECT, 07 Nov 23:45): measure on box B's v2b frames/curves and put the value here; the line must fail it"
+   ],
+   "guard": true,
+   "why": "the operator, 07 Nov: 'her expression is pale, no emotion at all ... hands stuck to her body ... boob covering the upper limb ... these presenters must look confident, happy, full of energy, not robotic' (R7_common.md). The numbers support the eye; the operator decides"
+  },
+  "garment.waist_fit_cm": {
+   "area": "garment",
+   "track": "round 7 (agent-09 measure; agent-04 face, agent-01 body, agent-02 garment)",
+   "op": "<=",
+   "line": 0.8,
+   "unit": "cm",
+   "what": "the bottoms' waistband vs the body at the waist: the worst gap (stand-off) or poke, per frame, on the camera-facing half",
+   "where": "every speaking + on-screen frame of the presenter (cue words x edl presenter spans)",
+   "how": "agent-02's waist measure (qa.garment_look-style ring at the waist band) -> numbers/<film>/garment.json",
+   "must_fail": [
+    null,
+    "netflix v2b (the operator's REJECT, 07 Nov 23:45): measure on box B's v2b frames/curves and put the value here; the line must fail it"
+   ],
+   "guard": true,
+   "why": "the operator, 07 Nov: 'her expression is pale, no emotion at all ... hands stuck to her body ... boob covering the upper limb ... these presenters must look confident, happy, full of energy, not robotic' (R7_common.md). The numbers support the eye; the operator decides"
   }
  },
  "not_attempted": {

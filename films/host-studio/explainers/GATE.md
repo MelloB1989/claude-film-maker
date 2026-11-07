@@ -38,6 +38,23 @@ The orchestrator ruled on 07 Nov, about 23:10 IST.
 
 ## Verdicts
 
+### Netflix v2b: REJECTED BY THE OPERATOR (07 Nov, about 23:45 IST). The SIGN below is SUPERSEDED.
+
+The operator's words: "nah, this ain't good at all ... her expression is pale, no emotion at all, viewer will not get
+any curiosity ... why is her hands stuck to her body, looks very odd, also her right boob is cover the upper limb of her
+right hand ... these presenters must look confident, happy, full of energy, not robotic. also look close to her waist ->
+her skirt or whatever she is wearing below is not fit to her."
+
+The technical gate passed, and it still failed. **This gate did not measure acting.** Round 7 adds the PERFORMANCE
+rows (`gate_spec.json`):
+
+- face.expr_active_frac, smile_events_per_min, brow_flash_per_min and neutral_hold_max_s;
+- body.gesture_onsets_per_s, hands_above_desk_frac and upperarm_torso_clear_cm, with wrist_travel_cm_per_s as INFO;
+- garment.waist_fit_cm.
+
+Each row's must_fail is v2b, measured on box B. The numbers support the eye; the operator decides.
+
+
 ### Netflix v2b: SIGN (07 Nov, about 23:45 IST)
 
 - **Command:** `gate_film.py --film netflix numbers/netflix/*.json --out numbers/netflix/verdict.json`.
