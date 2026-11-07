@@ -11,9 +11,9 @@ Each channel is taken RELATIVE to the shot's own neutral (its 20th percentile), 
 camera's angle do not read as expression.
 
 BODY (bone samples from the editor, seq.sample of hand_l/hand_r; cm, the world's Z up):
-- body.gesture_onsets_per_s  a hand's speed rising from rest (< rest_cms) past move_cms, at least 0.25 s apart
-- body.hands_above_desk_frac  speaking frames with either hand (wrist bone) more than 8 cm above the desk top (a
-  forearm resting on the desk puts the wrist bone ~3-4 cm up)
+- body.gesture_onsets_per_s  a hand going up off the desk, plus each beat while it is up, at least 0.25 s apart
+- body.hands_above_desk_frac  speaking frames with either wrist bone more than 10 cm above the desk top (a forearm
+  resting on the desk puts it ~6 cm up on her rig)
 - body.wrist_travel_cm_per_s  mean hand speed while speaking (report; compare with v2b)
 
     film-qa perf-face FRAMES_DIR --fps 24 --speaking SPANS.json [--box x0,y0,x1,y1] [--out face.json]   # on the box
@@ -33,8 +33,8 @@ SMILE, SQUINT, BROW = 0.20, 0.10, 0.20
 SMILE_HOLD_F, BROW_MIN_S, BROW_MAX_S = 4, 0.12, 1.0
 HYST = 0.8  # an event ends below 80 % of its line
 REST_CMS, MOVE_CMS, ONSET_GAP_S = 10.0, 25.0, 0.25
-GESTURE_AMP_CM, GESTURE_WIN_S = 8.0, 0.6  # provisional: calibrated on v2b's samples (must fail) and a gesturing take
-DESK_CLEAR_CM = 8.0  # the wrist bone of a forearm RESTING on the desk sits ~3-4 cm above its top: "up off the desk" is more
+BEAT_CMS = 40.0
+DESK_CLEAR_CM = 10.0  # her resting wrist bone sits ~6 cm over the desk top (v2b): 'up off the desk' is ~4 cm more
 
 
 def _in(f: int, spans: list) -> bool:
@@ -155,40 +155,46 @@ def face_track(paths: list, fps: float, box=None, model: str = "") -> dict:
 
 
 def body_rows(samples: dict, fps: float, spans: list, desk_z: float, hands=("hand_l", "hand_r")) -> dict:
-    """samples: {"frames": [f...], "bones": {name: [[x, y, z, ...], ...]}} (seq.sample) -> the three body rows."""
+    """samples: {"frames": [f...], "bones": {name: [[x, y, z, ...], ...]}} (seq.sample) -> the three body rows.
+
+    A hand is UP when its wrist bone is more than DESK_CLEAR_CM above the desk top (a forearm resting on the desk puts
+    it ~6 cm up on her rig: v2b's resting wrists read 76.7-77.0 over a 71 cm top). A GESTURE onset is the hand going
+    UP (one per lift, its return to the desk is not another), plus each BEAT while it stays up: the speed rising from
+    under REST_CMS past BEAT_CMS while not moving down toward the desk, >= ONSET_GAP_S after the last onset."""
     fr = samples["frames"]
     idx = [i for i, f in enumerate(fr) if _in(f, spans)]
+    keys = ("body.gesture_onsets_per_s", "body.hands_above_desk_frac", "body.wrist_travel_cm_per_s")
     if len(idx) < 3:
-        return {k: {"value": None, "error": "fewer than 3 speaking frames sampled"} for k in
-                ("body.gesture_onsets_per_s", "body.hands_above_desk_frac", "body.wrist_travel_cm_per_s")}
+        return {k: {"value": None, "error": "fewer than 3 speaking frames sampled"} for k in keys}
+    line = desk_z + DESK_CLEAR_CM
     onsets, above, travel, n = 0, 0, 0.0, 0
-    last_onset = {h: -1e9 for h in hands}
-    resting = {h: True for h in hands}
+    last = {h: -1e9 for h in hands}
+    up = {h: False for h in hands}
+    slow = {h: True for h in hands}
     for i in idx:
-        if any(samples["bones"][h][i][2] > desk_z + DESK_CLEAR_CM for h in hands):
+        Z = {h: samples["bones"][h][i][2] for h in hands}
+        if any(z > line for z in Z.values()):
             above += 1
-        if i == 0 or fr[i] != fr[i - 1] + 1:
-            continue
+        cont = i > 0 and fr[i] == fr[i - 1] + 1
         for h in hands:
+            was_up, up[h] = up[h], Z[h] > line
+            if not cont:
+                continue
             a, b = samples["bones"][h][i - 1], samples["bones"][h][i]
             v = math.dist(a[:3], b[:3]) * fps
             travel += v
             n += 1
-            if v < REST_CMS:
-                resting[h] = True
-            elif v > MOVE_CMS and resting[h]:
-                resting[h] = False
-                # a GESTURE, not a twitch: within GESTURE_WIN_S the hand gets GESTURE_AMP_CM away from where it started
-                # (v2b's pinned hands shifted on the desk at 25 cm/s peaks but a few cm only: they passed a speed-only
-                # detector at 0.59/s)
-                p0 = samples["bones"][h][i - 1][:3]
-                reach = max((math.dist(p0, samples["bones"][h][j][:3]) for j in range(i, min(len(fr), i + int(
-                    GESTURE_WIN_S * fps) + 1)) if fr[j] - fr[i] == j - i), default=0.0)
-                if reach >= GESTURE_AMP_CM and (fr[i] - last_onset[h]) / fps >= ONSET_GAP_S:
-                    onsets += 1
-                    last_onset[h] = fr[i]
+            onset = False
+            if up[h] and not was_up:
+                onset = True  # the hand goes up off the desk
+            elif up[h] and slow[h] and v > BEAT_CMS and b[2] - a[2] > -0.5 * v / fps:
+                onset = True  # a beat in the air (not the return toward the desk)
+            if onset and (fr[i] - last[h]) / fps >= ONSET_GAP_S:
+                onsets += 1
+                last[h] = fr[i]
+            slow[h] = v < REST_CMS
     secs = len(idx) / fps
-    where = f"{len(idx)} speaking frames ({secs:.1f} s), desk top z {desk_z}"
+    where = f"{len(idx)} speaking frames ({secs:.1f} s), desk top z {desk_z}, up = wrist > {line:.1f}"
     return {"body.gesture_onsets_per_s": {"value": round(onsets / secs, 3), "where": where},
             "body.hands_above_desk_frac": {"value": round(above / len(idx), 3), "where": where},
             "body.wrist_travel_cm_per_s": {"value": round(travel / max(1, n), 2), "where": where}}
