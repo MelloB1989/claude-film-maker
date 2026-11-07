@@ -17,6 +17,7 @@ import argparse
 import json
 import math
 import sys
+from pathlib import Path
 
 WALL = -260.0
 MARK = (20.0, -20.0, 0.0)  # the chair mark = the presenter actor's root (agent-01's contract)
@@ -33,17 +34,19 @@ FACE_ESTIMATED = {"him"}  # framing rules that hinge on the exact eye height (th
 
 # the props (agent-05; s3 …/props/explainer/). Origins: chair and desk on the floor at their centre, the mic boom at its
 # desk clamp on the desk top (props/mic_boom.py's convention). Yaw in degrees about +Z.
-DESK_TOP = 74.0
+DESK_TOP = 71.0  # r6 (agent-01, the shoulder): 3 cm lower (and 6 cm in) puts her upper arms ~35° instead of 45°
+DESK_TOP_MESH = 74.0  # the desk meshes are built to 74: scaled in Z to DESK_TOP until agent-05's waterfall desk
 SIDE_WALL = -330.0     # the room's -Y wall (room_shell: side walls at y = ±330)
-DESK_C = (65.5, -20.0)  # orchestrator r3: the desk 12.5 cm in, so her knees go under and her forearms rest on it
+DESK_C = (59.5, -20.0)  # r3: 12.5 cm in; r6: 6 cm more (near edge x 32) for elbows by her sides
 PROPS = {  # label: (FBX stem, loc, yaw, scale)
     "ExpChair": ("SM_PodcastChair", (MARK[0], MARK[1], 0.0), 0.0, None),  # seat top 45, front edge +24.5, faces +X
-    "ExpDesk": ("SM_WalnutDesk", (DESK_C[0], DESK_C[1], 0.0), 0.0, None),  # 55 (X) x 110 (Y), top 74: x 38..93
+    "ExpDesk": ("SM_WalnutDesk", (DESK_C[0], DESK_C[1], 0.0), 0.0, [1.0, 1.0, DESK_TOP / DESK_TOP_MESH]),  # 55 x 110: x 32..87
     # agent-05 posed the boom for a clamp on the desk's +Y edge (70,32.6,74) → capsule (44,-6,99). The cameras moved to
     # the +Y side (r3: no window behind her), so the boom is MIRRORED about the desk's centre line y = -20: local X
     # scale -1 at yaw -90 mirrors world Y → clamp (70,-72.6,74), capsule (44,-34,99), still aimed at the mouth
-    "ExpMic": ("SM_MicBoom", (70.0, 2 * DESK_C[1] - 32.6, DESK_TOP), -90.0, [-1.0, 1.0, 1.0]),
-    "ExpPlant": ("SM_DeskPlant", (85.0, -66.0, DESK_TOP), 25.0, None),  # 13 x 44 cm: the far -Y corner, behind the boom
+    # r6: the clamp 3 cm back (x 67) so the capsule follows her head (3 cm further back in agent-01's a22617ca pose)
+    "ExpMic": ("SM_MicBoom", (67.0, 2 * DESK_C[1] - 32.6, DESK_TOP), -90.0, [-1.0, 1.0, 1.0]),
+    "ExpPlant": ("SM_DeskPlant", (80.0, -66.0, DESK_TOP), 25.0, None),  # 13 x 44 cm: the far -Y corner, behind the boom
     # r5: the WIDE's right side (the -Y wall) — agent-05's floor lamp (a real practical) and a snake plant
     "ExpLamp": ("SM_FloorLamp", (-110.0, SIDE_WALL + 30.0, 0.0), 0.0, None),
     "ExpSnake": ("SM_FloorSnakePlant", (-215.0, SIDE_WALL + 32.0, 0.0), 30.0, None),
@@ -79,7 +82,9 @@ GARMENT_HIDES = {
     "her": [("Top", "Overshirt", 6.0), ("Trousers", "Top", 4.0), ("Body", "Top", 4.0)],
     "him": [],
 }
-GARMENT_SRC = {"her": {"Top": "/Game/Host/Presenter_Outfit/SKM_Presenter_Top",
+GARMENT_SRC = {"her": {"Overshirt": "/Game/Host/Presenter_Overshirt/SKM_Presenter_Overshirt_RW",  # r6: agent-02's
+                       # reweight (the MetaHuman helper/corrective joints carried 60% of the shoulder cap: it ballooned)
+                       "Top": "/Game/Host/Presenter_Outfit/SKM_Presenter_Top",
                        "Trousers": "/Game/Host/Presenter_Outfit/SKM_Presenter_Trousers",
                        "Body": "/Game/Host/Unpacked/Presenter/Body/SKM_Presenter_F_BodyMesh"}, "him": {}}
 
@@ -142,8 +147,10 @@ def cameras(who: str) -> dict:
     plan = {  # az, el, distance from the look point, focal, f-stop, look point
         "CAM_MCU": (26.0, 2.5, 175.0, 60.0, 2.0, (eyes[0], eyes[1], eyes[2] - 7.0)),
         "CAM_CU": (17.0, 2.0, 128.0, 85.0, 2.0, (eyes[0], eyes[1], eyes[2] - 4.0)),
+        # r6 (the operator: the desk front looked weird): higher and tighter, the desk top's front edge in the lower
+        # third, the set behind her; within 1° of CAM_MCU_L (her look to the lens across the 43.3 s cut)
         # within 4° of CAM_MCU_L (her look to the lens across the 43.3 s cut) and the window just out of frame
-        "CAM_WIDE": (24.0, 4.0, 320.0, 35.0, 2.8, (eyes[0] + 12.0, eyes[1] - 30.0, eyes[2] - 38.0)),
+        "CAM_WIDE": (22.0, 14.0, 230.0, 35.0, 2.8, (eyes[0] + 8.0, eyes[1] - 16.0, eyes[2] - 22.0)),
     }
     out = {}
     for name, (az, el, dist, focal, stop, look) in plan.items():
@@ -259,9 +266,9 @@ def check(who: str) -> list:
         head = min(abs(p[0] - eu) for p in sp)
         rows.append((f"{name} sign wholly in (clear of the head) or wholly out", n_in == 0 or (n_in == len(sp)
                      and head > 0.12), f"{n_in}/{len(sp)} sign points in frame, nearest to the eyes {head:.2f}"))
-        if name == "CAM_WIDE":
-            cu, cv, _ = project(cam, (MARK[0], MARK[1], 0.0))
-            rows.append(("CAM_WIDE chair feet in frame", 0.0 < cu < 1.0 and cv < 0.98, f"u {cu:.3f} v {cv:.3f}"))
+        if name == "CAM_WIDE":  # r6: the desk front small in frame (its top's camera-side edge in the lower third)
+            dv = [project(cam, (DESK_C[0] + 27.5, y, DESK_TOP))[1] for y in (DESK_C[1] - 55, DESK_C[1], DESK_C[1] + 55)]
+            rows.append(("CAM_WIDE desk front in the lower third", min(dv) >= 0.67, f"v {[round(v, 3) for v in dv]}"))
     for name, cam in cams.items():  # the desk plant stays off her face and mouth
         x, y, _ = PROPS["ExpPlant"][1]
         mu, mv, _ = project(cam, fc["mouth"])
@@ -272,6 +279,22 @@ def check(who: str) -> list:
     rows.append(("mic boom reach (prop: ~45 cm, +35 cm)", 30.0 <= mc["reach_cm"] <= 60.0,
                  f"reach {mc['reach_cm']:.1f} cm, rise {mc['rise_cm']:.1f} cm, yaw {mc['yaw']:.1f}°"))
     return rows
+
+
+def set_for_perf(who: str) -> dict:
+    """agent-01's perform.py set file (set_<who>.json), in the actor frame (studio - MARK): the desk and the boom as
+    the solve checks hands, elbows and knees against them. The boom polyline is agent-05's posed clamp → elbow →
+    arm tip → capsule, mirrored to -Y about y = DESK_C[1] and moved with the clamp."""
+    cx, cy, cz = PROPS["ExpMic"][1]
+    pose = {"clamp": (70.0, 32.6, 74.0), "elbow": (63.8, 22.9, 119.3), "tip": (49.5, 0.4, 103.4), "capsule": (44.0, -6.0, 99.0)}
+    dx, dz = cx - 70.0, cz - 74.0
+    pts = {k: (x + dx, 2 * DESK_C[1] - y, z + dz) for k, (x, y, z) in pose.items()}
+    a = lambda p: [round(p[0] - MARK[0], 2), round(p[1] - MARK[1], 2), round(p[2] - MARK[2], 2)]
+    return {"desk_top": DESK_TOP, "desk_near": round(DESK_C[0] - 27.5 - MARK[0], 2),
+            "desk_far": round(DESK_C[0] + 27.5 - MARK[0], 2), "desk_y": [round(DESK_C[1] - 55 - MARK[1], 2),
+            round(DESK_C[1] + 55 - MARK[1], 2)], "desk_under": round(63.4 - (DESK_TOP_MESH - DESK_TOP), 2),
+            "mic": a(pts["capsule"]), "boom": [a(pts[k]) for k in ("clamp", "elbow", "tip", "capsule")],
+            "frame": "actor (studio minus the chair mark (20,-20,0)), cm; written by setplan.set_for_perf"}
 
 
 def spec(who: str) -> dict:
@@ -285,7 +308,13 @@ def main() -> int:
     ap.add_argument("--who", default="her", choices=sorted(FACE))
     ap.add_argument("--check", action="store_true")
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--perf-set", action="store_true", help="write set_<who>.json for agent-01's perform.py")
     a = ap.parse_args()
+    if a.perf_set:
+        out = Path(__file__).resolve().parent / f"set_{a.who}.json"
+        out.write_text(json.dumps(set_for_perf(a.who), indent=1) + "\n")
+        print(out.read_text())
+        return 0
     if a.json:
         print(json.dumps(spec(a.who), indent=1))
         return 0

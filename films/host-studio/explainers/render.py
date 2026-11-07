@@ -37,7 +37,7 @@ PRESETS = {
 def spec(who: str, film: str, n: int, cam: str, f0: int, f1: int, preset: str) -> dict:
     out = f"{OUT}/{film}/{preset}/shot{n:02d}_{cam}"
     return {"kind": "render", "version": 1, "name": f"exp_{film}_{preset}_shot{n:02d}_{cam}", "sequence": S.SEQ[who],
-            "level": S.LEVEL, "out_dir": out, "frames": [f0, f1], "chunking": "none", "preroll": "cut",
+            "level": S.LEVELS[who], "out_dir": out, "frames": [f0, f1], "chunking": "none", "preroll": "cut",
             "warmup_engine": 22, "shutter_timing": "open", "overwrite": False, "zero_pad": 4, "cvars": CVARS,
             **{k: v for k, v in PRESETS[preset].items()}}
 

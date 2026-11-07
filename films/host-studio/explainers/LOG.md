@@ -24,6 +24,10 @@ Times IST. One section per author, rebuilt from each author's branch tip at inte
 | 17:38-17:50 | agent-01's face chain (`perform.py all --who her --from cams --fresh`, onset-window fix installed in the bridge): every stage PASS; numbers committed (lips lag 0.77 f, track r 0.897, onset lead 77 ms, lead_in 0.0001 cm) |
 | 17:51-17:54 | r6 stills → orchestrator: **PASS by eye** (watch: dither on the lapel edges in the still → finals' AA). Previews shot 1 MCU / 7 CU / 11 WIDE with the mix → `private/renders/r6/explain/netflix/preview/` |
 | 17:56 | qa.clip after the chain: Body>Desk / Desk>Overshirt / Trousers>Chair 0, mouth 0; Body>Chair 8 px + Chair>Trousers 2 px (WIDE) with agent-01. Finals of all 9 presenter shots started (4x8, film cvars, png, garment.leaders_ok read before every job → numbers/netflix/box.json) |
+| 17:58-18:09 | agent-01's dde4d4ec body (hips lifted, lean 19°) → 'all --from sync' PASS. qa.clip clip_r7: every set row 0 (chair, desk, mic over mouth); the three garment rows (Top>Overshirt open front, Body>Top wrist, Trousers>Top waist) judged by the orchestrator's eye as OCCLUSIONS → clip_r7 is agent-09's baseline |
+| 18:05 | **Strays**: ExplainerSet carried the reel's parked Test_perf_Her, Test_perf_Him (a full BP_Host_Op) and 5 Test_perf_S1x cameras (z -2500) from the Studio copy → deleted; set.py's level step deletes Test_*/FMQA_*; render.py's guard (strays, leaders, face luma in a still through the job's camera) before every job |
+| 18:11-18:31 | **HER FINALS**: 9 shots, 4x8, film cvars, PNG + H.264 with the mix → `private/renders/r6/explain/netflix/final/`; guard ok on every job (face luma 119-157); numbers/netflix/box.json garment.leaders_ok 1. Orchestrator: shimmer check PASS |
+| 18:35 | **Netflix composite v1** on box B (agent-11's composite.py via `uv run --with pillow`; the box has no pip): netflix_r6_v1.mp4 + ProRes master + srt + contact sheet + f60/f480/f1000 → `private/renders/r6/review/explain/` |
 
 ## The set (setplan.py)
 
