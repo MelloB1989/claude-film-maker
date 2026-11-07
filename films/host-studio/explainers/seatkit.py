@@ -283,7 +283,8 @@ class Set:
 @dataclass
 class Style:
     """How this presenter sits. Defaults: a calm podcast posture."""
-    hip_above_seat: float = 9.5  # hip joints above the seat top (the soft tissue under the ischia)
+    hip_above_seat: float = 10.3  # hip joints above the seat top (the soft tissue under the ischia; 9.5 put the
+    #                               trousers 3-4 px into the cushion in qa.clip, box B)
     hip_back: float = 0.0  # hips this far behind the actor origin
     pelvis_tilt: float = 6.0  # degrees, back (posterior tilt seated)
     lean: float = 14.0  # degrees of forward lean, spread over the spine (beyond undoing the pelvis tilt)
@@ -299,9 +300,10 @@ class Style:
     rest: str = "forearms"  # "forearms": elbows and forearms resting ON the desk (a podcaster leaning on it);
     #                         "wrists": only the wrists on the desk, elbows in the air (round 6's first stills)
     elbow_out: float = 4.0  # cm each elbow sits outside its shoulder
-    elbow_r: float = 4.2  # cm from the elbow joint to the desk under it (the forearm's thickness there)
-    wrist_r: float = 3.4  # cm from the wrist joint to the desk (box B: at 2.6 each exhale took a pronated hand's edge
-    #                       0.8 cm lower, into the top; this keeps >= 2 cm through the breath)
+    elbow_r: float = 5.0  # cm from the elbow joint to the desk under it (the forearm's thickness there + the sleeve:
+    #                       4.2 left the overshirt 21 px into the desk in qa.clip, box B)
+    wrist_r: float = 4.0  # cm from the wrist joint to the desk (box B: at 2.6 each exhale took a pronated hand's edge
+    #                       0.8 cm lower, into the top; 3.4 still touched the body in qa.clip)
     forearm_in: float = 26.0  # degrees each forearm points in toward the midline
     wrist_fwd: float = 36.0  # cm the wrist sits in front of the shoulder line (forward)
     wrist_in: float = 4.0  # cm the wrist sits inside the shoulder (toward the midline)
@@ -311,6 +313,7 @@ class Style:
     hand_yaw_in: float = 14.0  # degrees the fingers point toward the midline
     forearm_clear: float = 2.8  # cm the forearm's axis keeps above the desk top (half its thickness, wrist end)
     heel_lift: float = 0.0  # cm the heels come up off the floor (the balls stay down): short legs on a tall seat
+    sole: float = 0.0  # cm of shoe sole under the foot (the whole foot rides this much higher)
     thigh_radius: float = 6.5  # cm from the femur's axis to the thigh's underside (the seat-edge check)
     finger_clear: float = 0.4  # cm the curled fingertips keep above the desk (the wrist extends until they do)
 
@@ -430,7 +433,7 @@ class Seater:
             side = r if s == "r" else mul(r, -1.0)
             hip = self._fk_t(th, "pelvis", W)
             l1, l2 = self.L[s]
-            ankle_z = sk.p(fo)[2] + sy.heel_lift  # the feet keep their rest height (+ the heel lift)
+            ankle_z = sk.p(fo)[2] + sy.heel_lift + sy.sole  # the feet keep their rest height (+ heel lift, sole)
             # knee: forward of the hip by the thigh, out by knee_out; then the shin down at shin_tilt to the floor
             ox = sy.knee_out
             # solve the thigh's drop so the shin (l2, tilted) lands at the ankle height
@@ -644,11 +647,11 @@ def check(seater: Seater, posed: dict) -> dict:
         need(k[2] < st.desk_under - 6.0, "desk.knee", f"knee_{s} top would touch the desk underside (z {k[2]:.1f})",
              k[2])
         need(a[2] > floor, "floor.ankle", f"ankle_{s} below the floor", a[2])
-        rest = seater.sk.p("foot_" + s)[2] - seater.root[2] + seater.sy.heel_lift
+        rest = seater.sk.p("foot_" + s)[2] - seater.root[2] + seater.sy.heel_lift + seater.sy.sole
         need(abs(a[2] - rest) < 1.0, "floor.foot_lift", f"foot_{s} {a[2] - rest:+.1f} cm off its height",
              a[2] - rest)
         if "ball_" + s in A:
-            rb = seater.sk.p("ball_" + s)[2] - seater.root[2]
+            rb = seater.sk.p("ball_" + s)[2] - seater.root[2] + seater.sy.sole
             need(abs(A["ball_" + s][2] - rb) < 1.0, "floor.ball", f"ball_{s} {A['ball_' + s][2] - rb:+.1f} cm off the "
                  f"floor", A["ball_" + s][2] - rb)
         hp, kn = A["thigh_" + s], A["calf_" + s]
