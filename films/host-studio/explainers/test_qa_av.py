@@ -81,3 +81,30 @@ def test_onset_uses_the_caption_with_the_lines_first_word_not_one_still_on_scree
     srt = "1\n00:00:00,950 --> 00:00:02,400\nOne two three.\n\n2\n00:00:02,400 --> 00:00:03,500\nFour five.\n"
     g = captions_numbers(parse_srt(srt), vo)
     assert g["captions.onset_ms"]["value"] == 100 and "B" in g["captions.onset_ms"]["where"]
+
+
+def test_luma_ignores_a_hand_crossing_part_of_the_box(tmp_path):
+    import numpy as np
+    from PIL import Image
+    from qa_av import luma
+    face = np.full((40, 40, 3), 140, np.uint8)
+    Image.fromarray(face).save(tmp_path / "a.png")
+    hand = face.copy()
+    hand[:, :12] = 230  # a bright hand over 30 % of the box
+    Image.fromarray(hand).save(tmp_path / "b.png")
+    a, b = luma(str(tmp_path / "a.png")), luma(str(tmp_path / "b.png"))
+    assert abs(np.log2(b / a)) < 0.05  # the plain mean would read ~0.4 stops
+
+
+def test_exposure_takes_a_box_per_frame(tmp_path):
+    import numpy as np
+    from PIL import Image
+    from qa_av import exposure
+    for k in range(3):
+        im = np.zeros((40, 80, 3), np.uint8)
+        x0 = 10 * k
+        im[10:30, x0:x0 + 20] = 150  # the face moves right; the light is the same
+        Image.fromarray(im).save(tmp_path / f"{k:04d}.png")
+    boxes = {k: [10 * k / 80, 10 / 40, (10 * k + 20) / 80, 30 / 40] for k in range(3)}
+    g = exposure(str(tmp_path), [["S", 0, 3]], boxes)
+    assert g["shot.exposure_jump_stops"]["value"] < 0.01

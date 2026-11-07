@@ -171,7 +171,8 @@
    "where": "the SEATED pose, every presenter camera of the film (qa.clip / qa.garment_look on the explainer sequence)"
   },
   "garment.pair_fraction": {
-   "where": "the SEATED pose, every presenter camera of the film (qa.clip / qa.garment_look on the explainer sequence)"
+   "where": "the SEATED pose on the finals' own state, every presenter camera. Pairs the orchestrator ruled OCCLUSIONS by eye (netflix, box B clip_r7: Top>Overshirt = the open front, Body>Top = the wrist in front of the torso, Trousers>Top = the waist) count only their EXCESS over clip_r7's own worst for that pair (qa.clip before=clip_r7/clip.json, slack 0.01); every other pair counts raw",
+   "how": "film-ue op qa.clip ... before=/srv/ue/qa/expl/<film>/clip_r7/clip.json on the finals' state -> the worst over pairs of (fraction - baseline worst, floored at 0) for the ruled pairs, raw fraction for the rest -> numbers/<film>/clip.json"
   },
   "garment.hem_flare_ratio": {
    "where": "the SEATED pose, every presenter camera of the film (qa.clip / qa.garment_look on the explainer sequence)"
