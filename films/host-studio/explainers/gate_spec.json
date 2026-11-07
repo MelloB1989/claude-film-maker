@@ -251,10 +251,11 @@
    "op": "<=",
    "line": 0.05,
    "unit": "stops",
-   "what": "worst frame-to-frame change of the presenter's face-box exposure inside a shot (auto-exposure pumping, a light popping)",
+   "what": "worst frame-to-frame change of the SCENE exposure inside a shot, read on a fixed STATIC background patch (the plaster wall, or in a CU any static out-of-focus background region), median luma: auto-exposure pumping or a light popping moves it; her face turning against a fixed key does not",
    "where": "every presenter shot (final frames, on the box)",
-   "how": "qa_av.py exposure FRAMES --shots shots.json --box <face box> (on the box: face data)",
-   "why": "the brief: exposure stable; 0.05 stops is below what reads as a flicker"
+   "how": "qa_av.py exposure FRAMES --shots shots.json --boxes <the static patch per shot> (on the box) -> numbers/<film>/exposure.json; the face-box numbers are kept as INFO in the file",
+   "why": "the brief: exposure stable; 0.05 stops is below what reads as a flicker",
+   "why_r6": "agent-09, 07 Nov: the face box measured her shading as she turns against the key (fixed box jump 0.17 / drift 0.27; tracked cheek band WORSE, 0.41 / 0.27), not exposure; the static-background control isolates exposure (netflix: wall worst jump 0.007, drift 0.019). Exposure is locked manual in the render spec"
   },
   "shot.exposure_drift_stops": {
    "area": "shot",
@@ -262,10 +263,11 @@
    "op": "<=",
    "line": 0.15,
    "unit": "stops",
-   "what": "worst drift of the 12-frame moving average of the face-box exposure inside a shot",
+   "what": "worst drift of the 12-frame moving average of the SCENE exposure inside a shot, read on a fixed STATIC background patch (the plaster wall, or in a CU any static out-of-focus background region), median luma: auto-exposure pumping or a light popping moves it; her face turning against a fixed key does not",
    "where": "every presenter shot",
-   "how": "qa_av.py exposure (as above)",
-   "why": "a slow eye-adaptation drift reads as a dimmer on the face"
+   "how": "qa_av.py exposure FRAMES --shots shots.json --boxes <the static patch per shot> (on the box) -> numbers/<film>/exposure.json; the face-box numbers are kept as INFO in the file",
+   "why": "a slow eye-adaptation drift reads as a dimmer on the face",
+   "why_r6": "agent-09, 07 Nov: the face box measured her shading as she turns against the key (fixed box jump 0.17 / drift 0.27; tracked cheek band WORSE, 0.41 / 0.27), not exposure; the static-background control isolates exposure (netflix: wall worst jump 0.007, drift 0.019). Exposure is locked manual in the render spec"
   },
   "audio.lufs_err_lu": {
    "area": "audio",
