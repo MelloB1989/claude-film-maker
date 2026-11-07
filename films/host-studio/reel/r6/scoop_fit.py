@@ -237,7 +237,7 @@ def _editor(G: dict):
             arr = LU.convert_triangle_list_to_array(tl)
             return [(int(t.x), int(t.y), int(t.z)) for t in arr]
         out = []
-        for tid in range(MQ.get_num_triangle_ids(dm)):
+        for tid in range((getattr(MQ, "get_num_triangle_i_ds", None) or MQ.get_num_triangle_ids)(dm)):
             iv = pick(MQ.get_triangle_indices(dm, tid), "IntVector")
             out.append((int(iv.x), int(iv.y), int(iv.z)))
         return out
