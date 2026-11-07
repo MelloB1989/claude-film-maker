@@ -1,0 +1,815 @@
+{
+ "verdict": "SIGN",
+ "rows": [
+  {
+   "id": "lips.lead_in_cm",
+   "value": 0.0001,
+   "line": 0.05,
+   "op": "<=",
+   "unit": "cm/frame",
+   "area": "lips",
+   "where": "N06 f402-410",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "lips.onset_lead_ms",
+   "value": 77,
+   "line": 250,
+   "op": "<=",
+   "unit": "ms",
+   "area": "lips",
+   "where": "her N07 f508",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "lips.lag_frames",
+   "value": 0.77,
+   "line": 1,
+   "op": "<=",
+   "unit": "frames",
+   "area": "lips",
+   "where": "her N07 f508",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "lips.track_r",
+   "value": 0.897,
+   "line": 0.8,
+   "op": ">=",
+   "unit": "r",
+   "area": "lips",
+   "where": "her N07 f508",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "lips.measured_against",
+   "value": 1,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "lips",
+   "where": "1 = each line's own solve, 0 = the voice",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "lips.silence_open",
+   "value": -0.0,
+   "line": 0.1,
+   "op": "<=",
+   "unit": "jawOpen",
+   "area": "lips",
+   "where": "her f-30-12",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "lips.silence_busy",
+   "value": 0.001,
+   "line": 0.25,
+   "op": "<=",
+   "unit": "ratio",
+   "area": "lips",
+   "where": "her f192-199",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "lips.render_lag_frames",
+   "value": null,
+   "line": 1,
+   "op": "<=",
+   "unit": "frames",
+   "area": "lips",
+   "where": "every spoken line",
+   "state": "INFO",
+   "reason": "not measured (info only)"
+  },
+  {
+   "id": "lips.render_conclusive",
+   "value": null,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "lips",
+   "where": "every spoken line",
+   "state": "INFO",
+   "reason": "not measured (info only)"
+  },
+  {
+   "id": "lips.cues_fresh",
+   "value": 1,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "lips",
+   "where": "every line WAV = the one solved",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "head.blink_nod_deg",
+   "value": 0.048,
+   "line": 0.6,
+   "op": "<=",
+   "unit": "deg",
+   "area": "head",
+   "where": "her on screen f0-1390 (9 spans)",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "head.blink_locked_deg",
+   "value": 0.103,
+   "line": 0.3,
+   "op": "<=",
+   "unit": "deg",
+   "area": "head",
+   "where": "her on screen f0-1390 (9 spans)",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "garment.neck_px",
+   "value": 0,
+   "line": 0,
+   "op": "<=",
+   "unit": "px",
+   "area": "garment",
+   "where": "qa.clip neck_rule=visible tongue_cm=3.0 neck_over=Top (core main e0ce370c), her V2 finals state, 8 frames x every camera: neck_visible px 0, islands 0, max_tongue_cm 0.0; neck_px (rim) 0; Face>Top 0",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "garment.silhouette_pct",
+   "value": null,
+   "line": 2.0,
+   "op": "<=",
+   "unit": "%",
+   "area": "garment",
+   "where": "S15 hold, S17, S18",
+   "state": "INFO",
+   "reason": "not measured (info only)"
+  },
+  {
+   "id": "garment.wpo_cm",
+   "value": 0,
+   "line": 0.2,
+   "op": "<=",
+   "unit": "cm",
+   "area": "garment",
+   "where": "qa.garment_look garment=Top ref_body=uncut SKM_Presenter_F_BodyMesh, frames 29/120/450/600/1000/1330 (e0ce370c)",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "garment.armor_index",
+   "value": 0.0,
+   "line": 0.5,
+   "op": "<=",
+   "unit": "index",
+   "area": "garment",
+   "where": "qa.garment_look (same run): ease spread 2.286, median 0.288 cm, thickness 0.158 cm, detail 0.10448; verdict string 'armor' is the collar fail below, index 0.0",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "garment.pair_fraction",
+   "value": 0.0,
+   "line": 0.001,
+   "op": "<=",
+   "unit": "fraction",
+   "area": "garment",
+   "where": "excess over the ruled V2 baseline clip_v2 (orchestrator: Body>Top forearm, Trousers>Top hands = occlusion); clip_v2final read with before=clip_v2: pass true, worst Body>Top 0.01312, Trousers>Top 0.11933 = baseline",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "garment.collar_gap_cm",
+   "value": 1.213,
+   "line": 0.8,
+   "op": "<=",
+   "unit": "cm",
+   "area": "garment",
+   "where": "INFO (scoop neck; unvalidated measure per agent-09/orchestrator)",
+   "state": "INFO",
+   "reason": "1.213 cm is not <= 0.8 (info only)"
+  },
+  {
+   "id": "garment.collar_roll",
+   "value": 6,
+   "line": 0,
+   "op": "==",
+   "unit": "count",
+   "area": "garment",
+   "where": "INFO (scoop neck)",
+   "state": "INFO",
+   "reason": "6 count is not == 0 (info only)"
+  },
+  {
+   "id": "garment.hem_flare_ratio",
+   "value": 0.9546,
+   "line": 1.15,
+   "op": "<=",
+   "unit": "ratio",
+   "area": "garment",
+   "where": "qa.garment_look hem vs the body, angle 4.1 deg",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "garment.silhouette_ratio",
+   "value": null,
+   "line": 1.12,
+   "op": "<=",
+   "unit": "ratio",
+   "area": "garment",
+   "where": "S15, S17",
+   "state": "INFO",
+   "reason": "not measured (info only)"
+  },
+  {
+   "id": "garment.cloth_alive",
+   "value": null,
+   "line": 0.3,
+   "op": ">=",
+   "unit": "cm",
+   "area": "garment",
+   "where": "S13, S15 gesture frames",
+   "state": "NOT_ATTEMPTED",
+   "reason": "not measured: run film-ue op qa.cloth per shot -> r5/cloth_gate.py (agent-08, T3b)",
+   "decision": {
+    "reason": "Round 6 explainers: his tee is MetaHuman's default garment (closed shell) and her overshirt stays skinned, the same ruling as the karma reel (cc-64d05f6e, 07 Nov). armor_index, wpo_cm, neck_px and pair_fraction stay hard lines.",
+    "by": "cc-64d05f6e"
+   }
+  },
+  {
+   "id": "garment.cloth_sound",
+   "value": null,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "garment",
+   "where": "S13, S15, S17, S18",
+   "state": "NOT_ATTEMPTED",
+   "reason": "not measured: run film-ue op qa.cloth (T3b)",
+   "decision": {
+    "reason": "Round 6 explainers: his tee is MetaHuman's default garment (closed shell) and her overshirt stays skinned, the same ruling as the karma reel (cc-64d05f6e, 07 Nov). armor_index, wpo_cm, neck_px and pair_fraction stay hard lines.",
+    "by": "cc-64d05f6e"
+   }
+  },
+  {
+   "id": "garment.cloth_detail_ratio",
+   "value": null,
+   "line": 1.25,
+   "op": ">=",
+   "unit": "ratio",
+   "area": "garment",
+   "where": "S13, S15 close shots",
+   "state": "NOT_ATTEMPTED",
+   "reason": "not measured: run agent-08's writer (T3b) from agent-02's qa.clip tee mask",
+   "decision": {
+    "reason": "Round 6 explainers: his tee is MetaHuman's default garment (closed shell) and her overshirt stays skinned, the same ruling as the karma reel (cc-64d05f6e, 07 Nov). armor_index, wpo_cm, neck_px and pair_fraction stay hard lines.",
+    "by": "cc-64d05f6e"
+   }
+  },
+  {
+   "id": "shot.cameras_ok",
+   "value": 1,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "camera",
+   "where": "set.py --check on box B (her V2 finals state): ok  CAM_MCU: loc off 0.38 cm, focal off 0.00 mm, focus track offset z 125.5 (the seated eye ~120) | ok  CAM_CU: loc off 0.38 cm, focal off 0.00 mm, focus track offset z 125.5 (the seated eye ~120) | ok  CAM_WIDE: loc off 0.28 cm, focal off 0.00 mm, focus track offset z 125.5 (the seated eye ~120) | ok  CAM_MCU_L: loc off 0.22 cm, focal off 0.00 mm, focus track offset z 125.5 (the seated eye ~120) | ok  Presenter on the mark: off 0.00 cm | ok  leaders: all garments follow Body",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "shot.render_matches_r4",
+   "value": null,
+   "line": 0.5,
+   "op": ">=",
+   "unit": "ssim",
+   "area": "camera",
+   "where": "S13, S15, S16, S17, S18: every rendered frame",
+   "state": "INFO",
+   "reason": "not measured (info only)"
+  },
+  {
+   "id": "hair.cut_reach_pct",
+   "value": 2.68,
+   "line": 12.0,
+   "op": "<=",
+   "unit": "%",
+   "area": "hair",
+   "where": "qa.hair_continuity labels=[Presenter] sequence=SEQ_Explain_Her every=24 (box B, her V2 state, groom locked): every cut, 4 frames each side",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "hair.pop_reach_pct",
+   "value": 0.0,
+   "line": 8.0,
+   "op": "<=",
+   "unit": "%",
+   "area": "hair",
+   "where": "qa.hair_continuity (same run): inside shots every 24 frames",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "hair.cut_pop_ratio",
+   "value": null,
+   "line": 1.8,
+   "op": "<=",
+   "unit": "x",
+   "area": "hair",
+   "where": "no held-camera cut in the explainers",
+   "state": "INFO",
+   "reason": "not measured (info only)"
+  },
+  {
+   "id": "hair.lock",
+   "value": 1,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "hair",
+   "where": "groom.lock_check labels=[Presenter] on box B before the V2 close finals' state (LODSync forced 0, strands, no TRASH_, hair cvars live)",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "hair.render_cvars",
+   "value": 1,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "hair",
+   "where": "render.py CVARS in every final job's spec: r.HairStrands.LODMode 0, AutoLOD.Bias 1.0, UseCardsInsteadOfStrands 0 (+ SkyLighting 0)",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "lips.eye_onsets",
+   "value": 1,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "lips",
+   "where": "private/renders/r6/review/explain/netflix_r6_v2.mp4 (audio vs the clean vo.wav lag 0.0 ms; onsets by silencedetect -45 dB): N01 1.6, N06 1.9, N08 1.2, N12 1.7, N15 1.7, N16 1.1",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "head.buzz_rms_deg",
+   "value": 0.0306,
+   "line": 0.08,
+   "op": "<=",
+   "unit": "deg",
+   "area": "head",
+   "where": "her on screen f0-1390 (9 spans)",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "head.drift_deg",
+   "value": 1.029,
+   "line": [
+    0.15,
+    1.5
+   ],
+   "op": "range",
+   "unit": "deg",
+   "area": "head",
+   "where": "her on screen f0-1390 (9 spans)",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "head.frozen_s",
+   "value": 0.33,
+   "line": 1.5,
+   "op": "<=",
+   "unit": "s",
+   "area": "head",
+   "where": "her on screen f0-1390 (9 spans)",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "head.nods_per_min",
+   "value": 8.77,
+   "line": [
+    3.0,
+    24.0
+   ],
+   "op": "range",
+   "unit": "/min",
+   "area": "head",
+   "where": "her on screen f0-1390 (9 spans)",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "eyes.on_lens_share",
+   "value": 0.915,
+   "line": 0.75,
+   "op": ">=",
+   "unit": "share",
+   "area": "head",
+   "where": "her on screen f0-1390 (9 spans)",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "eyes.saccades_per_s",
+   "value": 1.41,
+   "line": [
+    0.4,
+    3.0
+   ],
+   "op": "range",
+   "unit": "/s",
+   "area": "head",
+   "where": "her on screen f0-1390 (9 spans)",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "eyes.glances_per_min",
+   "value": 5.26,
+   "line": [
+    2.0,
+    8.0
+   ],
+   "op": "range",
+   "unit": "/min",
+   "area": "head",
+   "where": "her on screen f0-1390 (9 spans)",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "blinks.per_min",
+   "value": 19.29,
+   "line": [
+    10.0,
+    30.0
+   ],
+   "op": "range",
+   "unit": "/min",
+   "area": "head",
+   "where": "her on screen f0-1390 (9 spans)",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "body.breath_cycles_per_min",
+   "value": 14.12,
+   "line": [
+    8.0,
+    22.0
+   ],
+   "op": "range",
+   "unit": "/min",
+   "area": "body",
+   "where": "/Game/Explainer/SEQ_Explain_Her f0-1426 every 2",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "body.breath_amp_mm",
+   "value": 2.71,
+   "line": 2.0,
+   "op": ">=",
+   "unit": "mm",
+   "area": "body",
+   "where": "/Game/Explainer/SEQ_Explain_Her f0-1426 every 2",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "set.clip_px",
+   "value": 0,
+   "line": 0,
+   "op": "==",
+   "unit": "px",
+   "area": "set",
+   "where": "box B clip_v2final (her V2 finals state), worst over Chair/Desk pairs",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "set.mic_mouth_px",
+   "value": 0,
+   "line": 0,
+   "op": "==",
+   "unit": "px",
+   "area": "set",
+   "where": "clip_v2final, every camera",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "set.props_overlap",
+   "value": 0,
+   "line": 0,
+   "op": "==",
+   "unit": "count",
+   "area": "set",
+   "where": "qa.clip depth layers (props as layers, n=4 frames x every camera, box B props_v2): Mic/Plant, Chair/Desk, Chair/Mic, Olive/Slats both ways: 0 px each (qa.overlaps' AABB flags were bounds only: Mic|Plant 0.883, Chair|Desk 0.229, Chair|Mic 0.097, Olive|Slats 0.086)",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "shot.exposure_jump_stops",
+   "value": 0.007,
+   "line": 0.05,
+   "op": "<=",
+   "unit": "stops",
+   "area": "shot",
+   "where": "CONTROL: a fixed plaster-wall patch per shot (projected; static, lit by static lights), her V2 finals, EDL ranges, median luma: worst jump 0.007 (every shot with the wall in frame: 01/04/06/10/11/13; the CUs have no wall in frame). Exposure is manual + locked (FM_Post AEM_MANUAL, bias -0.4, non-physical)",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "shot.exposure_drift_stops",
+   "value": 0.019,
+   "line": 0.15,
+   "op": "<=",
+   "unit": "stops",
+   "area": "shot",
+   "where": "CONTROL as above: worst drift 0.019 (shot06/shot11)",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "audio.lufs_err_lu",
+   "value": 0.0,
+   "line": 0.5,
+   "op": "<=",
+   "unit": "LU",
+   "area": "audio",
+   "where": "v2b: -14.0 LUFS",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "audio.true_peak_dbtp",
+   "value": -1.7,
+   "line": -1.0,
+   "op": "<=",
+   "unit": "dBTP",
+   "area": "audio",
+   "where": "v2b",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "captions.text_match",
+   "value": 1,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "captions",
+   "where": "v2b: 144 words, 37 captions",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "captions.onset_ms",
+   "value": 84,
+   "line": 200,
+   "op": "<=",
+   "unit": "ms",
+   "area": "captions",
+   "where": "v2b",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "facts.sourced",
+   "value": 1,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "facts",
+   "where": "facts_netflix.json",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "deliver.format_ok",
+   "value": 1,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "deliver",
+   "where": "v2b 1920x1080",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "deliver.qc_ok",
+   "value": 1,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "deliver",
+   "where": "v2b film-post qc (filmtools on the path)",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "deliver.duration_s",
+   "value": 59.46,
+   "line": [
+    50.0,
+    70.0
+   ],
+   "op": "range",
+   "unit": "s",
+   "area": "deliver",
+   "where": "v2b",
+   "state": "INFO",
+   "reason": ""
+  },
+  {
+   "id": "eye.real_person",
+   "value": 1,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "eye",
+   "where": "netflix: v2 watched frame-wise",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "eye.light",
+   "value": 1,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "eye",
+   "where": "netflix: v2",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "eye.hair_garment",
+   "value": 1,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "eye",
+   "where": "netflix: cuts 23.17/43.33/56.33 consistent; neckline fixed (Top.cast_shadow off)",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "eye.graphics",
+   "value": 1,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "eye",
+   "where": "netflix: v2b: the caption plate reads at f48/f240/f600/f1000; the picture above y900 matches v2 (PSNR 52.1 avg / 46.7 min)",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "body.desk_through",
+   "value": 0,
+   "line": 0,
+   "op": "==",
+   "unit": "frames",
+   "area": "set",
+   "where": "/Game/Explainer/SEQ_Explain_Her f0-1426 every 2",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "body.mic_touch",
+   "value": 0,
+   "line": 0,
+   "op": "==",
+   "unit": "frames",
+   "area": "set",
+   "where": "/Game/Explainer/SEQ_Explain_Her f0-1426 every 2",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "body.knee_desk",
+   "value": 0,
+   "line": 0,
+   "op": "==",
+   "unit": "frames",
+   "area": "set",
+   "where": "/Game/Explainer/SEQ_Explain_Her f0-1426 every 2",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "gfx.caption_band_clear",
+   "value": 1,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "captions",
+   "where": "films/explain-netflix: every 3rd frame over black, rows y >= 900/1080 (918 for panels): high-passed brightness <= 24/255",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "garment.leaders_ok",
+   "value": 1,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "garment",
+   "where": "the explainer level, before each final job",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "shot.streaming_settled",
+   "value": 1,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "shot",
+   "where": "warm-up in the spec (r.Streaming.FullyLoadUsedTextures 1, PoolSize 12000, 22 engine + 24 render warm-up frames) + the orchestrator's 1:1 first frames CU f130 / MCU_L f438 / MCU f38 PASS, and the full v2 frame-wise watch",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "shot.grain_sigma",
+   "value": 0.742,
+   "line": 1.0,
+   "op": "<=",
+   "unit": "8-bit levels",
+   "area": "shot",
+   "where": "shot04_CAM_MCU/0190.png: worst neck 0.742 levels at 0190.png; wall 0.359, neck 0.742; first+last frame of every close final job, wall + neck patches projected per camera/frame; line 1.0",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "shot.grain_wide_sigma",
+   "value": 0.552,
+   "line": 0.8,
+   "op": "<=",
+   "unit": "8-bit levels",
+   "area": "shot",
+   "where": "shot11_CAM_WIDE/1034.png: worst wall 0.552 levels at 1034.png; wall 0.552, wall2 0.377; flat wall patches only (ruling); line 0.8",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "shot.grain_wide_texture",
+   "value": null,
+   "line": 1.0,
+   "op": "<=",
+   "unit": "8-bit levels",
+   "area": "shot",
+   "where": "each WIDE final job",
+   "state": "INFO",
+   "reason": "not measured (info only)"
+  }
+ ],
+ "issues": [],
+ "refused_waivers": [],
+ "not_attempted": [
+  {
+   "id": "garment.cloth_alive",
+   "reason": "Round 6 explainers: his tee is MetaHuman's default garment (closed shell) and her overshirt stays skinned, the same ruling as the karma reel (cc-64d05f6e, 07 Nov). armor_index, wpo_cm, neck_px and pair_fraction stay hard lines.",
+   "by": "cc-64d05f6e"
+  },
+  {
+   "id": "garment.cloth_sound",
+   "reason": "Round 6 explainers: his tee is MetaHuman's default garment (closed shell) and her overshirt stays skinned, the same ruling as the karma reel (cc-64d05f6e, 07 Nov). armor_index, wpo_cm, neck_px and pair_fraction stay hard lines.",
+   "by": "cc-64d05f6e"
+  },
+  {
+   "id": "garment.cloth_detail_ratio",
+   "reason": "Round 6 explainers: his tee is MetaHuman's default garment (closed shell) and her overshirt stays skinned, the same ruling as the karma reel (cc-64d05f6e, 07 Nov). armor_index, wpo_cm, neck_px and pair_fraction stay hard lines.",
+   "by": "cc-64d05f6e"
+  }
+ ],
+ "complaints": [
+  "eye",
+  "garment",
+  "hair",
+  "head",
+  "lips",
+  "set"
+ ],
+ "summary": "SIGN with 3 item(s) NOT ATTEMPTED by decision: garment.cloth_alive (cc-64d05f6e), garment.cloth_sound (cc-64d05f6e), garment.cloth_detail_ratio (cc-64d05f6e)",
+ "film": "netflix"
+}

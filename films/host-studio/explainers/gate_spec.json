@@ -159,10 +159,20 @@
    "where": "the SEATED pose, every presenter camera of the film (qa.clip / qa.garment_look on the explainer sequence)"
   },
   "garment.collar_gap_cm": {
-   "where": "the SEATED pose, every presenter camera of the film (qa.clip / qa.garment_look on the explainer sequence)"
+   "where": "the SEATED pose, every presenter camera of the film (qa.clip / qa.garment_look on the explainer sequence)",
+   "info": true,
+   "r4": [
+    null,
+    "INFO for BOTH explainers by the orchestrator's ruling (cc-64d05f6e, 07 Nov), a scope change, not a waiver: the measure is unvalidated (the karma ruling) and her scoop top has no crew band. Evidence, HER: agent-02's scoop_fit m1 (the edge on skin, p50 +0.07/-0.16 cm, 9 frames), strip_id (no back faces or hidden mesh), the orchestrator's 3x crops before/after Top.cast_shadow off. HIM: agent-02's seated neck check plus the orchestrator's 1:1 crops before his finals"
+   ]
   },
   "garment.collar_roll": {
-   "where": "the SEATED pose, every presenter camera of the film (qa.clip / qa.garment_look on the explainer sequence)"
+   "where": "the SEATED pose, every presenter camera of the film (qa.clip / qa.garment_look on the explainer sequence)",
+   "info": true,
+   "r4": [
+    null,
+    "INFO for BOTH explainers by the orchestrator's ruling (cc-64d05f6e, 07 Nov), a scope change, not a waiver: the measure is unvalidated (the karma ruling) and her scoop top has no crew band. Evidence, HER: agent-02's scoop_fit m1 (the edge on skin, p50 +0.07/-0.16 cm, 9 frames), strip_id (no back faces or hidden mesh), the orchestrator's 3x crops before/after Top.cast_shadow off. HIM: agent-02's seated neck check plus the orchestrator's 1:1 crops before his finals"
+   ]
   },
   "garment.armor_index": {
    "where": "the SEATED pose, every presenter camera of the film (qa.clip / qa.garment_look on the explainer sequence)"
@@ -191,7 +201,10 @@
     92,
     "karma round 5b loop 2: 92/92, the operator's 'cut'"
    ],
-   "why": "his explainer must carry the neck fix (only box A has it)"
+   "why": "his explainer must carry the neck fix (only box A has it)",
+   "films": [
+    "whatsapp"
+   ]
   },
   "garment.silhouette_pct": {
    "info": true,
@@ -223,15 +236,15 @@
    "why": "the brief: the mic never covers the mouth in any camera"
   },
   "set.props_overlap": {
+   "how": "film-ue op qa.overlaps (axis-aligned boxes) flags candidates; EACH flagged pair is confirmed or cleared by a depth check: qa.clip props={both props} pairs=[[A,B],[B,A]] (the intersection-edge rule), the count = pairs whose qa.clip px > 0 -> numbers/<film>/set.json",
    "area": "set",
-   "track": "agent-05",
+   "track": "agent-05 / box drivers",
    "op": "==",
    "line": 0,
    "unit": "count",
-   "what": "prop pairs whose bounds interpenetrate (mic arm in the desk, chair in the desk)",
+   "what": "prop pairs that interpenetrate (mic arm in the desk, chair in the desk), each axis-aligned candidate confirmed or cleared by depth",
    "where": "the set",
-   "how": "film-ue op qa.overlaps labels=[set props] ignore_pairs=[resting contacts]",
-   "why": "clean set; confirm a hit with a still"
+   "why": "clean set: the brief's no-intersection rule for the props"
   },
   "shot.render_matches_r4": {
    "info": true,
@@ -246,10 +259,11 @@
    "op": "<=",
    "line": 0.05,
    "unit": "stops",
-   "what": "worst frame-to-frame change of the presenter's face-box exposure inside a shot (auto-exposure pumping, a light popping)",
+   "what": "worst frame-to-frame change of the SCENE exposure inside a shot, read on a fixed STATIC background patch (the plaster wall, or in a CU any static out-of-focus background region), median luma: auto-exposure pumping or a light popping moves it; her face turning against a fixed key does not",
    "where": "every presenter shot (final frames, on the box)",
-   "how": "qa_av.py exposure FRAMES --shots shots.json --box <face box> (on the box: face data)",
-   "why": "the brief: exposure stable; 0.05 stops is below what reads as a flicker"
+   "how": "qa_av.py exposure FRAMES --shots shots.json --boxes <the static patch per shot> (on the box) -> numbers/<film>/exposure.json; the face-box numbers are kept as INFO in the file",
+   "why": "the brief: exposure stable; 0.05 stops is below what reads as a flicker",
+   "why_r6": "agent-09, 07 Nov: the face box measured her shading as she turns against the key (fixed box jump 0.17 / drift 0.27; tracked cheek band WORSE, 0.41 / 0.27), not exposure; the static-background control isolates exposure (netflix: wall worst jump 0.007, drift 0.019). Exposure is locked manual in the render spec"
   },
   "shot.exposure_drift_stops": {
    "area": "shot",
@@ -257,10 +271,11 @@
    "op": "<=",
    "line": 0.15,
    "unit": "stops",
-   "what": "worst drift of the 12-frame moving average of the face-box exposure inside a shot",
+   "what": "worst drift of the 12-frame moving average of the SCENE exposure inside a shot, read on a fixed STATIC background patch (the plaster wall, or in a CU any static out-of-focus background region), median luma: auto-exposure pumping or a light popping moves it; her face turning against a fixed key does not",
    "where": "every presenter shot",
-   "how": "qa_av.py exposure (as above)",
-   "why": "a slow eye-adaptation drift reads as a dimmer on the face"
+   "how": "qa_av.py exposure FRAMES --shots shots.json --boxes <the static patch per shot> (on the box) -> numbers/<film>/exposure.json; the face-box numbers are kept as INFO in the file",
+   "why": "a slow eye-adaptation drift reads as a dimmer on the face",
+   "why_r6": "agent-09, 07 Nov: the face box measured her shading as she turns against the key (fixed box jump 0.17 / drift 0.27; tracked cheek band WORSE, 0.41 / 0.27), not exposure; the static-background control isolates exposure (netflix: wall worst jump 0.007, drift 0.019). Exposure is locked manual in the render spec"
   },
   "audio.lufs_err_lu": {
    "area": "audio",
@@ -285,6 +300,14 @@
    "why": "the brief: true peak <= -1 dBTP"
   },
   "captions.text_match": {
+   "area": "captions",
+   "track": "agent-11",
+   "op": "==",
+   "line": 1,
+   "unit": "bool",
+   "what": "the captions' words in order equal the VO lines' words (case, punctuation ignored)",
+   "where": "the cut's SRT vs audio/<film>/cues.json",
+   "how": "qa_av.py captions CUT.srt audio/<film>/cues.json (or qa_av.py all)",
    "why": "the brief: captions match the VO; the orchestrator's ruling (07 Nov): EVERY line captioned, including over the graphics"
   },
   "captions.onset_ms": {
@@ -467,7 +490,10 @@
     0,
     "his explainer on box B from the 16:14 clone: loop-2 neck (shrink 3.0, the 'cut'), not the passed cull"
    ],
-   "why": "the orchestrator, 07 Nov: his explainer moves to box B; it must carry exactly the neck fix that passed on box A"
+   "why": "the orchestrator, 07 Nov: his explainer moves to box B; it must carry exactly the neck fix that passed on box A",
+   "films": [
+    "whatsapp"
+   ]
   },
   "shot.streaming_settled": {
    "area": "shot",
@@ -546,7 +572,25 @@
     0.119,
     "karma r6n0: the dark face (leaders/material state)"
    ],
-   "why": "the orchestrator, 07 Nov: face-luma vs karma r6 among his guards on box B"
+   "why": "the orchestrator, 07 Nov: face-luma vs karma r6 among his guards on box B",
+   "films": [
+    "whatsapp"
+   ]
+  },
+  "lips.render_conclusive": {
+   "info": true,
+   "r4": [
+    null,
+    "INFO with lips.render_lag_frames (the orchestrator's ruling, 07 Nov): a property of the invalid render measure"
+   ]
+  },
+  "hair.cut_pop_ratio": {
+   "info_films": [
+    "netflix",
+    "whatsapp"
+   ],
+   "info_reason": "no held-camera cut in either explainer: no two consecutive shots share a camera (edl/<film>.json), and the panel shots render through CAM_MCU_L (agent-07: the same lens position as CAM_MCU, turned), so whatsapp 12 -> 13 is a camera change too. Every explainer job is pre-rolled from frame 0 of the one continuous take (render.py preroll=cut), so the hair state matches at every cut whatever the job split; hair.cut_reach_pct still judges every cut",
+   "where": "no held-camera cut in the explainers"
   }
  },
  "not_attempted": {
@@ -562,5 +606,10 @@
    "reason": "Round 6 explainers: his tee is MetaHuman's default garment (closed shell) and her overshirt stays skinned, the same ruling as the karma reel (cc-64d05f6e, 07 Nov). armor_index, wpo_cm, neck_px and pair_fraction stay hard lines.",
    "by": "cc-64d05f6e"
   }
- }
+ },
+ "aliases": {
+  "shot.grain_sigma_close": "shot.grain_sigma",
+  "shot.grain_sigma_wide": "shot.grain_wide_sigma"
+ },
+ "_films": "items with 'films' apply only to those films (gate_film.py --film filters them); 'aliases' maps a producer's key to the spec's id; 'info_films' makes an item INFO for those films with 'info_reason'"
 }

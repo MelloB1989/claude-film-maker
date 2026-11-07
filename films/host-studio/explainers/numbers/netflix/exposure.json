@@ -1,10 +1,81 @@
 {
- "shot.exposure_jump_stops": {
-  "value": 0.635,
-  "where": "shot13_CAM_MCU frame 34->35; face boxes per camera {\"CAM_MCU\": [0.45, 0.3, 0.56, 0.52], \"CAM_CU\": [0.42, 0.24, 0.6, 0.62], \"CAM_MCU_L\": [0.19, 0.3, 0.3, 0.52], \"CAM_WIDE\": [0.37, 0.25, 0.43, 0.37]}; her FINAL frames, edl ranges (no handles)"
+ "gate": {
+  "shot.exposure_jump_stops": {
+   "value": 0.007,
+   "where": "CONTROL: a fixed plaster-wall patch per shot (projected; static, lit by static lights), her V2 finals, EDL ranges, median luma: worst jump 0.007 (every shot with the wall in frame: 01/04/06/10/11/13; the CUs have no wall in frame). Exposure is manual + locked (FM_Post AEM_MANUAL, bias -0.4, non-physical)"
+  },
+  "shot.exposure_drift_stops": {
+   "value": 0.019,
+   "where": "CONTROL as above: worst drift 0.019 (shot06/shot11)"
+  }
  },
- "shot.exposure_drift_stops": {
-  "value": 0.291,
-  "where": "shot13_CAM_MCU (74 frames); face boxes per camera {\"CAM_MCU\": [0.45, 0.3, 0.56, 0.52], \"CAM_CU\": [0.42, 0.24, 0.6, 0.62], \"CAM_MCU_L\": [0.19, 0.3, 0.3, 0.52], \"CAM_WIDE\": [0.37, 0.25, 0.43, 0.37]}; her FINAL frames, edl ranges (no handles)"
+ "info": {
+  "face_luma_tracked_cheek_band": {
+   "per_shot_jump_drift": {
+    "shot01_CAM_MCU": [
+     0.408,
+     0.102
+    ],
+    "shot02_CAM_CU": [
+     0.088,
+     0.027
+    ],
+    "shot04_CAM_MCU": [
+     0.154,
+     0.127
+    ],
+    "shot06_CAM_MCU_L": [
+     0.288,
+     0.249
+    ],
+    "shot07_CAM_CU": [
+     0.181,
+     0.266
+    ],
+    "shot10_CAM_MCU_L": [
+     0.108,
+     0.11
+    ],
+    "shot11_CAM_WIDE": [
+     0.033,
+     0.094
+    ],
+    "shot13_CAM_MCU": [
+     0.036,
+     0.13
+    ],
+    "shot14_CAM_CU": [
+     0.073,
+     0.014
+    ]
+   },
+   "where": "INFO: tracked cheek bands (eyes\u2192upper lip 30-80 %, every 2nd frame) on 01/02/04/06/07/10/14, fixed face box on 11/13: her face shading changes as she turns against the fixed key (subject lighting, not exposure); the bands move by whole boxes every 2 frames"
+  },
+  "control_wall_per_shot": {
+   "shot01_CAM_MCU": [
+    0.007,
+    0.014
+   ],
+   "shot04_CAM_MCU": [
+    0.007,
+    0.016
+   ],
+   "shot06_CAM_MCU_L": [
+    0.006,
+    0.019
+   ],
+   "shot10_CAM_MCU_L": [
+    0.006,
+    0.011
+   ],
+   "shot11_CAM_WIDE": [
+    0.007,
+    0.019
+   ],
+   "shot13_CAM_MCU": [
+    0.007,
+    0.016
+   ]
+  }
  }
 }

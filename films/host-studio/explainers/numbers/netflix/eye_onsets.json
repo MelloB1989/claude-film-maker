@@ -1,0 +1,8 @@
+{
+ "gate": {
+  "lips.eye_onsets": {
+   "value": 1,
+   "where": "private/renders/r6/review/explain/netflix_r6_v2.mp4 (audio vs the clean vo.wav lag 0.0 ms; onsets by silencedetect -45 dB): N01 1.6, N06 1.9, N08 1.2, N12 1.7, N15 1.7, N16 1.1"
+  }
+ }
+}

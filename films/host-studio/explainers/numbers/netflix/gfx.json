@@ -1,0 +1,71 @@
+{
+  "gate": {
+    "gfx.caption_band_clear": {
+      "value": 1,
+      "where": "films/explain-netflix: every 3rd frame over black, rows y >= 900/1080 (918 for panels): high-passed brightness <= 24/255"
+    }
+  },
+  "shots": {
+    "title": {
+      "frames": 23,
+      "fail": [],
+      "max": 1,
+      "limit_y": 900
+    },
+    "oca": {
+      "frames": 38,
+      "fail": [],
+      "max": 0,
+      "limit_y": 900
+    },
+    "prefill": {
+      "frames": 54,
+      "fail": [],
+      "max": 1,
+      "limit_y": 900
+    },
+    "ladder": {
+      "frames": 49,
+      "fail": [],
+      "max": 0,
+      "limit_y": 900
+    },
+    "abr": {
+      "frames": 59,
+      "fail": [],
+      "max": 1,
+      "limit_y": 900
+    },
+    "buffer": {
+      "frames": 33,
+      "fail": [],
+      "max": 1,
+      "limit_y": 900
+    },
+    "planes": {
+      "frames": 43,
+      "fail": [],
+      "max": 1,
+      "limit_y": 900
+    },
+    "end": {
+      "frames": 16,
+      "fail": [],
+      "max": 0,
+      "limit_y": 900
+    },
+    "prefill_panel": {
+      "frames": 54,
+      "fail": [],
+      "max": 21,
+      "limit_y": 918
+    },
+    "buffer_panel": {
+      "frames": 33,
+      "fail": [],
+      "max": 21,
+      "limit_y": 918
+    }
+  }
+}
+
