@@ -6,6 +6,9 @@
 // height at `dist` from the camera (Bricolage and Geist caps are ~0.7 em).
 import { THREE } from '@engine/three';
 import { MotionScene, type CamPose } from '@kit/motion';
+import type { Frame, PostOverrides } from '@engine/scene';
+import { disposeLayer } from '@engine/scene';
+import { H, Layer2D, W } from '@engine/gl';
 import { clamp, ease } from '@engine/util';
 
 export { THREE };
@@ -34,9 +37,47 @@ export function em(px: number, dist: number, fov = 30): number {
   return ((px / 0.7) * 2 * dist * Math.tan((fov * Math.PI) / 360)) / 1080;
 }
 
+/**
+ * The caption band's soft darkening (GFX.md: the bottom 15 % stays free of text and key visuals, a soft darkening there
+ * is fine): full-frame shots fade to near black from BAND.from to BAND.to (px of 1080), so whatever the 3D camera
+ * carries through the band (a floor, a server's base) reads as a calm dark ground under the captions, and the
+ * caption-band gate (high-passed brightness under y 900) stays quiet.
+ */
+export const BAND = { from: 815, to: 905, floor: 0.06 };
+
 export abstract class WaShot extends MotionScene {
+  private band: Layer2D | null = null;
+
   /** The shot's EDL cut (params.cut), else its window. */
   protected get cut(): number {
     return (this.ctx.params.cut as number | undefined) ?? this.len;
+  }
+
+  private bandLayer() {
+    if (this.band) return this.band.texture;
+    this.band = new Layer2D();
+    const c = this.band.ctx, u = H / 1080;
+    const g = c.createLinearGradient(0, BAND.from * u, 0, BAND.to * u);
+    for (let i = 0; i <= 8; i++) {
+      const k = i / 8, a = (1 - BAND.floor) * k * k * (3 - 2 * k);
+      g.addColorStop(k, `rgba(0,0,0,${a.toFixed(4)})`);
+    }
+    c.fillStyle = g;
+    c.fillRect(0, BAND.from * u, W, (BAND.to - BAND.from) * u);
+    c.fillStyle = `rgba(0,0,0,${1 - BAND.floor})`;
+    c.fillRect(0, BAND.to * u, W, H - BAND.to * u);
+    return this.band.upload();
+  }
+
+  override render(f: Frame, out: THREE.WebGLRenderTarget): PostOverrides | void {
+    const post = super.render(f, out);
+    if (!this.panel) this.ctx.comp.draw(this.ctx.renderer, this.bandLayer(), out, {});
+    return post;
+  }
+
+  override dispose() {
+    if (this.band) disposeLayer(this.band);
+    this.band = null;
+    super.dispose();
   }
 }
