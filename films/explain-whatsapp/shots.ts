@@ -23,6 +23,13 @@ export interface GfxShot { id: string; kind: string; frames: number; seconds: nu
 /** The graphics shots in film order. */
 export const GFX: GfxShot[] = edl.shots.map((s) => ({ id: s.gfx, kind: s.kind, frames: s.frames + TAIL, seconds: (s.frames + TAIL) / FPS }));
 
+/**
+ * Half a frame of lead before the first shot: every shot boundary then falls between two frame times, so `--only <id>`
+ * owns exactly its frames (a boundary landing on a frame time in floating point could give a shot one frame too many
+ * at one end and one too few at the other). Shots are sampled half a frame into each frame's interval.
+ */
+export const LEAD: ShotSpec = { id: 'lead', scene: () => import('./v3/end'), length: 0.5 / FPS, params: { layout: 'full', words: [], cut: 0.5 / FPS } };
+
 /** One shot per graphics beat, laid out `layout`, with the extra params given (a matte background, say). */
 export function shots(o: { layout: (kind: string) => 'full' | 'panel'; suffix?: string; params?: Record<string, unknown>; only?: (kind: string) => boolean } ): ShotSpec[] {
   return edl.shots.filter((s) => (o.only ? o.only(s.kind) : true)).map((s) => ({
