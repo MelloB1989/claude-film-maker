@@ -15,7 +15,9 @@ gaze move (the "turn blinks"), no periodic motion. On top of them, for a talking
 
 CUE.json (agent-11's cue sheet, the bits this needs): {"fps": 24, "start": <master frame of t=0>, "length_s",
 "words": [{"w", "t0", "t1"}] (s, the VO), "on_cam": [[t0, t1, "<camera label>"], ...] (s: the presenter on screen),
-"think": [t, ...] (optional: phrase starts the script marks as a thinking beat; else they are picked)}.
+"think": [t, ...] (optional: phrase starts the script marks as a thinking beat; else they are picked),
+"cams": {"<camera label>": [yaw, pitch]} (optional: each lens's direction from the seated eyes, deg, the
+character's frame; glances are offsets off the active lens)}.
 Engine-free: plan and judge run anywhere; sample needs the bridge (filmtools.unreal.client).
 """
 from __future__ import annotations
@@ -56,6 +58,8 @@ LINES = {
 }
 
 
+REAIM_MIN_DEG = 3.0   # a camera change smaller than this keeps the gaze where it is
+REAIM_HEAD_CUT = 0.3  # the head's share of a re-aim on a direct cut (the eyes do the rest)
 CUT_NO_BLINK_F = 6  # frames after a cut with no blink (agent-11's edit rule)
 
 
@@ -123,32 +127,69 @@ def glances(cue: dict, who: str) -> list:
     return out
 
 
+def lens_dir(cue: dict, cam: str) -> tuple:
+    """The lens's direction (yaw, pitch; deg, the character's frame) from the seated eyes: cue["cams"][cam], or
+    straight ahead when the cue has none."""
+    y, p = (cue.get("cams") or {}).get(cam, (0.0, 0.0))
+    return float(y), float(p)
+
+
+def reaims(cue: dict) -> list:
+    """Where the lens changes direction (> REAIM_MIN_DEG): [{"t", "yaw", "pitch", "head", "on_screen"}]. After a
+    graphics shot the eyes and head move in the middle of it, off screen; on a direct presenter-to-presenter cut the
+    eyes jump on the cut frame and the head follows only REAIM_HEAD_CUT of it (a big head swing just after a cut
+    reads as caught looking at the wrong camera)."""
+    out, spans = [], cue["on_cam"]
+    for i in range(1, len(spans)):
+        a, b = lens_dir(cue, spans[i - 1][2] if len(spans[i - 1]) > 2 else ""), \
+            lens_dir(cue, spans[i][2] if len(spans[i]) > 2 else "")
+        if math.hypot(b[0] - a[0], b[1] - a[1]) <= REAIM_MIN_DEG:
+            continue
+        gap = spans[i][0] - spans[i - 1][1]
+        direct = gap < 1.0 / cue["fps"]
+        t = spans[i][0] if direct else spans[i - 1][1] + gap / 2.0
+        out.append({"t": round(t, 3), "yaw": b[0], "pitch": b[1], "head": REAIM_HEAD_CUT if direct else 1.0,
+                    "on_screen": direct, "deg": round(math.hypot(b[0] - a[0], b[1] - a[1]), 1)})
+    return out
+
+
 def plan(cue: dict, who: str) -> dict:
     """perf.face's arguments for the presenter's whole take (t = 0 at cue["start"]); the driver adds anim, out, wav
-    and the face's signs."""
+    and the face's signs. With cue["cams"] every gaze is on (or off, for a glance) the active shot's lens."""
     rng = random.Random(SEED[who] * 7)
     gl = glances(cue, who)
-    gaze = [{"t": 0.0, "yaw": 0.0, "pitch": 0.0, "scan": "lens", "head": 1.0}]
-    avoid = []
+    spans = cue["on_cam"]
+    y0, p0 = lens_dir(cue, spans[0][2] if spans and len(spans[0]) > 2 else "")
+    gaze = [{"t": 0.0, "yaw": y0, "pitch": p0, "scan": "lens", "head": 1.0}]
+    avoid, moves = [], []
     for g in gl:
-        gaze.append({"t": g["t"], "yaw": g["yaw"], "pitch": g["pitch"], "scan": "still", "head": GLANCE_HEAD})
-        gaze.append({"t": g["back"], "yaw": 0.0, "pitch": 0.0, "scan": "lens", "head": 1.0})
-        for m in (g["t"], g["back"]):
-            avoid.append([round(m - BLINK_GUARD[0], 3), round(m + BLINK_GUARD[1], 3)])
+        sp = _span_of(g["t"], spans)
+        ly, lp = lens_dir(cue, sp[2] if sp and len(sp) > 2 else "")
+        gaze.append({"t": g["t"], "yaw": round(ly + g["yaw"], 1), "pitch": round(lp + g["pitch"], 1), "scan": "still",
+                     "head": GLANCE_HEAD})
+        gaze.append({"t": g["back"], "yaw": ly, "pitch": lp, "scan": "lens", "head": 1.0})
+        moves += [g["t"], g["back"]]
+    ra = reaims(cue)
+    for r in ra:
+        gaze.append({"t": r["t"], "yaw": r["yaw"], "pitch": r["pitch"], "scan": "lens", "head": r["head"]})
+        moves.append(r["t"])
+    gaze.sort(key=lambda g: g["t"])
+    for m in moves:  # no blink on a gaze move
+        avoid.append([round(m - BLINK_GUARD[0], 3), round(m + BLINK_GUARD[1], 3)])
     fps = cue["fps"]
-    for a, *_ in cue["on_cam"]:  # no blink on a cut's first frames
+    for a, *_ in spans:  # no blink on a cut's first frames
         if a > 0:
             avoid.append([round(a, 3), round(a + CUT_NO_BLINK_F / fps, 3)])
     avoid.sort()
     head = {**HEAD_STYLE, "rest_roll_deg": round(rng.uniform(-1.2, 1.2), 2), "seed": SEED[who]}
     return {"preset": PRESET, "solver_head": "replace", "blink_head": "still", "blink_mode": "replace",
-            "blink_state": "talk", "beat_every": 2, "emphasis": "auto", "start_gaze": [0.0, 0.0], "lead": "eyes",
-            "gaze": gaze, "head": head, "avoid_blinks": avoid, "seed": SEED[who], "glances": gl}
+            "blink_state": "talk", "beat_every": 2, "emphasis": "auto", "start_gaze": [y0, p0], "lead": "eyes",
+            "gaze": gaze, "head": head, "avoid_blinks": avoid, "seed": SEED[who], "glances": gl, "reaims": ra}
 
 
 def face_args(cue: dict, who: str) -> dict:
     """plan() without its own notes (what perf.face takes)."""
-    return {k: v for k, v in plan(cue, who).items() if k != "glances"}
+    return {k: v for k, v in plan(cue, who).items() if k not in ("glances", "reaims")}
 
 
 # ------------------------------------------------------------------------------------------------------- sample
