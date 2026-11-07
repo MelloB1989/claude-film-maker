@@ -66,6 +66,9 @@ def parse_args():
     ap.add_argument("--fit", default="", choices=("", "Trousers", "Top"), help="refit this garment and export it")
     ap.add_argument("--top", default="garment_Top.fbx", help="the Top FBX in --src")
     ap.add_argument("--fit-frame", type=int, default=1, help="the seated frame the fit is solved on")
+    ap.add_argument("--ue-posed", default="", help="dir with Unreal's POSED body.obj / trousers.obj (+ meta.json), "
+                    "world cm, UE axes: her skin as Unreal poses it (correctives included) joins the collider, and each "
+                    "band vertex is measured where Unreal puts it")
     ap.add_argument("--trousers", default="garment_Trousers.fbx", help="the trousers FBX in --src (the live cut copy, "
                     "or garment_Trousers_orig.fbx: the uncut asset)")
     ap.add_argument("--band", type=float, default=4.0, help="the waistband's height, cm (her_outfit TROUSERS band)")
@@ -277,6 +280,88 @@ def skin_mats(arm, groups):
     return out
 
 
+def read_obj(path):
+    """(verts, triangles) of an OBJ (v / f lines; f may carry /vt/vn; polygons fanned)."""
+    V, F = [], []
+    with open(path) as fh:
+        for ln in fh:
+            if ln.startswith("v "):
+                V.append([float(x) for x in ln.split()[1:4]])
+            elif ln.startswith("f "):
+                ix = [int(t.split("/")[0]) for t in ln.split()[1:]]
+                ix = [i - 1 if i > 0 else len(V) + i for i in ix]
+                for k in range(1, len(ix) - 1):
+                    F.append((ix[0], ix[k], ix[k + 1]))
+    return np.array(V, float), np.array(F, np.int64)
+
+
+def rigid(A, B, reflect=True):
+    """R, t with R @ A_i + t ~ B_i (least squares; a reflection allowed: Unreal's frame is left-handed)."""
+    ca, cb = A.mean(0), B.mean(0)
+    U, _, Vt = np.linalg.svd((A - ca).T @ (B - cb))
+    R = (U @ Vt).T
+    if not reflect and np.linalg.det(R) < 0:
+        Vt[-1] *= -1
+        R = (U @ Vt).T
+    return R, cb - R @ ca
+
+
+class UEPosed:
+    """Unreal's posed meshes brought into the rig's posed frame: first by her bones (meta.json), then ICP of Unreal's
+    trousers onto the rig's posed trousers (the same garment, so what is left is the pose's own difference)."""
+
+    def __init__(self, a, rig, P_tr):
+        d = a.ue_posed
+        meta = json.load(open(os.path.join(d, "meta.json")))
+        bones = meta.get("bones") or meta
+        names = [b for b in ("pelvis", "spine_01", "spine_02", "spine_03", "thigh_l", "thigh_r", "calf_l", "calf_r")
+                 if b in bones and b in rig.arm.pose.bones]
+        A = np.array([bones[b] for b in names], float)
+        B = np.array([bone_world(rig.arm, b) for b in names])
+        R, t = rigid(A, B)
+        log(f"ue-posed: bones {names}: fit residual {np.linalg.norm((A @ R.T + t) - B, axis=1).round(2).tolist()} cm, "
+            f"det {np.linalg.det(R):+.0f}")
+        self.body = read_obj(os.path.join(d, "body.obj"))
+        self.tr = read_obj(os.path.join(d, "trousers.obj"))
+        TX = self.tr[0]
+        for it in range(6):
+            Y = TX @ R.T + t
+            kd = KDTree(len(Y))
+            for k, y in enumerate(Y):
+                kd.insert(Vector(y), k)
+            kd.balance()
+            sub = P_tr[::7]
+            pairs = []
+            for p in sub:
+                _, k, dist = kd.find(Vector(p))
+                if dist < 3.0:
+                    pairs.append((k, p))
+            if len(pairs) < 100:
+                raise SystemExit(f"ue-posed: only {len(pairs)} trousers matches after the bone alignment")
+            Ak = TX[[k for k, _ in pairs]]
+            Bp = np.array([p for _, p in pairs])
+            R, t = rigid(Ak, Bp)
+            res = np.linalg.norm(Ak @ R.T + t - Bp, axis=1)
+            log(f"ue-posed ICP {it + 1}: {len(pairs)} pairs, residual median {np.median(res):.2f} p95 "
+                f"{np.percentile(res, 95):.2f} cm")
+        self.R, self.t = R, t
+        BX = self.body[0] @ R.T + t
+        self.bvh_body = BVHTree.FromPolygons(BX.tolist(), self.body[1].tolist())
+        TY = TX @ R.T + t
+        self.bvh_tr = BVHTree.FromPolygons(TY.tolist(), self.tr[1].tolist())
+
+    def where(self, P):
+        """Each rig-posed garment vertex's place on Unreal's posed trousers (nearest point), and how far it moved."""
+        U = np.array(P, float)
+        mv = np.zeros(len(P))
+        for i, p in enumerate(P):
+            loc, nor, fi, dist = self.bvh_tr.find_nearest(Vector(p))
+            if loc is not None and dist < 2.0:
+                U[i] = loc[:]
+                mv[i] = dist
+        return U, mv
+
+
 def fit(rig, a, src):
     """Refit a.fit (Trousers or Top) at the waist in her seated pose and carry it back to the bind pose."""
     ob = rig.tr if a.fit == "Trousers" else rig.top
@@ -304,17 +389,37 @@ def fit(rig, a, src):
     rig.pose(src, a.fit_frame)
     P, _ = G.world_cm(ob, evaluated=True)
     BX, BT = G.world_cm(rig.body, evaluated=True)
-    bvh = BVHTree.FromPolygons(BX.tolist(), BT.tolist())
+    bvhs = [BVHTree.FromPolygons(BX.tolist(), BT.tolist())]
+    if a.ue_posed:
+        ue = UEPosed(a, rig, P)
+        U, off = ue.where(P)
+        log(f"ue-posed: zone verts vs Unreal's own: moved median {np.median(off[zone]):.2f} cm, p95 "
+            f"{np.percentile(off[zone], 95):.2f}, max {off[zone].max():.2f}")
+        rig.ue_off = U - P                      # Unreal's place minus the rig's, per vertex (for the after-check)
+        rig.ue = ue
+        P = U                                   # measure each vertex where Unreal puts it
+        bvhs.append(ue.bvh_body)
     vn = GF.vertex_normals(P, T)
     d = np.full(len(P), np.nan)
     N = np.zeros((len(P), 3))
+    src_ue = np.zeros(len(P), bool)
     for i in np.nonzero(zone)[0]:
-        loc, nor, fi, dist = bvh.find_nearest(Vector(P[i]))
-        if loc is None or dist > 8.0:
+        best = None
+        for bi, bv in enumerate(bvhs):          # the skin furthest out wins (Unreal's belly over Blender's)
+            loc, nor, fi, dist = bv.find_nearest(Vector(P[i]))
+            if loc is None or dist > 8.0:
+                continue
+            n = np.array(nor[:])
+            di = (P[i] - np.array(loc[:])) @ n
+            if bi == 1 and abs(di) > 4.0:     # a hole of the live cut: a far surface, not her skin under the band
+                continue
+            if best is None or di < best[0]:
+                best = (di, n, bi)
+        if best is None:
             continue
-        n = np.array(nor[:])
-        d[i] = (P[i] - np.array(loc[:])) @ n
-        N[i] = n
+        d[i], N[i], src_ue[i] = best[0], best[1], best[2] == 1
+    if a.ue_posed:
+        log(f"collider: Unreal's skin decides {int(src_ue[zone].sum())} of {int(zone.sum())} zone verts")
     ok = zone & np.isfinite(d)
     inner = ok & (np.einsum("ij,ij->i", vn, N) < 0)      # the shell's inner face looks at her
     outer = ok & ~inner
@@ -365,9 +470,45 @@ def fit(rig, a, src):
     Dr = weld(Dr)
     rig.pose(None, 0)
     G.set_world_cm(ob, X0 + Dr)
+    if a.ue_posed:
+        ue_check(rig, a, src, ob, zone, inner, alpha)
     log(f"bind-pose move median {np.median(np.linalg.norm(Dr[idx], axis=1)):.2f} cm, max "
         f"{np.linalg.norm(Dr[idx], axis=1).max():.2f}")
     return ob
+
+
+def ue_check(rig, a, src, ob, zone, inner, alpha):
+    """After the fit: the band where Unreal would put it (the rig's new posed band + Unreal's per-vertex offset),
+    against the furthest-out skin: inner face off her skin, front half (|angle| < 90 deg) and all round."""
+    rig.pose(src, a.fit_frame)
+    P2, _ = G.world_cm(ob, evaluated=True)
+    U2 = P2 + rig.ue_off
+    BX, BT = G.world_cm(rig.body, evaluated=True)
+    bvhs = [BVHTree.FromPolygons(BX.tolist(), BT.tolist()), rig.ue.bvh_body]
+    p, u, fr, side = axis(rig.arm)
+    band = inner & (alpha > 0.999)
+    dd, front = [], []
+    for i in np.nonzero(band)[0]:
+        best = None
+        for bi, bv in enumerate(bvhs):
+            loc, nor, fi, dist = bv.find_nearest(Vector(U2[i]))
+            if loc is None or dist > 8.0:
+                continue
+            di = (U2[i] - np.array(loc[:])) @ np.array(nor[:])
+            if bi == 1 and abs(di) > 4.0:
+                continue
+            best = di if best is None else min(best, di)
+        if best is None:
+            continue
+        r = U2[i] - p
+        dd.append(best)
+        front.append((r @ fr) > 0)
+    dd, front = np.array(dd), np.array(front)
+    for name, m in (("front half", front), ("all round", np.ones(len(dd), bool))):
+        x = dd[m]
+        log(f"ue-check {name}: band inner face off her skin median {np.median(x):.2f}, p5 {np.percentile(x, 5):.2f}, "
+            f"min {x.min():.2f}, p95 {np.percentile(x, 95):.2f} cm; under 0: {int((x < 0).sum())} of {len(x)}")
+    rig.pose(None, 0)
 
 
 def export_fit(rig, ob, path):
