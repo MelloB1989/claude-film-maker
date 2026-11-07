@@ -17,7 +17,7 @@ for m in black grey; do
     ( port=$((BASE + i)); VITE_NF_MATTE=$m FILM_NO_HMR=1 node node_modules/vite/bin/vite.js --host 127.0.0.1 --port $port --strictPort > "$TMP/vite_${m}_$i.log" 2>&1 & vp=$!
       for k in $(seq 300); do curl -sf -o /dev/null http://127.0.0.1:$port/ && break; sleep 0.2; done
       bun scripts/render.ts stills --film explain-netflix --allow-software --url http://127.0.0.1:$port --only "$SHOT" --t "$times" --out "$TMP/$m" > "$TMP/render_${m}_$i.log" 2>&1; rc=$?
-      kill $vp; exit $rc ) &
+      kill $vp 2>/dev/null || true; exit $rc ) &
     PIDS+=($!)
   done
   for p in "${PIDS[@]}"; do wait "$p" || { echo "matte.sh: a $m shard failed (logs in $TMP)"; exit 1; }; done
