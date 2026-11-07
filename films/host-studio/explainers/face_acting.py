@@ -80,7 +80,8 @@ LEAD = {"brow": 0.12, "question": 0.15, "curious": 0.15, "smile": 0.3, "soft": 0
 DUR = {"brow": 0.45, "question": 0.7, "curious": 0.9, "smile": 0.6, "soft": 0.8, "warm": 0.8, "squint": 0.4,
        "open": 0.0}
 # kind: (recipe, attack_s, release_s)
-KINDS = {"brow": ("brow_flash", 0.12, 0.35), "question": ("question", 0.14, 0.45), "smile": ("duchenne", 0.22, 0.6),
+# a Duchenne's onset is slow, 8-15 frames (r7 research, agent-04:2 FACE_RESEARCH.md): 0.4 s
+KINDS = {"brow": ("brow_flash", 0.12, 0.35), "question": ("question", 0.14, 0.45), "smile": ("duchenne", 0.4, 0.6),
          "soft": ("warm", 0.25, 0.5), "warm": ("warm", 0.3, 0.6), "curious": ("curious", 0.25, 0.5),
          "squint": ("squint_smile", 0.15, 0.4), "open": ("open_smile", 0.25, 0.45)}
 # the orchestrator's calibration (07 Nov): a full Duchenne (>= 0.8) only on the payoffs; mid-line smiles 0.4-0.6,
@@ -98,7 +99,7 @@ SOLVE_MOOD = {
     "her": {**{k: ("PLAYFULNESS", 0.65) for k in ("N01", "N02")}, "N03": ("PLAYFULNESS", 0.6),
             **{k: ("CONFIDENCE", 0.5) for k in ("N04", "N05", "N06", "N08", "N09", "N10", "N11", "N14")},
             "N12": ("SURPRISE", 0.3), "N13": ("CONFIDENCE", 0.55),
-            **{k: ("EXCITEMENT", 0.7) for k in ("N07", "N15", "N16")}},
+            **{k: ("EXCITEMENT", 0.8) for k in ("N07", "N15", "N16")}},  # payoffs 0.8-1.0 (FACE_RESEARCH.md)
 }
 SOLVE_DEFAULT = ("CONFIDENCE", 0.5)
 BASE_UNDER_SOLVE = 0.5  # the warm base's share over a full-face solve (its mood already smiles)
@@ -292,7 +293,11 @@ def plan(who: str, only: set | None = None) -> dict:
                 deg = float(b["deg"] or 4.0) * (1.0 if (b["side"] or "R") == "R" else -1.0)
                 tilts.append({"t": round(b["apex"] - 0.25, 3), "until": round(b["apex"] + 0.95, 3), "roll_deg": deg,
                               "ease_s": 0.4})
-        if L["pause_smile"]:  # an open smile into the pause after the line (teeth; no lip-sync to keep)
+        if L["pause_smile"] and nxt >= cu["length_s"]:
+            # the take's last line: a closed Duchenne held to the end. lipsync.check wants the mouth shut in the end
+            # silence (box B, 08 Nov: the open smile's jaw read "opens 0.11 (allowed 0.1)" at f1386-1427)
+            ev.append(_ev("smile", t1 + 0.05, rng, 0.85, until=round(nxt - 0.3, 3)))
+        elif L["pause_smile"]:  # an open smile into the pause after the line (teeth; no lip-sync to keep)
             end = nxt - LIP_CLEAR_S - KINDS["open"][2]
             if end - t1 > 0.35:
                 ev.append(_ev("open", t1 + 0.05, rng, 0.85, until=round(end, 3)))
