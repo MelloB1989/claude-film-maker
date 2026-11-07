@@ -75,6 +75,7 @@ export abstract class MotionScene extends Scene3D {
 
   constructor(ctx: SceneCtx) {
     super(ctx);
+    if (this.matte) this.basePost = { ...this.basePost, grain: 0, vignette: 0, ca: 0 };
     if (this.panel) {
       this.env = { floor: false, haze: false, dust: false };
       this.arrival = { dur: 0.42, dist: 0.1, yaw: -6, roll: 0 };
@@ -83,6 +84,12 @@ export abstract class MotionScene extends Scene3D {
   }
 
   /** Panel mode: params.panel true or params.layout 'panel'. A shot that changes env in build() must keep it off. */
+  /** A matte pass (params.matte set: the frame cleared to black or grey for an alpha pair, or the caption-band gate): no
+   * environment, no grain or vignette, so only the graphic itself is in the frame. */
+  protected get matte(): boolean {
+    return !!this.ctx.params.matte;
+  }
+
   protected get panel(): boolean {
     return this.ctx.params.panel === true || this.ctx.params.layout === 'panel';
   }
@@ -97,7 +104,7 @@ export abstract class MotionScene extends Scene3D {
   protected buildEnv() {
     if (this.envBuilt) return;
     this.envBuilt = true;
-    if (this.panel) return;
+    if (this.panel || this.matte) return;
     const s = this.stage.scene;
     if (this.env.haze !== false) s.add(this.own(this.haze = new Haze(this.env.haze ?? {})).mesh);
     if (this.env.floor !== false) s.add(this.own(this.floor = new Floor(this.env.floor ?? {})).mesh);
