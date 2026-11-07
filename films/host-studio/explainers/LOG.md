@@ -57,10 +57,10 @@ Every number on screen or in the voice is softened or sourced; the sources are i
 - **Chunks "a few seconds long"**: kept vague on purpose (Netflix segment lengths vary by client and codec).
 - **Control plane on AWS, data plane on OCAs**: Open Connect overview and Netflix's AWS material; the player asks AWS,
   AWS returns the OCAs to fetch from.
-- 16:45 `composite.py` written; WhatsApp placeholder rendered on the build host (3 m 52 s with the ProRes master).
+- 16:40 `composite.py` written; WhatsApp placeholder rendered on the build host (3 m 52 s with the ProRes master).
   First look: cuts, panels, lower third and the kinetic captions land; captions split "over a hundred / billion" →
   chunking rewritten (clauses at punctuation, long clauses split evenly, never after a lead-in word).
-- 16:52 placeholder cuts of both films (graphics + VO + mix + captions + lower third + grey presenter slugs), timing
+- 16:46 placeholder cuts of both films (graphics + VO + mix + captions + lower third + grey presenter slugs), timing
   locked: out/explainers/placeholder/{whatsapp,netflix}_r6_placeholder.mp4 (+ .srt) in the shared worktree.
 
 ## Running the composite on a box (drivers)
