@@ -771,7 +771,7 @@
    "how": "film-ue op qa.limb_clearance (core fleet/agent-09/r7-perf-gate)",
    "r4": [
     null,
-    "INFO: agent-02's triangle-normal measure is the gated one"
+    "INFO, and NOT VALID yet: on v2b it read -9.6..-10.0 on both sides in all 67 frames (agent-06, limbs_v2b.json), the same structural constancy as agent-02's first version. Its sign (an arm point nearer the spine axis than its nearest torso point) is meaningless when that nearest point is ~10 cm away (the chest front far out radially); it needs a surface-normal sign (agent-02's approach) before it reads anything"
    ],
    "why": "two independent readings of the operator's arm complaint"
   },
