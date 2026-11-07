@@ -69,12 +69,16 @@ def kernel(d: float, rib: float, fall: float) -> float:
     return 0.5 * (1.0 + math.cos(math.pi * x)) if x < 1.0 else 0.0
 
 
-def push_grid(need: list, rib: float = 2.0, fall: float = 4.5) -> list:
+def push_grid(need: list, rib: float = 2.0, fall: float = 4.5, cap: float | None = None, keep: tuple | None = None) -> list:
     """need[s][b] (cm, None = not measured) -> P[s][b] >= 0: per sector, max over bins of need x kernel, then
-    the sectors smoothed bin by bin."""
+    the sectors smoothed bin by bin. `cap`: no push above it (cm). `keep` (centre_deg, half_width_deg): sectors whose
+    centre is within it get no push at all (the orchestrator: his front untouched); the smoothing tapers into the
+    two sectors outside it, so set the half-width ~30 deg wider than the part that must stay exactly as it is."""
     P = []
     for s in range(NS):
         col = need[s]
+        if keep and abs(((s + 0.5) * 360.0 / NS - keep[0] + 180.0) % 360.0 - 180.0) <= keep[1]:
+            col = [None] * NB
         row = []
         for b in range(NB):
             tb = T0 + (b + 0.5) * DT
@@ -88,7 +92,7 @@ def push_grid(need: list, rib: float = 2.0, fall: float = 4.5) -> list:
     for b in range(NB):
         sm = smooth_sectors([P[s][b] for s in range(NS)])
         for s in range(NS):
-            P[s][b] = sm[s]
+            P[s][b] = min(sm[s], cap) if cap is not None else sm[s]
     return P
 
 
@@ -588,6 +592,9 @@ def main(argv=None) -> int:
     p.add_argument("--dest", required=True)
     p.add_argument("--rib", type=float, default=2.0)
     p.add_argument("--fall", type=float, default=4.5)
+    p.add_argument("--cap", type=float, default=1.4, help="max push, cm (orchestrator: <= 1.4)")
+    p.add_argument("--keep-front", default="270,60", help="centre_deg,half_width_deg with no push (his front is "
+                   "setup's minus_y_deg); '' = none")
     p.add_argument("--seq", default="/Game/Reel/SEQ_Reel")
     v = sub.add_parser("verify", help="after mh.dress: Tee vs SkeletalMesh posed, elsewhere ~0")
     v.add_argument("--from", dest="src", required=True)
@@ -697,12 +704,18 @@ def _run(a, client) -> int:
     src = Path(a.src)
     nd = json.loads((src / "need.json").read_text())
     setup = json.loads((src / "setup.json").read_text())
-    P = push_grid(nd["need"], a.rib, a.fall)
+    keep = tuple(float(x) for x in a.keep_front.split(",")) if a.keep_front else None
+    P = push_grid(nd["need"], a.rib, a.fall, cap=a.cap, keep=keep)
+    front = [s for s in range(NS) if max(P[s]) > 0.005 and keep and
+             abs(((s + 0.5) * 360.0 / NS - keep[0] + 180.0) % 360.0 - 180.0) <= keep[1] - 30.0]
+    if front:
+        raise SystemExit(f"push reaches the kept front sectors {front}: widen --keep-front")
     print(json.dumps(summarize(nd["need"], nd["where"], P)["sectors"]))
     res = _exec(client, "push", FRAME=setup["frame"], PUSH=P, DEST=a.dest, TEE="")
     print(json.dumps(res, indent=1))
     print("next: mh.dress the copy as Tee, then: collar_fit.py --box .. verify --from", a.src)
-    (src / "push.json").write_text(json.dumps({"P": P, "rib": a.rib, "fall": a.fall, "result": res}))
+    (src / "push.json").write_text(json.dumps({"P": P, "rib": a.rib, "fall": a.fall, "cap": a.cap,
+                                               "keep_front": a.keep_front, "result": res}))
     return 0
 
 
