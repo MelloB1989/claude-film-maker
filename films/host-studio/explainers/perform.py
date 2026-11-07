@@ -690,10 +690,15 @@ def job():
                 x = min(t * fps, len(frames) - 1.0001)
                 i, u = int(x), x - int(x)
                 r0, r1 = data[frames[i]][b], data[frames[i + 1]][b]
-                Pp.append(unreal.Vector(*[p0 + (p1 - p0) * u for p0, p1 in zip(r0[0], r1[0])]))
                 q = _nlerp(r0[1], r1[1], u)
                 R.append(unreal.Quat(q[0], q[1], q[2], q[3]))
-                S.append(unreal.Vector(*[s0 + (s1 - s0) * u for s0, s1 in zip(r0[2], r1[2])]))
+                if P.get("rot_only"):  # the target animation keeps its own bone lengths (another mesh's offsets)
+                    o = own(b, t)
+                    Pp.append(o.translation)
+                    S.append(o.scale3d)
+                else:
+                    Pp.append(unreal.Vector(*[p0 + (p1 - p0) * u for p0, p1 in zip(r0[0], r1[0])]))
+                    S.append(unreal.Vector(*[s0 + (s1 - s0) * u for s0, s1 in zip(r0[2], r1[2])]))
             if b not in tracks:
                 ctrl.add_bone_curve(b)
             ctrl.set_bone_track_keys(b, Pp, R, S)
@@ -713,7 +718,7 @@ BAKE_CHUNK = 240
 
 
 def bake(who: str, source: str, target: str, anim: str, out: str, bones, head_control_off: bool = False,
-         chunk: int = BAKE_CHUNK, stage: str = "") -> dict:
+         chunk: int = BAKE_CHUNK, stage: str = "", rot_only: bool = False) -> dict:
     """anim.bake_pose / bake_follow, sampled in `chunk`-frame jobs (each prints before it runs) and written once."""
     c = client()
     path, lab = WORK[who], LABEL[who]
@@ -728,12 +733,14 @@ def bake(who: str, source: str, target: str, anim: str, out: str, bones, head_co
                           "frames": part, "ticks": 2, "file": fn}, 3600)
         files.append(fn)
     return run(BAKE_WRITE, {"seq": path, "label": lab, "target": target, "anim": anim, "out": out, "files": files,
-                            "fps": FPS, "head_control_off": head_control_off}, 3600)
+                            "fps": FPS, "head_control_off": head_control_off, "rot_only": rot_only}, 3600)
 
 
 # head_to_body's bones (the face's motion onto the body). Him: neck and head only. His built face carries its own
 # spine_04/05 pose: baked onto his body it tipped his chest and lifted both resting wrists 3.6 cm off the desk
-# (box B bodycheck, 07 Nov 23:1x; hips/knees 0). Her spine bake read 0 cm, so hers keeps the reel's set.
+# (box B bodycheck, 07 Nov 23:1x; hips/knees 0). Her spine bake read 0 cm, so hers keeps the reel's set. His bake 2
+# also takes ROTATIONS only: the face's neck offsets are another mesh's; with them his bake 3 killed the editor at
+# frames 240-479 every time.
 H2B_BONES = {"her": ["spine_04", "spine_05", "neck_01", "neck_02", "head"], "him": ["neck_01", "neck_02", "head"]}
 
 
@@ -825,7 +832,7 @@ def cmd_sync(who: str, from_bake: int = 1, restart_level: str = "") -> dict:
             ok(c.op("seq.set_anim", path=path, component="Face", anim=follow, label=lab))
             ok(c.op("seq.set_anim", path=path, component="Body", anim=seat, label=lab))
         print("sync 2/3: head_to_body", file=sys.stderr, flush=True)
-        b = bake(who, "Face", "Body", seat, body, H2B_BONES[who], stage="b2")
+        b = bake(who, "Face", "Body", seat, body, H2B_BONES[who], stage="b2", rot_only=(who == "him"))
     if restart_level and from_bake < 3:
         print("sync: fresh editor before bake 3", file=sys.stderr, flush=True)
         fresh_editor(who, restart_level)
