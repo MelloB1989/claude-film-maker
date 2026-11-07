@@ -135,4 +135,4 @@ export function emFor(px: number, dist: number, fov: number) {
   return (px / 0.72) * ((2 * dist * Math.tan((fov * Math.PI) / 360)) / 1080);
 }
 
-export { Beam, KineticText, Label, glowMat, hdr, surfaceMat, MotionScene, type CamPose };
+export { Beam, KineticText, Label, glowMat, hdr, surfaceMat, MotionScene, RoundedBoxGeometry, type CamPose };

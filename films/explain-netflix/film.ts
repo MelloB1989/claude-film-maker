@@ -17,10 +17,10 @@ const shot = (gfx: string) => (edl.shots as { gfx?: string; frames: number; word
 
 const scenes = {
   title: () => import('./v3/title'),
-  oca: () => import('./scenes/oca'),
+  oca: () => import('./v3/oca'),
   prefill: () => import('./scenes/prefill'),
   ladder: () => import('./scenes/ladder'),
-  abr: () => import('./scenes/abr'),
+  abr: () => import('./v3/abr'),
   buffer: () => import('./scenes/buffer'),
   planes: () => import('./scenes/planes'),
   end: () => import('./scenes/endcard'),
