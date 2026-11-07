@@ -85,7 +85,8 @@ KINDS = {"brow": ("brow_flash", 0.12, 0.35), "question": ("question", 0.14, 0.45
 # the orchestrator's calibration (07 Nov): a full Duchenne (>= 0.8) only on the payoffs; mid-line smiles 0.4-0.6,
 # varied and asymmetric, over a warm 0.2-0.4 base
 PAYOFFS = {"her": {("N01", "members"), ("N02", "starts"), ("N07", "near"), ("N13", "aws"), ("N16", "just"),
-                   ("N16", "plays")}}
+                   ("N16", "plays")},
+           "him": {("W01", "messages"), ("W03", "how"), ("W11", "read"), ("W16", "hands"), ("W17", "billion")}}
 MID_SMILE = (0.4, 0.6)
 BASE_SMILE = (0.2, 0.4)
 DEFAULT_AMOUNT = {"brow": 0.85, "question": 0.9, "curious": 0.85, "smile": 0.55, "soft": 0.5, "warm": 0.5,
