@@ -213,3 +213,9 @@ tested in `test_seatkit.py`), `gestures.json` (the emphasis gestures per line).
   asymmetry each; gesture amplitude `amp` per stroke and HELD strokes (`held`, `hold_s` 0.5-1.0). His 17 lines
   (`acting/him.json`), same staging and calibration (payoffs: messages, Here's how, read it, your hands, a day): 0.94
   onsets/s, longest neutral stretch <= 1.5 s; his TEST span CAM_MCU f0-179 (W01-W03) + CAM_WIDE f422-480 (W07).
+- 07 Nov ~01:30 IST (r7, agent-04): her face acts. Cause of the "pale" face: mouth-only solves, plus a plan that
+  added only random brow flashes (brow_chance 0.45) and no smiles. `face_acting.py` turns agent-11's sheet
+  (v1.1) into perf.face events on the exact words: brows, curious one-brow, Duchenne (cheek + squint) only on the
+  5 payoffs, soft 0.4-0.6 elsewhere over a warm base, nods and a shake, and filler past 0.7 s of neutral speech.
+  The lips stay the solve's (corner pull and dimple only, x0.75 while talking). Tilts go to agent-01's body.
+  Offline rows pass: active 0.88, smiles 27/min, brows 22/min, neutral hold 0.79 s. FACE_R7.md is the driver's sheet.
