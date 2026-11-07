@@ -317,7 +317,7 @@ def fill(cu: dict, ev: list, rng: random.Random, only: set | None = None) -> lis
                 k += 1
             last_kind = kind
             kk = {"warm": "warm", "brow_flash": "brow", "squint_smile": "squint", "curious": "curious"}[kind]
-            e = _ev(kk, w["t0"] + 0.1, rng, DEFAULT_AMOUNT[kk] * 0.8)
+            e = _ev(kk, w["t0"] + 0.1, rng, DEFAULT_AMOUNT[kk] * (1.0 if kk == "brow" else 0.8))
             e["until"] = round(max(e["until"], w["t0"] + 0.9), 3)
             e["name"] = f"fill:{kind}"
             ev.append(e)
@@ -329,7 +329,7 @@ def fill(cu: dict, ev: list, rng: random.Random, only: set | None = None) -> lis
 
 ROLES = {"brow": ("browRaiseIn", "browRaiseOuter"), "squint": ("eyeCheekRaise", "eyeSquintInner"),
          "smile": ("mouthCornerPull",)}
-ACTIVE, SMILE_PULL, SMILE_CHEEK, FLASH_RISE, FLASH_MAX_S = 0.15, 0.25, 0.2, 0.2, 1.2
+ACTIVE, SMILE_PULL, SMILE_CHEEK, FLASH_RISE, FLASH_MAX_S = 0.15, 0.25, 0.2, 0.4, 1.2  # brow 0.40: agent-09 (v2b 0)
 
 
 def role_values(curves: dict, times: list) -> dict:
