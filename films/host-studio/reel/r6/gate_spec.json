@@ -208,10 +208,46 @@
    ]
   },
   "garment.collar_gap_cm": {
-   "why_r6": "PENDING the orchestrator's measure-scope ruling (07 Nov): judged on the CAMERA-FACING half of the band (sectors whose outward normal faces the active shot camera, per frame); agent-02 implements on core with must-fails (Fit5 gap, rolled lip, fold, a synthetic FRONT stand-off) still failing; recorded as a measure fix, not a waiver. Finals before the fix: gap 1.514 (S15 f1150, side/back on the head turn), roll 3 (side/back cells 200-230 deg)"
+   "where": "the CAMERA-FACING half of the band (per vertex: outward radial direction from the neck axis . (the cut camera at that frame - vertex) > 0), S13, S15, S17 (every measured frame); a facing half with too few band verts is NOT measured and refuses",
+   "how": "qa.garment_look collar on core b454f979 (agent-02) -> r6/numbers/garment.json",
+   "why_r6": "a MEASURE FIX by the orchestrator's ruling (07 Nov), not a waiver: his neck turns inside a static crew-neck; the far side's gap/roll (finals: gap 1.514 at S15 f1150, roll 3 at side/back 200-230 deg) faces no camera. Must-fails still fail on the facing half: Fit5 (gap 2.447 + lip), the rolled lip, the fold, a synthetic FRONT stand-off 1.5 cm"
   },
   "garment.collar_roll": {
-   "why_r6": "PENDING the orchestrator's measure-scope ruling (07 Nov): judged on the CAMERA-FACING half of the band (sectors whose outward normal faces the active shot camera, per frame); agent-02 implements on core with must-fails (Fit5 gap, rolled lip, fold, a synthetic FRONT stand-off) still failing; recorded as a measure fix, not a waiver. Finals before the fix: gap 1.514 (S15 f1150, side/back on the head turn), roll 3 (side/back cells 200-230 deg)"
+   "where": "the CAMERA-FACING half of the band (per vertex: outward radial direction from the neck axis . (the cut camera at that frame - vertex) > 0), S13, S15, S17 (every measured frame); a facing half with too few band verts is NOT measured and refuses",
+   "how": "qa.garment_look collar on core b454f979 (agent-02) -> r6/numbers/garment.json",
+   "why_r6": "a MEASURE FIX by the orchestrator's ruling (07 Nov), not a waiver: his neck turns inside a static crew-neck; the far side's gap/roll (finals: gap 1.514 at S15 f1150, roll 3 at side/back 200-230 deg) faces no camera. Must-fails still fail on the facing half: Fit5 (gap 2.447 + lip), the rolled lip, the fold, a synthetic FRONT stand-off 1.5 cm"
+  },
+  "garment.collar_gap_all_cm": {
+   "area": "garment",
+   "track": "K1",
+   "op": "<=",
+   "line": 0.8,
+   "unit": "cm",
+   "info": true,
+   "what": "the collar gap over the WHOLE band (both sides), beside the camera-facing row",
+   "where": "S13, S15, S17",
+   "how": "qa.garment_look terms.collar_gap_all",
+   "r4": [
+    null,
+    "finals before the scope fix: 1.514 at S15 f1150"
+   ],
+   "why": "transparency: the scope change shows in the gate log"
+  },
+  "garment.collar_roll_all": {
+   "area": "garment",
+   "track": "K1",
+   "op": "==",
+   "line": 0,
+   "unit": "count",
+   "info": true,
+   "what": "collar roll frames over the WHOLE band (both sides)",
+   "where": "S13, S15, S17",
+   "how": "qa.garment_look terms.collar_roll_all",
+   "r4": [
+    null,
+    "finals before the scope fix: 3 frames"
+   ],
+   "why": "transparency"
   }
  },
  "not_attempted": {
