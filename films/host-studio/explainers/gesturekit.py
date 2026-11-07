@@ -240,8 +240,12 @@ def plan_from_sheet(sheet: dict, cues: dict, tilts: list | None = None, base_lea
                     z = min(z, BEAT_MAX_Z)  # beats can sit lower, still in frame (the orchestrator), off the mic
                 pr = replace(pr, off=(pr.off[0], pr.off[1], z))
             pl = scaled(gesture_pose(g, "l", n_count), k) if g.get("hand") in ("both", "l") else None
-            if pl is not None:  # the left (mic side) stays below and inside the mic line, whatever the amp
-                pl = replace(pl, off=(pl.off[0], min(pl.off[1], LEFT_MAX_LAT), pl.off[2]))  # the mic is up at her mouth
+            if pl is not None:  # the left (mic side) of a two-hand gesture: forward <= LEFT_TWO[0], out LEFT_TWO[1], up
+                #                 >= LEFT_TWO[2] over the sternum point. Tucked in and low (out 7, up -3.5) the arm went
+                #                 straight and the elbow rose in front of her chest, inside the Top (box B, agent-11:
+                #                 -7 cm at N01 'million', N13 'that'); this keeps it out and down as at the high rest.
+                #                 Higher than this, the hand passes behind the mic from CAM_CU / CAM_WIDE.
+                pl = replace(pl, off=(min(pl.off[0], LEFT_TWO[0]), LEFT_TWO[1], max(pl.off[2], LEFT_TWO[2])))
             seed0 += 1
             prep = float(g["prep_t"])  # agent-10's prosody timing owns prep/stroke/hold/retract when present
             ev = Event(g.get("hand", "r"), prep, float(g["stroke_t"]), float(g.get("hold_s", 0.25)),
@@ -625,6 +629,7 @@ RIGHT_MIN_LAT = 15.0  # cm her right hand stays to her right of the sternum poin
 LEFT_RESTS = False  # r7b: the left hand rested on the desk between its own gestures while the mic hung at her sternum;
 #                     with the mic moved up to her mouth (the orchestrator, 08 Nov) it gestures like the right
 LEFT_MAX_LAT = 9.0
+LEFT_TWO = (24.0, 9.0, 0.0)  # cm her left hand on a two-hand gesture (agent-10, see plan_from_sheet)
 LEFT_MAX_Z = 40.0  # cm over the sternum point for her left hand (no cap with the mic at her mouth)  # cm: her left hand stays at least 3 cm to her RIGHT of the sternum point while she speaks
 
 FRAME_WANT = {"CAM_MCU": 0.6, "CAM_MCU_L": 0.6, "CAM_CU": 0.3, "CAM_WIDE": 0.95}  # the orchestrator's lines

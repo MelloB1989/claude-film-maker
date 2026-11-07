@@ -53,7 +53,8 @@ SPREAD_SIGN = {"index": -1.0, "middle": 0.0, "ring": 0.6, "pinky": 1.2, "thumb":
 SHAPE_SPREAD = {"relaxed": 3.0, "open": 9.0, "point": 2.0, "count1": 2.0, "count2": 6.0, "count3": 7.0,
                 "pinch": 1.0, "soft_fist": 0.0}
 SIM_FAIL = 0.95
-MIC_L = (7.0, -3.5)  # the left hand (mic side) on a gesture: out <= 7 cm, up <= -3.5 cm from the sternum point
+MIC_L = (9.0, 0.0)  # the left hand (mic side) on a gesture: out <= 9 cm, up <= 0 cm from the sternum point
+#   (agent-10: was 7 / -3.5, which put her left elbow up in front of her chest, inside the Top on box B)
 
 
 # --- small helpers -----------------------------------------------------------------------------------------------
