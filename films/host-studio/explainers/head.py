@@ -56,12 +56,14 @@ LINES = {
     "head.frozen_s": ("<=", 1.5),                 # longest hold under 0.25 deg/s on the smoothed head
     "head.nods_per_min": ("range", (3.0, 24.0)),  # pitch dips >= 0.7 deg
     "eyes.on_lens_share": (">=", 0.75),           # eyes within 3 deg of the lens
-    "eyes.saccades_per_s": ("range", (0.4, 3.0)),  # on-lens steps 0.1-1.5 deg in a frame
+    "eyes.saccades_per_s": ("range", (0.4, 3.0)),  # on-lens steps 0.2-1.5 deg standing out of their neighbours
     "eyes.glances_per_min": ("range", (2.0, 8.0)),  # off the lens > 5 deg for 0.25-2.5 s, then back
     "blinks.per_min": ("range", (10.0, 30.0)),
 }
 
 
+SACC_MIN_DEG = 0.2   # the smallest step counted as a (micro)saccade
+LOCK_PAD = (0.08, 0.35)  # s kept free of the gaze lock around a glance: before it leaves, after it is back
 REAIM_MIN_DEG = 3.0   # a camera change smaller than this keeps the gaze where it is
 REAIM_HEAD_CUT = 0.3  # the head's share of a re-aim on a direct cut (the eyes do the rest)
 CUT_NO_BLINK_F = 6  # frames after a cut with no blink (agent-11's edit rule)
@@ -197,6 +199,23 @@ def face_args(cue: dict, who: str) -> dict:
     return {k: v for k, v in plan(cue, who).items() if k not in ("glances", "reaims")}
 
 
+def lock_spans(cue: dict, who: str) -> list:
+    """[[f0, f1, camera], ...] master frames (inclusive) for anim.gaze_lock: each on-camera span minus its thinking
+    glances (LOCK_PAD around each), so the lock keeps the eyes on the lens and leaves perf.face's glances alone
+    (r6 V2: locking whole spans erased every glance, eyes.glances_per_min 0.0)."""
+    fps, s0 = cue["fps"], cue["start"]
+    gl = glances(cue, who)
+    out = []
+    for a, b, *c in cue["on_cam"]:
+        cuts = sorted((g["t"] - LOCK_PAD[0], g["back"] + LOCK_PAD[1]) for g in gl if a <= g["t"] < b)
+        t = a
+        for x, y in cuts + [(b, b)]:
+            if x - t >= 0.25:
+                out.append([s0 + int(round(t * fps)), s0 + int(round(x * fps)) - 1, c[0] if c else ""])
+            t = max(t, y)
+    return out
+
+
 # ------------------------------------------------------------------------------------------------------- sample
 
 def on_cam_frames(cue: dict) -> list:
@@ -241,7 +260,7 @@ def _unit(v):
 def eye_metrics(eyes: dict, fps: float) -> dict:
     """From seq.sample of both eyes + the camera: the angle (deg) of each eye's gaze off its line to the lens, per
     frame. The gaze axis is the eye bone's axis that points most at the lens over the span (signed)."""
-    off_all, sacc, glance_n, dur_s = [], 0, 0, 0.0
+    off_all, sacc, glance_n, dur_s, steps_on = [], 0, 0, 0.0, []
     for sp in eyes["spans"]:
         cam = np.asarray(sp["cam"], float)
         offs = []
@@ -259,7 +278,16 @@ def eye_metrics(eyes: dict, fps: float) -> dict:
         off = np.degrees(np.arccos(np.clip(np.sum(g * to_cam, axis=1), -1, 1)))
         step = np.degrees(np.arccos(np.clip(np.sum(g[1:] * g[:-1], axis=1), -1, 1)))
         on = off < 3.0
-        sacc += int(np.sum((step >= 0.1) & (step <= 1.5) & on[1:] & on[:-1]))
+        # a saccade is a step standing out of its neighbourhood (>= SACC_MIN_DEG and 3x the median step of the
+        # +-6 frames around it), not a lock's per-frame correction (r6 V2: 7.97/s counted at a flat 0.1 deg)
+        for i in range(len(step)):
+            if not (on[i] and on[i + 1]) or not (SACC_MIN_DEG <= step[i] <= 1.5):
+                continue
+            nb = np.concatenate([step[max(0, i - 6):i], step[i + 1:i + 7]])
+            if len(nb) and step[i] >= 3.0 * float(np.median(nb)) and (i == 0 or step[i] >= step[i - 1]) and \
+                    (i + 1 >= len(step) or step[i] >= step[i + 1]):
+                sacc += 1
+        steps_on.append(step[on[1:] & on[:-1]])
         # glances: runs off the lens by > 5 deg lasting 0.25-2.5 s that end back on it
         run = 0
         for i, o in enumerate(off):
@@ -276,7 +304,10 @@ def eye_metrics(eyes: dict, fps: float) -> dict:
     return {"eyes.on_lens_share": round(float(np.mean(off < 3.0)), 3) if len(off) else None,
             "eyes.saccades_per_s": round(sacc / on_s, 2) if on_s else None,
             "eyes.glances_per_min": round(glance_n / dur_s * 60.0, 2) if dur_s else None,
-            "eyes.off_lens_p95_deg": round(float(np.percentile(off, 95)), 2) if len(off) else None}
+            "eyes.off_lens_p95_deg": round(float(np.percentile(off, 95)), 2) if len(off) else None,
+            # INFO: the eyes' frame-to-frame motion on the lens (a lock's jitter shows here: p50 over ~0.08 deg buzzes)
+            "eyes.step_p50_deg": round(float(np.median(np.concatenate(steps_on))), 3) if steps_on and
+            sum(len(x) for x in steps_on) else None}
 
 
 def _smooth(x: np.ndarray, n: int) -> np.ndarray:
