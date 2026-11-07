@@ -165,7 +165,7 @@ the end of 2024.
 
 ## Order of a film's QA (per box)
 
-1. Editor, read before the render: hair.lock, render_cvars, cameras_ok, set.props_overlap.
+1. Editor, read before the render: garment.leaders_ok (every garment leader == Body; the r6n0 lesson), hair.lock, render_cvars, cameras_ok, set.props_overlap.
 2. Editor, after the performance is placed: qa.clip (garments + set + mouth) and qa.garment_look, seated.
 3. agent-04 head.py and agent-01 lips/body on the placed performance.
 4. Finals, from a freshly restarted editor (the karma lesson): exposure, hair numbers.
