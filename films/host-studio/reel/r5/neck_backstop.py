@@ -40,6 +40,10 @@ EDGE_W = float(globals().get("EDGE_W", 0.0))
 DILATE_W = float(globals().get("DILATE_W", EDGE_W))  # the dilated band's weight at the line (visible skin: keep small)  # the shrink weight AT the collar edge (round 5b: a turn exposes the
 # neck right at the edge, where a 0 ramp start left it unshrunk; 0.3 = 30 % of SHRINK_CM there)
 SHRINK_CM = float(globals().get("SHRINK_CM", 1.5))
+CULL_DEPTH_CM = float(globals().get("CULL_DEPTH_CM", 0.0))  # round 6 (orchestrator): > 0 = CULL mode. Covered face verts
+# at least this far (straight line, rest pose) below the collar edge are drawn 0 (culled with MAX_CULL > 0: the chest
+# flange that is always under the tee); every other vertex white (never shrunk, never moved). With SHRINK_CM 0.
+MAX_CULL = float(globals().get("MAX_CULL", 0.0))  # apply: 0.0 = never cull (round 5b); CULL mode: 0.1
 SIZE = int(globals().get("SIZE", 1024))
 OUT = globals().get("OUT") or "/srv/ue/reel/r5/garment/neck_hidden.png"
 DEST = "/Game/Host/Fit"
@@ -165,6 +169,15 @@ def mask():
             if d < BOUND_CM:
                 w[i] *= d / BOUND_CM
     val = [1.0 - w[i] if (cov[i] or w[i] > 0) else 1.0 for i in range(len(V))]
+    cull_info = None
+    if CULL_DEPTH_CM > 0:  # hard: 0 (cull) deep under the tee, 1 (untouched) everywhere else
+        dd = [min((V[i] - e).length() for e in E) if (cov[i] and E) else 0.0 for i in range(len(V))]
+        val = [0.0 if (cov[i] and dd[i] >= CULL_DEPTH_CM) else 1.0 for i in range(len(V))]
+        cut = [i for i in range(len(V)) if val[i] == 0.0]
+        cull_info = {"cull_depth_cm": CULL_DEPTH_CM, "culled_verts": len(cut),
+                     "culled_z_cm": [round(min(V[i].z for i in cut), 1), round(max(V[i].z for i in cut), 1)] if cut else None,
+                     "culled_on_open_edge": sum(1 for i in cut if i in bverts),
+                     "min_depth_below_collar_cm": round(min(dd[i] for i in cut), 2) if cut else None}
     img = bytearray([255] * (SIZE * SIZE))
     drawn = 0
     for a, b, c in tris:
@@ -184,7 +197,8 @@ def mask():
                 l3 = 1 - l1 - l2
                 if min(l1, l2, l3) < -0.02:
                     continue
-                # never 0: with MaxCullValue 0 a pixel at 0 CULLS; 1/255 still shrinks fully (weight 0.996)
+                # never 0: with MaxCullValue 0 a pixel at 0 CULLS; 1/255 still shrinks fully (weight 0.996). CULL
+                # mode (MAX_CULL 0.1) wants 0 and 1/255 alike: both are under MaxCull
                 v = max(1, int(round(255 * max(0.0, min(1.0, l1 * av + l2 * bv + l3 * cv)))))
                 j = y * SIZE + x
                 if v < img[j]:
@@ -224,7 +238,7 @@ def mask():
     weak = [i for i, c in enumerate(cov) if c and sample(UV[i].x, UV[i].y) > want]
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     I.write(I.Image(SIZE, SIZE, 1, img), OUT)
-    return {"tee_component": tee_c.get_name(), "face_verts": len(V), "covered": sum(cov), "edge_verts": len(edge), "dilated": dil, "full_shrink": sum(1 for x in w if x >= 1),
+    return {"cull": cull_info, "tee_component": tee_c.get_name(), "face_verts": len(V), "covered": sum(cov), "edge_verts": len(edge), "dilated": dil, "full_shrink": sum(1 for x in w if x >= 1),
             "px_drawn": drawn, "pad_px": PAD_PX, "open_edge_verts_near": len(B), "shrunk_on_open_edge": bound_hit,
             "bound_cm": BOUND_CM, "weak_covered": len(weak),
             "weak_z_cm": [round(min(V[i].z for i in weak), 1), round(max(V[i].z for i in weak), 1)] if weak else None, "png": OUT, "uv_valid": bool(UV) and len(UV) == len(V)}
@@ -255,7 +269,7 @@ def apply():
     # 0.0, not below: TryCombineHiddenFaceMaps rejects MaxCullValue < 0 as invalid and the WHOLE assembly fails
     # (MetaHumanGeometryRemoval.cpp:45-52; box, 06 Nov: Body/Face/grooms came out empty). The mask never goes
     # below 1/255, so nothing is culled
-    sp(s, "max_cull_value", 0.0)
+    sp(s, "max_cull_value", MAX_CULL)
     sp(s, "min_keep_value", 0.9)
     sp(s, "max_shrink_distance", SHRINK_CM)
     sp(h, "settings", s)
