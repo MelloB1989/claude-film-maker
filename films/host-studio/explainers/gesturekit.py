@@ -452,6 +452,8 @@ class Performer(S.Seater):
         gesture): beats, presses and opens dip and rebound (down then up), counts and points push forward and back.
         (fwd, out, up) cm in the sternum frame of that hand."""
         fx = ox = zx = 0.0
+        if STYLE_HOOK is not None and hasattr(STYLE_HOOK, "hand"):
+            return fx, ox, zx  # agent-08's human-motion layer accents its own strokes (e6b8f981): never twice
         for e in self.plan.events:
             if not (e.hand == s or e.hand == "both") or s not in self._accented.get(id(e), ()):
                 continue
