@@ -222,6 +222,7 @@ class Retarget:
         n = len(self.dump["frames"])
         bones = [b for b in self.mapped if not b.startswith(("thigh", "calf", "foot", "ball"))]
         frames, tracks = [], {b: [] for b in TRACKS}
+        wrists = {"hand_l": [], "hand_r": []}
         for f in range(n):
             W = self.world(f)
             if clear:
@@ -231,12 +232,17 @@ class Retarget:
             P = self.positions(W)
             for b in TRACKS:
                 tracks[b].append([round(x, 3) for x in P[b]])
+            ci = qinv(W["spine_05"])
+            for h in wrists:  # the wrist in the chest's (spine_05's) frame: agent-01's IK target
+                wrists[h].append({"t": [round(x, 3) for x in qrot(ci, sub(P[h], P["spine_05"]))],
+                                  "q": [round(x, 6) for x in qnorm(qmul(ci, W[h]))]})
         return {
             "fps": self.dump["fps"], "space": "UE component, cm; quaternions x y z w, local to the parent",
             "bones": bones, "frames": frames, "mirrored": bool(self.dump.get("mirrored")),
             "elbow_out_cm": self.elbow_out, "clearance_fixes": len(self.clear_log),
             "clearance_max_deg": max([c["deg"] for c in self.clear_log] or [0.0]),
             "joints": {"fps": self.dump["fps"], "joints": tracks},
+            "wrists_chest": wrists,
         }
 
 

@@ -174,6 +174,9 @@ def test_run_outputs_upper_body_locals_and_tracks():
     assert "thigh_l" not in res["bones"] and "upperarm_r" in res["bones"] and "middle_02_r" in res["bones"]
     assert len(res["frames"]) == 2 and len(res["frames"][0]) == len(res["bones"])
     assert set(res["joints"]["joints"]) >= {"hand_l", "hand_r", "upperarm_l", "spine_05", "head"}
+    w = res["wrists_chest"]["hand_r"]
+    assert len(w) == 2 and abs(norm(w[0]["t"]) - norm(sub(res["joints"]["joints"]["hand_r"][0],
+                                                          res["joints"]["joints"]["spine_05"][0]))) < 0.01
 
 
 # --- annotation ------------------------------------------------------------------------------------------------------
@@ -235,6 +238,26 @@ def test_entry_has_agent10_fields():
         for k in ("type", "hand", "prep_f", "stroke_f", "hold_end_f", "retract_f", "energy", "size", "target"):
             assert k in ev, k
     assert e["hand"] == "both" and 0 < e["energy"] <= 1
+
+
+def test_batch_one_clip_without_blender(tmp_path=None):
+    """batch.one on a dump already made: retarget, annotate and the library entry (a left-hand clip is mirrored)."""
+    import json
+    import tempfile
+    import batch as B
+    work = Path(tmp_path or tempfile.mkdtemp())
+    frames = []
+    for i in range(90):
+        a = 50.0 * math.sin(math.pi * min(1.0, max(0.0, (i - 20) / 40.0)))
+        frames.append({"LeftArm": axis_angle(qrot(TURN, [0, 1, 0]), 80 - a), "RightArm": axis_angle(qrot(TURN, [0, 1, 0]), -80)})
+    (work / "mx_t").mkdir(parents=True, exist_ok=True)
+    json.dump(dump_of(frames), open(work / "mx_t" / "dump.json", "w"))
+    read, _ = read_of(T, 3)
+    clip = {"id": "mx_t", "file": "mx_t.fbx", "source": "mixamo", "source_id": "x", "licence": "L", "licence_url": "u",
+            "seated": True, "types": ["open_palm"]}
+    e = B.one(clip, work, read, work, "blender-not-needed", preview=False)
+    assert e["mirrored"] and e["events"] and all(ev["hand"] in ("R", "both") for ev in e["events"])
+    assert (work / "mx_t" / "rtg.json").exists() and (work / "mx_t" / "entry.json").exists()
 
 
 if __name__ == "__main__":
