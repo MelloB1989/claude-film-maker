@@ -31,8 +31,9 @@ def read_depth(path: Path) -> tuple:
 
 
 def scan(d: Path, tongues: list) -> dict:
+    import importlib
     qa()
-    clip = sys.modules["fmqa.clip"]
+    clip = importlib.import_module("fmqa.clip")  # qa() registers fmqa but not every submodule
     rows = {}
     for p in sorted(d.glob("*_depth.bin")):
         m = re.match(r"(.+)_(\d+)_depth\.bin$", p.name)
