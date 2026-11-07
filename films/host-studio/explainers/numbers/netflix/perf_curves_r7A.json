@@ -1,0 +1,43 @@
+{
+ "anim": "/Game/Explainer/Perf/AS_exp_her_gaze",
+ "abs": {
+  "expr_active_frac": 0.87,
+  "smile_per_min": 18.7,
+  "brow_flash_per_min": 18.7,
+  "neutral_hold_max_s": 0.42,
+  "neutral_hold_at_s": 1.29,
+  "speaking_s": 3.21
+ },
+ "rel20": {
+  "expr_active_frac": 0.857,
+  "smile_per_min": 37.4,
+  "brow_flash_per_min": 37.4,
+  "neutral_hold_max_s": 0.46,
+  "neutral_hold_at_s": 1.29,
+  "speaking_s": 3.21
+ },
+ "frames_file": "/tmp/fleet-agent-06-ue/r7/tree/out/explainers/face/her/frames_AS_exp_her_gaze.json",
+ "gate09": {
+  "face.curves_expr_active_frac": {
+   "value": 0.855,
+   "where": "691 speaking frames (28.8 s)"
+  },
+  "face.curves_smile_events_per_min": {
+   "value": 22.92,
+   "where": "691 speaking frames (28.8 s)"
+  },
+  "face.curves_brow_flash_per_min": {
+   "value": 29.18,
+   "where": "691 speaking frames (28.8 s)"
+  },
+  "face.curves_neutral_hold_max_s": {
+   "value": 0.79,
+   "where": "691 speaking frames (28.8 s)"
+  },
+  "face.curves_frown_frac": {
+   "value": 0.0,
+   "where": "browDown/browLateral > 0.25 while speaking (INFO: the angry-brow risk)"
+  }
+ },
+ "pass": true
+}
