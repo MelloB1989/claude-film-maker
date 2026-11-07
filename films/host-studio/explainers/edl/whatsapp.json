@@ -1,14 +1,14 @@
 {
  "film": "whatsapp",
  "fps": 24,
- "frames": 1359,
- "duration": 56.625,
+ "frames": 1352,
+ "duration": 56.3333,
  "vo": "audio/whatsapp/vo.wav",
  "presenter": "him",
  "share": {
-  "presenter": 0.323,
-  "panel": 0.274,
-  "gfx": 0.403
+  "presenter": 0.32,
+  "panel": 0.276,
+  "gfx": 0.405
  },
  "shots": [
   {
@@ -1097,13 +1097,13 @@
    "n": 14,
    "kind": "pres",
    "f0": 1252,
-   "f1": 1323,
-   "frames": 71,
+   "f1": 1316,
+   "frames": 64,
    "lines": [
     "W17"
    ],
    "camera": "CAM_CU",
-   "text": "That's a hundred billion messages a day.",
+   "text": "That's over a hundred billion messages a day.",
    "words": [
     {
      "w": "That's",
@@ -1112,39 +1112,45 @@
      "line": "W17"
     },
     {
+     "w": "over",
+     "f": 11,
+     "f_end": 17,
+     "line": "W17"
+    },
+    {
      "w": "a",
-     "f": 12,
-     "f_end": 14,
+     "f": 17,
+     "f_end": 19,
      "line": "W17"
     },
     {
      "w": "hundred",
-     "f": 15,
+     "f": 19,
      "f_end": 26,
      "line": "W17"
     },
     {
      "w": "billion",
-     "f": 27,
-     "f_end": 38,
+     "f": 26,
+     "f_end": 34,
      "line": "W17"
     },
     {
      "w": "messages",
-     "f": 39,
-     "f_end": 51,
+     "f": 34,
+     "f_end": 44,
      "line": "W17"
     },
     {
      "w": "a",
-     "f": 51,
-     "f_end": 53,
+     "f": 45,
+     "f_end": 46,
      "line": "W17"
     },
     {
      "w": "day.",
-     "f": 53,
-     "f_end": 59,
+     "f": 47,
+     "f_end": 52,
      "line": "W17"
     }
    ]
@@ -1153,8 +1159,8 @@
    "n": 15,
    "kind": "gfx",
    "gfx": "end",
-   "f0": 1323,
-   "f1": 1359,
+   "f0": 1316,
+   "f1": 1352,
    "frames": 36,
    "lines": [],
    "text": "",
