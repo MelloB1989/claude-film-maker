@@ -436,7 +436,9 @@ def _editor(G: dict):
             return s
 
         posed = {n: mesh_of(c) for n, c in parts}
-        rest, rest_bones, rest_chain = {}, None, None
+        # each part is labelled on ITS OWN ref pose (v2b2: the Top labelled on the Body's ref bones read its sleeves
+        # as torso, the arm inside its own sleeve at about -arm radius, and the self-check failed at -13.7)
+        rest, rest_bones, rest_chain = {}, {}, {}
         cleanup()
         try:
             for n, c in parts:
@@ -447,9 +449,8 @@ def _editor(G: dict):
                 if math.dist(loc(rc, "neck_01"), loc(rc, "spine_05")) < 2.0:
                     raise RuntimeError("the temp ref-pose actor has no pose yet: run arms again")
                 rest[n] = mesh_of(rc)
-                if n == "Body":
-                    rest_bones = segs_of(rc), {sd: loc(rc, f"upperarm_{sd}") for sd in ("l", "r")}
-                    rest_chain = [loc(rc, b) for b in SPINE]
+                rest_bones[n] = segs_of(rc), {sd: loc(rc, f"upperarm_{sd}") for sd in ("l", "r")}
+                rest_chain[n] = [loc(rc, b) for b in SPINE]
         finally:
             cleanup()
         chain = [loc(body, b) for b in SPINE]
@@ -462,19 +463,30 @@ def _editor(G: dict):
                 raise RuntimeError(f"{n}: posed {len(Pp)} verts/{len(Tp)} tris vs ref pose {len(Pr)}/{len(Tr)}: the "
                                    "render copies do not line up")
             used = sorted({i for t in Tp for i in t})
-            labels[n] = label_rest(Pr, rest_bones[0], used)
-            out["parts"][n] = {"verts": len(Pp), "tris": len(Tp)}
+            labels[n] = label_rest(Pr, rest_bones[n][0], used)
+            # its ref pose vs the Body's: the shared joints' largest offset (0 = one pose, the rest check is valid)
+            mis = max(math.dist(a, b) for k in rest_bones["Body"][0] for a, b in
+                      zip(rest_bones["Body"][0][k], rest_bones[n][0][k]))
+            out["parts"][n] = {"verts": len(Pp), "tris": len(Tp), "rest_vs_body_cm": round(mis, 2),
+                               "upperarm_verts": {sd: sum(1 for x in labels[n].values() if x[0] == f"upperarm_{sd}")
+                                                  for sd in ("l", "r")}}
         for sd in ("r", "l"):
-            sh = rest_bones[1][sd]
+            sh = rest_bones["Body"][1][sd]
             r_med = arm_radius(labels["Body"], sd)
             arm_r = float(G["ARM_R"]) if G.get("ARM_R") else (r_med * float(G.get("ARM_R_X", 1.3)) if r_med else None)
             arm, _ = arm_sets(labels["Body"], rest["Body"][0], sh, sd, float(G.get("ARM_T0", 0.3)),
                               float(G.get("AXILLA_CM", 7.0)), arm_r)
             entries, rest_entries = [], []
+            skipped = []
             for n, _ in parts:
-                _, torso = arm_sets(labels[n], rest[n][0], sh, sd, 1.1, float(G.get("AXILLA_CM", 7.0)), arm_r)
+                _, torso = arm_sets(labels[n], rest[n][0], rest_bones[n][1][sd], sd, 1.1,
+                                    float(G.get("AXILLA_CM", 7.0)), arm_r)
                 entries += torso_tris(posed[n][0], posed[n][1], set(torso), n, chain if n != "Body" else None)
-                rest_entries += torso_tris(rest[n][0], rest[n][1], set(torso), n, rest_chain if n != "Body" else None)
+                if out["parts"][n]["rest_vs_body_cm"] <= 1.0:  # the rest check needs one pose for both
+                    rest_entries += torso_tris(rest[n][0], rest[n][1], set(torso), n,
+                                               rest_chain[n] if n != "Body" else None)
+                else:
+                    skipped.append(n)
             grid = TriGrid(entries, float(G.get("CELL", 2.0)))
             P = posed["Body"][0]
             worst, neg, lt3 = clearance(grid, [(i, P[i]) for i in arm], float(G.get("MAX_D", 20.0)))
@@ -485,7 +497,8 @@ def _editor(G: dict):
             ua, la = loc(body, f"upperarm_{sd}"), loc(body, f"lowerarm_{sd}")
             rec = {"arm_verts": len(arm), "torso_tris": len(entries), "verts_lt0": neg, "verts_lt3": lt3,
                    "arm_r_med": r_med and round(r_med, 2), "arm_r": arm_r and round(arm_r, 2),
-                   "rest_clear_cm": rw and round(rw[0], 2), "rest_verts_lt0": rneg}
+                   "rest_clear_cm": rw and round(rw[0], 2), "rest_verts_lt0": rneg,
+                   "rest_part": rw and rw[3], "rest_check_skips": skipped}
             if worst:
                 s, i, q, tag = worst
                 cy = Cyl(chain[0], chain[3], facing("clavicle_l", "clavicle_r")[0],
@@ -591,6 +604,8 @@ def main(argv=None) -> int:
             if not r.get("ok"):
                 raise SystemExit(f"seq.scrub {ff}: {r}")
         res = _exec(client, a.cmd, **g)
+        if a.cmd == "arms" and not per:
+            print("parts:", json.dumps(res["parts"]), flush=True)
         if last is not None and res["frame_head"] == last:
             print(f"WARN f{f}: head did not move since the last frame (pose not updated?)")
         last = res["frame_head"]
@@ -600,7 +615,8 @@ def main(argv=None) -> int:
                   + " | ".join(
                 f"{sd}: {r.get('clear_cm')} cm (arm_t {r.get('arm_t')}, {r.get('torso_part')} at t {r.get('torso_t_cm')}"
                 f" cm, {r.get('torso_deg')} deg; <0 {r['verts_lt0']}, <3 {r['verts_lt3']} of {r['arm_verts']}; arm_r "
-                f"{r.get('arm_r')}; rest {r.get('rest_clear_cm')}/{r.get('rest_verts_lt0')})"
+                f"{r.get('arm_r')}; rest {r.get('rest_clear_cm')}/{r.get('rest_verts_lt0')} {r.get('rest_part')}"
+                f"{' skips ' + ','.join(r['rest_check_skips']) if r.get('rest_check_skips') else ''})"
                 for sd, r in res["sides"].items()), flush=True)
         else:
             print(f"f{f}: waist_fit {res['waist_fit_cm']} cm ({res['worst']}; facing vs actor "
