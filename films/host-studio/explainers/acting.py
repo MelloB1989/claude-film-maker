@@ -2,7 +2,7 @@
 (brow flashes, Duchenne smiles, nods, tilts, glances) and the gestures (type, hand, target, size), each pinned to an
 exact word, resolved against the VO alignment (audio/<film>/cues.json) into seconds and sequence frames.
 
-    python3 films/host-studio/explainers/acting.py            # -> acting/her.json + ACTING.md, and the checks
+    python3 films/host-studio/explainers/acting.py            # -> acting/her.json, acting/him.json + ACTING.md, checks
 
 Re-run after any VO rebuild and every beat moves with the voice, like edl.py. Times are on the VO clock: t = 0 is
 sequence frame 0 (frame = round(t * 24)). A word reference is (line, word[, occurrence][, stress]): `stress` is where
@@ -55,14 +55,14 @@ HER = {
                      ("brow_one", ("N01", "over"), {"side": "R", "hold": 1.0, "note": "the conspiratorial one brow"}),
                      ("tilt", ("N01", "over"), {"side": "R", "deg": 6}),
                      ("nod", ("N01", "million"), {}),
-                     ("smile", ("N01", "million"), {"amount": 0.7, "hold": 0.6}),
-                     ("smile", ("N01", "members"), {"amount": 0.85, "hold": 0.5, "note": "full Duchenne: cheeks up, "
+                     ("smile", ("N01", "million"), {"amount": 0.5, "hold": 0.4, "shape": "lopsided R, closed"}),
+                     ("smile", ("N01", "members"), {"amount": 0.85, "hold": 0.5, "note": "full Duchenne (payoff 1/5): cheeks up, "
                                                                                           "eyes squint"})],
             "gestures": [
                 ("open_palm", "R", ("N01", "Netflix"), {"size": "small", "target": "camera",
                                                         "note": "palm up and slightly out, chest height, presenting"}),
                 ("size", "both", ("N01", "million"), {"start": ("N01", "three"), "size": "big", "target": "front",
-                                                      "note": "hands start 15 cm apart in front of her sternum on "
+                                                      "hold": 0.6, "note": "hands start 15 cm apart in front of her sternum on "
                                                               "'three', spread to shoulder width on 'million': a huge "
                                                               "number; L hand stays below the mic"}),
                 ("beat", "R", ("N01", "paying"), {"size": "small", "target": "camera"}),
@@ -103,12 +103,12 @@ HER = {
             "base": {"smile": 0.25, "brows": 0.05},
             "face": [("brow_flash", ("N04", "own"), {}),
                      ("nod", ("N04", "servers,"), {}),
-                     ("smile", ("N04", "called"), {"amount": 0.55, "hold": 0.6}),
+                     ("smile", ("N04", "called"), {"amount": 0.5, "hold": 0.6, "shape": "closed, proud"}),
                      ("brow_flash", ("N04", "Open"), {}),
                      ("nod", ("N04", "Appliances.", 1, 0.35), {})],
             "gestures": [
                 ("place", "both", ("N04", "builds"), {"size": "medium", "target": "front",
-                                                      "note": "palms facing, shoulder width, setting a box down in "
+                                                      "hold": 0.5, "note": "palms facing, shoulder width, setting a box down in "
                                                               "front of her on 'builds', firm on 'servers'"}),
                 ("open_palm", "R", ("N04", "own"), {"size": "small", "target": "camera"}),
                 ("beat", "R", ("N04", "Open"), {"size": "small", "target": "camera"}),
@@ -120,7 +120,7 @@ HER = {
         "N05": {
             "arc": "body", "emotion": "generous surprise", "intensity": 0.65, "off_cam": True,
             "base": {"smile": 0.3, "brows": 0.1},
-            "face": [("brow_flash", ("N05", "free,"), {}), ("smile", ("N05", "free,"), {"amount": 0.7, "hold": 0.5}),
+            "face": [("brow_flash", ("N05", "free,"), {}), ("smile", ("N05", "free,"), {"amount": 0.5, "hold": 0.4, "shape": "open lips"}),
                      ("nod", ("N05", "networks.", 1, 0.3), {})],
             "gestures": [("open_palm", "R", ("N05", "free,"), {"size": "medium", "target": "camera",
                                                                "note": "offering"}),
@@ -134,12 +134,12 @@ HER = {
             "face": [("brow_flash", ("N06", "Every"), {"note": "the bar names this one"}),
                      ("glance", ("N06", "Every"), {"dir": "up, her right", "dur": 0.45,
                                                    "note": "agent-04's THINK beat; back on the lens by 'Netflix'"}),
-                     ("smile", ("N06", "predicts", 1, 0.3), {"amount": 0.6, "hold": 0.5, "note": "sly"}),
+                     ("smile", ("N06", "predicts", 1, 0.3), {"amount": 0.45, "hold": 0.5, "shape": "sly, lopsided R", "note": "sly"}),
                      ("tilt", ("N06", "area"), {"side": "L", "deg": 5, "note": "toward the panel"}),
                      ("nod", ("N06", "watch."), {})],
             "gestures": [
                 ("deictic", "R", ("N06", "Every"), {"size": "medium", "target": "panel (her left)",
-                                                    "note": "introduces the panel: cross-body open palm, chest height, "
+                                                    "hold": 0.7, "note": "introduces the panel: cross-body open palm, chest height, "
                                                             "stops 15 cm left of the sternum, under the mic head; "
                                                             "head and eyes turn 10 deg with it, back by 'Netflix'"}),
                 ("open_palm", "R", ("N06", "predicts", 1, 0.3), {"size": "medium", "target": "front",
@@ -172,12 +172,12 @@ HER = {
                                                   "note": "agent-04's THINK beat; back on the lens by 'title'"}),
                      ("nod", ("N08", "encoded", 1, 0.3), {}),
                      ("brow_flash", ("N08", "many"), {}),
-                     ("smile", ("N08", "bitrates."), {"amount": 0.55, "hold": 0.5})],
+                     ("smile", ("N08", "bitrates."), {"amount": 0.45, "hold": 0.5, "shape": "lopsided L"})],
             "gestures": [
                 ("size", "both", ("N08", "many"), {"size": "small", "target": "front",
                                                    "note": "hands frame a small box on 'many'..."}),
                 ("size", "both", ("N08", "sizes"), {"size": "big", "target": "front",
-                                                    "note": "...and widen to shoulder width on 'sizes'"}),
+                                                    "hold": 0.5, "note": "...and widen to shoulder width on 'sizes'"}),
                 ("ladder", "R", ("N08", "bitrates."), {"size": "medium", "target": "up",
                                                        "note": "flat palm steps up three rungs"}),
             ],
@@ -186,7 +186,7 @@ HER = {
         "N09": {
             "arc": "body", "emotion": "playful contrast", "intensity": 0.75, "off_cam": True,
             "base": {"smile": 0.35, "brows": 0.1},
-            "face": [("smile", ("N09", "cartoon"), {"amount": 0.7, "hold": 0.5}),
+            "face": [("smile", ("N09", "cartoon"), {"amount": 0.55, "hold": 0.4, "shape": "amused, lopsided L"}),
                      ("brow_flash", ("N09", "action"), {}), ("smile_soft", ("N09", "each"), {"amount": 0.5}),
                      ("nod", ("N09", "ladder."), {})],
             "gestures": [("pinch", "R", ("N09", "fewer"), {"size": "small", "target": "front"}),
@@ -206,7 +206,7 @@ HER = {
         "N11": {
             "arc": "body", "emotion": "clever, personal", "intensity": 0.65, "off_cam": True,
             "base": {"smile": 0.3, "brows": 0.05},
-            "face": [("smile", ("N11", "picks"), {"amount": 0.6, "hold": 0.4}), ("nod", ("N11", "rung"), {})],
+            "face": [("smile", ("N11", "picks"), {"amount": 0.45, "hold": 0.4, "shape": "closed"}), ("nod", ("N11", "rung"), {})],
             "gestures": [("point_viewer", "R", ("N11", "Your"), {"size": "small", "target": "camera"}),
                          ("pinch", "R", ("N11", "picks"), {"size": "small", "target": "front"})],
             "lean": [(("N11", "Your"), 6)],
@@ -217,7 +217,7 @@ HER = {
             "face": [("brow_hold", ("N12", "Network"), {"hold": 0.9, "note": "brows up and held through 'dips?', "
                                                                              "the bar names this one"}),
                      ("tilt", ("N12", "dips?"), {"side": "R", "deg": 6}),
-                     ("smile", ("N12", "little"), {"amount": 0.8, "hold": 0.6, "note": "reassuring Duchenne"}),
+                     ("smile", ("N12", "little"), {"amount": 0.55, "hold": 0.6, "shape": "closed, reassuring"}),
                      ("squint", ("N12", "softer."), {}),
                      ("nod", ("N12", "softer."), {})],
             "gestures": [
@@ -226,7 +226,7 @@ HER = {
                                                             "chest height, under the mic head)"}),
                 ("open_palm", "R", ("N12", "next"), {"size": "medium", "target": "camera", "note": "it's fine"}),
                 ("pinch", "R", ("N12", "little"), {"size": "small", "target": "camera",
-                                                    "note": "thumb and index almost touching"}),
+                                                    "hold": 0.6, "note": "thumb and index almost touching"}),
             ],
             "lean": [(("N12", "Network"), 2), (("N12", "next"), 6)],
         },
@@ -250,9 +250,9 @@ HER = {
                                                      "note": "+ middle (2)"}),
                 ("count", "R", ("N13", "recommendations:", 1, 0.6), {"size": "medium",
                                                                      "target": "her right, chest height",
-                                                                     "note": "+ ring (3)"}),
+                                                                     "hold": 0.5, "note": "+ ring (3)"}),
                 ("open_palm", "both", ("N13", "that"), {"size": "big", "target": "front",
-                                                         "note": "palms up, spread to shoulder width: 'all of it'; "
+                                                         "hold": 0.7, "note": "palms up, spread to shoulder width: 'all of it'; "
                                                                  "L hand below and inside the mic line"}),
                 ("beat", "R", ("N13", "AWS."), {"size": "medium", "target": "camera"}),
             ],
@@ -262,7 +262,7 @@ HER = {
             "arc": "body", "emotion": "clear, simple mechanics", "intensity": 0.65, "off_cam": True,
             "base": {"smile": 0.25, "brows": 0.05},
             "face": [("brow_flash", ("N14", "AWS"), {}), ("nod", ("N14", "box."), {}),
-                     ("smile", ("N14", "streams"), {"amount": 0.6, "hold": 0.5})],
+                     ("smile", ("N14", "streams"), {"amount": 0.5, "hold": 0.5, "shape": "open lips"})],
             "gestures": [("press", "R", ("N14", "play,"), {"size": "small", "target": "camera"}),
                          ("deictic", "R", ("N14", "points"), {"size": "medium", "target": "her right"}),
                          ("open_palm", "both", ("N14", "streams"), {"size": "medium", "target": "front"})],
@@ -273,12 +273,12 @@ HER = {
             "base": {"smile": 0.4, "brows": 0.05},
             "face": [("brow_flash", ("N15", "cloud"), {}),
                      ("nod", ("N15", "decides.", 1, 0.35), {}),
-                     ("smile", ("N15", "box"), {"amount": 0.7, "hold": 0.4}),
+                     ("smile", ("N15", "box"), {"amount": 0.45, "hold": 0.3, "shape": "closed"}),
                      ("nod", ("N15", "delivers.", 1, 0.35), {}),
-                     ("smile", ("N15", "delivers.", 1, 0.35), {"amount": 0.9, "hold": 0.5, "note": "Duchenne"})],
+                     ("smile", ("N15", "delivers.", 1, 0.35), {"amount": 0.6, "hold": 0.5, "shape": "open lips, building to N16"})],
             "gestures": [
                 ("high_low", "R", ("N15", "cloud"), {"size": "medium", "target": "up, her right",
-                                                     "note": "open palm raised to chin height: up there"}),
+                                                     "hold": 0.5, "note": "open palm raised to chin height: up there"}),
                 ("place", "both", ("N15", "box"), {"size": "medium", "target": "front, low",
                                                     "note": "both hands come down to the front: right here"}),
                 ("beat", "both", ("N15", "delivers.", 1, 0.35), {"size": "medium", "target": "front"}),
@@ -289,14 +289,278 @@ HER = {
             "arc": "payoff", "emotion": "satisfied delight", "intensity": 0.9,
             "base": {"smile": 0.6, "brows": 0.05},
             "face": [("brow_flash", ("N16", "That's"), {}),
-                     ("smile", ("N16", "just"), {"amount": 1.0, "hold": 1.0, "note": "the biggest Duchenne of the "
-                                                                                    "film, held into the cut"}),
+                     ("smile", ("N16", "just"), {"amount": 0.9, "hold": 1.0, "note": "the last full Duchenne, held "
+                                                                                    "into the cut"}),
                      ("tilt", ("N16", "plays."), {"side": "R", "deg": 5}),
                      ("nod", ("N16", "plays."), {})],
             "gestures": [("release", "both", ("N16", "plays."), {"size": "medium", "target": "front",
-                                                                 "note": "palms up, a small outward 'ta-da', the "
+                                                                 "hold": 1.0, "note": "palms up, a small outward 'ta-da', the "
                                                                          "shoulders lift; held to the cut"})],
             "lean": [(("N16", "That's"), 6), (("N16", "plays."), 4)],
+        },
+    },
+}
+
+# ------------------------------------------------------------------------------------------------ him: WhatsApp
+# The same staging (his mic is on HIS LEFT too, PERF_HIM.md; the panel on frame right = his left). His colour: warmer,
+# a friendly grin and a touch of play where hers is sly; the same calibration (full Duchenne on five payoffs only:
+# 'messages' (W01), 'Here's how', 'read it', 'your hands', 'a day').
+HIM = {
+    "film": "whatsapp", "who": "him",
+    "pre": {
+        "note": "Already alive when the cut opens: an easy closed-mouth grin building, a small head tilt to his right "
+                "(4 deg), an inhale with the shoulders rising 1 cm, hands up off the desk in a loose high rest "
+                "(fingers loosely laced, forearms just off the desk edge, elbows out). A small lean in from 0.4 s.",
+        "face": [("smile_soft", 0.15, {"amount": 0.35}), ("tilt", 0.2, {"side": "R", "deg": 4})],
+        "lean": [(0.4, 4)],
+    },
+    "lines": {
+        "W01": {
+            "arc": "hook", "emotion": "curious, friendly: 'guess how many'", "intensity": 0.75,
+            "base": {"smile": 0.3, "brows": 0.1},
+            "face": [("brow_flash", ("W01", "Every"), {}),
+                     ("brow_one", ("W01", "over"), {"side": "R", "hold": 0.9}),
+                     ("tilt", ("W01", "over"), {"side": "R", "deg": 5}),
+                     ("nod", ("W01", "billion"), {}),
+                     ("smile", ("W01", "billion"), {"amount": 0.5, "hold": 0.3, "shape": "lopsided R, open lips"}),
+                     ("smile", ("W01", "messages."), {"amount": 0.85, "hold": 0.5,
+                                                       "note": "full Duchenne (payoff 1/5)"})],
+            "gestures": [
+                ("open_palm", "R", ("W01", "Every"), {"size": "small", "target": "camera"}),
+                ("size", "both", ("W01", "billion"), {"start": ("W01", "hundred"), "size": "big", "target": "front",
+                                                      "hold": 0.6, "note": "hands start 15 cm apart in front of his "
+                                                                           "sternum, spread to shoulder width; L hand "
+                                                                           "below the mic"}),
+                ("beat", "R", ("W01", "messages."), {"size": "small", "target": "camera"}),
+            ],
+            "lean": [(("W01", "over"), 7), (("W01", "messages."), 4)],
+        },
+        "W02": {
+            "arc": "hook", "emotion": "intrigue, the twist", "intensity": 0.7, "off_cam": True,
+            "base": {"smile": 0.2, "brows": 0.15},
+            "face": [("brow_one", ("W02", "almost"), {"side": "L", "hold": 0.7}),
+                     ("shake", ("W02", "none"), {}),
+                     ("smile_soft", ("W02", "servers."), {"amount": 0.45})],
+            "gestures": [("pinch", "R", ("W02", "almost"), {"size": "small", "target": "front"}),
+                         ("wave_off", "R", ("W02", "none"), {"size": "medium", "target": "her right, low",
+                                                             "note": "palm-down sweep out to his right: none"})],
+            "lean": [(("W02", "almost"), 6)],
+        },
+        "W03": {
+            "arc": "hook", "emotion": "conspiratorial delight: 'let me show you'", "intensity": 0.8,
+            "base": {"smile": 0.4, "brows": 0.1},
+            "note": "CU, half a second of speech: the face carries it; the hands only enter at the bottom of the frame",
+            "face": [("brow_flash", ("W03", "Here's"), {}),
+                     ("smile", ("W03", "how."), {"amount": 0.85, "hold": 0.6, "note": "full Duchenne (payoff 2/5)"}),
+                     ("nod", ("W03", "how."), {})],
+            "gestures": [("open_palm", "both", ("W03", "how."), {"size": "small", "target": "camera", "hold": 0.5,
+                                                                 "note": "palms up, collarbone height: here it is"})],
+            "lean": [(("W03", "Here's"), 7)],
+        },
+        "W04": {
+            "arc": "body", "emotion": "clear, friendly walkthrough", "intensity": 0.7,
+            "base": {"smile": 0.3, "brows": 0.05},
+            "face": [("brow_flash", ("W04", "Open"), {}),
+                     ("smile", ("W04", "phone"), {"amount": 0.45, "hold": 0.4, "shape": "closed"}),
+                     ("nod", ("W04", "connection", 1, 0.4), {}),
+                     ("tilt", ("W04", "WhatsApp.", 1, 0.3), {"side": "L", "deg": 5, "note": "toward the panel"})],
+            "gestures": [
+                ("press", "R", ("W04", "app,"), {"size": "small", "target": "front", "note": "a thumb tap on an "
+                                                                                           "imaginary phone"}),
+                ("raise_finger", "R", ("W04", "one"), {"size": "small", "target": "up", "note": "one finger: one"}),
+                ("deictic", "R", ("W04", "connection", 1, 0.4), {"size": "medium", "target": "panel (his left)",
+                                                                 "hold": 0.7,
+                                                                 "note": "draws the line from his chest toward the "
+                                                                         "panel: cross-body, chest height, stops 15 cm "
+                                                                         "left of the sternum under the mic head"}),
+            ],
+            "lean": [(("W04", "your"), 6)],
+        },
+        "W05": {
+            "arc": "body", "emotion": "fascinated, nerdy delight", "intensity": 0.65, "off_cam": True,
+            "base": {"smile": 0.3, "brows": 0.05},
+            "face": [("tilt", ("W05", "each"), {"side": "L", "deg": 4}),
+                     ("brow_flash", ("W05", "tiny"), {}), ("smile_soft", ("W05", "Erlang"), {"amount": 0.5}),
+                     ("nod", ("W05", "process."), {})],
+            "gestures": [("place", "both", ("W05", "server,"), {"size": "medium", "target": "front"}),
+                         ("pinch", "R", ("W05", "tiny"), {"size": "small", "target": "front", "hold": 0.5}),
+                         ("beat", "R", ("W05", "process."), {"size": "small", "target": "camera"})],
+            "lean": [(("W05", "tiny"), 5)],
+        },
+        "W06": {
+            "arc": "body", "emotion": "impressed: a big number", "intensity": 0.75, "off_cam": True,
+            "base": {"smile": 0.3, "brows": 0.1},
+            "face": [("brow_flash", ("W06", "two"), {}),
+                     ("smile", ("W06", "million"), {"amount": 0.55, "hold": 0.4, "shape": "open lips"}),
+                     ("nod", ("W06", "them."), {})],
+            "gestures": [("raise_finger", "R", ("W06", "One"), {"size": "small", "target": "up"}),
+                         ("size", "both", ("W06", "million"), {"start": ("W06", "two"), "size": "big",
+                                                               "target": "front"})],
+            "lean": [(("W06", "two"), 6)],
+        },
+        "W07": {
+            "arc": "body", "emotion": "playful question", "intensity": 0.75,
+            "base": {"smile": 0.3, "brows": 0.1},
+            "note": "WIDE: elbows 20+ cm off the torso, hands up the whole line (the same fix as her 00:44 shot)",
+            "face": [("smile_soft", ("W07", "You"), {"amount": 0.4}),
+                     ("brow_flash", ("W07", "send."), {}),
+                     ("glance", ("W07", "Is"), {"dir": "up, his right", "dur": 0.35, "note": "agent-04's THINK beat"}),
+                     ("brow_hold", ("W07", "friend"), {"hold": 0.6}),
+                     ("tilt", ("W07", "online?"), {"side": "R", "deg": 6})],
+            "gestures": [
+                ("point_viewer", "R", ("W07", "You"), {"size": "small", "target": "camera", "note": "open hand"}),
+                ("press", "R", ("W07", "send."), {"size": "medium", "target": "front", "hold": 0.4,
+                                                  "note": "a thumb press, crisp"}),
+                ("open_palm", "both", ("W07", "online?", 1, 0.3), {"size": "medium", "target": "front",
+                                                                    "note": "palms up, a small shrug: well, is he?"}),
+            ],
+            "lean": [(("W07", "You"), 6), (("W07", "online?"), 3)],
+        },
+        "W08": {
+            "arc": "body", "emotion": "simple, direct", "intensity": 0.6, "off_cam": True,
+            "base": {"smile": 0.25, "brows": 0.05},
+            "face": [("brow_flash", ("W08", "straight"), {}), ("nod", ("W08", "connection.", 1, 0.3), {})],
+            "gestures": [("sweep", "R", ("W08", "straight"), {"size": "medium", "target": "front, down",
+                                                              "note": "a flat hand slides straight forward"})],
+            "lean": [(("W08", "straight"), 5)],
+        },
+        "W09": {
+            "arc": "body", "emotion": "patient, then a tidy satisfaction", "intensity": 0.7, "off_cam": True,
+            "base": {"smile": 0.25, "brows": 0.05},
+            "face": [("brow_one", ("W09", "not,"), {"side": "R", "hold": 0.5}),
+                     ("tilt", ("W09", "waits."), {"side": "L", "deg": 4}),
+                     ("nod", ("W09", "delivered,", 1, 0.3), {}),
+                     ("smile", ("W09", "deleted.", 1, 0.3), {"amount": 0.55, "hold": 0.4, "shape": "closed"})],
+            "gestures": [("wave_off", "R", ("W09", "not,"), {"size": "small", "target": "her right"}),
+                         ("open_palm", "R", ("W09", "waits."), {"size": "small", "target": "camera", "hold": 0.5,
+                                                                 "note": "palm out: it waits"}),
+                         ("chop", "R", ("W09", "deleted.", 1, 0.3), {"size": "medium", "target": "front",
+                                                                     "note": "a crisp wipe: gone"})],
+            "lean": [(("W09", "once"), 5)],
+        },
+        "W10": {
+            "arc": "body", "emotion": "playful, knowing: everyone wonders this", "intensity": 0.75,
+            "base": {"smile": 0.3, "brows": 0.1},
+            "face": [("glance", ("W10", "Your"), {"dir": "his left, to the panel", "dur": 0.35,
+                                                  "note": "agent-04's THINK beat, toward the ticks"}),
+                     ("brow_hold", ("W10", "ticks?"), {"hold": 0.6}),
+                     ("smile", ("W10", "server"), {"amount": 0.45, "hold": 0.3, "shape": "lopsided L"}),
+                     ("nod", ("W10", "it."), {})],
+            "gestures": [
+                ("deictic", "R", ("W10", "ticks?"), {"size": "medium", "target": "panel (his left)", "hold": 0.5,
+                                                     "note": "cross-body open palm toward the ticks, under the mic "
+                                                             "head"}),
+                ("count", "R", ("W10", "One:"), {"size": "medium", "target": "his right, chest height",
+                                                 "note": "index up (1), the hand back on his right"}),
+                ("beat", "R", ("W10", "has"), {"size": "small", "target": "camera"}),
+            ],
+            "lean": [(("W10", "Your"), 5)],
+        },
+        "W11": {
+            "arc": "body", "emotion": "building to a little reveal", "intensity": 0.8,
+            "base": {"smile": 0.3, "brows": 0.05},
+            "face": [("nod", ("W11", "phone."), {}),
+                     ("brow_flash", ("W11", "Blue:"), {}),
+                     ("smile", ("W11", "read"), {"amount": 0.85, "hold": 0.5,
+                                                 "note": "full Duchenne (payoff 3/5): the blue ticks"})],
+            "gestures": [
+                ("count", "R", ("W11", "Two:"), {"size": "medium", "target": "his right, chest height",
+                                                 "note": "+ middle (2)"}),
+                ("deictic", "R", ("W11", "Blue:"), {"size": "medium", "target": "panel (his left)", "hold": 0.5,
+                                                    "note": "the two fingers turn toward the panel's blue ticks"}),
+                ("open_palm", "R", ("W11", "read"), {"size": "small", "target": "camera"}),
+            ],
+            "lean": [(("W11", "Blue:"), 7)],
+        },
+        "W12": {
+            "arc": "body", "emotion": "clever efficiency", "intensity": 0.7, "off_cam": True,
+            "base": {"smile": 0.3, "brows": 0.05},
+            "face": [("brow_flash", ("W12", "once."), {}), ("nod", ("W12", "once."), {}),
+                     ("smile", ("W12", "everyone."), {"amount": 0.5, "hold": 0.4, "shape": "open lips"})],
+            "gestures": [("raise_finger", "R", ("W12", "once."), {"size": "small", "target": "up", "hold": 0.5}),
+                         ("sweep", "both", ("W12", "fans"), {"size": "big", "target": "front",
+                                                             "note": "both hands fan out from the centre"})],
+            "lean": [(("W12", "once."), 5)],
+        },
+        "W13": {
+            "arc": "body", "emotion": "reassuring, a little conspiratorial", "intensity": 0.8,
+            "base": {"smile": 0.3, "brows": 0.05},
+            "note": "CU: the 'no' is the face and a small hand at the bottom of the frame",
+            "face": [("brow_hold", ("W13", "can't"), {"hold": 0.6}),
+                     ("shake", ("W13", "can't"), {}),
+                     ("smile", ("W13", "word"), {"amount": 0.6, "hold": 0.5, "shape": "closed, knowing"})],
+            "gestures": [("wave_off", "R", ("W13", "can't"), {"size": "small", "target": "camera",
+                                                              "note": "palm out, a small side-to-side 'no'"}),
+                         ("beat", "R", ("W13", "word"), {"size": "small", "target": "camera"})],
+            "lean": [(("W13", "And"), 6)],
+        },
+        "W14": {
+            "arc": "body", "emotion": "confident trust", "intensity": 0.7, "off_cam": True,
+            "base": {"smile": 0.3, "brows": 0.05},
+            "face": [("brow_flash", ("W14", "Signal"), {}),
+                     ("smile", ("W14", "keys"), {"amount": 0.5, "hold": 0.4, "shape": "closed"}),
+                     ("nod", ("W14", "phones."), {})],
+            "gestures": [("open_palm", "R", ("W14", "Signal"), {"size": "small", "target": "camera"}),
+                         ("point_viewer", "R", ("W14", "your"), {"size": "small", "target": "camera"})],
+            "lean": [(("W14", "your"), 5)],
+        },
+        "W15": {
+            "arc": "body", "emotion": "clear, a neat detail", "intensity": 0.7,
+            "base": {"smile": 0.25, "brows": 0.05},
+            "face": [("glance", ("W15", "Photos"), {"dir": "his left, to the panel", "dur": 0.4,
+                                                    "note": "agent-04's THINK beat, with the deictic"}),
+                     ("brow_flash", ("W15", "blob"), {}),
+                     ("nod", ("W15", "encrypted.", 1, 0.3), {}),
+                     ("brow_flash", ("W15", "Only"), {}),
+                     ("smile", ("W15", "key"), {"amount": 0.5, "hold": 0.4, "shape": "lopsided R"})],
+            "gestures": [
+                ("deictic", "R", ("W15", "Photos"), {"size": "small", "target": "panel (his left)",
+                                                     "note": "cross-body, under the mic head"}),
+                ("place", "both", ("W15", "store,"), {"size": "medium", "target": "front", "hold": 0.5,
+                                                      "note": "sets a box down in front of him"}),
+                ("pinch", "R", ("W15", "Only"), {"size": "small", "target": "camera", "hold": 0.6,
+                                                 "note": "just the key: thumb and index"}),
+                ("open_palm", "R", ("W15", "message."), {"size": "small", "target": "front"}),
+            ],
+            "lean": [(("W15", "Only"), 6)],
+        },
+        "W16": {
+            "arc": "payoff", "emotion": "satisfied, the three ideas land", "intensity": 0.8,
+            "base": {"smile": 0.35, "brows": 0.05},
+            "face": [("brow_flash", ("W16", "Tiny"), {}),
+                     ("nod", ("W16", "processes."), {}),
+                     ("brow_flash", ("W16", "Messages"), {}),
+                     ("shake", ("W16", "don't"), {}),
+                     ("smile", ("W16", "linger."), {"amount": 0.5, "hold": 0.4, "shape": "open lips"}),
+                     ("brow_flash", ("W16", "Keys"), {}),
+                     ("smile", ("W16", "hands."), {"amount": 0.85, "hold": 0.5, "note": "full Duchenne (payoff 4/5)"}),
+                     ("nod", ("W16", "hands."), {})],
+            "gestures": [
+                ("count", "R", ("W16", "Tiny"), {"size": "small", "target": "his right, chest height",
+                                                 "note": "index (1)"}),
+                ("count", "R", ("W16", "Messages"), {"size": "medium", "target": "his right, chest height",
+                                                     "note": "+ middle (2)"}),
+                ("count", "R", ("W16", "Keys"), {"size": "medium", "target": "his right, chest height",
+                                                 "hold": 0.5, "note": "+ ring (3)"}),
+                ("open_palm", "both", ("W16", "hands."), {"size": "medium", "target": "front", "hold": 0.6,
+                                                          "note": "both palms up, showing his hands: literal"}),
+            ],
+            "lean": [(("W16", "Tiny"), 4), (("W16", "Keys"), 7)],
+        },
+        "W17": {
+            "arc": "payoff", "emotion": "satisfied delight, the bookend", "intensity": 0.9,
+            "base": {"smile": 0.55, "brows": 0.05},
+            "face": [("brow_flash", ("W17", "That's"), {}),
+                     ("smile", ("W17", "billion"), {"amount": 0.9, "hold": 1.0,
+                                                    "note": "full Duchenne (payoff 5/5), held into the cut"}),
+                     ("tilt", ("W17", "day."), {"side": "R", "deg": 5}),
+                     ("nod", ("W17", "day."), {})],
+            "gestures": [("size", "both", ("W17", "billion"), {"start": ("W17", "hundred"), "size": "medium",
+                                                               "target": "front",
+                                                               "note": "the hook's spread again, smaller (CU)"}),
+                         ("release", "both", ("W17", "day."), {"size": "small", "target": "front", "hold": 1.0,
+                                                               "note": "palms open, held to the cut"})],
+            "lean": [(("W17", "That's"), 6)],
         },
     },
 }
@@ -309,6 +573,13 @@ TEST = {"netflix": {
                "why": "the rejected 00:44 shot: the count, elbows off the torso, arm-breast clearance, the waist fit"}],
     "optional": {"camera": "CAM_MCU", "f0": 196, "f1": 305, "lines": ["N04"],
                  "why": "append for a literal 'lines 1-4' (+4.5 s, 17.8 s total)"},
+}, "whatsapp": {
+    "spans": [{"camera": "CAM_MCU", "f0": 0, "f1": 179, "lines": ["W01", "W02", "W03"],
+               "why": "his hook on one camera: the 'hundred billion' spread, the one brow, the twist and 'Here's how'"},
+              {"camera": "CAM_WIDE", "f0": 422, "f1": 480, "lines": ["W07"],
+               "why": "his WIDE: hands up, elbows off the torso, the playful question"}],
+    "optional": {"camera": "CAM_MCU", "f0": 179, "f1": 273, "lines": ["W04"],
+                 "why": "append for the first panel deictic (+3.9 s)"},
 }}
 
 # ------------------------------------------------------------------------------------------------ resolve
@@ -317,6 +588,7 @@ DUR = {"brow_flash": 0.45, "brow_one": 0.8, "brow_hold": 0.9, "smile": 0.6, "smi
        "nod": 0.35, "tilt": 1.2, "glance": 0.4, "shake": 0.5}
 LEAD = {"brow_flash": 0.12, "brow_one": 0.15, "brow_hold": 0.12, "smile": 0.30, "smile_soft": 0.35, "squint": 0.15,
         "nod": 0.15, "tilt": 0.25, "glance": 0.10, "shake": 0.15}
+AMP = {"small": 0.3, "medium": 0.55, "big": 0.85}  # stroke amplitude 0-1 (overridable per gesture)
 NON_MOUTH = {"brow_flash", "brow_one", "brow_hold", "smile", "smile_soft", "squint"}
 
 
@@ -375,7 +647,8 @@ def resolve(sheet: dict) -> dict:
             prep = x.get("prep", 0.30)
             g = {"type": typ, "hand": hand, "word": w, "stroke_t": t, "stroke_f": fr(t),
                  "prep_t": round(t - prep, 3), "prep_f": fr(t - prep), "hold_s": x.get("hold", 0.25),
-                 "size": x.get("size", "medium"), "target": x.get("target", "camera")}
+                 "size": x.get("size", "medium"), "amp": x.get("amp", AMP[x.get("size", "medium")]),
+                 "held": x.get("hold", 0.25) >= 0.5, "target": x.get("target", "camera")}
             if "start" in x:
                 st, sw = word_t(lines, x["start"])
                 g["prep_t"], g["prep_f"], g["start_word"] = round(st - 0.15, 3), fr(st - 0.15), sw
@@ -421,8 +694,8 @@ def face04(row: dict) -> dict:
             v["curious"].append({**ref(f), "kind": "one_brow" if k == "brow_one" else "brows_held",
                                  "side": f.get("side"), "hold_s": f.get("hold")})
         elif k == "smile":
-            v["smile"].append({**ref(f), "kind": "duchenne" if f.get("amount", 0) >= 0.7 else "soft",
-                               "amount": f.get("amount"), "hold_s": f.get("hold")})
+            v["smile"].append({**ref(f), "kind": "duchenne" if f.get("amount", 0) >= 0.8 else "soft",
+                               "amount": f.get("amount"), "hold_s": f.get("hold"), "shape": f.get("shape")})
         elif k == "smile_soft":
             v["warm"].append({**ref(f), "amount": f.get("amount")})
         elif k == "nod":
@@ -444,7 +717,7 @@ def body01(row: dict) -> dict:
     """agent-01's shape: type in beat|open|count|deictic|size (`detail` keeps the sheet's own name), hand r|l|both."""
     g = [{"type": BODY_TYPE[x["type"]], "detail": x["type"], "hand": x["hand"].lower(), "word": x["word"],
           "word_i": x["word_i"], "stroke_t": x["stroke_t"], "prep_t": x["prep_t"], "hold_s": x["hold_s"],
-          "size": x["size"], "target": x["target"]} for x in row["gestures"]]
+          "size": x["size"], "amp": x["amp"], "held": x["held"], "target": x["target"]} for x in row["gestures"]]
     return {"line": row["id"], "on_cam": row["on_cam"], "camera": row["camera"], "gestures": g,
             "lean": [{"kind": "in" if x["deg"] >= 5 else "neutral", "deg": x["deg"], "word": x["word"], "t": x["t"]}
                      for x in row["lean"]],
@@ -496,10 +769,12 @@ def md(a: dict) -> str:
         o.append("- **Face:** " + "; ".join(
             f"{f['kind'].replace('_', ' ')}"
             + (f" {f['side']}" if "side" in f else "") + (f" {f['deg']}°" if "deg" in f else "")
-            + (f" {f['amount']}" if "amount" in f else "") + f" on *{f['word']}* {f['t']:.2f} s (f{f['f']})"
+            + (f" {f['amount']}" if "amount" in f else "") + (f" ({f['shape']})" if "shape" in f else "")
+            + f" on *{f['word']}* {f['t']:.2f} s (f{f['f']})"
             + (f" ({f['note']})" if "note" in f else "") for f in ln["face"]))
         o.append("- **Gestures:** " + "; ".join(
-            f"{g['type'].replace('_', ' ')} [{g['hand']}, {g['size']}, to {g['target']}] stroke on *{g['word']}* "
+            f"{g['type'].replace('_', ' ')} [{g['hand']}, {g['size']} {g['amp']}, to {g['target']}]"
+            + (f" HELD {g['hold_s']} s" if g["held"] else "") + f" stroke on *{g['word']}* "
             f"{g['stroke_t']:.2f} s (f{g['stroke_f']}), prep from {g['prep_t']:.2f}"
             + (f" (from *{g['start_word']}*)" if "start_word" in g else "")
             + (f": {g['note']}" if "note" in g else "") for g in ln["gestures"]))
@@ -529,6 +804,11 @@ the torso (00:44), her right upper arm into her breast, and the waist fit. This 
 (agent-04) and body (agent-01, agent-10) builds follow, line by line. `acting.py` writes it from the VO alignment
 (`acting/<who>.json` is the machine copy, with every time in seconds and frames); re-run it after a VO change.
 
+**Smiles:** a warm base (0.2-0.4) all the way through; FULL Duchenne (>= 0.8: cheeks up, eyes squint) only on the
+five payoffs; mid-line smiles 0.4-0.6, varied in shape and asymmetry. Confident, not giddy. **Gestures:** the
+amplitude varies (`amp` 0-1: small 0.3, medium 0.55, big 0.85), and the HELD strokes keep the shape after the stroke
+for `hold_s` before retracting: deliberate, confident.
+
 **Staging, for every line:** hands off the body and above the desk while she speaks, rest (hands loosely together,
 forearms on the desk edge) only in the pauses; elbows out so the upper arms clear the torso and breasts by >= 3 cm;
 shoulders back and down, chest open, 4-8° forward lean on emphasis; the shoulders and torso move with every gesture.
@@ -543,11 +823,16 @@ lines (graphics full frame) keep her alive for continuity: the next on-camera sh
 
 def main() -> None:
     (HERE / "acting").mkdir(exist_ok=True)
-    a = resolve(HER)
-    (HERE / "acting" / "her.json").write_text(json.dumps(a, indent=1) + "\n")
-    (HERE / "ACTING.md").write_text(HEAD + md(a))
-    c = a["checks"]
-    print(json.dumps({k: v for k, v in c.items() if k != "on_cam_lines"}, indent=1))
+    parts = []
+    for sheet in (HER, HIM):
+        a = resolve(sheet)
+        (HERE / "acting" / f"{sheet['who']}.json").write_text(json.dumps(a, indent=1) + "\n")
+        parts.append(md(a))
+        c = a["checks"]
+        print(sheet["who"], json.dumps({k: (v["all"] if k == "gesture_onsets_per_s" else v["max"]
+                                            if k == "neutral_hold_max_s" else v) for k, v in c.items()
+                                        if k != "on_cam_lines"}))
+    (HERE / "ACTING.md").write_text(HEAD + "\n".join(parts))
 
 
 if __name__ == "__main__":
