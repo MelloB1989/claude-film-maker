@@ -993,8 +993,28 @@ x = EAS.spawn_actor_from_class(src.get_class(), unreal.Vector(*P["loc"]), src.ge
 x.set_actor_label(P["label"])
 x.set_actor_hidden_in_game(False)
 x.set_is_temporarily_hidden_in_editor(False)
+# r6 (agent-06, box A): his copy spawned with its components ON his mark (bounds at z 92, not -2500), so it stood
+# inside him in every render since K2, and moving its root did not move them: components set to absolute location
+# (his Blueprint since host_swap). Each is made relative again with the source's own relative placement, then the
+# copy must be under the floor, or it is destroyed and this fails.
+srcc = {c.get_name(): c for c in src.get_components_by_class(unreal.SceneComponent)}
+fixed = []
+for c in x.get_components_by_class(unreal.SceneComponent):
+    if c.get_editor_property("absolute_location") or c.get_editor_property("absolute_rotation"):
+        c.set_absolute(False, False, c.get_editor_property("absolute_scale"))
+        s = srcc.get(c.get_name())
+        if s is not None:
+            c.set_relative_location_and_rotation(s.get_relative_location(), s.get_relative_rotation(), False, False)
+        fixed.append(c.get_name())
+far = []
+for c in x.get_components_by_class(unreal.PrimitiveComponent):
+    if c.get_world_location().z > P["loc"][2] + 1000.0:
+        far.append([c.get_name(), round(c.get_world_location().z, 1)])
+if far:
+    EAS.destroy_actor(x)
+    raise RuntimeError(f"{P['label']}: components not under the floor after spawn {far} (fixed {fixed}): destroyed")
 r = src.get_actor_rotation()
-result = {"label": P["label"], "class": src.get_class().get_name(), "yaw": r.yaw}
+result = {"label": P["label"], "class": src.get_class().get_name(), "yaw": r.yaw, "made_relative": fixed}
 """
 
 
