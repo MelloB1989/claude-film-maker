@@ -82,7 +82,9 @@ GARMENT_HIDES = {
     "her": [("Top", "Overshirt", 6.0), ("Trousers", "Top", 4.0), ("Body", "Top", 4.0)],
     "him": [],
 }
-GARMENT_SRC = {"her": {"Top": "/Game/Host/Presenter_Outfit/SKM_Presenter_Top",
+GARMENT_SRC = {"her": {"Overshirt": "/Game/Host/Presenter_Overshirt/SKM_Presenter_Overshirt_RW",  # r6: agent-02's
+                       # reweight (the MetaHuman helper/corrective joints carried 60% of the shoulder cap: it ballooned)
+                       "Top": "/Game/Host/Presenter_Outfit/SKM_Presenter_Top",
                        "Trousers": "/Game/Host/Presenter_Outfit/SKM_Presenter_Trousers",
                        "Body": "/Game/Host/Unpacked/Presenter/Body/SKM_Presenter_F_BodyMesh"}, "him": {}}
 
