@@ -1,0 +1,3599 @@
+{
+ "film": "netflix",
+ "who": "her",
+ "fps": 24,
+ "clock": "VO t=0 = sequence frame 0",
+ "arc": {
+  "hook": "curiosity",
+  "body": "confident clarity",
+  "payoff": "satisfied delight"
+ },
+ "staging": "the operator's notes, R7_common.md): hands off the body and above the desk while she speaks; elbows out so\nthe upper arms clear the torso and breasts by >= 3 cm; the mic is on HER LEFT, so big gestures are her RIGHT hand, or\nboth hands in front of her sternum (inside her shoulder line), never past her left shoulder line; her left hand alone\nonly small and low. The graphic panel (CAM_MCU_L shots) is on frame right = HER LEFT: a deictic to it is her right hand\nacross the body, open palm, chest height, stopping ~15 cm left of her sternum (under the mic head, never into it),\nwith her head and eyes turning ~10 deg that way and straight back to the lens.",
+ "conventions": {
+  "lead_s": {
+   "brow_flash": 0.12,
+   "brow_one": 0.15,
+   "brow_hold": 0.12,
+   "smile": 0.3,
+   "smile_soft": 0.35,
+   "squint": 0.15,
+   "nod": 0.15,
+   "tilt": 0.25,
+   "glance": 0.1,
+   "shake": 0.15
+  },
+  "dur_s": {
+   "brow_flash": 0.45,
+   "brow_one": 0.8,
+   "brow_hold": 0.9,
+   "smile": 0.6,
+   "smile_soft": 0.8,
+   "squint": 0.4,
+   "nod": 0.35,
+   "tilt": 1.2,
+   "glance": 0.4,
+   "shake": 0.5
+  }
+ },
+ "pre": {
+  "note": "Already alive when the cut opens: a soft closed-mouth smile building, a small head tilt to her right (4 deg), an inhale with the shoulders rising 1 cm, hands up off the desk in a loose high rest (fingertips touching, forearms just off the desk edge, elbows out). A small lean in from 0.4 s.",
+  "face": [
+   {
+    "kind": "smile_soft",
+    "t": 0.15,
+    "f": 4,
+    "amount": 0.35
+   },
+   {
+    "kind": "tilt",
+    "t": 0.2,
+    "f": 5,
+    "side": "R",
+    "deg": 4
+   }
+  ],
+  "lean": [
+   {
+    "t": 0.4,
+    "f": 10,
+    "deg": 4
+   }
+  ]
+ },
+ "lines": [
+  {
+   "id": "N01",
+   "text": "Netflix has over three hundred million paying members.",
+   "t0": 0.75,
+   "t1": 3.943,
+   "f0": 0,
+   "f1": 98,
+   "shot": 1,
+   "kind": "pres",
+   "camera": "CAM_MCU",
+   "gfx": null,
+   "on_cam": true,
+   "arc": "hook",
+   "arc_target": "curiosity",
+   "emotion": "curious, conspiratorial warmth: 'you'll like this'",
+   "intensity": 0.75,
+   "base": {
+    "smile": 0.25,
+    "brows": 0.1
+   },
+   "face": [
+    {
+     "kind": "brow_flash",
+     "word": "Netflix",
+     "t": 0.75,
+     "f": 18,
+     "onset_t": 0.63,
+     "end_t": 1.08,
+     "word_i": 0
+    },
+    {
+     "kind": "brow_one",
+     "word": "over",
+     "t": 1.772,
+     "f": 43,
+     "onset_t": 1.622,
+     "end_t": 2.622,
+     "side": "R",
+     "note": "the conspiratorial one brow",
+     "hold": 1.0,
+     "word_i": 2
+    },
+    {
+     "kind": "tilt",
+     "word": "over",
+     "t": 1.772,
+     "f": 43,
+     "onset_t": 1.522,
+     "end_t": 2.722,
+     "side": "R",
+     "deg": 6,
+     "word_i": 2
+    },
+    {
+     "kind": "nod",
+     "word": "million",
+     "t": 2.689,
+     "f": 65,
+     "onset_t": 2.539,
+     "end_t": 2.889,
+     "word_i": 5
+    },
+    {
+     "kind": "smile",
+     "word": "million",
+     "t": 2.689,
+     "f": 65,
+     "onset_t": 2.389,
+     "end_t": 3.389,
+     "amount": 0.5,
+     "shape": "lopsided R, closed",
+     "hold": 0.4,
+     "word_i": 5
+    },
+    {
+     "kind": "smile",
+     "word": "members.",
+     "t": 3.467,
+     "f": 83,
+     "onset_t": 3.167,
+     "end_t": 4.267,
+     "amount": 0.85,
+     "note": "full Duchenne (payoff 1/5): cheeks up, eyes squint",
+     "hold": 0.5,
+     "word_i": 7
+    }
+   ],
+   "gestures": [
+    {
+     "type": "open_palm",
+     "hand": "R",
+     "word": "Netflix",
+     "stroke_t": 0.75,
+     "stroke_f": 18,
+     "prep_t": 0.45,
+     "prep_f": 11,
+     "hold_s": 0.25,
+     "size": "small",
+     "amp": 0.3,
+     "held": false,
+     "target": "camera",
+     "note": "palm up and slightly out, chest height, presenting",
+     "word_i": 0
+    },
+    {
+     "type": "size",
+     "hand": "both",
+     "word": "million",
+     "stroke_t": 2.689,
+     "stroke_f": 65,
+     "prep_t": 1.924,
+     "prep_f": 46,
+     "hold_s": 0.6,
+     "size": "big",
+     "amp": 0.85,
+     "held": true,
+     "target": "front",
+     "start_word": "three",
+     "note": "hands start 15 cm apart in front of her sternum on 'three', spread to shoulder width on 'million': a huge number; L hand stays below the mic",
+     "word_i": 5
+    },
+    {
+     "type": "beat",
+     "hand": "R",
+     "word": "paying",
+     "stroke_t": 3.095,
+     "stroke_f": 74,
+     "prep_t": 2.795,
+     "prep_f": 67,
+     "hold_s": 0.25,
+     "size": "small",
+     "amp": 0.3,
+     "held": false,
+     "target": "camera",
+     "word_i": 6
+    }
+   ],
+   "lean": [
+    {
+     "word": "over",
+     "t": 1.772,
+     "f": 43,
+     "deg": 7
+    },
+    {
+     "word": "members.",
+     "t": 3.467,
+     "f": 83,
+     "deg": 4
+    }
+   ],
+   "face04": {
+    "line": "N01",
+    "emotion": "curious, conspiratorial warmth: 'you'll like this'",
+    "intensity": 0.75,
+    "solver_mood": "SURPRISE",
+    "brow": [
+     {
+      "word": "Netflix",
+      "word_i": 0,
+      "t": 0.75
+     }
+    ],
+    "smile": [
+     {
+      "word": "million",
+      "word_i": 5,
+      "t": 2.689,
+      "kind": "soft",
+      "amount": 0.5,
+      "hold_s": 0.4,
+      "shape": "lopsided R, closed"
+     },
+     {
+      "word": "members.",
+      "word_i": 7,
+      "t": 3.467,
+      "kind": "duchenne",
+      "amount": 0.85,
+      "hold_s": 0.5,
+      "shape": null
+     }
+    ],
+    "curious": [
+     {
+      "word": "over",
+      "word_i": 2,
+      "t": 1.772,
+      "kind": "one_brow",
+      "side": "R",
+      "hold_s": 1.0
+     }
+    ],
+    "nod": [
+     {
+      "word": "million",
+      "word_i": 5,
+      "t": 2.689,
+      "kind": "yes"
+     }
+    ],
+    "tilt": [
+     {
+      "word": "over",
+      "word_i": 2,
+      "t": 1.772,
+      "deg": 6,
+      "side": "R"
+     }
+    ]
+   },
+   "body01": {
+    "line": "N01",
+    "on_cam": true,
+    "camera": "CAM_MCU",
+    "gestures": [
+     {
+      "type": "open",
+      "detail": "open_palm",
+      "hand": "r",
+      "word": "Netflix",
+      "word_i": 0,
+      "stroke_t": 0.75,
+      "prep_t": 0.45,
+      "hold_s": 0.25,
+      "size": "small",
+      "amp": 0.3,
+      "held": false,
+      "target": "camera"
+     },
+     {
+      "type": "size",
+      "detail": "size",
+      "hand": "both",
+      "word": "million",
+      "word_i": 5,
+      "stroke_t": 2.689,
+      "prep_t": 1.924,
+      "hold_s": 0.6,
+      "size": "big",
+      "amp": 0.85,
+      "held": true,
+      "target": "front"
+     },
+     {
+      "type": "beat",
+      "detail": "beat",
+      "hand": "r",
+      "word": "paying",
+      "word_i": 6,
+      "stroke_t": 3.095,
+      "prep_t": 2.795,
+      "hold_s": 0.25,
+      "size": "small",
+      "amp": 0.3,
+      "held": false,
+      "target": "camera"
+     }
+    ],
+    "lean": [
+     {
+      "kind": "in",
+      "deg": 7,
+      "word": "over",
+      "t": 1.772
+     },
+     {
+      "kind": "neutral",
+      "deg": 4,
+      "word": "members.",
+      "t": 3.467
+     }
+    ],
+    "rest_after": true
+   }
+  },
+  {
+   "id": "N02",
+   "text": "Hit play, and it just starts.",
+   "t0": 4.25,
+   "t1": 5.748,
+   "f0": 98,
+   "f1": 141,
+   "shot": 2,
+   "kind": "pres",
+   "camera": "CAM_CU",
+   "gfx": null,
+   "on_cam": true,
+   "arc": "hook",
+   "arc_target": "curiosity",
+   "emotion": "delight, easy confidence: the magic moment",
+   "intensity": 0.8,
+   "base": {
+    "smile": 0.4,
+    "brows": 0.1
+   },
+   "face": [
+    {
+     "kind": "brow_flash",
+     "word": "Hit",
+     "t": 4.25,
+     "f": 102,
+     "onset_t": 4.13,
+     "end_t": 4.58,
+     "word_i": 8
+    },
+    {
+     "kind": "smile",
+     "word": "starts.",
+     "t": 5.471,
+     "f": 131,
+     "onset_t": 5.171,
+     "end_t": 6.371,
+     "amount": 0.9,
+     "note": "Duchenne, squint",
+     "hold": 0.6,
+     "word_i": 13
+    },
+    {
+     "kind": "nod",
+     "word": "starts.",
+     "t": 5.471,
+     "f": 131,
+     "onset_t": 5.321,
+     "end_t": 5.671,
+     "word_i": 13
+    }
+   ],
+   "gestures": [
+    {
+     "type": "press",
+     "hand": "R",
+     "word": "play,",
+     "stroke_t": 4.54,
+     "stroke_f": 109,
+     "prep_t": 4.24,
+     "prep_f": 102,
+     "hold_s": 0.25,
+     "size": "small",
+     "amp": 0.3,
+     "held": false,
+     "target": "camera",
+     "note": "index finger presses an imaginary play button toward the lens, collarbone height so it enters the CU",
+     "word_i": 9
+    },
+    {
+     "type": "release",
+     "hand": "both",
+     "word": "starts.",
+     "stroke_t": 5.471,
+     "stroke_f": 131,
+     "prep_t": 5.171,
+     "prep_f": 124,
+     "hold_s": 0.25,
+     "size": "medium",
+     "amp": 0.55,
+     "held": false,
+     "target": "front",
+     "note": "fingers spring open outward, 'ta-da', shoulders lift",
+     "word_i": 13
+    }
+   ],
+   "lean": [
+    {
+     "word": "Hit",
+     "t": 4.25,
+     "f": 102,
+     "deg": 6
+    },
+    {
+     "word": "starts.",
+     "t": 5.353,
+     "f": 128,
+     "deg": 3
+    }
+   ],
+   "face04": {
+    "line": "N02",
+    "emotion": "delight, easy confidence: the magic moment",
+    "intensity": 0.8,
+    "solver_mood": "SURPRISE",
+    "brow": [
+     {
+      "word": "Hit",
+      "word_i": 8,
+      "t": 4.25
+     }
+    ],
+    "smile": [
+     {
+      "word": "starts.",
+      "word_i": 13,
+      "t": 5.471,
+      "kind": "duchenne",
+      "amount": 0.9,
+      "hold_s": 0.6,
+      "shape": null
+     }
+    ],
+    "nod": [
+     {
+      "word": "starts.",
+      "word_i": 13,
+      "t": 5.471,
+      "kind": "yes"
+     }
+    ]
+   },
+   "body01": {
+    "line": "N02",
+    "on_cam": true,
+    "camera": "CAM_CU",
+    "gestures": [
+     {
+      "type": "beat",
+      "detail": "press",
+      "hand": "r",
+      "word": "play,",
+      "word_i": 9,
+      "stroke_t": 4.54,
+      "prep_t": 4.24,
+      "hold_s": 0.25,
+      "size": "small",
+      "amp": 0.3,
+      "held": false,
+      "target": "camera"
+     },
+     {
+      "type": "open",
+      "detail": "release",
+      "hand": "both",
+      "word": "starts.",
+      "word_i": 13,
+      "stroke_t": 5.471,
+      "prep_t": 5.171,
+      "hold_s": 0.25,
+      "size": "medium",
+      "amp": 0.55,
+      "held": false,
+      "target": "front"
+     }
+    ],
+    "lean": [
+     {
+      "kind": "in",
+      "deg": 6,
+      "word": "Hit",
+      "t": 4.25
+     },
+     {
+      "kind": "neutral",
+      "deg": 3,
+      "word": "starts.",
+      "t": 5.353
+     }
+    ],
+    "rest_after": true
+   }
+  },
+  {
+   "id": "N03",
+   "text": "But the video doesn't come from the cloud.",
+   "t0": 6.042,
+   "t1": 7.807,
+   "f0": 141,
+   "f1": 196,
+   "shot": 3,
+   "kind": "gfx",
+   "camera": null,
+   "gfx": "title",
+   "on_cam": true,
+   "arc": "hook",
+   "arc_target": "curiosity",
+   "emotion": "intrigue, a twist",
+   "intensity": 0.7,
+   "base": {
+    "smile": 0.15,
+    "brows": 0.15
+   },
+   "face": [
+    {
+     "kind": "brow_one",
+     "word": "But",
+     "t": 6.042,
+     "f": 145,
+     "onset_t": 5.892,
+     "end_t": 6.692,
+     "side": "R",
+     "hold": 0.8,
+     "word_i": 14
+    },
+    {
+     "kind": "shake",
+     "word": "doesn't",
+     "t": 6.681,
+     "f": 160,
+     "onset_t": 6.531,
+     "end_t": 7.031,
+     "note": "a small head shake, 2 deg",
+     "word_i": 17
+    },
+    {
+     "kind": "smile_soft",
+     "word": "cloud.",
+     "t": 7.482,
+     "f": 180,
+     "onset_t": 7.132,
+     "end_t": 7.932,
+     "amount": 0.5,
+     "note": "a knowing half smile",
+     "word_i": 21
+    }
+   ],
+   "gestures": [
+    {
+     "type": "raise_finger",
+     "hand": "R",
+     "word": "But",
+     "stroke_t": 6.042,
+     "stroke_f": 145,
+     "prep_t": 5.742,
+     "prep_f": 138,
+     "hold_s": 0.25,
+     "size": "small",
+     "amp": 0.3,
+     "held": false,
+     "target": "up",
+     "note": "'wait a second'",
+     "word_i": 14
+    },
+    {
+     "type": "wave_off",
+     "hand": "R",
+     "word": "cloud.",
+     "stroke_t": 7.482,
+     "stroke_f": 180,
+     "prep_t": 7.182,
+     "prep_f": 172,
+     "hold_s": 0.25,
+     "size": "medium",
+     "amp": 0.55,
+     "held": false,
+     "target": "her right, up",
+     "note": "a light palm-down wave away to her right",
+     "word_i": 21
+    }
+   ],
+   "lean": [
+    {
+     "word": "But",
+     "t": 6.042,
+     "f": 145,
+     "deg": 6
+    },
+    {
+     "word": "cloud.",
+     "t": 7.482,
+     "f": 180,
+     "deg": 3
+    }
+   ],
+   "face04": {
+    "line": "N03",
+    "emotion": "intrigue, a twist",
+    "intensity": 0.7,
+    "solver_mood": "SURPRISE",
+    "curious": [
+     {
+      "word": "But",
+      "word_i": 14,
+      "t": 6.042,
+      "kind": "one_brow",
+      "side": "R",
+      "hold_s": 0.8
+     }
+    ],
+    "warm": [
+     {
+      "word": "cloud.",
+      "word_i": 21,
+      "t": 7.482,
+      "amount": 0.5
+     }
+    ],
+    "shake": [
+     {
+      "word": "doesn't",
+      "word_i": 17,
+      "t": 6.681
+     }
+    ]
+   },
+   "body01": {
+    "line": "N03",
+    "on_cam": true,
+    "camera": null,
+    "gestures": [
+     {
+      "type": "beat",
+      "detail": "raise_finger",
+      "hand": "r",
+      "word": "But",
+      "word_i": 14,
+      "stroke_t": 6.042,
+      "prep_t": 5.742,
+      "hold_s": 0.25,
+      "size": "small",
+      "amp": 0.3,
+      "held": false,
+      "target": "up"
+     },
+     {
+      "type": "deictic",
+      "detail": "wave_off",
+      "hand": "r",
+      "word": "cloud.",
+      "word_i": 21,
+      "stroke_t": 7.482,
+      "prep_t": 7.182,
+      "hold_s": 0.25,
+      "size": "medium",
+      "amp": 0.55,
+      "held": false,
+      "target": "her right, up"
+     }
+    ],
+    "lean": [
+     {
+      "kind": "in",
+      "deg": 6,
+      "word": "But",
+      "t": 6.042
+     },
+     {
+      "kind": "neutral",
+      "deg": 3,
+      "word": "cloud.",
+      "t": 7.482
+     }
+    ],
+    "rest_after": true
+   }
+  },
+  {
+   "id": "N04",
+   "text": "Netflix builds its own servers, called Open Connect Appliances.",
+   "t0": 8.542,
+   "t1": 12.559,
+   "f0": 196,
+   "f1": 305,
+   "shot": 4,
+   "kind": "pres",
+   "camera": "CAM_MCU",
+   "gfx": null,
+   "on_cam": true,
+   "arc": "body",
+   "arc_target": "confident clarity",
+   "emotion": "confident clarity with insider pride",
+   "intensity": 0.7,
+   "base": {
+    "smile": 0.25,
+    "brows": 0.05
+   },
+   "face": [
+    {
+     "kind": "brow_flash",
+     "word": "own",
+     "t": 9.575,
+     "f": 230,
+     "onset_t": 9.455,
+     "end_t": 9.905,
+     "word_i": 25
+    },
+    {
+     "kind": "nod",
+     "word": "servers,",
+     "t": 9.854,
+     "f": 236,
+     "onset_t": 9.704,
+     "end_t": 10.054,
+     "word_i": 26
+    },
+    {
+     "kind": "smile",
+     "word": "called",
+     "t": 10.725,
+     "f": 257,
+     "onset_t": 10.425,
+     "end_t": 11.625,
+     "amount": 0.5,
+     "shape": "closed, proud",
+     "hold": 0.6,
+     "word_i": 27
+    },
+    {
+     "kind": "brow_flash",
+     "word": "Open",
+     "t": 11.108,
+     "f": 267,
+     "onset_t": 10.988,
+     "end_t": 11.438,
+     "word_i": 28
+    },
+    {
+     "kind": "nod",
+     "word": "Appliances.",
+     "t": 12.068,
+     "f": 290,
+     "onset_t": 11.918,
+     "end_t": 12.268,
+     "word_i": 30
+    }
+   ],
+   "gestures": [
+    {
+     "type": "place",
+     "hand": "both",
+     "word": "builds",
+     "stroke_t": 9.064,
+     "stroke_f": 218,
+     "prep_t": 8.764,
+     "prep_f": 210,
+     "hold_s": 0.5,
+     "size": "medium",
+     "amp": 0.55,
+     "held": true,
+     "target": "front",
+     "note": "palms facing, shoulder width, setting a box down in front of her on 'builds', firm on 'servers'",
+     "word_i": 23
+    },
+    {
+     "type": "open_palm",
+     "hand": "R",
+     "word": "own",
+     "stroke_t": 9.575,
+     "stroke_f": 230,
+     "prep_t": 9.275,
+     "prep_f": 223,
+     "hold_s": 0.25,
+     "size": "small",
+     "amp": 0.3,
+     "held": false,
+     "target": "camera",
+     "word_i": 25
+    },
+    {
+     "type": "beat",
+     "hand": "R",
+     "word": "Open",
+     "stroke_t": 11.108,
+     "stroke_f": 267,
+     "prep_t": 10.808,
+     "prep_f": 259,
+     "hold_s": 0.25,
+     "size": "small",
+     "amp": 0.3,
+     "held": false,
+     "target": "camera",
+     "word_i": 28
+    },
+    {
+     "type": "beat",
+     "hand": "R",
+     "word": "Appliances.",
+     "stroke_t": 12.068,
+     "stroke_f": 290,
+     "prep_t": 11.768,
+     "prep_f": 282,
+     "hold_s": 0.25,
+     "size": "small",
+     "amp": 0.3,
+     "held": false,
+     "target": "camera",
+     "note": "two descending beats, the naming",
+     "word_i": 30
+    }
+   ],
+   "lean": [
+    {
+     "word": "own",
+     "t": 9.575,
+     "f": 230,
+     "deg": 6
+    },
+    {
+     "word": "Appliances.",
+     "t": 11.804,
+     "f": 283,
+     "deg": 4
+    }
+   ],
+   "face04": {
+    "line": "N04",
+    "emotion": "confident clarity with insider pride",
+    "intensity": 0.7,
+    "solver_mood": "HAPPINESS",
+    "brow": [
+     {
+      "word": "own",
+      "word_i": 25,
+      "t": 9.575
+     },
+     {
+      "word": "Open",
+      "word_i": 28,
+      "t": 11.108
+     }
+    ],
+    "smile": [
+     {
+      "word": "called",
+      "word_i": 27,
+      "t": 10.725,
+      "kind": "soft",
+      "amount": 0.5,
+      "hold_s": 0.6,
+      "shape": "closed, proud"
+     }
+    ],
+    "nod": [
+     {
+      "word": "servers,",
+      "word_i": 26,
+      "t": 9.854,
+      "kind": "yes"
+     },
+     {
+      "word": "Appliances.",
+      "word_i": 30,
+      "t": 12.068,
+      "kind": "yes"
+     }
+    ]
+   },
+   "body01": {
+    "line": "N04",
+    "on_cam": true,
+    "camera": "CAM_MCU",
+    "gestures": [
+     {
+      "type": "size",
+      "detail": "place",
+      "hand": "both",
+      "word": "builds",
+      "word_i": 23,
+      "stroke_t": 9.064,
+      "prep_t": 8.764,
+      "hold_s": 0.5,
+      "size": "medium",
+      "amp": 0.55,
+      "held": true,
+      "target": "front"
+     },
+     {
+      "type": "open",
+      "detail": "open_palm",
+      "hand": "r",
+      "word": "own",
+      "word_i": 25,
+      "stroke_t": 9.575,
+      "prep_t": 9.275,
+      "hold_s": 0.25,
+      "size": "small",
+      "amp": 0.3,
+      "held": false,
+      "target": "camera"
+     },
+     {
+      "type": "beat",
+      "detail": "beat",
+      "hand": "r",
+      "word": "Open",
+      "word_i": 28,
+      "stroke_t": 11.108,
+      "prep_t": 10.808,
+      "hold_s": 0.25,
+      "size": "small",
+      "amp": 0.3,
+      "held": false,
+      "target": "camera"
+     },
+     {
+      "type": "beat",
+      "detail": "beat",
+      "hand": "r",
+      "word": "Appliances.",
+      "word_i": 30,
+      "stroke_t": 12.068,
+      "prep_t": 11.768,
+      "hold_s": 0.25,
+      "size": "small",
+      "amp": 0.3,
+      "held": false,
+      "target": "camera"
+     }
+    ],
+    "lean": [
+     {
+      "kind": "in",
+      "deg": 6,
+      "word": "own",
+      "t": 9.575
+     },
+     {
+      "kind": "neutral",
+      "deg": 4,
+      "word": "Appliances.",
+      "t": 11.804
+     }
+    ],
+    "rest_after": true
+   }
+  },
+  {
+   "id": "N05",
+   "text": "Internet providers get them free, inside their own networks.",
+   "t0": 12.833,
+   "t1": 16.56,
+   "f0": 305,
+   "f1": 406,
+   "shot": 5,
+   "kind": "gfx",
+   "camera": null,
+   "gfx": "oca",
+   "on_cam": false,
+   "arc": "body",
+   "arc_target": "confident clarity",
+   "emotion": "generous surprise",
+   "intensity": 0.65,
+   "base": {
+    "smile": 0.3,
+    "brows": 0.1
+   },
+   "face": [
+    {
+     "kind": "brow_flash",
+     "word": "free,",
+     "t": 14.354,
+     "f": 344,
+     "onset_t": 14.234,
+     "end_t": 14.684,
+     "word_i": 35
+    },
+    {
+     "kind": "smile",
+     "word": "free,",
+     "t": 14.354,
+     "f": 344,
+     "onset_t": 14.054,
+     "end_t": 15.054,
+     "amount": 0.5,
+     "shape": "open lips",
+     "hold": 0.4,
+     "word_i": 35
+    },
+    {
+     "kind": "nod",
+     "word": "networks.",
+     "t": 16.153,
+     "f": 388,
+     "onset_t": 16.003,
+     "end_t": 16.353,
+     "word_i": 39
+    }
+   ],
+   "gestures": [
+    {
+     "type": "open_palm",
+     "hand": "R",
+     "word": "free,",
+     "stroke_t": 14.354,
+     "stroke_f": 344,
+     "prep_t": 14.054,
+     "prep_f": 337,
+     "hold_s": 0.25,
+     "size": "medium",
+     "amp": 0.55,
+     "held": false,
+     "target": "camera",
+     "note": "offering",
+     "word_i": 35
+    },
+    {
+     "type": "sweep",
+     "hand": "both",
+     "word": "inside",
+     "stroke_t": 15.016,
+     "stroke_f": 360,
+     "prep_t": 14.716,
+     "prep_f": 353,
+     "hold_s": 0.25,
+     "size": "medium",
+     "amp": 0.55,
+     "held": false,
+     "target": "front",
+     "note": "hands circle a space in front of her",
+     "word_i": 36
+    }
+   ],
+   "lean": [
+    {
+     "word": "free,",
+     "t": 14.354,
+     "f": 344,
+     "deg": 5
+    }
+   ],
+   "face04": {
+    "line": "N05",
+    "emotion": "generous surprise",
+    "intensity": 0.65,
+    "solver_mood": "HAPPINESS",
+    "brow": [
+     {
+      "word": "free,",
+      "word_i": 35,
+      "t": 14.354
+     }
+    ],
+    "smile": [
+     {
+      "word": "free,",
+      "word_i": 35,
+      "t": 14.354,
+      "kind": "soft",
+      "amount": 0.5,
+      "hold_s": 0.4,
+      "shape": "open lips"
+     }
+    ],
+    "nod": [
+     {
+      "word": "networks.",
+      "word_i": 39,
+      "t": 16.153,
+      "kind": "yes"
+     }
+    ]
+   },
+   "body01": {
+    "line": "N05",
+    "on_cam": false,
+    "camera": null,
+    "gestures": [
+     {
+      "type": "open",
+      "detail": "open_palm",
+      "hand": "r",
+      "word": "free,",
+      "word_i": 35,
+      "stroke_t": 14.354,
+      "prep_t": 14.054,
+      "hold_s": 0.25,
+      "size": "medium",
+      "amp": 0.55,
+      "held": false,
+      "target": "camera"
+     },
+     {
+      "type": "open",
+      "detail": "sweep",
+      "hand": "both",
+      "word": "inside",
+      "word_i": 36,
+      "stroke_t": 15.016,
+      "prep_t": 14.716,
+      "hold_s": 0.25,
+      "size": "medium",
+      "amp": 0.55,
+      "held": false,
+      "target": "front"
+     }
+    ],
+    "lean": [
+     {
+      "kind": "in",
+      "deg": 5,
+      "word": "free,",
+      "t": 14.354
+     }
+    ],
+    "rest_after": true
+   }
+  },
+  {
+   "id": "N06",
+   "text": "Every night, Netflix predicts what your area will watch.",
+   "t0": 17.292,
+   "t1": 20.868,
+   "f0": 406,
+   "f1": 556,
+   "shot": 6,
+   "kind": "panel",
+   "camera": "CAM_MCU_L",
+   "gfx": "prefill",
+   "on_cam": true,
+   "arc": "body",
+   "arc_target": "confident clarity",
+   "emotion": "curious, clever: a neat trick",
+   "intensity": 0.75,
+   "base": {
+    "smile": 0.3,
+    "brows": 0.1
+   },
+   "face": [
+    {
+     "kind": "brow_flash",
+     "word": "Every",
+     "t": 17.292,
+     "f": 415,
+     "onset_t": 17.172,
+     "end_t": 17.622,
+     "note": "the bar names this one",
+     "word_i": 40
+    },
+    {
+     "kind": "glance",
+     "word": "Every",
+     "t": 17.292,
+     "f": 415,
+     "onset_t": 17.192,
+     "end_t": 17.592,
+     "dir": "up, her right",
+     "dur": 0.45,
+     "note": "agent-04's THINK beat; back on the lens by 'Netflix'",
+     "word_i": 40
+    },
+    {
+     "kind": "smile",
+     "word": "predicts",
+     "t": 18.826,
+     "f": 452,
+     "onset_t": 18.526,
+     "end_t": 19.626,
+     "amount": 0.45,
+     "shape": "sly, lopsided R",
+     "note": "sly",
+     "hold": 0.5,
+     "word_i": 43
+    },
+    {
+     "kind": "tilt",
+     "word": "area",
+     "t": 19.695,
+     "f": 473,
+     "onset_t": 19.445,
+     "end_t": 20.645,
+     "side": "L",
+     "deg": 5,
+     "note": "toward the panel",
+     "word_i": 46
+    },
+    {
+     "kind": "nod",
+     "word": "watch.",
+     "t": 20.496,
+     "f": 492,
+     "onset_t": 20.346,
+     "end_t": 20.696,
+     "word_i": 48
+    }
+   ],
+   "gestures": [
+    {
+     "type": "deictic",
+     "hand": "R",
+     "word": "Every",
+     "stroke_t": 17.292,
+     "stroke_f": 415,
+     "prep_t": 16.992,
+     "prep_f": 408,
+     "hold_s": 0.7,
+     "size": "medium",
+     "amp": 0.55,
+     "held": true,
+     "target": "panel (her left)",
+     "note": "introduces the panel: cross-body open palm, chest height, stops 15 cm left of the sternum, under the mic head; head and eyes turn 10 deg with it, back by 'Netflix'",
+     "word_i": 40
+    },
+    {
+     "type": "open_palm",
+     "hand": "R",
+     "word": "predicts",
+     "stroke_t": 18.826,
+     "stroke_f": 452,
+     "prep_t": 18.526,
+     "prep_f": 445,
+     "hold_s": 0.25,
+     "size": "medium",
+     "amp": 0.55,
+     "held": false,
+     "target": "front",
+     "note": "a small circle, palm up: a crystal ball",
+     "word_i": 43
+    },
+    {
+     "type": "point_viewer",
+     "hand": "R",
+     "word": "your",
+     "stroke_t": 19.486,
+     "stroke_f": 468,
+     "prep_t": 19.186,
+     "prep_f": 460,
+     "hold_s": 0.25,
+     "size": "small",
+     "amp": 0.3,
+     "held": false,
+     "target": "camera",
+     "note": "open hand toward the lens, not a jabbing finger",
+     "word_i": 45
+    }
+   ],
+   "lean": [
+    {
+     "word": "Every",
+     "t": 17.292,
+     "f": 415,
+     "deg": 4
+    },
+    {
+     "word": "your",
+     "t": 19.486,
+     "f": 468,
+     "deg": 8
+    },
+    {
+     "word": "watch.",
+     "t": 20.496,
+     "f": 492,
+     "deg": 5
+    }
+   ],
+   "face04": {
+    "line": "N06",
+    "emotion": "curious, clever: a neat trick",
+    "intensity": 0.75,
+    "solver_mood": "HAPPINESS",
+    "brow": [
+     {
+      "word": "Every",
+      "word_i": 40,
+      "t": 17.292
+     }
+    ],
+    "smile": [
+     {
+      "word": "predicts",
+      "word_i": 43,
+      "t": 18.826,
+      "kind": "soft",
+      "amount": 0.45,
+      "hold_s": 0.5,
+      "shape": "sly, lopsided R"
+     }
+    ],
+    "nod": [
+     {
+      "word": "watch.",
+      "word_i": 48,
+      "t": 20.496,
+      "kind": "yes"
+     }
+    ],
+    "tilt": [
+     {
+      "word": "area",
+      "word_i": 46,
+      "t": 19.695,
+      "deg": 5,
+      "side": "L"
+     }
+    ],
+    "glance": [
+     {
+      "word": "Every",
+      "word_i": 40,
+      "t": 17.292,
+      "dir": "up, her right",
+      "dur_s": 0.45
+     }
+    ]
+   },
+   "body01": {
+    "line": "N06",
+    "on_cam": true,
+    "camera": "CAM_MCU_L",
+    "gestures": [
+     {
+      "type": "deictic",
+      "detail": "deictic",
+      "hand": "r",
+      "word": "Every",
+      "word_i": 40,
+      "stroke_t": 17.292,
+      "prep_t": 16.992,
+      "hold_s": 0.7,
+      "size": "medium",
+      "amp": 0.55,
+      "held": true,
+      "target": "panel (her left)"
+     },
+     {
+      "type": "open",
+      "detail": "open_palm",
+      "hand": "r",
+      "word": "predicts",
+      "word_i": 43,
+      "stroke_t": 18.826,
+      "prep_t": 18.526,
+      "hold_s": 0.25,
+      "size": "medium",
+      "amp": 0.55,
+      "held": false,
+      "target": "front"
+     },
+     {
+      "type": "open",
+      "detail": "point_viewer",
+      "hand": "r",
+      "word": "your",
+      "word_i": 45,
+      "stroke_t": 19.486,
+      "prep_t": 19.186,
+      "hold_s": 0.25,
+      "size": "small",
+      "amp": 0.3,
+      "held": false,
+      "target": "camera"
+     }
+    ],
+    "lean": [
+     {
+      "kind": "neutral",
+      "deg": 4,
+      "word": "Every",
+      "t": 17.292
+     },
+     {
+      "kind": "in",
+      "deg": 8,
+      "word": "your",
+      "t": 19.486
+     },
+     {
+      "kind": "in",
+      "deg": 5,
+      "word": "watch.",
+      "t": 20.496
+     }
+    ],
+    "rest_after": true
+   }
+  },
+  {
+   "id": "N07",
+   "text": "And copies it to the box near you.",
+   "t0": 21.167,
+   "t1": 22.792,
+   "f0": 406,
+   "f1": 556,
+   "shot": 6,
+   "kind": "panel",
+   "camera": "CAM_MCU_L",
+   "gfx": "prefill",
+   "on_cam": true,
+   "arc": "body",
+   "arc_target": "confident clarity",
+   "emotion": "satisfied: it's already there",
+   "intensity": 0.7,
+   "base": {
+    "smile": 0.35,
+    "brows": 0.05
+   },
+   "face": [
+    {
+     "kind": "nod",
+     "word": "box",
+     "t": 22.119,
+     "f": 531,
+     "onset_t": 21.969,
+     "end_t": 22.319,
+     "word_i": 54
+    },
+    {
+     "kind": "smile",
+     "word": "near",
+     "t": 22.421,
+     "f": 538,
+     "onset_t": 22.121,
+     "end_t": 23.221,
+     "amount": 0.8,
+     "note": "Duchenne",
+     "hold": 0.5,
+     "word_i": 55
+    }
+   ],
+   "gestures": [
+    {
+     "type": "carry",
+     "hand": "both",
+     "word": "copies",
+     "stroke_t": 21.422,
+     "stroke_f": 514,
+     "prep_t": 21.122,
+     "prep_f": 507,
+     "hold_s": 0.25,
+     "size": "medium",
+     "amp": 0.55,
+     "held": false,
+     "target": "front",
+     "note": "lifts a box from her right and carries it in an arc to the centre front, set down on 'box' (in front of the sternum, never past her left shoulder line)",
+     "word_i": 50
+    },
+    {
+     "type": "open_palm",
+     "hand": "R",
+     "word": "you.",
+     "stroke_t": 22.63,
+     "stroke_f": 543,
+     "prep_t": 22.33,
+     "prep_f": 536,
+     "hold_s": 0.25,
+     "size": "small",
+     "amp": 0.3,
+     "held": false,
+     "target": "camera",
+     "word_i": 56
+    }
+   ],
+   "lean": [
+    {
+     "word": "near",
+     "t": 22.421,
+     "f": 538,
+     "deg": 6
+    }
+   ],
+   "face04": {
+    "line": "N07",
+    "emotion": "satisfied: it's already there",
+    "intensity": 0.7,
+    "solver_mood": "HAPPINESS",
+    "smile": [
+     {
+      "word": "near",
+      "word_i": 55,
+      "t": 22.421,
+      "kind": "duchenne",
+      "amount": 0.8,
+      "hold_s": 0.5,
+      "shape": null
+     }
+    ],
+    "nod": [
+     {
+      "word": "box",
+      "word_i": 54,
+      "t": 22.119,
+      "kind": "yes"
+     }
+    ]
+   },
+   "body01": {
+    "line": "N07",
+    "on_cam": true,
+    "camera": "CAM_MCU_L",
+    "gestures": [
+     {
+      "type": "size",
+      "detail": "carry",
+      "hand": "both",
+      "word": "copies",
+      "word_i": 50,
+      "stroke_t": 21.422,
+      "prep_t": 21.122,
+      "hold_s": 0.25,
+      "size": "medium",
+      "amp": 0.55,
+      "held": false,
+      "target": "front"
+     },
+     {
+      "type": "open",
+      "detail": "open_palm",
+      "hand": "r",
+      "word": "you.",
+      "word_i": 56,
+      "stroke_t": 22.63,
+      "prep_t": 22.33,
+      "hold_s": 0.25,
+      "size": "small",
+      "amp": 0.3,
+      "held": false,
+      "target": "camera"
+     }
+    ],
+    "lean": [
+     {
+      "kind": "in",
+      "deg": 6,
+      "word": "near",
+      "t": 22.421
+     }
+    ],
+    "rest_after": true
+   }
+  },
+  {
+   "id": "N08",
+   "text": "Each title is encoded at many sizes and bitrates.",
+   "t0": 23.542,
+   "t1": 27.199,
+   "f0": 556,
+   "f1": 656,
+   "shot": 7,
+   "kind": "pres",
+   "camera": "CAM_CU",
+   "gfx": null,
+   "on_cam": true,
+   "arc": "body",
+   "arc_target": "confident clarity",
+   "emotion": "explaining, crisp clarity",
+   "intensity": 0.7,
+   "base": {
+    "smile": 0.2,
+    "brows": 0.1
+   },
+   "face": [
+    {
+     "kind": "glance",
+     "word": "Each",
+     "t": 23.542,
+     "f": 565,
+     "onset_t": 23.442,
+     "end_t": 23.842,
+     "dir": "her right",
+     "dur": 0.35,
+     "note": "agent-04's THINK beat; back on the lens by 'title'",
+     "word_i": 57
+    },
+    {
+     "kind": "nod",
+     "word": "encoded",
+     "t": 24.825,
+     "f": 596,
+     "onset_t": 24.675,
+     "end_t": 25.025,
+     "word_i": 60
+    },
+    {
+     "kind": "brow_flash",
+     "word": "many",
+     "t": 25.516,
+     "f": 612,
+     "onset_t": 25.396,
+     "end_t": 25.846,
+     "word_i": 62
+    },
+    {
+     "kind": "smile",
+     "word": "bitrates.",
+     "t": 26.653,
+     "f": 640,
+     "onset_t": 26.353,
+     "end_t": 27.453,
+     "amount": 0.45,
+     "shape": "lopsided L",
+     "hold": 0.5,
+     "word_i": 65
+    }
+   ],
+   "gestures": [
+    {
+     "type": "size",
+     "hand": "both",
+     "word": "many",
+     "stroke_t": 25.516,
+     "stroke_f": 612,
+     "prep_t": 25.216,
+     "prep_f": 605,
+     "hold_s": 0.25,
+     "size": "small",
+     "amp": 0.3,
+     "held": false,
+     "target": "front",
+     "note": "hands frame a small box on 'many'...",
+     "word_i": 62
+    },
+    {
+     "type": "size",
+     "hand": "both",
+     "word": "sizes",
+     "stroke_t": 25.806,
+     "stroke_f": 619,
+     "prep_t": 25.506,
+     "prep_f": 612,
+     "hold_s": 0.5,
+     "size": "big",
+     "amp": 0.85,
+     "held": true,
+     "target": "front",
+     "note": "...and widen to shoulder width on 'sizes'",
+     "word_i": 63
+    },
+    {
+     "type": "ladder",
+     "hand": "R",
+     "word": "bitrates.",
+     "stroke_t": 26.653,
+     "stroke_f": 640,
+     "prep_t": 26.353,
+     "prep_f": 632,
+     "hold_s": 0.25,
+     "size": "medium",
+     "amp": 0.55,
+     "held": false,
+     "target": "up",
+     "note": "flat palm steps up three rungs",
+     "word_i": 65
+    }
+   ],
+   "lean": [
+    {
+     "word": "many",
+     "t": 25.516,
+     "f": 612,
+     "deg": 5
+    }
+   ],
+   "note": "CU: gestures held high (collarbone to chin) so the hands enter the bottom of the frame; the shoulders carry the rest",
+   "face04": {
+    "line": "N08",
+    "emotion": "explaining, crisp clarity",
+    "intensity": 0.7,
+    "solver_mood": "HAPPINESS",
+    "brow": [
+     {
+      "word": "many",
+      "word_i": 62,
+      "t": 25.516
+     }
+    ],
+    "smile": [
+     {
+      "word": "bitrates.",
+      "word_i": 65,
+      "t": 26.653,
+      "kind": "soft",
+      "amount": 0.45,
+      "hold_s": 0.5,
+      "shape": "lopsided L"
+     }
+    ],
+    "nod": [
+     {
+      "word": "encoded",
+      "word_i": 60,
+      "t": 24.825,
+      "kind": "yes"
+     }
+    ],
+    "glance": [
+     {
+      "word": "Each",
+      "word_i": 57,
+      "t": 23.542,
+      "dir": "her right",
+      "dur_s": 0.35
+     }
+    ]
+   },
+   "body01": {
+    "line": "N08",
+    "on_cam": true,
+    "camera": "CAM_CU",
+    "gestures": [
+     {
+      "type": "size",
+      "detail": "size",
+      "hand": "both",
+      "word": "many",
+      "word_i": 62,
+      "stroke_t": 25.516,
+      "prep_t": 25.216,
+      "hold_s": 0.25,
+      "size": "small",
+      "amp": 0.3,
+      "held": false,
+      "target": "front"
+     },
+     {
+      "type": "size",
+      "detail": "size",
+      "hand": "both",
+      "word": "sizes",
+      "word_i": 63,
+      "stroke_t": 25.806,
+      "prep_t": 25.506,
+      "hold_s": 0.5,
+      "size": "big",
+      "amp": 0.85,
+      "held": true,
+      "target": "front"
+     },
+     {
+      "type": "size",
+      "detail": "ladder",
+      "hand": "r",
+      "word": "bitrates.",
+      "word_i": 65,
+      "stroke_t": 26.653,
+      "prep_t": 26.353,
+      "hold_s": 0.25,
+      "size": "medium",
+      "amp": 0.55,
+      "held": false,
+      "target": "up"
+     }
+    ],
+    "lean": [
+     {
+      "kind": "in",
+      "deg": 5,
+      "word": "many",
+      "t": 25.516
+     }
+    ],
+    "rest_after": true
+   }
+  },
+  {
+   "id": "N09",
+   "text": "A cartoon needs fewer bits than an action film, so each gets its own ladder.",
+   "t0": 27.5,
+   "t1": 32.574,
+   "f0": 656,
+   "f1": 791,
+   "shot": 8,
+   "kind": "gfx",
+   "camera": null,
+   "gfx": "ladder",
+   "on_cam": false,
+   "arc": "body",
+   "arc_target": "confident clarity",
+   "emotion": "playful contrast",
+   "intensity": 0.75,
+   "base": {
+    "smile": 0.35,
+    "brows": 0.1
+   },
+   "face": [
+    {
+     "kind": "smile",
+     "word": "cartoon",
+     "t": 27.639,
+     "f": 663,
+     "onset_t": 27.339,
+     "end_t": 28.339,
+     "amount": 0.55,
+     "shape": "amused, lopsided L",
+     "hold": 0.4,
+     "word_i": 67
+    },
+    {
+     "kind": "brow_flash",
+     "word": "action",
+     "t": 29.543,
+     "f": 709,
+     "onset_t": 29.423,
+     "end_t": 29.873,
+     "word_i": 73
+    },
+    {
+     "kind": "smile_soft",
+     "word": "each",
+     "t": 31.296,
+     "f": 751,
+     "onset_t": 30.946,
+     "end_t": 31.746,
+     "amount": 0.5,
+     "word_i": 76
+    },
+    {
+     "kind": "nod",
+     "word": "ladder.",
+     "t": 32.214,
+     "f": 773,
+     "onset_t": 32.064,
+     "end_t": 32.414,
+     "word_i": 80
+    }
+   ],
+   "gestures": [
+    {
+     "type": "pinch",
+     "hand": "R",
+     "word": "fewer",
+     "stroke_t": 28.649,
+     "stroke_f": 688,
+     "prep_t": 28.349,
+     "prep_f": 680,
+     "hold_s": 0.25,
+     "size": "small",
+     "amp": 0.3,
+     "held": false,
+     "target": "front",
+     "word_i": 69
+    },
+    {
+     "type": "size",
+     "hand": "both",
+     "word": "action",
+     "stroke_t": 29.543,
+     "stroke_f": 709,
+     "prep_t": 29.243,
+     "prep_f": 702,
+     "hold_s": 0.25,
+     "size": "big",
+     "amp": 0.85,
+     "held": false,
+     "target": "front",
+     "word_i": 73
+    },
+    {
+     "type": "ladder",
+     "hand": "R",
+     "word": "ladder.",
+     "stroke_t": 32.214,
+     "stroke_f": 773,
+     "prep_t": 31.914,
+     "prep_f": 766,
+     "hold_s": 0.25,
+     "size": "medium",
+     "amp": 0.55,
+     "held": false,
+     "target": "up",
+     "word_i": 80
+    }
+   ],
+   "lean": [
+    {
+     "word": "action",
+     "t": 29.543,
+     "f": 709,
+     "deg": 5
+    }
+   ],
+   "face04": {
+    "line": "N09",
+    "emotion": "playful contrast",
+    "intensity": 0.75,
+    "solver_mood": "HAPPINESS",
+    "brow": [
+     {
+      "word": "action",
+      "word_i": 73,
+      "t": 29.543
+     }
+    ],
+    "smile": [
+     {
+      "word": "cartoon",
+      "word_i": 67,
+      "t": 27.639,
+      "kind": "soft",
+      "amount": 0.55,
+      "hold_s": 0.4,
+      "shape": "amused, lopsided L"
+     }
+    ],
+    "warm": [
+     {
+      "word": "each",
+      "word_i": 76,
+      "t": 31.296,
+      "amount": 0.5
+     }
+    ],
+    "nod": [
+     {
+      "word": "ladder.",
+      "word_i": 80,
+      "t": 32.214,
+      "kind": "yes"
+     }
+    ]
+   },
+   "body01": {
+    "line": "N09",
+    "on_cam": false,
+    "camera": null,
+    "gestures": [
+     {
+      "type": "size",
+      "detail": "pinch",
+      "hand": "r",
+      "word": "fewer",
+      "word_i": 69,
+      "stroke_t": 28.649,
+      "prep_t": 28.349,
+      "hold_s": 0.25,
+      "size": "small",
+      "amp": 0.3,
+      "held": false,
+      "target": "front"
+     },
+     {
+      "type": "size",
+      "detail": "size",
+      "hand": "both",
+      "word": "action",
+      "word_i": 73,
+      "stroke_t": 29.543,
+      "prep_t": 29.243,
+      "hold_s": 0.25,
+      "size": "big",
+      "amp": 0.85,
+      "held": false,
+      "target": "front"
+     },
+     {
+      "type": "size",
+      "detail": "ladder",
+      "hand": "r",
+      "word": "ladder.",
+      "word_i": 80,
+      "stroke_t": 32.214,
+      "prep_t": 31.914,
+      "hold_s": 0.25,
+      "size": "medium",
+      "amp": 0.55,
+      "held": false,
+      "target": "up"
+     }
+    ],
+    "lean": [
+     {
+      "kind": "in",
+      "deg": 5,
+      "word": "action",
+      "t": 29.543
+     }
+    ],
+    "rest_after": true
+   }
+  },
+  {
+   "id": "N10",
+   "text": "The video is cut into chunks a few seconds long.",
+   "t0": 33.333,
+   "t1": 36.038,
+   "f0": 791,
+   "f1": 954,
+   "shot": 9,
+   "kind": "gfx",
+   "camera": null,
+   "gfx": "abr",
+   "on_cam": false,
+   "arc": "body",
+   "arc_target": "confident clarity",
+   "emotion": "matter-of-fact clarity",
+   "intensity": 0.6,
+   "base": {
+    "smile": 0.2,
+    "brows": 0.05
+   },
+   "face": [
+    {
+     "kind": "brow_flash",
+     "word": "chunks",
+     "t": 34.448,
+     "f": 827,
+     "onset_t": 34.328,
+     "end_t": 34.778,
+     "word_i": 86
+    },
+    {
+     "kind": "nod",
+     "word": "long.",
+     "t": 35.759,
+     "f": 858,
+     "onset_t": 35.609,
+     "end_t": 35.959,
+     "word_i": 90
+    }
+   ],
+   "gestures": [
+    {
+     "type": "chop",
+     "hand": "R",
+     "word": "cut",
+     "stroke_t": 33.995,
+     "stroke_f": 816,
+     "prep_t": 33.695,
+     "prep_f": 809,
+     "hold_s": 0.25,
+     "size": "medium",
+     "amp": 0.55,
+     "held": false,
+     "target": "front",
+     "word_i": 84
+    },
+    {
+     "type": "size",
+     "hand": "both",
+     "word": "few",
+     "stroke_t": 35.144,
+     "stroke_f": 843,
+     "prep_t": 34.844,
+     "prep_f": 836,
+     "hold_s": 0.25,
+     "size": "small",
+     "amp": 0.3,
+     "held": false,
+     "target": "front",
+     "note": "a few seconds: hands a short span apart",
+     "word_i": 88
+    }
+   ],
+   "lean": [],
+   "face04": {
+    "line": "N10",
+    "emotion": "matter-of-fact clarity",
+    "intensity": 0.6,
+    "solver_mood": "HAPPINESS",
+    "brow": [
+     {
+      "word": "chunks",
+      "word_i": 86,
+      "t": 34.448
+     }
+    ],
+    "nod": [
+     {
+      "word": "long.",
+      "word_i": 90,
+      "t": 35.759,
+      "kind": "yes"
+     }
+    ]
+   },
+   "body01": {
+    "line": "N10",
+    "on_cam": false,
+    "camera": null,
+    "gestures": [
+     {
+      "type": "beat",
+      "detail": "chop",
+      "hand": "r",
+      "word": "cut",
+      "word_i": 84,
+      "stroke_t": 33.995,
+      "prep_t": 33.695,
+      "hold_s": 0.25,
+      "size": "medium",
+      "amp": 0.55,
+      "held": false,
+      "target": "front"
+     },
+     {
+      "type": "size",
+      "detail": "size",
+      "hand": "both",
+      "word": "few",
+      "word_i": 88,
+      "stroke_t": 35.144,
+      "prep_t": 34.844,
+      "hold_s": 0.25,
+      "size": "small",
+      "amp": 0.3,
+      "held": false,
+      "target": "front"
+     }
+    ],
+    "lean": [],
+    "rest_after": true
+   }
+  },
+  {
+   "id": "N11",
+   "text": "Your player picks the right rung for every chunk.",
+   "t0": 36.333,
+   "t1": 39.607,
+   "f0": 791,
+   "f1": 954,
+   "shot": 9,
+   "kind": "gfx",
+   "camera": null,
+   "gfx": "abr",
+   "on_cam": false,
+   "arc": "body",
+   "arc_target": "confident clarity",
+   "emotion": "clever, personal",
+   "intensity": 0.65,
+   "base": {
+    "smile": 0.3,
+    "brows": 0.05
+   },
+   "face": [
+    {
+     "kind": "smile",
+     "word": "picks",
+     "t": 37.227,
+     "f": 893,
+     "onset_t": 36.927,
+     "end_t": 37.927,
+     "amount": 0.45,
+     "shape": "closed",
+     "hold": 0.4,
+     "word_i": 93
+    },
+    {
+     "kind": "nod",
+     "word": "rung",
+     "t": 37.993,
+     "f": 912,
+     "onset_t": 37.843,
+     "end_t": 38.193,
+     "word_i": 96
+    }
+   ],
+   "gestures": [
+    {
+     "type": "point_viewer",
+     "hand": "R",
+     "word": "Your",
+     "stroke_t": 36.333,
+     "stroke_f": 872,
+     "prep_t": 36.033,
+     "prep_f": 865,
+     "hold_s": 0.25,
+     "size": "small",
+     "amp": 0.3,
+     "held": false,
+     "target": "camera",
+     "word_i": 91
+    },
+    {
+     "type": "pinch",
+     "hand": "R",
+     "word": "picks",
+     "stroke_t": 37.227,
+     "stroke_f": 893,
+     "prep_t": 36.927,
+     "prep_f": 886,
+     "hold_s": 0.25,
+     "size": "small",
+     "amp": 0.3,
+     "held": false,
+     "target": "front",
+     "word_i": 93
+    }
+   ],
+   "lean": [
+    {
+     "word": "Your",
+     "t": 36.333,
+     "f": 872,
+     "deg": 6
+    }
+   ],
+   "face04": {
+    "line": "N11",
+    "emotion": "clever, personal",
+    "intensity": 0.65,
+    "solver_mood": "HAPPINESS",
+    "smile": [
+     {
+      "word": "picks",
+      "word_i": 93,
+      "t": 37.227,
+      "kind": "soft",
+      "amount": 0.45,
+      "hold_s": 0.4,
+      "shape": "closed"
+     }
+    ],
+    "nod": [
+     {
+      "word": "rung",
+      "word_i": 96,
+      "t": 37.993,
+      "kind": "yes"
+     }
+    ]
+   },
+   "body01": {
+    "line": "N11",
+    "on_cam": false,
+    "camera": null,
+    "gestures": [
+     {
+      "type": "open",
+      "detail": "point_viewer",
+      "hand": "r",
+      "word": "Your",
+      "word_i": 91,
+      "stroke_t": 36.333,
+      "prep_t": 36.033,
+      "hold_s": 0.25,
+      "size": "small",
+      "amp": 0.3,
+      "held": false,
+      "target": "camera"
+     },
+     {
+      "type": "size",
+      "detail": "pinch",
+      "hand": "r",
+      "word": "picks",
+      "word_i": 93,
+      "stroke_t": 37.227,
+      "prep_t": 36.927,
+      "hold_s": 0.25,
+      "size": "small",
+      "amp": 0.3,
+      "held": false,
+      "target": "front"
+     }
+    ],
+    "lean": [
+     {
+      "kind": "in",
+      "deg": 6,
+      "word": "Your",
+      "t": 36.333
+     }
+    ],
+    "rest_after": true
+   }
+  },
+  {
+   "id": "N12",
+   "text": "Network dips? The next chunk is a little softer.",
+   "t0": 39.917,
+   "t1": 42.947,
+   "f0": 954,
+   "f1": 1040,
+   "shot": 10,
+   "kind": "panel",
+   "camera": "CAM_MCU_L",
+   "gfx": "buffer",
+   "on_cam": true,
+   "arc": "body",
+   "arc_target": "confident clarity",
+   "emotion": "question, then easy reassurance",
+   "intensity": 0.8,
+   "base": {
+    "smile": 0.25,
+    "brows": 0.1
+   },
+   "face": [
+    {
+     "kind": "brow_hold",
+     "word": "Network",
+     "t": 39.917,
+     "f": 958,
+     "onset_t": 39.797,
+     "end_t": 40.697,
+     "note": "brows up and held through 'dips?', the bar names this one",
+     "hold": 0.9,
+     "word_i": 100
+    },
+    {
+     "kind": "tilt",
+     "word": "dips?",
+     "t": 40.463,
+     "f": 971,
+     "onset_t": 40.213,
+     "end_t": 41.413,
+     "side": "R",
+     "deg": 6,
+     "word_i": 101
+    },
+    {
+     "kind": "smile",
+     "word": "little",
+     "t": 42.111,
+     "f": 1011,
+     "onset_t": 41.811,
+     "end_t": 43.011,
+     "amount": 0.55,
+     "shape": "closed, reassuring",
+     "hold": 0.6,
+     "word_i": 107
+    },
+    {
+     "kind": "squint",
+     "word": "softer.",
+     "t": 42.413,
+     "f": 1018,
+     "onset_t": 42.263,
+     "end_t": 42.663,
+     "word_i": 108
+    },
+    {
+     "kind": "nod",
+     "word": "softer.",
+     "t": 42.413,
+     "f": 1018,
+     "onset_t": 42.263,
+     "end_t": 42.613,
+     "word_i": 108
+    }
+   ],
+   "gestures": [
+    {
+     "type": "deictic",
+     "hand": "R",
+     "word": "dips?",
+     "stroke_t": 40.463,
+     "stroke_f": 971,
+     "prep_t": 40.163,
+     "prep_f": 964,
+     "hold_s": 0.25,
+     "size": "medium",
+     "amp": 0.55,
+     "held": false,
+     "target": "panel (her left)",
+     "note": "flat palm-down hand dips toward the panel (cross-body, chest height, under the mic head)",
+     "word_i": 101
+    },
+    {
+     "type": "open_palm",
+     "hand": "R",
+     "word": "next",
+     "stroke_t": 41.287,
+     "stroke_f": 991,
+     "prep_t": 40.987,
+     "prep_f": 984,
+     "hold_s": 0.25,
+     "size": "medium",
+     "amp": 0.55,
+     "held": false,
+     "target": "camera",
+     "note": "it's fine",
+     "word_i": 103
+    },
+    {
+     "type": "pinch",
+     "hand": "R",
+     "word": "little",
+     "stroke_t": 42.111,
+     "stroke_f": 1011,
+     "prep_t": 41.811,
+     "prep_f": 1003,
+     "hold_s": 0.6,
+     "size": "small",
+     "amp": 0.3,
+     "held": true,
+     "target": "camera",
+     "note": "thumb and index almost touching",
+     "word_i": 107
+    }
+   ],
+   "lean": [
+    {
+     "word": "Network",
+     "t": 39.917,
+     "f": 958,
+     "deg": 2
+    },
+    {
+     "word": "next",
+     "t": 41.287,
+     "f": 991,
+     "deg": 6
+    }
+   ],
+   "face04": {
+    "line": "N12",
+    "emotion": "question, then easy reassurance",
+    "intensity": 0.8,
+    "solver_mood": "HAPPINESS",
+    "smile": [
+     {
+      "word": "little",
+      "word_i": 107,
+      "t": 42.111,
+      "kind": "soft",
+      "amount": 0.55,
+      "hold_s": 0.6,
+      "shape": "closed, reassuring"
+     }
+    ],
+    "curious": [
+     {
+      "word": "Network",
+      "word_i": 100,
+      "t": 39.917,
+      "kind": "brows_held",
+      "side": null,
+      "hold_s": 0.9
+     }
+    ],
+    "nod": [
+     {
+      "word": "softer.",
+      "word_i": 108,
+      "t": 42.413,
+      "kind": "yes"
+     }
+    ],
+    "tilt": [
+     {
+      "word": "dips?",
+      "word_i": 101,
+      "t": 40.463,
+      "deg": 6,
+      "side": "R"
+     }
+    ],
+    "squint": [
+     {
+      "word": "softer.",
+      "word_i": 108,
+      "t": 42.413
+     }
+    ]
+   },
+   "body01": {
+    "line": "N12",
+    "on_cam": true,
+    "camera": "CAM_MCU_L",
+    "gestures": [
+     {
+      "type": "deictic",
+      "detail": "deictic",
+      "hand": "r",
+      "word": "dips?",
+      "word_i": 101,
+      "stroke_t": 40.463,
+      "prep_t": 40.163,
+      "hold_s": 0.25,
+      "size": "medium",
+      "amp": 0.55,
+      "held": false,
+      "target": "panel (her left)"
+     },
+     {
+      "type": "open",
+      "detail": "open_palm",
+      "hand": "r",
+      "word": "next",
+      "word_i": 103,
+      "stroke_t": 41.287,
+      "prep_t": 40.987,
+      "hold_s": 0.25,
+      "size": "medium",
+      "amp": 0.55,
+      "held": false,
+      "target": "camera"
+     },
+     {
+      "type": "size",
+      "detail": "pinch",
+      "hand": "r",
+      "word": "little",
+      "word_i": 107,
+      "stroke_t": 42.111,
+      "prep_t": 41.811,
+      "hold_s": 0.6,
+      "size": "small",
+      "amp": 0.3,
+      "held": true,
+      "target": "camera"
+     }
+    ],
+    "lean": [
+     {
+      "kind": "neutral",
+      "deg": 2,
+      "word": "Network",
+      "t": 39.917
+     },
+     {
+      "kind": "in",
+      "deg": 6,
+      "word": "next",
+      "t": 41.287
+     }
+    ],
+    "rest_after": true
+   }
+  },
+  {
+   "id": "N13",
+   "text": "Your login, profile, recommendations: that all runs on AWS.",
+   "t0": 43.708,
+   "t1": 48.282,
+   "f0": 1040,
+   "f1": 1162,
+   "shot": 11,
+   "kind": "pres",
+   "camera": "CAM_WIDE",
+   "gfx": null,
+   "on_cam": true,
+   "arc": "body",
+   "arc_target": "confident clarity",
+   "emotion": "confident, brisk list, then a clean landing",
+   "intensity": 0.75,
+   "base": {
+    "smile": 0.3,
+    "brows": 0.05
+   },
+   "face": [
+    {
+     "kind": "brow_flash",
+     "word": "login,",
+     "t": 43.998,
+     "f": 1056,
+     "onset_t": 43.878,
+     "end_t": 44.328,
+     "word_i": 110
+    },
+    {
+     "kind": "glance",
+     "word": "Your",
+     "t": 43.708,
+     "f": 1049,
+     "onset_t": 43.608,
+     "end_t": 44.008,
+     "dir": "up, her right",
+     "dur": 0.3,
+     "note": "agent-04's THINK beat, quick",
+     "word_i": 109
+    },
+    {
+     "kind": "nod",
+     "word": "profile,",
+     "t": 44.579,
+     "f": 1070,
+     "onset_t": 44.429,
+     "end_t": 44.779,
+     "word_i": 111
+    },
+    {
+     "kind": "brow_flash",
+     "word": "recommendations:",
+     "t": 45.851,
+     "f": 1100,
+     "onset_t": 45.731,
+     "end_t": 46.181,
+     "word_i": 112
+    },
+    {
+     "kind": "smile",
+     "word": "AWS.",
+     "t": 47.609,
+     "f": 1143,
+     "onset_t": 47.309,
+     "end_t": 48.509,
+     "amount": 0.85,
+     "note": "Duchenne",
+     "hold": 0.6,
+     "word_i": 117
+    },
+    {
+     "kind": "nod",
+     "word": "AWS.",
+     "t": 47.609,
+     "f": 1143,
+     "onset_t": 47.459,
+     "end_t": 47.809,
+     "word_i": 117
+    }
+   ],
+   "gestures": [
+    {
+     "type": "count",
+     "hand": "R",
+     "word": "login,",
+     "stroke_t": 43.998,
+     "stroke_f": 1056,
+     "prep_t": 43.698,
+     "prep_f": 1049,
+     "hold_s": 0.25,
+     "size": "medium",
+     "amp": 0.55,
+     "held": false,
+     "target": "her right, chest height",
+     "note": "index up (1)",
+     "word_i": 110
+    },
+    {
+     "type": "count",
+     "hand": "R",
+     "word": "profile,",
+     "stroke_t": 44.579,
+     "stroke_f": 1070,
+     "prep_t": 44.279,
+     "prep_f": 1063,
+     "hold_s": 0.25,
+     "size": "medium",
+     "amp": 0.55,
+     "held": false,
+     "target": "her right, chest height",
+     "note": "+ middle (2)",
+     "word_i": 111
+    },
+    {
+     "type": "count",
+     "hand": "R",
+     "word": "recommendations:",
+     "stroke_t": 45.851,
+     "stroke_f": 1100,
+     "prep_t": 45.551,
+     "prep_f": 1093,
+     "hold_s": 0.5,
+     "size": "medium",
+     "amp": 0.55,
+     "held": true,
+     "target": "her right, chest height",
+     "note": "+ ring (3)",
+     "word_i": 112
+    },
+    {
+     "type": "open_palm",
+     "hand": "both",
+     "word": "that",
+     "stroke_t": 46.552,
+     "stroke_f": 1117,
+     "prep_t": 46.252,
+     "prep_f": 1110,
+     "hold_s": 0.7,
+     "size": "big",
+     "amp": 0.85,
+     "held": true,
+     "target": "front",
+     "note": "palms up, spread to shoulder width: 'all of it'; L hand below and inside the mic line",
+     "word_i": 113
+    },
+    {
+     "type": "beat",
+     "hand": "R",
+     "word": "AWS.",
+     "stroke_t": 47.609,
+     "stroke_f": 1143,
+     "prep_t": 47.309,
+     "prep_f": 1135,
+     "hold_s": 0.25,
+     "size": "medium",
+     "amp": 0.55,
+     "held": false,
+     "target": "camera",
+     "word_i": 117
+    }
+   ],
+   "lean": [
+    {
+     "word": "login,",
+     "t": 43.998,
+     "f": 1056,
+     "deg": 4
+    },
+    {
+     "word": "that",
+     "t": 46.552,
+     "f": 1117,
+     "deg": 8
+    },
+    {
+     "word": "AWS.",
+     "t": 47.609,
+     "f": 1143,
+     "deg": 5
+    }
+   ],
+   "note": "THE 00:44 SHOT (WIDE): the rejected v2b sat here with hands clasped and upper arms pinned into the torso. Elbows 20+ cm off the torso the whole line; the count hand out to her right at chest height; the shoulders and torso turn a little with each count",
+   "face04": {
+    "line": "N13",
+    "emotion": "confident, brisk list, then a clean landing",
+    "intensity": 0.75,
+    "solver_mood": "HAPPINESS",
+    "brow": [
+     {
+      "word": "login,",
+      "word_i": 110,
+      "t": 43.998
+     },
+     {
+      "word": "recommendations:",
+      "word_i": 112,
+      "t": 45.851
+     }
+    ],
+    "smile": [
+     {
+      "word": "AWS.",
+      "word_i": 117,
+      "t": 47.609,
+      "kind": "duchenne",
+      "amount": 0.85,
+      "hold_s": 0.6,
+      "shape": null
+     }
+    ],
+    "nod": [
+     {
+      "word": "profile,",
+      "word_i": 111,
+      "t": 44.579,
+      "kind": "yes"
+     },
+     {
+      "word": "AWS.",
+      "word_i": 117,
+      "t": 47.609,
+      "kind": "yes"
+     }
+    ],
+    "glance": [
+     {
+      "word": "Your",
+      "word_i": 109,
+      "t": 43.708,
+      "dir": "up, her right",
+      "dur_s": 0.3
+     }
+    ]
+   },
+   "body01": {
+    "line": "N13",
+    "on_cam": true,
+    "camera": "CAM_WIDE",
+    "gestures": [
+     {
+      "type": "count",
+      "detail": "count",
+      "hand": "r",
+      "word": "login,",
+      "word_i": 110,
+      "stroke_t": 43.998,
+      "prep_t": 43.698,
+      "hold_s": 0.25,
+      "size": "medium",
+      "amp": 0.55,
+      "held": false,
+      "target": "her right, chest height"
+     },
+     {
+      "type": "count",
+      "detail": "count",
+      "hand": "r",
+      "word": "profile,",
+      "word_i": 111,
+      "stroke_t": 44.579,
+      "prep_t": 44.279,
+      "hold_s": 0.25,
+      "size": "medium",
+      "amp": 0.55,
+      "held": false,
+      "target": "her right, chest height"
+     },
+     {
+      "type": "count",
+      "detail": "count",
+      "hand": "r",
+      "word": "recommendations:",
+      "word_i": 112,
+      "stroke_t": 45.851,
+      "prep_t": 45.551,
+      "hold_s": 0.5,
+      "size": "medium",
+      "amp": 0.55,
+      "held": true,
+      "target": "her right, chest height"
+     },
+     {
+      "type": "open",
+      "detail": "open_palm",
+      "hand": "both",
+      "word": "that",
+      "word_i": 113,
+      "stroke_t": 46.552,
+      "prep_t": 46.252,
+      "hold_s": 0.7,
+      "size": "big",
+      "amp": 0.85,
+      "held": true,
+      "target": "front"
+     },
+     {
+      "type": "beat",
+      "detail": "beat",
+      "hand": "r",
+      "word": "AWS.",
+      "word_i": 117,
+      "stroke_t": 47.609,
+      "prep_t": 47.309,
+      "hold_s": 0.25,
+      "size": "medium",
+      "amp": 0.55,
+      "held": false,
+      "target": "camera"
+     }
+    ],
+    "lean": [
+     {
+      "kind": "neutral",
+      "deg": 4,
+      "word": "login,",
+      "t": 43.998
+     },
+     {
+      "kind": "in",
+      "deg": 8,
+      "word": "that",
+      "t": 46.552
+     },
+     {
+      "kind": "in",
+      "deg": 5,
+      "word": "AWS.",
+      "t": 47.609
+     }
+    ],
+    "rest_after": true
+   }
+  },
+  {
+   "id": "N14",
+   "text": "Press play, and AWS points you to that box. It streams the video.",
+   "t0": 48.583,
+   "t1": 52.855,
+   "f0": 1162,
+   "f1": 1278,
+   "shot": 12,
+   "kind": "gfx",
+   "camera": null,
+   "gfx": "planes",
+   "on_cam": false,
+   "arc": "body",
+   "arc_target": "confident clarity",
+   "emotion": "clear, simple mechanics",
+   "intensity": 0.65,
+   "base": {
+    "smile": 0.25,
+    "brows": 0.05
+   },
+   "face": [
+    {
+     "kind": "brow_flash",
+     "word": "AWS",
+     "t": 49.593,
+     "f": 1190,
+     "onset_t": 49.473,
+     "end_t": 49.923,
+     "word_i": 121
+    },
+    {
+     "kind": "nod",
+     "word": "box.",
+     "t": 51.068,
+     "f": 1226,
+     "onset_t": 50.918,
+     "end_t": 51.268,
+     "word_i": 126
+    },
+    {
+     "kind": "smile",
+     "word": "streams",
+     "t": 51.915,
+     "f": 1246,
+     "onset_t": 51.615,
+     "end_t": 52.715,
+     "amount": 0.5,
+     "shape": "open lips",
+     "hold": 0.5,
+     "word_i": 128
+    }
+   ],
+   "gestures": [
+    {
+     "type": "press",
+     "hand": "R",
+     "word": "play,",
+     "stroke_t": 48.908,
+     "stroke_f": 1174,
+     "prep_t": 48.608,
+     "prep_f": 1167,
+     "hold_s": 0.25,
+     "size": "small",
+     "amp": 0.3,
+     "held": false,
+     "target": "camera",
+     "word_i": 119
+    },
+    {
+     "type": "deictic",
+     "hand": "R",
+     "word": "points",
+     "stroke_t": 50.243,
+     "stroke_f": 1206,
+     "prep_t": 49.943,
+     "prep_f": 1199,
+     "hold_s": 0.25,
+     "size": "medium",
+     "amp": 0.55,
+     "held": false,
+     "target": "her right",
+     "word_i": 122
+    },
+    {
+     "type": "open_palm",
+     "hand": "both",
+     "word": "streams",
+     "stroke_t": 51.915,
+     "stroke_f": 1246,
+     "prep_t": 51.615,
+     "prep_f": 1239,
+     "hold_s": 0.25,
+     "size": "medium",
+     "amp": 0.55,
+     "held": false,
+     "target": "front",
+     "word_i": 128
+    }
+   ],
+   "lean": [
+    {
+     "word": "points",
+     "t": 50.243,
+     "f": 1206,
+     "deg": 5
+    }
+   ],
+   "face04": {
+    "line": "N14",
+    "emotion": "clear, simple mechanics",
+    "intensity": 0.65,
+    "solver_mood": "HAPPINESS",
+    "brow": [
+     {
+      "word": "AWS",
+      "word_i": 121,
+      "t": 49.593
+     }
+    ],
+    "smile": [
+     {
+      "word": "streams",
+      "word_i": 128,
+      "t": 51.915,
+      "kind": "soft",
+      "amount": 0.5,
+      "hold_s": 0.5,
+      "shape": "open lips"
+     }
+    ],
+    "nod": [
+     {
+      "word": "box.",
+      "word_i": 126,
+      "t": 51.068,
+      "kind": "yes"
+     }
+    ]
+   },
+   "body01": {
+    "line": "N14",
+    "on_cam": false,
+    "camera": null,
+    "gestures": [
+     {
+      "type": "beat",
+      "detail": "press",
+      "hand": "r",
+      "word": "play,",
+      "word_i": 119,
+      "stroke_t": 48.908,
+      "prep_t": 48.608,
+      "hold_s": 0.25,
+      "size": "small",
+      "amp": 0.3,
+      "held": false,
+      "target": "camera"
+     },
+     {
+      "type": "deictic",
+      "detail": "deictic",
+      "hand": "r",
+      "word": "points",
+      "word_i": 122,
+      "stroke_t": 50.243,
+      "prep_t": 49.943,
+      "hold_s": 0.25,
+      "size": "medium",
+      "amp": 0.55,
+      "held": false,
+      "target": "her right"
+     },
+     {
+      "type": "open",
+      "detail": "open_palm",
+      "hand": "both",
+      "word": "streams",
+      "word_i": 128,
+      "stroke_t": 51.915,
+      "prep_t": 51.615,
+      "hold_s": 0.25,
+      "size": "medium",
+      "amp": 0.55,
+      "held": false,
+      "target": "front"
+     }
+    ],
+    "lean": [
+     {
+      "kind": "in",
+      "deg": 5,
+      "word": "points",
+      "t": 50.243
+     }
+    ],
+    "rest_after": true
+   }
+  },
+  {
+   "id": "N15",
+   "text": "The cloud decides. The box next door delivers.",
+   "t0": 53.625,
+   "t1": 56.202,
+   "f0": 1278,
+   "f1": 1352,
+   "shot": 13,
+   "kind": "pres",
+   "camera": "CAM_MCU",
+   "gfx": null,
+   "on_cam": true,
+   "arc": "payoff",
+   "arc_target": "satisfied delight",
+   "emotion": "satisfied clarity: the two halves click",
+   "intensity": 0.8,
+   "base": {
+    "smile": 0.4,
+    "brows": 0.05
+   },
+   "face": [
+    {
+     "kind": "brow_flash",
+     "word": "cloud",
+     "t": 53.811,
+     "f": 1291,
+     "onset_t": 53.691,
+     "end_t": 54.141,
+     "word_i": 132
+    },
+    {
+     "kind": "nod",
+     "word": "decides.",
+     "t": 54.252,
+     "f": 1302,
+     "onset_t": 54.102,
+     "end_t": 54.452,
+     "word_i": 133
+    },
+    {
+     "kind": "smile",
+     "word": "box",
+     "t": 54.995,
+     "f": 1320,
+     "onset_t": 54.695,
+     "end_t": 55.595,
+     "amount": 0.45,
+     "shape": "closed",
+     "hold": 0.3,
+     "word_i": 135
+    },
+    {
+     "kind": "nod",
+     "word": "delivers.",
+     "t": 55.893,
+     "f": 1341,
+     "onset_t": 55.743,
+     "end_t": 56.093,
+     "word_i": 138
+    },
+    {
+     "kind": "smile",
+     "word": "delivers.",
+     "t": 55.893,
+     "f": 1341,
+     "onset_t": 55.593,
+     "end_t": 56.693,
+     "amount": 0.6,
+     "shape": "open lips, building to N16",
+     "hold": 0.5,
+     "word_i": 138
+    }
+   ],
+   "gestures": [
+    {
+     "type": "high_low",
+     "hand": "R",
+     "word": "cloud",
+     "stroke_t": 53.811,
+     "stroke_f": 1291,
+     "prep_t": 53.511,
+     "prep_f": 1284,
+     "hold_s": 0.5,
+     "size": "medium",
+     "amp": 0.55,
+     "held": true,
+     "target": "up, her right",
+     "note": "open palm raised to chin height: up there",
+     "word_i": 132
+    },
+    {
+     "type": "place",
+     "hand": "both",
+     "word": "box",
+     "stroke_t": 54.995,
+     "stroke_f": 1320,
+     "prep_t": 54.695,
+     "prep_f": 1313,
+     "hold_s": 0.25,
+     "size": "medium",
+     "amp": 0.55,
+     "held": false,
+     "target": "front, low",
+     "note": "both hands come down to the front: right here",
+     "word_i": 135
+    },
+    {
+     "type": "beat",
+     "hand": "both",
+     "word": "delivers.",
+     "stroke_t": 55.893,
+     "stroke_f": 1341,
+     "prep_t": 55.593,
+     "prep_f": 1334,
+     "hold_s": 0.25,
+     "size": "medium",
+     "amp": 0.55,
+     "held": false,
+     "target": "front",
+     "word_i": 138
+    }
+   ],
+   "lean": [
+    {
+     "word": "cloud",
+     "t": 53.811,
+     "f": 1291,
+     "deg": 4
+    },
+    {
+     "word": "box",
+     "t": 54.995,
+     "f": 1320,
+     "deg": 7
+    }
+   ],
+   "face04": {
+    "line": "N15",
+    "emotion": "satisfied clarity: the two halves click",
+    "intensity": 0.8,
+    "solver_mood": "HAPPINESS",
+    "brow": [
+     {
+      "word": "cloud",
+      "word_i": 132,
+      "t": 53.811
+     }
+    ],
+    "smile": [
+     {
+      "word": "box",
+      "word_i": 135,
+      "t": 54.995,
+      "kind": "soft",
+      "amount": 0.45,
+      "hold_s": 0.3,
+      "shape": "closed"
+     },
+     {
+      "word": "delivers.",
+      "word_i": 138,
+      "t": 55.893,
+      "kind": "soft",
+      "amount": 0.6,
+      "hold_s": 0.5,
+      "shape": "open lips, building to N16"
+     }
+    ],
+    "nod": [
+     {
+      "word": "decides.",
+      "word_i": 133,
+      "t": 54.252,
+      "kind": "yes"
+     },
+     {
+      "word": "delivers.",
+      "word_i": 138,
+      "t": 55.893,
+      "kind": "yes"
+     }
+    ]
+   },
+   "body01": {
+    "line": "N15",
+    "on_cam": true,
+    "camera": "CAM_MCU",
+    "gestures": [
+     {
+      "type": "deictic",
+      "detail": "high_low",
+      "hand": "r",
+      "word": "cloud",
+      "word_i": 132,
+      "stroke_t": 53.811,
+      "prep_t": 53.511,
+      "hold_s": 0.5,
+      "size": "medium",
+      "amp": 0.55,
+      "held": true,
+      "target": "up, her right"
+     },
+     {
+      "type": "size",
+      "detail": "place",
+      "hand": "both",
+      "word": "box",
+      "word_i": 135,
+      "stroke_t": 54.995,
+      "prep_t": 54.695,
+      "hold_s": 0.25,
+      "size": "medium",
+      "amp": 0.55,
+      "held": false,
+      "target": "front, low"
+     },
+     {
+      "type": "beat",
+      "detail": "beat",
+      "hand": "both",
+      "word": "delivers.",
+      "word_i": 138,
+      "stroke_t": 55.893,
+      "prep_t": 55.593,
+      "hold_s": 0.25,
+      "size": "medium",
+      "amp": 0.55,
+      "held": false,
+      "target": "front"
+     }
+    ],
+    "lean": [
+     {
+      "kind": "neutral",
+      "deg": 4,
+      "word": "cloud",
+      "t": 53.811
+     },
+     {
+      "kind": "in",
+      "deg": 7,
+      "word": "box",
+      "t": 54.995
+     }
+    ],
+    "rest_after": true
+   }
+  },
+  {
+   "id": "N16",
+   "text": "That's why it just plays.",
+   "t0": 56.5,
+   "t1": 57.452,
+   "f0": 1352,
+   "f1": 1391,
+   "shot": 14,
+   "kind": "pres",
+   "camera": "CAM_CU",
+   "gfx": null,
+   "on_cam": true,
+   "arc": "payoff",
+   "arc_target": "satisfied delight",
+   "emotion": "satisfied delight",
+   "intensity": 0.9,
+   "base": {
+    "smile": 0.6,
+    "brows": 0.05
+   },
+   "face": [
+    {
+     "kind": "brow_flash",
+     "word": "That's",
+     "t": 56.5,
+     "f": 1356,
+     "onset_t": 56.38,
+     "end_t": 56.83,
+     "word_i": 139
+    },
+    {
+     "kind": "smile",
+     "word": "just",
+     "t": 56.999,
+     "f": 1368,
+     "onset_t": 56.699,
+     "end_t": 58.299,
+     "amount": 0.9,
+     "note": "the last full Duchenne, held into the cut",
+     "hold": 1.0,
+     "word_i": 142
+    },
+    {
+     "kind": "tilt",
+     "word": "plays.",
+     "t": 57.162,
+     "f": 1372,
+     "onset_t": 56.912,
+     "end_t": 58.112,
+     "side": "R",
+     "deg": 5,
+     "word_i": 143
+    },
+    {
+     "kind": "nod",
+     "word": "plays.",
+     "t": 57.162,
+     "f": 1372,
+     "onset_t": 57.012,
+     "end_t": 57.362,
+     "word_i": 143
+    }
+   ],
+   "gestures": [
+    {
+     "type": "release",
+     "hand": "both",
+     "word": "plays.",
+     "stroke_t": 57.162,
+     "stroke_f": 1372,
+     "prep_t": 56.862,
+     "prep_f": 1365,
+     "hold_s": 1.0,
+     "size": "medium",
+     "amp": 0.55,
+     "held": true,
+     "target": "front",
+     "note": "palms up, a small outward 'ta-da', the shoulders lift; held to the cut",
+     "word_i": 143
+    }
+   ],
+   "lean": [
+    {
+     "word": "That's",
+     "t": 56.5,
+     "f": 1356,
+     "deg": 6
+    },
+    {
+     "word": "plays.",
+     "t": 57.162,
+     "f": 1372,
+     "deg": 4
+    }
+   ],
+   "face04": {
+    "line": "N16",
+    "emotion": "satisfied delight",
+    "intensity": 0.9,
+    "solver_mood": "HAPPINESS",
+    "brow": [
+     {
+      "word": "That's",
+      "word_i": 139,
+      "t": 56.5
+     }
+    ],
+    "smile": [
+     {
+      "word": "just",
+      "word_i": 142,
+      "t": 56.999,
+      "kind": "duchenne",
+      "amount": 0.9,
+      "hold_s": 1.0,
+      "shape": null
+     }
+    ],
+    "nod": [
+     {
+      "word": "plays.",
+      "word_i": 143,
+      "t": 57.162,
+      "kind": "yes"
+     }
+    ],
+    "tilt": [
+     {
+      "word": "plays.",
+      "word_i": 143,
+      "t": 57.162,
+      "deg": 5,
+      "side": "R"
+     }
+    ]
+   },
+   "body01": {
+    "line": "N16",
+    "on_cam": true,
+    "camera": "CAM_CU",
+    "gestures": [
+     {
+      "type": "open",
+      "detail": "release",
+      "hand": "both",
+      "word": "plays.",
+      "word_i": 143,
+      "stroke_t": 57.162,
+      "prep_t": 56.862,
+      "hold_s": 1.0,
+      "size": "medium",
+      "amp": 0.55,
+      "held": true,
+      "target": "front"
+     }
+    ],
+    "lean": [
+     {
+      "kind": "in",
+      "deg": 6,
+      "word": "That's",
+      "t": 56.5
+     },
+     {
+      "kind": "neutral",
+      "deg": 4,
+      "word": "plays.",
+      "t": 57.162
+     }
+    ],
+    "rest_after": true
+   }
+  }
+ ],
+ "test": {
+  "spans": [
+   {
+    "camera": "CAM_MCU",
+    "f0": 0,
+    "f1": 196,
+    "lines": [
+     "N01",
+     "N02",
+     "N03"
+    ],
+    "why": "the hook on one camera: curiosity, the one brow, the 'three hundred million' spread, the play press and the 'just starts' Duchenne, then the 'But...' twist"
+   },
+   {
+    "camera": "CAM_WIDE",
+    "f0": 1040,
+    "f1": 1162,
+    "lines": [
+     "N13"
+    ],
+    "why": "the rejected 00:44 shot: the count, elbows off the torso, arm-breast clearance, the waist fit"
+   }
+  ],
+  "optional": {
+   "camera": "CAM_MCU",
+   "f0": 196,
+   "f1": 305,
+   "lines": [
+    "N04"
+   ],
+   "why": "append for a literal 'lines 1-4' (+4.5 s, 17.8 s total)"
+  }
+ },
+ "checks": {
+  "speaking_s": 49.52,
+  "smiles_per_min": 19.4,
+  "brow_flash_per_min": 20.6,
+  "gesture_onsets_per_s": {
+   "all": 0.87,
+   "per_line": {
+    "N01": 0.94,
+    "N02": 1.34,
+    "N03": 1.13,
+    "N04": 1.0,
+    "N05": 0.54,
+    "N06": 0.84,
+    "N07": 1.23,
+    "N08": 0.82,
+    "N09": 0.59,
+    "N10": 0.74,
+    "N11": 0.61,
+    "N12": 0.99,
+    "N13": 1.09,
+    "N14": 0.7,
+    "N15": 1.16,
+    "N16": 1.05
+   }
+  },
+  "neutral_hold_max_s": {
+   "max": 1.41,
+   "per_line": {
+    "N01": 0.44,
+    "N02": 0.59,
+    "N03": 0.44,
+    "N04": 0.91,
+    "N05": 1.22,
+    "N06": 0.9,
+    "N07": 0.8,
+    "N08": 1.13,
+    "N09": 1.08,
+    "N10": 1.0,
+    "N11": 1.41,
+    "N12": 0.4,
+    "N13": 1.13,
+    "N14": 0.99,
+    "N15": 0.24,
+    "N16": 0.0
+   }
+  },
+  "same_gesture_twice": [],
+  "on_cam_lines": [
+   "N01",
+   "N02",
+   "N03",
+   "N04",
+   "N06",
+   "N07",
+   "N08",
+   "N12",
+   "N13",
+   "N15",
+   "N16"
+  ]
+ }
+}
