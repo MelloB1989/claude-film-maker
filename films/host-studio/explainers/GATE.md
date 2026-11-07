@@ -54,7 +54,7 @@ The orchestrator ruled on 07 Nov, about 23:10 IST.
 | garment | visible neck poke 0, wpo 0, armor 0.0, hem 0.955, excess over the V2 baseline 0, leaders 1 on every job |
 | set | chair/desk 0 px, the mic never on the mouth (0), props overlap 0 (depth-confirmed) |
 | shot | cameras 1, streaming 1, grain close 0.742 / WIDE 0.552 |
-| exposure | static wall patch: jump 0.007, drift 0.019 (scope note below) |
+| exposure | static background patch, all 9 shots: jump 0.007, drift 0.023 |
 | hair | lock 1, render cvars 1, cut reach 2.68 %, pop reach 0.0 % |
 | cut v2b | -14.0 LUFS / -1.7 dBTP, 1920x1080, 59.46 s, captions 144/144 with onset 84 ms, facts sourced, qc 1, caption band 1 |
 | eye | real_person, light, hair_garment and graphics all 1 |
@@ -63,8 +63,9 @@ The orchestrator ruled on 07 Nov, about 23:10 IST.
 
 - **Exposure is read on a STATIC background patch (agent-09's change).** The face box measured her shading as she turns
   against the key (fixed box 0.17 / 0.27, tracked worse). Exposure is locked manual in the render spec.
-- **The exposure value covers the 6 shots with the wall in frame.** The 3 CUs (02, 07, 14) are being measured on a
-  static background region (agent-07), and this file is updated when that lands.
+- **The exposure value now covers all 9 shots.** The 3 CUs (02, 07, 14) are read on a static out-of-focus background
+  region: 0.005 / 0.023, 0.005 / 0.016 and 0.005 / 0.011. The worst over every shot is jump 0.007, drift 0.023. The
+  orchestrator accepted the scope.
 - **Spec bug fixed before the run:** an override had dropped `set.props_overlap`'s line. A test now catches any spec
   item without a line.
 
