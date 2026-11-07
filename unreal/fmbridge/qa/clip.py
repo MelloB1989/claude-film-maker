@@ -198,6 +198,8 @@ def neck_visible(layers: dict, mask: set, w: int, h: int, fov_deg: float, *, fac
       cluster and converted to cm at their own depth, exceeds tongue_cm. Near the opening the neck simply continues
       over the collar's top edge (r6n2: one 262 px cluster from the rim down, passed by eye as a natural crew-neck
       hug); a long tongue of skin running down into the cloth still fails.
+    Known blind spot: a poke that JOINS the rim cluster and stays shallower than tongue_cm passes (it reads as the
+    neck continuing over the collar's edge); the eye on the crops stays the judge of that case.
     Returns {px, island_px, tongue_px, islands, max_tongue_cm, clusters}."""
     F, T = layers[face], layers[over]
     fpx = (w / 2) / math.tan(math.radians(fov_deg) / 2)
