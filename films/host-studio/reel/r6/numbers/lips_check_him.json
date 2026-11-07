@@ -1,0 +1,162 @@
+{
+ "pass": true,
+ "lines": {
+  "L1": {
+   "t0": 42.49,
+   "t1": 43.92,
+   "lag_s": 0.0469,
+   "lag_frames": 1.12,
+   "raw_lag_s": 0.0469,
+   "corr": 0.552,
+   "coarse_lag_frames": 2.06,
+   "coarse_corr": 0.973,
+   "onset_lead_s": -0.03,
+   "open_range": 0.824,
+   "audio_reliable": false,
+   "ref_lag_frames": 0.08,
+   "ref_corr": 0.989,
+   "pass": true
+  },
+  "L2": {
+   "t0": 45.6,
+   "t1": 46.68,
+   "lag_s": -0.0076,
+   "lag_frames": -0.18,
+   "raw_lag_s": -0.0076,
+   "corr": 0.644,
+   "coarse_lag_frames": 0.04,
+   "coarse_corr": 0.882,
+   "onset_lead_s": 0.01,
+   "open_range": 1.289,
+   "audio_reliable": true,
+   "ref_lag_frames": 0.8,
+   "ref_corr": 0.976,
+   "pass": true
+  },
+  "L4a": {
+   "t0": 56.25,
+   "t1": 57.39,
+   "lag_s": -0.0041,
+   "lag_frames": -0.1,
+   "raw_lag_s": -0.0041,
+   "corr": 0.508,
+   "coarse_lag_frames": -0.08,
+   "coarse_corr": 0.912,
+   "onset_lead_s": -0.02,
+   "open_range": 0.797,
+   "audio_reliable": false,
+   "ref_lag_frames": 0.17,
+   "ref_corr": 0.986,
+   "pass": true
+  }
+ },
+ "silences": [
+  {
+   "t0": 40.49,
+   "t1": 42.24,
+   "frames": [
+    972,
+    1014
+   ],
+   "open": 0.0,
+   "busy": 0.0,
+   "pass": true
+  },
+  {
+   "t0": 44.17,
+   "t1": 45.34,
+   "frames": [
+    1060,
+    1088
+   ],
+   "open": 0.001,
+   "busy": 0.0,
+   "pass": true
+  },
+  {
+   "t0": 46.93,
+   "t1": 56.0,
+   "frames": [
+    1126,
+    1344
+   ],
+   "open": 0.0,
+   "busy": 0.0,
+   "pass": true
+  },
+  {
+   "t0": 57.64,
+   "t1": 59.39,
+   "frames": [
+    1383,
+    1425
+   ],
+   "open": 0.001,
+   "busy": 0.0,
+   "pass": true
+  }
+ ],
+ "silence": {
+  "rest": 0.0,
+  "worst_open": 0.001,
+  "worst_busy": 0.0
+ },
+ "issues": [],
+ "diagnosis": "in sync",
+ "limits": {
+  "max_lag_frames": 1.0,
+  "min_corr": 0.35,
+  "max_onset_lead_s": 0.25,
+  "release_s": 0.25,
+  "silence_open": 0.1,
+  "silence_busy": 0.25,
+  "min_ref_corr": 0.8,
+  "confident_corr": 0.6,
+  "word_move": 0.04,
+  "min_words_moving": 0.8
+ },
+ "expected_lag_s": 0.0,
+ "voice_spans": [
+  [
+   42.49,
+   43.92
+  ],
+  [
+   45.59,
+   46.68
+  ],
+  [
+   56.25,
+   57.39
+  ]
+ ],
+ "sections": [
+  {
+   "anim": "/Game/Reel/Perf/AS_reel_him_gaze5",
+   "f0": 720,
+   "f1": 960,
+   "offset_s": 0.0,
+   "rate": 0.0001,
+   "row": 0,
+   "active": true,
+   "fps": 24.0
+  },
+  {
+   "anim": "/Game/Reel/Perf/AS_reel_him_gaze5",
+   "f0": 960,
+   "f1": 1608,
+   "offset_s": 0.0,
+   "rate": 1.0,
+   "row": 0,
+   "active": true,
+   "fps": 24.0
+  }
+ ],
+ "audio": [],
+ "warnings": [
+  "/Game/Reel/Perf/AS_reel_him_gaze5 plays at rate 0.0001: a face must play at 1.0"
+ ],
+ "fps": 24.0,
+ "wav": "/srv/ue/projects/HostStudio/Saved/Import/reel/vo_him.wav",
+ "wav_frame": 0.0
+}

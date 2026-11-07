@@ -1,0 +1,50 @@
+{
+ "him L1": {
+  "silence": [
+   996,
+   1019
+  ],
+  "mean_change_cm": 0.0,
+  "open_cm": 0.0
+ },
+ "him L2": {
+  "silence": [
+   1070,
+   1093
+  ],
+  "mean_change_cm": 0.0,
+  "open_cm": 0.0
+ },
+ "him L4a": {
+  "silence": [
+   1326,
+   1349
+  ],
+  "mean_change_cm": 0.0,
+  "open_cm": 0.0
+ },
+ "her L3a": {
+  "silence": [
+   1134,
+   1157
+  ],
+  "mean_change_cm": 0.0,
+  "open_cm": 0.0
+ },
+ "her L3b": {
+  "silence": [
+   1191,
+   1214
+  ],
+  "mean_change_cm": 0.0,
+  "open_cm": 0.0
+ },
+ "her L4b": {
+  "silence": [
+   1362,
+   1385
+  ],
+  "mean_change_cm": 0.0,
+  "open_cm": 0.0
+ }
+}

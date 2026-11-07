@@ -33,8 +33,8 @@
    "where": "cues.json"
   },
   "lips.lead_in_cm": {
-   "value": 0.0,
-   "where": "S17:him L4a (silence before the line)"
+   "value": null,
+   "error": "lip gap does not open while speaking on ['him L1', 'him L2', 'him L4a', 'her L3a', 'her L3b', 'her L4b']: the sample read a frozen face (lead_in.json)"
   }
  },
  "source": "reel/r6/lips_numbers.py on SEQ_Reel"
