@@ -17,12 +17,13 @@ TOOLS=${TOOLS:-$([ -d "$SRC/tools/filmtools" ] && echo "$SRC/tools" || echo /srv
 B=s3://rf-render-788655295054-aps1/ue-linux
 export AWS_REGION=${AWS_REGION:-ap-south-1}
 EX=$SRC/films/host-studio/explainers
-GFX=/srv/ue/explain/$FILM/gfx
+GFXP=${GFXP:-gfx/v3/explain-$FILM}  # the v3 graphics (orchestrator); GFXP=gfx/explain-<film> for v2
+GFX=/srv/ue/explain/$FILM/gfx_${GFXP//\//_}
 OUT=/srv/ue/explain/$FILM/out_$TAG
 [ -z "$PRES" ] && PRES=/srv/ue/explainer/renders/$FILM/final
 UV="nice -n 10 $HOME/.local/bin/uv run --no-project --with pillow --with imageio-ffmpeg --with numpy"
 
-aws s3 sync --only-show-errors --delete --exclude 'review/*' --exclude '*.tar' --exclude '_*' "$B/gfx/explain-$FILM/" "$GFX/"
+aws s3 sync --only-show-errors --delete --exclude 'review/*' --exclude '*.tar' --exclude '_*' "$B/$GFXP/" "$GFX/"
 rm -rf "$OUT"; mkdir -p "$OUT"
 args=(--film "$FILM" --gfx "$GFX" --out "$OUT" --tag "$TAG" --ffmpeg "$(command -v ffmpeg)")
 [ "$PRES" != none ] && args+=(--presenter "$PRES")
