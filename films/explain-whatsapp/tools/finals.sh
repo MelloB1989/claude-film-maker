@@ -27,7 +27,7 @@ for s in "${SHOTS[@]}"; do
   if [ "$(kind "$s")" = panel ]; then
     render explain-whatsapp-panel "${s}_k" "$OUT/_${s}_k.mov"
     render explain-whatsapp-panel "${s}_g" "$OUT/_${s}_g.mov"
-    bun "$HERE/alpha.ts" "$OUT/_${s}_k.mov" "$OUT/_${s}_g.mov" "$OUT/${s}_panel.mov" --grey 128
+    bun "$HERE/alpha.ts" "$OUT/_${s}_k.mov" "$OUT/_${s}_g.mov" "$OUT/${s}_panel.mov" --grey 128 --frames "$n"
     rm -f "$OUT/_${s}_k.mov" "$OUT/_${s}_g.mov"
     got=$(count "$OUT/${s}_panel.mov"); [ "$got" = "$n" ] || { echo "finals.sh: ${s}_panel.mov has $got frames, want $n"; exit 1; }
     echo "${s}_panel.mov $got frames"
