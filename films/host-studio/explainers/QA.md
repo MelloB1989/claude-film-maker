@@ -207,3 +207,23 @@ the end of 2024.
 5. Finals, from a freshly restarted editor (the karma lesson): exposure, hair numbers.
 6. Composite on the box, then the cut: loudness, format, qc, captions, facts.
 7. `film-qa gate` → SIGN on everything but the eye rows → the review to the orchestrator → the signed strip → SIGN.
+
+## Round 7: performance numbers, one pass per take (box driver)
+
+The driver runs these between editor jobs. They are read-only and write numbers only. Each JSON goes into
+`numbers/<film>/` on the driver's branch, and then `gate_film.py --film <film> numbers/<film>/*.json` judges.
+Core: `fleet/agent-09/r7-perf-gate`. The spans are in `spans_<film>.json`.
+
+1. **Face curves:** agent-04's `face_acting.py boxcheck --who <her|him> --spans spans_<film>.json` on the take's face
+   anim gives `face.curves_*`, including the INFO `frown_frac`. Write it to `perf_curves.json`.
+2. **Face render smiles** (the final frames on the cut clock, on the box):
+   `film-qa perf-face <frames> --speaking spans_<film>.json --out perf_face.json`. Only
+   `face.smile_events_per_min` gates; the other render rows are INFO.
+3. **Body:** run `film-ue op seq.sample` on hand_l and hand_r over every span frame, then
+   `film-qa perf-body samples.json --speaking spans_<film>.json --desk-z 71 --out perf_body.json`.
+4. **Garment** (agent-02's `garment_measure.py`): `waist_fit_cm` + `waist_poke_cm`, on-screen frames, written to
+   `garment.json`. Arm clearance stays INFO for the TEST, and becomes a gate once agent-02's measure is validated.
+5. **Plus the round-6 rows** for finals: lips, head, clip, grain, exposure, cut, gfx, and the eye strips.
+
+For a TEST (a few lines only), pass `--speaking` a spans file cut to the test's frames: a 2-column JSON
+`[[f0, f1], ...]`.
