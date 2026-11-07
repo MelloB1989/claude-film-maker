@@ -706,8 +706,8 @@ def cmd_numbers(who: str, seq: str = "") -> dict:
     return {"gate": g}
 
 
-STEPS = ["push", "solve", "bias", "compose", "check:solve", "workseq", "body", "cams", "life", "face", "check:face",
-         "sync", "gaze", "check:final", "place", "check:placed", "bodycheck", "numbers"]
+STEPS = ["body", "life", "preview", "cams", "push", "solve", "bias", "compose", "check:solve", "workseq", "face",
+         "check:face", "sync", "gaze", "check:final", "place", "check:placed", "bodycheck", "numbers"]
 
 
 def step(name: str, who: str, a) -> dict:
@@ -734,7 +734,7 @@ def main() -> None:
     ap.add_argument("--seq", default="")
     ap.add_argument("--fresh", action="store_true")
     ap.add_argument("--force", action="store_true", help="body: write even if the pose fails its own check")
-    ap.add_argument("--from", dest="start", default="push")
+    ap.add_argument("--from", dest="start", default="body")
     ap.add_argument("--to", dest="stop", default="numbers")
     a = ap.parse_args()
     if a.cmd == "dry":  # engine-free: the seated pose on a saved read (body_read.json) + the face args
