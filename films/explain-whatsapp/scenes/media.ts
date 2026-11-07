@@ -51,10 +51,10 @@ export default class Media extends Explainer {
     if (ka > 0 && m < 1) {
       const k = pop(t, ky - 0.25, 0.45);
       c.save(); c.translate(mpt.x, mpt.y); c.scale(k, k);
-      rr(c, -78, -34, 156, 68, 20); c.fillStyle = '#1f5c3a'; c.fill(); c.strokeStyle = GREEN; c.lineWidth = 2.5; c.stroke();
+      rr(c, -120, -36, 240, 72, 22); c.fillStyle = '#1f5c3a'; c.fill(); c.strokeStyle = GREEN; c.lineWidth = 2.5; c.stroke();
       c.restore();
-      key(c, g, mpt.x - 22 * k, mpt.y, 52 * k, { color: '#F2ECE4', glow: 0.5 });
-      note(c, '+ link', mpt.x + 42 * k, mpt.y, ka, { size: 15, color: TXT });
+      key(c, g, mpt.x - 62 * k, mpt.y, 56 * k, { color: '#F2ECE4', glow: 0.5 });
+      note(c, '+ link', mpt.x + 38 * k, mpt.y, ka, { size: 15, color: TXT });
     }
     pill(c, 'only the key rides in the message', 500, 850, 20 * L, { a: ramp(t, ky, 0.35), color: GREEN });
     // the friend fetches the blob and unlocks it

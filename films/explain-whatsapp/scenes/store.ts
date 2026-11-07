@@ -41,7 +41,7 @@ export default class Store extends Explainer {
     const qa = ramp(t, ifNot + 0.2, 0.35) * (1 - ramp(t, del + 0.6, 0.4));
     if (qa > 0) {
       c.save(); c.globalAlpha = qa;
-      rr(c, q.x - 150, q.y - 46, 300, 92, 16); c.fillStyle = withA('#1A1410', 0.95); c.fill();
+      rr(c, q.x - 200, q.y - 46, 400, 92, 16); c.fillStyle = withA('#1A1410', 0.95); c.fill();
       c.setLineDash([6, 6]); c.strokeStyle = withA(TXT2, 0.6); c.lineWidth = 2; c.stroke();
       c.restore();
       text(c, "friend's queue", q.x, q.y - 66, 18 * L, { face: 'mono', color: TXT2, a: qa });
@@ -62,9 +62,9 @@ export default class Store extends Explainer {
       if (wa > 0) {
         const sw = ((t - waits) * 0.9) % 1;
         c.save(); c.globalAlpha = wa; c.strokeStyle = TXT2; c.lineWidth = 4; c.lineCap = 'round';
-        c.beginPath(); c.arc(q.x + 100, y, 20, -Math.PI / 2, -Math.PI / 2 + Math.max(0.01, sw) * Math.PI * 2); c.stroke();
+        c.beginPath(); c.arc(q.x + 120, y, 20, -Math.PI / 2, -Math.PI / 2 + Math.max(0.01, sw) * Math.PI * 2); c.stroke();
         c.restore();
-        text(c, 'waits', q.x - 100, y, 22 * L, { face: 'mono', color: TXT, a: wa });
+        text(c, 'waits', q.x - 125, y, 22 * L, { face: 'mono', color: TXT, a: wa });
       }
       // deleted: the copy breaks into dust
       if (gone > 0 && gone < 1) {

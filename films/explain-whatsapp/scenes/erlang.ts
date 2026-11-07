@@ -76,10 +76,10 @@ export default class Erlang extends Explainer {
       c.restore();
       const px = cx + 40, py = cy + 150;
       c.save(); c.globalAlpha = ca;
-      rr(c, px, py - 52, 330 * L, 104 * L, 16); c.fillStyle = '#1A1410'; c.fill(); c.strokeStyle = withA(GREEN, 0.7); c.lineWidth = 2; c.stroke();
+      rr(c, px, py - 56, 470 * L, 118 * L, 16); c.fillStyle = '#1A1410'; c.fill(); c.strokeStyle = withA(GREEN, 0.7); c.lineWidth = 2; c.stroke();
       c.restore();
       text(c, '1 Erlang process', px + 22, py - 18, 30 * L, { align: 'left', weight: 600, a: ca, color: TXT });
-      text(c, 'a few KB · its own mailbox', px + 22, py + 22 * L, 20 * L, { face: 'mono', align: 'left', a: ramp(t, proc, 0.4) * ca, color: '#A89E92' });
+      text(c, 'a few KB · its own mailbox', px + 22, py + 26 * L, 20 * L, { face: 'mono', align: 'left', a: ramp(t, proc, 0.4) * ca, color: '#A89E92' });
     }
     // two million
     const n = Math.round(lerp(0, 2_000_000, ease.outCubic(clamp((t - two) / 0.9))));
