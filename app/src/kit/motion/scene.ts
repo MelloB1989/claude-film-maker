@@ -10,10 +10,13 @@
 // A shot implements build() (make its objects, call this.frame() with the subject's box) and pose(t, f) (pose them;
 // return the focus point, or nothing for the framing's target), and cam(t).
 import * as THREE from 'three';
-import type { Frame, PostOverrides } from '../../engine/scene';
+import { disposeLayer, type Frame, type PostOverrides, type SceneCtx } from '../../engine/scene';
+import { H, Layer2D, W } from '../../engine/gl';
+import { HEX } from '../../engine/palette';
 import { clamp, ease, noise1 } from '../../engine/util';
+import { clearBackground, type Background } from '../common';
 import { Scene3D } from '../3d/scene3d';
-import { pulse } from './fns';
+import { pulse, spring } from './fns';
 import { Dust, Floor, Haze } from './parts';
 
 export interface CamPose { pos: [number, number, number]; target: [number, number, number]; fov?: number; roll?: number }
@@ -42,6 +45,14 @@ export interface Arrive {
 
 const FPS = 24;
 
+/**
+ * The panel box of a presenter shot (px of 1920x1080, GFX.md): x 1010-1860, y 150-930, content above y 770 (the
+ * captions own the rest). A panel shot (params.panel true, or params.layout 'panel') draws the frosted card there and
+ * the 3D over it with no environment; the camera's principal point sits on the card's content centre (a view offset),
+ * so the shot frames its subject as usual and it lands in the card. (From agent-13's WhatsApp base.)
+ */
+export const PANEL = { x0: 1010, x1: 1860, y0: 150, y1: 930, contentY1: 770 };
+
 export abstract class MotionScene extends Scene3D {
   /** The environment; a shot overrides it in its constructor or build(). */
   protected env: EnvOpts = {};
@@ -60,6 +71,21 @@ export abstract class MotionScene extends Scene3D {
   protected nearDust: Dust | null = null;
   /** Shot-clock time of the current frame (s). */
   protected t = 0;
+  private card: Layer2D | null = null;
+
+  constructor(ctx: SceneCtx) {
+    super(ctx);
+    if (this.panel) {
+      this.env = { floor: false, haze: false, dust: false };
+      this.arrival = { dur: 0.42, dist: 0.1, yaw: -6, roll: 0 };
+      this.basePost = { ...this.basePost, grain: 0, vignette: 0, ca: 0 };
+    }
+  }
+
+  /** Panel mode: params.panel true or params.layout 'panel'. A shot that changes env in build() must keep it off. */
+  protected get panel(): boolean {
+    return this.ctx.params.panel === true || this.ctx.params.layout === 'panel';
+  }
 
   /** The camera pose at shot time t (before the arrive and the drift). */
   protected abstract cam(t: number): CamPose;
@@ -71,6 +97,7 @@ export abstract class MotionScene extends Scene3D {
   protected buildEnv() {
     if (this.envBuilt) return;
     this.envBuilt = true;
+    if (this.panel) return;
     const s = this.stage.scene;
     if (this.env.haze !== false) s.add(this.own(this.haze = new Haze(this.env.haze ?? {})).mesh);
     if (this.env.floor !== false) s.add(this.own(this.floor = new Floor(this.env.floor ?? {})).mesh);
@@ -93,8 +120,9 @@ export abstract class MotionScene extends Scene3D {
   /** The shot clock time of a VO word (its `nth` occurrence; case and punctuation ignored) + `lag` frames; `fb` if absent. */
   protected cue(word: string, fb: number, nth = 0, lag = 2): number {
     const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9']/g, '');
-    const ws = (this.ctx.params.words as { w: string; f: number }[] | undefined ?? []).filter((w) => norm(w.w) === norm(word));
-    const w = ws[nth];
+    const all = (this.ctx.params.words as { w: string; f: number }[] | undefined) ?? [];
+    for (const w of all) if (!Number.isFinite(w.f)) throw new Error(`shot ${this.ctx.id}: params.words[] need f (the frame on the shot's clock), got ${JSON.stringify(w)}`);
+    const w = all.filter((x) => norm(x.w) === norm(word))[nth];
     return w ? (w.f + lag) / FPS : fb;
   }
 
@@ -137,6 +165,10 @@ export abstract class MotionScene extends Scene3D {
     cam.lookAt(tgt);
     if (roll) cam.rotateZ(THREE.MathUtils.degToRad(roll));
     cam.fov = c.fov ?? this.p('fov', 30);
+    if (this.panel) {
+      const cx = ((PANEL.x0 + PANEL.x1) / 2 / 1920) * W, cy = ((PANEL.y0 + PANEL.contentY1) / 2 / 1080) * H;
+      cam.setViewOffset(W, H, W / 2 - cx, H / 2 - cy, W, H);
+    } else cam.clearViewOffset();
     cam.updateProjectionMatrix();
     cam.updateMatrixWorld();
     this.haze?.pose(f.t, cam);
@@ -163,8 +195,51 @@ export abstract class MotionScene extends Scene3D {
     return { ...this.basePost, zoom, flash, shake: [sx, sy], ca };
   }
 
+  /** The panel card: frosted dark glass, an accent top edge, scaled up from 0.92 with an overshoot from the left. */
+  private drawCard(t: number) {
+    this.card ??= new Layer2D();
+    const L = this.card, c = L.ctx, u = W / 1920;
+    L.clear();
+    const k = spring(t, 0, 0.5, 0.09), a = clamp(t / 0.12);
+    const x0 = PANEL.x0 * u, x1 = PANEL.x1 * u, y0 = PANEL.y0 * u, y1 = PANEL.y1 * u;
+    const s = 0.92 + 0.08 * k;
+    c.save();
+    c.globalAlpha = a;
+    c.translate(x0, (y0 + y1) / 2);
+    c.scale(s, s);
+    c.translate(-x0 + (1 - k) * -30 * u, -(y0 + y1) / 2);
+    c.shadowColor = 'rgba(0,0,0,0.4)'; c.shadowBlur = 50 * u; c.shadowOffsetY = 16 * u;
+    c.beginPath(); c.roundRect(x0, y0, x1 - x0, y1 - y0, 18 * u);
+    c.fillStyle = 'rgba(26,20,16,0.78)'; c.fill();
+    c.shadowColor = 'transparent';
+    c.strokeStyle = '#3B3129'; c.lineWidth = Math.max(1, u); c.stroke();
+    const e = ease.outExpo(clamp((t - 0.08) / 0.5));
+    c.beginPath(); c.roundRect(x0 + 18 * u, y0 - 1.5 * u, (x1 - x0 - 36 * u) * e, 3 * u, 1.5 * u);
+    c.fillStyle = HEX.accent; c.fill();
+    c.restore();
+    return L.upload();
+  }
+
   override render(f: Frame, out: THREE.WebGLRenderTarget): PostOverrides | void {
-    super.render(f, out);
+    if (!this.panel) {
+      super.render(f, out);
+      return this.post(f.lt);
+    }
+    const r = this.ctx.renderer;
+    this.flat?.clear();
+    const focusAt = this.update(f) ?? new THREE.Vector3(...this.base.target);
+    this.placeCamera(f);
+    const dof = this.p('dof', true) ? { focus: Math.max(0.05, this.stage.depthOf(focusAt)), fstop: this.p('fstop', 2.8), maxBlurPx: this.p('maxBlur', 30) } : null;
+    clearBackground(r, out, this.p<Background>('background', 'theme'));
+    this.ctx.comp.draw(r, this.drawCard(f.lt), out, {});
+    this.stage.render(out, { dof, clear: false });
+    if (this.flat) this.ctx.comp.draw(r, this.flat.upload(), out, {});
     return this.post(f.lt);
+  }
+
+  override dispose() {
+    if (this.card) disposeLayer(this.card);
+    this.card = null;
+    super.dispose();
   }
 }
