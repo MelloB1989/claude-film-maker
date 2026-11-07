@@ -1,0 +1,28 @@
+{
+  "id": "explain-whatsapp-black",
+  "title": "WhatsApp explainer v3: the caption-band gate pass (over black)",
+  "format": "landscape",
+  "fps": 24,
+  "theme": {
+    "extends": "ember",
+    "bg": "#120E0B",
+    "bg2": "#1E1813",
+    "surface": "#211A15",
+    "surface2": "#2E251F",
+    "rule": "#3b3129",
+    "ruleStrong": "#54473b",
+    "fg": "#FFF6EC",
+    "fgDim": "#A89E92",
+    "fgFaint": "#6e655b",
+    "accent": "#25D366",
+    "accentBright": "#6BFFA8",
+    "accentDim": "#137A3C",
+    "accent2": "#FFB547",
+    "accent2Bright": "#FFD08A",
+    "accent2Dim": "#7A5320"
+  },
+  "look": "clean",
+  "audio": {
+    "bpm": 120
+  }
+}
