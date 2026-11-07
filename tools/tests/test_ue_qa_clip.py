@@ -332,3 +332,70 @@ def test_hem_angle_independent_of_the_body():
     assert st["angle_deg"] == pytest.approx(20.2, abs=0.1) and "ratio" not in st
     straight = GL.hem_stats([17.0] * 20, [16.0] * 20, upper_r=[16.6] * 20)
     assert straight["angle_deg"] < 3 and straight["ratio"] == pytest.approx(1.0625)
+
+
+def yoke(a, r, g, ang, n=72, top=0.0):
+    """The yoke of a crew neck flowing out over the shoulder at the side/back, inside the roll depth: a near-flat
+    surface 0.3-1.6 cm below the band's top, from just outside the band to 4 cm out (its normals ALONG the neck)."""
+    wall = [True] * len(a)
+    for k in range(n):
+        t = 2 * math.pi * k / n
+        if not (math.cos(t) > 0.3):  # one side only, like the shoulder
+            continue
+        for j in range(8):
+            a.append(top - 0.3 - 0.15 * j)
+            r.append(6.0 + 0.5 * j)
+            g.append(1.0)
+            ang.append(math.degrees(t) % 360)
+            wall.append(False)
+    return a, r, g, ang, wall
+
+
+def test_collar_roll_ignores_the_yoke_but_not_a_lip():
+    # round 6 box A: Epic's hugging crew neck read spread 3.1-3.9 cm at the side/back (roll 6/6) with gap 0.29-0.30:
+    # the yoke over the shoulder, not a layer. With the wall flags it is not judged; lips, folds, Fit5 still fail
+    a, r, g, ang, wall = yoke(*band())
+    assert GL.collar_stats(a, r, g, angle=ang)["roll"]  # without flags: the false roll
+    ok = GL.collar_stats(a, r, g, angle=ang, wall=wall)
+    assert not ok["roll"] and ok["spread_cm"] < 0.8 and ok["wall_verts"] < len(a), ok
+    a, r, g, ang, wall = yoke(*band(lip=1.8))
+    assert GL.collar_stats(a, r, g, angle=ang, wall=wall)["roll"]
+    a, r, g, ang, wall = yoke(*band(fold=1.6))
+    assert GL.collar_stats(a, r, g, angle=ang, wall=wall)["roll"]
+    a, r, g, ang, wall = yoke(*band(gap=2.447, lip=1.2))  # Fit5
+    assert GL.collar_stats(a, r, g, angle=ang, wall=wall)["roll"]
+
+
+def test_neck_visible_counts_islands_and_deep_tongues_not_the_rim_hug():
+    # round 6 (orchestrator): r6n1's blob, a skin ISLAND under the collar, must fail; r6n2's neck continuing a little
+    # over the hugging collar's edge (one cluster joined to the opening) must pass; a long tongue still fails
+    L = neck_scene()
+    assert clip.judge_frame(L, W, H, 30.0)["neck_visible"]["px"] == 0
+    L = neck_scene(patch_rows=3)  # 18 px enclosed by cloth, rows 20-22
+    nv = clip.judge_frame(L, W, H, 30.0)["neck_visible"]
+    assert nv["px"] == 18 and nv["island_px"] == 18 and nv["islands"] == 1 and nv["clusters"][0]["kind"] == "island"
+    L = neck_scene()
+    rect(L["Face"], 14, 12, 26, 14, 99.5)  # the neck 2 rows (~2.7 cm here) over the collar edge, joined to the opening
+    fr = clip.judge_frame(L, W, H, 30.0)
+    assert fr["neck_visible"]["px"] == 0 and fr["neck_visible"]["max_tongue_cm"] < 4.0
+    assert fr["neck_px"]["px"] > 0  # the old rim rule counted this hug
+    L = neck_scene()
+    rect(L["Face"], 17, 12, 23, 22, 99.5)  # a tongue of skin 10 rows (~13 cm) down from the rim: fails
+    nv = clip.judge_frame(L, W, H, 30.0)["neck_visible"]
+    assert nv["tongue_px"] > 0 and nv["island_px"] == 0 and nv["max_tongue_cm"] > 4.0
+    L = neck_scene(patch_rows=3)  # hair over the island: not seen, not counted
+    L["Hair"] = rect(layer(), 15, 18, 25, 25, 90.0)
+    assert clip.judge_frame(L, W, H, 30.0, pair_list=[("Face", "tee")])["neck_visible"]["px"] == 0
+
+
+def test_gate_neck_rule_visible():
+    L = neck_scene()
+    rect(L["Face"], 14, 12, 26, 14, 99.5)  # the hug: neck_px > 0, neck_visible 0
+    fr = clip.judge_frame(L, W, H, 30.0)
+    assert [i["code"] for i in clip.gate({"S15": {1128: fr}}, "Host")] == ["clip.neck"]
+    assert clip.gate({"S15": {1128: fr}}, "Host", neck_rule="visible") == []
+    fr = clip.judge_frame(neck_scene(patch_rows=3), W, H, 30.0)
+    assert [i["code"] for i in clip.gate({"S15": {1128: fr}}, "Host", neck_rule="visible")] == ["clip.neck"]
+    old = {k: v for k, v in fr.items() if k != "neck_visible"}  # an out_dir judged before this measure: refused
+    assert "clip.neck_missing" in [i["code"] for i in clip.gate({"S15": {1128: old}}, "Host", neck_rule="visible")]
+    assert clip.summarize({"S15": {1128: fr}})["neck_visible"]["island_px"] == 18

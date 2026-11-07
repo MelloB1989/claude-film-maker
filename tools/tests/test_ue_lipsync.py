@@ -73,6 +73,23 @@ def test_in_sync_passes():
     assert r["diagnosis"] == "in sync"
 
 
+def test_short_gaps_do_not_read_the_line_before_as_an_early_onset():
+    """r6 explainers: lines 0.34 s apart. The onset search must stop at the previous line, not read its mouth as this
+    line opening ~1 s early (box B: every line but the first failed at ~1.00 s)."""
+    tight = [(2.5, 3.6), (3.94, 5.2), (5.54, 7.0)]
+    env = voice(tight, 9.0)
+    lines = [{"id": f"L{i}", "t0": a, "t1": b} for i, (a, b) in enumerate(tight, 1)]
+    r = LS.check(env, mouth_from(env), lines, fps=FPS)
+    assert all(v["onset_lead_s"] is not None and v["onset_lead_s"] <= 0.25 for v in r["lines"].values()), r["lines"]
+    assert not [i for i in r["issues"] if i["code"] == "onset"], r["issues"]
+    # and a mouth really early on the second line is still caught
+    early = mouth_from(env)
+    t, v = early[JAW]
+    v = [max(x, 0.5 * (tt - 3.76) / 0.18) if 3.76 <= tt <= 3.94 else x for tt, x in zip(t, v)]  # opens in the gap
+    r2 = LS.check(env, {JAW: (t, v)}, lines, fps=FPS)
+    assert r2["lines"]["L2"]["onset_lead_s"] > 0.1
+
+
 def test_one_frame_is_the_limit():
     assert run(shift=0.5 / FPS)["pass"]
     r = run(shift=2.0 / FPS)
