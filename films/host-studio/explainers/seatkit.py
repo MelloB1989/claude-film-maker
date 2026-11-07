@@ -278,6 +278,7 @@ class Set:
     mic_radius: float = 9.0  # a sphere around the mic head (and its pop filter) no hand may enter
     boom: list | None = None  # [[x, y, z], ...]: the mic's arm as a polyline, clamp -> elbow -> head, actor frame
     boom_radius: float = 4.0
+    cams: dict | None = None  # {label: [x, y, z]} actor frame: no hand may pass BEHIND the mic from any of them
 
 
 @dataclass
@@ -686,7 +687,21 @@ def check(seater: Seater, posed: dict) -> dict:
                 if b in A:
                     d = poly_dist(A[b], st.boom)
                     need(d >= st.boom_radius + 3.0, "mic.boom", f"{b} {d:.1f} cm from the mic arm", d)
-    return {"hips": [round(x, 1) for x in hips],
+    if st.cams and (st.mic or st.boom):
+        for s in "lr":
+            for b in ("hand_" + s, f"middle_03_{s}", f"index_03_{s}", f"thumb_03_{s}"):
+                if b not in A:
+                    continue
+                for cam, c in st.cams.items():
+                    hit = behind_mic(c, A[b], st)
+                    need(hit is None, "mic.hides_hand", f"{b} is behind the mic from {cam} "
+                         f"({hit:.1f} cm from the line of sight)" if hit is not None else "", hit)
+    arms = {}
+    for s in "lr":
+        v = sub(A["lowerarm_" + s], A["upperarm_" + s])
+        arms[s] = {"flex_deg": round(math.degrees(math.acos(max(-1.0, min(1.0, -v[2] / norm(v))))), 1),
+                   "out_cm": round(v[1] if s == "r" else -v[1], 1)}
+    return {"hips": [round(x, 1) for x in hips], "upper_arms": arms,
             "knees": {s: [round(x, 1) for x in A["calf_" + s]] for s in "lr"},
             "ankles": {s: [round(x, 1) for x in A["foot_" + s]] for s in "lr"},
             "elbows": {s: [round(x, 1) for x in A["lowerarm_" + s]] for s in "lr"},
@@ -699,6 +714,32 @@ def seg_dist(p, a, b) -> float:
     ab = sub(b, a)
     u = max(0.0, min(1.0, dot(sub(p, a), ab) / max(1e-9, dot(ab, ab))))
     return norm(sub(p, add(a, mul(ab, u))))
+
+
+def behind_mic(cam, p, st: "Set"):
+    """None, or how close (cm) the line of sight camera -> p passes to the mic (capsule sphere, or the boom's
+    polyline) at a point nearer the camera than p is: the mic would hide p in that camera."""
+    d = sub(p, cam)
+    L = norm(d)
+    u_ = mul(d, 1.0 / L)
+
+    def ray_point(q):
+        t = max(0.0, min(L - 2.0, dot(sub(q, cam), u_)))
+        return t, norm(sub(q, add(cam, mul(u_, t))))
+
+    worst = None
+    if st.mic:
+        t, r_ = ray_point(st.mic)
+        if r_ < st.mic_radius and t < L - 2.0:
+            worst = r_
+    if st.boom:
+        for a, b in zip(st.boom, st.boom[1:]):
+            for k in range(11):
+                q = add(a, mul(sub(b, a), k / 10.0))
+                t, r_ = ray_point(q)
+                if r_ < st.boom_radius + 1.5 and t < L - 2.0 and (worst is None or r_ < worst):
+                    worst = r_
+    return worst
 
 
 def poly_dist(p, pts) -> float:

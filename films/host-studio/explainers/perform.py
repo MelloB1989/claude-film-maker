@@ -58,7 +58,9 @@ SEED = {"him": 71, "her": 72}
 # presenter's LEFT). Studio -> actor: x - 20, -(y + 20), z.
 SET = S.Set(seat_top=45.0, seat_front=24.5, desk_top=74.0, desk_near=18.0, desk_far=73.0, desk_under=63.4,
             mic=[24.0, -14.0, 99.0], mic_radius=9.0,
-            boom=[[50.0, -52.6, 74.0], [43.8, -42.9, 119.3], [29.5, -20.4, 103.4], [24.0, -14.0, 99.0]])
+            boom=[[50.0, -52.6, 74.0], [43.8, -42.9, 119.3], [29.5, -20.4, 103.4], [24.0, -14.0, 99.0]],
+            cams={"CAM_MCU": [167.5, 78.0, 121.3], "CAM_CU": [132.7, 38.7, 121.0], "CAM_WIDE": [314.1, 101.0, 104.7]})
+# ^ cameras read on box B (07 Nov 20:1x IST); CAM_MCU_L sits where CAM_MCU is
 # ^ agent-07's set after the orchestrator's r3 notes (07 Nov ~18:3x IST): desk in (studio x 38..93), the mic mirrored
 #   to the presenter's LEFT (studio -Y), the cameras on her right (studio +Y, azimuth +17..+24)
 # How each sits (seatkit.Style). The cameras are at studio +Y (azimuth +17..+24): facing +X in Unreal that is the
@@ -67,8 +69,10 @@ SET = S.Set(seat_top=45.0, seat_front=24.5, desk_top=74.0, desk_near=18.0, desk_
 STYLE = {  # forearms resting on the desk (the orchestrator, r3 stills): elbows planted ~2 cm in from the near edge,
     #          the chest square to the desk (a turn pulls the camera-side elbow off it), hands on their little-finger
     #          edge, shoulders down
-    "her": S.Style(lean=19.0, twist=0.0, hip_above_seat=11.0, knee_out=3.0, foot_out=6.0, pronation=75.0, shin_tilt=6.0, elbow_out=3.0,
-                   clavicle_fwd=4.0, clavicle_drop=4.0),
+    # her (the operator + orchestrator, v1: her camera-side shoulder ballooned the overshirt): shoulders down and
+    # back, elbows tucked by her sides, the upper arm as near vertical as the desk allows (a lower desk, set_her.json)
+    "her": S.Style(lean=12.0, twist=0.0, hip_above_seat=11.0, knee_out=3.0, foot_out=6.0, pronation=75.0, shin_tilt=6.0,
+                   elbow_out=-2.0, clavicle_fwd=-1.0, clavicle_drop=5.0),
     "him": S.Style(lean=18.0, twist=0.0, knee_out=8.0, foot_out=9.0, pronation=72.0, elbow_out=3.0,
                    clavicle_fwd=5.0, clavicle_drop=3.0),
 }
@@ -334,7 +338,7 @@ def gestures(who: str) -> list:
             pool = [w for w in words if t - 1.5 <= w["start"] <= t + 1.5]
             if pool:
                 w = max(pool, key=lambda w: w["end"] - w["start"])
-                cs.append({"t": w["start"], "hand": side, "kind": "beat", "size": 0.35 if side == "r" else 0.25,
+                cs.append({"t": w["start"], "hand": side, "kind": "beat", "size": 0.35 if side == "r" else 0.15,
                            "hold": 0.3})
                 side = "r" if side == "l" else "l"
             t += SETTLE_GAP
