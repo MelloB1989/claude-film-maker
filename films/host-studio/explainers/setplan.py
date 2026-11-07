@@ -20,14 +20,14 @@ import sys
 
 WALL = -260.0
 MARK = (20.0, -20.0, 0.0)  # the chair mark = the presenter actor's root (agent-01's contract)
-YAW = 0.0                  # the presenter's actor yaw: the BP faces +X
+YAW = -90.0                # the presenter actor yaw: a MetaHuman BP faces +Y at yaw 0 (box B eye bones), so -90 faces +X
 
 # the seated presenter, estimated until measured on the box (set.py measure → --face): eyes above the floor, and how
 # far forward of the mark the eyes sit when leaning to the desk
 SEAT_TOP = 45.0
-FACE = {  # who: (eyes forward of the mark, eye height, mouth below the eyes)
-    "her": (10.0, 120.0, 8.5),
-    "him": (11.0, 127.0, 9.0),
+FACE = {  # who: (eyes forward of the mark, eyes to +Y of the mark, eye height, mouth below the eyes)
+    "her": (10.55, 1.24, 120.43, 6.8),  # measured on box B, 17:00 IST: agent-01's fe5ab6c0 seat, f60
+    "him": (11.0, 0.0, 127.0, 9.0),     # estimate until measured on box A
 }
 
 # the props (agent-05; s3 …/props/explainer/). Origins: chair and desk on the floor at their centre, the mic boom at its
@@ -54,13 +54,17 @@ STUDIO_HOST_LIGHTS = ["Key", "Fill", "HairLight", "RimWarm", "RimWindow", "EyeLi
 STUDIO_CAMS = ["KarmaHost", "KarmaWide", "KarmaVertical", "KarmaShelf", "KarmaCredenza", "KarmaSign"]
 
 FILMBACK = [36.0, 20.25]  # full frame 16:9, every camera
-EXPOSURE_BIAS = 8.3       # the studio's manual exposure (unreal/studio.py K.post), locked
+# exposure, locked: manual, NOT physical-camera (so f/2 and f/2.8 cameras cut with no brightness jump). Bias is a
+# compensation (higher = brighter). Box B 17:20 IST: -0.7 put her face at 164/255 with the studio's rig; one stop
+# lower with her rig one stop up (LIGHT_GAIN 2) keeps the face and takes the bright window down a stop
+EXPOSURE_BIAS = -1.4
+LIGHT_GAIN = 2.0          # her rig (channel 1 only) x this; the set's own light (channel 0) is untouched
 
 
 def face(who: str) -> dict:
-    fwd, eye_z, mouth_dz = FACE[who]
-    eyes = (MARK[0] + fwd, MARK[1], eye_z)
-    mouth = (eyes[0] + 1.5, eyes[1], eye_z - mouth_dz)
+    fwd, dy, eye_z, mouth_dz = FACE[who]
+    eyes = (MARK[0] + fwd, MARK[1] + dy, eye_z)
+    mouth = (eyes[0] + 1.9, eyes[1], eye_z - mouth_dz)
     return {"eyes": eyes, "mouth": mouth, "chin": (mouth[0], mouth[1], mouth[2] - 6.0)}
 
 
@@ -125,7 +129,7 @@ def lights(who: str) -> dict:
     f = (e[0], e[1], e[2] - 5.0)
 
     def cd(ref_cd, ref_d, d):
-        return round(ref_cd * (d / ref_d) ** 2, 3)
+        return round(LIGHT_GAIN * ref_cd * (d / ref_d) ** 2, 3)
 
     return {
         "ExpKey": dict(kind="rect", loc=_orbit(f, 45.0, 28.0, 175.0), look_at=f, intensity=cd(9.0, 190.0, 175.0),
@@ -136,7 +140,7 @@ def lights(who: str) -> dict:
                        intensity=cd(3.0, 181.0, 150.0), temperature=3100, width=25, height=120, barn_angle=50),
         "ExpHair": dict(kind="rect", loc=_orbit(f, 175.0, 52.0, 140.0), look_at=(e[0] - 4.0, e[1], e[2] + 12.0),
                         intensity=cd(5.0, 133.0, 140.0), temperature=3600, width=60, height=30, barn_angle=55),
-        "ExpEye": dict(kind="rect", loc=_orbit(f, -19.0, 9.0, 150.0), look_at=f, intensity=0.35, temperature=5600,
+        "ExpEye": dict(kind="rect", loc=_orbit(f, -19.0, 9.0, 150.0), look_at=f, intensity=0.35 * LIGHT_GAIN, temperature=5600,
                        width=22, height=22, shadows=False),
     }
 

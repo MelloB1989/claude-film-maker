@@ -194,7 +194,12 @@ def step_light(who: str) -> None:
 
 
 def step_cameras(who: str) -> None:
+    """The focus track is the actor plus an offset taken from the pose at the time: scrub the sequence first so it is
+    the SEATED eye (box B: unscrubbed, the offset was her standing eye, 30 cm high: ~2.7 cm of focus error at the CU's
+    ±1.2 cm depth of field)."""
     actor = ACTOR[who]
+    if ex(f"import unreal\nresult = unreal.EditorAssetLibrary.does_asset_exist({SEQ[who]!r})"):
+        op("seq.scrub", path=SEQ[who], frame=60)
     for name, c in P.cameras(who).items():
         op("cam.add", label=name, loc=c["loc"], look_at=c["look_at"], focal_mm=c["focal"], aperture=c["aperture"],
            sensor_mm=c["filmback"])
@@ -256,14 +261,16 @@ def check(who: str) -> int:
     """Read-only: the live set against the plan, and the mic vs her mouth through each camera on the real pose."""
     bad = 0
     actor = ACTOR[who]
-    live = {c["label"]: c for c in (op("cam.describe") or []) if isinstance(c, dict) and "label" in c}
+    live = {c["label"]: c for c in (op("cam.describe") or {}).get("cameras", [])}
     for name, c in P.cameras(who).items():
         lc = live.get(name)
         if not lc:
             print(f"BAD {name}: missing"); bad += 1; continue
-        d = max(abs(a - b) for a, b in zip(lc.get("loc") or lc.get("location"), c["loc"]))
-        f = abs((lc.get("focal_mm") or lc.get("focal")) - c["focal"])
-        print(f"{'ok ' if d < 1.0 and f < 0.05 else 'BAD'} {name}: loc off {d:.2f} cm, focal off {f:.2f} mm")
+        d = max(abs(a - b) for a, b in zip(lc["loc"], c["loc"]))  # the drift keys move it ≤0.4 cm
+        f = abs(lc["focal"] - c["focal"])
+        ft = (lc.get("focus_track") or {}).get("offset") or [0, 0, 0]
+        print(f"{'ok ' if d < 1.0 and f < 0.05 else 'BAD'} {name}: loc off {d:.2f} cm, focal off {f:.2f} mm, "
+              f"focus track offset z {ft[2]:.1f} (the seated eye ~{P.face(who)['eyes'][2]:.0f})")
         bad += not (d < 1.0 and f < 0.05)
     pos = ex(f"from fmbridge.ops import level as L\np = L.actor({actor!r}).get_actor_location()\n"
              "result = [p.x, p.y, p.z]")
@@ -281,13 +288,22 @@ def check(who: str) -> int:
     return bad
 
 
-def stills(who: str, tag: str, frame: int) -> None:
+def stills(who: str, tag: str, frame: int, edl_path: str | None, extra: list | None = None) -> None:
+    """A still through each camera at `frame`. seq.still's `camera` does not beat the sequence's camera cut track
+    (box B: MCU and WIDE stills were the same image), so each still is taken with the cut track set to that camera
+    alone, and the edit is put back after."""
     out = f"/srv/ue/explainer/review/{tag}"
     seq = SEQ[who]
-    for name in P.cameras(who):
-        path = f"{out}/{who}_{name}_f{frame:04d}.png"
-        op("seq.still", path=seq, frame=frame, camera=name, out=path, width=1920, height=1080, settle=48)
-        print("still", path)
+    cams = list(P.cameras(who)) + list(extra or [])
+    try:
+        for name in cams:
+            op("seq.camera_cuts", path=seq, cuts=[[name, 0]])
+            path = f"{out}/{who}_{name}_f{frame:04d}.png"
+            op("seq.still", path=seq, frame=frame, camera=name, out=path, width=1920, height=1080, settle=48)
+            print("still", path)
+    finally:
+        edl = json.loads(Path(edl_path).read_text()) if edl_path else None
+        op("seq.camera_cuts", path=seq, cuts=edl_cuts(edl) if edl else [["CAM_MCU", 0]])
     r = ex(f"""import subprocess
 r = subprocess.run(["aws", "s3", "cp", "--recursive", "--sse", "aws:kms", {out!r}, {REVIEW_S3 + tag + '/'!r},
                     "--only-show-errors"], capture_output=True, text=True)
@@ -307,6 +323,7 @@ def main() -> int:
     ap.add_argument("--check", action="store_true", help="read-only: the live set against the plan")
     ap.add_argument("--stills", metavar="TAG", help="stills through every camera to private/…/review/explain/TAG/")
     ap.add_argument("--frame", type=int, default=48)
+    ap.add_argument("--extra-cams", help="more cameras for --stills (e.g. CAM_SIDE)")
     a = ap.parse_args()
     os.environ["FILM_UE_BOX"] = a.box
     from filmtools.unreal import client as c
@@ -315,7 +332,7 @@ def main() -> int:
     if a.check:
         return 1 if check(a.who) else 0
     if a.stills:
-        stills(a.who, a.stills, a.frame)
+        stills(a.who, a.stills, a.frame, a.edl, [c for c in (a.extra_cams or "").split(",") if c])
         return 0
     for s in a.steps.split(","):
         if s not in STEPS:
