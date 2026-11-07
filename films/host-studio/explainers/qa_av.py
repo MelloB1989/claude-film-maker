@@ -63,11 +63,11 @@ def parse_ebur128(text: str) -> tuple[float, float]:
 
 
 def loudness(path: str) -> dict:
-    r = subprocess.run(["ffmpeg", "-hide_banner", "-nostats", "-i", path, "-map", "0:a:0", "-af",
-                        "ebur128=peak=true", "-f", "null", "-"], capture_output=True, text=True)
     try:
+        r = subprocess.run(["ffmpeg", "-hide_banner", "-nostats", "-i", path, "-map", "0:a:0", "-af",
+                            "ebur128=peak=true", "-f", "null", "-"], capture_output=True, text=True)
         i, tp = parse_ebur128(r.stderr)
-    except ValueError as e:
+    except (OSError, ValueError) as e:  # no ffmpeg here (run it on a box), or no audio stream
         return {"audio.lufs_err_lu": {"value": None, "error": str(e)},
                 "audio.true_peak_dbtp": {"value": None, "error": str(e)}}
     w = f"{os.path.basename(path)}: {i:.1f} LUFS, {tp:.1f} dBTP"
@@ -244,7 +244,10 @@ def main(argv=None) -> int:
     if x.cmd == "loudness":
         g = loudness(x.file)
     elif x.cmd == "format":
-        g = format_numbers(probe(x.file))
+        try:
+            g = format_numbers(probe(x.file))
+        except (OSError, subprocess.CalledProcessError) as e:  # no ffprobe here (run it on a box), or not a video
+            g = {k: {"value": None, "error": str(e)} for k in ("deliver.format_ok", "deliver.duration_s")}
     elif x.cmd == "exposure":
         box = [float(v) for v in x.box.split(",")] if x.box else None
         g = exposure(x.frames, json.loads(Path(x.shots).read_text()), box, x.pattern)
