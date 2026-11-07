@@ -47,7 +47,7 @@ H=../films/host-studio/explainers/head.py
 Each line is solved with Process Mask FULL FACE, a solver mood and an intensity from `face_acting.SOLVE_MOOD`:
 - hook N01-N03: PLAYFULNESS 0.6-0.65;
 - body: CONFIDENCE 0.5 (N13 0.55);
-- payoff lines N07 / N15 / N16: EXCITEMENT 0.7;
+- payoff lines N07 / N15 / N16: EXCITEMENT 0.8;
 - N12 "Network dips?": SURPRISE 0.3.
 
 Blinks and head movement stay OFF. The word-timed events (brows, Duchenne peaks, the curious brow) ride on the solve
