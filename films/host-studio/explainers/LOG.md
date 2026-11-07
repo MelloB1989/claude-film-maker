@@ -188,3 +188,17 @@ conf dir, profile boxb; helpers `sether`, `perf`, `variant.sh`, `onepass2.sh`).
 | 20:30 | Head judge: eyes fail (saccades 7.97/s, glances 0: the gaze lock erased the think glances) → agent-01 1df38a6c/fc774288 → on_lens 0.677 → d282173a (key-reduced eye curves; uniform grid). qa.clip V2 at 4 cm: Trousers>Top 0.12 (WIDE waist), Body>Top 0.0135 (static spot) → hides at 6 cm. render.py: streaming warm-up (FullyLoadUsedTextures, 12 GB pool, warmup_render) for the CU f1300 tile blocks |
 | 20:45 | agent-01 03666495 lower forearm rest: body pass; preview crashed on a NameError (fixed in d282173a) |
 | 21:06 | Handed to agent-07 (state verified live: V2, waterfall, far-edge clamp, eye-level WIDE). Open: onepass2.sh (preview → all --from sync → dress → head judge), qa.clip V2 at 6 cm, WIDE still f300, walnut pick, all 9 finals, composite v2 |
+
+## Box B, agent-07 again (21:05-23:00 IST, after agent-11's session)
+
+| IST | What |
+|---|---|
+| 21:05 | Driver back from agent-11 (their V2 state: no overshirt, waterfall desk at 71, far-edge mic, eye-level WIDE). Pass 2 (agent-01 d282173a): all --from sync PASS, head judge PASS (on_lens 0.915) |
+| 21:15-21:25 | Walnut A/B (K_Walnut / WalnutFine / a lower-spec copy) → orchestrator: K_Walnut. The 'speckle' = unconverged single stills: test30 (her MCU f0-29 at the finals' spec) CLEAN by eye, grain sigma 0.69 (f300 still 3.10, r6b_v2_clip 14.55) → agent-09's shot.grain line |
+| 21:24-21:28 | Her V2 WIDE final (shot 11): guard ok; grain flat patches 0.55 (WIDE neck/desk patches hold texture, ruled INFO) |
+| 21:30-22:00 | Strip inside her neckline: strip_id (front faces only: Top + Face), qa.clip ID masks, strip_cols; scoop_fit: no pull (the edge lies on her skin). An 8x16 high-sample frame crashed the editor (SIGSEGV; not repeated) |
+| 21:35-21:50 | HIS state pulled into box B (editor stopped): 102/102 sha256 = box A's manifest, cull_live 912 / z 144.2-153.3 / kept 0 = box A; his level ExplainerSet_Him from Studio (set.py --who him); his Trousers component was UNATTACHED (frozen at his old Studio mark (30,40)) → attached to Body; signs identical to box A (turn_strength 1.041), blessed for both |
+| 21:48-22:06 | His solves, body (agent-01 elbow-overhang at 71), life, preview PASS; whole-sequence single jobs (bodycheck, sync's bakes) killed the editor → agent-01 chunked bodycheck (17dad15c) and sync (61634c94); chunked bodycheck PASS |
+| 22:10-23:00 | Her neckline band split at MCU f29 (band/Top-beside ratio, p10): as-is 0.717/77, flat white texture 0.734/84, flat normal map 0.716/77, agent-02's Edge1N mesh normals 0.712/77, KEY shadows off 0.898/191, Top cast_shadow off 0.884/188 (self_shadow_only identical; key 3x softer 0.772/123, face darker). Cause: the key light's shadow of the Top's rim on her skin. Orchestrator: Top cast_shadow OFF (setplan.NO_SHADOW, set.py dress step) |
+| 22:21-22:40 | Her 8 close finals V2 (shots 2, 6 first, then 1, 4, 13, 7, 14, 10): guard ok every job; first frames PASS by eye. Post via SSM (the bridge timed out on the encode); all 9 → private/renders/r6/explain/netflix/final_v2/ |
+| 22:47 | Composite v2 (agent-11 feedd693): its delivery check failed on box B (audio 56.08 s) → remuxed the finished picture with the full mix (video copied): 1427 f, 59.458 s; qa_av all: -14.0/-1.7, captions 1, onset 84 ms, facts 1, qc_ok 1 → private/renders/r6/review/explain/netflix_r6_v2* |
