@@ -16,7 +16,7 @@ type Word = { w: string; f: number };
 const shot = (gfx: string) => (edl.shots as { gfx?: string; frames: number; words: Word[] }[]).find((s) => s.gfx === gfx)!;
 
 const scenes = {
-  title: () => import('./scenes/title'),
+  title: () => import('./v3/title'),
   oca: () => import('./scenes/oca'),
   prefill: () => import('./scenes/prefill'),
   ladder: () => import('./scenes/ladder'),
