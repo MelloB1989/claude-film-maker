@@ -1,0 +1,533 @@
+[
+ {
+  "shot": "title",
+  "f": 8,
+  "sfx": "whoosh_in",
+  "gain": -14,
+  "note": "camera arrive settles"
+ },
+ {
+  "shot": "title",
+  "f": 0,
+  "f_end": 58,
+  "sfx": "data_stream",
+  "gain": -24,
+  "note": "the river of messages through the server"
+ },
+ {
+  "shot": "title",
+  "f": 3,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "100+ billion rises"
+ },
+ {
+  "shot": "title",
+  "f": 36,
+  "sfx": "hit_sub",
+  "gain": -10,
+  "note": "the 0 slams on the server"
+ },
+ {
+  "shot": "title",
+  "f": 47,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "\"delivered, then deleted\""
+ },
+ {
+  "shot": "connect",
+  "f": 8,
+  "sfx": "whoosh_in",
+  "gain": -14,
+  "note": "camera arrive settles"
+ },
+ {
+  "shot": "connect",
+  "f": 11,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "phone screen wakes"
+ },
+ {
+  "shot": "connect",
+  "f": 57,
+  "sfx": "swoosh_fast",
+  "gain": -14,
+  "note": "the connection beam draws to the server"
+ },
+ {
+  "shot": "connect",
+  "f": 56,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "\"One connection,\""
+ },
+ {
+  "shot": "connect",
+  "f": 68,
+  "f_end": 93,
+  "sfx": "data_stream",
+  "gain": -26,
+  "note": "heartbeats both ways"
+ },
+ {
+  "shot": "connect",
+  "f": 72,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "\"always open\""
+ },
+ {
+  "shot": "connect",
+  "f": 81,
+  "sfx": "pop",
+  "gain": -20,
+  "note": "\"server\" label"
+ },
+ {
+  "shot": "erlang",
+  "f": 8,
+  "sfx": "whoosh_in",
+  "gain": -14,
+  "note": "camera arrive settles"
+ },
+ {
+  "shot": "erlang",
+  "f": 14,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "ONE SERVER, the cube lights"
+ },
+ {
+  "shot": "erlang",
+  "f": 30,
+  "f_end": 60,
+  "sfx": "data_stream",
+  "gain": -24,
+  "note": "six phones beam in, orbs light"
+ },
+ {
+  "shot": "erlang",
+  "f": 38,
+  "sfx": "pop",
+  "gain": -20,
+  "note": "process orb 1 lights"
+ },
+ {
+  "shot": "erlang",
+  "f": 42,
+  "sfx": "pop",
+  "gain": -20,
+  "note": "process orb 3 lights"
+ },
+ {
+  "shot": "erlang",
+  "f": 46,
+  "sfx": "pop",
+  "gain": -20,
+  "note": "process orb 5 lights"
+ },
+ {
+  "shot": "erlang",
+  "f": 58,
+  "sfx": "swoosh_fast",
+  "gain": -14,
+  "note": "camera dives onto one orb"
+ },
+ {
+  "shot": "erlang",
+  "f": 70,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "\"1 Erlang process\""
+ },
+ {
+  "shot": "erlang",
+  "f": 78,
+  "sfx": "tick",
+  "gain": -22,
+  "note": "A FEW KB \u00b7 OWN MAILBOX"
+ },
+ {
+  "shot": "erlang",
+  "f": 121,
+  "sfx": "riser",
+  "gain": -16,
+  "note": "riser peaks as the field explodes"
+ },
+ {
+  "shot": "erlang",
+  "f": 122,
+  "sfx": "hit_sub",
+  "gain": -10,
+  "note": "2,000,000 slams; the pull back"
+ },
+ {
+  "shot": "erlang",
+  "f": 126,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "CONNECTIONS \u00b7 ONE SERVER (2012)"
+ },
+ {
+  "shot": "store",
+  "f": 8,
+  "sfx": "whoosh_in",
+  "gain": -14,
+  "note": "camera arrive settles"
+ },
+ {
+  "shot": "store",
+  "f": 14,
+  "sfx": "swoosh_fast",
+  "gain": -14,
+  "note": "message shoots through"
+ },
+ {
+  "shot": "store",
+  "f": 32,
+  "sfx": "chime",
+  "gain": -16,
+  "note": "delivered to the online friend"
+ },
+ {
+  "shot": "store",
+  "f": 58,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "friend drops OFFLINE"
+ },
+ {
+  "shot": "store",
+  "f": 68,
+  "sfx": "pop",
+  "gain": -20,
+  "note": "message parks in the slot"
+ },
+ {
+  "shot": "store",
+  "f": 74,
+  "sfx": "tick",
+  "gain": -24,
+  "note": "clock ring (WAITS)"
+ },
+ {
+  "shot": "store",
+  "f": 80,
+  "sfx": "tick",
+  "gain": -24,
+  "note": "clock ring (WAITS)"
+ },
+ {
+  "shot": "store",
+  "f": 86,
+  "sfx": "tick",
+  "gain": -24,
+  "note": "clock ring (WAITS)"
+ },
+ {
+  "shot": "store",
+  "f": 97,
+  "sfx": "swoosh_fast",
+  "gain": -14,
+  "note": "friend back: the message shoots across"
+ },
+ {
+  "shot": "store",
+  "f": 108,
+  "sfx": "chime",
+  "gain": -16,
+  "note": "delivered (two ticks)"
+ },
+ {
+  "shot": "store",
+  "f": 117,
+  "sfx": "hit_sub",
+  "gain": -10,
+  "note": "the server copy shatters; \"then deleted\""
+ },
+ {
+  "shot": "ticks",
+  "f": 8,
+  "sfx": "whoosh_in",
+  "gain": -14,
+  "note": "camera arrive settles"
+ },
+ {
+  "shot": "ticks",
+  "f": 17,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "the bubble swings in"
+ },
+ {
+  "shot": "ticks",
+  "f": 34,
+  "sfx": "pop",
+  "gain": -14,
+  "note": "tick 1 slams"
+ },
+ {
+  "shot": "ticks",
+  "f": 50,
+  "sfx": "pop",
+  "gain": -20,
+  "note": "\"the server has it\""
+ },
+ {
+  "shot": "ticks",
+  "f": 74,
+  "sfx": "pop",
+  "gain": -14,
+  "note": "tick 2 slams"
+ },
+ {
+  "shot": "ticks",
+  "f": 94,
+  "sfx": "pop",
+  "gain": -20,
+  "note": "\"it reached their phone\""
+ },
+ {
+  "shot": "ticks",
+  "f": 120,
+  "sfx": "chime",
+  "gain": -14,
+  "note": "ticks turn blue"
+ },
+ {
+  "shot": "ticks",
+  "f": 141,
+  "sfx": "pop",
+  "gain": -20,
+  "note": "\"they've read it\""
+ },
+ {
+  "shot": "group",
+  "f": 8,
+  "sfx": "whoosh_in",
+  "gain": -14,
+  "note": "camera arrive settles"
+ },
+ {
+  "shot": "group",
+  "f": 13,
+  "sfx": "pop",
+  "gain": -20,
+  "note": "group phones pop up (1)"
+ },
+ {
+  "shot": "group",
+  "f": 15,
+  "sfx": "pop",
+  "gain": -20,
+  "note": "group phones pop up (2)"
+ },
+ {
+  "shot": "group",
+  "f": 17,
+  "sfx": "pop",
+  "gain": -20,
+  "note": "group phones pop up (3)"
+ },
+ {
+  "shot": "group",
+  "f": 19,
+  "sfx": "pop",
+  "gain": -20,
+  "note": "group phones pop up (4)"
+ },
+ {
+  "shot": "group",
+  "f": 36,
+  "sfx": "pop",
+  "gain": -14,
+  "note": "the lock snaps shut"
+ },
+ {
+  "shot": "group",
+  "f": 43,
+  "sfx": "swoosh_fast",
+  "gain": -14,
+  "note": "one sealed copy flies to the server"
+ },
+ {
+  "shot": "group",
+  "f": 68,
+  "sfx": "hit_sub",
+  "gain": -10,
+  "note": "the fan-out burst"
+ },
+ {
+  "shot": "group",
+  "f": 70,
+  "f_end": 100,
+  "sfx": "data_stream",
+  "gain": -24,
+  "note": "streams to every member"
+ },
+ {
+  "shot": "group",
+  "f": 82,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "GROUPS UP TO 1,024 MEMBERS"
+ },
+ {
+  "shot": "e2e",
+  "f": 8,
+  "sfx": "whoosh_in",
+  "gain": -14,
+  "note": "camera arrive settles"
+ },
+ {
+  "shot": "e2e",
+  "f": 0,
+  "f_end": 67,
+  "sfx": "data_stream",
+  "gain": -26,
+  "note": "ciphertext stream through the server"
+ },
+ {
+  "shot": "e2e",
+  "f": 10,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "\"Signal\""
+ },
+ {
+  "shot": "e2e",
+  "f": 18,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "\"protocol\", tag"
+ },
+ {
+  "shot": "e2e",
+  "f": 33,
+  "sfx": "swoosh_fast",
+  "gain": -16,
+  "note": "keys drop"
+ },
+ {
+  "shot": "e2e",
+  "f": 44,
+  "sfx": "pop",
+  "gain": -14,
+  "note": "keys dock on the phones"
+ },
+ {
+  "shot": "e2e",
+  "f": 51,
+  "sfx": "chime",
+  "gain": -18,
+  "note": "keys pulse"
+ },
+ {
+  "shot": "media",
+  "f": 8,
+  "sfx": "whoosh_in",
+  "gain": -14,
+  "note": "camera arrive settles"
+ },
+ {
+  "shot": "media",
+  "f": 11,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "the photo lifts off"
+ },
+ {
+  "shot": "media",
+  "f": 23,
+  "sfx": "swoosh_fast",
+  "gain": -16,
+  "note": "the photo arcs to the store"
+ },
+ {
+  "shot": "media",
+  "f": 33,
+  "sfx": "pop",
+  "gain": -20,
+  "note": "\"blob store\""
+ },
+ {
+  "shot": "media",
+  "f": 53,
+  "sfx": "pop",
+  "gain": -14,
+  "note": "scramble + the lock snaps"
+ },
+ {
+  "shot": "media",
+  "f": 64,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "drops into the store"
+ },
+ {
+  "shot": "media",
+  "f": 76,
+  "sfx": "swoosh_fast",
+  "gain": -16,
+  "note": "the key rides the message"
+ },
+ {
+  "shot": "media",
+  "f": 87,
+  "sfx": "pop",
+  "gain": -18,
+  "note": "KEY + LINK"
+ },
+ {
+  "shot": "media",
+  "f": 106,
+  "sfx": "chime",
+  "gain": -16,
+  "note": "key arrives"
+ },
+ {
+  "shot": "media",
+  "f": 107,
+  "f_end": 123,
+  "sfx": "data_stream",
+  "gain": -24,
+  "note": "the friend pulls the blob (via CDN)"
+ },
+ {
+  "shot": "end",
+  "f": 1,
+  "sfx": "riser",
+  "gain": -16,
+  "note": "riser peaks into the slam (it starts in the presenter shot before)"
+ },
+ {
+  "shot": "end",
+  "f": 3,
+  "sfx": "hit_sub",
+  "gain": -10,
+  "note": "100+ billion slams"
+ },
+ {
+  "shot": "end",
+  "f": 11,
+  "sfx": "pop",
+  "gain": -20,
+  "note": "answer 1"
+ },
+ {
+  "shot": "end",
+  "f": 13,
+  "sfx": "pop",
+  "gain": -20,
+  "note": "answer 2"
+ },
+ {
+  "shot": "end",
+  "f": 15,
+  "sfx": "pop",
+  "gain": -20,
+  "note": "answer 3"
+ }
+]

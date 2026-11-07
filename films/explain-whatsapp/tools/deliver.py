@@ -6,7 +6,7 @@
 FULL.mov is `explain-whatsapp` rendered whole (every graphics beat full frame, back to back); PANEL_MATTES.mov is
 `explain-whatsapp-panel` rendered whole (the panel beats over black, then the same over grey). Writes
 OUTDIR/<scene>_full.mov (ProRes 422 HQ) for every beat and OUTDIR/<scene>_panel.mov (ProRes 4444 with alpha, from
-matte.py) for the panel beats: each the EDL's frame count plus the TAIL frames that hold the end state.
+alpha.ts) for the panel beats: each the EDL's frame count plus the TAIL frames that hold the end state.
 """
 import json
 import os
@@ -45,7 +45,13 @@ def main():
         k, g = os.path.join(out, f"_{s['gfx']}_k.mov"), os.path.join(out, f"_{s['gfx']}_g.mov")
         cut(mattes, f, n, k)
         cut(mattes, half + f, n, g)
-        subprocess.run([sys.executable, os.path.join(HERE, 'matte.py'), k, g, os.path.join(out, f"{s['gfx']}_panel"), *png], check=True)
+        # straight alpha from the pair (alpha.ts: bun + ffmpeg, no numpy), ProRes 4444 (+ RGBA PNGs with --png)
+        extra = []
+        if png:
+            d = os.path.join(out, f"{s['gfx']}_panel_png")
+            os.makedirs(d, exist_ok=True)
+            extra = ['--png', d]
+        subprocess.run(['bun', os.path.join(HERE, 'alpha.ts'), k, g, os.path.join(out, f"{s['gfx']}_panel.mov"), '--grey', '128', *extra], check=True)
         os.remove(k)
         os.remove(g)
         f += n
