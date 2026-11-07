@@ -17,6 +17,7 @@ and body made one skeleton, the eyes locked on each shot's lens or on the partne
     cd tools && uv run python ../films/host-studio/reel/perf.py stage           # Test_ sequences, cameras, marks
     cd tools && uv run python ../films/host-studio/reel/perf.py sync|gaze|stills [--who him]
     cd tools && uv run python ../films/host-studio/reel/perf.py place --seq /Game/Reel/SEQ_Reel   # for R7
+    cd tools && uv run python ../films/host-studio/reel/perf.py settle          # r6: no head jump where a section starts
 
 The work happens in one test sequence per presenter (`Test_agent-03_Him`/`_Her`, frame 0 = the master frame its
 performance starts on, the one actor in it, test cameras keyed like the reel's), because the bake ops sample a sequence
@@ -1459,6 +1460,51 @@ def place(path: str) -> list:
     return out
 
 
+# r6 (K2): the place() fix's AFTER samples. Each window spans a body's START (the pre-roll hold handing over to the
+# performance) or the last on-screen frames: f954-968 him (S13), f1074-1090 her (S15), f1546-1559 both (S18).
+SETTLE_WINDOWS = {"him": [(954, 968), (1546, 1559)], "her": [(1074, 1090), (1546, 1559)]}
+SETTLE_LINE = 0.6  # degrees a frame-to-frame head step may exceed the planned one (the orchestrator, r6)
+
+
+def _rot_step(a: list, b: list) -> float:
+    """Degrees the bone turned between two _xform samples (its axes), whatever its local axis convention."""
+    import math
+    A = np.array([a[3:6], a[6:9], a[9:12]]).T
+    B = np.array([b[3:6], b[6:9], b[9:12]]).T
+    c = (np.trace(A.T @ B) - 1.0) / 2.0
+    return math.degrees(math.acos(max(-1.0, min(1.0, c))))
+
+
+def settle(who: str, path: str = "/Game/Reel/SEQ_Reel") -> dict:
+    """Does the head jump where a placed section begins (the r5b tilt-in)? seq.sample of the Face's head over each
+    SETTLE_WINDOWS span; every frame-to-frame turn of the head bone against the step perfkit plans there
+    (planned_head: head yaw and pitch, the torso under them). Pass: no step over the plan by more than SETTLE_LINE.
+    The eyes' own steps are listed (saccades are planned, not judged here). Numbers only, kept in OUT/qa/."""
+    import math
+    out = {"who": who, "line": SETTLE_LINE, "windows": []}
+    for f0, f1 in SETTLE_WINDOWS[who]:
+        frames = list(range(f0, f1 + 1))
+        smp = ok(client.op("seq.sample", path=path, actor_label=LABEL[who], component="Face",
+                           bones=["head", "FACIAL_L_Eye"], frames=frames, ticks=4, timeout=900))
+        hb, eb = smp["bones"]["head"], smp["bones"]["FACIAL_L_Eye"]
+        rows = []
+        for i in range(1, len(frames)):
+            f = frames[i]
+            (y0, p0), _ = planned_head(who, max(f - 1, START[who]))
+            (y1, p1), _ = planned_head(who, max(f, START[who]))
+            plan = math.hypot(y1 - y0, p1 - p0)  # a hold before START plans no motion
+            got = _rot_step(hb[i - 1], hb[i])
+            rows.append({"f": f, "head_deg": round(got, 3), "plan_deg": round(plan, 3),
+                         "excess_deg": round(got - plan, 3), "eye_deg": round(_rot_step(eb[i - 1], eb[i]), 3)})
+        worst = max(rows, key=lambda r: r["excess_deg"])
+        out["windows"].append({"frames": [f0, f1], "worst": worst, "pass": worst["excess_deg"] <= SETTLE_LINE,
+                               "rows": rows})
+    out["pass"] = all(w["pass"] for w in out["windows"])
+    (OUT / "qa").mkdir(parents=True, exist_ok=True)
+    (OUT / "qa" / f"settle_after_{who}.json").write_text(json.dumps(out, indent=1))
+    return out
+
+
 def seen_frames(who: str) -> list:
     """[[f0, f1), ...] master frames `who` is on screen in the cut: the shots whose cast has them (merged)."""
     out = []
@@ -1509,7 +1555,7 @@ def head_check(seq: str, rejudge: bool = False) -> dict:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("cmd", choices=["push", "solve", "compose", "stage", "signs", "sync", "gaze", "stills", "cleanup", "drive_faces", "restage",
-                                       "place", "arm_axes", "gesture", "calibrate", "naturalize", "check", "calibrate_body", "life", "verify", "looks",
+                                       "place", "settle", "arm_axes", "gesture", "calibrate", "naturalize", "check", "calibrate_body", "life", "verify", "looks",
                                        "head"])
     ap.add_argument("--who", default="him,her")
     ap.add_argument("--seq", default="/Game/Reel/SEQ_Reel", help="place: the sequence")
@@ -1556,6 +1602,10 @@ def main() -> None:
         r = head_check(a.seq, a.rejudge)
         print(json.dumps(r, default=str))
         sys.exit(0 if r["pass"] else 1)
+    elif a.cmd == "settle":
+        r = {w: settle(w, a.seq) for w in a.who.split(",")}
+        print(json.dumps({w: {"pass": x["pass"], "worst": [v["worst"] for v in x["windows"]]} for w, x in r.items()}))
+        sys.exit(0 if all(x["pass"] for x in r.values()) else 1)
     elif a.cmd == "cleanup":
         print(json.dumps(cleanup()))
     elif a.cmd == "drive_faces":
