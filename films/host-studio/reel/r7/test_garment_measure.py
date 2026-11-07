@@ -75,12 +75,26 @@ def test_shell_normals_turned_out_from_spine():
 def test_label_and_arm_sets():
     segs = {"spine:pelvis": ((0, 0, 0), (0, 0, 50)), "upperarm_r": ((-20, 0, 45), (-30, 0, 20)),
             "clavicle_r": ((0, 0, 45), (-20, 0, 45))}
-    P = [(0, 5, 20), (-27, 0, 27), (-21, 0, 43), (-3, 0, 44)]
+    P = [(0, 5, 20), (-27, 0, 27), (-21, 0, 43), (-3, 0, 44), (-30, 3, 21), (-31, 0, 23)]
     lab = gm.label_rest(P, segs)
     assert lab[0][0] == "spine:pelvis" and lab[1][0] == "upperarm_r" and lab[3][0] == "clavicle_r"
     arm, torso = gm.arm_sets(lab, P, (-20, 0, 45), "r", 0.3, 7.0)
-    assert arm == [1]          # vertex 2 is at the shoulder end (t < 0.3)
+    assert arm == [1, 4, 5]    # vertex 2 is at the shoulder end (t < 0.3)
     assert sorted(torso) == [0, 3]
+
+
+def test_arm_radius_keeps_side_skin_out_of_the_arm():
+    """v2b run 1: her side under the A-pose arm was nearest the upper arm's bone and counted as arm (-10.4 cm)."""
+    segs = {"spine:pelvis": ((0, 0, 0), (0, 0, 50)), "upperarm_r": ((-20, 0, 45), (-30, 0, 20))}
+    skin = [(-30 + 3.5 * math.cos(a), 3.5 * math.sin(a), 22.0) for a in (0, 1.5, 3.0, 4.5)]  # arm skin, t ~ 0.9
+    side = [(-15.0, 0.0, 30.0)]                                                              # side, 10 cm off
+    P = skin + side
+    lab = gm.label_rest(P, segs)
+    assert lab[4][0] == "upperarm_r"
+    r = gm.arm_radius(lab, "r")
+    assert abs(r - 3.5) < 0.3
+    arm, torso = gm.arm_sets(lab, P, (-20, 0, 45), "r", 0.3, 7.0, r * 1.3)
+    assert arm == [0, 1, 2, 3] and torso == [4]
 
 
 def ring(t, r, n=72, dth=0.0):

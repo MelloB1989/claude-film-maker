@@ -6,7 +6,10 @@
          Which vertex is arm and which is torso is decided ONCE on the ref pose (a temp unanimated copy of the same
          asset at the origin, the A-pose: arms clear of the torso), by the nearest bone segment; the posed render
          mesh has the same vertices in the same order. Arm = nearest segment upperarm_<s>, from ARM_T0 (0.3) of the
-         way from the shoulder joint to the elbow (the armpit fold is skin joined to the torso: it always reads 0).
+         way from the shoulder joint to the elbow (the armpit fold is skin joined to the torso: it always reads 0),
+         and within ARM_R_X (1.3) x the arm's own radius of the bone (v2b run 1 without it: her side's skin under the
+         A-pose arm counted as arm, inside the Top, -10.4 cm in every frame). Self-check: the same split on the ref
+         pose must read rest_clear_cm > 0.
          Torso = nearest segment on the spine chain or a clavicle, farther than AXILLA_CM from that shoulder joint.
          The Top's sleeves are left out the same way. Distance = to the nearest torso TRIANGLE; the sign from the
          triangle's normal (her skin's own; the Top's turned away from the spine chain: it is a closed shell).
@@ -135,7 +138,7 @@ def tri_normal(a, b, c):
 
 
 def label_rest(P, segs, used=None):
-    """Per vertex: (name of the nearest segment, t along it). segs: {name: (a, b)}. used: vertex ids to label."""
+    """Per vertex: (name of the nearest segment, t along it, distance). segs: {name: (a, b)}. used: vertex ids."""
     out = {}
     for i in (used if used is not None else range(len(P))):
         best = None
@@ -143,18 +146,32 @@ def label_rest(P, segs, used=None):
             d, t = seg_t(P[i], a, b)
             if best is None or d < best[0]:
                 best = (d, n, t)
-        out[i] = (best[1], best[2])
+        out[i] = (best[1], best[2], best[0])
     return out
+
+
+def arm_radius(lab, side, lo=0.6, hi=0.95):
+    """Median distance of the upper arm's skin from its bone on the free lower part (t lo..hi) at the ref pose."""
+    ds = sorted(d for n, t, d in lab.values() if n == f"upperarm_{side}" and lo <= t <= hi)
+    return ds[len(ds) // 2] if ds else None
 
 
 def is_torso_seg(n):
     return n.startswith("spine:") or n.startswith("clavicle_")
 
 
-def arm_sets(lab, rest_P, shoulder, side, arm_t0=0.3, axilla_cm=7.0):
-    """(arm vertex ids, torso vertex ids) for one side from the ref-pose labels."""
-    arm = [i for i, (n, t) in lab.items() if n == f"upperarm_{side}" and t >= arm_t0]
-    torso = [i for i, (n, t) in lab.items() if is_torso_seg(n) and math.dist(rest_P[i], shoulder) > axilla_cm]
+def arm_sets(lab, rest_P, shoulder, side, arm_t0=0.3, axilla_cm=7.0, arm_r=None, margin=1.0):
+    """(arm vertex ids, torso vertex ids) for one side from the ref-pose labels. Arm: nearest segment upperarm_<s>,
+    t >= arm_t0 and within arm_r of the bone (v2b run 1: without the radius, her side's skin under the A-pose arm was
+    'arm' and sat inside the Top: -10.4 cm everywhere). Torso: nearest a spine/clavicle segment, or nearest that upper
+    arm but farther than arm_r + margin from it (her side under the arm); either way > axilla_cm from the shoulder."""
+    arm, torso = [], []
+    for i, (n, t, d) in lab.items():
+        if n == f"upperarm_{side}" and t >= arm_t0 and (arm_r is None or d <= arm_r):
+            arm.append(i)
+        elif (is_torso_seg(n) or (arm_r is not None and n == f"upperarm_{side}" and d > arm_r + margin)) and \
+                math.dist(rest_P[i], shoulder) > axilla_cm:
+            torso.append(i)
     return arm, torso
 
 
@@ -405,7 +422,7 @@ def _editor(G: dict):
             return s
 
         posed = {n: mesh_of(c) for n, c in parts}
-        rest, rest_bones = {}, None
+        rest, rest_bones, rest_chain = {}, None, None
         cleanup()
         try:
             for n, c in parts:
@@ -418,6 +435,7 @@ def _editor(G: dict):
                 rest[n] = mesh_of(rc)
                 if n == "Body":
                     rest_bones = segs_of(rc), {sd: loc(rc, f"upperarm_{sd}") for sd in ("l", "r")}
+                    rest_chain = [loc(rc, b) for b in SPINE]
         finally:
             cleanup()
         chain = [loc(body, b) for b in SPINE]
@@ -433,17 +451,26 @@ def _editor(G: dict):
             out["parts"][n] = {"verts": len(Pp), "tris": len(Tp)}
         for sd in ("r", "l"):
             sh = rest_bones[1][sd]
+            r_med = arm_radius(labels["Body"], sd)
+            arm_r = float(G["ARM_R"]) if G.get("ARM_R") else (r_med * float(G.get("ARM_R_X", 1.3)) if r_med else None)
             arm, _ = arm_sets(labels["Body"], rest["Body"][0], sh, sd, float(G.get("ARM_T0", 0.3)),
-                              float(G.get("AXILLA_CM", 7.0)))
-            entries = []
+                              float(G.get("AXILLA_CM", 7.0)), arm_r)
+            entries, rest_entries = [], []
             for n, _ in parts:
-                _, torso = arm_sets(labels[n], rest[n][0], sh, sd, 1.1, float(G.get("AXILLA_CM", 7.0)))
+                _, torso = arm_sets(labels[n], rest[n][0], sh, sd, 1.1, float(G.get("AXILLA_CM", 7.0)), arm_r)
                 entries += torso_tris(posed[n][0], posed[n][1], set(torso), n, chain if n != "Body" else None)
+                rest_entries += torso_tris(rest[n][0], rest[n][1], set(torso), n, rest_chain if n != "Body" else None)
             grid = TriGrid(entries, float(G.get("CELL", 2.0)))
             P = posed["Body"][0]
             worst, neg, lt3 = clearance(grid, [(i, P[i]) for i in arm], float(G.get("MAX_D", 20.0)))
+            # self-check: the same sets on the ref pose (arms out, clear of the torso) must read > 0, else the
+            # arm/torso split is wrong and the posed number means nothing
+            rw, rneg, _ = clearance(TriGrid(rest_entries, float(G.get("CELL", 2.0))),
+                                    [(i, rest["Body"][0][i]) for i in arm], float(G.get("MAX_D", 20.0)))
             ua, la = loc(body, f"upperarm_{sd}"), loc(body, f"lowerarm_{sd}")
-            rec = {"arm_verts": len(arm), "torso_tris": len(entries), "verts_lt0": neg, "verts_lt3": lt3}
+            rec = {"arm_verts": len(arm), "torso_tris": len(entries), "verts_lt0": neg, "verts_lt3": lt3,
+                   "arm_r_med": r_med and round(r_med, 2), "arm_r": arm_r and round(arm_r, 2),
+                   "rest_clear_cm": rw and round(rw[0], 2), "rest_verts_lt0": rneg}
             if worst:
                 s, i, q, tag = worst
                 cy = Cyl(chain[0], chain[3], fwd_of(host),
