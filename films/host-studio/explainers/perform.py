@@ -74,7 +74,8 @@ MOOD_DEFAULT = ("CONFIDENCE", 0.65)
 SPEECH_GAIN = {"him": 1.7, "her": 1.0}  # the reel's: his rig gives little mouth travel (r4)
 # body life on a seated body: calm breathing that shows (agent-09's breath rows: 8-22 /min, >= 2 mm sternum rise),
 # almost no weight shift (the seat holds the pelvis), no torso follow (r5: it rode the blinks)
-LIFE = {"state": "talk", "breath_deg": 0.9, "clavicle_deg": 0.8, "shift_cm": 0.25, "follow": 0.0}
+LIFE = {"state": "talk", "breath_deg": 1.35, "clavicle_deg": 1.0, "shift_cm": 0.25, "follow": 0.0}
+# (box B, 07 Nov: breath_deg 0.9 / clavicle 0.8 gave 14.1 breaths/min at 1.6 mm sternum rise; agent-09's line is >= 2)
 
 
 def ok(res: dict):
@@ -499,7 +500,7 @@ def cmd_sync(who: str) -> dict:
                 timeout=3600))
     e = ok(c.op("perf.turn_head", anim=f"{ANIM}/AS_exp_{who}_body", face_anim=face, timeout=900))
     ok(c.op("seq.set_anim", path=path, component="Face", anim=f"{ANIM}/AS_exp_{who}_follow", label=lab))
-    res = {"follow_head": a, "body": b, "follow": d, "turn": e}
+    res = {"follow_head": a, "body": b, "follow": d, "turn": e, "leaders": lead(who)}
     keep(who, "sync", res)
     return res
 
@@ -525,6 +526,16 @@ def cmd_gaze(who: str) -> dict:
     return {"spans": res}
 
 
+def lead(who: str) -> dict:
+    """Every garment back on leader pose to the body (they drop after sequence/animation work: box B, 07 Nov), then
+    the check: exit on a garment that still does not follow."""
+    ok(client().op("mh.leader", label=LABEL[who]))
+    r = ok(client().op("mh.leader_check", label=LABEL[who]))
+    if not r.get("pass"):
+        raise SystemExit(f"garments not following {LABEL[who]}'s body: {r.get('why')}")
+    return {"pass": True, "metric": r.get("metric")}
+
+
 def cmd_preview(who: str, seq: str = "") -> list:
     """Only the seated body on the sequence (for the set's first stills, before the face exists): Body = the seat
     animation (+ the life layer when it exists); the Face track is left as it is."""
@@ -535,7 +546,8 @@ def cmd_preview(who: str, seq: str = "") -> list:
     secs = [{"anim": f"{ANIM}/AS_exp_{who}_seat", "start": 0, "end": n, "loop": False}]
     if have:
         secs.append({"anim": life, "start": 0, "end": n, "loop": False, "row": 2})
-    return ok(client().op("seq.anim", path=path, label=LABEL[who], component="Body", sections=secs))
+    r = ok(client().op("seq.anim", path=path, label=LABEL[who], component="Body", sections=secs))
+    return {"sections": r, "leaders": lead(who)}
 
 
 def cmd_place(who: str, seq: str = "") -> list:
@@ -547,8 +559,9 @@ def cmd_place(who: str, seq: str = "") -> list:
            ok(c.op("seq.anim", path=path, label=LABEL[who], component="Body", sections=[
                {"anim": f"{ANIM}/AS_exp_{who}_body", "start": 0, "end": n, "loop": False},
                {"anim": f"{ANIM}/AS_exp_{who}_life", "start": 0, "end": n, "loop": False, "row": 2}]))]
-    keep(who, "place", out)
-    return out
+    res = {"sections": out, "leaders": lead(who)}
+    keep(who, "place", res)
+    return res
 
 
 # ------------------------------------------------------------------------------------------------------- body check
