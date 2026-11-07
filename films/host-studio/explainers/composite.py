@@ -272,6 +272,19 @@ def write_srt(path: Path, srt: list) -> None:
 
 # ------------------------------------------------------------------------------------------------ shots
 
+def check_alpha(mov: Path, ffmpeg: str) -> None:
+    """An alpha overlay must have transparency: the mean alpha of a frame 1 s in is under 250 (a panel card or a lower
+    third covers a small part of the frame). A file with no alpha, or opaque everywhere, would cover the presenter."""
+    r = subprocess.run([ffmpeg, "-hide_banner", "-ss", "1", "-i", str(mov), "-vf",
+                        "alphaextract,signalstats,metadata=print:key=lavfi.signalstats.YAVG", "-frames:v", "1",
+                        "-f", "null", "-"], capture_output=True, text=True)
+    avg = [float(ln.rsplit("=", 1)[1]) for ln in r.stderr.splitlines() if "lavfi.signalstats.YAVG=" in ln]
+    if r.returncode or not avg:
+        sys.exit(f"{mov}: no alpha channel (an overlay must be ProRes 4444 with alpha)")
+    if avg[0] >= 250:
+        sys.exit(f"{mov}: alpha is opaque everywhere (mean {avg[0]:.0f}/255): it would cover the presenter")
+
+
 def presenter_input(shot: dict, pdir: Path | None, handles: int) -> list | None:
     if pdir is None:
         return None
@@ -312,6 +325,7 @@ def render_shot(shot: dict, film: str, a: argparse.Namespace, work: Path, used: 
         if shot["kind"] == "panel":
             pm = a.gfx / f"{shot['gfx']}_panel.mov" if a.gfx else None
             if pm and pm.is_file():
+                check_alpha(pm, a.ffmpeg)
                 inputs += ["-i", pm]
                 used[shot["n"]]["gfx"] = str(pm)
             elif a.placeholder:
@@ -383,6 +397,7 @@ def main() -> None:
         first_on = next(s for s in edl["shots"] if s["kind"] in ("pres", "panel"))
         lt0 = first_on["f0"] + LT_F0
         if lt_mov and lt_mov.is_file():
+            check_alpha(lt_mov, a.ffmpeg)
             inputs += ["-itsoffset", f"{lt0 / FPS:.6f}", "-i", lt_mov]
             chain.append(f"[{idx}:v]{FIT},format=yuva444p10le[lt]")
         else:
