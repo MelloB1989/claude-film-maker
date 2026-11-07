@@ -1,0 +1,619 @@
+{
+ "_doc": "Candidate clips (agent-08, R7). Mixamo motion ids; no binaries in git. annotate.py turns each retargeted clip into a library.json entry.",
+ "clips": [
+  {
+   "id": "mx_talk_seated_a",
+   "file": "mx_talk_seated_a.fbx",
+   "source": "mixamo",
+   "source_id": "c9cd76b1-b96c-11e4-a802-0aaa78deedf9",
+   "source_name": "Sitting Talking: Sitting And Talking To Another Person",
+   "licence": "Adobe Mixamo: royalty-free commercial use; raw files not redistributed (Adobe Terms of Use)",
+   "licence_url": "https://helpx.adobe.com/creative-cloud/faq/mixamo-faq.html",
+   "fps": 30,
+   "frames_src": 1321,
+   "length_s": 44.03,
+   "seated": true,
+   "posture": "seated",
+   "types": [
+    "beat",
+    "open_palm"
+   ]
+  },
+  {
+   "id": "mx_talk_seated_b",
+   "file": "mx_talk_seated_b.fbx",
+   "source": "mixamo",
+   "source_id": "c9cd7793-b96c-11e4-a802-0aaa78deedf9",
+   "source_name": "Sitting Talking: Sitting And Talking To Another Person",
+   "licence": "Adobe Mixamo: royalty-free commercial use; raw files not redistributed (Adobe Terms of Use)",
+   "licence_url": "https://helpx.adobe.com/creative-cloud/faq/mixamo-faq.html",
+   "fps": 30,
+   "frames_src": 1349,
+   "length_s": 44.97,
+   "seated": true,
+   "posture": "seated",
+   "types": [
+    "beat",
+    "open_palm"
+   ]
+  },
+  {
+   "id": "mx_talk_seated_m",
+   "file": "mx_talk_seated_m.fbx",
+   "source": "mixamo",
+   "source_id": "c9c6500d-b96c-11e4-a802-0aaa78deedf9",
+   "source_name": "Talking: Male Talking While Seated",
+   "licence": "Adobe Mixamo: royalty-free commercial use; raw files not redistributed (Adobe Terms of Use)",
+   "licence_url": "https://helpx.adobe.com/creative-cloud/faq/mixamo-faq.html",
+   "fps": 30,
+   "frames_src": 150,
+   "length_s": 5.0,
+   "seated": true,
+   "posture": "seated",
+   "types": [
+    "beat"
+   ]
+  },
+  {
+   "id": "mx_meeting_desk_f",
+   "file": "mx_meeting_desk_f.fbx",
+   "source": "mixamo",
+   "source_id": "c9ca5210-b96c-11e4-a802-0aaa78deedf9",
+   "source_name": "Having A Meeting, Female: Having A Meeting W/ Another At A Desk",
+   "licence": "Adobe Mixamo: royalty-free commercial use; raw files not redistributed (Adobe Terms of Use)",
+   "licence_url": "https://helpx.adobe.com/creative-cloud/faq/mixamo-faq.html",
+   "fps": 30,
+   "frames_src": 1400,
+   "length_s": 46.67,
+   "seated": true,
+   "posture": "seated",
+   "types": [
+    "beat",
+    "open_palm"
+   ]
+  },
+  {
+   "id": "mx_meeting_desk_m",
+   "file": "mx_meeting_desk_m.fbx",
+   "source": "mixamo",
+   "source_id": "c9ca50c4-b96c-11e4-a802-0aaa78deedf9",
+   "source_name": "Having A Meeting, Male: Having A Meeting W/ Another At A Desk",
+   "licence": "Adobe Mixamo: royalty-free commercial use; raw files not redistributed (Adobe Terms of Use)",
+   "licence_url": "https://helpx.adobe.com/creative-cloud/faq/mixamo-faq.html",
+   "fps": 30,
+   "frames_src": 1400,
+   "length_s": 46.67,
+   "seated": true,
+   "posture": "seated",
+   "types": [
+    "beat",
+    "open_palm"
+   ]
+  },
+  {
+   "id": "mx_ask_table",
+   "file": "mx_ask_table.fbx",
+   "source": "mixamo",
+   "source_id": "c9c79aea-b96c-11e4-a802-0aaa78deedf9",
+   "source_name": "Asking Question: Seated Idle With Hands On A Table",
+   "licence": "Adobe Mixamo: royalty-free commercial use; raw files not redistributed (Adobe Terms of Use)",
+   "licence_url": "https://helpx.adobe.com/creative-cloud/faq/mixamo-faq.html",
+   "fps": 30,
+   "frames_src": 160,
+   "length_s": 5.33,
+   "seated": true,
+   "posture": "seated",
+   "types": [
+    "open_palm"
+   ]
+  },
+  {
+   "id": "mx_rest_table",
+   "file": "mx_rest_table.fbx",
+   "source": "mixamo",
+   "source_id": "c9c7972b-b96c-11e4-a802-0aaa78deedf9",
+   "source_name": "Seated Idle: Seated Idle With Hands On A Table",
+   "licence": "Adobe Mixamo: royalty-free commercial use; raw files not redistributed (Adobe Terms of Use)",
+   "licence_url": "https://helpx.adobe.com/creative-cloud/faq/mixamo-faq.html",
+   "fps": 30,
+   "frames_src": 131,
+   "length_s": 4.37,
+   "seated": true,
+   "posture": "seated",
+   "types": [
+    "rest"
+   ]
+  },
+  {
+   "id": "mx_rest_breathe",
+   "file": "mx_rest_breathe.fbx",
+   "source": "mixamo",
+   "source_id": "c9ccab1b-b96c-11e4-a802-0aaa78deedf9",
+   "source_name": "Sitting Idle: Sitting With Breathing Idle",
+   "licence": "Adobe Mixamo: royalty-free commercial use; raw files not redistributed (Adobe Terms of Use)",
+   "licence_url": "https://helpx.adobe.com/creative-cloud/faq/mixamo-faq.html",
+   "fps": 30,
+   "frames_src": 128,
+   "length_s": 4.27,
+   "seated": true,
+   "posture": "seated",
+   "types": [
+    "rest"
+   ]
+  },
+  {
+   "id": "mx_rest_thighs",
+   "file": "mx_rest_thighs.fbx",
+   "source": "mixamo",
+   "source_id": "c9cb9783-b96c-11e4-a802-0aaa78deedf9",
+   "source_name": "Sitting Idle: Sitting In Chair Hands Resting On Thighs",
+   "licence": "Adobe Mixamo: royalty-free commercial use; raw files not redistributed (Adobe Terms of Use)",
+   "licence_url": "https://helpx.adobe.com/creative-cloud/faq/mixamo-faq.html",
+   "fps": 30,
+   "frames_src": 191,
+   "length_s": 6.37,
+   "seated": true,
+   "posture": "seated",
+   "types": [
+    "rest"
+   ]
+  },
+  {
+   "id": "mx_rest_still",
+   "file": "mx_rest_still.fbx",
+   "source": "mixamo",
+   "source_id": "c9cb95c1-b96c-11e4-a802-0aaa78deedf9",
+   "source_name": "Sitting Idle: Sitting Still In A Chair",
+   "licence": "Adobe Mixamo: royalty-free commercial use; raw files not redistributed (Adobe Terms of Use)",
+   "licence_url": "https://helpx.adobe.com/creative-cloud/faq/mixamo-faq.html",
+   "fps": 30,
+   "frames_src": 89,
+   "length_s": 2.97,
+   "seated": true,
+   "posture": "seated",
+   "types": [
+    "rest"
+   ]
+  },
+  {
+   "id": "mx_point_seated",
+   "file": "mx_point_seated.fbx",
+   "source": "mixamo",
+   "source_id": "c9c78d87-b96c-11e4-a802-0aaa78deedf9",
+   "source_name": "Pointing: Pointing While Seated",
+   "licence": "Adobe Mixamo: royalty-free commercial use; raw files not redistributed (Adobe Terms of Use)",
+   "licence_url": "https://helpx.adobe.com/creative-cloud/faq/mixamo-faq.html",
+   "fps": 30,
+   "frames_src": 110,
+   "length_s": 3.67,
+   "seated": true,
+   "posture": "seated",
+   "types": [
+    "deictic"
+   ]
+  },
+  {
+   "id": "mx_point_seated_fwd",
+   "file": "mx_point_seated_fwd.fbx",
+   "source": "mixamo",
+   "source_id": "c9c914f6-b96c-11e4-a802-0aaa78deedf9",
+   "source_name": "Sitting And Pointing: Sitting And Pointing Forward",
+   "licence": "Adobe Mixamo: royalty-free commercial use; raw files not redistributed (Adobe Terms of Use)",
+   "licence_url": "https://helpx.adobe.com/creative-cloud/faq/mixamo-faq.html",
+   "fps": 30,
+   "frames_src": 90,
+   "length_s": 3.0,
+   "seated": true,
+   "posture": "seated",
+   "types": [
+    "point_viewer",
+    "press"
+   ]
+  },
+  {
+   "id": "mx_thumbs_seated",
+   "file": "mx_thumbs_seated.fbx",
+   "source": "mixamo",
+   "source_id": "c9c7f29d-b96c-11e4-a802-0aaa78deedf9",
+   "source_name": "Sitting Thumbs Up: Giving Thumbs Up While Sitting",
+   "licence": "Adobe Mixamo: royalty-free commercial use; raw files not redistributed (Adobe Terms of Use)",
+   "licence_url": "https://helpx.adobe.com/creative-cloud/faq/mixamo-faq.html",
+   "fps": 30,
+   "frames_src": 103,
+   "length_s": 3.43,
+   "seated": true,
+   "posture": "seated",
+   "types": [
+    "place"
+   ]
+  },
+  {
+   "id": "mx_laugh_seated",
+   "file": "mx_laugh_seated.fbx",
+   "source": "mixamo",
+   "source_id": "c9c70079-b96c-11e4-a802-0aaa78deedf9",
+   "source_name": "Sitting Laughing: Sitting While Laughing",
+   "licence": "Adobe Mixamo: royalty-free commercial use; raw files not redistributed (Adobe Terms of Use)",
+   "licence_url": "https://helpx.adobe.com/creative-cloud/faq/mixamo-faq.html",
+   "fps": 30,
+   "frames_src": 249,
+   "length_s": 8.3,
+   "seated": true,
+   "posture": "seated",
+   "types": [
+    "delight"
+   ]
+  },
+  {
+   "id": "mx_talk_general",
+   "file": "mx_talk_general.fbx",
+   "source": "mixamo",
+   "source_id": "c9c88301-b96c-11e4-a802-0aaa78deedf9",
+   "source_name": "Talking: General Conversation",
+   "licence": "Adobe Mixamo: royalty-free commercial use; raw files not redistributed (Adobe Terms of Use)",
+   "licence_url": "https://helpx.adobe.com/creative-cloud/faq/mixamo-faq.html",
+   "fps": 30,
+   "frames_src": 312,
+   "length_s": 10.4,
+   "seated": false,
+   "posture": "standing (upper body)",
+   "types": [
+    "beat",
+    "open_palm"
+   ]
+  },
+  {
+   "id": "mx_talk_watercooler",
+   "file": "mx_talk_watercooler.fbx",
+   "source": "mixamo",
+   "source_id": "c9c9f1c9-b96c-11e4-a802-0aaa78deedf9",
+   "source_name": "Talking At Watercooler: Having A Chat At The Watercooler",
+   "licence": "Adobe Mixamo: royalty-free commercial use; raw files not redistributed (Adobe Terms of Use)",
+   "licence_url": "https://helpx.adobe.com/creative-cloud/faq/mixamo-faq.html",
+   "fps": 30,
+   "frames_src": 1336,
+   "length_s": 44.53,
+   "seated": false,
+   "posture": "standing (upper body)",
+   "types": [
+    "beat",
+    "open_palm"
+   ]
+  },
+  {
+   "id": "mx_argue_a",
+   "file": "mx_argue_a.fbx",
+   "source": "mixamo",
+   "source_id": "c9cd7855-b96c-11e4-a802-0aaa78deedf9",
+   "source_name": "Standing Arguing: Standing And Arguing With Another Person",
+   "licence": "Adobe Mixamo: royalty-free commercial use; raw files not redistributed (Adobe Terms of Use)",
+   "licence_url": "https://helpx.adobe.com/creative-cloud/faq/mixamo-faq.html",
+   "fps": 30,
+   "frames_src": 623,
+   "length_s": 20.77,
+   "seated": false,
+   "posture": "standing (upper body)",
+   "types": [
+    "beat",
+    "chop"
+   ]
+  },
+  {
+   "id": "mx_argue_b",
+   "file": "mx_argue_b.fbx",
+   "source": "mixamo",
+   "source_id": "c9cd7919-b96c-11e4-a802-0aaa78deedf9",
+   "source_name": "Standing Arguing: Standing Arguing With Another Person",
+   "licence": "Adobe Mixamo: royalty-free commercial use; raw files not redistributed (Adobe Terms of Use)",
+   "licence_url": "https://helpx.adobe.com/creative-cloud/faq/mixamo-faq.html",
+   "fps": 30,
+   "frames_src": 623,
+   "length_s": 20.77,
+   "seated": false,
+   "posture": "standing (upper body)",
+   "types": [
+    "beat",
+    "chop"
+   ]
+  },
+  {
+   "id": "mx_ask_question",
+   "file": "mx_ask_question.fbx",
+   "source": "mixamo",
+   "source_id": "c9c6de72-b96c-11e4-a802-0aaa78deedf9",
+   "source_name": "Talking: Asking A Question",
+   "licence": "Adobe Mixamo: royalty-free commercial use; raw files not redistributed (Adobe Terms of Use)",
+   "licence_url": "https://helpx.adobe.com/creative-cloud/faq/mixamo-faq.html",
+   "fps": 30,
+   "frames_src": 170,
+   "length_s": 5.67,
+   "seated": false,
+   "posture": "standing (upper body)",
+   "types": [
+    "open_palm"
+   ]
+  },
+  {
+   "id": "mx_ask_one_hand",
+   "file": "mx_ask_one_hand.fbx",
+   "source": "mixamo",
+   "source_id": "c9c6ffbe-b96c-11e4-a802-0aaa78deedf9",
+   "source_name": "Talking: Asking A Question With One Hand",
+   "licence": "Adobe Mixamo: royalty-free commercial use; raw files not redistributed (Adobe Terms of Use)",
+   "licence_url": "https://helpx.adobe.com/creative-cloud/faq/mixamo-faq.html",
+   "fps": 30,
+   "frames_src": 118,
+   "length_s": 3.93,
+   "seated": false,
+   "posture": "standing (upper body)",
+   "types": [
+    "open_palm"
+   ]
+  },
+  {
+   "id": "mx_ask_two_hands",
+   "file": "mx_ask_two_hands.fbx",
+   "source": "mixamo",
+   "source_id": "c9c6fd7b-b96c-11e4-a802-0aaa78deedf9",
+   "source_name": "Talking: Asking A Question With Two Hands",
+   "licence": "Adobe Mixamo: royalty-free commercial use; raw files not redistributed (Adobe Terms of Use)",
+   "licence_url": "https://helpx.adobe.com/creative-cloud/faq/mixamo-faq.html",
+   "fps": 30,
+   "frames_src": 118,
+   "length_s": 3.93,
+   "seated": false,
+   "posture": "standing (upper body)",
+   "types": [
+    "open_palm",
+    "size"
+   ]
+  },
+  {
+   "id": "mx_talk_funny",
+   "file": "mx_talk_funny.fbx",
+   "source": "mixamo",
+   "source_id": "c9c6ddb2-b96c-11e4-a802-0aaa78deedf9",
+   "source_name": "Talking: Talking Finding Something Funny",
+   "licence": "Adobe Mixamo: royalty-free commercial use; raw files not redistributed (Adobe Terms of Use)",
+   "licence_url": "https://helpx.adobe.com/creative-cloud/faq/mixamo-faq.html",
+   "fps": 30,
+   "frames_src": 170,
+   "length_s": 5.67,
+   "seated": false,
+   "posture": "standing (upper body)",
+   "types": [
+    "beat",
+    "delight"
+   ]
+  },
+  {
+   "id": "mx_happy_hand",
+   "file": "mx_happy_hand.fbx",
+   "source": "mixamo",
+   "source_id": "c9c91ba2-b96c-11e4-a802-0aaa78deedf9",
+   "source_name": "Happy Hand Gesture: Happy Forward Hand Gesture",
+   "licence": "Adobe Mixamo: royalty-free commercial use; raw files not redistributed (Adobe Terms of Use)",
+   "licence_url": "https://helpx.adobe.com/creative-cloud/faq/mixamo-faq.html",
+   "fps": 30,
+   "frames_src": 88,
+   "length_s": 2.93,
+   "seated": false,
+   "posture": "standing (upper body)",
+   "types": [
+    "open_palm",
+    "release"
+   ]
+  },
+  {
+   "id": "mx_two_hand_forward",
+   "file": "mx_two_hand_forward.fbx",
+   "source": "mixamo",
+   "source_id": "c9c90a7c-b96c-11e4-a802-0aaa78deedf9",
+   "source_name": "Hands Forward Gesture: Two Handed Forward Gesture",
+   "licence": "Adobe Mixamo: royalty-free commercial use; raw files not redistributed (Adobe Terms of Use)",
+   "licence_url": "https://helpx.adobe.com/creative-cloud/faq/mixamo-faq.html",
+   "fps": 30,
+   "frames_src": 92,
+   "length_s": 3.07,
+   "seated": false,
+   "posture": "standing (upper body)",
+   "types": [
+    "size",
+    "open_palm"
+   ]
+  },
+  {
+   "id": "mx_acknowledge",
+   "file": "mx_acknowledge.fbx",
+   "source": "mixamo",
+   "source_id": "c9c91c6e-b96c-11e4-a802-0aaa78deedf9",
+   "source_name": "Acknowledging: Acknowledging Gesture",
+   "licence": "Adobe Mixamo: royalty-free commercial use; raw files not redistributed (Adobe Terms of Use)",
+   "licence_url": "https://helpx.adobe.com/creative-cloud/faq/mixamo-faq.html",
+   "fps": 30,
+   "frames_src": 57,
+   "length_s": 1.9,
+   "seated": false,
+   "posture": "standing (upper body)",
+   "types": [
+    "beat",
+    "place"
+   ]
+  },
+  {
+   "id": "mx_arm_to_side",
+   "file": "mx_arm_to_side.fbx",
+   "source": "mixamo",
+   "source_id": "c9c922a9-b96c-11e4-a802-0aaa78deedf9",
+   "source_name": "Arm Gesture: Gesturing With Arm To The Side",
+   "licence": "Adobe Mixamo: royalty-free commercial use; raw files not redistributed (Adobe Terms of Use)",
+   "licence_url": "https://helpx.adobe.com/creative-cloud/faq/mixamo-faq.html",
+   "fps": 30,
+   "frames_src": 102,
+   "length_s": 3.4,
+   "seated": false,
+   "posture": "standing (upper body)",
+   "types": [
+    "deictic",
+    "sweep"
+   ]
+  },
+  {
+   "id": "mx_reach_out",
+   "file": "mx_reach_out.fbx",
+   "source": "mixamo",
+   "source_id": "c9ce7dba-b96c-11e4-a802-0aaa78deedf9",
+   "source_name": "Reaching Out: Reaching Out Gesture",
+   "licence": "Adobe Mixamo: royalty-free commercial use; raw files not redistributed (Adobe Terms of Use)",
+   "licence_url": "https://helpx.adobe.com/creative-cloud/faq/mixamo-faq.html",
+   "fps": 30,
+   "frames_src": 120,
+   "length_s": 4.0,
+   "seated": false,
+   "posture": "standing (upper body)",
+   "types": [
+    "open_palm",
+    "point_viewer"
+   ]
+  },
+  {
+   "id": "mx_shrug",
+   "file": "mx_shrug.fbx",
+   "source": "mixamo",
+   "source_id": "c9c69537-b96c-11e4-a802-0aaa78deedf9",
+   "source_name": "Shrugging: Shoulder Shrug",
+   "licence": "Adobe Mixamo: royalty-free commercial use; raw files not redistributed (Adobe Terms of Use)",
+   "licence_url": "https://helpx.adobe.com/creative-cloud/faq/mixamo-faq.html",
+   "fps": 30,
+   "frames_src": 66,
+   "length_s": 2.2,
+   "seated": false,
+   "posture": "standing (upper body)",
+   "types": [
+    "release",
+    "wave_off"
+   ]
+  },
+  {
+   "id": "mx_count_five",
+   "file": "mx_count_five.fbx",
+   "source": "mixamo",
+   "source_id": "c9c6db74-b96c-11e4-a802-0aaa78deedf9",
+   "source_name": "Counting: Counting To Five On One Hand",
+   "licence": "Adobe Mixamo: royalty-free commercial use; raw files not redistributed (Adobe Terms of Use)",
+   "licence_url": "https://helpx.adobe.com/creative-cloud/faq/mixamo-faq.html",
+   "fps": 30,
+   "frames_src": 153,
+   "length_s": 5.1,
+   "seated": false,
+   "posture": "standing (upper body)",
+   "types": [
+    "count"
+   ]
+  },
+  {
+   "id": "mx_point_bent",
+   "file": "mx_point_bent.fbx",
+   "source": "mixamo",
+   "source_id": "c9c6947c-b96c-11e4-a802-0aaa78deedf9",
+   "source_name": "Pointing: Pointing With Arm Bent",
+   "licence": "Adobe Mixamo: royalty-free commercial use; raw files not redistributed (Adobe Terms of Use)",
+   "licence_url": "https://helpx.adobe.com/creative-cloud/faq/mixamo-faq.html",
+   "fps": 30,
+   "frames_src": 82,
+   "length_s": 2.73,
+   "seated": false,
+   "posture": "standing (upper body)",
+   "types": [
+    "deictic",
+    "raise_finger"
+   ]
+  },
+  {
+   "id": "mx_point_thumb",
+   "file": "mx_point_thumb.fbx",
+   "source": "mixamo",
+   "source_id": "c9c693bf-b96c-11e4-a802-0aaa78deedf9",
+   "source_name": "Pointing: Pointing Behind With Thumb",
+   "licence": "Adobe Mixamo: royalty-free commercial use; raw files not redistributed (Adobe Terms of Use)",
+   "licence_url": "https://helpx.adobe.com/creative-cloud/faq/mixamo-faq.html",
+   "fps": 30,
+   "frames_src": 107,
+   "length_s": 3.57,
+   "seated": false,
+   "posture": "standing (upper body)",
+   "types": [
+    "deictic"
+   ]
+  },
+  {
+   "id": "mx_secret_lean",
+   "file": "mx_secret_lean.fbx",
+   "source": "mixamo",
+   "source_id": "c9c6f90e-b96c-11e4-a802-0aaa78deedf9",
+   "source_name": "Telling A Secret: Telling A Secret",
+   "licence": "Adobe Mixamo: royalty-free commercial use; raw files not redistributed (Adobe Terms of Use)",
+   "licence_url": "https://helpx.adobe.com/creative-cloud/faq/mixamo-faq.html",
+   "fps": 30,
+   "frames_src": 293,
+   "length_s": 9.77,
+   "seated": false,
+   "posture": "standing (upper body)",
+   "types": [
+    "lean_in"
+   ]
+  },
+  {
+   "id": "mx_nod_yes",
+   "file": "mx_nod_yes.fbx",
+   "source": "mixamo",
+   "source_id": "c9c90d7b-b96c-11e4-a802-0aaa78deedf9",
+   "source_name": "Head Nod Yes: Nodding Head Yes",
+   "licence": "Adobe Mixamo: royalty-free commercial use; raw files not redistributed (Adobe Terms of Use)",
+   "licence_url": "https://helpx.adobe.com/creative-cloud/faq/mixamo-faq.html",
+   "fps": 30,
+   "frames_src": 77,
+   "length_s": 2.57,
+   "seated": false,
+   "posture": "standing (head/neck only)",
+   "types": [
+    "nod"
+   ]
+  },
+  {
+   "id": "mx_nod_thoughtful",
+   "file": "mx_nod_thoughtful.fbx",
+   "source": "mixamo",
+   "source_id": "c9c91939-b96c-11e4-a802-0aaa78deedf9",
+   "source_name": "Thoughtful Head Nod: Thoughtfully Nodding Head Yes",
+   "licence": "Adobe Mixamo: royalty-free commercial use; raw files not redistributed (Adobe Terms of Use)",
+   "licence_url": "https://helpx.adobe.com/creative-cloud/faq/mixamo-faq.html",
+   "fps": 30,
+   "frames_src": 87,
+   "length_s": 2.9,
+   "seated": false,
+   "posture": "standing (head/neck only)",
+   "types": [
+    "nod"
+   ]
+  },
+  {
+   "id": "mx_agree_yes",
+   "file": "mx_agree_yes.fbx",
+   "source": "mixamo",
+   "source_id": "c9c91ec4-b96c-11e4-a802-0aaa78deedf9",
+   "source_name": "Agreeing: Agreeing Yes",
+   "licence": "Adobe Mixamo: royalty-free commercial use; raw files not redistributed (Adobe Terms of Use)",
+   "licence_url": "https://helpx.adobe.com/creative-cloud/faq/mixamo-faq.html",
+   "fps": 30,
+   "frames_src": 54,
+   "length_s": 1.8,
+   "seated": false,
+   "posture": "standing (upper body)",
+   "types": [
+    "nod",
+    "beat"
+   ]
+  }
+ ]
+}
