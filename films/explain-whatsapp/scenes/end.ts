@@ -11,7 +11,7 @@ export default class End extends Explainer {
 
   protected diagram(c: Ctx, g: Ctx, t: number) {
     const words = ['Tiny processes.', "Messages that don't linger.", 'Keys on your phone.'];
-    words.forEach((w, i) => note(c, w, 500, 330 + i * 60, ramp(t, 0.1 + i * 0.12, 0.35), { size: 30, color: i === 2 ? GREEN : '#A89E92' }));
+    words.forEach((w, i) => note(c, w, 500, 470 + i * 64, ramp(t, 0.1 + i * 0.12, 0.35), { size: 30, color: i === 2 ? GREEN : '#A89E92' }));
     void g;
   }
 

@@ -36,7 +36,7 @@ export default class Connect extends Explainer {
         if (t - open >= i * 0.45) packet(c, g, i % 2 ? (x) => path(1 - x) : path, u, { size: 9, a: live, tail: 0.15, color: GREEN });
       }
     }
-    pill(c, 'one TCP connection · kept open', 500, 250, 22 * L, { a: live, color: '#25D366' });
+    pill(c, 'one connection, kept open', 500, 770, 22 * L, { a: live, color: '#25D366' });
     note(c, 'to WhatsApp', S.x, S.y - 225, ramp(t, wa, 0.4), { size: 22 * L, color: '#F2ECE4' });
   }
 }

@@ -38,6 +38,5 @@ export default class E2E extends Explainer {
     const ka = ramp(t, phones - 0.1, 0.35);
     pill(c, 'keys stay on the phones', 500, 700, 21 * L, { a: ka, color: GREEN });
     g.fillStyle = glowInk('accent', 0); // (no-op: keeps the glow layer in use for the key glows)
-    note(c, 'E2E by default since 2016', 500, 770, ramp(t, phones + 0.2, 0.35), { size: 18 * L, color: TXT2 });
   }
 }

@@ -12,6 +12,9 @@ import { rgba } from '@engine/palette';
 import { F, font } from '@engine/type';
 import { clamp, ease, lerp, mulberry32, noise1, TAU } from '@engine/util';
 
+/** Captions run below this fraction of the frame's height on every shot: graphics keep out. */
+export const CAPTION_TOP = 0.85;
+
 export const BOX_W = 1000;
 export const BOX_H = 900;
 
@@ -69,12 +72,16 @@ export abstract class Explainer extends Scene2D {
     const t = f.lt, dur = f.end - f.start;
     const g = this.glow;
     const full = this.layout === 'full';
-    if (full && this.p('backdrop', true)) backdrop(c, g, t, f.t, dur);
+    // the camera: a slow dolly in with a lateral drift; planes at different depths move by different amounts
+    const pan = ease.inOutQuad(clamp(t / Math.max(1, dur)));
+    const cam = { x: (lerp(-34, 34, pan) + 8 * Math.sin(t * 0.37)) * this.u, y: (5 * Math.sin(t * 0.29 + 1)) * this.u, push: 1 + 0.06 * ease.inOutQuad(clamp(t / Math.max(1, dur))) };
+    if (full && this.p('backdrop', true)) backdrop(c, g, t, f.t, cam);
     // the diagram's region
     let rx: number, ry: number, rw: number, rh: number;
     if (full) {
       const head = this.p('headline', true) && (this.p('title', this.title) !== '');
-      rx = head ? 0.4 * W : 0.2 * W; ry = 0.07 * H; rw = head ? 0.56 * W : 0.6 * W; rh = 0.86 * H;
+      // bottom 15 % of the frame stays clear: the captions run there
+      rx = head ? 0.4 * W : 0.2 * W; ry = 0.05 * H; rw = head ? 0.56 * W : 0.6 * W; rh = 0.79 * H;
     } else {
       // the panel (GFX.md): box x 1010-1860, y 150-930 of 1920x1080, a frosted card PANEL @ 78 %, 18 px radius, 1 px BORDER
       const px0 = (1010 / 1920) * W, px1 = (1860 / 1920) * W, py0 = (150 / 1080) * H, py1 = (930 / 1080) * H;
@@ -99,10 +106,10 @@ export abstract class Explainer extends Scene2D {
         const hk = ramp(t, 0.1, 0.5);
         c.globalAlpha = k * hk;
         c.textAlign = 'left';
-        c.font = font(F.mono(500), 16 * this.u);
+        c.font = font(F.mono(500), 24 * this.u);
         c.fillStyle = rgba('accent');
         c.fillText(this.p('kicker', this.kicker).toUpperCase(), tx, ty - 26 * this.u);
-        c.font = font(F.display(100, 800), 34 * this.u);
+        c.font = font(F.display(100, 800), 40 * this.u);
         c.fillStyle = TXT;
         c.fillText(title.replace(/\n/g, ' '), tx, ty + 12 * this.u + (1 - hk) * 10 * this.u);
         c.restore();
@@ -112,11 +119,17 @@ export abstract class Explainer extends Scene2D {
     }
     const s = Math.min(rw / BOX_W, rh / BOX_H);
     // a slow push and drift: the camera breathes
-    const push = 1 + 0.035 * ease.inOutQuad(clamp(t / Math.max(1, dur)));
-    const dx = 6 * Math.sin(t * 0.37) * this.u, dy = 4 * Math.sin(t * 0.29 + 1) * this.u;
+    const push = full ? cam.push : 1 + 0.02 * ease.inOutQuad(clamp(t / Math.max(1, dur)));
+    const dx = full ? -cam.x * 0.55 : -cam.x * 0.12, dy = full ? -cam.y * 0.55 : 0;
     const ox = rx + rw / 2 + dx, oy = ry + rh / 2 + dy;
+    // labels never fall under LABEL_MIN px on the frame
+    labelMin = LABEL_MIN * (W / 1920) / (s * push);
     for (const k of [c, g]) {
       k.save();
+      // the caption band (y > 0.85 of the frame) stays clear of every diagram mark, by construction
+      k.beginPath();
+      k.rect(0, 0, W, CAPTION_TOP * H);
+      k.clip();
       k.translate(ox, oy);
       k.scale(s * push, s * push);
       k.translate(-BOX_W / 2, -BOX_H / 2);
@@ -124,6 +137,7 @@ export abstract class Explainer extends Scene2D {
     this.diagram(c, g, t, f);
     c.restore();
     g.restore();
+    if (full && this.p('backdrop', true)) foreground(c, f.t, cam);
     if (full && this.p('headline', true)) this.headline(c, g, t);
   }
 
@@ -133,14 +147,14 @@ export abstract class Explainer extends Scene2D {
     if (!title) return;
     const u = this.u, x = 0.065 * W;
     const lines = title.split('\n');
-    const size = this.p('titleSize', 68) * u, lh = size * 1.06;
+    const size = this.p('titleSize', 84) * u, lh = size * 1.06;
     const top = H / 2 - (lines.length * lh) / 2 + size * 0.2;
     const at = this.p('headAt', 0.15);
     c.save();
     c.textAlign = 'left';
     c.textBaseline = 'alphabetic';
     const kk = ramp(t, at, 0.5);
-    c.font = font(F.mono(500), 19 * u);
+    c.font = font(F.mono(500), 28 * u);
     c.fillStyle = rgba('accent', kk);
     c.fillText(this.p('kicker', this.kicker).toUpperCase(), x + 3 * u, top - lh * 0.95 + (1 - kk) * 10 * u);
     lines.forEach((ln, i) => {
@@ -158,7 +172,7 @@ export abstract class Explainer extends Scene2D {
     const sub = this.p('sub', this.sub);
     if (sub) {
       const sk = ramp(t, at + 0.6, 0.6);
-      c.font = font(F.ui(400), 27 * u);
+      c.font = font(F.ui(400), 32 * u);
       c.fillStyle = rgba('fgDim', sk);
       sub.split('\n').forEach((s, i) => c.fillText(s, x + 2 * u, ry + 56 * u + i * 38 * u));
     }
@@ -169,12 +183,13 @@ export abstract class Explainer extends Scene2D {
 // ── the backdrop ──────────────────────────────────────────────────────────────────────────────────────────────────
 
 /**
- * The ground (GFX.md): warm charcoal INK -> INK2 radial, an amber key glow (#C8874A, 6 %) top left, a 64 px grid at
- * 4 % warm white drifting slowly (parallax against the diagram's own drift), and a few out-of-focus motes at depth.
+ * The ground (GFX.md): warm charcoal INK -> INK2 radial and an amber key glow (#C8874A, 6 %) top left, over a floor:
+ * the 64 px grid laid on a plane in perspective, receding to a hazy horizon, drifting toward the lens and panning
+ * with the camera at the far plane's rate. Out-of-focus motes hang at depth.
  */
-export function backdrop(c: Ctx, g: Ctx, t: number, ft: number, _dur: number) {
+export function backdrop(c: Ctx, _g: Ctx, _t: number, ft: number, cam: { x: number; y: number; push: number }) {
   const u = Math.min(W, H) / 1080;
-  let gr = c.createRadialGradient(0.55 * W, 0.5 * H, 0, 0.55 * W, 0.5 * H, 0.75 * W);
+  let gr = c.createRadialGradient(0.55 * W, 0.45 * H, 0, 0.55 * W, 0.45 * H, 0.75 * W);
   gr.addColorStop(0, INK2);
   gr.addColorStop(1, INK);
   c.fillStyle = gr;
@@ -185,46 +200,126 @@ export function backdrop(c: Ctx, g: Ctx, t: number, ft: number, _dur: number) {
   gr.addColorStop(1, 'rgba(200,135,74,0)');
   c.fillStyle = gr;
   c.fillRect(0, 0, W, H);
-  // the grid: 64 px, drifting; brighter toward the key light, fading at the edges
-  const step = 64 * u, ox = (ft * 6 * u) % step, oy = (ft * 3.5 * u) % step;
+  // the floor: x = X/Z, y = horizon + camH/Z, cells of 1 unit; the camera pans in X and creeps forward in Z
+  const horizon = 0.3 * H - cam.y * 0.3, f = 0.9 * W * cam.push, camH = 0.62;
+  const camX = -cam.x / (120 * u), z0 = (ft * 0.22) % 1;
+  const P = (X: number, Z: number) => ({ x: W / 2 + ((X - camX) * f) / Z, y: horizon + (camH * f) / Z });
   c.save();
   c.lineWidth = Math.max(1, u);
-  c.strokeStyle = 'rgba(242,228,210,0.04)';
-  c.beginPath();
-  for (let x = -step + ox; x < W + step; x += step) { c.moveTo(Math.round(x) + 0.5, 0); c.lineTo(Math.round(x) + 0.5, H); }
-  for (let y = -step + oy; y < H + step; y += step) { c.moveTo(0, Math.round(y) + 0.5); c.lineTo(W, Math.round(y) + 0.5); }
-  c.stroke();
-  // grid crossings: a touch brighter, which reads as a blueprint
-  c.fillStyle = 'rgba(242,228,210,0.05)';
-  for (let x = -step + ox; x < W + step; x += step) for (let y = -step + oy; y < H + step; y += step) c.fillRect(Math.round(x) - 1, Math.round(y) - 1, 3 * u, 3 * u);
+  const Zn = 0.75, Zf = 16;
+  for (let i = 0; i < 40; i++) {
+    const Z = Zn + i - z0 + 1;
+    if (Z > Zf) break;
+    const a = 0.1 * Math.min(1, (Zf - Z) / 8) * Math.min(1, (Z - Zn) * 2);
+    const l = P(-12, Z), r = P(12, Z);
+    c.strokeStyle = `rgba(242,228,210,${a})`;
+    c.beginPath(); c.moveTo(l.x, l.y); c.lineTo(r.x, r.y); c.stroke();
+  }
+  for (let X = -12; X <= 12; X++) {
+    const n = P(X, Zn), fr = P(X, Zf);
+    const lg = c.createLinearGradient(n.x, n.y, fr.x, fr.y);
+    lg.addColorStop(0, 'rgba(242,228,210,0.09)');
+    lg.addColorStop(1, 'rgba(242,228,210,0)');
+    c.strokeStyle = lg;
+    c.beginPath(); c.moveTo(n.x, n.y); c.lineTo(fr.x, fr.y); c.stroke();
+  }
   c.restore();
-  // edge falloff over the grid
+  // haze at the horizon, and the wall above it with a faint flat grid (the far plane)
+  gr = c.createLinearGradient(0, horizon - 0.25 * H, 0, horizon + 0.12 * H);
+  gr.addColorStop(0, 'rgba(30,24,19,0)');
+  gr.addColorStop(0.7, 'rgba(36,28,22,0.55)');
+  gr.addColorStop(1, 'rgba(30,24,19,0)');
+  c.fillStyle = gr;
+  c.fillRect(0, horizon - 0.25 * H, W, 0.37 * H);
+  // edge falloff
   gr = c.createRadialGradient(0.5 * W, 0.5 * H, 0.3 * W, 0.5 * W, 0.5 * H, 0.8 * W);
   gr.addColorStop(0, 'rgba(18,14,11,0)');
-  gr.addColorStop(1, 'rgba(18,14,11,0.75)');
+  gr.addColorStop(1, 'rgba(18,14,11,0.7)');
   c.fillStyle = gr;
   c.fillRect(0, 0, W, H);
-  // motes: three depths, near ones large, soft and quicker (bokeh), far ones fine and slow
+  // far motes, fine and slow, panning less than the diagram
   const rnd = mulberry32(7);
-  for (let i = 0; i < 34; i++) {
+  for (let i = 0; i < 30; i++) {
     const depth = rnd(), x0 = rnd(), y0 = rnd(), ph = rnd() * TAU;
-    const sp = lerp(0.003, 0.02, depth);
-    const x = ((x0 + ft * sp + 2) % 1.2 - 0.1) * W;
-    const y = (y0 + 0.02 * Math.sin(ft * 0.3 + ph)) * H;
-    const r = lerp(1.2, 20, depth * depth) * u;
-    const a = lerp(0.18, 0.045, depth) * (0.6 + 0.4 * Math.sin(ft * 0.8 + ph));
-    const m = c.createRadialGradient(x, y, 0, x, y, r);
-    m.addColorStop(0, `rgba(230,180,130,${a})`);
-    m.addColorStop(1, 'rgba(230,180,130,0)');
-    c.fillStyle = m;
-    c.beginPath();
-    c.arc(x, y, r, 0, TAU);
-    c.fill();
+    const x = ((x0 + ft * lerp(0.002, 0.01, depth) + 2) % 1.2 - 0.1) * W - cam.x * lerp(0.15, 0.4, depth);
+    const y = (y0 * 0.8 + 0.02 * Math.sin(ft * 0.3 + ph)) * H;
+    const r = lerp(1.2, 7, depth) * u;
+    const a = lerp(0.16, 0.06, depth) * (0.6 + 0.4 * Math.sin(ft * 0.8 + ph));
+    c.fillStyle = `rgba(230,180,130,${a})`;
+    c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
   }
-  void g; void t;
+}
+
+/** The near plane: a few large, soft, out-of-focus discs that cross faster than the diagram (depth of field). */
+export function foreground(c: Ctx, ft: number, cam: { x: number; y: number }) {
+  const u = Math.min(W, H) / 1080;
+  const rnd = mulberry32(19);
+  for (let i = 0; i < 6; i++) {
+    const x0 = rnd(), y0 = rnd(), r = lerp(70, 160, rnd()) * u, ph = rnd() * TAU;
+    const x = ((x0 + ft * 0.012 + 3) % 1.4 - 0.2) * W - cam.x * 1.8;
+    const y = (0.15 + 0.75 * y0) * H + 20 * u * Math.sin(ft * 0.2 + ph) - cam.y * 1.8;
+    const m = c.createRadialGradient(x, y, r * 0.55, x, y, r);
+    m.addColorStop(0, 'rgba(255,200,150,0.035)');
+    m.addColorStop(0.85, 'rgba(255,200,150,0.045)');
+    m.addColorStop(1, 'rgba(255,200,150,0)');
+    c.fillStyle = m;
+    c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
+  }
 }
 
 // ── surfaces ──────────────────────────────────────────────────────────────────────────────────────────────────────
+
+/** Label sizes: small labels read at phone size only this much larger than the design's. */
+const LABEL_MIN = 30;
+let labelMin = 28;
+const ts = (z: number) => (z < 40 ? Math.max(z * 1.3, labelMin) : z);
+
+/** A soft contact shadow on the floor under an object whose base is at (x, y), `w` wide. */
+export function shadow(c: Ctx, x: number, y: number, w: number, a = 1) {
+  if (a <= 0.001) return;
+  c.save();
+  c.translate(x, y);
+  c.scale(1, 0.16);
+  const gr = c.createRadialGradient(0, 0, 0, 0, 0, w * 0.7);
+  gr.addColorStop(0, `rgba(0,0,0,${0.55 * a})`);
+  gr.addColorStop(1, 'rgba(0,0,0,0)');
+  c.fillStyle = gr;
+  c.beginPath(); c.arc(0, 0, w * 0.7, 0, TAU); c.fill();
+  c.restore();
+}
+
+/** A slab: a rounded card with visible thickness (its lower edge extruded by `d`), filled `fill`, rimmed `stroke`. */
+export function slab(c: Ctx, x: number, y: number, w: number, h: number, r: number, o: { fill?: string; stroke?: string; d?: number; a?: number; lw?: number } = {}) {
+  const a = o.a ?? 1, d = o.d ?? Math.min(14, h * 0.08);
+  if (a <= 0.001) return;
+  c.save();
+  c.globalAlpha *= a;
+  c.shadowColor = 'rgba(0,0,0,0.5)'; c.shadowBlur = Math.max(w, h) * 0.08; c.shadowOffsetY = Math.max(w, h) * 0.04;
+  rr(c, x, y + d, w, h, r);
+  c.fillStyle = '#0f0b08';
+  c.fill();
+  c.shadowColor = 'transparent';
+  const side = c.createLinearGradient(0, y + h - r, 0, y + h + d);
+  side.addColorStop(0, '#2a221b'); side.addColorStop(1, '#16110d');
+  rr(c, x, y + d * 0.5, w, h + d * 0.5, r);
+  c.fillStyle = side;
+  c.fill();
+  rr(c, x, y, w, h, r);
+  const face = c.createLinearGradient(0, y, 0, y + h);
+  face.addColorStop(0, o.fill ?? '#2c241d'); face.addColorStop(1, o.fill ?? CARD);
+  c.fillStyle = face;
+  c.fill();
+  c.strokeStyle = o.stroke ?? BORDER;
+  c.lineWidth = o.lw ?? 2;
+  c.stroke();
+  // top edge catch light
+  c.beginPath();
+  c.moveTo(x + r, y + 1); c.lineTo(x + w - r, y + 1);
+  c.strokeStyle = 'rgba(255,225,190,0.18)';
+  c.lineWidth = 1.5;
+  c.stroke();
+  c.restore();
+}
 
 export function rr(c: Ctx, x: number, y: number, w: number, h: number, r: number) {
   c.beginPath();
@@ -268,7 +363,8 @@ export function glassCard(c: Ctx, x: number, y: number, w: number, h: number, r:
   c.restore();
 }
 
-export function text(c: Ctx, s: string, x: number, y: number, size: number, o: { color?: string; a?: number; align?: CanvasTextAlign; weight?: number; face?: 'ui' | 'mono' | 'display'; base?: CanvasTextBaseline } = {}) {
+export function text(c: Ctx, s: string, x: number, y: number, size0: number, o: { color?: string; a?: number; align?: CanvasTextAlign; weight?: number; face?: 'ui' | 'mono' | 'display'; base?: CanvasTextBaseline } = {}) {
+  const size = ts(size0);
   c.save();
   const fam = o.face === 'mono' ? F.mono(o.weight ?? 500) : o.face === 'display' ? F.display(87.5, o.weight ?? 700) : F.ui(o.weight ?? 500);
   c.font = font(fam, size);
@@ -290,9 +386,10 @@ export function withA(col: string, a: number): string {
 }
 
 /** A pill label: rounded capsule with a text. */
-export function pill(c: Ctx, s: string, x: number, y: number, size: number, o: { color?: string; a?: number; fill?: string; align?: 'center' | 'left' } = {}) {
+export function pill(c: Ctx, s: string, x: number, y: number, size0: number, o: { color?: string; a?: number; fill?: string; align?: 'center' | 'left' } = {}) {
   const a = o.a ?? 1;
   if (a <= 0.001) return;
+  const size = ts(size0);
   c.save();
   c.font = font(F.mono(500), size);
   const w = c.measureText(s).width + size * 1.4, h = size * 1.9;
@@ -320,8 +417,13 @@ export function phone(c: Ctx, g: Ctx, x: number, y: number, h: number, o: { on?:
   const a = o.a ?? 1, on = o.on ?? 1;
   if (a <= 0.001) return;
   const w = h * 0.5, r = w * 0.2;
+  shadow(c, x, y + h / 2 + h * 0.02, w * 1.1, a);
   c.save();
   c.globalAlpha *= a;
+  // the body's thickness, seen a little from the side
+  rr(c, x - w / 2 + h * 0.018, y - h / 2 + h * 0.012, w, h, r);
+  c.fillStyle = '#0d0a08';
+  c.fill();
   c.shadowColor = 'rgba(0,0,0,0.6)';
   c.shadowBlur = h * 0.18;
   c.shadowOffsetY = h * 0.06;
@@ -340,14 +442,22 @@ export function phone(c: Ctx, g: Ctx, x: number, y: number, h: number, o: { on?:
   const m = w * 0.07, sx = x - w / 2 + m, sy = y - h / 2 + m, sw = w - 2 * m, sh = h - 2 * m;
   rr(c, sx, sy, sw, sh, r * 0.7);
   const scr = c.createLinearGradient(0, sy, 0, sy + sh);
-  scr.addColorStop(0, `rgba(${lerp(16, 34, on)},${lerp(13, 30, on)},${lerp(11, 25, on)},1)`);
-  scr.addColorStop(1, `rgba(${lerp(12, 20, on)},${lerp(10, 17, on)},${lerp(8, 14, on)},1)`);
+  scr.addColorStop(0, `rgba(${lerp(30, 52, on)},${lerp(25, 45, on)},${lerp(21, 38, on)},1)`);
+  scr.addColorStop(1, `rgba(${lerp(20, 30, on)},${lerp(17, 26, on)},${lerp(14, 22, on)},1)`);
   c.fillStyle = scr;
   c.fill();
   // notch
   rr(c, x - w * 0.14, sy + sh * 0.02, w * 0.28, h * 0.028, h * 0.014);
   c.fillStyle = '#0a0806';
   c.fill();
+  if (!o.screen && on > 0.01 && h >= 150) {
+    // an idle chat on the screen, faint
+    o.screen = (k, x2, y2, w2, h2) => {
+      bubble(k, x2 + w2 * 0.08, y2 + h2 * 0.1, w2 * 0.55, h2 * 0.075, { mine: false, a: 0.55 });
+      bubble(k, x2 + w2 * 0.34, y2 + h2 * 0.21, w2 * 0.58, h2 * 0.075, { mine: true, a: 0.55 });
+      bubble(k, x2 + w2 * 0.08, y2 + h2 * 0.32, w2 * 0.45, h2 * 0.075, { mine: false, a: 0.55 });
+    };
+  }
   if (o.screen && on > 0.01) {
     c.save();
     rr(c, sx, sy, sw, sh, r * 0.7);
@@ -358,11 +468,11 @@ export function phone(c: Ctx, g: Ctx, x: number, y: number, h: number, o: { on?:
   }
   c.restore();
   // the screen's glow on the glow layer
-  if (on > 0.01) {
+  if (on > 0.01 && o.accent) {
     g.save();
-    g.globalAlpha *= a * on * 0.18;
+    g.globalAlpha *= a * on * 0.05;
     rr(g, sx, sy, sw, sh, r * 0.7);
-    g.fillStyle = glowInk(o.accent ?? 'accent2', 0.5);
+    g.fillStyle = glowInk(o.accent ?? 'accent', 0.5);
     g.fill();
     g.restore();
   }
@@ -431,8 +541,22 @@ export function server(c: Ctx, g: Ctx, x: number, y: number, h: number, o: { a?:
   const a = o.a ?? 1;
   if (a <= 0.001) return;
   const w = h * 0.62, n = o.units ?? 6, t = o.t ?? 0;
+  shadow(c, x, y + h / 2 + h * 0.03, w * 1.2, a);
   c.save();
   c.globalAlpha *= a;
+  // the tower's side face: extruded to the right, in shade
+  c.beginPath();
+  c.moveTo(x + w / 2, y - h / 2 + h * 0.02); c.lineTo(x + w / 2 + w * 0.12, y - h / 2 - h * 0.03);
+  c.lineTo(x + w / 2 + w * 0.12, y + h / 2 - h * 0.06); c.lineTo(x + w / 2, y + h / 2);
+  c.closePath();
+  c.fillStyle = '#16110d';
+  c.fill();
+  c.beginPath();
+  c.moveTo(x - w / 2 + h * 0.03, y - h / 2); c.lineTo(x - w / 2 + w * 0.12 + h * 0.02, y - h / 2 - h * 0.03);
+  c.lineTo(x + w / 2 + w * 0.12, y - h / 2 - h * 0.03); c.lineTo(x + w / 2, y - h / 2);
+  c.closePath();
+  c.fillStyle = '#4a3c30';
+  c.fill();
   c.shadowColor = 'rgba(0,0,0,0.6)';
   c.shadowBlur = h * 0.15;
   c.shadowOffsetY = h * 0.05;
@@ -482,6 +606,7 @@ export function cylinder(c: Ctx, x: number, y: number, w: number, h: number, o: 
   const a = o.a ?? 1;
   if (a <= 0.001) return;
   const e = w * 0.16;
+  shadow(c, x, y + h / 2 + e * 0.5, w * 1.1, a);
   c.save();
   c.globalAlpha *= a;
   c.shadowColor = 'rgba(0,0,0,0.55)';
@@ -753,7 +878,7 @@ export function ripple(g: Ctx, x: number, y: number, r: number, t: number, at: n
 export function note(c: Ctx, s: string, x: number, y: number, a: number, o: { size?: number; color?: string; align?: CanvasTextAlign } = {}) {
   if (a <= 0.001) return;
   c.save();
-  c.font = font(F.mono(500), o.size ?? 22);
+  c.font = font(F.mono(500), ts(o.size ?? 22));
   c.textAlign = o.align ?? 'center';
   c.textBaseline = 'middle';
   c.fillStyle = withA(o.color ?? TXT2, a);

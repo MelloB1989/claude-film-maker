@@ -51,12 +51,12 @@ export default class Media extends Explainer {
     if (ka > 0 && m < 1) {
       const k = pop(t, ky - 0.25, 0.45);
       c.save(); c.translate(mpt.x, mpt.y); c.scale(k, k);
-      rr(c, -78, -34, 156, 68, 20); c.fillStyle = '#1f5c3a'; c.fill(); c.strokeStyle = GREEN; c.lineWidth = 2.5; c.stroke();
+      rr(c, -120, -36, 240, 72, 22); c.fillStyle = '#1f5c3a'; c.fill(); c.strokeStyle = GREEN; c.lineWidth = 2.5; c.stroke();
       c.restore();
-      key(c, g, mpt.x - 22 * k, mpt.y, 52 * k, { color: '#F2ECE4', glow: 0.5 });
-      note(c, '+ link', mpt.x + 42 * k, mpt.y, ka, { size: 15, color: TXT });
+      key(c, g, mpt.x - 62 * k, mpt.y, 56 * k, { color: '#F2ECE4', glow: 0.5 });
+      note(c, '+ link', mpt.x + 38 * k, mpt.y, ka, { size: 15, color: TXT });
     }
-    pill(c, 'only the key rides in the message', 500, 800, 20 * L, { a: ramp(t, ky, 0.35), color: GREEN });
+    pill(c, 'only the key rides in the message', 500, 850, 20 * L, { a: ramp(t, ky, 0.35), color: GREEN });
     // the friend fetches the blob and unlocks it
     const dn = curve({ x: D.x + 120, y: D.y }, { x: B.x, y: B.y - 150 }, 0.2);
     const d = ease.inOutCubic(clamp((t - (msg + 0.05)) / 0.6));
@@ -64,6 +64,16 @@ export default class Media extends Explainer {
       const p = dn(d);
       wire(c, g, dn, d, { a: 0.6, width: 2, dash: [8, 8], flow: t * 30 });
       lock(c, g, p.x, p.y, 40, { open: ramp(t, msg + 0.6, 0.3), glow: ramp(t, msg + 0.6, 0.2) * 0.8 });
+    }
+    // unlocked: the photo shows on the friend's phone
+    const shown = ramp(t, msg + 0.75, 0.35);
+    if (shown > 0) {
+      c.save(); c.globalAlpha = shown; c.translate(B.x, B.y - 10); c.scale(0.8, 0.8);
+      rr(c, -60, -45, 120, 90, 10); c.fillStyle = '#2e251f'; c.fill(); c.strokeStyle = withA('#F2ECE4', 0.7); c.lineWidth = 3; c.stroke();
+      rr(c, -60, -45, 120, 90, 10); c.clip();
+      c.fillStyle = 'rgba(200,135,74,0.55)'; c.beginPath(); c.arc(28, -16, 13, 0, Math.PI * 2); c.fill();
+      c.fillStyle = 'rgba(37,211,102,0.45)'; c.beginPath(); c.moveTo(-60, 45); c.lineTo(-18, -5); c.lineTo(14, 30); c.lineTo(34, 12); c.lineTo(60, 45); c.fill();
+      c.restore();
     }
     void pop;
   }
