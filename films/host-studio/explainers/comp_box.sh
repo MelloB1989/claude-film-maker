@@ -40,7 +40,7 @@ for f in $STILLS; do nice ffmpeg -y -loglevel error -i "$MP4" -vf "select=eq(n\,
 python3 - "$OUT/${NAME}_qa_cut.json" <<'EOF'
 import json, sys
 d = json.load(open(sys.argv[1]))
-rows = d.get("rows", d)
+rows = d.get("gate", d.get("rows", d))
 for k, v in (rows.items() if isinstance(rows, dict) else []):
     if isinstance(v, dict) and "value" in v:
         print(f"  {k}: {v['value']}" + (f"  ERROR {v['error']}" if v.get("error") else ""))
