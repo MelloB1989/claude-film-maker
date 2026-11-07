@@ -90,7 +90,7 @@ def gesture_pose(g: dict, hand: str, count_n: int) -> HandPose:
     return HandPose((27.0, 11.0 + so * 0.4, -3.0), pron=35.0, ext=6.0, shape="relaxed")
 
 
-HIGH_REST = HandPose((22.0, 8.0, -3.0), pron=70.0, ext=14.0, shape="relaxed")  # loose, fingertips near each other
+HIGH_REST = HandPose((22.0, 8.0, -1.0), pron=70.0, ext=14.0, shape="relaxed")  # loose, fingertips near each other
 
 
 @dataclass
@@ -133,9 +133,11 @@ class Plan:
     lean: list  # [(t, deg)]
     tilts: list = field(default_factory=list)  # [{"t", "until", "roll_deg", "ease_s"}]
     base_lean: float = 4.0
+    gap_merge: float = 0.9  # pauses shorter than this keep the hands up (agent-10's timing can set it)
 
-    def speak_w(self, t: float, pre: float = 0.5, post: float = 0.6, gap_merge: float = 0.9) -> float:
+    def speak_w(self, t: float, pre: float = 0.5, post: float = 0.6, gap_merge: float | None = None) -> float:
         """1 while speaking (lines merged across gaps under gap_merge s), eased in/out."""
+        gap_merge = self.gap_merge if gap_merge is None else gap_merge
         spans = []
         for a, b in sorted(self.speaking):
             if not spans and a < 1.5:  # the take opens alive, hands already up (the sheet's 'pre')
@@ -182,12 +184,26 @@ def plan_from_sheet(sheet: dict, cues: dict, tilts: list | None = None, base_lea
     """agent-11's acting sheet (lines[].body01) + the cue sheet (speaking spans) -> Plan. `timing` (agent-10's
     prosody planner) overrides each gesture's prep/stroke/hold/retract/amp/energy by (line, word_i)."""
     events, lean = [], []
-    tmap = {(str(x.get("line")), int(x.get("word_i", -1))): x for x in (timing or [])}
+    gap_merge = 0.9
+    if isinstance(timing, dict):
+        gap_merge = float(timing.get("gap_merge", gap_merge))
+        timing = timing.get("gestures", [])
+    tmap = {(str(x.get("line")), int(x.get("word_i", -1))): x for x in (timing or []) if not x.get("add")}
+    adds = {}
+    for x in timing or []:  # agent-10: new gestures (beats on secondary stresses) the sheet doesn't have
+        if x.get("add"):
+            adds.setdefault(str(x.get("line")), []).append({"type": x.get("type", "beat"), "detail": x.get("detail", ""),
+                                                             "hand": x.get("hand", "r"), "size": x.get("size", "small"),
+                                                             "word": x.get("word", ""), "word_i": x.get("word_i", -1),
+                                                             **{k: x[k] for k in ("prep_t", "stroke_t", "hold_s",
+                                                                                  "retract_s", "amp", "energy")
+                                                                if k in x}})
     seed0 = 1009
     for ln in sheet["lines"]:
         b = ln.get("body01") or {}
         n_count = 0
-        for g0 in b.get("gestures", []):
+        lid = str(b.get("line", ln.get("id", "")))
+        for g0 in sorted(b.get("gestures", []) + adds.get(lid, []), key=lambda g: float(g.get("stroke_t", 0.0))):
             g = {**g0, **{k: v for k, v in tmap.get((str(b.get("line", ln.get("id"))), int(g0.get("word_i", -2))),
                                                      {}).items() if k in ("prep_t", "stroke_t", "hold_s", "retract_s",
                                                                           "amp", "energy")}}
@@ -213,7 +229,7 @@ def plan_from_sheet(sheet: dict, cues: dict, tilts: list | None = None, base_lea
         for k in b.get("lean", []):
             lean.append((float(k["t"]), float(k["deg"])))
     speaking = [(float(c["start"]), float(c["end"])) for c in cues["lines"]]
-    return Plan(events, speaking, lean, tilts or [], base_lean)
+    return Plan(events, speaking, lean, tilts or [], base_lean, gap_merge)
 
 
 # --- torso model and the arm clearance ---------------------------------------------------------------------------
@@ -327,7 +343,7 @@ class Performer(S.Seater):
         # pauses: down to the desk rest (forearms on the edge)
         e0, w0, _ = self.elbow_rest(s, W)
         tgt = [w0[i] + (tgt[i] - w0[i]) * ws for i in range(3)]
-        tgt[2] += 6.0 * math.sin(math.pi * ws)  # an arc up off the desk and back, never through it
+        tgt[2] += 4.0 * math.sin(math.pi * ws)  # an arc up off the desk and back, never through it
         pole = add(add(mul(f, -0.3), mul(r if s == "r" else mul(r, -1.0), 0.9)), mul(u, -0.35))
         pole_rest = sub(self.comp(e0), self._fk_t("upperarm_" + s, "clavicle_" + s, W))
         pole = add(mul(unit(pole), ws), mul(unit(pole_rest), 1.0 - ws))
