@@ -106,3 +106,13 @@ def test_curve_precheck_on_metahuman_controls():
         curves[f].update({"CTRL_expressions_mouthCornerPullL": 0.4, "CTRL_expressions_eyeCheekRaiseL": 0.3})
     r = P.face_rows_curves(curves, FPS, [[0, 240]])
     assert r["face.curves_brow_flash_per_min"]["value"] == 6 and r["face.curves_smile_events_per_min"]["value"] == 6
+
+
+def test_a_held_smile_drifting_around_the_line_is_one_event():
+    s = face(240)
+    for f in range(20, 120):  # 4 s held smile whose level wobbles 0.22-0.30 around the 0.25 line (rig scale)
+        lvl = 0.30 if (f // 3) % 2 else 0.22
+        s[f].update({"mouthSmileLeft": lvl + 0.05, "mouthSmileRight": lvl + 0.05,
+                     "cheekSquintLeft": 0.35, "cheekSquintRight": 0.35})
+    r = P.face_rows(s, FPS, [[0, 240]], lines={"smile": 0.25, "squint": 0.2}, neutral=False)
+    assert r["face.smile_events_per_min"]["value"] == 6  # one smile in 10 s

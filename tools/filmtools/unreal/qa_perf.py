@@ -31,6 +31,7 @@ CHANNELS = ("browInnerUp", "browOuterUpLeft", "browOuterUpRight", "cheekSquintLe
 ACTIVE = 0.15  # above the shot's neutral, on MediaPipe's 0-1 scale
 SMILE, SQUINT, BROW = 0.20, 0.10, 0.20
 SMILE_HOLD_F, BROW_MIN_S, BROW_MAX_S = 4, 0.12, 1.0
+HYST = 0.8  # an event ends below 80 % of its line
 REST_CMS, MOVE_CMS, ONSET_GAP_S = 10.0, 25.0, 0.25
 DESK_CLEAR_CM = 8.0  # the wrist bone of a forearm RESTING on the desk sits ~3-4 cm above its top: "up off the desk" is more
 
@@ -73,13 +74,17 @@ def face_rows(series: dict, fps: float, spans: list, lines: dict | None = None, 
         if prev is not None and f != prev + 1:
             run_s = run_b = hold = 0
         r = rel[f]
-        if smile(r) > L["smile"] and squint(r) > L["squint"]:
+        # hysteresis (agent-04, round 7): ON at the line, OFF below HYST of it, so a held smile or raised brow whose
+        # level drifts around the line is one event, not many
+        on_s = smile(r) > L["smile"] and squint(r) > L["squint"]
+        keep_s = smile(r) > HYST * L["smile"] and squint(r) > HYST * L["squint"]
+        if (run_s and keep_s) or on_s:
             run_s += 1
             if run_s == SMILE_HOLD_F:
                 smiles += 1
         else:
             run_s = 0
-        if brow(r) > L["brow"]:
+        if (run_b and brow(r) > HYST * L["brow"]) or brow(r) > L["brow"]:
             run_b += 1
         else:
             if BROW_MIN_S * fps <= run_b <= L["brow_max_s"] * fps:
