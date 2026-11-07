@@ -453,7 +453,8 @@ def body_params(who: str) -> dict:
             "gestures": [g.__dict__ for g in gestures(who)], "length_s": length_s(who), "fps": 30}
 
 
-PERFORM_STYLE = {"elbow_overhang": 10.0}  # r7: the desk rest in pauses has the forearms across the edge (upright)
+PERFORM_STYLE = {"elbow_overhang": 14.0, "elbow_out": 13.0}  # r7b: elbows rest OUT (her left forearm rests on the desk
+#   while she speaks; tucked, its upper arm met her torso; the tuck was r6's overshirt fix, and V2 has no overshirt)  # r7: the desk rest in pauses has the forearms across the edge (upright)
 
 
 def perform_params(who: str) -> dict:

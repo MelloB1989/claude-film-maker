@@ -59,6 +59,7 @@ class HandPose:
     pron: float = 60.0
     ext: float = 10.0
     shape: str = "relaxed"
+    yaw: float = 0.0  # deg the fingers turn toward that hand's own side (out), off the forearm's line
 
 
 # r7b (the orchestrator on side A: the gestures were BELOW the MCU frame): the sheet's apex_height per gesture
@@ -103,8 +104,9 @@ def gesture_pose(g: dict, hand: str, count_n: int) -> HandPose:
     return HandPose((29.0, 12.0 + so * 0.4, -2.0), pron=35.0, ext=12.0, shape="relaxed")
 
 
-HIGH_REST = HandPose((22.0, 11.0, 8.0), pron=60.0, ext=16.0, shape="relaxed")  # r7b: bust height, in frame, on
-#   her right of centre (the mic hangs at chest-to-face height on her left: hands at the midline sat over it)  # loose, fingertips near each other
+HIGH_REST = HandPose((22.0, 17.0, 13.0), pron=40.0, ext=10.0, shape="relaxed", yaw=20.0)  # r7b: hands together at the
+#   sternum (the MCU frame's bottom edge, agent-11 d2d3e565), on her RIGHT of centre: the mic hangs at chest-to-face
+#   height on her left, frame right (u 0.68, v 0.80 in CAM_MCU); hands at the midline sat over it
 
 
 @dataclass
@@ -231,7 +233,7 @@ def plan_from_sheet(sheet: dict, cues: dict, tilts: list | None = None, base_lea
                 pr = replace(pr, off=(pr.off[0], pr.off[1], APEX_Z[g["apex_height"]]))
             pl = scaled(gesture_pose(g, "l", n_count), k) if g.get("hand") in ("both", "l") else None
             if pl is not None:  # the left (mic side) stays below and inside the mic line, whatever the amp
-                pl = replace(pl, off=(min(pl.off[0], 26.0), min(pl.off[1], 4.5), -2.5), ext=max(pl.ext, 34.0),
+                pl = replace(pl, off=(min(pl.off[0], 22.0), min(pl.off[1], 2.0), -2.5), ext=max(pl.ext, 34.0),
                              pron=min(pl.pron, 60.0))
             seed0 += 1
             prep = float(g["prep_t"])  # agent-10's prosody timing owns prep/stroke/hold/retract when present
@@ -348,6 +350,10 @@ class Performer(S.Seater):
         A_l, A_r = (self.actor(self._fk_t("upperarm_" + x, "clavicle_" + x, W)) for x in "lr")
         st_pt = [(A_l[0] + A_r[0]) / 2 + 8.0, (A_l[1] + A_r[1]) / 2, (A_l[2] + A_r[2]) / 2 - 14.0]
         ws = self.plan.speak_w(t)
+        if s == "l" and LEFT_RESTS:
+            # her left forearm rests on the desk while she speaks and rises only for its own / two-hand gestures:
+            # anywhere up near her chest it sat over the mic in the picture (it hangs at sternum height, frame right)
+            ws *= max([e.weight(t) for e in self.plan.events if e.hand in ("l", "both")] or [0.0])
         if STYLE_HOOK is not None and hasattr(STYLE_HOOK, "hand"):
             hp, big = STYLE_HOOK.hand(self, s, t)  # the whole hand track (co-articulation, wrist lead, cascade)
         else:
@@ -381,15 +387,24 @@ class Performer(S.Seater):
         off = hp.off
         acc = self.accent(s, t)
         tgt = [st_pt[0] + off[0] + acc[0], st_pt[1] + sg * (off[1] + acc[1]), st_pt[2] + off[2] + acc[2]]
-        if s == "l":  # the mic-side hand: 1 cm back, a little lower, and never more than 2 cm to her own left of the
-            #           sternum point (it works at the centre, away from the mic), whatever drew its pose
+        if s == "l":  # the mic-side hand: 1 cm back, a little lower, and never further to her own left than
+            #           LEFT_MAX_LAT of the sternum point (it works right of centre, off the mic), whatever drew its pose
             tgt = [tgt[0] - 1.0, tgt[1], tgt[2] - 0.8]
             lat = dot(sub(tgt, st_pt), [0.0, -1.0, 0.0])  # how far to her left of the sternum point
-            if lat > 2.0:
-                tgt = [tgt[0], tgt[1] + (lat - 2.0), tgt[2]]
+            if lat > LEFT_MAX_LAT:
+                tgt = [tgt[0], tgt[1] + (lat - LEFT_MAX_LAT), tgt[2]]
+            two = any(e.hand == "both" and e.weight(t) > 0.3 for e in self.plan.events)
+            if not two:  # and under the mic in the picture (it hangs at sternum height, frame right)
+                tgt[2] = min(tgt[2], st_pt[2] + LEFT_MAX_Z)
         # pauses: down to the desk rest (forearms on the edge)
         e0, w0, _ = self.elbow_rest(s, W)
         tgt = [w0[i] + (tgt[i] - w0[i]) * ws for i in range(3)]
+        if s == "r" and ws > 0:  # her right hand works on her right of the sternum point (left of frame, off the mic),
+            #                       except a deictic to the panel, which crosses on purpose
+            cross = any(e.kind == "deictic" and e.pose_r.off[1] < 12.0 and e.weight(t) > 0.2 for e in self.plan.events)
+            lat = dot(sub(tgt, st_pt), [0.0, 1.0, 0.0])
+            if not cross and lat < RIGHT_MIN_LAT:
+                tgt = [tgt[0], tgt[1] + (RIGHT_MIN_LAT - lat) * ws, tgt[2]]
         tgt[2] += 4.0 * math.sin(math.pi * ws)  # an arc up off the desk and back, never through it
         if s == "l":  # and the mic-side hand's path bows in toward her midline, away from the mic in every camera
             tgt = add(tgt, mul(self.fr[1], 4.0 * math.sin(math.pi * ws)))
@@ -546,6 +561,8 @@ class Performer(S.Seater):
         a0 = sub(sk.p("pinky_01_" + s), sk.p("index_01_" + s))
         fa = unit(forearm)
         hz = ortho(fa, u) if abs(dot(fa, u)) < 0.98 else f
+        yw = math.radians(getattr(hp, "yaw", 0.0) + YAW_BASE.get(s, 0.0))
+        hz = unit(add(mul(hz, math.cos(yw)), mul(ortho(side, hz), math.sin(yw))))
         pitch = math.asin(max(-1.0, min(1.0, dot(fa, u)))) + math.radians(hp.ext)
         fingers = unit(add(mul(hz, math.cos(pitch)), mul(u, math.sin(pitch))))
         pr = math.radians(hp.pron)
@@ -587,13 +604,20 @@ def blend_poses(parts: list) -> HandPose:
     off = [sum(w * p.off[i] for w, p in parts) / tw for i in range(3)]
     pron = sum(w * p.pron for w, p in parts) / tw
     ext = sum(w * p.ext for w, p in parts) / tw
+    yaw = sum(w * getattr(p, "yaw", 0.0) for w, p in parts) / tw
     shapes = {}
     for w, p in parts:
         sh = SHAPES.get(p.shape, {}) if isinstance(p.shape, str) else p.shape
         for k in FINGERS + tuple(x for x in sh if x.startswith("_")):  # "_spread" etc. (gesture_style) ride along
             shapes[k] = shapes.get(k, 0.0) + w * float(sh.get(k, 0.0)) / tw
-    return HandPose(tuple(off), pron, ext, shapes)
+    return HandPose(tuple(off), pron, ext, shapes, yaw)
 
+
+YAW_BASE = {"r": 40.0, "l": 0.0}  # deg her right fingers always turn out a little: turned in, they reached the mic
+RIGHT_MIN_LAT = 15.0  # cm her right hand stays to her right of the sternum point while she speaks
+LEFT_RESTS = True  # r7b: the left hand rests on the desk between its own gestures (see hand_targets)
+LEFT_MAX_LAT = 0.0
+LEFT_MAX_Z = 8.0  # cm over the sternum point (bust height) for her left hand, except on two-hand moves  # cm: her left hand stays at least 3 cm to her RIGHT of the sternum point while she speaks
 
 FRAME_WANT = {"CAM_MCU": 0.6, "CAM_MCU_L": 0.6, "CAM_CU": 0.3, "CAM_WIDE": 0.95}  # the orchestrator's lines
 
@@ -660,6 +684,7 @@ def build(data: dict, st, sy, sheet: dict, cues: dict, tilts: list, length_s: fl
     keyed = {b: [] for b in moving}
     issues, clear = [], {"l": 1e9, "r": 1e9}
     framing = {}
+    rest_clear = 1e9
     for i in range(n):
         t = i / fps
         loc = perf.pose(t)
@@ -671,11 +696,24 @@ def build(data: dict, st, sy, sheet: dict, cues: dict, tilts: list, length_s: fl
             c = S.check(perf, F)
             ws = plan.speak_w(t)
             skip = ("desk.elbow_off", "desk.elbow_hangs", "desk.forearm_unsupported") if ws > 0.1 else ()
-            issues.extend({**x, "t": round(t, 2)} for x in c["issues"] if x["code"] not in skip)
+            live = next((cm for a, b, cm in plan.on_cam if a <= t < b), None) if plan.on_cam else "*"
+            for x in c["issues"]:
+                if x["code"] in skip:
+                    continue
+                if x["code"] == "mic.hides_hand" and live != "*" and (live is None or f" {live} " not in x["message"]):
+                    continue  # a mic overlap counts only in the camera that is cut in (and only when she is on it)
+                issues.append({**x, "t": round(t, 2)})
             if ws > 0.5:
                 A = {b: perf.actor(v[0]) for b, v in F.items()}
                 for s in "lr":
-                    clear[s] = min(clear[s], clearance(A, F, s, perf.tor))
+                    # per arm while it is UP and gesturing; the left resting on the desk (LEFT_RESTS) is reported apart
+                    up = s == "r" or not LEFT_RESTS or any(e.hand in ("l", "both") and e.weight(t) > 0.3
+                                                           for e in plan.events)
+                    c_ = clearance(A, F, s, perf.tor)
+                    if up:
+                        clear[s] = min(clear[s], c_)
+                    else:
+                        rest_clear = min(rest_clear, c_)
                 cam = next((c for a, b, c in plan.on_cam if a <= t < b), None)
                 if cam and st.rigs and cam in st.rigs:
                     fr = framing.setdefault(cam, [0, 0])
@@ -695,6 +733,7 @@ def build(data: dict, st, sy, sheet: dict, cues: dict, tilts: list, length_s: fl
     for b in keyed:
         keyed[b] = [{**k_, "t": anim_t(b, k_["t"])} for k_ in keyed[b]]
     rows = {"upperarm_torso_clear_cm": {s: round(v, 1) for s, v in clear.items()},
+            "left_resting_arm_clear_cm": round(rest_clear, 1) if rest_clear < 1e8 else None,
             "hands_in_frame_frac": {c: round(a / b, 3) for c, (a, b) in framing.items() if b}}
     for c, want in FRAME_WANT.items():
         got = rows["hands_in_frame_frac"].get(c)
