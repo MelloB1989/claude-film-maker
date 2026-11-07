@@ -808,7 +808,7 @@ def breath(t: list, pts: list) -> dict:
             "cycles": len(amps), "axis": [round(float(v), 3) for v in vt[0]]}
 
 
-def cmd_bodycheck(who: str, seq: str = "", every: int = 2, chunk: int = 0, span: str = "") -> dict:
+def cmd_bodycheck(who: str, seq: str = "", every: int = 2, chunk: int = 120, span: str = "") -> dict:
     """What the sequence plays, in the actor's frame: every BODY_BONES position against the desk, seat, floor and
     mic (seatkit.check's rules on the real bones), the posed hips/knees/wrists against seatkit's prediction (proves
     the conventions on this rig), and the breathing (sternum = spine_05 height) for agent-09's body rows."""
@@ -1040,7 +1040,7 @@ def main() -> None:
     ap.add_argument("--fresh", action="store_true")
     ap.add_argument("--force", action="store_true", help="body: write even if the pose fails its own check")
     ap.add_argument("--every", type=int, default=2, help="bodycheck: every n-th frame")
-    ap.add_argument("--chunk", type=int, default=0, help="bodycheck: frames per seq.sample call (0 = one call)")
+    ap.add_argument("--chunk", type=int, default=120, help="bodycheck: frames per seq.sample call (0 = one call)")
     ap.add_argument("--span", default="", help="bodycheck: a:b frame range")
     ap.add_argument("--face-mesh", default="", help="solve: the face SkeletalMesh to solve on (another level open)")
     ap.add_argument("--bless", action="store_true", help="signs: record the live head-signs file as this presenter's")
