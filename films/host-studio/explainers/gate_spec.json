@@ -733,8 +733,8 @@
    "op": ">=",
    "line": 3.0,
    "unit": "cm",
-   "what": "min over frames and sides of the upper arm's distance to the torso (posed Body + upper garment), NEGATIVE = the arm inside the torso's volume (the breast covering it)",
-   "where": "every speaking + on-screen frame of the presenter (cue words x edl presenter spans)",
+   "what": "min over frames and sides of the upper arm's distance to the torso (posed Body + upper garment), NEGATIVE = the arm inside the torso's volume (the breast covering it). The SIGN is solid (inside vs clear); the DEPTH of a negative reading is approximate (agent-02: the deepest torso point moves between frames), so the gate is the sign + the >= 3 cm line, never the magnitude of a fail",
+   "where": "min over on-screen frames (edl presenter + panel shots), both sides",
    "how": "agent-02's films/host-studio/reel/r7/garment_measure.py (fleet/agent-02/r7-garment c42b3aac): per frame, min over both sides of the SIGNED distance from the upper-arm skin (Body verts nearest upperarm_<s> at the ref pose, from 30 % shoulder->elbow) to the nearest torso triangle (torso skin + the Top's torso part, sleeves excluded), sign from the triangle normal, < 0 = inside -> numbers/<film>/garment.json. Cross-check (INFO): agent-09's qa.limb_clearance (bone-segment split, radial sign)",
    "must_fail": [
     -8.19,
