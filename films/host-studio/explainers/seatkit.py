@@ -306,6 +306,8 @@ class Style:
     wrist_r: float = 4.0  # cm from the wrist joint to the desk (box B: at 2.6 each exhale took a pronated hand's edge
     #                       0.8 cm lower, into the top; 3.4 still touched the body in qa.clip)
     forearm_in: float = 26.0  # degrees each forearm points in toward the midline
+    forearm_in_l: float | None = None  # her LEFT forearm's own (the mic side: kept out of the mic in the picture)
+    wrist_back_l: float = 0.0  # cm the left wrist rests nearer the body (the forearm shortened in plan by sliding it)
     wrist_fwd: float = 36.0  # cm the wrist sits in front of the shoulder line (forward)
     wrist_in: float = 4.0  # cm the wrist sits inside the shoulder (toward the midline)
     wrist_above: float = 3.2  # cm the wrist joint sits above the desk top (the forearm's half thickness)
@@ -342,11 +344,13 @@ class Gesture:
 
 
 # how far each kind moves the wrist (forward, outward, up cm) and the palm (supination degrees, wrist extension)
-KINDS = {
-    "lift": {"move": (5.0, 3.0, 11.0), "supinate": 55.0, "extend": 10.0},
-    "open": {"move": (7.0, 9.0, 13.0), "supinate": 75.0, "extend": 6.0},
-    "beat": {"move": (3.0, 1.0, 6.0), "supinate": 25.0, "extend": -6.0},
-    "point": {"move": (10.0, -3.0, 12.0), "supinate": 10.0, "extend": 2.0},
+KINDS = {  # r6b: every gesture swings the forearm OUTWARD (to the gesturing hand's own side) and a little back, never
+    #        in across the chest: from the cameras at the presenter's right-front a hand rising near the midline
+    #        sits over the mic in the picture (the orchestrator on her f48 / f1300)
+    "lift": {"move": (-2.0, 16.0, 11.0), "supinate": 55.0, "extend": 10.0},
+    "open": {"move": (-1.0, 18.0, 13.0), "supinate": 75.0, "extend": 6.0},
+    "beat": {"move": (-1.0, 8.0, 6.0), "supinate": 25.0, "extend": -6.0},
+    "point": {"move": (2.0, 10.0, 12.0), "supinate": 10.0, "extend": 2.0},
 }
 
 
@@ -514,7 +518,8 @@ class Seater:
         elbow = [a[0] + dx, sg * (abs(a[1]) + dy), ez]
         drop = sy.elbow_r - sy.wrist_r
         h = math.sqrt(max(1.0, l2 * l2 - drop * drop))
-        yi = math.radians(sy.forearm_in)
+        fi = sy.forearm_in_l if (s == "l" and sy.forearm_in_l is not None) else sy.forearm_in
+        yi = math.radians(fi)
         wrist = [elbow[0] + h * math.cos(yi), elbow[1] - sg * h * math.sin(yi), elbow[2] - drop]
         return elbow, wrist, reached
 
@@ -716,29 +721,26 @@ def seg_dist(p, a, b) -> float:
     return norm(sub(p, add(a, mul(ab, u))))
 
 
-def behind_mic(cam, p, st: "Set"):
-    """None, or how close (cm) the line of sight camera -> p passes to the mic (capsule sphere, or the boom's
-    polyline) at a point nearer the camera than p is: the mic would hide p in that camera."""
-    d = sub(p, cam)
-    L = norm(d)
-    u_ = mul(d, 1.0 / L)
-
-    def ray_point(q):
-        t = max(0.0, min(L - 2.0, dot(sub(q, cam), u_)))
-        return t, norm(sub(q, add(cam, mul(u_, t))))
+def behind_mic(cam, p, st: "Set", hand_r: float = 6.0):
+    """None, or how close (cm) a hand point and the mic come IN THE PICTURE of a camera at `cam`: the angle between
+    the two lines of sight, as a distance at the nearer one's range, under (mic radius + hand_r). Either way round
+    counts: the mic hiding the hand, or the hand over the mic (the orchestrator, v1/r6b: 'her left hand is on the mic
+    body'). Mic = the capsule sphere and points along the boom polyline."""
+    def ang_dist(q, r_q):
+        a, b = sub(p, cam), sub(q, cam)
+        la, lb = norm(a), norm(b)
+        c = max(-1.0, min(1.0, dot(a, b) / (la * lb)))
+        return math.sin(math.acos(c)) * min(la, lb) - r_q
 
     worst = None
-    if st.mic:
-        t, r_ = ray_point(st.mic)
-        if r_ < st.mic_radius and t < L - 2.0:
-            worst = r_
+    pts = ([(st.mic, st.mic_radius)] if st.mic else [])
     if st.boom:
-        for a, b in zip(st.boom, st.boom[1:]):
-            for k in range(11):
-                q = add(a, mul(sub(b, a), k / 10.0))
-                t, r_ = ray_point(q)
-                if r_ < st.boom_radius + 1.5 and t < L - 2.0 and (worst is None or r_ < worst):
-                    worst = r_
+        pts += [(add(a, mul(sub(b, a), k / 10.0)), st.boom_radius) for a, b in zip(st.boom, st.boom[1:])
+                for k in range(11)]
+    for q, rq in pts:
+        d = ang_dist(q, rq)
+        if d < hand_r and (worst is None or d < worst):
+            worst = d
     return worst
 
 
