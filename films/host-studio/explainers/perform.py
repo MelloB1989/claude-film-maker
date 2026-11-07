@@ -74,7 +74,11 @@ STYLE = {  # forearms resting on the desk (the orchestrator, r3 stills): elbows 
     "her": S.Style(lean=12.0, twist=0.0, hip_above_seat=11.0, knee_out=3.0, foot_out=6.0, pronation=75.0, shin_tilt=6.0,
                    elbow_out=-2.0, clavicle_fwd=-1.0, clavicle_drop=5.0, forearm_in=5.0,
                    elbow_r=4.6, wrist_r=3.7),  # bare forearms (V2, no overshirt): 1 cm of air read in the WIDE
-    "him": S.Style(lean=18.0, twist=0.0, knee_out=8.0, foot_out=9.0, pronation=72.0, elbow_out=3.0, forearm_in=8.0,
+    # him: the same seat rules as hers (elbows tucked by his sides on the top, near-parallel forearms, bare forearms
+    # in his tee); he is taller, so his desk top sits higher (set_him.json): at 71 his elbows land under his shoulders,
+    # 4-7 cm short of the near edge (box B, 07 Nov)
+    "him": S.Style(lean=18.0, twist=0.0, knee_out=8.0, foot_out=9.0, pronation=72.0, elbow_out=-2.0, forearm_in=6.0,
+                   elbow_r=4.6, wrist_r=3.7,
                    clavicle_fwd=5.0, clavicle_drop=3.0),
 }
 

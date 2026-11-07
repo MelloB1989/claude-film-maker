@@ -783,7 +783,7 @@ TUNE = {"desk.elbow_off": ("lean", 1.0, 23.0), "seat.thigh_edge": ("hip_above_se
         "desk.knee": ("hip_above_seat", -0.4, 9.0)}
 
 
-def autotune(sk: Skeleton, st: Set, sy: Style, steps: int = 8) -> tuple:
+def autotune(sk: Skeleton, st: Set, sy: Style, steps: int = 10) -> tuple:
     """A body this pipeline has not seen (his, built only on his box) may miss a contact rule at rest by a little:
     lean 1 deg more while an elbow is off the desk edge, sit 0.4 cm higher while a thigh meets the seat's front edge,
     lower while a knee meets the desk's apron; within TUNE's limits. Returns (Seater, [changes])."""
