@@ -364,3 +364,38 @@ def test_collar_roll_ignores_the_yoke_but_not_a_lip():
     assert GL.collar_stats(a, r, g, angle=ang, wall=wall)["roll"]
     a, r, g, ang, wall = yoke(*band(gap=2.447, lip=1.2))  # Fit5
     assert GL.collar_stats(a, r, g, angle=ang, wall=wall)["roll"]
+
+
+def test_neck_visible_counts_islands_and_deep_tongues_not_the_rim_hug():
+    # round 6 (orchestrator): r6n1's blob, a skin ISLAND under the collar, must fail; r6n2's neck continuing a little
+    # over the hugging collar's edge (one cluster joined to the opening) must pass; a long tongue still fails
+    L = neck_scene()
+    assert clip.judge_frame(L, W, H, 30.0)["neck_visible"]["px"] == 0
+    L = neck_scene(patch_rows=3)  # 18 px enclosed by cloth, rows 20-22
+    nv = clip.judge_frame(L, W, H, 30.0)["neck_visible"]
+    assert nv["px"] == 18 and nv["island_px"] == 18 and nv["islands"] == 1 and nv["clusters"][0]["kind"] == "island"
+    L = neck_scene()
+    rect(L["Face"], 14, 12, 26, 14, 99.5)  # the neck 2 rows (~2.7 cm here) over the collar edge, joined to the opening
+    fr = clip.judge_frame(L, W, H, 30.0)
+    assert fr["neck_visible"]["px"] == 0 and fr["neck_visible"]["max_tongue_cm"] < 4.0
+    assert fr["neck_px"]["px"] > 0  # the old rim rule counted this hug
+    L = neck_scene()
+    rect(L["Face"], 17, 12, 23, 22, 99.5)  # a tongue of skin 10 rows (~13 cm) down from the rim: fails
+    nv = clip.judge_frame(L, W, H, 30.0)["neck_visible"]
+    assert nv["tongue_px"] > 0 and nv["island_px"] == 0 and nv["max_tongue_cm"] > 4.0
+    L = neck_scene(patch_rows=3)  # hair over the island: not seen, not counted
+    L["Hair"] = rect(layer(), 15, 18, 25, 25, 90.0)
+    assert clip.judge_frame(L, W, H, 30.0, pair_list=[("Face", "tee")])["neck_visible"]["px"] == 0
+
+
+def test_gate_neck_rule_visible():
+    L = neck_scene()
+    rect(L["Face"], 14, 12, 26, 14, 99.5)  # the hug: neck_px > 0, neck_visible 0
+    fr = clip.judge_frame(L, W, H, 30.0)
+    assert [i["code"] for i in clip.gate({"S15": {1128: fr}}, "Host")] == ["clip.neck"]
+    assert clip.gate({"S15": {1128: fr}}, "Host", neck_rule="visible") == []
+    fr = clip.judge_frame(neck_scene(patch_rows=3), W, H, 30.0)
+    assert [i["code"] for i in clip.gate({"S15": {1128: fr}}, "Host", neck_rule="visible")] == ["clip.neck"]
+    old = {k: v for k, v in fr.items() if k != "neck_visible"}  # an out_dir judged before this measure: refused
+    assert "clip.neck_missing" in [i["code"] for i in clip.gate({"S15": {1128: old}}, "Host", neck_rule="visible")]
+    assert clip.summarize({"S15": {1128: fr}})["neck_visible"]["island_px"] == 18
