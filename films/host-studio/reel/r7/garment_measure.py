@@ -206,7 +206,11 @@ def torso_tris(P, T, keep, tag, chain=None):
     return out
 
 
-def clearance(grid, arm_pts, max_d=20.0, align=0.5):
+def chain_dist(p, chain):
+    return min(seg_t(p, a, b)[0] for a, b in zip(chain, chain[1:]))
+
+
+def clearance(grid, arm_pts, max_d=20.0, align=0.5, chain=None):
     """Signed clearance of each arm point to the grid's surface: (min, its record, count < 0, count < 3 cm)."""
     worst, neg, lt3 = None, 0, 0
     for i, p in arm_pts:
@@ -218,7 +222,9 @@ def clearance(grid, arm_pts, max_d=20.0, align=0.5):
         # inside only when the point lies (mostly) BEHIND the face: at the torso patch's open edge (where the arm and
         # the armpit were cut out) the nearest point is on that edge and the face normal says nothing (v2b2's
         # ref-pose -13.7 cm: arm points beside the patch, read as 'behind' it)
-        s = -d if al <= -align else d
+        # and only when it is nearer the spine than the face is (R7 f1104: a raised arm 13.9 cm off a curved
+        # patch read as 'behind' it; nothing can be inside her torso by more than its own depth)
+        s = -d if al <= -align and (chain is None or chain_dist(p, chain) < chain_dist(q, chain)) else d
         neg += s < 0
         lt3 += s < 3.0
         if worst is None or s < worst[0]:
@@ -502,11 +508,12 @@ def _editor(G: dict):
                     skipped.append(n)
             grid = TriGrid(entries, float(G.get("CELL", 2.0)))
             P = posed["Body"][0]
-            worst, neg, lt3 = clearance(grid, [(i, P[i]) for i in arm], float(G.get("MAX_D", 20.0)))
+            worst, neg, lt3 = clearance(grid, [(i, P[i]) for i in arm], float(G.get("MAX_D", 20.0)), chain=chain)
             # self-check: the same sets on the ref pose (arms out, clear of the torso) must read > 0, else the
             # arm/torso split is wrong and the posed number means nothing
             rw, rneg, _ = clearance(TriGrid(rest_entries, float(G.get("CELL", 2.0))),
-                                    [(i, rest["Body"][0][i]) for i in arm], float(G.get("MAX_D", 20.0)))
+                                    [(i, rest["Body"][0][i]) for i in arm], float(G.get("MAX_D", 20.0)),
+                                    chain=rest_chain["Body"])
             ua, la = loc(body, f"upperarm_{sd}"), loc(body, f"lowerarm_{sd}")
             rec = {"arm_verts": len(arm), "torso_tris": len(entries), "verts_lt0": neg, "verts_lt3": lt3,
                    "arm_r_med": r_med and round(r_med, 2), "arm_r": arm_r and round(arm_r, 2),

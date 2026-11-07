@@ -172,3 +172,16 @@ def test_deltoid_near_the_shoulder_is_not_torso():
     P = [(-40, 0, 40), (-40, 0, 20), (-40, 0, 30)]   # all far from the shoulder joint: only the t rule decides
     arm, torso = gm.arm_sets(lab, P, (-20, 0, 45), "r", 0.3, 7.0, 4.08)
     assert arm == [2] and torso == [1]
+
+
+def test_far_point_behind_a_curved_patch_is_not_inside():
+    """R7 f1104: a raised arm 13.9 cm off the torso patch read 'behind' a face: inside needs nearer the spine too."""
+    P = [(0, 0, 0), (10, 0, 0), (0, 10, 0), (10, 10, 0)]    # a patch facing +z, the spine far below it at z -10
+    T = [(0, 1, 2), (1, 3, 2)]
+    chain = [(5, 5, -10.0), (5, 5, -9.0)]
+    grid = gm.TriGrid(gm.torso_tris(P, T, {0, 1, 2, 3}, "Top"), 2.0)
+    worst, neg, _ = gm.clearance(grid, [(0, (5.0, 5.0, -2.0))], chain=chain)       # between face and spine
+    assert worst[0] < 0 and neg == 1
+    chain2 = [(5, 5, 10.0), (5, 5, 11.0)]                                         # spine on the other side
+    worst, neg, _ = gm.clearance(grid, [(0, (5.0, 5.0, -2.0))], chain=chain2)
+    assert worst[0] > 0 and neg == 0
