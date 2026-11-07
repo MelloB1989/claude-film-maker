@@ -99,7 +99,8 @@ def step_level(who: str) -> None:
     labels = [a[0] for a in op("level.actors")]
     other = ACTOR["him" if who == "her" else "her"]
     gone = [lab for lab in labels if lab in P.STUDIO_HOST_LIGHTS or lab in P.STUDIO_CAMS or lab == other
-            or lab.startswith("Reel_")]
+            or lab.startswith(("Reel_", "Test_", "FMQA_"))]  # Test_perf_*: the reel's parked test copies (a full
+    # BP_Host_Op among them, box B 18:05), FMQA_*: QA temporaries — never in a presenter level
     if other == "Presenter":  # her hoops and watch ride her bones as separate actors
         gone += [lab for lab in labels if lab in ("HerEarL", "HerEarR", "HerWatch")]
     if gone:
@@ -375,6 +376,32 @@ def check(who: str) -> int:
     print(f"{'ok ' if lead.get('pass') else 'BAD'} leaders: {lead.get('why') or lead.get('metric')}")
     bad += not lead.get("pass")
     return bad
+
+
+def guard_scene(who: str, cam: str = "", frame: int | None = None) -> dict:
+    """agent-06's pre-render guard: no Test_*/FMQA_* actor and no second presenter in the level, every garment led by
+    Body, and (with cam/frame) her face lit in a still through that camera (mean luma 50..230 in a box round the
+    eyes and mouth). Returns {"ok", "why", ...}."""
+    actor = ACTOR[who]
+    bad = [lab for lab, cls, _ in op("level.actors")
+           if lab.startswith(("Test_", "FMQA_")) or (("BP_Host" in cls or "BP_Presenter" in cls) and lab != actor)]
+    lead = op("mh.leader_check", label=actor)
+    out = {"strays": bad, "leaders_ok": int(bool(lead.get("pass")))}
+    if cam and frame is not None:
+        path = f"/srv/ue/explainer/guard/{who}_{cam}_f{frame:04d}.png"
+        op("seq.scrub", path=SEQ[who], frame=frame)
+        eyes = op("level.bone", label=actor, component="Face", bones=["FACIAL_L_Eye", "FACIAL_R_Eye", "FACIAL_C_LipLower"])
+        pts = op("cam.project", camera=cam, points={k: v for k, v in eyes.items()})["points"]
+        us, vs = [p["u"] for p in pts.values()], [p["v"] for p in pts.values()]
+        box = [max(0.0, min(us) - 0.01), max(0.0, min(vs) - 0.01), min(1.0, max(us) + 0.01), min(1.0, max(vs) + 0.02)]
+        op("seq.still", path=SEQ[who], frame=frame, camera=cam, out=path, width=960, height=540, settle=24)
+        face = op("qa.exposure", image=path, regions={"face": box})["metrics"]["regions"]["face"]["mean"]
+        out.update(face_luma=round(face, 1), face_box=[round(x, 3) for x in box])
+        out["face_ok"] = int(50 <= face <= 230)
+    out["ok"] = not bad and out["leaders_ok"] and out.get("face_ok", 1)
+    out["why"] = "; ".join(w for w, c in (("strays " + ",".join(bad), bad), ("leaders", not out["leaders_ok"]),
+                                           (f"face luma {out.get('face_luma')}", not out.get("face_ok", 1))) if c)
+    return out
 
 
 def stills(who: str, tag: str, frame: int, edl_path: str | None, extra: list | None = None) -> None:

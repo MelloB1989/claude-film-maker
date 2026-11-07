@@ -110,16 +110,18 @@ def main() -> int:
             S.op("seq.camera_cuts", path=seq, cuts=[[cam, 0]])
             for n, c, f0, f1 in [p for p in plan if p[1] == cam]:
                 # garment.leaders_ok (agent-09's hard row): every garment led by Body, read right before EVERY job
+                # + agent-06's pre-render guard: no Test_*/FMQA_* or second presenter, her face lit in this camera
                 S.op("mh.leader", label=S.ACTOR[a.who])
-                lead = S.op("mh.leader_check", label=S.ACTOR[a.who])
+                g = S.guard_scene(a.who, c, (f0 + f1) // 2)
+                lead = {"pass": g["ok"], "why": g["why"]}
                 jobs.append({"job": f"{a.preset}/shot{n:02d}_{c}", "frames": [f0, f1], "box": a.instance,
-                             "at": time.strftime("%Y-%m-%d %H:%M:%S"), "garment.leaders_ok": int(bool(lead.get("pass"))),
-                             "leader_gap_cm": lead.get("metric")})
+                             "at": time.strftime("%Y-%m-%d %H:%M:%S"), "garment.leaders_ok": g["leaders_ok"],
+                             "strays": g["strays"], "face_luma": g.get("face_luma"), "guard_ok": int(bool(g["ok"]))})
                 box["garment.leaders_ok"] = min(j["garment.leaders_ok"] for j in jobs)
                 box_json.parent.mkdir(parents=True, exist_ok=True)
                 box_json.write_text(json.dumps(box, indent=1) + "\n")
                 if not lead.get("pass"):
-                    print(f"shot{n:02d} {c}: leaders FAIL ({lead.get('why')}): not rendered")
+                    print(f"shot{n:02d} {c}: GUARD FAIL ({lead.get('why')}): not rendered")
                     failed.append(n)
                     continue
                 t = time.time()
