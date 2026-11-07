@@ -639,7 +639,11 @@ def blend_eyes(a: dict, b: dict, spans: list) -> tuple:
     Left - Right and pitch = Up - Down are corrected as signed values, then split back into the rig's one-sided
     curves. Returns ({curve: [times, values]}, numbers)."""
     import numpy as np
-    t = np.asarray(a[EYE_CURVES[0]][0], float)
+    # a uniform 30 fps grid over the whole take: the engine's curves are key-reduced (her follow's eyeLookLeftL had 97
+    # keys in 59 s, none for seconds where the eye holds), so no curve's own keys can be the grid (07 Nov: the blend on
+    # those keys drew straight lines between distant keys and missed the lock's correction)
+    t_end = max(max(cur[n][0][-1] for n in cur if cur[n][0]) for cur in (a, b))
+    t = np.arange(0.0, t_end + 1e-6, 1.0 / 30.0)
 
     def on(cur, n):
         tt, vv = cur.get(n, [[0.0, 1.0], [0.0, 0.0]])
