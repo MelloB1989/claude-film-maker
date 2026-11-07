@@ -716,7 +716,7 @@
    "unit": "cm",
    "what": "min over frames and sides of the upper arm's distance to the torso (posed Body + upper garment), NEGATIVE = the arm inside the torso's volume (the breast covering it)",
    "where": "every speaking + on-screen frame of the presenter (cue words x edl presenter spans)",
-   "how": "film-ue op qa.limb_clearance label=<presenter> sequence=<SEQ> frames=[every 6th speaking frame] (core fleet/agent-09/r7-perf-gate) -> metrics.worst_cm -> numbers/<film>/limbs.json",
+   "how": "agent-02's films/host-studio/reel/r7/garment_measure.py (fleet/agent-02/r7-garment c42b3aac): per frame, min over both sides of the SIGNED distance from the upper-arm skin (Body verts nearest upperarm_<s> at the ref pose, from 30 % shoulder->elbow) to the nearest torso triangle (torso skin + the Top's torso part, sleeves excluded), sign from the triangle normal, < 0 = inside -> numbers/<film>/garment.json. Cross-check (INFO): agent-09's qa.limb_clearance (bone-segment split, radial sign)",
    "must_fail": [
     null,
     "netflix v2b (the operator's REJECT, 07 Nov 23:45): measure on box B's v2b frames/curves and put the value here; the line must fail it"
@@ -732,13 +732,29 @@
    "unit": "cm",
    "what": "the bottoms' waistband vs the body at the waist: the worst gap (stand-off) or poke, per frame, on the camera-facing half",
    "where": "every speaking + on-screen frame of the presenter (cue words x edl presenter spans)",
-   "how": "agent-02's waist measure (qa.garment_look-style ring at the waist band) -> numbers/<film>/garment.json",
+   "how": "agent-02's garment_measure.py: per frame, the worst over the camera/front half of the waistband GAP (trousers inner radius minus the layer under it, 1 cm cells down a 4 cm band, 24 sectors), POKE (under-layer through the band) and BARE SKIN (Top hem above the trousers' edge) -> numbers/<film>/garment.json; line set with the eye on v2b",
    "must_fail": [
     null,
     "netflix v2b (the operator's REJECT, 07 Nov 23:45): measure on box B's v2b frames/curves and put the value here; the line must fail it"
    ],
    "guard": true,
    "why": "the operator, 07 Nov: 'her expression is pale, no emotion at all ... hands stuck to her body ... boob covering the upper limb ... these presenters must look confident, happy, full of energy, not robotic' (R7_common.md). The numbers support the eye; the operator decides"
+  },
+  "body.limb_clearance_xcheck_cm": {
+   "area": "performance",
+   "track": "agent-09",
+   "op": ">=",
+   "line": 3.0,
+   "unit": "cm",
+   "info": true,
+   "what": "cross-check of the arm clearance by bone-segment split and radial sign (qa.limb_clearance)",
+   "where": "the same frames",
+   "how": "film-ue op qa.limb_clearance (core fleet/agent-09/r7-perf-gate)",
+   "r4": [
+    null,
+    "INFO: agent-02's triangle-normal measure is the gated one"
+   ],
+   "why": "two independent readings of the operator's arm complaint"
   }
  },
  "not_attempted": {
