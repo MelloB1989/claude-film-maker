@@ -97,10 +97,26 @@ def main() -> int:
     S.client = client
     S.guard(a.box, a.instance)
     seq, failed = S.SEQ[a.who], []
+    box_json = HERE / "numbers" / a.film / "box.json"
+    box = json.loads(box_json.read_text()) if box_json.exists() else {}
+    jobs = box.setdefault("jobs", [])
     try:
         for cam in dict.fromkeys(p[1] for p in plan):  # one cut change per camera, its shots in order
             S.op("seq.camera_cuts", path=seq, cuts=[[cam, 0]])
             for n, c, f0, f1 in [p for p in plan if p[1] == cam]:
+                # garment.leaders_ok (agent-09's hard row): every garment led by Body, read right before EVERY job
+                S.op("mh.leader", label=S.ACTOR[a.who])
+                lead = S.op("mh.leader_check", label=S.ACTOR[a.who])
+                jobs.append({"job": f"{a.preset}/shot{n:02d}_{c}", "frames": [f0, f1], "box": a.instance,
+                             "at": time.strftime("%Y-%m-%d %H:%M:%S"), "garment.leaders_ok": int(bool(lead.get("pass"))),
+                             "leader_gap_cm": lead.get("metric")})
+                box["garment.leaders_ok"] = min(j["garment.leaders_ok"] for j in jobs)
+                box_json.parent.mkdir(parents=True, exist_ok=True)
+                box_json.write_text(json.dumps(box, indent=1) + "\n")
+                if not lead.get("pass"):
+                    print(f"shot{n:02d} {c}: leaders FAIL ({lead.get('why')}): not rendered")
+                    failed.append(n)
+                    continue
                 t = time.time()
                 rep = S.ok(client.op("render.job", timeout=4 * 3600, spec=spec(a.who, a.film, n, c, f0, f1, a.preset)))
                 print(f"shot{n:02d} {c} [{f0},{f1}) {rep.get('status')} {rep.get('frames')} frames "
