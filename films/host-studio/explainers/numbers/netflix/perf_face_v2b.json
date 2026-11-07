@@ -1,0 +1,21 @@
+{
+ "gate": {
+  "face.expr_active_frac": {
+   "value": 0.535,
+   "where": "581 speaking frames (24.2 s)"
+  },
+  "face.smile_events_per_min": {
+   "value": 0.0,
+   "where": "581 speaking frames (24.2 s)"
+  },
+  "face.brow_flash_per_min": {
+   "value": 61.96,
+   "where": "581 speaking frames (24.2 s)"
+  },
+  "face.neutral_hold_max_s": {
+   "value": 1.42,
+   "where": "581 speaking frames (24.2 s)"
+  }
+ },
+ "frames": 699
+}
