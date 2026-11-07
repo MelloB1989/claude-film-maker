@@ -1,0 +1,32 @@
+{
+ "gate": {
+  "hair.lock": {
+   "value": 1,
+   "where": "the level, before the render",
+   "problems": []
+  },
+  "hair.render_cvars": {
+   "value": 1,
+   "where": "30-final.yaml",
+   "mismatch": []
+  },
+  "hair.cut_reach_pct": {
+   "value": 3.47,
+   "cuts_judged": [
+    "editor Reel_S15->Reel_S16 f1200 +0.64%",
+    "editor Reel_S16->Reel_S17 f1320 +3.47%",
+    "editor Reel_S17->Reel_S18 f1440 -0.71%",
+    "render S15->S16 f1200 -31.70%",
+    "render S16->S17 f1320 +160.26%",
+    "render S17->S18 f1440 -27.79%"
+   ]
+  },
+  "hair.pop_reach_pct": 1.61,
+  "hair.cut_pop_ratio": {
+   "value": 1.304,
+   "pop_cuts": [
+    "S17->S18 f1440 x1.304"
+   ]
+  }
+ }
+}
