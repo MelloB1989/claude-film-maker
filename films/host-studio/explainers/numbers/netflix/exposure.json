@@ -2,11 +2,11 @@
  "gate": {
   "shot.exposure_jump_stops": {
    "value": 0.007,
-   "where": "CONTROL: a fixed plaster-wall patch per shot (projected; static, lit by static lights), her V2 finals, EDL ranges, median luma: worst jump 0.007 (every shot with the wall in frame: 01/04/06/10/11/13; the CUs have no wall in frame). Exposure is manual + locked (FM_Post AEM_MANUAL, bias -0.4, non-physical)"
+   "where": "static background patch per shot, all 9 of her V2 shots, EDL ranges, median luma: plaster wall (01/04/06/10/11/13: projected) and the out-of-focus top-middle background in the CUs (02/07/14: [0.62,0.02,0.80,0.12], luma ~0.40); worst jump 0.007 (CUs 0.005). Exposure manual + locked"
   },
   "shot.exposure_drift_stops": {
-   "value": 0.019,
-   "where": "CONTROL as above: worst drift 0.019 (shot06/shot11)"
+   "value": 0.023,
+   "where": "same patches: worst drift 0.023 (shot02 CU background); walls \u2264 0.019"
   }
  },
  "info": {
@@ -75,6 +75,18 @@
    "shot13_CAM_MCU": [
     0.007,
     0.016
+   ],
+   "shot02_CAM_CU": [
+    0.005,
+    0.023
+   ],
+   "shot07_CAM_CU": [
+    0.005,
+    0.016
+   ],
+   "shot14_CAM_CU": [
+    0.005,
+    0.011
    ]
   }
  }
