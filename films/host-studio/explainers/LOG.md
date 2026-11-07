@@ -138,6 +138,19 @@ Every number on screen or in the voice is softened or sourced; the sources are i
 `--placeholder` lets any missing presenter shot or graphic stand in as a labelled slug (a partial cut for review);
 without it a missing input stops the run and names the file.
 
+### Netflix v2b (delivered)
+
+- v2 (agent-07, box B): composite.py's one-pass mux cut the audio to 56.08 of 59.46 s (`-frames:v` ended the file
+  while the audio lagged the graph); agent-07 remuxed it by hand. Fixed in f6239dd5: the picture is encoded alone,
+  then each file is remuxed with the mix (`-c:v copy -t`).
+- Orchestrator's look: picture, lips, hair, neckline, grain and mix pass; captions too faint over her white top.
+  e60e5a39: a rounded backing plate on every caption (black 45 %, 16/8 px pad, radius 12) and the waiting words at
+  70 %.
+- v2b on box B (CPU, beside the editor): `/srv/ue/explain/comp3.sh netflix v2b "48 240 600"` (agent-07's comp2.sh on
+  src3 = src2 + the new composite.py). Both files 1427 f / 59.458 s; qa_av all: -14.0/-1.7, text_match 1 (144 words,
+  37 captions), onset 84 ms, facts 1, qc_ok 1 (needs `PYTHONPATH=<tools> uv run --with numpy --with pillow`).
+  Approved and delivered by the orchestrator.
+
 ## Performances (agent-01, branch `fleet/agent-01/r6-perf`)
 
 `perform.py` (the driver, every step on the box through the bridge), `seatkit.py` (the seated body, pure Python,
