@@ -638,6 +638,7 @@ def job():
     os.makedirs(os.path.dirname(P["file"]), exist_ok=True)
     with open(P["file"], "w") as fh:
         json.dump({"bones": bones, "frames": out}, fh)
+    unreal.SystemLibrary.collect_garbage()  # box B: his 14th sampling job in a row died: drop what the job held
     return {"frames": len(out), "bones": len(bones), "file": P["file"]}
 result = job()
 """
@@ -712,13 +713,13 @@ BAKE_CHUNK = 240
 
 
 def bake(who: str, source: str, target: str, anim: str, out: str, bones, head_control_off: bool = False,
-         chunk: int = BAKE_CHUNK) -> dict:
+         chunk: int = BAKE_CHUNK, stage: str = "") -> dict:
     """anim.bake_pose / bake_follow, sampled in `chunk`-frame jobs (each prints before it runs) and written once."""
     c = client()
     path, lab = WORK[who], LABEL[who]
     n = frames(who)
     files = []
-    tag = out.rsplit("/", 1)[-1]
+    tag = out.rsplit("/", 1)[-1] + (f"_{stage}" if stage else "")  # bakes 1 and 3 write the same asset
     for f0 in range(0, n, chunk):
         part = list(range(f0, min(n, f0 + chunk)))
         fn = box(who, "bake", f"{tag}_{f0:05d}.json")
@@ -730,7 +731,7 @@ def bake(who: str, source: str, target: str, anim: str, out: str, bones, head_co
                             "fps": FPS, "head_control_off": head_control_off}, 3600)
 
 
-def cmd_sync(who: str) -> dict:
+def cmd_sync(who: str, from_bake: int = 1) -> dict:
     """The reel's sync on the seated body: the face rides the body with its head control on, the body takes the head
     motion that makes, the shared skeleton is baked back onto the face; then perf.face's planned head turn goes on the
     body (on 5.8 the face takes its neck from the body)."""
@@ -745,14 +746,21 @@ def cmd_sync(who: str) -> dict:
                                                                           "loop": False}]))
     # the reel's three bakes, each sampled in BAKE_CHUNK-frame jobs (bake_follow = the Body's shared bones onto the
     # Face; head_to_body = the Face's spine/neck/head onto the Body)
-    print("sync 1/3: bake_follow (head control on)", file=sys.stderr, flush=True)
-    a = bake(who, "Body", "Face", face, f"{ANIM}/AS_exp_{who}_follow", "shared", head_control_off=False)
-    print("sync 2/3: head_to_body", file=sys.stderr, flush=True)
-    b = bake(who, "Face", "Body", seat, f"{ANIM}/AS_exp_{who}_body",
-             ["spine_04", "spine_05", "neck_01", "neck_02", "head"])
-    ok(c.op("seq.set_anim", path=path, component="Body", anim=f"{ANIM}/AS_exp_{who}_body", label=lab))
+    # --from-bake N resumes after a crash: the earlier bakes' assets are on disk (each bake saves its own), and the
+    # work sequence's tracks are put back to what bake N expects (an editor restart can drop unsaved track changes)
+    follow, body = f"{ANIM}/AS_exp_{who}_follow", f"{ANIM}/AS_exp_{who}_body"
+    a = b = {"skipped": True}
+    if from_bake <= 1:
+        print("sync 1/3: bake_follow (head control on)", file=sys.stderr, flush=True)
+        a = bake(who, "Body", "Face", face, follow, "shared", head_control_off=False, stage="b1")
+    else:
+        ok(c.op("seq.set_anim", path=path, component="Face", anim=follow, label=lab))
+    if from_bake <= 2:
+        print("sync 2/3: head_to_body", file=sys.stderr, flush=True)
+        b = bake(who, "Face", "Body", seat, body, ["spine_04", "spine_05", "neck_01", "neck_02", "head"], stage="b2")
+    ok(c.op("seq.set_anim", path=path, component="Body", anim=body, label=lab))
     print("sync 3/3: bake_follow (head control off)", file=sys.stderr, flush=True)
-    d = bake(who, "Body", "Face", face, f"{ANIM}/AS_exp_{who}_follow", "shared", head_control_off=True)
+    d = bake(who, "Body", "Face", face, follow, "shared", head_control_off=True, stage="b3")
     e = ok(c.op("perf.turn_head", anim=f"{ANIM}/AS_exp_{who}_body", face_anim=face, timeout=900))
     ok(c.op("seq.set_anim", path=path, component="Face", anim=f"{ANIM}/AS_exp_{who}_follow", label=lab))
     res = {"follow_head": a, "body": b, "follow": d, "turn": e, "leaders": lead(who)}
@@ -1155,7 +1163,7 @@ def step(name: str, who: str, a) -> dict:
         r = {"push": lambda: cmd_push(who), "solve": lambda: cmd_solve(who, a.only, a.face_mesh), "bias": lambda: cmd_bias(who),
              "compose": lambda: cmd_compose(who), "workseq": lambda: cmd_workseq(who, a.fresh),
              "body": lambda: cmd_body(who, a.force), "cams": lambda: cmd_cams(who), "life": lambda: cmd_life(who),
-             "face": lambda: cmd_face(who), "sync": lambda: cmd_sync(who), "gaze": lambda: cmd_gaze(who),
+             "face": lambda: cmd_face(who), "sync": lambda: cmd_sync(who, a.from_bake), "gaze": lambda: cmd_gaze(who),
              "place": lambda: cmd_place(who, a.seq), "preview": lambda: cmd_preview(who, a.seq),
              "numbers": lambda: cmd_numbers(who, a.seq), "signs": lambda: cmd_signs(who, a.bless), "rolltest": lambda: cmd_rolltest(who), "bodycheck": lambda: cmd_bodycheck(who, a.seq, a.every, a.chunk, a.span),
              "calibrate_body": lambda: cmd_calibrate_body(who)}[name]()
@@ -1172,6 +1180,7 @@ def main() -> None:
     ap.add_argument("--seq", default="")
     ap.add_argument("--fresh", action="store_true")
     ap.add_argument("--force", action="store_true", help="body: write even if the pose fails its own check")
+    ap.add_argument("--from-bake", type=int, default=1, help="sync: resume at bake 2 or 3 after a crash")
     ap.add_argument("--every", type=int, default=2, help="bodycheck: every n-th frame")
     ap.add_argument("--chunk", type=int, default=120, help="bodycheck: frames per seq.sample call (0 = one call)")
     ap.add_argument("--span", default="", help="bodycheck: a:b frame range")
