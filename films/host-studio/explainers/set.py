@@ -157,6 +157,8 @@ result = {{"rc": r.returncode, "err": r.stderr[-500:], "props": json.load(open(p
     print("props on the box:", sorted(by_name))
     mats = {}
     for slot, t in meta.get("textures", {}).items():
+        if slot in ("M_ShadeLinen", "M_LampBulb"):
+            continue  # made below as look.materials (sheer, emissive); a PBR build would reparent one the lamp draws
         mi = f"{PROPS_DIR}/Materials/MI_Exp_{slot[2:]}"
         tiling = 1.0 / t["tile_m"] if P.UV_METRES and t.get("tile_m") else 1.0
         tx = f"{BOX_PROPS}/textures"
