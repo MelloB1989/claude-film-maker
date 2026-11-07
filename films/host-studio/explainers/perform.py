@@ -533,9 +533,7 @@ def face_args(who: str) -> dict:
     eyes): glances off the active lens, re-aims mid-gap or on a direct cut, no blink on any gaze move. Nothing is added
     here but the mouth gain for him."""
     import head as HD
-    cams = json.loads((OUT / who / "cams.json").read_text())["cams"]
-    cue = {**cue_sheet(who), "cams": {c: [v["yaw"], v["pitch"]] for c, v in cams.items() if v}}
-    args = HD.face_args(cue, who)
+    args = HD.face_args(head_cue(who), who)
     if SPEECH_GAIN.get(who, 1.0) != 1.0:
         args["speech_gain"] = [[0.0, round(length_s(who), 3), SPEECH_GAIN[who]]]
     return args
@@ -577,41 +575,22 @@ def cmd_sync(who: str) -> dict:
 
 
 EYE_CURVES = [f"CTRL_expressions_eyeLook{d}{e}" for e in "LR" for d in ("Left", "Right", "Up", "Down")]
-GLANCE_PAD = (0.12, 0.35)  # s kept free of the lock before a glance leaves the lens / after it comes back
 CORR_SMOOTH_S = 0.8        # the lock's correction is averaged over this window: aim only, never the darts
 CORR_FADE_S = 0.25         # and faded in/out at each locked span's ends
 
 
+def head_cue(who: str) -> dict:
+    """agent-04's cue (cues/<who>.json) with the cameras' directions from the cams step: what head.py plans on."""
+    cams = json.loads((OUT / who / "cams.json").read_text())["cams"]
+    return {**cue_sheet(who), "cams": {c: [v["yaw"], v["pitch"]] for c, v in cams.items() if v}}
+
+
 def lock_spans(who: str) -> list:
-    """The on-camera spans the eyes are locked in, in frames [f0, f1], minus each thinking glance (perf.face's plan:
-    a gaze shift that is not 'lens' until the next 'lens' one): a glance must stay perf.face's (agent-04's judge:
-    glances_per_min 0 when the lock covered them)."""
-    args = json.loads((OUT / who / "face_args.json").read_text())
-    gz = args.get("gaze") or []
-    away = []
-    for i, g in enumerate(gz):
-        if g.get("scan") != "lens":
-            back = next((x["t"] for x in gz[i + 1:] if x.get("scan") == "lens"), g["t"] + 1.2)
-            away.append((g["t"] - GLANCE_PAD[0], back + GLANCE_PAD[1]))
-    out = []
-    for a, b, cam in cue_sheet(who)["on_cam"]:
-        pieces = [(a, b)]
-        for x0, x1 in away:
-            nxt = []
-            for p0, p1 in pieces:
-                if x1 <= p0 or x0 >= p1:
-                    nxt.append((p0, p1))
-                    continue
-                if x0 > p0:
-                    nxt.append((p0, x0))
-                if x1 < p1:
-                    nxt.append((x1, p1))
-            pieces = nxt
-        for p0, p1 in pieces:
-            f0, f1 = int(round(p0 * FPS)), int(round(p1 * FPS)) - 1
-            if f1 - f0 >= 6:
-                out.append([f0, f1, cam])
-    return out
+    """agent-04's head.lock_spans: the on-camera spans minus each thinking glance (0.08 s before it leaves the lens
+    to 0.35 s after it is back), [f0, f1 inclusive, camera]: a glance stays perf.face's (the judge read 0 glances
+    when the lock covered them). One definition, head.py's."""
+    import head as HD
+    return [list(x) for x in HD.lock_spans(head_cue(who), who)]
 
 
 def cmd_gaze(who: str) -> dict:
