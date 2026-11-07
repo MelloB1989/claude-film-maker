@@ -1,0 +1,89 @@
+{
+ "_about": "Round 6's karma gate spec for qa/gate.py (film-qa gate --spec). Built on r5/gate_spec.json. complaints: no waiver on these areas. Round 6 adds garment.open_edge_shrunk (the operator, 07 Nov: 'his neck looks very weird, also it looks like it has a cut') and lips.eye_onsets (the orchestrator's signed per-line strip check); lips.render_lag_frames becomes INFO by the orchestrator's ruling (an invalid measure, a scope change, not a waiver). Numbers: r6/numbers/*.json in the gate contract, merged by r6/merge_numbers.py.",
+ "complaints": [
+  "lips",
+  "head",
+  "garment",
+  "hair"
+ ],
+ "items": {
+  "shot.start_motion_ratio": {
+   "area": "head",
+   "track": "T4",
+   "op": "<=",
+   "line": 1.8,
+   "unit": "x",
+   "info": true,
+   "what": "head-box motion in a presenter shot's first 4 frame pairs over the median of the next 12 (r5/gate_numbers.py settle on the rendered frames): a head snapping into its pose or a hair sim settling at the cut",
+   "where": "S15 f1080-1084 (her head tilts in ~10 deg)",
+   "how": "r5/gate_numbers.py settle --frames <finals> --spec her_spec.json --shot S15",
+   "r4": [
+    13.81,
+    "round 4's S15 final_d, the same shape as round 5 (12.33): her head tilt-in is pre-existing"
+   ],
+   "why": "orchestrator, 06 Nov round 5b: her S15 start tilt is pre-existing (round 4 the same), NOT a blocker tonight, but REPORTED in the gate, not hidden; INFO until calibrated (shot starts move by design: S16 reads 2.8)"
+  },
+  "garment.open_edge_shrunk": {
+   "area": "garment",
+   "track": "K1",
+   "op": "==",
+   "line": 0,
+   "unit": "verts",
+   "guard": true,
+   "what": "face-mesh vertices on its OPEN lower edge (the stitch to the body at the neck base) that the neck backstop shrinks: a shrunk open edge pulls the face off the body and reads as a torn lip / dark crevice above the collar",
+   "where": "his face mesh as built for the finals (S13, S15 sharp frames show it)",
+   "how": "r5/neck_backstop.py mask report shrunk_on_open_edge (agent-02 b07e8fd1) on the mask the finals' build used; 0 by construction when no backstop shrink is applied (say so in the number's where)",
+   "r4": [
+    null,
+    "round 4 had no backstop"
+   ],
+   "must_fail": [
+    92,
+    "round 5b loop 2 (the delivered candidate): 92/92 open-edge verts shrunk; the orchestrator saw a ragged lip + crevice at f1085/1100/1128 and the operator 'a cut'"
+   ],
+   "why": "neck_px cannot see a torn skin edge ABOVE the collar (gate v2, round 5b); this is the geometric cause, measured"
+  },
+  "lips.render_lag_frames": {
+   "info": true,
+   "r4": [
+    null,
+    "INFO in round 6 by the orchestrator's ruling (cc-64d05f6e, 07 Nov): an invalid measure. Round 5b evidence: the round-4 control fails too (L1 +6.64, L2 +16.95, L4a +12.38), the sign is random, it is not repeatable (round 4 L1 -1.36 -> +6.64 on new boxes). A scope change, not a waiver; the curve items stay hard. agent-01's landmark measure replaces it as a hard line once validated (null control, round 4 L1, a +6 f shifted mux)"
+   ]
+  },
+  "lips.eye_onsets": {
+   "area": "lips",
+   "track": "orchestrator",
+   "op": "==",
+   "line": 1,
+   "unit": "bool",
+   "what": "the orchestrator's by-eye check of mouth onset vs audio onset on EVERY line of the rendered cut: 1 only if every line reads a 0-2 frame lead (mouth opens 0-2 f before the sound) or is occluded with the occlusion named",
+   "where": "every VO line of the 65 s cut (L1, L2, L3a, L3b, L4a, L4b)",
+   "how": "strip file signed by cc-64d05f6e: r6/numbers/eye_onsets.json {\"lines\": {line: {\"lead_f\": n | null, \"verdict\": \"pass\"|\"fail\"|\"occluded\", \"note\"}}, \"by\": \"cc-64d05f6e\"} -> r6/merge_numbers.py",
+   "r4": [
+    0,
+    "round 4: lips moved before the audio on L1 (the operator)"
+   ],
+   "why": "the render measure is invalid; the eye is the judge the operator is, line by line, written down"
+  },
+  "hair.pop_reach_pct": {
+   "r4": [
+    null,
+    "round 5b read 8.93 at S15 f1082 (her pre-existing start tilt-in, place() cross-fade on screen): round 6 renders S15 WITH agent-04's place fix (b475dfe5, b22f3372); no exclusion window"
+   ]
+  }
+ },
+ "not_attempted": {
+  "garment.cloth_alive": {
+   "reason": "His tee is MetaHuman's own default garment (assembled to his body, WPO 0). It is a closed-shell mesh, and Chaos cloth on a closed shell collapses (round 5: her overshirt shredded), so no sim this round. The armour complaint is addressed by WPO 0 and the assembled fit (armor_index, wpo_cm and neck_px stay hard lines). Proxy-sim cloth (single-layer sim section + FMCloth mesh-to-mesh) is round 6.",
+   "by": "cc-64d05f6e"
+  },
+  "garment.cloth_sound": {
+   "reason": "His tee is MetaHuman's own default garment (assembled to his body, WPO 0). It is a closed-shell mesh, and Chaos cloth on a closed shell collapses (round 5: her overshirt shredded), so no sim this round. The armour complaint is addressed by WPO 0 and the assembled fit (armor_index, wpo_cm and neck_px stay hard lines). Proxy-sim cloth (single-layer sim section + FMCloth mesh-to-mesh) is round 6.",
+   "by": "cc-64d05f6e"
+  },
+  "garment.cloth_detail_ratio": {
+   "reason": "His tee is MetaHuman's own default garment (assembled to his body, WPO 0). It is a closed-shell mesh, and Chaos cloth on a closed shell collapses (round 5: her overshirt shredded), so no sim this round. The armour complaint is addressed by WPO 0 and the assembled fit (armor_index, wpo_cm and neck_px stay hard lines). Proxy-sim cloth (single-layer sim section + FMCloth mesh-to-mesh) is round 6.",
+   "by": "cc-64d05f6e"
+  }
+ }
+}
