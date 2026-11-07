@@ -209,6 +209,8 @@ def summarise(f, rows):
     gaps = [r["gap"] for r in band if "gap" in r]
     bp = [r["body_poke"] for r in rows if r.get("body_poke", 0) > 0.05]
     tp = [r["top_poke"] for r in rows if r.get("top_poke", 0) > 0.05]
+    worst = sorted((r for r in rows if r.get("body_poke", 0) > 0.05 or r.get("top_poke", 0) > 0.05),
+                   key=lambda r: -max(r.get("body_poke", 0), r.get("top_poke", 0)))[:4]
     miss = sum(r.get("band_missing", 0) for r in band)
     miss_at = sorted({(r["s"], r["j"]) for r in band if r.get("band_missing")})
 
@@ -223,7 +225,10 @@ def summarise(f, rows):
     log(f"f{f}: band gap median {np.median(gaps) if gaps else float('nan'):.2f} (min {min(gaps) if gaps else 0:.2f}, "
         f"max {max(gaps) if gaps else 0:.2f}); {sect('front', front)}; {sect('back', back)}; {sect('L', left)}; "
         f"{sect('R', right)}; body pokes {len(bp)} (max {max(bp) if bp else 0:.2f}); Top pokes {len(tp)} "
-        f"(max {max(tp) if tp else 0:.2f}); band rays missing {miss} {miss_at}")
+        f"(max {max(tp) if tp else 0:.2f}); band rays missing {miss} {miss_at}"
+        + ("; worst pokes (sector*15deg, height j, body, top): "
+           + ", ".join(f"({r['s'] * 360 // SECTORS}, {r['j']}, {r.get('body_poke', 0)}, {r.get('top_poke', 0)})"
+                       for r in worst) if worst else ""))
 
 
 # ------------------------------------------------------------------------------------------------------------- fit
@@ -446,55 +451,55 @@ def solve(rig, a, src, ctx, udir, frame):
         sol.update(ue=ue, off=U - P)            # Unreal's place minus the rig's, per vertex (for the after-check)
         P = U                                   # measure each vertex where Unreal puts it
         bvhs.append(ue.bvh_body)
-    vn = GF.vertex_normals(P, T)
-    d = np.full(len(P), np.nan)
-    N = np.zeros((len(P), 3))
-    src_ue = np.zeros(len(P), bool)
-    for i in np.nonzero(zone)[0]:
-        best = None
-        for bi, bv in enumerate(bvhs):          # the skin furthest out wins (Unreal's belly over Blender's)
-            loc, nor, fi, dist = bv.find_nearest(Vector(P[i]))
+    # Blender's own skin and band (one skinning, consistent): the full move, pull-in and push-out
+    def measure(Pm, bv):
+        dd = np.full(len(Pm), np.nan)
+        NN = np.zeros((len(Pm), 3))
+        for i in np.nonzero(zone)[0]:
+            loc, nor, fi, dist = bv.find_nearest(Vector(Pm[i]))
             if loc is None or dist > 8.0:
                 continue
             n = np.array(nor[:])
-            di = (P[i] - np.array(loc[:])) @ n
-            if bi == 1 and abs(di) > 4.0:     # a hole of the live cut: a far surface, not her skin under the band
-                continue
-            if best is None or di < best[0]:
-                best = (di, n, bi)
-        if best is None:
-            continue
-        d[i], N[i], src_ue[i] = best[0], best[1], best[2] == 1
-    if udir:
-        log(f"f{frame} collider: Unreal's skin decides {int(src_ue[zone].sum())} of {int(zone.sum())} zone verts")
+            dd[i] = (Pm[i] - np.array(loc[:])) @ n
+            NN[i] = n
+        return dd, NN
+    P_bl = G.world_cm(ob, evaluated=True)[0]
+    d, N = measure(P_bl, bvhs[0])
+    vn = GF.vertex_normals(P_bl, T)
     ok = zone & np.isfinite(d)
     inner = ok & (np.einsum("ij,ij->i", vn, N) < 0)      # the shell's inner face looks at her
     outer = ok & ~inner
     mv = np.zeros(len(P))
     mv[inner] = ctx["target_in"] - d[inner]
-    # the outer face moves with its nearest inner vertex (the wall keeps its thickness)
-    kd = KDTree(int(inner.sum()))
-    ii = np.nonzero(inner)[0]
-    for k, i in enumerate(ii):
-        kd.insert(Vector(P[i]), k)
-    kd.balance()
-    for i in np.nonzero(outer)[0]:
-        _, k, _ = kd.find(Vector(P[i]))
-        mv[i] = mv[ii[k]]
-        N[i] = N[ii[k]]
+    if udir:
+        # Unreal's skin and band only PUSH OUT (a poke there is real; a 'loose' reading may be the mapping's error,
+        # 1-2 cm at its tail): up to 1.5 cm inside her counts as a poke, deeper is a cut hole or a fold
+        d_ue, _ = measure(P, bvhs[1])
+        pk = inner & np.isfinite(d_ue) & (d_ue > -1.5) & (d_ue < ctx["target_in"])
+        push = np.zeros(len(P))
+        push[pk] = ctx["target_in"] - d_ue[pk]
+        log(f"f{frame} Unreal pokes the band's inner face at {int((pk & (d_ue < 0)).sum())} verts (under "
+            f"{ctx['target_in']} cm: {int(pk.sum())}); push median {np.median(push[pk]) if pk.any() else 0:.2f}, "
+            f"max {push.max():.2f}")
+        mv = np.maximum(mv, push)
     log(f"f{frame}: inner face off her skin median {np.median(d[inner]):.2f} cm (min {d[inner].min():.2f}, max "
         f"{d[inner].max():.2f}); move median {np.median(mv[ok]):+.2f}, {mv[ok].min():+.2f}..{mv[ok].max():+.2f}")
     # a nearest point across a fold (her seated hip crease) reads deep inside: not a clip the band can fix, left as is
-    fold = ok & (d < -1.0)
+    # (only well under the band: in the band itself a vertex inside her is a real poke, round 7's R7W in Unreal)
+    # (in the band a real poke is under 1 cm: deeper is a nearest point across a hole of the live cut, a spike if pushed)
+    fold = ok & (((d < -1.0) & (z < rig.z_edge - a.band - 3.0)) | (d < -1.5))
     mv[fold] = 0.0
     if fold.any():
         log(f"f{frame} fold: {int(fold.sum())} zone verts read > 1 cm inside (left alone): z "
             f"{np.percentile(z[fold], 5):.1f}..{np.percentile(z[fold], 95):.1f} cm (bind), alpha median "
             f"{np.median(alpha[fold]):.2f}")
-    mv = np.clip(mv, -3.0, 1.0)
+    mv = np.clip(mv, -3.0, 1.5)
+    # a push-out stays at least what that vertex needs (smoothing must not water a poke down)
+    need = np.where(mv > 0, mv, -np.inf)
     for _ in range(3):
-        mv = weld(GF.smooth_field(mv, nbrs, iters=2, pinned=~zone))
+        mv = weld(GF.smooth_field(mv, nbrs, iters=2, pinned=~zone, floor=need))
         N = weld(GF.smooth_field(N, nbrs, iters=1, pinned=~zone))
+    mv = np.maximum(mv, need)
     mv = mv * alpha
     N /= np.maximum(np.linalg.norm(N, axis=1, keepdims=True), 1e-9)
     D = mv[:, None] * N

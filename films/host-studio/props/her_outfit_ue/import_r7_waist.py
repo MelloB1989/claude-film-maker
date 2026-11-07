@@ -13,10 +13,12 @@ import unreal
 SRC = globals().get("SRC", "/srv/ue/fit/a05_r7")
 DEST = "/Game/Host/Presenter_Outfit"
 SKEL = "/MetaHumanCharacter/Female/Medium/NormalWeight/Body/metahuman_base_skel"
-MESHES = {  # fbx under SRC -> (new asset, the original whose materials it takes)
+MESHES = globals().get("MESHES") or {  # fbx under SRC -> (new asset, the original whose materials it takes)
     "fit1_top/garment_fit_Top.fbx": ("SKM_Presenter_Top_R7W", "SKM_Presenter_Top"),
     "fit2_tr/garment_fit_Trousers.fbx": ("SKM_Presenter_Trousers_R7W", "SKM_Presenter_Trousers"),
 }
+# R7W2 (the band over her Unreal-posed belly, fit6): MESHES={"fit6_tr/garment_fit_Trousers.fbx":
+#     ("SKM_Presenter_Trousers_R7W2", "SKM_Presenter_Trousers")}
 
 
 def import_skm(fbx, name):

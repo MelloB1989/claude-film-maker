@@ -138,7 +138,8 @@ GARMENT_SRC = {"her": {"Overshirt": "/Game/Host/Presenter_Overshirt/SKM_Presente
                        # off her skin all round, her own weights through it, the tuck flat under it. Seated only:
                        # standing, the band sits up to 0.7 cm inside her belly
                        "Top": "/Game/Host/Presenter_Outfit/SKM_Presenter_Top_R7W",
-                       "Trousers": "/Game/Host/Presenter_Outfit/SKM_Presenter_Trousers_R7W",
+                       # R7W2: the band refit over her Unreal-posed belly (R7W's front poked 0.32-0.59 cm in UE)
+                       "Trousers": "/Game/Host/Presenter_Outfit/SKM_Presenter_Trousers_R7W2",
                        "Body": "/Game/Host/Unpacked/Presenter/Body/SKM_Presenter_F_BodyMesh"}, "him": {}}
 
 # r6b (the orchestrator rejected RW: skin holes at both shoulders, a shredded collar): her overshirt is a choice made by
