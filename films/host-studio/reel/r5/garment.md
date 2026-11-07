@@ -276,3 +276,34 @@ put back to that state. The tee itself is not the open item: the COLLAR does not
 Assets kept for round 6: T_Host_NeckHidden (loop 2, on the finals), T_Host_NeckHidden5, T_Host_NeckHidden6;
 /srv/ue/reel/r5/garment/neck_hidden.loop{2,4,5,6}.png. Her overshirt: round 5's cloth.remove left the clothing data
 in the asset (32 → 128 MB); restored from project_r4_snapshot.
+
+## 10. Round 6 (07 Nov): fit the collar to HIS neck (K1, agent-02; box A driven by agent-06)
+
+The operator on the round-5b candidate: "his neck looks very weird, also it looks like it has a cut". Both are the
+backstop: the shrink pulled the face's open lower edge off the body (the cut) and left a ~2.3 cm dark ring. Round 6
+drops the shrink entirely and enlarges the GARMENT.
+
+### The method (`reel/r6/collar_fit.py`, `reel/r6/backstop_off.py`)
+- **Backstop off**: `backstop_off.py` sets MaxShrinkDistance 0 on WI_Host_DefaultGarment_Neck (a WI SETTING change,
+  so mh.build re-bakes it; MaxCull 0 and the 1/255 mask floor cull nothing), forced build, `shrink_live` must read
+  0 moved. `garment.open_edge_shrunk` is then 0 by construction.
+- **Measure** (`collar_fit.py measure`): every 3rd frame of S13/S15/S17/S18 plus the known neck frames, in a
+  TORSO-rigid neck frame (the rest neck axis neck_01 -> head carried by spine_05's transform; the angle round it
+  from spine_05), so the collar keeps its coordinates frame to frame and the face's turn/nod is what changes. Per
+  15° sector × 0.5 cm height: the live Face's outer radius and the tee's inner radius; need = face + 0.3 - tee,
+  worst over frames.
+- **Push** (`collar_fit.py push`): on a COPY of the mesh his BP renders (the SkeletalMesh component's asset,
+  Host_Op_Outfits: MetaHuman's resized garment, so the Fit6/8B "export space" float cannot happen), each vertex
+  within 16 cm of the neck axis moves radially out by P(angle, height) = max over measured bins of need × K, K = 1
+  from the bin up and RIB 2 cm below it (the rib band moves whole: height and wall thickness kept, both walls move
+  the same), then a cosine to 0 over 4.5 cm; sectors smoothed (max ±1, then 1-2-1). No WPO, no shrink.
+- **Verify**: after mh.dress (copy as `Tee`, SkeletalMesh's slots hidden): Tee vs SkeletalMesh posed, by surface,
+  must be ~0 outside the collar zone (the skin weights survived the Geometry Script write-back); `measure --tee
+  Tee` must read need <= 0 in every sector on every frame; then qa.clip / qa.garment_look / garment-gate and the
+  orchestrator's crops.
+
+### Learnt on the way
+- A leader-pose FOLLOWER spawned by a script is not posed when read on the CPU (copy_mesh_from_component): the
+  first measure (a ref face following his Face) read the face at rest while his body moved: 2-11 cm "needs" in all
+  24 sectors, worst at the shot edges (f960, f1563-1571). Round 5's qa.garment_look ref body read nonsense for the
+  same reason. Measure only components of his own BP.
