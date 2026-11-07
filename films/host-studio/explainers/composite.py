@@ -450,21 +450,26 @@ def main() -> None:
                          f"format=auto[v2]")
             last, idx = "[v2]", idx + 1
         frames = edl["frames"]
-        # both streams run the film's exact length: the picture by frame count, the mix (exactly that long, mix.py)
-        # by -t; no -shortest (with two outputs from one graph it cut the audio 3.35 s early, QA 07 Nov)
+        # two passes: the picture alone (by frame count), then each file remuxed with the mix (video copied, audio cut
+        # by -t). Muxing the mix in the graph pass cut it short twice: -shortest with two outputs (3.35 s, QA 07 Nov),
+        # then -frames:v ending the output while the audio lagged the filter graph (56.08 of 59.46 s, box B)
         dur = f"{frames / FPS:.6f}"
         chain.append(f"{last}trim=end_frame={frames},setpts=PTS-STARTPTS,split=2[vh][vp]")
         mp4, mov = a.out / f"{name}.mp4", a.out / f"{name}_master.mov"
-        outs = ["-map", "[vh]", "-map", "1:a", "-c:v", "libx264", "-preset", "slow", "-crf", "16",
+        vmp4, vmov = work / "pic_h264.mp4", work / "pic_master.mov"
+        outs = ["-map", "[vh]", "-c:v", "libx264", "-preset", "slow", "-crf", "16",
                 "-profile:v", "high", "-pix_fmt", "yuv420p", "-colorspace", "bt709", "-color_primaries", "bt709",
-                "-color_trc", "bt709", "-r", FPS, "-frames:v", frames, "-c:a", "aac", "-b:a", "320k", "-ar", 48000,
-                "-movflags", "+faststart", "-t", dur, mp4]
+                "-color_trc", "bt709", "-r", FPS, "-frames:v", frames, "-an", vmp4]
         if not a.no_prores:
-            outs += ["-map", "[vp]", "-map", "1:a", *PRORES, "-r", FPS, "-frames:v", frames, "-c:a", "pcm_s24le",
-                     "-t", dur, mov]
+            outs += ["-map", "[vp]", *PRORES, "-r", FPS, "-frames:v", frames, "-an", vmov]
         else:
             chain[-1] = chain[-1].replace(",split=2[vh][vp]", "[vh]")
         ff([*inputs, "-filter_complex", ";".join(chain), *outs], a.ffmpeg)
+        ff(["-i", vmp4, "-i", mix, "-map", "0:v", "-map", "1:a", "-c:v", "copy", "-c:a", "aac", "-b:a", "320k",
+            "-ar", 48000, "-t", dur, "-movflags", "+faststart", mp4], a.ffmpeg)
+        if not a.no_prores:
+            ff(["-i", vmov, "-i", mix, "-map", "0:v", "-map", "1:a", "-c:v", "copy", "-c:a", "pcm_s24le",
+                "-t", dur, mov], a.ffmpeg)
         write_srt(a.out / f"{name}.srt", srt)
         bad = [b for o in [mp4] + ([] if a.no_prores else [mov]) for b in verify(o, frames, srt, a.ffmpeg)]
         bad = list(dict.fromkeys(bad))
