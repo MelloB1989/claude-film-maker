@@ -63,8 +63,7 @@ SET = S.Set(seat_top=45.0, seat_front=24.5, desk_top=74.0, desk_near=30.5, desk_
 # is the presenter's LEFT-front (+Y is their right; the mic is there), so twist < 0. The chest
 # turns a little toward them, the head and eyes do the rest (face + gaze).
 STYLE = {
-    "her": S.Style(lean=12.0, twist=-6.0, knee_out=4.0, foot_out=6.0, wrist_in=5.0, pronation=52.0, heel_lift=5.0,
-                   shin_tilt=3.0,
+    "her": S.Style(lean=12.0, twist=-6.0, knee_out=4.0, foot_out=6.0, wrist_in=5.0, pronation=52.0, shin_tilt=6.0,
                    clavicle_fwd=5.0),
     "him": S.Style(lean=14.0, twist=-6.0, knee_out=8.0, foot_out=9.0, wrist_in=3.0, pronation=48.0,
                    clavicle_fwd=6.0),
@@ -239,23 +238,32 @@ idle = unreal.load_asset(P["idle"])
 pose = APE.get_anim_pose_at_time(idle, 0.0, unreal.AnimPoseEvaluationOptions())
 names = [str(comp.get_bone_name(i)) for i in range(comp.get_num_bones())]
 tracks = set(str(n) for n in AL.get_animation_track_names(idle))
-want = set(P["world"])
-parent, local, world = {}, {}, {}
+keep_ = set(b for b in names if b in tracks or b in set(P["world"]))
+parent = {}
 for b in names:
-    if b not in tracks and b not in want:
-        continue
     p = str(comp.get_parent_bone(b))
     parent[b] = p if p and p != "None" else None
+for b in list(keep_):  # every ancestor too: the pose is put together by FK from the root
+    p = parent.get(b)
+    while p and p not in keep_:
+        keep_.add(p)
+        p = parent.get(p)
+# r6: the idle's ROTATIONS on the MESH's own bone lengths (its reference translations). AnimPose evaluates on the
+# skeleton asset's reference, whose bones are shorter than this body's (her thigh 40.2 vs 43.5 cm); the rendered
+# body keeps its own lengths, and adds (mesh ref - skeleton ref) to the pelvis's animated translation (box B,
+# 07 Nov: commanded 57.48 + 7.48 = 64.96 measured). seatkit.build writes every translation as wanted - that.
+local, skel_t = {}, {}
+for b in names:
+    if b not in keep_:
+        continue
     t = APE.get_bone_pose(pose, b, unreal.AnimPoseSpaces.LOCAL)
-    local[b] = {"t": [t.translation.x, t.translation.y, t.translation.z],
-                "q": [t.rotation.x, t.rotation.y, t.rotation.z, t.rotation.w],
+    r = comp.get_ref_pose_transform(comp.get_bone_index(b))
+    local[b] = {"t": list(r.translation.to_tuple()), "q": [t.rotation.x, t.rotation.y, t.rotation.z, t.rotation.w],
                 "s": [t.scale3d.x, t.scale3d.y, t.scale3d.z]}
-    w = APE.get_bone_pose(pose, b, unreal.AnimPoseSpaces.WORLD)
-    world[b] = {"t": [w.translation.x, w.translation.y, w.translation.z],
-                "q": [w.rotation.x, w.rotation.y, w.rotation.z, w.rotation.w]}
+    skel_t[b] = list(APE.get_ref_bone_pose(pose, b, unreal.AnimPoseSpaces.LOCAL).translation.to_tuple())
 m = comp.get_skeletal_mesh_asset()
-result = {"parent": parent, "local": local, "world": world, "tracks": sorted(tracks), "n_bones": len(names),
-          "mesh": m.get_path_name().split(".")[0] if m else ""}
+result = {"parent": {b: parent[b] for b in local}, "local": local, "skel_t": skel_t, "tracks": sorted(tracks),
+          "n_bones": len(names), "mesh": m.get_path_name().split(".")[0] if m else "", "world": None}
 """
 
 def gestures(who: str) -> list:
@@ -401,20 +409,18 @@ def cmd_workseq(who: str, fresh: bool = False) -> dict:
 CAMS = r"""
 import json, unreal
 from fmbridge.ops._util import find_actor
+from fmbridge.ops.seq import component_of
 P = json.loads(PARAMS)
 a = find_actor(P["label"])
 if a is None:
     raise RuntimeError(f"no actor {P['label']}")
-xf = a.get_actor_transform()
-out = {"actor": {"loc": [xf.translation.x, xf.translation.y, xf.translation.z],
-                 "yaw": a.get_actor_rotation().yaw}, "cams": {}}
+body = component_of(P["label"], "Body")
+xf = body.get_world_transform()  # the body's component space = seatkit's frame (forward/right read from the bones)
+out = {"actor": {"loc": list(a.get_actor_location().to_tuple()), "yaw": a.get_actor_rotation().yaw},
+       "body": {"loc": list(xf.translation.to_tuple()), "yaw": xf.rotation.rotator().yaw}, "cams": {}}
 for c in P["cams"]:
     x = find_actor(c)
-    if x is None:
-        out["cams"][c] = None
-        continue
-    l = xf.inverse_transform_location(x.get_actor_location())
-    out["cams"][c] = [l.x, l.y, l.z]
+    out["cams"][c] = list(xf.inverse_transform_location(x.get_actor_location()).to_tuple()) if x else None
 result = out
 """
 
@@ -426,20 +432,20 @@ def cmd_cams(who: str) -> dict:
     cams = sorted({c for *_, c in cue_sheet(who)["on_cam"]})
     got = run(CAMS, {"label": LABEL[who], "cams": cams})
     bc = json.loads((OUT / who / "body_check.json").read_text())
+    fw, rt = bc["frame"]["fwd"], bc["frame"]["right"]
     h = bc["rest"]["head"]
-    eye = [h[0] + 9.0, h[1], h[2] + 3.0]
+    eye = [h[0] + 9.0, h[1], h[2] + 3.0]  # [forward, right, up]
     out = {}
     for c, p in got["cams"].items():
         if p is None:
             out[c] = None
             continue
-        # actor-local from inverse_transform_location: x forward, y = the actor's +Y (the presenter's LEFT? see
-        # SET: studio +Y is her left with yaw 0, and actor-local y follows it)
-        d = [p[0] - eye[0], p[1] - (-eye[1]), p[2] - eye[2]]  # eye[1] is in "right" units: actor-local y = -right
-        yaw = math.degrees(math.atan2(d[1], d[0]))  # + = toward actor +Y = the presenter's left
+        a_ = [S.dot(p, fw), S.dot(p, rt), p[2]]  # component-local -> [forward, right, up]
+        d = [a_[0] - eye[0], a_[1] - eye[1], a_[2] - eye[2]]
+        yaw = math.degrees(math.atan2(-d[1], d[0]))  # + = the presenter's LEFT (perf.face's convention)
         pitch = math.degrees(math.atan2(d[2], math.hypot(d[0], d[1])))
-        out[c] = {"yaw": round(yaw, 2), "pitch": round(pitch, 2), "dist_cm": round(math.hypot(*d), 1),
-                  "local": [round(x, 1) for x in p]}
+        out[c] = {"yaw": round(yaw, 2), "pitch": round(pitch, 2), "dist_cm": round(math.sqrt(sum(x * x for x in d)), 1),
+                  "char": [round(x, 1) for x in a_]}
     res = {"eye_actor": eye, "cams": out, "actor": got["actor"]}
     missing = [c for c, v in out.items() if v is None]
     if missing:
@@ -595,13 +601,16 @@ def cmd_bodycheck(who: str, seq: str = "", every: int = 2) -> dict:
     c = client()
     m = ok(c.op("seq.sample", path=path, actor_label=LABEL[who], component="Body", bones=BODY_BONES, frames=fr,
                 ticks=2, timeout=3600))
-    act = run(CAMS, {"label": LABEL[who], "cams": []})["actor"]
-    yaw = math.radians(act["yaw"])
-    fx, fy = math.cos(yaw), math.sin(yaw)
+    body = run(CAMS, {"label": LABEL[who], "cams": []})["body"]
+    fr_ = json.loads((OUT / who / "body_check.json").read_text())["frame"]
+    yaw = math.radians(body["yaw"])  # the component's world yaw
+    cy, sy_ = math.cos(yaw), math.sin(yaw)
 
-    def to_actor(p):  # world -> [x forward, y RIGHT, z up from the actor origin]
-        dx, dy, dz = p[0] - act["loc"][0], p[1] - act["loc"][1], p[2] - act["loc"][2]
-        return [dx * fx + dy * fy, dx * -fy + dy * fx, dz]
+    def to_actor(p):  # world -> component-local -> [forward, right, up from the body's origin]
+        dx, dy, dz = p[0] - body["loc"][0], p[1] - body["loc"][1], p[2] - body["loc"][2]
+        lx, ly = dx * cy + dy * sy_, -dx * sy_ + dy * cy
+        q = [lx, ly, dz]
+        return [S.dot(q, fr_["fwd"]), S.dot(q, fr_["right"]), dz]
 
     st = SET
     issues, worst = [], {}
