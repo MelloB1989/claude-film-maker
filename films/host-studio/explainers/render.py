@@ -120,7 +120,11 @@ def main() -> int:
                 lead = {"pass": g["ok"], "why": g["why"]}
                 jobs.append({"job": f"{a.preset}/shot{n:02d}_{c}", "frames": [f0, f1], "box": a.instance,
                              "at": time.strftime("%Y-%m-%d %H:%M:%S"), "garment.leaders_ok": g["leaders_ok"],
-                             "strays": g["strays"], "face_luma": g.get("face_luma"), "guard_ok": int(bool(g["ok"]))})
+                             "strays": g["strays"], "face_luma": g.get("face_luma"), "guard_ok": int(bool(g["ok"])),
+                             # shot.streaming_settled: the spec warms streaming (CVARS + warm-up frames); the job's first
+                             # frame goes to the orchestrator's 1:1 eye (no tile blocks), who sets the value
+                             "streaming_warmed": 1, "first_frame": f"{a.preset}/shot{n:02d}_{c}/{f0:04d}.png",
+                             "shot.streaming_settled": None})
                 box["garment.leaders_ok"] = min(j["garment.leaders_ok"] for j in jobs)
                 box_json.parent.mkdir(parents=True, exist_ok=True)
                 box_json.write_text(json.dumps(box, indent=1) + "\n")
