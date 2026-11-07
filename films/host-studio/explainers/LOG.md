@@ -200,3 +200,9 @@ tested in `test_seatkit.py`), `gestures.json` (the emphasis gestures per line).
 | 18:05 | agent-07 moved the desk in (near edge x 38) and mirrored the boom to the -Y edge (scale -1 at yaw -90): no re-pose needed. Armrest 63.0 vs apron underside 63.4 noted |
 | 18:30 | A full re-run died at once: `cd && rm && nohup … &` on one line ran the whole chain in a subshell that SSM killed with the command → relaunch with `setsid nohup` on its own line |
 | 18:45 | Orchestrator (via agent-07): her feet never seen, WIDE's empty right → SM_WalnutDesk_Panel, SM_FloorLamp (practical, SOCKET_Bulb), SM_FloorSnakePlant; all 7 FBX re-import at size; uploaded with all textures |
+- 07 Nov ~01:30 IST (r7, agent-04): her face acts. Cause of the "pale" face: mouth-only solves, plus a plan that
+  added only random brow flashes (brow_chance 0.45) and no smiles. `face_acting.py` turns agent-11's sheet
+  (v1.1) into perf.face events on the exact words: brows, curious one-brow, Duchenne (cheek + squint) only on the
+  5 payoffs, soft 0.4-0.6 elsewhere over a warm base, nods and a shake, and filler past 0.7 s of neutral speech.
+  The lips stay the solve's (corner pull and dimple only, x0.75 while talking). Tilts go to agent-01's body.
+  Offline rows pass: active 0.88, smiles 27/min, brows 22/min, neutral hold 0.79 s. FACE_R7.md is the driver's sheet.
