@@ -183,6 +183,8 @@ export abstract class MotionScene extends Scene3D {
 
   /** The post overrides at shot time t: the base, plus every hit. A shot may override and add its own. */
   protected post(t: number): PostOverrides {
+    // an overlay (panel card, matte pass) is keyed over the presenter: a hit there would veil or shift the whole frame
+    if (this.panel || this.matte) return { ...this.basePost, zoom: 1, flash: 0, shake: [0, 0] };
     let zoom = 1, flash = 0, sx = 0, sy = 0, ca = this.basePost.ca ?? 0.25;
     for (const h of this.hits) {
       const a = h.amt ?? 1;
