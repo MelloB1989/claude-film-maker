@@ -576,8 +576,10 @@ def cmd_sync(who: str) -> dict:
 
 
 EYE_CURVES = [f"CTRL_expressions_eyeLook{d}{e}" for e in "LR" for d in ("Left", "Right", "Up", "Down")]
-CORR_SMOOTH_S = 0.8        # the lock's correction is averaged over this window: aim only, never the darts
-CORR_FADE_S = 0.25         # and faded in/out at each locked span's ends
+CORR_SMOOTH_S = 0.25       # the lock's correction is averaged over this window: its 2-frame solve jitter goes, the eyes
+#                            still counter the head's nods and micro-motion (~2 Hz); 0.8 s let them drift off the lens
+#                            (judge: on_lens_share 0.677, p95 10.9 deg)
+CORR_FADE_S = 0.12         # and faded in/out at each locked span's ends
 
 
 def head_cue(who: str) -> dict:
