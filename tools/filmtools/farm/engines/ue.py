@@ -12,6 +12,11 @@ The job's "ue" settings:
      "before": [["mh.leader", {"label": "..."}], ["some.guard", {...}]],
                                         # ops run before every chunk (a film's guards); one that fails fails the chunk
      "guard": {"op": "...", "args": {...}, "ok": "ok"},   # optional: an op whose result[ok] must be truthy
+     "hook": "def before_chunk(op, job, chunk): ... return {'ok': True, ...}",
+                                        # optional: a film's Python run on the worker before every chunk, after
+                                        # `before`; op(name, **args) calls the box's bridge. Its dict goes into the
+                                        # chunk's done.json ("hook"); ok falsy fails the chunk (a guard). The job file
+                                        # is the film's own code (films/<id>/), run as root on the farm's own boxes.
      "fresh_editor": true,              # restart the editor before every chunk (default true: the proven path)
      "wait_compile": true,              # editor.wait_compile after a start (shaders)
      "stall_s": 900, "port": 18765, "project_dir": "(default: UE_PROJECT's folder in /etc/default/ue-editor)"}
@@ -179,6 +184,15 @@ def render(job: dict, chunk: dict, todo: dict, scratch: str, ctx):
         res = br.run(g["op"], g.get("args") or {}, ctx, timeout=1800)
         if not res.get(g.get("ok", "ok")):
             raise RenderError(f"guard {g['op']} refused the chunk: {json.dumps(res)[:400]}")
+    if u.get("hook"):
+        ns: dict = {}
+        exec(compile(u["hook"], f"<{job['id']} hook>", "exec"), ns)  # noqa: S102 (the film's own job code)
+        res = ns["before_chunk"](lambda name, **args: br.run(name, args, ctx, timeout=1800), job,
+                                 {**chunk, "render_from": todo["render_from"], "end": todo["end"]})
+        ctx.state["hook"] = res
+        ctx.log(f"hook: ok={res.get('ok')} {res.get('why', '')}")
+        if not res.get("ok"):
+            raise RenderError(f"hook refused the chunk: {res.get('why') or json.dumps(res)[:300]}")
     spec = chunk_spec(job, chunk, todo, scratch)
     ctx.log(f"render.job [{spec['frames'][0]},{spec['frames'][1]}) (pre-roll {todo['preroll']})")
     jid = br.submit("render.job", {"spec": spec, "stall_s": float(u.get("stall_s") or 900)})

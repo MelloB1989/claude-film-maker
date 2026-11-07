@@ -227,7 +227,9 @@ class Worker:
                     eng.prepare(job, self.ctx)
                     self.prepared[job["id"]] = True
                 b, prefix = model.split_s3(out["prefix"])
+                t_first = None  # fps from the first frame on: installs, editor starts and pre-roll are not render speed
                 for f, path in eng.render(job, chunk, td, scratch, self.ctx):
+                    t_first = t_first or self.now()
                     if f < chunk["start"] or f >= chunk["end"] or f in have:
                         continue  # pre-roll, or already in the output
                     if state["lost"] or self.ctx.stopping():
@@ -242,8 +244,8 @@ class Worker:
                     uploaded[f] = [size, digest]
                     self.q.progress(root, cid, self.id, uploaded)  # a worker lost next second leaves this behind
                     self.stats["frames"] += 1
-                    el = max(1e-6, self.now() - t0)
-                    self.stats["fps"] = round(len(uploaded) / el, 4)
+                    if len(uploaded) > 1:
+                        self.stats["fps"] = round((len(uploaded) - 1) / max(1e-6, self.now() - t_first), 4)
             frames = {**have, **uploaded}
             gone = [f for f in range(chunk["start"], chunk["end"]) if f not in frames]
             if gone:
@@ -251,8 +253,9 @@ class Worker:
             stop_beat.set()
             t.join(5)
             self.q.progress(root, cid, self.id, uploaded)
+            extra = {"hook": self.ctx.state.pop("hook")} if self.ctx.state.get("hook") is not None else {}
             ok = self.q.complete(root, cid, self.id, state["etag"], frames, render_s=round(self.now() - t0, 1),
-                                 preroll=chunk["preroll"], uploaded=len(uploaded))
+                                 preroll=chunk["preroll"], uploaded=len(uploaded), **extra)
             self.log(f"{job['id']}/{cid}: {'done' if ok else 'NOT recorded (lease lost)'}: {len(uploaded)} uploaded "
                      f"in {self.now() - t0:.0f} s")
             self.stats["chunks"] += ok
