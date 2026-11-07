@@ -172,3 +172,19 @@ tested in `test_seatkit.py`), `gestures.json` (the emphasis gestures per line).
 - 19:05 bodycheck: the deeper breathing (2.45 mm, 14/min) dipped the resting hands 0.8 cm into the top on each
   exhale: forearms rest 0.6-0.8 cm higher. Her face chain goes next (cams, compose with the lead, face, sync, gaze,
   place, numbers).
+
+## agent-11 driving box B (19:0x-21:06 IST, agent-07 rate-limited)
+
+Driver: kali `/tmp/fleet-agent-11-ue/r6` (tree = this branch `fleet/agent-11/r6-boxb`, wrapper `fu` on agent-07's
+conf dir, profile boxb; helpers `sether`, `perf`, `variant.sh`, `onepass2.sh`).
+
+| IST | What |
+|---|---|
+| ~19:00 | Found the editor had crashed 18:44 (SIGSEGV), back on Studio; ExplainerSet still had the old desk (74 / x 38) and stale cameras: agent-07's last set changes were never saved |
+| 19:10 | set.py all steps: agent-05's SM_WalnutDesk_Waterfall (top 71, MI_K_Walnut, no Z scale; panel desk + slab gone); mic clamp moved to the desk's far edge (84.6,-50.3,71), boom turned 35.6° so the capsule is unchanged (setplan MIC_CLAMP/MIC_ROT/boom_points; boom arm off her face row); props step skips the lamp's shade/bulb PBR (a drawn instance cannot be reparented) |
+| 19:20 | agent-01 a22617ca/6544eb44 body → preview → bodycheck → all --from sync: PASS; stills r6b_pose_f48/f400/f1300 → orchestrator REJECTED (RW overshirt: skin holes at both shoulders; a hand at the mic) |
+| 19:40 | agent-01 8a4bd9b6 (gestures outward); variants V1 orig / V2 none / V4 rw2 (agent-02's arms-only reweight, helper share 0.50→0.18) stills + 1:1 shoulder crops; walnut A/B (WalnutFine, K at 1.0, K at 0.5 copy). T_Walnut is authored at 1 m/tile, so Tiling 1 is right on metre UVs |
+| 20:15 | Orchestrator picked V2 (no overshirt). CAM_WIDE to eye level (lens ~125 cm, el 5.5° at 280 cm, same azimuth/look); all --from cams --fresh PASS (MCU_L→WIDE 7.9°) |
+| 20:30 | Head judge: eyes fail (saccades 7.97/s, glances 0: the gaze lock erased the think glances) → agent-01 1df38a6c/fc774288 → on_lens 0.677 → d282173a (key-reduced eye curves; uniform grid). qa.clip V2 at 4 cm: Trousers>Top 0.12 (WIDE waist), Body>Top 0.0135 (static spot) → hides at 6 cm. render.py: streaming warm-up (FullyLoadUsedTextures, 12 GB pool, warmup_render) for the CU f1300 tile blocks |
+| 20:45 | agent-01 03666495 lower forearm rest: body pass; preview crashed on a NameError (fixed in d282173a) |
+| 21:06 | Handed to agent-07 (state verified live: V2, waterfall, far-edge clamp, eye-level WIDE). Open: onepass2.sh (preview → all --from sync → dress → head judge), qa.clip V2 at 6 cm, WIDE still f300, walnut pick, all 9 finals, composite v2 |
