@@ -59,22 +59,25 @@ def gesture_pose(g: dict, hand: str, count_n: int) -> HandPose:
             return HandPose((28.0, 12.0 + so * 0.5, -4.0), pron=10.0, ext=5.0, shape="open")  # palms down, set it down
         return HandPose((28.0, 12.0 + so, 0.0), pron=88.0, ext=10.0, shape="open")  # palms facing: the span
     if kind == "count":
-        return HandPose((24.0, 22.0, 6.0), pron=95.0, ext=45.0, shape=f"count{max(1, min(3, count_n))}")
+        # to her right at chest height, out wide (from her right-front cameras a high count hand sat over the mic)
+        return HandPose((20.0, 28.0, 0.0), pron=95.0, ext=40.0, shape=f"count{max(1, min(3, count_n))}")
     if kind == "deictic":
         if "left" in target or "panel" in target:  # her left = the panel side: cross-body, under the mic head
-            return HandPose((30.0, -15.0, 2.0), pron=-10.0, ext=10.0, shape="open")
+            # palm turned toward the panel, the hand near her midline and forward: a cross-body arm pressed into
+            # her chest and sat over the mic in the picture
+            return HandPose((36.0, 8.0, 0.0), pron=-60.0, ext=12.0, shape="open")
         return HandPose((26.0, 24.0, 10.0), pron=-20.0, ext=15.0, shape="open")  # her right, up
     if detail in ("raise_finger",):
-        return HandPose((22.0, 12.0, 12.0), pron=80.0, ext=50.0, shape="point")
+        return HandPose((18.0, 27.0, 4.0), pron=80.0, ext=45.0, shape="point")  # out to her right: clear of the mic
     if detail in ("press",):
-        return HandPose((28.0, 10.0, -6.0), pron=5.0, ext=-5.0, shape="relaxed")
+        return HandPose((28.0, 10.0, -3.0), pron=5.0, ext=0.0, shape="relaxed")
     if detail in ("pinch",):
         return HandPose((26.0, 12.0, 2.0), pron=70.0, ext=15.0, shape="pinch")
     # beat: from the high rest a short down-stroke, palm in/down
-    return HandPose((27.0, 11.0 + so * 0.4, -5.0), pron=35.0, ext=0.0, shape="relaxed")
+    return HandPose((27.0, 11.0 + so * 0.4, -3.0), pron=35.0, ext=6.0, shape="relaxed")
 
 
-HIGH_REST = HandPose((22.0, 7.0, -5.0), pron=70.0, ext=10.0, shape="relaxed")  # loose, fingertips near each other
+HIGH_REST = HandPose((22.0, 8.0, -3.0), pron=70.0, ext=14.0, shape="relaxed")  # loose, fingertips near each other
 
 
 @dataclass
@@ -112,6 +115,8 @@ class Plan:
         """1 while speaking (lines merged across gaps under gap_merge s), eased in/out."""
         spans = []
         for a, b in sorted(self.speaking):
+            if not spans and a < 1.5:  # the take opens alive, hands already up (the sheet's 'pre')
+                a = -1.0
             if spans and a - spans[-1][1] < gap_merge:
                 spans[-1] = (spans[-1][0], b)
             else:
@@ -143,6 +148,12 @@ class Plan:
         return v
 
 
+def scaled(p: HandPose, k: float) -> HandPose:
+    """A gesture pose `k` times as far from the high rest (the sheet's amp: strokes vary in size)."""
+    off = tuple(HIGH_REST.off[i] + (p.off[i] - HIGH_REST.off[i]) * k for i in range(3))
+    return replace(p, off=off)
+
+
 def plan_from_sheet(sheet: dict, cues: dict, tilts: list | None = None, base_lean: float = 4.0) -> Plan:
     """agent-11's acting sheet (lines[].body01) + the cue sheet (speaking spans) -> Plan."""
     events, lean = [], []
@@ -152,10 +163,13 @@ def plan_from_sheet(sheet: dict, cues: dict, tilts: list | None = None, base_lea
         for g in b.get("gestures", []):
             if g.get("type") == "count":
                 n_count += 1
-            pr = gesture_pose(g, "r", n_count)
-            pl = gesture_pose(g, "l", n_count) if g.get("hand") in ("both", "l") else None
-            if pl is not None and g.get("hand") == "both":  # the left (mic side) stays below and inside the mic line
-                pl = replace(pl, off=(pl.off[0], min(pl.off[1], 12.0), min(pl.off[2], -2.0)))
+            amp = float(g.get("amp", {"small": 0.3, "medium": 0.55, "big": 0.85}.get(g.get("size"), 0.55)))
+            k = 0.55 + 0.8 * amp  # 0.3 -> 0.79, 0.55 -> 0.99, 0.85 -> 1.23 of the pose's distance from the high rest
+            pr = scaled(gesture_pose(g, "r", n_count), k)
+            pl = scaled(gesture_pose(g, "l", n_count), k) if g.get("hand") in ("both", "l") else None
+            if pl is not None:  # the left (mic side) stays below and inside the mic line, whatever the amp
+                pl = replace(pl, off=(pl.off[0], min(pl.off[1], 7.0), min(pl.off[2], -3.5)), ext=max(pl.ext, 34.0),
+                             pron=min(pl.pron, 60.0))
             events.append(Event(g.get("hand", "r"), float(g["prep_t"]), float(g["stroke_t"]),
                                 float(g.get("hold_s", 0.25)), pr, pl, g.get("type", "beat"), g.get("word", ""),
                                 g.get("size") == "big"))
@@ -181,17 +195,18 @@ class Torso:
 
 
 def clearance(A: dict, F: dict, s: str, tor: Torso) -> float:
-    """cm between her upper arm's surface and the torso/breast model (the arm's outer 65 %, from the shoulder)."""
+    """cm between her upper arm's surface and the torso (below the armpit) / breast model, along the arm's outer 60 %
+    (the operator's complaint: the breast covering the upper arm)."""
     p3, p5 = A["spine_03"], A["spine_05"]
     ax = unit(sub(p5, p3))
-    top = add(p5, mul(ax, 8.0))
+    top = add(p5, mul(ax, -2.0))  # the chest only below the armpit: at the shoulder the arm meets the torso anyway
     fwd = ortho([1.0, 0.0, 0.0], ax)
     lat = cross(ax, fwd)
     if dot(lat, [0.0, 1.0, 0.0]) < 0:
         lat = mul(lat, -1.0)
     sh, el = A["upperarm_" + s], A["lowerarm_" + s]
     best = 1e9
-    for k in range(7, 21):
+    for k in range(8, 21):  # the arm from 40 % out (the armpit end always touches)
         q = add(sh, mul(sub(el, sh), k / 20.0))
         d = sub(q, p3)
         h = dot(d, ax)
@@ -264,6 +279,7 @@ class Performer(S.Seater):
         # pauses: down to the desk rest (forearms on the edge)
         e0, w0, _ = self.elbow_rest(s, W)
         tgt = [w0[i] + (tgt[i] - w0[i]) * ws for i in range(3)]
+        tgt[2] += 6.0 * math.sin(math.pi * ws)  # an arc up off the desk and back, never through it
         pole = add(add(mul(f, -0.3), mul(r if s == "r" else mul(r, -1.0), 0.9)), mul(u, -0.35))
         pole_rest = sub(self.comp(e0), self._fk_t("upperarm_" + s, "clavicle_" + s, W))
         pole = add(mul(unit(pole), ws), mul(unit(pole_rest), 1.0 - ws))
@@ -277,18 +293,7 @@ class Performer(S.Seater):
         sk, sy = self.sk, self.sy
         f, r, u = self.fr
         lean = self.plan.lean_at(t)
-        # the torso turns a little toward the gesturing hand (right gestures turn right, a deictic to her left turns
-        # left) and the shoulders lift with big gestures: computed from the events' weights now
-        turn, lift = 0.0, {"l": 0.0, "r": 0.0}
-        for e in self.plan.events:
-            w = e.weight(t)
-            if w <= 0:
-                continue
-            side = -1.0 if (e.kind == "deictic" and e.pose_r.off[1] < 0) else (1.0 if e.hand == "r" else 0.0)
-            turn += 4.0 * w * side
-            for s in ("l", "r") if e.hand == "both" else (e.hand,):
-                if e.big or e.kind in ("open", "size", "count"):
-                    lift[s] = max(lift[s], 3.0 * w)
+        turn, lift = self.torso(t)
         self.sy = replace(sy, lean=lean, twist=turn)
         self._ready = False
         try:
@@ -320,6 +325,22 @@ class Performer(S.Seater):
             W[ha] = [self._fk_t(ha, la, W), self.hand_rot_p(s, hp, sub(wrist, elbow))]
             self._finger_pose(s, hp, W)
         return self._locals(W)
+
+    def torso(self, t: float) -> tuple:
+        """(turn deg, {side: shoulder lift deg}) at t: the torso turns a little toward the gesturing hand (right
+        gestures turn right, a deictic to her left turns left), the shoulders lift with big gestures. Override it
+        (agent-10's track performer) together with hand_targets()."""
+        turn, lift = 0.0, {"l": 0.0, "r": 0.0}
+        for e in self.plan.events:
+            w = e.weight(t)
+            if w <= 0:
+                continue
+            side = -1.0 if (e.kind == "deictic" and e.pose_r.off[1] < 0) else (1.0 if e.hand == "r" else 0.0)
+            turn += 4.0 * w * side
+            for s in ("l", "r") if e.hand == "both" else (e.hand,):
+                if e.big or e.kind in ("open", "size", "count"):
+                    lift[s] = max(lift[s], 3.0 * w)
+        return turn, lift
 
     CLEAR_WANT = 3.8  # cm: the 3 cm line plus a margin for the model
 
@@ -457,3 +478,61 @@ def metrics(perf: Performer, t0: float, t1: float, fps: float = 30.0) -> dict:
             "wrist_travel_cm_per_s": round(travel / max(1e-6, (t1 - t0)) / 2.0, 1),
             "upperarm_torso_clear_cm": {s: round(v, 1) for s, v in clear.items()},
             "issues": issues[:20], "n_issues": len(issues)}
+
+
+def build(data: dict, st, sy, sheet: dict, cues: dict, tilts: list, length_s: float, fps: int = 30,
+          check_every: int = 6) -> tuple:
+    """seatkit.build for the performance: the seated pose with the plan driving the upper body, as tracks (constant
+    for the bones that never move, per key for spine, neck, head, clavicles, arms, hands and fingers). Returns (doc
+    for perform.py's WRITE, summary with the checks and the body rows' numbers)."""
+    sk = S.Skeleton.from_read(data)
+    plan = plan_from_sheet(sheet, cues, tilts)
+    se, tuned = S.autotune(sk, st, sy)
+    perf = Performer(sk, st, se.sy, plan)
+    n = int(round(length_s * fps)) + 1
+    first = perf.pose(0.0)
+    const = {b: data["local"][b] for b in data["tracks"] if b in data["local"]}
+    const.update(first)
+    moving = sorted(set(first) - {"pelvis"} - {b for s in "lr" for b in S.LEGS[s]})
+    keyed = {b: [] for b in moving}
+    issues, clear = [], {"l": 1e9, "r": 1e9}
+    for i in range(n):
+        t = i / fps
+        loc = perf.pose(t)
+        for b in moving:
+            v = loc.get(b, const[b])
+            keyed[b].append({k: [round(x, 6) for x in v[k]] for k in ("t", "q", "s")})
+        if i % check_every == 0:
+            F = perf.fk({**const, **loc})
+            c = S.check(perf, F)
+            ws = plan.speak_w(t)
+            skip = ("desk.elbow_off", "desk.elbow_hangs", "desk.forearm_unsupported") if ws > 0.1 else ()
+            issues.extend({**x, "t": round(t, 2)} for x in c["issues"] if x["code"] not in skip)
+            if ws > 0.5:
+                A = {b: perf.actor(v[0]) for b, v in F.items()}
+                for s in "lr":
+                    clear[s] = min(clear[s], clearance(A, F, s, perf.tor))
+    for b in moving:
+        const.pop(b, None)
+    sref = data.get("skel_t") or {}
+
+    def anim_t(b, tt):  # as seatkit.build: the engine adds (mesh ref - skeleton ref) to a bone's translation
+        if b not in sref:
+            return tt
+        return [x - (m - k) for x, m, k in zip(tt, sk.local[b]["t"], sref[b])]
+
+    for b in list(const):
+        const[b] = {**const[b], "t": anim_t(b, const[b]["t"])}
+    for b in keyed:
+        keyed[b] = [{**k_, "t": anim_t(b, k_["t"])} for k_ in keyed[b]]
+    rows = {"upperarm_torso_clear_cm": {s: round(v, 1) for s, v in clear.items()}}
+    ok_clear = min(clear.values()) >= 3.0
+    if not ok_clear:
+        issues.append({"code": "body.arm_torso", "message": f"upper arm within {min(clear.values()):.1f} cm of the "
+                       "torso/breast model (line 3)", "value": min(clear.values())})
+    summary = {"pass": not issues, "issues": issues[:30], "n_issues": len(issues), "tuned": tuned, "rows": rows,
+               "events": len(plan.events), "moving_bones": len(moving), "frame": {"fwd": perf.F["fwd"],
+                                                                                   "right": perf.F["right"]},
+               "rest": S.check(perf, perf.fk({**const, **first}))}
+    doc = {"length_s": length_s, "fps": fps, "n_keys": n, "const": const, "keyed": keyed}
+    return doc, summary
