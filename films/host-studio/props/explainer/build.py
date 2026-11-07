@@ -32,7 +32,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--out", required=True)
 ap.add_argument("--samples", type=int, default=128)
 ap.add_argument("--res", type=int, default=1400)
-ap.add_argument("--only", default="", help="comma list of assets (chair,desk,mic,plant)")
+ap.add_argument("--only", default="", help="comma list of assets (chair,desk,mic,plant,desk_panel,lamp,floorplant,headphones)")
 ap.add_argument("--no-render", action="store_true")
 ap.add_argument("--no-denoise", action="store_true")
 ap.add_argument("--tex-size", type=int, default=P.N)
@@ -633,6 +633,121 @@ def build_lamp(M):
     return ob, hulls, [P.socket("Bulb", bulb_c, (0, 0, 1))], info
 
 
+# =========================================================================== headphones, lying on the desk
+
+def _pillow(w, t, n=20):
+    """A closed puffy section, half-width w, from v = 0 to v = t."""
+    out = []
+    for k in range(n):
+        a = 2 * math.pi * k / n
+        co, si = math.cos(a), math.sin(a)
+        out.append((w * math.copysign(abs(co) ** 0.55, co), t / 2 - t / 2 * math.copysign(abs(si) ** 0.75, si)))
+    return out
+
+
+def build_headphones(M):
+    """Closed-back over-ear headphones (no marks) laid on their side on a desk: built standing (band in the YZ plane,
+    cups along Y), then turned so the band lies along +X and tipped about Y until the band's crown rests on the
+    desk beside the cups. Matte black plastic band, housings and shells, leather pads and cushion, steel sliders,
+    yokes and bezels. About 21 x 23 cm, 11 cm high."""
+    c = 0.01
+    PL, LE, ST = M["PlasticBlack"], M["Leather"], M["Steel"]
+    A, ZB, H_ARC, EXP = 8.8, 32.2, 8.4, 2.5
+    ZS = ZB - H_ARC
+    band_g, cup_g = [], []
+
+    def band_pt(th):
+        s, co = math.sin(th), math.cos(th)
+        return Vector((0.0, A * math.copysign(abs(s) ** (2 / EXP), s), ZS + H_ARC * abs(co) ** (2 / EXP)))
+
+    ths = [-math.pi / 2 + math.pi * i / 72 for i in range(73)]
+    line = [band_pt(t) for t in ths]
+    line = [line[0] - Vector((0, 0, 0.7))] + line + [line[-1] - Vector((0, 0, 0.7))]
+    band_g.append(S.sweep("band", [p * c for p in line],
+                          [(u * c, v * c) for u, v in S.rounded_rect(3.2, 0.75, 0.26, segs=3)], PL, hint=(1, 0, 0)))
+    cush = [band_pt(t) for t in ths if abs(band_pt(t).y) < 6.2]
+    band_g.append(S.sweep("cushion", [p * c for p in cush], [(u * c, (0.35 + v) * c) for u, v in _pillow(1.35, 1.4)],
+                          LE, hint=(1, 0, 0)))
+    PAD_IN, PAD_D, SHELL_R = 5.2, 2.4, 5.0
+    Y_RAD = SHELL_R + 0.5
+    HOUSE_Z0 = ZS - 1.9
+    YOKE_TOP = HOUSE_Z0 - 1.5
+    CZ = YOKE_TOP - Y_RAD
+    pad_prof = [(4.45, PAD_D + 0.02), (4.62, PAD_D - 0.25), (4.74, PAD_D - 0.8), (4.76, 1.2), (4.70, 0.75),
+                (4.55, 0.42), (4.32, 0.18), (4.0, 0.05), (3.6, 0.0), (3.2, 0.0), (2.85, 0.06), (2.6, 0.22),
+                (2.45, 0.5), (2.38, 0.9), (2.36, 1.4), (2.40, PAD_D - 0.5), (2.5, PAD_D - 0.2), (2.62, PAD_D + 0.02),
+                (4.45, PAD_D + 0.02)]
+    shell_prof = [(0, PAD_D - 0.35), (2.7, PAD_D - 0.35), (2.7, PAD_D - 0.05), (4.55, PAD_D - 0.05),
+                  (4.66, PAD_D + 0.15), (SHELL_R, PAD_D + 0.6), (SHELL_R, PAD_D + 1.15), (4.68, PAD_D + 1.6),
+                  (4.5, PAD_D + 1.95), (4.22, PAD_D + 2.18), (3.98, PAD_D + 2.3), (3.94, PAD_D + 2.38),
+                  (3.78, PAD_D + 2.42), (3.62, PAD_D + 2.38), (3.55, PAD_D + 2.34), (2.5, PAD_D + 2.4), (0, PAD_D + 2.44)]
+
+    def lathe_on(name, prof, mats, p0, p1, segs, split=None):
+        m, _ = S.frame_to(Vector(p0) * c, Vector(p1) * c)
+        return S.lathe(name, [(r * c, z * c) for r, z in prof], mats, segs=segs, matrix=m, mat_split=split)
+
+    for side in (-1, 1):
+        tag = "L" if side < 0 else "R"
+        ys = side * A
+        house = S.prism(f"house_{tag}", S.rounded_rect(3.5 * c, 1.25 * c, 0.45 * c, segs=4),
+                        (0, ys * c, HOUSE_Z0 * c), (0, ys * c, (ZS + 0.35) * c), PL, up=(1, 0, 0))
+        bevel(house, 0.0012, 3, angle=30)
+        band_g.append(house)
+        cup_g.append(S.prism(f"slider_{tag}", S.rounded_rect(1.0 * c, 0.26 * c, 0.1 * c, segs=2),
+                             (0, ys * c, (YOKE_TOP + 0.3) * c), (0, ys * c, (HOUSE_Z0 + 0.4) * c), ST, up=(1, 0, 0)))
+        cup_g.append(S.sweep(f"yoke_{tag}", [(Y_RAD * math.cos(a) * c, ys * c, (CZ + Y_RAD * math.sin(a)) * c)
+                                             for a in (math.pi * k / 40 for k in range(41))],
+                             [(u * c, v * c) for u, v in S.rounded_rect(0.85, 0.42, 0.16, segs=2)], ST, hint=(0, 1, 0)))
+        cup_g.append(lathe_on(f"hub_{tag}", [(0, -0.3), (0.5, -0.3), (0.58, -0.2), (0.58, 0.55), (0.5, 0.65), (0, 0.65)],
+                              [ST], (0, ys, YOKE_TOP - 1), (0, ys, YOKE_TOP + 1), 20))
+        for sx in (-1, 1):
+            cup_g.append(lathe_on(f"pivot_{tag}{sx}", [(0, -0.4), (0.52, -0.4), (0.6, -0.3), (0.6, 0.3), (0.52, 0.4),
+                                                        (0, 0.4)], [ST],
+                                  (sx * (SHELL_R - 0.25), ys, CZ), (sx * (Y_RAD + 0.35), ys, CZ), 20))
+        y0 = side * PAD_IN
+        ax = ((0, y0, CZ), (0, y0 + 2 * side, CZ))
+        cup_g.append(lathe_on(f"pad_{tag}", [(r, y - 1.0) for r, y in pad_prof], [LE], *ax, 96))
+        cup_g.append(lathe_on(f"shell_{tag}", [(r, y - 1.0) for r, y in shell_prof], [PL, ST], *ax, 72,
+                              split=lambda i: 1 if 10 <= i <= 13 else 0))
+
+    def world_verts(obs, step=1):
+        dg = bpy.context.evaluated_depsgraph_get()
+        out = []
+        for o in obs:
+            me = o.evaluated_get(dg).to_mesh()
+            out += [o.matrix_world @ v.co for v in list(me.vertices)[::step]]
+            o.evaluated_get(dg).to_mesh_clear()
+        return out
+
+    bv, cv = world_verts(band_g), world_verts(cup_g)
+
+    def gap(phi):
+        R = Matrix.Rotation(math.pi / 2 + phi, 3, "Y")
+        return min((R @ v).z for v in bv) - min((R @ v).z for v in cv)
+
+    lo_, hi_ = 0.0, 0.7                          # tip the crown down until it touches as low as the cups do
+    for _ in range(40):
+        mid = (lo_ + hi_) / 2
+        lo_, hi_ = (mid, hi_) if gap(mid) > 0 else (lo_, mid)
+    phi = (lo_ + hi_) / 2
+    R = Matrix.Rotation(math.pi / 2 + phi, 4, "Y")
+    allv = [R @ v for v in bv + cv]
+    mn = Vector((min(v.x for v in allv), min(v.y for v in allv), min(v.z for v in allv)))
+    mx = Vector((max(v.x for v in allv), max(v.y for v in allv), max(v.z for v in allv)))
+    T = Matrix.Translation((-(mn.x + mx.x) / 2, -(mn.y + mx.y) / 2, -mn.z))
+    for o in band_g + cup_g:
+        o.matrix_world = T @ R @ o.matrix_world
+    hulls = [world_verts(band_g, 3)]
+    for side in (-1, 1):
+        hulls.append(world_verts([o for o in cup_g if ("_L" if side < 0 else "_R") in o.name], 3))
+    ob = S.join("SM_Headphones", band_g + cup_g)
+    size = mx - mn
+    info = {"origin": "desk contact, centre of the footprint", "pose": "lying on its side: cups on the desk on their rims, "
+            "band crown toward +X resting on the desk", "footprint_cm": [round(size.x * 100, 1), round(size.y * 100, 1)],
+            "height_cm": round(size.z * 100, 1), "tilt_deg": round(math.degrees(phi), 1)}
+    return ob, hulls, [], info
+
+
 # =========================================================================== previews
 
 def preview_stage(lo, hi, view_dir, path, lens=55, res=None, aim=None, margin=1.08, key_side=1.0, aspect=(1, 1)):
@@ -715,7 +830,7 @@ def main():
     M = {k: P.pbr_material(k, p) for k, p in paths.items()}
     builders = {"chair": build_chair, "desk": build_desk, "mic": build_mic, "plant": build_plant,
                 "desk_panel": lambda m: build_desk(m, panel=True), "lamp": build_lamp,
-                "floorplant": lambda m: build_plant(m, floor=True)}
+                "floorplant": lambda m: build_plant(m, floor=True), "headphones": build_headphones}
     only = [s for s in args.only.split(",") if s] or list(builders)
     manifest = {"units": "FBX in cm; Blender (x, y, z) -> Unreal (x, -y, z)", "textures": {}, "assets": {}}
     for k, p in paths.items():
@@ -746,7 +861,8 @@ def main():
         return
     allobs = [b[0] for b in built.values()]
     views = {"chair": (1.0, -0.75, 0.42), "desk": (1.0, -0.8, 0.55), "mic": (0.35, -1.0, 0.25), "plant": (1.0, -0.6, 0.35),
-             "desk_panel": (1.0, -0.8, 0.30), "lamp": (1.0, -0.5, 0.25), "floorplant": (1.0, -0.6, 0.3)}
+             "desk_panel": (1.0, -0.8, 0.30), "lamp": (1.0, -0.5, 0.25), "floorplant": (1.0, -0.6, 0.3),
+             "headphones": (0.8, -0.7, 0.75)}
     for key, (ob, _, _) in built.items():
         hide(allobs, True)
         ob.hide_render = False
