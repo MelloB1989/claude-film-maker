@@ -764,7 +764,7 @@ def cmd_numbers(who: str, seq: str = "") -> dict:
     return {"gate": g}
 
 
-STEPS = ["body", "life", "preview", "cams", "push", "solve", "bias", "compose", "check:solve", "workseq", "face",
+STEPS = ["body", "life", "preview", "push", "solve", "bias", "cams", "compose", "check:solve", "workseq", "face",
          "check:face", "sync", "gaze", "check:final", "place", "check:placed", "bodycheck", "numbers"]
 
 
