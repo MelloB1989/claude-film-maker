@@ -19,7 +19,7 @@ export default class Prefill extends NfScene {
   protected scene(c: CanvasRenderingContext2D, g: CanvasRenderingContext2D, t: number, f: Frame) {
     const P = this.look.panel;
     const L = P
-      ? { X0: 30, X1: 420, Y0: 300, Y1: 70, lx: 640, ly: 120, ocas: [150, 425, 700], oy: 400, os: 0.8, pill: [425, 525] as const, txt: 0.9 }
+      ? { X0: 60, X1: 380, Y0: 290, Y1: 70, lx: 640, ly: 120, ocas: [150, 425, 700], oy: 430, os: 0.8, pill: [425, 545] as const, txt: 0.9 }
       : { X0: 140, X1: 900, Y0: 790, Y1: 370, lx: 1450, ly: 360, ocas: [1180, 1450, 1720], oy: 655, os: 1.0, pill: [1450, 846] as const, txt: 1 };
     if (!P) heading(c, this.p('kick', 'Step 2 · Fill it overnight'), this.p('title', 'Tomorrow’s hits, delivered tonight'), t);
 
@@ -34,7 +34,8 @@ export default class Prefill extends NfScene {
       text(c, h === 24 ? '24:00' : `${String(h).padStart(2, '0')}:00`, hx(h), Y0 + 36, { size: 20, color: 'fgFaint', align: 'center', face: 'mono' });
       c.fillStyle = 'rgba(255,225,200,0.2)'; c.fillRect(hx(h) - 0.75, Y0, 1.5, 8);
     }
-    text(c, 'viewing demand', X1, Y1 - 30, { size: 22, color: 'fgDim', align: 'right', alpha: 1 - rev(t, this.cue('near', 5.5) - 0.2, 0.3) });
+    // (the narrow panel has no room for it beside 'fill window': there it hands over when the window opens)
+    text(c, 'viewing demand', X1, Y1 - 30, { size: 22, color: 'fgDim', align: 'right', alpha: 1 - rev(t, P ? this.cue('night', 0.75) - 0.2 : this.cue('near', 5.5) - 0.2, 0.3) });
     c.restore();
     // fill window band (quiet hours)
     const kW = rev(t, this.cue('night', 0.75), 0.45);
@@ -90,9 +91,13 @@ export default class Prefill extends NfScene {
     for (const [i, o] of ocas.entries()) {
       server(c, g, o.x, o.y, L.os, f.t + i, { a: rev(t, o.at, 0.5), busy: 0.25 + 0.6 * fillK(i), fill: fillK(i) });
     }
-    text(c, 'the boxes near you', L.ocas[1]!, L.oy + 140 * L.os, { size: 22, color: 'fgDim', align: 'center', alpha: rev(t, ocas[0]!.at, 0.4) });
+    // the label gives way to the payoff pill, which takes its place on "near"
+    text(c, 'the boxes near you', L.ocas[1]!, L.oy + 140 * L.os, { size: 22, color: 'fgDim', align: 'center', alpha: rev(t, ocas[0]!.at, 0.4) * (1 - rev(t, this.cue('near', 5.5), 0.2)) });
     // title tiles flying down during the window
     const cols = ['accent', 'accent2', 'accentDim', 'accent2Dim'];
+    // in the panel the chart sits right above the boxes: the tiles pass behind it, never over its labels
+    c.save();
+    if (P) { c.beginPath(); c.rect(-4000, -4000, 8000, 8000); c.rect(X0 - 60, -200, X1 - X0 + 120, Y0 + 250); c.clip('evenodd'); }
     for (let i = 0; i < 15; i++) {
       const ti = tc + i * 0.09, u = clamp((t - ti) / 0.8);
       if (u <= 0 || u >= 1) continue;
@@ -110,6 +115,7 @@ export default class Prefill extends NfScene {
       c.fillStyle = 'rgba(255,240,225,0.75)'; c.fillRect(-tw / 2 + 5 * s, th / 2 - 14 * s, tw - 10 * s, 3 * s);
       c.restore();
     }
+    c.restore();
     // the payoff
     pill(c, g, 'At peak, it’s already next door', L.pill[0], L.pill[1], { a: rev(t, this.cue('near', 5.5) + 0.15, 0.35), color: 'accent', filled: true, size: 24 });
     void land;
