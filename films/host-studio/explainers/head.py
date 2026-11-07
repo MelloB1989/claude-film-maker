@@ -269,7 +269,7 @@ def _unit(v):
 def eye_metrics(eyes: dict, fps: float) -> dict:
     """From seq.sample of both eyes + the camera: the angle (deg) of each eye's gaze off its line to the lens, per
     frame. The gaze axis is the eye bone's axis that points most at the lens over the span (signed)."""
-    off_all, sacc, glance_n, dur_s, steps_on, per_span = [], 0, 0, 0.0, [], []
+    off_all, sacc, glance_n, dur_s, steps_on, per_span, head_all = [], 0, 0, 0.0, [], [], []
     for sp in eyes["spans"]:
         cam = np.asarray(sp["cam"], float)
         offs = []
@@ -308,6 +308,18 @@ def eye_metrics(eyes: dict, fps: float) -> dict:
                 run = 0
         off_all.append(off)
         dur_s += len(off) / fps
+        # the head's own aim off the lens (r7: new mic stills showed head AND eyes turned toward the mic): the head
+        # bone's axis that points most at the lens over the span, its angle to the line from the head to the lens
+        head_off = None
+        if "head" in sp["bones"]:
+            hb = np.asarray(sp["bones"]["head"], float)
+            h_to = _unit(cam - hb[:, :3])
+            hax = [hb[:, 3 + 3 * k:6 + 3 * k] for k in range(3)]
+            hs = [float(np.mean(np.sum(a * h_to, axis=1))) for a in hax]
+            hk = int(np.argmax(np.abs(hs)))
+            hg = _unit(hax[hk] * math.copysign(1.0, hs[hk]))
+            head_off = np.degrees(np.arccos(np.clip(np.sum(hg * h_to, axis=1), -1, 1)))
+            head_all.append(head_off)
         q = max(1, len(off) // 4)  # where in the span the eyes are off: its quarters (a slow lock shows at the start)
         per_span.append({"frames": [sp["frames"][0], sp["frames"][-1]], "camera": sp.get("camera", ""),
                          "on_lens": round(float(np.mean(off < 3.0)), 2), "off_med_deg": round(float(np.median(off)), 2),
@@ -315,6 +327,7 @@ def eye_metrics(eyes: dict, fps: float) -> dict:
                                               if len(off[k * q:(k + 1) * q])],
                          # the eyes' off-lens direction (+ right/up in the image as the camera sees it is not known
                          # here; the signed mean of the gaze-minus-lens vector's z says above/below)
+                         "head_off_med_deg": None if head_off is None else round(float(np.median(head_off)), 2),
                          "off_up_deg": round(float(np.degrees(np.mean(np.arcsin(np.clip(g[:, 2], -1, 1)) -
                                                                       np.arcsin(np.clip(to_cam[:, 2], -1, 1))))), 2)})
     off = np.concatenate(off_all) if off_all else np.zeros(0)
@@ -326,6 +339,9 @@ def eye_metrics(eyes: dict, fps: float) -> dict:
             # INFO: the eyes' frame-to-frame motion on the lens (a lock's jitter shows here: p50 over ~0.08 deg buzzes)
             "eyes.step_p50_deg": round(float(np.median(np.concatenate(steps_on))), 3) if steps_on and
             sum(len(x) for x in steps_on) else None,
+            # INFO: the head's aim off the lens (median over the screen time; the head bone's forward is not the
+            # face's exactly, so read it against a known-good take: r6 V2 her)
+            "head.off_lens_med_deg": round(float(np.median(np.concatenate(head_all))), 2) if head_all else None,
             "eyes.spans": per_span}
 
 
