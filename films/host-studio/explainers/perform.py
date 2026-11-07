@@ -59,8 +59,8 @@ SEED = {"him": 71, "her": 72}
 SET = S.Set(seat_top=45.0, seat_front=24.5, desk_top=74.0, desk_near=18.0, desk_far=73.0, desk_under=63.4,
             mic=[24.0, -14.0, 99.0], mic_radius=9.0,
             boom=[[50.0, -52.6, 74.0], [43.8, -42.9, 119.3], [29.5, -20.4, 103.4], [24.0, -14.0, 99.0]],
-            cams={"CAM_MCU": [167.5, 78.0, 121.3], "CAM_CU": [132.7, 38.7, 121.0], "CAM_WIDE": [314.1, 101.0, 104.7]})
-# ^ cameras read on box B (07 Nov 20:1x IST); CAM_MCU_L sits where CAM_MCU is
+            cams={"CAM_MCU": [167.5, 78.0, 121.3], "CAM_CU": [132.7, 38.7, 121.0], "CAM_WIDE": [277.0, 89.7, 125.3]})
+# ^ cameras read on box B (07 Nov 20:1x IST; CAM_WIDE moved to eye level 21:xx, agent-11); CAM_MCU_L sits where CAM_MCU is
 # ^ agent-07's set after the orchestrator's r3 notes (07 Nov ~18:3x IST): desk in (studio x 38..93), the mic mirrored
 #   to the presenter's LEFT (studio -Y), the cameras on her right (studio +Y, azimuth +17..+24)
 # How each sits (seatkit.Style). The cameras are at studio +Y (azimuth +17..+24): facing +X in Unreal that is the
@@ -72,8 +72,8 @@ STYLE = {  # forearms resting on the desk (the orchestrator, r3 stills): elbows 
     # her (the operator + orchestrator, v1: her camera-side shoulder ballooned the overshirt): shoulders down and
     # back, elbows tucked by her sides, the upper arm as near vertical as the desk allows (a lower desk, set_her.json)
     "her": S.Style(lean=12.0, twist=0.0, hip_above_seat=11.0, knee_out=3.0, foot_out=6.0, pronation=75.0, shin_tilt=6.0,
-                   elbow_out=-2.0, clavicle_fwd=-1.0, clavicle_drop=5.0),
-    "him": S.Style(lean=18.0, twist=0.0, knee_out=8.0, foot_out=9.0, pronation=72.0, elbow_out=3.0,
+                   elbow_out=-2.0, clavicle_fwd=-1.0, clavicle_drop=5.0, forearm_in=5.0),
+    "him": S.Style(lean=18.0, twist=0.0, knee_out=8.0, foot_out=9.0, pronation=72.0, elbow_out=3.0, forearm_in=8.0,
                    clavicle_fwd=5.0, clavicle_drop=3.0),
 }
 
@@ -533,9 +533,7 @@ def face_args(who: str) -> dict:
     eyes): glances off the active lens, re-aims mid-gap or on a direct cut, no blink on any gaze move. Nothing is added
     here but the mouth gain for him."""
     import head as HD
-    cams = json.loads((OUT / who / "cams.json").read_text())["cams"]
-    cue = {**cue_sheet(who), "cams": {c: [v["yaw"], v["pitch"]] for c, v in cams.items() if v}}
-    args = HD.face_args(cue, who)
+    args = HD.face_args(head_cue(who), who)
     if SPEECH_GAIN.get(who, 1.0) != 1.0:
         args["speech_gain"] = [[0.0, round(length_s(who), 3), SPEECH_GAIN[who]]]
     return args
@@ -576,35 +574,98 @@ def cmd_sync(who: str) -> dict:
     return res
 
 
+EYE_CURVES = [f"CTRL_expressions_eyeLook{d}{e}" for e in "LR" for d in ("Left", "Right", "Up", "Down")]
+CORR_SMOOTH_S = 0.8        # the lock's correction is averaged over this window: aim only, never the darts
+CORR_FADE_S = 0.25         # and faded in/out at each locked span's ends
+
+
+def head_cue(who: str) -> dict:
+    """agent-04's cue (cues/<who>.json) with the cameras' directions from the cams step: what head.py plans on."""
+    cams = json.loads((OUT / who / "cams.json").read_text())["cams"]
+    return {**cue_sheet(who), "cams": {c: [v["yaw"], v["pitch"]] for c, v in cams.items() if v}}
+
+
+def lock_spans(who: str) -> list:
+    """agent-04's head.lock_spans: the on-camera spans minus each thinking glance (0.08 s before it leaves the lens
+    to 0.35 s after it is back), [f0, f1 inclusive, camera]: a glance stays perf.face's (the judge read 0 glances
+    when the lock covered them). One definition, head.py's."""
+    import head as HD
+    return [list(x) for x in HD.lock_spans(head_cue(who), who)]
+
+
 def cmd_gaze(who: str) -> dict:
-    """The eyes on each on-camera span's camera, one span at a time, each pass on the last one's output (in place
-    after the first). Off-screen frames keep perf.face's eyes."""
+    """The eyes on each shot's camera WITHOUT replacing perf.face's eyes: gaze_lock solves the exact aim per locked
+    span (glances left out), then only the slow part of its correction (locked - perf.face, averaged over
+    CORR_SMOOTH_S, faded at the span ends) is added to perf.face's eyes -> AS_exp_<who>_gaze. perf.face's
+    fixational darts and glances stay (agent-04's judge read 7.97 saccades/s of lock jitter and 0 glances when the lock
+    replaced the eyes outright)."""
     c = client()
     path, lab = WORK[who], LABEL[who]
-    src, out = f"{ANIM}/AS_exp_{who}_follow", f"{ANIM}/AS_exp_{who}_gaze"
+    src, raw, out = f"{ANIM}/AS_exp_{who}_follow", f"{ANIM}/AS_exp_{who}_lock", f"{ANIM}/AS_exp_{who}_gaze"
     ok(c.op("seq.set_anim", path=path, component="Face", anim=src, label=lab))
-    res = []
-    first = True
-    for a, b, cam in cue_sheet(who)["on_cam"]:
-        f0, f1 = int(round(a * FPS)), int(round(b * FPS)) - 1
-        r = ok(c.op("anim.gaze_lock", sequence=path, actor_label=lab, anim=src if first else out, out=out,
-                    target=cam, frames=[f0, f1], timeout=3600))
+    res, first = [], True
+    spans = lock_spans(who)
+    for f0, f1, cam in spans:
+        r = ok(c.op("anim.gaze_lock", sequence=path, actor_label=lab, anim=src if first else raw, out=raw,
+                    target=cam, frames=[f0, f1], saccades=0.0, timeout=3600))
         first = False
-        res.append({"span": [f0, f1], "camera": cam, "passes": r.get("passes"), "frames": r.get("frames"),
-                    "head_to_lens": r.get("head_to_lens_deg")})
+        res.append({"span": [f0, f1], "camera": cam, "passes": r.get("passes"), "frames": r.get("frames")})
         print(json.dumps(res[-1]), flush=True)
-    keep(who, "gaze", res)
-    return {"spans": res}
+    a = ok(c.op("anim.read_curves", anim=src, names=EYE_CURVES))
+    b = ok(c.op("anim.read_curves", anim=raw, names=EYE_CURVES))
+    curves, stat = blend_eyes(a, b, spans)
+    run(r"""
+import json, unreal
+from fmbridge.ops.assets import free
+P = json.loads(PARAMS)
+free(P["out"])
+unreal.EditorAssetLibrary.duplicate_asset(P["src"], P["out"])
+unreal.EditorAssetLibrary.save_asset(P["out"])
+result = True
+""", {"src": src, "out": out})
+    ok(c.op("anim.write_curves", anim=out, curves=curves, mode="replace"))
+    ok(c.op("seq.set_anim", path=path, component="Face", anim=out, label=lab, only=raw))
+    ok(c.op("seq.set_anim", path=path, component="Face", anim=out, label=lab, only=src))
+    keep(who, "gaze", {"spans": res, "blend": stat})
+    return {"spans": len(res), "blend": stat}
 
 
-def lead(who: str) -> dict:
-    """Every garment back on leader pose to the body (they drop after sequence/animation work: box B, 07 Nov), then
-    the check: exit on a garment that still does not follow."""
-    ok(client().op("mh.leader", label=LABEL[who]))
-    r = ok(client().op("mh.leader_check", label=LABEL[who]))
-    if not r.get("pass"):
-        raise SystemExit(f"garments not following {LABEL[who]}'s body: {r.get('why')}")
-    return {"pass": True, "metric": r.get("metric")}
+def blend_eyes(a: dict, b: dict, spans: list) -> tuple:
+    """perf.face's eye curves `a` + the smoothed lock correction (b - a) inside `spans` (frames). Each eye's yaw =
+    Left - Right and pitch = Up - Down are corrected as signed values, then split back into the rig's one-sided
+    curves. Returns ({curve: [times, values]}, numbers)."""
+    import numpy as np
+    t = np.asarray(a[EYE_CURVES[0]][0], float)
+
+    def on(cur, n):
+        tt, vv = cur.get(n, [[0.0, 1.0], [0.0, 0.0]])
+        return np.interp(t, np.asarray(tt, float), np.asarray(vv, float))
+
+    w = np.zeros_like(t)
+    for f0, f1, _ in spans:
+        t0, t1 = f0 / FPS, f1 / FPS
+        inside = (t >= t0) & (t <= t1)
+        ramp = np.minimum(np.clip((t - t0) / CORR_FADE_S, 0, 1), np.clip((t1 - t) / CORR_FADE_S, 0, 1))
+        w = np.where(inside, np.maximum(w, ramp), w)
+    dt = float(np.median(np.diff(t))) if len(t) > 1 else 1 / 30
+    k = max(1, int(round(CORR_SMOOTH_S / dt)) | 1)
+    out, stat = {}, {}
+    for e in "LR":
+        for pos, neg in (("Left", "Right"), ("Up", "Down")):
+            np_, nn = f"CTRL_expressions_eyeLook{pos}{e}", f"CTRL_expressions_eyeLook{neg}{e}"
+            sa = on(a, np_) - on(a, nn)
+            sb = on(b, np_) - on(b, nn)
+            d = (sb - sa) * (w > 0)
+            # average the correction inside the locked frames only (no bleed from unlocked neighbours)
+            num = np.convolve(d, np.ones(k), mode="same")
+            den = np.convolve((w > 0).astype(float), np.ones(k), mode="same")
+            corr = np.where(den > 0, num / np.maximum(den, 1e-9), 0.0) * w
+            v = sa + corr
+            out[np_] = [t.round(4).tolist(), np.clip(v, 0, 1).round(5).tolist()]
+            out[nn] = [t.round(4).tolist(), np.clip(-v, 0, 1).round(5).tolist()]
+            stat[f"{e}_{pos}{neg}"] = {"corr_mean": round(float(np.mean(np.abs(corr[w > 0]))) if (w > 0).any() else 0.0, 4),
+                                       "jitter_removed": round(float(np.std(np.diff(d[w > 0]))) if (w > 0).sum() > 2 else 0.0, 4)}
+    return out, stat
 
 
 def cmd_preview(who: str, seq: str = "") -> list:
