@@ -35,7 +35,10 @@ sys.path.insert(0, str(HERE))
 import setplan as P  # noqa: E402
 
 STUDIO = "/Game/Studio/Studio"
-LEVEL = "/Game/Explainer/ExplainerSet"
+# one level per presenter, each saved from the Studio (which holds that presenter's dressed instance): her finished
+# level is never touched by his replay, and box B can run both
+LEVELS = {"her": "/Game/Explainer/ExplainerSet", "him": "/Game/Explainer/ExplainerSet_Him"}
+LEVEL = LEVELS["her"]  # kept for older callers
 FOLDER = "/Game/Explainer"
 PROPS_DIR = f"{FOLDER}/Props"
 BUCKET = "s3://rf-render-788655295054-aps1/ue-linux"
@@ -46,7 +49,8 @@ ACTOR = {"her": "Presenter", "him": "Host"}
 SEQ = {"her": f"{FOLDER}/SEQ_Explain_Her", "him": f"{FOLDER}/SEQ_Explain_Him"}
 STEPS = ["level", "props", "dressing", "light", "cameras", "seq", "garments", "dress", "save"]
 # the presenter's dress pass (leaders, hair look, accessories; saves the level) and what she wears, per presenter
-DRESS = {"her": HERE.parent / "props/her_outfit_ue/dress_her.py", "him": HERE.parent / "props/his_outfit_ue/dress_him.py"}
+# his dress_him.py also rewrites the reel's SEQ_Reel: for him the level part alone (mh.leader) is what the set needs
+DRESS = {"her": HERE.parent / "props/her_outfit_ue/dress_her.py", "him": None}
 client = None  # filmtools.unreal.client, imported once FILM_UE_BOX is set
 
 
@@ -87,15 +91,16 @@ def guard(box: str, instance: str) -> None:
 # --------------------------------------------------------------------------------------------------------- steps
 
 def step_level(who: str) -> None:
-    exists = ex(f"import unreal\nresult = unreal.EditorAssetLibrary.does_asset_exist({LEVEL!r})")
+    level = LEVELS[who]
+    exists = ex(f"import unreal\nresult = unreal.EditorAssetLibrary.does_asset_exist({level!r})")
     if not exists:
         # save-as from the open Studio: assets.duplicate of the loaded map, then level.open of the copy, kills the
         # editor (EditorServer.cpp:2544, the old world still referenced) every time (box B, 16:47 and 16:48 IST)
         op("level.open", path=STUDIO)
         ex("import unreal\nw = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world()\n"
-           f"result = unreal.EditorLoadingAndSavingUtils.save_map(w, {LEVEL!r})")
-        print(f"saved {STUDIO} as {LEVEL}")
-    op("level.open", path=LEVEL)
+           f"result = unreal.EditorLoadingAndSavingUtils.save_map(w, {level!r})")
+        print(f"saved {STUDIO} as {level}")
+    op("level.open", path=level)
     labels = [a[0] for a in op("level.actors")]
     other = ACTOR["him" if who == "her" else "her"]
     gone = [lab for lab in labels if lab in P.STUDIO_HOST_LIGHTS or lab in P.STUDIO_CAMS or lab == other
@@ -332,7 +337,10 @@ result = out"""))
 def step_dress(who: str) -> None:
     """Leaders back on every garment (any step that touches her components drops them: box B after agent-01's body
     step), her hair look and accessories, the groom lock (render cvars) — then the leaders check must pass."""
-    ok(client.exec_code(DRESS[who].read_text()))
+    if DRESS[who]:
+        ok(client.exec_code(DRESS[who].read_text()))
+    else:
+        op("mh.leader", label=ACTOR[who])
     op("groom.lock", labels=[ACTOR[who]])
     lead = op("mh.leader_check", label=ACTOR[who])
     if not lead.get("pass"):
