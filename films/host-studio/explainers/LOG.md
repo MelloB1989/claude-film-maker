@@ -183,3 +183,16 @@ tested in `test_seatkit.py`), `gestures.json` (the emphasis gestures per line).
 | 18:05 | agent-07 moved the desk in (near edge x 38) and mirrored the boom to the -Y edge (scale -1 at yaw -90): no re-pose needed. Armrest 63.0 vs apron underside 63.4 noted |
 | 18:30 | A full re-run died at once: `cd && rm && nohup … &` on one line ran the whole chain in a subshell that SSM killed with the command → relaunch with `setsid nohup` on its own line |
 | 18:45 | Orchestrator (via agent-07): her feet never seen, WIDE's empty right → SM_WalnutDesk_Panel, SM_FloorLamp (practical, SOCKET_Bulb), SM_FloorSnakePlant; all 7 FBX re-import at size; uploaded with all textures |
+
+## 18:40-18:51 IST, agent-05: SM_WalnutDesk_Waterfall (task 8c95)
+- The operator found the panel desk's lower part "very weird" (legs, front). It is replaced by a waterfall desk: one
+  3.2 cm walnut slab runs over the top and down both ends to the floor (mitred, 3.5 mm soft edges, grain wraps).
+  A modesty panel is recessed 9 cm behind the camera-side edge and stops 13 cm off the floor. No legs, no apron.
+- Size: 110 x 55 with the top at 71, as agent-07 and the orchestrator asked (agent-01's pose); underside of the top
+  67.8. Origin and frame are the same as SM_WalnutDesk_Panel; placed at (59.5, -20, 0).
+- Material: one slot, M_WalnutFine, with UV0 in metres and U along the grain, so /Game/Studio/Materials/MI_K_Walnut
+  goes straight on. The Blender preview uses T_WalnutFine (grain lines ~4 mm, low contrast, satin), checked at 1:1.
+- Built on box B (CPU, nice 15, 6 threads). Files are in s3 props/explainer: fbx/, textures/T_WalnutFine_*,
+  preview/ (_CAM_WIDE has grey proxy legs; they are hidden), and the merged props.json.
+- Open: the mic C-clamp on the -Y edge at x 67 has the waterfall end panel directly under that edge, so its lower jaw
+  would sit inside the wood. Clamp it on the far (+X) edge, or use a top-mount/grommet base.

@@ -1,11 +1,11 @@
 # Explainer props (round 6)
 
 Seated-presenter explainer set: a podcast lounge chair, a small walnut desk, a broadcast dynamic mic on a desk boom
-arm (posed for the set), a snake plant; then a desk with a modesty panel, a floor lamp and a floor snake plant. Original designs, no marks. Blender 4.2, headless, CPU only; run on a GPU
+arm (posed for the set), a snake plant; then a desk with a modesty panel, a floor lamp and a floor snake plant; over-ear headphones lying on the desk; a walnut waterfall desk. Original designs, no marks. Blender 4.2, headless, CPU only; run on a GPU
 box (never on fleet hosts):
 
     blender -b --factory-startup -t 6 -P films/host-studio/props/explainer/build.py -- --out <dir> [--no-render]
-    #  --only chair,desk,mic,plant,desk_panel,lamp,floorplant   --samples 64 --res 1200   --tex-size 256 (quick debug)
+    #  --only chair,desk,mic,plant,desk_panel,lamp,floorplant,headphones,waterfall   --samples 64 --res 1200   --tex-size 256 (quick debug)
 
 - `_pbr.py`: 12 tileable 2K PBR sets drawn in numpy (periodic noise via FFT filtering): ChairFabric (plain-woven
   heathered yarn), BrushedAlu, PowderBlack, Rubber, Grille (woven wire mesh), Walnut (rift-sawn, oiled), Leather,
@@ -31,6 +31,8 @@ box (never on fleet hosts):
 | SM_WalnutDesk_Panel | as SM_WalnutDesk | + modesty panel on +X (x 23.7..25.5, y ±44, z 8..70) and a return at the set's +Y end |
 | SM_FloorLamp | floor, centre of the base | 152 tall; linen drum 44/40 cm at z 120..150; SOCKET_Bulb at z 138.5; slots M_ShadeLinen (two-sided, translucent), M_LampBulb (emissive) |
 | SM_FloorSnakePlant | bottom centre of the pot | pot 36 across, 35 high; 111 tall |
+| SM_Headphones | desk contact, centre of the footprint | lying on its side, band crown on +X tipped 13.8° onto the desk; 22.5 (X) x 20.1 (Y) x 11.4; slots M_PlasticBlack, M_Leather, M_Steel |
+| SM_WalnutDesk_Waterfall | floor, centre of the top | waterfall: one 3.2 cm slab over the top and down both ends (3.5 mm edges), 110 (Y) x 55 (X), top 71; modesty panel recessed 9 cm behind the +X edge, z 13..67.8; one slot M_WalnutFine -> MI_K_Walnut (UV0 in metres, U along the grain) |
 
 The mic pose comes from `MIC_CLAMP_UE`, `MIC_CAPSULE_UE`, `MOUTH_UE` at the top of `build.py`: change them and rerun
 (`--only mic`, ~1 min without renders) for another framing.
