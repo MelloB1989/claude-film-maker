@@ -1452,7 +1452,11 @@ def place(path: str) -> list:
         out.append(ok(client.op("seq.anim", path=path, label=LABEL[who], component="Body", sections=[
             {"anim": body, "start": s0 - PRE_ROLL, "end": s0, "rate": HOLD_RATE, "loop": False},
             # and at END (the film's last frame is END - 1, both in S18) the idle takes over off screen, uncross-faded
-            {"anim": body, "start": s0, "end": s1, "loop": False},
+            # r6 (agent-06's probe): the body's key at END - 1 is baked from a test frame where the face section had
+            # already ended (the face anims end at END - 1, exclusive), so f1559, the film's last frame, leaned 4 deg
+            # (her) / 1.8 deg (him) toward the idle. The last on-screen frame holds END - 2's pose instead.
+            {"anim": body, "start": s0, "end": s1 - 1, "loop": False},
+            {"anim": body, "start": s1 - 1, "end": s1, "rate": HOLD_RATE, "offset": (s1 - 2 - s0) / FPS, "loop": False},
             {"anim": idle, "start": s1, "end": s1 + POST_ROLL, "offset": phase(s1)},
             # round 3: the body life additive over all of it, on its own row
             *([{"anim": f"{ANIM}/AS_reel_{who}_life", "start": s0, "end": s1 + POST_ROLL, "loop": False,
