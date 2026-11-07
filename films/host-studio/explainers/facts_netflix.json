@@ -1,0 +1,8 @@
+{"claims": [
+ {"said": "over three hundred million", "text": "Netflix: 301.6 million paid memberships at the end of 2024 (Q4 2024 shareholder letter, 21 Jan 2025)", "source": "https://ir.netflix.net/financials/quarterly-earnings/default.aspx"},
+ {"said": "Open Connect Appliances", "text": "Open Connect is Netflix's own CDN; its Open Connect Appliances are given free of charge to qualifying ISPs and placed inside their networks (and at IXPs)", "source": "https://openconnect.netflix.com/en/"},
+ {"said": "Every night", "text": "OCAs are filled proactively during a nightly off-peak fill window, with content chosen by predicted popularity for that region", "source": "https://openconnect.netflix.com/en/"},
+ {"said": "its own ladder", "text": "Per-title encode optimization (Dec 2015): each title gets its own bitrate-resolution ladder based on its complexity", "source": "https://netflixtechblog.com/per-title-encode-optimization-7e99442b62a2"},
+ {"said": "a few seconds", "text": "Streams are segmented into chunks of a few seconds; the client's adaptive-bitrate logic picks a bitrate per chunk from measured throughput and buffer", "source": "https://netflixtechblog.com/"},
+ {"said": "AWS", "text": "Netflix's control plane (sign-in, browsing, recommendations, playback authorisation and steering to OCAs) runs on AWS; the video bytes come from OCAs", "source": "https://openconnect.netflix.com/en/"}
+]}

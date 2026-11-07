@@ -12,5 +12,5 @@ n,kind,camera,gfx,f0,f1,t0,t1,lines,text
 11,gfx,,e2e,929,997,38.708,41.542,W14,The Signal protocol keeps the keys on your phones.
 12,panel,CAM_MCU,media,997,1121,41.542,46.708,W15,"Photos go to a blob store, encrypted. Only the key rides in the message."
 13,pres,CAM_MCU,,1121,1252,46.708,52.167,W16,Tiny processes. Messages that don't linger. Keys that never leave your hands.
-14,pres,CAM_CU,,1252,1323,52.167,55.125,W17,That's a hundred billion messages a day.
-15,gfx,,end,1323,1359,55.125,56.625,,
+14,pres,CAM_CU,,1252,1316,52.167,54.833,W17,That's over a hundred billion messages a day.
+15,gfx,,end,1316,1352,54.833,56.333,,

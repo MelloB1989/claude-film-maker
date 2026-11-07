@@ -4,8 +4,8 @@
  "presenter": "him",
  "voice": "tarun",
  "fps": 24,
- "frames": 1359,
- "duration": 56.625,
+ "frames": 1352,
+ "duration": 56.3333,
  "sr": 48000,
  "vo": "audio/whatsapp/vo.wav",
  "lines": [
@@ -1311,65 +1311,72 @@
   {
    "id": "W17",
    "beat": "close",
-   "text": "That's a hundred billion messages a day.",
+   "text": "That's over a hundred billion messages a day.",
    "take": 1,
    "file": "audio/whatsapp/lines/W17.wav",
    "file_start": 52.2917,
    "file_start_f": 1255,
-   "file_len": 2.549,
+   "file_len": 2.259,
    "start": 52.292,
-   "end": 54.591,
+   "end": 54.301,
    "start_f": 1255,
-   "end_f": 1311,
+   "end_f": 1304,
    "words": [
     {
      "w": "That's",
      "start": 52.292,
-     "end": 52.617,
+     "end": 52.605,
      "f0": 1255,
      "f1": 1263
     },
     {
+     "w": "over",
+     "start": 52.652,
+     "end": 52.849,
+     "f0": 1263,
+     "f1": 1269
+    },
+    {
      "w": "a",
-     "start": 52.675,
-     "end": 52.71,
-     "f0": 1264,
-     "f1": 1266
+     "start": 52.896,
+     "end": 52.919,
+     "f0": 1269,
+     "f1": 1271
     },
     {
      "w": "hundred",
-     "start": 52.803,
+     "start": 52.965,
      "end": 53.221,
-     "f0": 1267,
+     "f0": 1271,
      "f1": 1278
     },
     {
      "w": "billion",
-     "start": 53.302,
-     "end": 53.732,
-     "f0": 1279,
-     "f1": 1290
+     "start": 53.267,
+     "end": 53.546,
+     "f0": 1278,
+     "f1": 1286
     },
     {
      "w": "messages",
-     "start": 53.801,
-     "end": 54.254,
-     "f0": 1291,
-     "f1": 1303
+     "start": 53.604,
+     "end": 53.999,
+     "f0": 1286,
+     "f1": 1296
     },
     {
      "w": "a",
-     "start": 54.312,
-     "end": 54.347,
-     "f0": 1303,
-     "f1": 1305
+     "start": 54.045,
+     "end": 54.08,
+     "f0": 1297,
+     "f1": 1298
     },
     {
      "w": "day.",
-     "start": 54.405,
-     "end": 54.591,
-     "f0": 1305,
-     "f1": 1311
+     "start": 54.126,
+     "end": 54.301,
+     "f0": 1299,
+     "f1": 1304
     }
    ]
   }
