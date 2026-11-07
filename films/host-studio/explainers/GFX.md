@@ -6,6 +6,11 @@ rebuild; scene lengths follow. 24 fps, 1920x1080, 16:9.
 
 ## One shared look (both films, so they read as one series)
 
+**Palette ruling (the orchestrator, 07 Nov): ONE shared base for the series, a warm charcoal that matches the
+presenter's studio, plus a per-film accent (WhatsApp `#25D366`, Netflix `#E50914`). No cool-ink base anywhere, so the
+panels sit naturally next to the warm presenter shots.**
+
+
 - **Series tag** (lower third on the first presenter shot, frames 12-84): `SYSTEM DESIGN IN 60 SECONDS` in Geist 600
   caps, tracking +8 %, over the film's topic line in Geist 400. No presenter names (the repo is public).
 - **Ground (dark-warm, matching the karma studio set):** warm charcoal `#120E0B` → `#1E1813` radial with a soft amber

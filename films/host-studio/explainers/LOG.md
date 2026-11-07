@@ -42,6 +42,9 @@ Every number on screen or in the voice is softened or sourced; the sources are i
   server). "once" keeps it in the past.
 - **"almost none of them stay on its servers"**: messages are deleted once delivered; undelivered ones wait up to 30
   days; backups are the user's choice, not WhatsApp's servers' store. "almost" covers the queue.
+- **On-screen extras (graphics, approved by the orchestrator)**: groups up to 1,024 members (Meta, Nov 2022, with
+  Communities: https://about.fb.com/news/2022/11/whatsapp-communities-launch/); end-to-end encryption by default
+  since April 2016 (https://blog.whatsapp.com/end-to-end-encryption).
 - **Ticks**: one grey = sent to the server; two grey = delivered to the phone; blue = read (WhatsApp Help Center).
 - **Groups**: Sender Keys: encrypt once, server-side fan-out (WhatsApp security whitepaper).
 - **Media**: AES-256 key per attachment, the encrypted blob uploaded, key + hash in the E2E message (whitepaper).
@@ -54,3 +57,21 @@ Every number on screen or in the voice is softened or sourced; the sources are i
 - **Chunks "a few seconds long"**: kept vague on purpose (Netflix segment lengths vary by client and codec).
 - **Control plane on AWS, data plane on OCAs**: Open Connect overview and Netflix's AWS material; the player asks AWS,
   AWS returns the OCAs to fetch from.
+- 16:45 `composite.py` written; WhatsApp placeholder rendered on the build host (3 m 52 s with the ProRes master).
+  First look: cuts, panels, lower third and the kinetic captions land; captions split "over a hundred / billion" →
+  chunking rewritten (clauses at punctuation, long clauses split evenly, never after a lead-in word).
+
+## Running the composite on a box (drivers)
+
+    git -C <repo> fetch origin fleet/agent-11/r6-explainers
+    git -C <repo> worktree add /srv/r6/explainers-src origin/fleet/agent-11/r6-explainers   # code, audio, fonts
+    python3 -m pip install --user pillow imageio-ffmpeg     # if the box's ffmpeg lacks libx264/prores_ks, pass
+                                                            # --ffmpeg "$(python3 -c 'import imageio_ffmpeg as i;print(i.get_ffmpeg_exe())')"
+    aws s3 sync s3://rf-render-788655295054-aps1/ue-linux/private/renders/r6/explain/<film>/final/ /srv/r6/<film>/presenter/
+    aws s3 sync s3://rf-render-788655295054-aps1/ue-linux/r6/gfx/<film>/ /srv/r6/<film>/gfx/
+    python3 /srv/r6/explainers-src/films/host-studio/explainers/composite.py --film <film> \
+        --presenter /srv/r6/<film>/presenter --gfx /srv/r6/<film>/gfx --out /srv/r6/<film>/out --tag v1
+    aws s3 cp --recursive /srv/r6/<film>/out/ s3://rf-render-788655295054-aps1/ue-linux/private/renders/r6/review/explain/
+
+`--placeholder` lets any missing presenter shot or graphic stand in as a labelled slug (a partial cut for review);
+without it a missing input stops the run and names the file.
