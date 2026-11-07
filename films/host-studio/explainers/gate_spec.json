@@ -451,6 +451,22 @@
     "karma r6n0 baseline (07 Nov): his tee stopped following his body, a dark band through the chest"
    ],
    "why": "the orchestrator, 07 Nov: a hard pre-render check on every box"
+  },
+  "garment.head_state_parity": {
+   "area": "garment",
+   "track": "agent-07 (box B) / agent-06 (box A)",
+   "op": "==",
+   "line": 1,
+   "unit": "bool",
+   "guard": true,
+   "what": "HIS head state on the box that renders his explainer equals box A's passed karma state: every file of agent-06's list (the built Host_Op face mesh, its WI/cull texture, the r5b skin textures/MIs, anything his look changed since 16:14) matches by checksum, AND cull_live on that box reads the same culled count and the same lowest z as box A",
+   "where": "box B's project after the pull and restart, before his first explainer still",
+   "how": "agent-06's checksum list (private S3, KMS) vs box B's files after the pull; cull_live on both boxes -> numbers/whatsapp/box.json (agent-07)",
+   "must_fail": [
+    0,
+    "his explainer on box B from the 16:14 clone: loop-2 neck (shrink 3.0, the 'cut'), not the passed cull"
+   ],
+   "why": "the orchestrator, 07 Nov: his explainer moves to box B; it must carry exactly the neck fix that passed on box A"
   }
  },
  "not_attempted": {
