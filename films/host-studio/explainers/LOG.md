@@ -62,6 +62,8 @@ Every number on screen or in the voice is softened or sourced; the sources are i
   chunking rewritten (clauses at punctuation, long clauses split evenly, never after a lead-in word).
 - 16:46 placeholder cuts of both films (graphics + VO + mix + captions + lower third + grey presenter slugs), timing
   locked: out/explainers/placeholder/{whatsapp,netflix}_r6_placeholder.mp4 (+ .srt) in the shared worktree.
+- 16:55 ruling: captions on every line, over graphics too, one band in the bottom 15 %. Placeholders re-rendered.
+  agent-09 QA on them: captions.text_match 1 (157/157, 144/144), onset 84 ms, -14.1/-1.7 and -14.0/-1.7, 1080p 48 kHz.
 
 ## Running the composite on a box (drivers)
 
