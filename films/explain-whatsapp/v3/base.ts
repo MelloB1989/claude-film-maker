@@ -41,9 +41,10 @@ export function em(px: number, dist: number, fov = 30): number {
  * The caption band's soft darkening (GFX.md: the bottom 15 % stays free of text and key visuals, a soft darkening there
  * is fine): full-frame shots fade to near black from BAND.from to BAND.to (px of 1080), so whatever the 3D camera
  * carries through the band (a floor, a server's base) reads as a calm dark ground under the captions, and the
- * caption-band gate (high-passed brightness under y 900) stays quiet.
+ * caption-band gate (high-passed brightness under y 900) stays quiet. The floor is deep (1.5 %) because the fade works on
+ * the linear HDR image before tonemapping: a specular edge at 6 % still read as a line under y 900.
  */
-export const BAND = { from: 815, to: 905, floor: 0.06 };
+export const BAND = { from: 805, to: 890, floor: 0.015 };
 
 export abstract class WaShot extends MotionScene {
   private band: Layer2D | null = null;
