@@ -157,6 +157,8 @@ result = {{"rc": r.returncode, "err": r.stderr[-500:], "props": json.load(open(p
     print("props on the box:", sorted(by_name))
     mats = {}
     for slot, t in meta.get("textures", {}).items():
+        if slot in ("M_ShadeLinen", "M_LampBulb"):
+            continue  # made below as look.materials (sheer, emissive); a PBR build would reparent one the lamp draws
         mi = f"{PROPS_DIR}/Materials/MI_Exp_{slot[2:]}"
         tiling = 1.0 / t["tile_m"] if P.UV_METRES and t.get("tile_m") else 1.0
         tx = f"{BOX_PROPS}/textures"
@@ -171,9 +173,14 @@ result = {{"rc": r.returncode, "err": r.stderr[-500:], "props": json.load(open(p
                                        folder=f"{PROPS_DIR}/Materials"))
     mats["M_LampBulb"] = (op("look.material", name="MI_Exp_LampBulb", kind="Emissive", color=[1.0, 0.72, 0.42],
                                      intensity=12.0, folder=f"{PROPS_DIR}/Materials"))
-    desk_panel = P.DESK_PANEL in by_name
+    waterfall = P.DESK_WATERFALL in by_name
+    desk_panel = waterfall or P.DESK_PANEL in by_name
     for label, (name, loc, yaw, scale) in P.PROPS.items():
-        if label == "ExpDesk" and desk_panel:
+        if label == "ExpDesk" and waterfall:
+            # r6b: agent-05's waterfall desk, built at the final height (no Z scale), dressed with the studio walnut
+            name, scale = P.DESK_WATERFALL, [1.0, 1.0, 1.0]
+            mats.update(P.DESK_WATERFALL_SLOTS)
+        elif label == "ExpDesk" and desk_panel:
             name = P.DESK_PANEL  # agent-05's desk with the modesty panel replaces the walnut slab
         if name not in by_name:
             print(f"MISSING {label}: no {name}.fbx under {PROPS_S3} (agent-05)")
@@ -227,7 +234,7 @@ result = out"""))
        **{k: (list(v) if isinstance(v, tuple) else v) for k, v in g.items()})
     op("look.channels", labels=["ExpSideGrazer"], channels=[0])
     if any(a[0] == "ExpDesk" for a in op("level.actors", contains="ExpDesk")) and \
-            "Panel" in json.dumps(op("level.get", label="ExpDesk", components=True)):
+            any(k in json.dumps(op("level.get", label="ExpDesk", components=True)) for k in ("Panel", "Waterfall")):
         return print("desk has its own modesty panel")
     m = P.MODESTY
     op("level.spawn", label="ExpModesty", shape="cube", loc=list(m["loc"]), size=list(m["size"]), replace=True)
@@ -317,9 +324,18 @@ def step_seq(who: str, edl_path: str | None, length: int) -> None:
 def step_garments(who: str) -> None:
     """The seated garment cuts: each component back on its original mesh, then body.hide_under in order (each cut
     is a copy named <mesh>_Under_<garment>; the originals and the studio are untouched)."""
-    src = P.GARMENT_SRC[who]
+    src = dict(P.GARMENT_SRC[who])
     if not src:
         return print("no garment cuts for", who)
+    variant = P.overshirt_variant() if who == "her" else None
+    hides = P.GARMENT_HIDES[who]
+    if variant:
+        if P.OVERSHIRT[variant]:
+            src["Overshirt"] = P.OVERSHIRT[variant]
+        else:
+            src.pop("Overshirt", None)
+            hides = [h for h in hides if "Overshirt" not in h[:2]]
+        print("overshirt:", variant, P.OVERSHIRT[variant])
     print("reset:", ex(f"""import unreal
 from fmbridge.ops import level as L
 out = {{}}
@@ -328,8 +344,12 @@ for c in L.actor({ACTOR[who]!r}).get_components_by_class(unreal.SkeletalMeshComp
     if m:
         c.set_skeletal_mesh_asset(unreal.load_asset(m))
         out[c.get_name()] = m
+    if c.get_name() == "Overshirt":
+        c.set_visibility({variant != "none"!r}, True)
+        c.set_hidden_in_game({variant == "none"!r})
+        out["Overshirt_visible"] = {variant != "none"!r}
 result = out"""))
-    for comp, over, reach in P.GARMENT_HIDES[who]:
+    for comp, over, reach in hides:
         r = op("body.hide_under", label=ACTOR[who], body=comp, garment=over, reach_cm=reach, apply=True)
         print(f"{comp} under {over} (reach {reach}): hidden {r.get('hidden')} ({r.get('fraction')}) → {r.get('mesh')}")
 
@@ -341,6 +361,15 @@ def step_dress(who: str) -> None:
         ok(client.exec_code(DRESS[who].read_text()))
     else:
         op("mh.leader", label=ACTOR[who])
+    if P.NO_SHADOW.get(who):  # after the dress: a re-created component comes back casting shadows
+        print("no shadow:", ex(f"""import unreal
+from fmbridge.ops import level as L
+out = {{}}
+for c in L.actor({ACTOR[who]!r}).get_components_by_class(unreal.SkeletalMeshComponent):
+    if c.get_name() in {P.NO_SHADOW[who]!r}:
+        c.set_cast_shadow(False)
+        out[c.get_name()] = c.get_editor_property("cast_shadow")
+result = out"""))
     op("groom.lock", labels=[ACTOR[who]])
     lead = op("mh.leader_check", label=ACTOR[who])
     if not lead.get("pass"):

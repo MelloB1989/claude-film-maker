@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import sys
 from pathlib import Path
 
@@ -45,13 +46,52 @@ PROPS = {  # label: (FBX stem, loc, yaw, scale)
     # the +Y side (r3: no window behind her), so the boom is MIRRORED about the desk's centre line y = -20: local X
     # scale -1 at yaw -90 mirrors world Y → clamp (70,-72.6,74), capsule (44,-34,99), still aimed at the mouth
     # r6: the clamp 3 cm back (x 67) so the capsule follows her head (3 cm further back in agent-01's a22617ca pose)
-    "ExpMic": ("SM_MicBoom", (67.0, 2 * DESK_C[1] - 32.6, DESK_TOP), -90.0, [-1.0, 1.0, 1.0]),
+    # r6b (the orchestrator, with agent-05's waterfall desk, whose end panel sits under the -Y edge): the clamp moves to
+    # the desk's FAR (+X) edge and the boom turns about it by MIC_ROT, so the capsule stays exactly where it was
+    "ExpMic": ("SM_MicBoom", None, None, [-1.0, 1.0, 1.0]),  # loc and yaw filled in below (MIC_CLAMP, -90 + MIC_ROT)
     "ExpPlant": ("SM_DeskPlant", (80.0, -66.0, DESK_TOP), 25.0, None),  # 13 x 44 cm: the far -Y corner, behind the boom
     # r5: the WIDE's right side (the -Y wall) — agent-05's floor lamp (a real practical) and a snake plant
     "ExpLamp": ("SM_FloorLamp", (-110.0, SIDE_WALL + 30.0, 0.0), 0.0, None),
     "ExpSnake": ("SM_FloorSnakePlant", (-215.0, SIDE_WALL + 32.0, 0.0), 30.0, None),
 }
 DESK_PANEL = "SM_WalnutDesk_Panel"  # agent-05's desk with the modesty panel; set.py uses it when it is on the box
+# r6b: agent-05's waterfall desk (task 8c95, approved by the orchestrator): built at the final height (top 71, under
+# the top 67.8), same frame as the panel desk, one slot dressed with the studio's walnut; preferred when on the box
+DESK_WATERFALL = "SM_WalnutDesk_Waterfall"
+DESK_WATERFALL_SLOTS = {"M_WalnutFine": "/Game/Studio/Materials/MI_K_Walnut"}
+
+# the boom as agent-05 posed it (props/mic_boom.py), clamp first, on the +Y edge of a 74 cm desk
+BOOM_POSE = {"clamp": (70.0, 32.6, 74.0), "elbow": (63.8, 22.9, 119.3), "tip": (49.5, 0.4, 103.4),
+             "capsule": (44.0, -6.0, 99.0)}
+_R6_CLAMP = (67.0, 2 * DESK_C[1] - 32.6)  # where the r6 clamp sat (the -Y edge): the capsule it gave is kept
+
+
+def _mirrored(k: str) -> tuple:
+    """A boom point from its clamp, mirrored to the -Y side (local X scale -1 at yaw -90)."""
+    (cx, cy, cz), (x, y, z) = BOOM_POSE["clamp"], BOOM_POSE[k]
+    return (x - cx, -(y - cy), z - cz)
+
+
+_cap = _mirrored("capsule")
+_CAPSULE_XY = (_R6_CLAMP[0] + _cap[0], _R6_CLAMP[1] + _cap[1])
+_reach = math.hypot(_cap[0], _cap[1])
+_cx = DESK_C[0] + 27.5 - 2.4  # the clamp's jaw 2.4 cm inside the far edge, as agent-05 posed it on the +Y edge
+MIC_CLAMP = (_cx, _CAPSULE_XY[1] - math.sqrt(_reach ** 2 - (_cx - _CAPSULE_XY[0]) ** 2), DESK_TOP)
+MIC_ROT = math.degrees(math.atan2(_CAPSULE_XY[1] - MIC_CLAMP[1], _CAPSULE_XY[0] - MIC_CLAMP[0])
+                       - math.atan2(_cap[1], _cap[0]))
+PROPS["ExpMic"] = ("SM_MicBoom", (round(MIC_CLAMP[0], 2), round(MIC_CLAMP[1], 2), DESK_TOP), round(-90.0 + MIC_ROT, 2),
+                   [-1.0, 1.0, 1.0])
+
+
+def boom_points() -> dict:
+    """The boom's clamp, elbow, arm tip and capsule in the studio, as placed (mirrored, turned by MIC_ROT)."""
+    r = math.radians(MIC_ROT)
+    out = {}
+    for k in BOOM_POSE:
+        x, y, z = _mirrored(k)
+        out[k] = (MIC_CLAMP[0] + x * math.cos(r) - y * math.sin(r), MIC_CLAMP[1] + x * math.sin(r) + y * math.cos(r),
+                  MIC_CLAMP[2] + z)
+    return out
 LAMP_BULB = dict(kind="point", z=138.5, intensity=6.0, temperature=2700, radius=320)  # candela, channel 0
 PLANT_TOP = DESK_TOP + 44.0
 UV_METRES = False  # agent-05: tile_m is baked into UV0 (1 UV = tile_m metres), so Tiling 1
@@ -78,8 +118,15 @@ SUN_LUX = 0.0  # r5: the floor sun patches; her rig gives ~20 lux at her face, a
 
 # seated garment cuts (body.hide_under on copies, this level's instance only): (component, under garment, reach cm),
 # applied in order from the original meshes. Her r3 shoulder: the Top through the Overshirt seam.
+# garment components that cast no shadow (r6b, the orchestrator 23:0x IST): her tight V2 Top's rim threw the KEY's
+# shadow onto her skin inside the scoop (a dark strap-like band, MCU f29: band/top 0.717, p10 77; Top cast_shadow off
+# 0.884, p10 188; texture-white 0.734, flat normal 0.716, mesh-normal fix 0.712: not material, not normals)
+NO_SHADOW = {"her": ["Top"], "him": []}
+
 GARMENT_HIDES = {
-    "her": [("Top", "Overshirt", 6.0), ("Trousers", "Top", 4.0), ("Body", "Top", 4.0)],
+    # r6b (V2, no overshirt; agent-02): the seated waist (Trousers>Top 12 % in the WIDE) and her side (Body>Top 1.3 %,
+    # the same spot in every frame, so the garment and not a gesture) need 6 cm instead of 4
+    "her": [("Top", "Overshirt", 6.0), ("Trousers", "Top", 6.0), ("Body", "Top", 6.0)],
     "him": [],
 }
 GARMENT_SRC = {"her": {"Overshirt": "/Game/Host/Presenter_Overshirt/SKM_Presenter_Overshirt_RW",  # r6: agent-02's
@@ -87,6 +134,23 @@ GARMENT_SRC = {"her": {"Overshirt": "/Game/Host/Presenter_Overshirt/SKM_Presente
                        "Top": "/Game/Host/Presenter_Outfit/SKM_Presenter_Top",
                        "Trousers": "/Game/Host/Presenter_Outfit/SKM_Presenter_Trousers",
                        "Body": "/Game/Host/Unpacked/Presenter/Body/SKM_Presenter_F_BodyMesh"}, "him": {}}
+
+# r6b (the orchestrator rejected RW: skin holes at both shoulders, a shredded collar): her overshirt is a choice made by
+# eye from stills. set.py reads $EXPL_OVERSHIRT: "orig" (the round-4 weights), "rw" (agent-02's
+# reweight), "none" (no overshirt: her top alone, so the Top is not cut under it; the DEFAULT since the V2 pick), "rw2" (arms-only reweight)
+OVERSHIRT = {"orig": "/Game/Host/Presenter_Overshirt/SKM_Presenter_Overshirt",
+             "rw": "/Game/Host/Presenter_Overshirt/SKM_Presenter_Overshirt_RW", "none": None,
+             # agent-02's narrower reweight (df8947b2): only the upper-arm/forearm helpers (the cap balloon); the
+             # clavicle/spine helpers that hold the collar on the body stay
+             "rw2": "/Game/Host/Presenter_Overshirt/SKM_Presenter_Overshirt_RW2"}
+
+
+def overshirt_variant() -> str:
+    v = os.environ.get("EXPL_OVERSHIRT", "none")  # r6b: the orchestrator picked V2 (no overshirt) by eye
+    if v not in OVERSHIRT:
+        raise SystemExit(f"EXPL_OVERSHIRT={v!r}: one of {sorted(OVERSHIRT)}")
+    return v
+
 
 STUDIO_HOST_LIGHTS = ["Key", "Fill", "HairLight", "RimWarm", "RimWindow", "EyeLight"]
 STUDIO_CAMS = ["KarmaHost", "KarmaWide", "KarmaVertical", "KarmaShelf", "KarmaCredenza", "KarmaSign"]
@@ -150,7 +214,10 @@ def cameras(who: str) -> dict:
         # r6 (the operator: the desk front looked weird): higher and tighter, the desk top's front edge in the lower
         # third, the set behind her; within 1° of CAM_MCU_L (her look to the lens across the 43.3 s cut)
         # within 4° of CAM_MCU_L (her look to the lens across the 43.3 s cut) and the window just out of frame
-        "CAM_WIDE": (22.0, 14.0, 230.0, 35.0, 2.8, (eyes[0] + 8.0, eyes[1] - 16.0, eyes[2] - 22.0)),
+        # r6b (the orchestrator: the 14° high angle read as a security camera): back near her eye level, the lens at
+        # ~125 cm with a slight tilt down (el 5.5° at 280 cm), same azimuth and look point, the desk front still in the
+        # lower third and the set behind
+        "CAM_WIDE": (22.0, 5.5, 280.0, 35.0, 2.8, (eyes[0] + 8.0, eyes[1] - 16.0, eyes[2] - 22.0)),
     }
     out = {}
     for name, (az, el, dist, focal, stop, look) in plan.items():
@@ -276,6 +343,20 @@ def check(who: str) -> list:
         clear = all(pv > mv + 0.05 or abs(pu - mu) > 0.15 for pu, pv, _ in pts)
         rows.append((f"{name} desk plant off the mouth", clear,
                      "top corners " + ", ".join(f"({pu:.2f},{pv:.2f})" for pu, pv, _ in pts) + f" mouth ({mu:.2f},{mv:.2f})"))
+    bp = boom_points()
+    for name, cam in cams.items():  # r6b: the boom's arm (elbow, tip) stays off her face on screen
+        eu, ev, _ = project(cam, fc["eyes"])
+        cu, cv, _ = project(cam, fc["chin"])
+        on_face = []
+        for k in ("elbow", "tip"):
+            for t in (0.0, 0.25, 0.5, 0.75, 1.0):
+                a, b = bp[k], bp["tip" if k == "elbow" else "capsule"]
+                q = tuple(a[i] + (b[i] - a[i]) * t for i in range(3))
+                pu, pv, _ = project(cam, q)
+                if abs(pu - eu) < 0.07 and ev - 0.08 < pv < cv + 0.02:
+                    on_face.append((k, t, round(pu, 3), round(pv, 3)))
+        rows.append((f"{name} boom arm off her face", not on_face, f"{on_face[:3]}" if on_face else
+                     f"elbow {tuple(round(v, 3) for v in project(cam, bp['elbow'])[:2])} eyes ({eu:.3f},{ev:.3f})"))
     rows.append(("mic boom reach (prop: ~45 cm, +35 cm)", 30.0 <= mc["reach_cm"] <= 60.0,
                  f"reach {mc['reach_cm']:.1f} cm, rise {mc['rise_cm']:.1f} cm, yaw {mc['yaw']:.1f}°"))
     return rows
@@ -284,11 +365,8 @@ def check(who: str) -> list:
 def set_for_perf(who: str) -> dict:
     """agent-01's perform.py set file (set_<who>.json), in the actor frame (studio - MARK): the desk and the boom as
     the solve checks hands, elbows and knees against them. The boom polyline is agent-05's posed clamp → elbow →
-    arm tip → capsule, mirrored to -Y about y = DESK_C[1] and moved with the clamp."""
-    cx, cy, cz = PROPS["ExpMic"][1]
-    pose = {"clamp": (70.0, 32.6, 74.0), "elbow": (63.8, 22.9, 119.3), "tip": (49.5, 0.4, 103.4), "capsule": (44.0, -6.0, 99.0)}
-    dx, dz = cx - 70.0, cz - 74.0
-    pts = {k: (x + dx, 2 * DESK_C[1] - y, z + dz) for k, (x, y, z) in pose.items()}
+    arm tip → capsule, mirrored to -Y, turned by MIC_ROT about its clamp on the far edge (boom_points)."""
+    pts = boom_points()
     a = lambda p: [round(p[0] - MARK[0], 2), round(p[1] - MARK[1], 2), round(p[2] - MARK[2], 2)]
     return {"desk_top": DESK_TOP, "desk_near": round(DESK_C[0] - 27.5 - MARK[0], 2),
             "desk_far": round(DESK_C[0] + 27.5 - MARK[0], 2), "desk_y": [round(DESK_C[1] - 55 - MARK[1], 2),

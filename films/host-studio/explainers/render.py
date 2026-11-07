@@ -26,14 +26,15 @@ import set as S  # noqa: E402
 OUT = "/srv/ue/explainer/renders"
 S3 = f"{S.BUCKET}/private/renders/r6/explain"
 # round 5's film cvars (groom.lock's render_cvars, SSS full res); r.HairStrands.SkyLighting 0 as studio.py sets it
-# texture/VT streaming fully warmed before every job (agent-09's shot.streaming_settled: the CU f1300 tile blocks)
-STREAMING = {"r.Streaming.FullyLoadUsedTextures": 1, "r.Streaming.PoolSize": 0, "r.VT.MaxUploadsPerFrame": 4096,
-             "r.Streaming.FramesForFullUpdate": 1}
-CVARS = {**STREAMING, "r.SSS.Quality": 1, "r.SSS.HalfRes": 0, "r.HairStrands.LODMode": 0, "r.HairStrands.AutoLOD.Bias": 1.0,
-         "r.HairStrands.UseCardsInsteadOfStrands": 0, "r.HairStrands.SkyLighting": 0}
+CVARS = {"r.SSS.Quality": 1, "r.SSS.HalfRes": 0, "r.HairStrands.LODMode": 0, "r.HairStrands.AutoLOD.Bias": 1.0,
+         "r.HairStrands.UseCardsInsteadOfStrands": 0, "r.HairStrands.SkyLighting": 0,
+         # r6b (the CU f1300 rectangular tile blocks: textures still streaming in): every used texture fully resident,
+         # a pool big enough for the set at full mips (L40S 46 GB), and warm-up frames before the first kept frame
+         "r.Streaming.FullyLoadUsedTextures": 1, "r.Streaming.PoolSize": 12000}
 PRESETS = {
-    "preview": {"preset": "preview", "spatial": 1, "temporal": 2, "width": 1920, "height": 1080},
-    "final": {"preset": "final", "spatial": 4, "temporal": 8, "width": 1920, "height": 1080, "aa_method": "none"},
+    "preview": {"preset": "preview", "spatial": 1, "temporal": 2, "width": 1920, "height": 1080, "warmup_render": 16},
+    "final": {"preset": "final", "spatial": 4, "temporal": 8, "width": 1920, "height": 1080, "aa_method": "none",
+              "warmup_render": 24},
 }
 
 
@@ -41,7 +42,7 @@ def spec(who: str, film: str, n: int, cam: str, f0: int, f1: int, preset: str) -
     out = f"{OUT}/{film}/{preset}/shot{n:02d}_{cam}"
     return {"kind": "render", "version": 1, "name": f"exp_{film}_{preset}_shot{n:02d}_{cam}", "sequence": S.SEQ[who],
             "level": S.LEVELS[who], "out_dir": out, "frames": [f0, f1], "chunking": "none", "preroll": "cut",
-            "warmup_engine": 48, "warmup_render": 16, "shutter_timing": "open", "overwrite": False, "zero_pad": 4, "cvars": CVARS,
+            "warmup_engine": 22, "shutter_timing": "open", "overwrite": False, "zero_pad": 4, "cvars": CVARS,
             **{k: v for k, v in PRESETS[preset].items()}}
 
 
@@ -119,11 +120,7 @@ def main() -> int:
                 lead = {"pass": g["ok"], "why": g["why"]}
                 jobs.append({"job": f"{a.preset}/shot{n:02d}_{c}", "frames": [f0, f1], "box": a.instance,
                              "at": time.strftime("%Y-%m-%d %H:%M:%S"), "garment.leaders_ok": g["leaders_ok"],
-                             "strays": g["strays"], "face_luma": g.get("face_luma"), "guard_ok": int(bool(g["ok"])),
-                             # shot.streaming_settled: warmed (STREAMING cvars, 48 engine + 16 render warm-up frames);
-                             # the job's first frame goes to the orchestrator's eye (no tile blocks), who sets it to 1
-                             "streaming_warmed": 1, "first_frame": f"{a.preset}/shot{n:02d}_{c}/{f0:04d}.png",
-                             "shot.streaming_settled": None})
+                             "strays": g["strays"], "face_luma": g.get("face_luma"), "guard_ok": int(bool(g["ok"]))})
                 box["garment.leaders_ok"] = min(j["garment.leaders_ok"] for j in jobs)
                 box_json.parent.mkdir(parents=True, exist_ok=True)
                 box_json.write_text(json.dumps(box, indent=1) + "\n")
