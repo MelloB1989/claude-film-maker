@@ -19,10 +19,10 @@ const scenes = {
   title: () => import('./v3/title'),
   oca: () => import('./v3/oca'),
   prefill: () => import('./v3/prefill'),
-  ladder: () => import('./scenes/ladder'),
+  ladder: () => import('./v3/ladder'),
   abr: () => import('./v3/abr'),
-  buffer: () => import('./scenes/buffer'),
-  planes: () => import('./scenes/planes'),
+  buffer: () => import('./v3/buffer'),
+  planes: () => import('./v3/planes'),
   end: () => import('./scenes/endcard'),
 };
 
