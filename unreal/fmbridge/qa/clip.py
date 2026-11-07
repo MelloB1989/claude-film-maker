@@ -41,7 +41,7 @@ UNDER_OVER = (("Trousers", "tee"), ("Trousers", "Top"), ("shoes", "Trousers"), (
               ("Trousers", "Overshirt"))
 UPPER = ("tee", "Top", "Overshirt", "Torso", "Shirt", "Hoodie", "Jacket")  # garments a face's neck can come through
 DEFAULTS = {"tol_cm": 0.3, "band_cm": 3.0, "near_cm": 1.5, "rim_jump_cm": 4.0, "neck_margin_cm": 1.0,
-            "at_open_960": 5.0, "rim_reach_px": 24}
+            "at_open_960": 5.0, "rim_reach_px": 24, "tongue_cm": 3.0}
 GATE = {"pair_fraction": 0.001, "neck_px": 0, "silhouette_pct": 2.0}
 
 
@@ -184,6 +184,75 @@ def neck_px(layers: dict, mask: set, w: int, h: int, fov_deg: float, *, face: st
     return {"px": len(below), "at_opening": at_open, "clusters": blobs[:6], "rim_cols": len(rim)}
 
 
+def neck_visible(layers: dict, mask: set, w: int, h: int, fov_deg: float, *, face: str = "Face", over: str = "tee",
+                 band_cm: float = 3.0, tongue_cm: float = 3.0, seen_tol_cm: float = 1e-3) -> dict:
+    """The neck gate as the VIEWER sees it (round 6, the orchestrator's re-scope): Face skin poking through the
+    garment, not the neck rising a little above a hugging collar.
+
+    Of the Face>over clip pixels (mask), only those where the face is the nearest of ALL layers (hair or a hand over
+    it hides it) count, in two kinds:
+    - ISLANDS: clusters (8-connected) that touch no OPENING pixel (face with no garment in front, or the garment's
+      inside more than band_cm behind: the neck seen above/through the collar). Skin enclosed by cloth is a poke-through
+      whatever its size (round 6 r6n1: a 39 px island under the collar at S15, the blob the orchestrator saw).
+    - TONGUES: in a cluster joined to the opening, the pixels whose distance from the opening, walked through the
+      cluster and converted to cm at their own depth, exceeds tongue_cm. Near the opening the neck simply continues
+      over the collar's top edge (r6n2: one 262 px cluster from the rim down, passed by eye as a natural crew-neck
+      hug); a long tongue of skin running down into the cloth still fails.
+    Known blind spot: a poke that JOINS the rim cluster and stays shallower than tongue_cm passes (it reads as the
+    neck continuing over the collar's edge); the eye on the crops stays the judge of that case.
+    Returns {px, island_px, tongue_px, islands, max_tongue_cm, clusters}."""
+    F, T = layers[face], layers[over]
+    fpx = (w / 2) / math.tan(math.radians(fov_deg) / 2)
+    names = list(layers)
+    seen = {i for i in mask if F[i] <= min(layers[n][i] for n in names) + seen_tol_cm}
+
+    def opening(j):
+        return F[j] < EMPTY and (T[j] >= EMPTY or T[j] - F[j] > band_cm) and j not in mask
+
+    island_px, tongue_px, islands, max_tongue, blobs = 0, 0, 0, 0.0, []
+    for blob, touches in _clusters(mask, w, h, {j for j in range(w * h) if opening(j)} if mask else set()):
+        if not touches:
+            vis = [i for i in blob if i in seen]
+            if vis:
+                islands += 1
+                island_px += len(vis)
+                blobs.append({"px": len(vis), "kind": "island", "worst_cm": round(max(T[i] - F[i] for i in vis), 2),
+                              "box": _box(vis, w, h)})
+            continue
+        bset = set(blob)
+        dist, frontier = {}, []
+        for i in blob:  # seeds: cluster pixels next to an opening pixel
+            y, x = divmod(i, w)
+            if any(0 <= x + dx < w and 0 <= y + dy < h and opening((y + dy) * w + x + dx)
+                   for dy in (-1, 0, 1) for dx in (-1, 0, 1) if dx or dy):
+                dist[i] = 0.0
+                frontier.append(i)
+        while frontier:  # Dijkstra-light: BFS by pixel steps, each step's length in cm at that pixel's depth
+            nxt = []
+            for i in frontier:
+                y, x = divmod(i, w)
+                step = F[i] / fpx
+                for dy in (-1, 0, 1):
+                    for dx in (-1, 0, 1):
+                        j = (y + dy) * w + x + dx
+                        if (dx or dy) and 0 <= x + dx < w and 0 <= y + dy < h and j in bset:
+                            d = dist[i] + step * (1.4142 if dx and dy else 1.0)
+                            if d < dist.get(j, 1e18) - 1e-9:
+                                dist[j] = d
+                                nxt.append(j)
+            frontier = nxt
+        far = [i for i in blob if i in seen and dist.get(i, 0.0) > tongue_cm]
+        if dist:
+            max_tongue = max(max_tongue, max(dist.values()))
+        if far:
+            tongue_px += len(far)
+            blobs.append({"px": len(far), "kind": "tongue", "worst_cm": round(max(T[i] - F[i] for i in far), 2),
+                          "box": _box(far, w, h)})
+    blobs.sort(key=lambda b: -b["px"])
+    return {"px": island_px + tongue_px, "island_px": island_px, "tongue_px": tongue_px, "islands": islands,
+            "max_tongue_cm": round(max_tongue, 2), "tongue_cm": tongue_cm, "clusters": blobs[:6]}
+
+
 def coverage(layer: list) -> int:
     """Pixels a layer covers."""
     return sum(1 for z in layer if z < EMPTY)
@@ -212,6 +281,9 @@ def judge_frame(layers: dict, w: int, h: int, fov_deg: float, *, pair_list=None,
                                      neck_margin_cm=k["neck_margin_cm"], at_open_960=k["at_open_960"],
                                      band_cm=k["band_cm"], rim_reach_px=k["rim_reach_px"])
             out["neck_px"]["over"] = g
+            out["neck_visible"] = neck_visible(layers, m, w, h, fov_deg, over=g, band_cm=k["band_cm"],
+                                               tongue_cm=k["tongue_cm"])
+            out["neck_visible"]["over"] = g
         union |= m
         out[f"{u}>{g}"] = r
     out["_mask"] = union
@@ -278,6 +350,9 @@ def summarize(frames: dict) -> dict:
                     worst[key] = {"fraction": v["fraction"], "px": v.get("px", 0), "at": at}
                 elif key == "neck_px" and v["px"] >= worst.get(key, {"px": -1})["px"]:
                     worst[key] = {"px": v["px"], "at_opening": v.get("at_opening", 0), "at": at}
+                elif key == "neck_visible" and v["px"] >= worst.get(key, {"px": -1})["px"]:
+                    worst[key] = {"px": v["px"], "island_px": v.get("island_px", 0), "tongue_px": v.get("tongue_px", 0),
+                                  "max_tongue_cm": v.get("max_tongue_cm"), "at": at}
                 elif key == "mouth" and v.get("blocked_px", 0) >= worst.get(key, {"blocked_px": -1})["blocked_px"]:
                     worst[key] = {"blocked_px": v["blocked_px"], "share": v.get("share", 0.0), "at": at}
                 elif key == "silhouette" and v.get("pct") is not None and \
@@ -288,7 +363,7 @@ def summarize(frames: dict) -> dict:
 
 def gate(frames: dict, subject: str, *, pair_fraction: float = GATE["pair_fraction"], neck_max_px: int = GATE["neck_px"],
          silhouette_pct: float = GATE["silhouette_pct"], before: dict | None = None, before_slack: float = 0.01,
-         mouth_max_px: int = 0,
+         mouth_max_px: int = 0, neck_rule: str = "rim",
          info_pairs=("Face>tee", "Face>Top", "Face>Overshirt")) -> list:
     """Issues from a qa.clip run's frames ({shot: {frame: result}}):
     - every frame's pair fraction over `pair_fraction` (~4 px of a 4400 px tee): fail, except the info_pairs (a face
@@ -296,6 +371,8 @@ def gate(frames: dict, subject: str, *, pair_fraction: float = GATE["pair_fracti
       `before` (an earlier run's frames, e.g. a costume whose open neckline reads high on clean frames), a pair is
       judged against its own worst before + before_slack instead;
     - neck_px over neck_max_px in any frame: fail (a missing neck_px where a Face>upper pair was judged: fail too);
+      with neck_rule "visible" the gated count is neck_visible (islands + tongues, the round-6 re-scope) and neck_px
+      stays in the frames as info;
     - |silhouette pct| over silhouette_pct: fail (a balloon, or a garment that shrank);
     - a mouth check (frames with "mouth") over mouth_max_px blocked pixels: fail (the mic covers the mouth)."""
     out = []
@@ -325,7 +402,11 @@ def gate(frames: dict, subject: str, *, pair_fraction: float = GATE["pair_fracti
                 out.append(issue("clip.neck_missing", "fail", f"{subject} {shot} f{f}: no neck_px measured",
                                  "run qa.clip with the Face layer and the upper garment captured", subject=subject,
                                  frame=f, camera=shot))
-            n = fr.get("neck_px")
+            n = fr.get("neck_visible") if neck_rule == "visible" else fr.get("neck_px")
+            if neck_rule == "visible" and fr.get("neck_px") is not None and n is None:
+                out.append(issue("clip.neck_missing", "fail", f"{subject} {shot} f{f}: no neck_visible measured",
+                                 "re-judge the frame with this fmqa (neckscan reads a qa.clip out_dir)",
+                                 subject=subject, frame=f, camera=shot))
             if n and n["px"] > neck_max_px:
                 c = (n.get("clusters") or [{}])[0]
                 out.append(issue("clip.neck", "fail",

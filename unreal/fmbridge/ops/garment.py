@@ -170,7 +170,7 @@ def clip(*, label: str, sequence: str, shots: list | None = None, n: int = 6, ex
          tol_cm: float = 0.3,
          band_cm: float = 3.0, near_cm: float = 1.5, neck_margin_cm: float = 1.0, at_open_960: float = 5.0,
          pair_fraction: float = 0.001, neck_max_px: int = 0, silhouette_pct: float = 2.0, props: dict | None = None,
-         mouth: dict | None = None, mouth_max_px: int = 0):
+         mouth: dict | None = None, mouth_max_px: int = 0, neck_rule: str = "rim", tongue_cm: float = 3.0):
     """Skin or an under-garment coming out through a garment, as the shot's camera sees it, per shot and frame.
 
     Each part (Body, Face, each garment) is depth-captured ALONE from the shot's camera; every (under, over) pair is
@@ -186,7 +186,7 @@ def clip(*, label: str, sequence: str, shots: list | None = None, n: int = 6, ex
     pairs: [[under, over], ...] (default fmbridge.qa.clip.pairs). out_dir (on the box; face data stays there): per frame
     <shot>_<frame>_mask.png (body red, face orange, tee green, trousers blue, clip magenta), _depth.bin, with
     `stills` _final.png, with `layer_masks` <shot>_<frame>_<role>.png per part (grey, 255 where that part alone
-    covers the pixel, 0 elsewhere: occlusion by other parts NOT applied). Gate knobs: pair_fraction, neck_max_px, silhouette_pct.
+    covers the pixel, 0 elsewhere: occlusion by other parts NOT applied). Gate knobs: pair_fraction, neck_max_px, silhouette_pct; neck_rule "rim" (neck_px) or "visible" (neck_visible: skin islands + tongues deeper than tongue_cm from the opening, the round-6 re-scope; both reported either way).
     props {role: "Label" | "Label:Component"}: set pieces captured as layers too (every visible mesh component of the
     actor, or the one named), for pairs such as [["Body","Chair"],["Chair","Trousers"],["Body","Desk"]] (a presenter
     sinking into a seat or a desk). mouth {"blocker": role (default "Mic", a prop), "bones": [face bones] (default
@@ -203,7 +203,7 @@ def clip(*, label: str, sequence: str, shots: list | None = None, n: int = 6, ex
     if out_dir:
         os.makedirs(out_dir, exist_ok=True)
     knobs = dict(tol_cm=tol_cm, band_cm=band_cm, near_cm=near_cm, neck_margin_cm=neck_margin_cm,
-                 at_open_960=at_open_960)
+                 at_open_960=at_open_960, tongue_cm=tongue_cm)
     rep = {}
     try:
         for shot, frames in plan.items():
@@ -259,7 +259,7 @@ def clip(*, label: str, sequence: str, shots: list | None = None, n: int = 6, ex
             b = json.load(fh)
         prior = b.get("metrics", b).get("shots", b.get("shots"))
     issues = _clip.gate(rep, label, pair_fraction=pair_fraction, neck_max_px=neck_max_px,
-                        silhouette_pct=silhouette_pct, before=prior, mouth_max_px=mouth_max_px)
+                        silhouette_pct=silhouette_pct, before=prior, mouth_max_px=mouth_max_px, neck_rule=neck_rule)
     out = _result(issues, {"worst": _clip.summarize(rep), "shots": rep, "size": [w, h], **knobs}, out_dir=out_dir)
     if out_dir:
         with open(os.path.join(out_dir, "clip.json"), "w") as fh:
