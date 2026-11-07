@@ -231,7 +231,7 @@
    "line": 0,
    "unit": "px",
    "what": "worst frame's mouth pixels the studio mic covers (qa.clip mouth: a 2 cm disc round the lip bones, the mic nearer than the face)",
-   "where": "every presenter camera, every shot (n 8 + the widest head turn)",
+   "where": "every presenter camera (CAM_MCU / CAM_CU / CAM_MCU_L / CAM_WIDE), every shot; round 7: the mic moves UP to chin/mouth height, 12-18 cm in front and 10-15 cm to the presenter's left (the orchestrator), so this row now bites",
    "how": "film-ue op qa.clip ... 'props={\"Mic\":\"<mic>\"}' 'mouth={\"blocker\":\"Mic\"}' (core 0ce1c3ae) -> metrics.worst.mouth.blocked_px",
    "why": "the brief: the mic never covers the mouth in any camera"
   },
@@ -924,6 +924,38 @@
    ],
    "guard": true,
    "why": "the orchestrator: the viewer sees elbows out and no hands = still stiff; the gesture space is chest-to-collarbone in front of the torso"
+  },
+  "set.mic_face_px": {
+   "area": "set",
+   "track": "agent-06 (box B) / agent-07",
+   "op": "==",
+   "line": 0,
+   "unit": "px",
+   "what": "pixels of the FACE (3 cm discs round both eyes, the lips and the jaw) that the studio mic covers, from the shot's camera: the mic must not overlap the face box and the lips stay fully visible",
+   "where": "every presenter camera (MCU, CU, MCU_L, WIDE), n 8 per shot + the widest head turns",
+   "how": "film-ue op qa.clip label=<presenter> sequence=<SEQ> 'props={\"Mic\":\"<mic>\"}' 'pairs=[]' 'mouth={\"blocker\":\"Mic\",\"radius_cm\":3.0,\"bones\":[\"FACIAL_L_Eye\",\"FACIAL_R_Eye\",\"FACIAL_C_LipUpper\",\"FACIAL_C_LipLower\",\"FACIAL_C_Jaw\"]}' -> metrics.worst.mouth.blocked_px (a missing bone errors: pass the rig's names)",
+   "must_fail": [
+    null,
+    "a mic placed over the face (a deliberate bad placement on a still, or the first mic-move attempt if it covers): measure one to prove the row bites"
+   ],
+   "guard": true,
+   "why": "the orchestrator, 07 Nov: move the mic to the mouth like a real studio mic; it must NOT cover the mouth or the face in any camera"
+  },
+  "set.mic_hand_clear_cm": {
+   "area": "set",
+   "track": "agent-01",
+   "op": ">=",
+   "line": 5.0,
+   "unit": "cm",
+   "info": true,
+   "what": "the closest a hand or forearm comes to the mic/boom in the picture (agent-01's body constraint after the mic move)",
+   "where": "every speaking frame",
+   "how": "agent-01's gesturekit design check (perform.py body.mic_touch counts contacts)",
+   "r4": [
+    null,
+    "INFO: agent-01's design-time number; body.mic_touch (== 0, hard) counts actual contact"
+   ],
+   "why": "the orchestrator: the mic clear by >= 5 cm in the picture"
   }
  },
  "not_attempted": {
