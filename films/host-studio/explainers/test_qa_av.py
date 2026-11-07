@@ -73,3 +73,11 @@ def test_agent11_cues_and_spelled_numbers():
     srt = "1\n00:00:00,750 --> 00:00:03,900\nNetflix has over three hundred million paying members.\n\n" \
           "2\n00:00:04,200 --> 00:00:06,000\nEach title gets twelve hundred encodes.\n"
     assert captions_numbers(parse_srt(srt), vo)["captions.text_match"]["value"] == 1
+
+
+def test_onset_uses_the_caption_with_the_lines_first_word_not_one_still_on_screen():
+    vo = {"lines": [{"id": "A", "text": "One two three.", "start": 1.0, "end": 2.0},
+                    {"id": "B", "text": "Four five.", "start": 2.3, "end": 3.5}]}
+    srt = "1\n00:00:00,950 --> 00:00:02,400\nOne two three.\n\n2\n00:00:02,400 --> 00:00:03,500\nFour five.\n"
+    g = captions_numbers(parse_srt(srt), vo)
+    assert g["captions.onset_ms"]["value"] == 100 and "B" in g["captions.onset_ms"]["where"]

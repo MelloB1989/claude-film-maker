@@ -182,7 +182,7 @@ def parse_srt(text: str) -> list:
     return out
 
 
-def captions_numbers(cues: list, vo: dict, reach_s: float = 0.5) -> dict:
+def captions_numbers(cues: list, vo: dict) -> dict:
     """Captions vs the VO. captions.text_match: the caption words in order equal the VO lines' words in order (case
     and punctuation ignored), 1/0. captions.onset_ms: the worst |first caption start - line start| over the lines, ms
     (a line's captions are those overlapping [start - reach_s, end)); a line with no caption is an error."""
@@ -195,17 +195,28 @@ def captions_numbers(cues: list, vo: dict, reach_s: float = 0.5) -> dict:
         k = next((i for i, (a, b) in enumerate(zip(want, got)) if a != b), min(len(want), len(got)))
         tm = row(0, f"word {k}: VO {' '.join(want[max(0, k - 3):k + 3])!r} vs captions "
                     f"{' '.join(got[max(0, k - 3):k + 3])!r} ({len(want)} vs {len(got)} words)")
-    worst, where, unmatched = -1.0, "", []
+    # each caption's words, in order, belong to the VO words in order: a line's onset is judged against the caption
+    # that carries its FIRST word (time overlap would pick the previous line's caption still on screen)
+    owner, k = [], 0
+    for ci, c in enumerate(cues):
+        for _ in words(c[2]):
+            owner.append(ci)
+            k += 1
+    worst, where, unmatched, k = -1.0, "", [], 0
     for lid, ln in lines:
-        mine = [c for c in cues if c[1] > ln["start_s"] - reach_s and c[0] < ln["end_s"]]
-        if not mine:
-            unmatched.append(lid)
+        n = len(words(ln["text"]))
+        if not n:
             continue
-        err = abs(mine[0][0] - ln["start_s"]) * 1000
-        if err > worst:
-            worst, where = err, f"{lid}: caption {mine[0][0]:.2f} s, VO {ln['start_s']:.2f} s"
-    timing = ({"value": None, "error": f"no caption over line(s) {', '.join(unmatched)}"} if unmatched
-              else row(round(max(worst, 0)), where or "no lines"))
+        if k >= len(owner) or (want[k:k + n] != got[k:k + n]):
+            unmatched.append(lid)
+        else:
+            c = cues[owner[k]]
+            err = abs(c[0] - ln["start_s"]) * 1000
+            if err > worst:
+                worst, where = err, f"{lid}: caption {c[0]:.2f} s, VO {ln['start_s']:.2f} s"
+        k += n
+    timing = ({"value": None, "error": f"captions do not carry line(s) {', '.join(unmatched)} word for word"}
+              if unmatched else row(round(max(worst, 0)), where or "no lines"))
     return {"captions.text_match": tm, "captions.onset_ms": timing}
 
 
