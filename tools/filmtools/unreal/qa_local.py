@@ -348,6 +348,20 @@ def main(argv=None) -> None:
     hp = sub.add_parser("hair")
     hp.add_argument("spec")
     hp.add_argument("--out", default="")
+    pf = sub.add_parser("perf-face", help="round 7: face expression rows from rendered frames (MediaPipe blendshapes)")
+    pf.add_argument("folder")
+    pf.add_argument("--fps", type=float, default=24.0)
+    pf.add_argument("--speaking", required=True, help="JSON [[f0, f1_excl], ...] speaking + on screen")
+    pf.add_argument("--box", default="", help="x0,y0,x1,y1 (fractions): the face's region")
+    pf.add_argument("--model", default="")
+    pf.add_argument("--series", default="", help="also write the per-frame blendshapes here (calibration)")
+    pf.add_argument("--out", default="")
+    pb = sub.add_parser("perf-body", help="round 7: gesture rows from seq.sample bone samples (hand_l, hand_r)")
+    pb.add_argument("samples")
+    pb.add_argument("--fps", type=float, default=24.0)
+    pb.add_argument("--speaking", required=True)
+    pb.add_argument("--desk-z", type=float, required=True, help="the desk top's world Z, cm")
+    pb.add_argument("--out", default="")
     gp = sub.add_parser("gate")
     gp.add_argument("numbers", nargs="*")
     gp.add_argument("--spec", default="")
@@ -417,6 +431,19 @@ def main(argv=None) -> None:
         res = review(x.folder, x.out, x.reference, x.title)
     elif x.cmd == "hair":
         res = hair(json.loads(Path(x.spec).read_text()))
+    elif x.cmd == "perf-face":
+        from . import qa_perf
+        box = [float(v) for v in x.box.split(",")] if x.box else None
+        from . import qa_head as QH
+        series = qa_perf.face_track(QH.frames_in(x.folder), x.fps, box, x.model)
+        res = {"gate": qa_perf.face_rows(series, x.fps, qa_perf._spans(x.speaking)), "frames": len(series)}
+        if x.series:
+            Path(x.series).write_text(json.dumps(series))
+    elif x.cmd == "perf-body":
+        from . import qa_perf
+        d = json.loads(Path(x.samples).read_text())
+        d = d.get("result", d)
+        res = {"gate": qa_perf.body_rows(d, x.fps, qa_perf._spans(x.speaking), x.desk_z)}
     elif x.cmd == "gate":
         if x.lines:
             qa()
@@ -432,7 +459,7 @@ def main(argv=None) -> None:
         cam = cam.get("camera", cam)  # view.camera's whole result works too
         res = framing(cam, json.loads(Path(x.bones_json).read_text()), x.subject,
                       {"size": x.expect_size} if x.expect_size else None)
-    if getattr(x, "out", "") and x.cmd in ("hair", "gate"):
+    if getattr(x, "out", "") and x.cmd in ("hair", "gate", "perf-face", "perf-body"):
         Path(x.out).parent.mkdir(parents=True, exist_ok=True)
         Path(x.out).write_text(json.dumps(res, indent=1, default=str))
     print(json.dumps(res, indent=1, default=str))

@@ -26,6 +26,7 @@ from ..errors import OpError, not_found
 from ..qa import clip as _clip
 from ..qa import garment_look as _look
 from ..qa import image as _image
+from ..qa import limbs as _limbs
 from ..qa.issues import issue, worst
 from .view import _scrub, camera_info, capture, cut_camera, find_actor, read_pixels, remove_rig, to_image
 
@@ -650,6 +651,62 @@ def garment_look(*, label: str, garment: str = "", ref_body: str = "", sequence:
 
 
 # --- export for the fit ------------------------------------------------------------------------------------------
+
+@op("qa.limb_clearance", mutates=False, idempotent=True, tags=["slow", "metahuman"])
+def limb_clearance(*, label: str, sequence: str, frames: list | None = None, shots: list | None = None, n: int = 6,
+                   body: str = "Body", sides: list | None = None, arm_r: float = 9.0, torso_r: float = 30.0,
+                   min_cm: float = 3.0, stride: int = 3):
+    """Upper arm vs torso clearance on the POSED meshes (round 7: 'her right boob is covering the upper limb of her right
+    hand'). Per frame: the Body and the upper garment (tee/Top/Overshirt) posed (Geometry Script), split by bone
+    segments into ARM points (upperarm_<s> -> lowerarm_<s>, 35-95 % along it) and TORSO points (spine_03 -> neck_01);
+    fmbridge.qa.limbs.clearance gives the min distance, NEGATIVE where the arm sits inside the torso's volume.
+
+    Args: label: the character. sequence + frames (or shots/n spread per camera cut). sides: ["l", "r"].
+    stride: use every Nth vertex (speed). min_cm: the gate (body.upperarm_torso_clear_cm >= min_cm).
+    Returns: {"pass", "issues", "metrics": {"worst_cm", "at", "frames": {frame: {side: {cm, at, n_arm, n_torso}}}}}.
+    Example: film-ue op qa.limb_clearance label=Presenter sequence=/Game/Explainer/SEQ_Explain_Her 'frames=[1050,1060]'
+    """
+    a = find_actor(label)
+    parts = roles(a)
+    comp = parts.get(body)
+    if comp is None:
+        raise OpError(f"{label} has no {body!r} component", code="not_found")
+    upper = [parts[k] for k in ("tee", "Top", "Overshirt", "Shirt") if k in parts]
+    plan = {"frames": list(frames)} if frames else _frames_of(sequence, shots, n, None)
+    out, worst, at = {}, None, None
+    for shot, fs in plan.items():
+        if isinstance(fs, dict):
+            continue
+        for f in fs:
+            yield from _scrub(sequence, f, 10)
+            pts = []
+            for c in [comp] + upper:
+                pts += [(v.x, v.y, v.z) for v in list(_verts(_posed(c)))[::max(1, int(stride))]]  # unreal.Array: no slice step
+            yield
+            loc = {b: comp.get_socket_location(b) for b in ("spine_03", "neck_01", "upperarm_l", "lowerarm_l",
+                                                          "upperarm_r", "lowerarm_r")}
+            P = {b: (v.x, v.y, v.z) for b, v in loc.items()}
+            torso = (P["spine_03"], P["neck_01"])
+            row = {}
+            for sd in sides or ["l", "r"]:
+                A, T = _limbs.classify(pts, (P[f"upperarm_{sd}"], P[f"lowerarm_{sd}"]), torso, arm_r=arm_r,
+                                       torso_r=torso_r)
+                r = _limbs.clearance(A, T, torso)
+                row[sd] = r
+                if r.get("cm") is not None and (worst is None or r["cm"] < worst):
+                    worst, at = r["cm"], f"{shot}@{f} {sd}"
+            out[f] = row
+            yield
+    issues = []
+    if worst is None:
+        issues.append(issue("limb.unmeasured", "fail", f"{label}: no frame measured an arm and a torso",
+                            "check the bone names and the frames", subject=label))
+    elif worst < min_cm:
+        issues.append(issue("limb.clearance", "fail", f"{label} {at}: upper arm {worst:+.1f} cm from the torso "
+                            f"(limit {min_cm}; negative = inside it)", "elbows away from the torso in the body pose "
+                            "(agent-01), or slim the garment there", subject=label, value=worst, expected=min_cm))
+    return _result(issues, {"worst_cm": worst, "at": at, "frames": out})
+
 
 def _export(asset, path: str, morphs: bool = False) -> list:
     t = unreal.AssetExportTask()
