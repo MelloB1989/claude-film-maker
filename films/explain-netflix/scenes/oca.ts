@@ -23,8 +23,9 @@ export default class Oca extends NfScene {
     text(c, 'Netflix library', lib.x, lib.y + 48, { size: 22, color: 'fgDim', align: 'center', alpha: kL });
 
     const kC = rev(t, 0.05, 0.4);
-    cloud(c, 640, 600, 420, 230, { a: kC, fill: 'rgba(70,52,44,0.28)' });
-    text(c, 'the open internet', 640, 610, { size: 26, color: 'fgFaint', align: 'center', alpha: kC });
+    cloud(c, 640, 600, 440, 240, { a: kC, fill: 'rgba(110,86,70,0.38)' });
+    cloud(c, 640, 600, 400, 210, { a: kC, fill: 'rgba(150,120,98,0.18)' });
+    text(c, 'the open internet', 640, 612, { size: 34, weight: 600, color: 'fgDim', align: 'center', alpha: kC });
 
     // the ISP's network
     const kI = rev(t, this.cue('providers', 0.55) - 0.1, 0.45);
@@ -58,7 +59,6 @@ export default class Oca extends NfScene {
       c.fillStyle = pg; c.fillRect(sx - 280, sy - 220, 560, 520);
       server(c, g, sx, sy - (1 - kS) * 120, 1.25, f.t, { a: clamp(kS * 1.4), busy: 0.6 * rev(t, this.cue('inside', 2.3), 0.4) });
       text(c, 'Open Connect Appliance', sx, sy + 92, { size: 28, weight: 600, align: 'center', alpha: rev(t, this.cue('get', 1.2) + 0.2, 0.4) });
-      text(c, 'a Netflix server, on the ISP’s network', sx, sy + 128, { size: 22, color: 'fgDim', align: 'center', alpha: rev(t, this.cue('get', 1.2) + 0.35, 0.4) });
     }
     // short, fast links to the homes
     const kN = rev(t, this.cue('inside', 2.3), 0.5, ease.inOutCubic);

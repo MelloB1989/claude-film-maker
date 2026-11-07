@@ -54,8 +54,6 @@ export default class Planes extends NfScene {
         text(c, 'the box near you', bx + 50, by + 118, { size: 24, weight: 600, align: 'left', color: 'accentBright', alpha: hotD });
       }
     });
-    text(c, 'the video bytes', dx + dw / 2, dy + dh - 40, { size: 22, color: 'fgDim', align: 'center', alpha: kD });
-    text(c, 'everything before the video', ax + aw / 2, ay + ah - 40, { size: 22, color: 'fgDim', align: 'center', alpha: kA });
 
     // ——— you ———
     const ux = 960, uy = 900;
@@ -71,7 +69,6 @@ export default class Planes extends NfScene {
     }
     const rip = clamp((t - tPlay) / 0.6);
     if (rip > 0 && rip < 1) { c.strokeStyle = rgba('fg', 0.6 * (1 - rip)); c.lineWidth = 2; c.beginPath(); c.arc(ux, uy, 30 + rip * 90, 0, TAU); c.stroke(); }
-    text(c, 'you press play', ux, uy + 78, { size: 22, color: 'fgDim', align: 'center', alpha: kU });
 
     // request: you → AWS (amber), answer: AWS → you, pointing at the box
     const req = clamp((t - tPlay) / Math.max(0.3, tAws - tPlay));

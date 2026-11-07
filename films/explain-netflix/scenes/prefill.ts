@@ -19,7 +19,7 @@ export default class Prefill extends NfScene {
   protected scene(c: CanvasRenderingContext2D, g: CanvasRenderingContext2D, t: number, f: Frame) {
     const P = this.look.panel;
     const L = P
-      ? { X0: 30, X1: 420, Y0: 300, Y1: 70, lx: 650, ly: 120, ocas: [150, 425, 700], oy: 400, os: 0.8, pill: [425, 525] as const, txt: 0.9 }
+      ? { X0: 30, X1: 420, Y0: 300, Y1: 70, lx: 640, ly: 120, ocas: [150, 425, 700], oy: 400, os: 0.8, pill: [425, 525] as const, txt: 0.9 }
       : { X0: 140, X1: 900, Y0: 820, Y1: 400, lx: 1450, ly: 360, ocas: [1180, 1450, 1720], oy: 760, os: 1.0, pill: [1450, 980] as const, txt: 1 };
     if (!P) heading(c, this.p('kick', 'Step 2 · Fill it overnight'), this.p('title', 'Tomorrow’s hits, delivered tonight'), t);
 
@@ -30,7 +30,7 @@ export default class Prefill extends NfScene {
     c.save(); c.globalAlpha *= kA;
     c.strokeStyle = 'rgba(255,225,200,0.16)'; c.lineWidth = 1.5;
     c.beginPath(); c.moveTo(X0, Y0); c.lineTo(X1, Y0); c.stroke();
-    for (const h of [0, 6, 12, 18, 24]) {
+    for (const h of P ? [0, 12, 24] : [0, 6, 12, 18, 24]) {
       text(c, h === 24 ? '24:00' : `${String(h).padStart(2, '0')}:00`, hx(h), Y0 + 36, { size: 20, color: 'fgFaint', align: 'center', face: 'mono' });
       c.fillStyle = 'rgba(255,225,200,0.2)'; c.fillRect(hx(h) - 0.75, Y0, 1.5, 8);
     }
@@ -81,9 +81,9 @@ export default class Prefill extends NfScene {
     // ——— library → appliances ———
     const { lx, ly } = L;
     const kL = rev(t, this.cue('predicts', 1.75) - 0.1, 0.4);
-    card(c, lx - 170, ly - 70, 340, 120, { a: kL });
+    card(c, lx - 210, ly - 70, 420, 120, { a: kL });
     kicker(c, 'Netflix library', lx, ly - 22, kL, 'accent2', 'center');
-    text(c, 'predicts what your area will watch', lx, ly + 16, { size: 20, color: 'fgDim', align: 'center', alpha: kL });
+    text(c, 'predicts your area’s picks', lx, ly + 22, { size: 20, color: 'fgDim', align: 'center', alpha: kL });
     const ocas = L.ocas.map((x, i) => ({ x, y: L.oy, at: this.cue('area', 2.7) + i * 0.08 }));
     const tc = this.cue('copies', 4.5);
     const fillK = (i: number) => ease.inOutCubic(clamp((t - tc - i * 0.12) / 1.5));

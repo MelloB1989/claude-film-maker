@@ -75,6 +75,8 @@ export default class Abr extends NfScene {
       const gr = c.createLinearGradient(0, y - ch / 2, 0, y + ch / 2);
       gr.addColorStop(0, rgba(hot > 0.9 ? 'accentBright' : hot > 0.6 ? 'accent' : 'accentDim', 0.95));
       gr.addColorStop(1, rgba('accentDim', 0.95));
+      // the block's depth: a darker side and underside
+      c.fillStyle = 'rgba(70,6,10,0.95)'; c.beginPath(); c.roundRect(xx + 6, y - ch / 2 + 8, w * kV, ch, 6 * open); c.fill();
       c.fillStyle = gr;
       c.shadowColor = 'rgba(0,0,0,0.5)'; c.shadowBlur = 16 * open; c.shadowOffsetY = 8 * open;
       c.beginPath(); c.roundRect(xx, y - ch / 2, w * kV, ch, 6 * open); c.fill();
@@ -99,7 +101,7 @@ export default class Abr extends NfScene {
         c.fillStyle = rgba('accentBright', 0.9 * (1 - kf)); c.beginPath(); c.arc(px, py, 5, 0, TAU); c.fill();
       }
     }
-    text(c, 'the video', X0, rowY - ch / 2 - 22, { size: 22, color: 'fgDim', alpha: kV * (1 - rev(t, tPicks, 0.3)) });
+    text(c, 'the video', X0, rowY - ch / 2 - 22, { size: 28, color: 'fgDim', alpha: kV * (1 - rev(t, tPicks, 0.3)) });
     // "a few seconds" bracket under chunk 2
     const kb = rev(t, tFew, 0.4) * (1 - rev(t, tPicks - 0.2, 0.3));
     if (kb > 0) {

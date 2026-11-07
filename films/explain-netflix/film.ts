@@ -38,6 +38,9 @@ export default defineFilm({
   ...config,
   post: MATTE ? { grain: 0, vignette: 0, ca: 0 } : { grain: 0.03 },
   scenes: [
+    // a 1.5 frame lead: every cut then falls half way between two frames, so a shot owns exactly its frame count
+    // (frame 2 is title's first; FRAMES.md lists each shot's frames) whatever the float sum of the lengths
+    { id: 'lead', scene: scenes.end, length: 1.5 / FPS, params: { background: BG, matte: MATTE } },
     cut('title', 'title'),
     cut('oca', 'oca'),
     cut('prefill', 'prefill'),

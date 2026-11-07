@@ -62,9 +62,10 @@ export default class Buffer extends NfScene {
       const arrive = id * rate;
       // the chunk requested during the dip comes in softer (720p, lighter, a little blurred look)
       const soft = id >= Math.round(T.tChunk / rate) + 6 && id <= Math.round(T.tChunk / rate) + 8;
-      const label = soft ? '720p' : '1080p';
-      const a = clamp((X1 - x) / 60) * clamp((x - X0 + cw) / 40) * rev(t, 0.1, 0.3);
+      const label = soft ? '720' : '1080';
+      const a = clamp((X1 - cw - x) / 50 + 1) * clamp((x - X0) / 50 + 1) * clamp((x - X0 + cw * 0.5) / 40) * rev(t, 0.1, 0.3);
       c.save(); c.globalAlpha *= a;
+      c.fillStyle = 'rgba(70,6,10,0.95)'; c.beginPath(); c.roundRect(x + 4, CY + 6, cw, ch, 6); c.fill();
       c.fillStyle = soft ? rgba('accentDim', 0.85) : rgba('accent', 0.95);
       c.beginPath(); c.roundRect(x, CY, cw, ch, 6); c.fill();
       if (soft) { c.strokeStyle = rgba('accent2Bright', 0.9); c.lineWidth = 2; c.stroke(); }
