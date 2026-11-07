@@ -59,6 +59,7 @@ Two-sided lines use the gate's `range` op (core `0b3bbf5c`).
 |---|---|---|
 | body.breath_cycles_per_min | 8-22 | seated-body sampler on spine_05 and the clavicles: the dominant 0.13-0.37 Hz cycle |
 | body.breath_amp_mm | ≥ 2.0 | median sternum rise per cycle: visible, not a heave |
+| body.desk_through, body.mic_touch, body.knee_desk | == 0 | `perform.py` (seatkit): bones against the set boxes on every frame, a hand through the desk, a touch on the mic or its arm, a knee through the desk |
 
 ### Garments in the SEATED pose (agent-02 his, agent-07/01 hers)
 

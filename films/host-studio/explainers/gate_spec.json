@@ -396,6 +396,42 @@
    "where": "the whole film, watched like the viewer",
    "how": "the review strip signed by cc-64d05f6e: {\"by\": \"cc-64d05f6e\", \"gate\": {\"eye.graphics\": 1|0, ...}, \"notes\"}",
    "why": "the brief: every review goes to the orchestrator before anything is called done"
+  },
+  "body.desk_through": {
+   "area": "set",
+   "track": "agent-01",
+   "op": "==",
+   "line": 0,
+   "unit": "frames",
+   "what": "frames where a hand/forearm goes through the desk top (seatkit desk.through)",
+   "where": "every frame of the placed performance (editor, bones vs the set's boxes)",
+   "how": "films/host-studio/explainers/perform.py -> numbers/<film>/body.json (agent-01, fleet/agent-01/r6-perf)",
+   "why": "the brief: no frame where the presenter intersects the chair or desk; the bone check catches what qa.clip's sampled frames can miss"
+  },
+  "body.mic_touch": {
+   "area": "set",
+   "track": "agent-01",
+   "op": "==",
+   "line": 0,
+   "unit": "frames",
+   "what": "frames where the body or a hand touches or passes through the mic or its arm (seatkit mic.*)",
+   "where": "every frame of the placed performance (editor, bones vs the set's boxes)",
+   "how": "films/host-studio/explainers/perform.py -> numbers/<film>/body.json (agent-01, fleet/agent-01/r6-perf)",
+   "why": "the brief: no frame where the presenter intersects the chair or desk; the bone check catches what qa.clip's sampled frames can miss"
+  },
+  "body.knee_desk": {
+   "area": "set",
+   "track": "agent-01",
+   "op": "==",
+   "line": 0,
+   "unit": "frames",
+   "what": "frames where a knee passes through the desk (seatkit desk.knee)",
+   "where": "every frame of the placed performance (editor, bones vs the set's boxes)",
+   "how": "films/host-studio/explainers/perform.py -> numbers/<film>/body.json (agent-01, fleet/agent-01/r6-perf)",
+   "why": "the brief: no frame where the presenter intersects the chair or desk; the bone check catches what qa.clip's sampled frames can miss"
+  },
+  "lips.lead_in_cm": {
+   "where": "each on-camera line's silence before its first word, the window clipped to the gap after the previous line (the explainer gaps are ~0.34 s, shorter than 24 f; agent-01)"
   }
  },
  "not_attempted": {
