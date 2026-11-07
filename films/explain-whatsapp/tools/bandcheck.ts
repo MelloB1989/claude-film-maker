@@ -3,7 +3,10 @@
 // The caption-band gate (gfx.caption_band_clear) for the WhatsApp v3 graphics, the same test as agent-12's
 // films/explain-netflix/tools/bandcheck.py, with bun + ffmpeg (no numpy on the render Mac):
 //
-//   bun films/explain-whatsapp/tools/bandcheck.ts BLACK.mov OUT.json
+//   bun films/explain-whatsapp/tools/bandcheck.ts BLACK.mov OUT.json [--stride 3]
+//
+// --stride K: BLACK.mov holds only every Kth frame of each shot (stills at frames 0, K, 2K… of every shot, in film
+// order, no lead): the quick form, from render.ts stills.
 //
 // BLACK.mov is films/explain-whatsapp-black rendered whole (half a frame of lead, every beat full frame, then the panel
 // beats in their card; all over black, params.matte). Every 3rd frame of each shot is checked: it passes when nothing in
@@ -12,15 +15,19 @@
 // not. Writes {"gate": {"gfx.caption_band_clear": {"value": 0|1, "where": ...}}, "shots": {...}}.
 import edl from '../data/edl.json';
 
-const [src, outPath] = process.argv.slice(2);
+const argv = process.argv.slice(2);
+const [src, outPath] = argv;
+const si = argv.indexOf('--stride');
+const STRIDE = si >= 0 ? Number(argv[si + 1]) : 0;
 if (!src || !outPath) throw new Error('usage: bandcheck.ts BLACK.mov OUT.json');
 const W = 1920, H = 1080, THR = 24, R = 20, TAIL = 12;
 
 // the shots in film order: [id, first frame, frames, limit]
 const rows: [string, number, number, number][] = [];
-let f = 1; // frame 0 is the lead
-for (const s of edl.shots) rows.push([s.gfx, f, s.frames + TAIL, 900]), (f += s.frames + TAIL);
-for (const s of edl.shots.filter((x) => x.kind === 'panel')) rows.push([`${s.gfx}_panel`, f, s.frames + TAIL, 918]), (f += s.frames + TAIL);
+let f = STRIDE ? 0 : 1; // frame 0 is the lead (the whole film); none with --stride
+const len = (n: number) => (STRIDE ? Math.ceil(n / STRIDE) : n);
+for (const s of edl.shots) rows.push([s.gfx, f, len(s.frames + TAIL), 900]), (f += len(s.frames + TAIL));
+for (const s of edl.shots.filter((x) => x.kind === 'panel')) rows.push([`${s.gfx}_panel`, f, len(s.frames + TAIL), 918]), (f += len(s.frames + TAIL));
 
 const dec = Bun.spawn(['ffmpeg', '-v', 'error', '-i', src, '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'], { stdout: 'pipe', stderr: 'inherit' });
 const reader = dec.stdout.getReader();
@@ -80,12 +87,12 @@ for (;;) {
   const fr = await next();
   if (!fr) break;
   const row = rows.find(([, a, n]) => frame >= a && frame < a + n);
-  if (row && (frame - row[1]) % 3 === 0) {
+  if (row && (STRIDE || (frame - row[1]) % 3 === 0)) {
     const [id, a, , lim] = row;
     const b = worst(fr, lim), r = shots[id]!;
     r.frames++;
     if (b.v > r.max) (r.max = Math.round(b.v)), (r.at = [b.x, b.y]);
-    if (b.v > THR) r.fail.push(frame - a);
+    if (b.v > THR) r.fail.push((frame - a) * (STRIDE || 1));
   }
   frame++;
 }
