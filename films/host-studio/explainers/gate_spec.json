@@ -741,23 +741,29 @@
     "netflix v2b (the operator's REJECT, 07 Nov 23:45): measure on box B's v2b frames/curves and put the value here; the line must fail it"
    ],
    "guard": true,
-   "why": "the operator, 07 Nov: 'her expression is pale, no emotion at all ... hands stuck to her body ... boob covering the upper limb ... these presenters must look confident, happy, full of energy, not robotic' (R7_common.md). The numbers support the eye; the operator decides"
+   "why": "the operator, 07 Nov: 'her expression is pale, no emotion at all ... hands stuck to her body ... boob covering the upper limb ... these presenters must look confident, happy, full of energy, not robotic' (R7_common.md). The numbers support the eye; the operator decides",
+   "info_for": "TEST",
+   "r4": [
+    null,
+    "INFO for the R7 TEST by the orchestrator's ruling (07 Nov), a scope change, not a waiver: no validated measure yet (agent-09's cross-check structurally constant at -10; agent-02's mesh measure failing its ref-pose self-check). The judge: the orchestrator's eye at 1x and 2x on the MCU + WIDE test frames (the 00:44 arm-under-breast case is obvious when present), with agent-01's design-time clearance from gesturekit (3.8/3.8 cm on a torso+breast model) as supporting evidence. It must be a real GATE (validated, must_fail = v2b) before the full re-render"
+   ],
+   "info": true
   },
   "garment.waist_fit_cm": {
    "area": "garment",
    "track": "round 7 (agent-09 measure; agent-04 face, agent-01 body, agent-02 garment)",
    "op": "<=",
-   "line": 0.8,
+   "line": 0.75,
    "unit": "cm",
-   "what": "the bottoms' waistband vs the body at the waist: the worst gap (stand-off) or poke, per frame, on the camera-facing half",
-   "where": "every speaking + on-screen frame of the presenter (cue words x edl presenter spans)",
+   "what": "the bottoms' waistband vs the body at the waist: max(front-half GAP, BARE SKIN) per frame, the front half = |angle| <= 90 deg from HER skeleton's facing (do not narrow it); the POKE is its own row (garment.waist_poke_cm)",
+   "where": "every frame with the presenter ON SCREEN (edl/<film>.json presenter + panel shots, speaking or not), as the clip rows: off-screen frames (graphics shots) don't count",
    "how": "agent-02's garment_measure.py: per frame, the worst over the camera/front half of the waistband GAP (trousers inner radius minus the layer under it, 1 cm cells down a 4 cm band, 24 sectors), POKE (under-layer through the band) and BARE SKIN (Top hem above the trousers' edge) -> numbers/<film>/garment.json; line set with the eye on v2b",
    "must_fail": [
-    null,
-    "netflix v2b (the operator's REJECT, 07 Nov 23:45): measure on box B's v2b frames/curves and put the value here; the line must fail it"
+    1.04,
+    "netflix v2b (garment_measure 9db4bd18): 1.04 at her left side (front half, her facing); agent-05's refit R7W reads 0.0"
    ],
    "guard": true,
-   "why": "the operator, 07 Nov: 'her expression is pale, no emotion at all ... hands stuck to her body ... boob covering the upper limb ... these presenters must look confident, happy, full of energy, not robotic' (R7_common.md). The numbers support the eye; the operator decides"
+   "why": "the operator: 'not fit to her'. FROZEN at 0.75: the orchestrator's eye on v2b WIDE f1100 at 3x (relayed by agent-02, 07 Nov) puts the defect at her LEFT side, the band flaring past the Top's side line between the hem and her left forearm; the front centre reads fine. That matches this row's worst at 90 deg (1.04). Split from the poke by agent-09 + agent-02"
   },
   "body.limb_clearance_xcheck_cm": {
    "area": "performance",
@@ -771,7 +777,7 @@
    "how": "film-ue op qa.limb_clearance (core fleet/agent-09/r7-perf-gate)",
    "r4": [
     null,
-    "INFO: agent-02's triangle-normal measure is the gated one"
+    "INFO, and NOT VALID yet: on v2b it read -9.6..-10.0 on both sides in all 67 frames (agent-06, limbs_v2b.json), the same structural constancy as agent-02's first version. Its sign (an arm point nearer the spine axis than its nearest torso point) is meaningless when that nearest point is ~10 cm away (the chest front far out radially); it needs a surface-normal sign (agent-02's approach) before it reads anything"
    ],
    "why": "two independent readings of the operator's arm complaint"
   },
@@ -785,8 +791,8 @@
    "where": "every speaking + on-screen frame (spans_<film>.json)",
    "how": "qa_perf.face_rows_curves on the face anim (anim.read_curves of the take's face anim, CTRL_expressions_*), over spans_<film>.json (agent-04's boxcheck) -> numbers/<film>/perf_curves.json",
    "must_fail": [
-    0.314,
-    "netflix v2b APPROX (agent-04: a perfkit rebuild with r6 face args, no solve base; the real v2b anim is being read on box B): 0.314 (R7 plan 0.851)"
+    0.22,
+    "netflix v2b's REAL face anim (/Game/Explainer/Perf/AS_exp_her_gaze = v2b, agent-06 boxcheck on box B, 691 speaking frames; fleet/agent-06/r7-boxb fe61136c face_curves_v2b.json): 0.22 (R7 plan 0.852)"
    ],
    "guard": true,
    "why": "the operator: 'her expression is pale, no emotion at all'; the orchestrator's ruling (07 Nov), a scope change, not a waiver: on our CG face MediaPipe reads talking into the brow/cheek channels (v2b, mouth-only solves: expr_active 0.535, brow flashes 61.96/min, neutral hold 1.42 s on the render), so the render reading doesn't discriminate; the face CURVES gate instead (face.curves_*), and the orchestrator's eye on the TEST judges what shows"
@@ -802,7 +808,7 @@
    "how": "qa_perf.face_rows_curves on the face anim (anim.read_curves of the take's face anim, CTRL_expressions_*), over spans_<film>.json (agent-04's boxcheck) -> numbers/<film>/perf_curves.json",
    "must_fail": [
     0.0,
-    "netflix v2b APPROX (agent-04: a perfkit rebuild with r6 face args, no solve base; the real v2b anim is being read on box B): 0.0 (R7 plan 27.1)"
+    "netflix v2b's REAL face anim (/Game/Explainer/Perf/AS_exp_her_gaze = v2b, agent-06 boxcheck on box B, 691 speaking frames; fleet/agent-06/r7-boxb fe61136c face_curves_v2b.json): 0.0/min (R7 plan 27.1)"
    ],
    "guard": true,
    "why": "the operator: 'her expression is pale, no emotion at all'; the orchestrator's ruling (07 Nov), a scope change, not a waiver: on our CG face MediaPipe reads talking into the brow/cheek channels (v2b, mouth-only solves: expr_active 0.535, brow flashes 61.96/min, neutral hold 1.42 s on the render), so the render reading doesn't discriminate; the face CURVES gate instead (face.curves_*), and the orchestrator's eye on the TEST judges what shows"
@@ -818,7 +824,7 @@
    "how": "qa_perf.face_rows_curves on the face anim (anim.read_curves of the take's face anim, CTRL_expressions_*), over spans_<film>.json (agent-04's boxcheck) -> numbers/<film>/perf_curves.json",
    "must_fail": [
     0.0,
-    "netflix v2b APPROX (agent-04: a perfkit rebuild with r6 face args, no solve base; the real v2b anim is being read on box B): 0/min at 0.40 (4.2 at 0.30; R7 plan 31.3)"
+    "netflix v2b's REAL face anim (/Game/Explainer/Perf/AS_exp_her_gaze = v2b, agent-06 boxcheck on box B, 691 speaking frames; fleet/agent-06/r7-boxb fe61136c face_curves_v2b.json): 0.0/min at 0.40 (R7 plan 31.3)"
    ],
    "guard": true,
    "why": "the operator: 'her expression is pale, no emotion at all'; the orchestrator's ruling (07 Nov), a scope change, not a waiver: on our CG face MediaPipe reads talking into the brow/cheek channels (v2b, mouth-only solves: expr_active 0.535, brow flashes 61.96/min, neutral hold 1.42 s on the render), so the render reading doesn't discriminate; the face CURVES gate instead (face.curves_*), and the orchestrator's eye on the TEST judges what shows"
@@ -833,11 +839,43 @@
    "where": "every speaking + on-screen frame (spans_<film>.json)",
    "how": "qa_perf.face_rows_curves on the face anim (anim.read_curves of the take's face anim, CTRL_expressions_*), over spans_<film>.json (agent-04's boxcheck) -> numbers/<film>/perf_curves.json",
    "must_fail": [
-    2.46,
-    "netflix v2b APPROX (agent-04: a perfkit rebuild with r6 face args, no solve base; the real v2b anim is being read on box B): 2.46 s (R7 plan 0.79)"
+    3.0,
+    "netflix v2b's REAL face anim (/Game/Explainer/Perf/AS_exp_her_gaze = v2b, agent-06 boxcheck on box B, 691 speaking frames; fleet/agent-06/r7-boxb fe61136c face_curves_v2b.json): 3.0 s (R7 plan 0.79)"
    ],
    "guard": true,
    "why": "the operator: 'her expression is pale, no emotion at all'; the orchestrator's ruling (07 Nov), a scope change, not a waiver: on our CG face MediaPipe reads talking into the brow/cheek channels (v2b, mouth-only solves: expr_active 0.535, brow flashes 61.96/min, neutral hold 1.42 s on the render), so the render reading doesn't discriminate; the face CURVES gate instead (face.curves_*), and the orchestrator's eye on the TEST judges what shows"
+  },
+  "face.curves_frown_frac": {
+   "area": "performance",
+   "track": "agent-04 / agent-09",
+   "op": "<=",
+   "line": 0.1,
+   "unit": "fraction",
+   "info": true,
+   "what": "speaking frames with browDown/browLateral (the frown) above 0.25 on the face curves",
+   "where": "spans_<film>.json",
+   "how": "qa_perf.face_rows_curves (core r7-perf-gate)",
+   "r4": [
+    null,
+    "INFO: the full-face audio solve can read angry at a neutral/auto mood (the orchestrator, round 7, from the tutorial's tip); a mood override + a happy layer fix it"
+   ],
+   "why": "a confident, happy presenter, not a hard brow"
+  },
+  "garment.waist_poke_cm": {
+   "area": "garment",
+   "track": "agent-02",
+   "op": "<=",
+   "line": 0.1,
+   "unit": "cm",
+   "guard": true,
+   "what": "the worst SKIN (or under-layer) radius past the bottoms' OUTER face at the waistband, front half (her facing), per frame (> 0 = out through the band)",
+   "where": "every frame with the presenter ON SCREEN (edl/<film>.json presenter + panel shots, speaking or not), as the clip rows: off-screen frames (graphics shots) don't count",
+   "how": "agent-02's garment_measure.py waist POKE term -> numbers/<film>/garment.json; visibility cross-checked by qa.clip's Body>Trousers pair (garment.pair_fraction)",
+   "must_fail": [
+    0.49,
+    "agent-05's refit R7W (garment_measure 9db4bd18, agent-02): +0.49 cm, her SKIN out past the trousers' outer face at the front (0 to +-30 deg); VISIBLE: qa.clip Body>Trousers 2.55-2.60 % in the WIDE f1042/f1276, up to 1.5 cm at the front waist. v2b read -0.54 (a guard)"
+   ],
+   "why": "a refit that closes the gap must not push her skin out through the band; FROZEN at 0.1, with the orchestrator's eye backing it on R7W's belly (relayed by agent-02)"
   }
  },
  "not_attempted": {

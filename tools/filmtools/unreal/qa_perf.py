@@ -119,9 +119,16 @@ def face_rows_curves(curves: dict, fps: float, spans: list) -> dict:
         series[int(f)] = {"browInnerUp": b, "browOuterUpLeft": b, "browOuterUpRight": b, "cheekSquintLeft": q,
                           "cheekSquintRight": q, "eyeSquintLeft": q, "eyeSquintRight": q, "mouthSmileLeft": m,
                           "mouthSmileRight": m}
+    # the full-face audio solve can read ANGRY at a neutral/auto mood (a hard brow; the orchestrator, round 7): report
+    # the speaking frames with browDown or browLateral (the frown) above 0.25 as an INFO row
+    frown = [f for f in curves if _in(int(f), spans) and pick(curves[f], "browDown", "browLateral") > 0.25]
+    nspeak = sum(1 for f in curves if _in(int(f), spans))
     out = face_rows(series, fps, spans, lines={"active": 0.15, "smile": 0.25, "squint": 0.20, "brow": 0.40,
                                                 "brow_max_s": 1.2}, neutral=False)
-    return {k.replace("face.", "face.curves_"): v for k, v in out.items()}
+    out = {k.replace("face.", "face.curves_"): v for k, v in out.items()}
+    out["face.curves_frown_frac"] = {"value": round(len(frown) / nspeak, 3) if nspeak else None,
+                                     "where": "browDown/browLateral > 0.25 while speaking (INFO: the angry-brow risk)"}
+    return out
 
 
 def face_track(paths: list, fps: float, box=None, model: str = "") -> dict:

@@ -123,3 +123,8 @@ def test_desk_twitches_are_not_gestures():
         k = i % 24
         return [0.0, (10.0 if h == "r" else -10.0) + (3.0 if 2 <= k < 4 else 0.0), 75.0]
     assert P.body_rows(samples(240, path), FPS, [[0, 240]], 71.0)["body.gesture_onsets_per_s"]["value"] == 0
+
+
+def test_frown_is_reported():
+    curves = {f: {"CTRL_expressions_browDownL": 0.5 if f < 60 else 0.0} for f in range(240)}
+    assert P.face_rows_curves(curves, FPS, [[0, 240]])["face.curves_frown_frac"]["value"] == 0.25
