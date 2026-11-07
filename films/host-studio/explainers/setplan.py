@@ -126,13 +126,19 @@ NO_SHADOW = {"her": ["Top"], "him": []}
 GARMENT_HIDES = {
     # r6b (V2, no overshirt; agent-02): the seated waist (Trousers>Top 12 % in the WIDE) and her side (Body>Top 1.3 %,
     # the same spot in every frame, so the garment and not a gesture) need 6 cm instead of 4
-    "her": [("Top", "Overshirt", 6.0), ("Trousers", "Top", 6.0), ("Body", "Top", 6.0)],
+    # r7 (agent-05, the waist refit _R7W): the INNER layer hides under the outer one. The Top's tuck goes under the
+    # Trousers (it can never come out through the band) and her skin under both; the Trousers keep their whole band
+    # (r6b's Trousers-under-Top cut ate its inner face: a hollow band standing 0.6-2 cm off her waist)
+    "her": [("Top", "Overshirt", 6.0), ("Top", "Trousers", 2.5), ("Body", "Top", 6.0), ("Body", "Trousers", 2.5)],
     "him": [],
 }
 GARMENT_SRC = {"her": {"Overshirt": "/Game/Host/Presenter_Overshirt/SKM_Presenter_Overshirt_RW",  # r6: agent-02's
                        # reweight (the MetaHuman helper/corrective joints carried 60% of the shoulder cap: it ballooned)
-                       "Top": "/Game/Host/Presenter_Outfit/SKM_Presenter_Top",
-                       "Trousers": "/Game/Host/Presenter_Outfit/SKM_Presenter_Trousers",
+                       # r7 (agent-05): the waist refit in her SEATED pose (props/her_waist_r7.py): the band 0.4-0.5 cm
+                       # off her skin all round, her own weights through it, the tuck flat under it. Seated only:
+                       # standing, the band sits up to 0.7 cm inside her belly
+                       "Top": "/Game/Host/Presenter_Outfit/SKM_Presenter_Top_R7W",
+                       "Trousers": "/Game/Host/Presenter_Outfit/SKM_Presenter_Trousers_R7W",
                        "Body": "/Game/Host/Unpacked/Presenter/Body/SKM_Presenter_F_BodyMesh"}, "him": {}}
 
 # r6b (the orchestrator rejected RW: skin holes at both shoulders, a shredded collar): her overshirt is a choice made by

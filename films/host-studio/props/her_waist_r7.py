@@ -35,18 +35,20 @@ import bpy
 import numpy as np
 from mathutils import Matrix, Vector
 from mathutils.bvhtree import BVHTree
+from mathutils.kdtree import KDTree
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(ROOT, "..", "..", "..", "blender"))
 import garment_fit as G  # noqa: E402  (import_fbx, world_cm, set_world_cm, weights_of, bind, retarget, export)
+from lib import garmentfit as GF  # noqa: E402
 
 NAME = "her_waist_r7"
 SECTORS = 24
-BAND_CLEAR = 0.25      # cm: the band's inner face off her skin
-BAND_SLACK = 0.6       # cm: looser than this at a sector and the band is drawn in
-TUCK_CLEAR = 0.20      # cm: the Top's tuck inside the band's inner face
-UPPER = 12.0           # cm under the band refit with her (then ramped to the trousers' own over RAMP)
-RAMP = 6.0
+BAND_CLEAR = 0.42      # cm: the band's inner face off her skin (over the tuck: TUCK_CLEAR + the knit 0.16 + 0.14)
+TUCK_CLEAR = 0.12      # cm: the Top's tucked part, its inner face off her skin (the band presses it flat)
+FULL = 5.0             # cm under the band: refit fully with her ...
+UPPER = 13.0           # ... ramping back to the trousers' own shape and weights by here
+TOP_ABOVE = (0.3, 2.0) # cm above the waist edge: the Top's tuck refit fully below the first, its own above the second
 
 
 def log(*a):
@@ -61,7 +63,11 @@ def parse_args():
     ap.add_argument("--anim", default="", help="anim_*.fbx (default: every one)")
     ap.add_argument("--samples", type=int, default=16)
     ap.add_argument("--frames", default="", help="comma list of frames (overrides --samples)")
-    ap.add_argument("--fit", action="store_true")
+    ap.add_argument("--fit", default="", choices=("", "Trousers", "Top"), help="refit this garment and export it")
+    ap.add_argument("--top", default="garment_Top.fbx", help="the Top FBX in --src")
+    ap.add_argument("--fit-frame", type=int, default=1, help="the seated frame the fit is solved on")
+    ap.add_argument("--trousers", default="garment_Trousers.fbx", help="the trousers FBX in --src (the live cut copy, "
+                    "or garment_Trousers_orig.fbx: the uncut asset)")
     ap.add_argument("--band", type=float, default=4.0, help="the waistband's height, cm (her_outfit TROUSERS band)")
     return ap.parse_args(argv)
 
@@ -72,9 +78,12 @@ def load(path, arm=None):
     a = next((o for o in objs if o.type == "ARMATURE"), None)
     if arm is not None:
         G.bind(ob, arm)
-        for o in objs:
-            if o.type == "ARMATURE" and o != arm and o.name in bpy.data.objects:
-                bpy.data.objects.remove(o, do_unlink=True)
+        for o in objs:  # bind() already removed the FBX's own armature when it was the mesh's parent
+            try:
+                if o.type == "ARMATURE" and o != arm:
+                    bpy.data.objects.remove(o, do_unlink=True)
+            except ReferenceError:
+                pass
         return ob, arm
     return ob, a
 
@@ -89,8 +98,8 @@ class Rig:
         for ob in list(bpy.data.objects):
             bpy.data.objects.remove(ob, do_unlink=True)
         self.body, self.arm = load(os.path.join(a.src, "ref_body.fbx"))
-        self.top, _ = load(os.path.join(a.src, "garment_Top.fbx"), self.arm)
-        self.tr, _ = load(os.path.join(a.src, "garment_Trousers.fbx"), self.arm)
+        self.top, _ = load(os.path.join(a.src, a.top), self.arm)
+        self.tr, _ = load(os.path.join(a.src, a.trousers), self.arm)
         X, _ = G.world_cm(self.tr)
         self.z_edge = float(np.percentile(X[:, 2], 99.9))      # the waist edge in the bind pose
         self.rest_tr = X
@@ -157,6 +166,8 @@ def probe(rig, a, src, frames, z_band_lo, z_edge_bind):
         P = rig.posed()
         bv = {k: BVHTree.FromPolygons(X.tolist(), T.tolist()) for k, (X, T) in P.items()}
         p, u, fr, side = axis(rig.arm)
+        log(f"f{f} pose: pelvis {np.round(bone_world(rig.arm, 'pelvis'), 1).tolist()}, knee_l "
+            f"{np.round(bone_world(rig.arm, 'calf_l'), 1).tolist()}, axis {np.round(u, 2).tolist()}")
         # the band's heights along the axis, from the bind-pose waist edge: the pelvis keeps its offset to the band
         p0 = np.array(rig.arm.matrix_world @ rig.arm.data.bones["pelvis"].head_local) * 100.0
         h_edge = z_edge_bind - p0[2]
@@ -196,6 +207,7 @@ def summarise(f, rows):
     bp = [r["body_poke"] for r in rows if r.get("body_poke", 0) > 0.05]
     tp = [r["top_poke"] for r in rows if r.get("top_poke", 0) > 0.05]
     miss = sum(r.get("band_missing", 0) for r in band)
+    miss_at = sorted({(r["s"], r["j"]) for r in band if r.get("band_missing")})
 
     def sect(name, ks):
         g = [r["gap"] for r in band if "gap" in r and r["s"] in ks]
@@ -208,7 +220,162 @@ def summarise(f, rows):
     log(f"f{f}: band gap median {np.median(gaps) if gaps else float('nan'):.2f} (min {min(gaps) if gaps else 0:.2f}, "
         f"max {max(gaps) if gaps else 0:.2f}); {sect('front', front)}; {sect('back', back)}; {sect('L', left)}; "
         f"{sect('R', right)}; body pokes {len(bp)} (max {max(bp) if bp else 0:.2f}); Top pokes {len(tp)} "
-        f"(max {max(tp) if tp else 0:.2f}); band rays missing {miss}")
+        f"(max {max(tp) if tp else 0:.2f}); band rays missing {miss} {miss_at}")
+
+
+# ------------------------------------------------------------------------------------------------------------- fit
+def set_weights(ob, W, groups):
+    for g in list(ob.vertex_groups):
+        ob.vertex_groups.remove(g)
+    for gi, name in enumerate(groups):
+        nz = np.nonzero(W[:, gi])[0]
+        if not len(nz):
+            continue
+        vg = ob.vertex_groups.new(name=name)
+        for i in nz:
+            vg.add([int(i)], float(W[i, gi]), "REPLACE")
+
+
+def body_weights_at(rig, ob):
+    """Her body's weights at the garment's verts (Data Transfer, nearest face interpolated, bind pose), unsmoothed."""
+    tmp = ob.copy()
+    tmp.data = ob.data.copy()
+    bpy.context.scene.collection.objects.link(tmp)
+    for m in list(tmp.modifiers):
+        tmp.modifiers.remove(m)
+    for g in list(tmp.vertex_groups):
+        tmp.vertex_groups.remove(g)
+    for g in rig.body.vertex_groups:
+        tmp.vertex_groups.new(name=g.name)
+    m = tmp.modifiers.new("W", "DATA_TRANSFER")
+    m.object = rig.body
+    m.use_vert_data = True
+    m.data_types_verts = {"VGROUP_WEIGHTS"}
+    m.vert_mapping = "POLYINTERP_NEAREST"
+    m.layers_vgroup_select_src = "ALL"
+    m.layers_vgroup_select_dst = "NAME"
+    bpy.context.view_layer.objects.active = tmp
+    for o in bpy.context.scene.objects:
+        o.select_set(o == tmp)
+    bpy.ops.object.modifier_apply(modifier=m.name)
+    W, groups = G.weights_of(tmp)
+    bpy.data.objects.remove(tmp, do_unlink=True)
+    return W, groups
+
+
+def skin_mats(arm, groups):
+    """Per bone: the 3x3 of its skinning transform (posed world x inverse bind world), for the inverse skin."""
+    out = np.zeros((len(groups), 3, 3))
+    mw = arm.matrix_world
+    for i, g in enumerate(groups):
+        pb = arm.pose.bones.get(g)
+        if pb is None:
+            out[i] = np.eye(3)
+            continue
+        M = mw @ pb.matrix @ pb.bone.matrix_local.inverted() @ mw.inverted()
+        out[i] = np.array(M.to_3x3())
+    return out
+
+
+def fit(rig, a, src):
+    """Refit a.fit (Trousers or Top) at the waist in her seated pose and carry it back to the bind pose."""
+    ob = rig.tr if a.fit == "Trousers" else rig.top
+    X0, T = G.world_cm(ob)
+    z = X0[:, 2]
+    ze = rig.z_edge
+    if a.fit == "Trousers":
+        top_z = ze - a.band - FULL
+        alpha = np.clip((z - (ze - a.band - UPPER)) / (top_z - (ze - a.band - UPPER)), 0, 1)
+        target_in = BAND_CLEAR
+    else:
+        alpha = 1 - np.clip((z - (ze + TOP_ABOVE[0])) / (TOP_ABOVE[1] - TOP_ABOVE[0]), 0, 1)
+        target_in = TUCK_CLEAR
+    alpha = alpha * alpha * (3 - 2 * alpha)
+    nbrs = GF.neighbours(len(X0), T)
+    zone = alpha > 1e-4
+    log(f"fit {a.fit}: {int(zone.sum())} verts in the waist zone ({int((alpha > 0.999).sum())} fully)")
+    # 1. weights: her body's through the zone (unsmoothed: the band moves as her skin does), its own outside
+    W_own, g_own = G.weights_of(ob)
+    W_b, g_b = body_weights_at(rig, ob)
+    W_b = GF.limit_normalize(W_b, 8)
+    W, groups = GF.blend_weights(W_b, g_b, W_own, g_own, alpha)
+    set_weights(ob, W, groups)
+    # 2. her seated pose: each zone vertex's distance to her posed skin, along her skin's normal
+    rig.pose(src, a.fit_frame)
+    P, _ = G.world_cm(ob, evaluated=True)
+    BX, BT = G.world_cm(rig.body, evaluated=True)
+    bvh = BVHTree.FromPolygons(BX.tolist(), BT.tolist())
+    vn = GF.vertex_normals(P, T)
+    d = np.full(len(P), np.nan)
+    N = np.zeros((len(P), 3))
+    for i in np.nonzero(zone)[0]:
+        loc, nor, fi, dist = bvh.find_nearest(Vector(P[i]))
+        if loc is None or dist > 8.0:
+            continue
+        n = np.array(nor[:])
+        d[i] = (P[i] - np.array(loc[:])) @ n
+        N[i] = n
+    ok = zone & np.isfinite(d)
+    inner = ok & (np.einsum("ij,ij->i", vn, N) < 0)      # the shell's inner face looks at her
+    outer = ok & ~inner
+    mv = np.zeros(len(P))
+    mv[inner] = target_in - d[inner]
+    # the outer face moves with its nearest inner vertex (the wall keeps its thickness)
+    kd = KDTree(int(inner.sum()))
+    ii = np.nonzero(inner)[0]
+    for k, i in enumerate(ii):
+        kd.insert(Vector(P[i]), k)
+    kd.balance()
+    for i in np.nonzero(outer)[0]:
+        _, k, _ = kd.find(Vector(P[i]))
+        mv[i] = mv[ii[k]]
+        N[i] = N[ii[k]]
+    log(f"seated f{a.fit_frame}: inner face off her skin median {np.median(d[inner]):.2f} cm (min "
+        f"{d[inner].min():.2f}, max {d[inner].max():.2f}); move median {np.median(mv[ok]):+.2f}, "
+        f"{mv[ok].min():+.2f}..{mv[ok].max():+.2f}")
+    # a nearest point across a fold (her seated hip crease) reads deep inside: not a clip the band can fix, left as is
+    fold = ok & (d < -1.0)
+    mv[fold] = 0.0
+    if fold.any():
+        log(f"fold: {int(fold.sum())} zone verts read > 1 cm inside (left alone): z {np.percentile(z[fold], 5):.1f}.."
+            f"{np.percentile(z[fold], 95):.1f} cm (bind), alpha median {np.median(alpha[fold]):.2f}")
+    mv = np.clip(mv, -3.0, 1.0)
+    # the panels are separate shells along their seams: coincident verts move together (no seam opens)
+    key = np.round(X0 / 0.002).astype(np.int64)
+    _, grp = np.unique(key, axis=0, return_inverse=True)
+    grp = grp.ravel()
+
+    def weld(v):
+        acc = np.zeros((grp.max() + 1,) + v.shape[1:])
+        np.add.at(acc, grp, v)
+        cnt = np.bincount(grp, minlength=grp.max() + 1).reshape((-1,) + (1,) * (v.ndim - 1))
+        return (acc / cnt)[grp]
+    for _ in range(3):
+        mv = weld(GF.smooth_field(mv, nbrs, iters=2, pinned=~zone))
+        N = weld(GF.smooth_field(N, nbrs, iters=1, pinned=~zone))
+    mv = mv * alpha
+    log(f"seams: {int(len(grp) - (grp.max() + 1))} coincident verts welded in the move")
+    N /= np.maximum(np.linalg.norm(N, axis=1, keepdims=True), 1e-9)
+    D = mv[:, None] * N
+    # 3. back to the bind pose: the inverse of each vertex's blended skinning (3x3; the move is a vector)
+    S = np.einsum("vb,bij->vij", W, skin_mats(rig.arm, groups))
+    idx = np.nonzero(np.abs(mv) > 1e-5)[0]
+    Dr = np.zeros_like(D)
+    Dr[idx] = np.linalg.solve(S[idx], D[idx][:, :, None])[:, :, 0]
+    Dr = weld(Dr)
+    rig.pose(None, 0)
+    G.set_world_cm(ob, X0 + Dr)
+    log(f"bind-pose move median {np.median(np.linalg.norm(Dr[idx], axis=1)):.2f} cm, max "
+        f"{np.linalg.norm(Dr[idx], axis=1).max():.2f}")
+    return ob
+
+
+def export_fit(rig, ob, path):
+    from types import SimpleNamespace
+    for o in (rig.body, rig.top, rig.tr):
+        if o is not ob and o.name in bpy.data.objects:
+            bpy.data.objects.remove(o, do_unlink=True)
+    G.export(SimpleNamespace(arm=rig.arm, garment=ob), path)
 
 
 def main():
@@ -227,6 +394,16 @@ def main():
         log(f"{os.path.basename(p)}: frames {f0}..{f1}, probing {frames}")
         report["anims"][os.path.basename(p)] = probe(rig, a, src, frames, rig.z_edge - a.band, rig.z_edge)
         bpy.data.objects.remove(src, do_unlink=True)
+    if a.fit:
+        src, f0, f1 = rig.anim(anims[0])
+        ob = fit(rig, a, src)
+        log("after the fit:")
+        report["after"] = probe(rig, a, src, [a.fit_frame], rig.z_edge - a.band, rig.z_edge)
+        report["after_bind"] = probe(rig, a, None, [0], rig.z_edge - a.band, rig.z_edge)
+        bpy.data.objects.remove(src, do_unlink=True)
+        json.dump(report, open(os.path.join(a.out, "waist.json"), "w"))
+        export_fit(rig, ob, os.path.join(a.out, f"garment_fit_{a.fit}.fbx"))
+        return
     json.dump(report, open(os.path.join(a.out, "waist.json"), "w"))
     log(f"done in {time.time() - t0:.0f}s -> {a.out}/waist.json")
 
