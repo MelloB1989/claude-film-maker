@@ -69,6 +69,8 @@ def gesture_pose(g: dict, hand: str, count_n: int) -> HandPose:
     kind, detail, size = g.get("type", "beat"), g.get("detail", ""), g.get("size", "medium")
     so = SIZE_OUT.get(size, 5.0)
     target = (g.get("target") or "").lower()
+    if detail == "pinch":  # whatever the kind ("size: pinch" = small): thumb and index almost touching, to her right
+        return HandPose((26.0, 15.0, 0.0), pron=70.0, ext=15.0, shape="pinch")
     if kind == "open":
         return HandPose((30.0, 14.0 + so, -2.0 + so * 0.3), pron=-40.0, ext=15.0, shape="open")
     if kind == "size":
@@ -218,7 +220,7 @@ def plan_from_sheet(sheet: dict, cues: dict, tilts: list | None = None, base_lea
             pr = scaled(gesture_pose(g, "r", n_count), k)
             pl = scaled(gesture_pose(g, "l", n_count), k) if g.get("hand") in ("both", "l") else None
             if pl is not None:  # the left (mic side) stays below and inside the mic line, whatever the amp
-                pl = replace(pl, off=(pl.off[0], min(pl.off[1], 7.0), -2.5), ext=max(pl.ext, 34.0),
+                pl = replace(pl, off=(min(pl.off[0], 26.0), min(pl.off[1], 4.5), -2.5), ext=max(pl.ext, 34.0),
                              pron=min(pl.pron, 60.0))
             seed0 += 1
             prep = float(g["prep_t"])  # agent-10's prosody timing owns prep/stroke/hold/retract when present
@@ -368,6 +370,8 @@ class Performer(S.Seater):
         off = hp.off
         acc = self.accent(s, t)
         tgt = [st_pt[0] + off[0] + acc[0], st_pt[1] + sg * (off[1] + acc[1]), st_pt[2] + off[2] + acc[2]]
+        if s == "l":  # the mic-side hand sits 1 cm back and a little lower than the right, whatever drew its pose
+            tgt = [tgt[0] - 1.0, tgt[1], tgt[2] - 0.8]
         # pauses: down to the desk rest (forearms on the edge)
         e0, w0, _ = self.elbow_rest(s, W)
         tgt = [w0[i] + (tgt[i] - w0[i]) * ws for i in range(3)]
