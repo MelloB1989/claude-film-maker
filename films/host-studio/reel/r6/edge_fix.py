@@ -66,7 +66,7 @@ dup = EAL.duplicate_asset(SRC, DEST)
 dm = asset_dm(dup)
 V = positions(dm)
 T, tids = [], []
-for t in range(MQ.get_num_triangle_ids(dm)):
+for t in range((getattr(MQ, "get_num_triangle_i_ds", None) or MQ.get_num_triangle_ids)(dm)):
     iv = pick(MQ.get_triangle_indices(dm, t), "IntVector")
     if iv.x >= 0:
         T.append((int(iv.x), int(iv.y), int(iv.z)))
@@ -144,7 +144,7 @@ if MODE in ("uv", "both"):
         tri.set_editor_property("uv0", corners[0])
         tri.set_editor_property("uv1", corners[1])
         tri.set_editor_property("uv2", corners[2])
-        UVL.set_mesh_triangle_uvs(dm, 0, tids[k], tri)
+        (getattr(UVL, "set_mesh_triangle_u_vs", None) or UVL.set_mesh_triangle_uvs)(dm, 0, tids[k], tri)
         changed["uv"] += 1
 if MODE in ("normals", "both"):
     NL = unreal.GeometryScript_Normals

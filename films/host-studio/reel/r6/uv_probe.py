@@ -39,7 +39,7 @@ lod.set_editor_property("lod_index", 0)
 AU.copy_mesh_from_skeletal_mesh(skm, dm, unreal.GeometryScriptCopyMeshFromAssetOptions(), lod)
 V = [(p.x, p.y, p.z) for p in LU.convert_vector_list_to_array(pick(MQ.get_all_vertex_positions(dm, False),
                                                                     "GeometryScriptVectorList"))]
-nt = MQ.get_num_triangle_ids(dm)
+nt = (getattr(MQ, "get_num_triangle_i_ds", None) or MQ.get_num_triangle_ids)(dm)
 T, tids = [], []
 for t in range(nt):
     iv = MQ.get_triangle_indices(dm, t)
