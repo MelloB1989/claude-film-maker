@@ -101,7 +101,7 @@ class Bridge:
                 continue
             if j.get("done"):
                 if not j.get("ok"):
-                    raise RenderError(f"{name}: {str(j.get('error') or j)[:600]}")
+                    raise RenderError(f"{name}: {str(j.get('error') or j)[-900:]}")
                 return j.get("result") or {}
             if ctx.stopping():
                 self.cancel(jid)
@@ -171,6 +171,9 @@ def render(job: dict, chunk: dict, todo: dict, scratch: str, ctx):
     br: Bridge = ctx.state["bridge"]
     shutil.rmtree(scratch, ignore_errors=True)  # every attempt pre-rolls from nothing: no half history from before
     os.makedirs(scratch, exist_ok=True)
+    # the editor runs as its own user (not the worker's root): it writes the frames and its report here
+    user = u.get("user") or "ubuntu"
+    ctx.sh(f"chown -R {user}: {os.path.dirname(scratch)}", check=False)
     if u.get("fresh_editor", True) or not br.healthy():
         restart_editor(job, ctx, br)
     elif not ctx.state.get("started"):
@@ -216,7 +219,7 @@ def render(job: dict, chunk: dict, todo: dict, scratch: str, ctx):
             yield f, new[f]
         if done:
             if not j.get("ok"):
-                raise RenderError(f"render.job: {str(j.get('error'))[:600]}")
+                raise RenderError(f"render.job: {str(j.get('error'))[-900:]}")
             rep = j.get("result") or {}
             if rep.get("status") != "ok":
                 raise RenderError(f"render.job status {rep.get('status')}: {str(rep.get('errors'))[:400]}")
