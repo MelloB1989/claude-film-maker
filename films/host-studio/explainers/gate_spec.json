@@ -159,10 +159,20 @@
    "where": "the SEATED pose, every presenter camera of the film (qa.clip / qa.garment_look on the explainer sequence)"
   },
   "garment.collar_gap_cm": {
-   "where": "the SEATED pose, every presenter camera of the film (qa.clip / qa.garment_look on the explainer sequence)"
+   "where": "the SEATED pose, every presenter camera of the film (qa.clip / qa.garment_look on the explainer sequence)",
+   "info": true,
+   "r4": [
+    null,
+    "INFO for BOTH explainers by the orchestrator's ruling (cc-64d05f6e, 07 Nov), a scope change, not a waiver: the measure is unvalidated (the karma ruling) and her scoop top has no crew band. Evidence, HER: agent-02's scoop_fit m1 (the edge on skin, p50 +0.07/-0.16 cm, 9 frames), strip_id (no back faces or hidden mesh), the orchestrator's 3x crops before/after Top.cast_shadow off. HIM: agent-02's seated neck check plus the orchestrator's 1:1 crops before his finals"
+   ]
   },
   "garment.collar_roll": {
-   "where": "the SEATED pose, every presenter camera of the film (qa.clip / qa.garment_look on the explainer sequence)"
+   "where": "the SEATED pose, every presenter camera of the film (qa.clip / qa.garment_look on the explainer sequence)",
+   "info": true,
+   "r4": [
+    null,
+    "INFO for BOTH explainers by the orchestrator's ruling (cc-64d05f6e, 07 Nov), a scope change, not a waiver: the measure is unvalidated (the karma ruling) and her scoop top has no crew band. Evidence, HER: agent-02's scoop_fit m1 (the edge on skin, p50 +0.07/-0.16 cm, 9 frames), strip_id (no back faces or hidden mesh), the orchestrator's 3x crops before/after Top.cast_shadow off. HIM: agent-02's seated neck check plus the orchestrator's 1:1 crops before his finals"
+   ]
   },
   "garment.armor_index": {
    "where": "the SEATED pose, every presenter camera of the film (qa.clip / qa.garment_look on the explainer sequence)"

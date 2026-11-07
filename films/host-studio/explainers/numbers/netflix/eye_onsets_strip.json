@@ -1,0 +1,8 @@
+{"by":"cc-64d05f6e","cut":"private/renders/r6/review/explain/netflix_r6_v2.mp4 (audio vs the clean vo.wav lag 0.0 ms; onsets by silencedetect -45 dB)",
+ "lines":{
+  "N01":{"lead_f":1.6,"verdict":"pass","note":"'Netflix' vo f18.6: first part f16 (2.6), clear open f17 (1.6)"},
+  "N06":{"lead_f":1.9,"verdict":"pass","note":"'Every night' vo f415.9: f413 (2.9) / f414 (1.9)"},
+  "N08":{"lead_f":1.2,"verdict":"pass","note":"'Each title' vo f566.2: f564 (2.2) / f565 (1.2)"},
+  "N12":{"lead_f":1.7,"verdict":"pass","note":"'Network dips' vo f958.7: f956 (2.7) / f957 (1.7)"},
+  "N15":{"lead_f":1.7,"verdict":"pass","note":"'The cloud decides' vo f1287.7: f1285 (2.7) / f1286 (1.7)"},
+  "N16":{"lead_f":1.1,"verdict":"pass","note":"'That's why' vo f1357.1: f1355 (2.1) / f1356 (1.1)"}}}

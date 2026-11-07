@@ -1,0 +1,20 @@
+{
+ "gate": {
+  "eye.real_person": {
+   "value": 1,
+   "where": "netflix: v2 watched frame-wise"
+  },
+  "eye.light": {
+   "value": 1,
+   "where": "netflix: v2"
+  },
+  "eye.hair_garment": {
+   "value": 1,
+   "where": "netflix: cuts 23.17/43.33/56.33 consistent; neckline fixed (Top.cast_shadow off)"
+  },
+  "eye.graphics": {
+   "value": null,
+   "error": "not judged"
+  }
+ }
+}
