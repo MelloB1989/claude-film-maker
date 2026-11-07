@@ -46,12 +46,12 @@ export interface Arrive {
 const FPS = 24;
 
 /**
- * The panel box of a presenter shot (px of 1920x1080, GFX.md): x 1010-1860, y 150-930, content above y 770 (the
+ * The panel box of a presenter shot (px of 1920x1080, GFX.md): x 1010-1860, y 150-915 (inside the GFX.md box y 150-930, and clear of the caption band from y 918), content above y 770 (the
  * captions own the rest). A panel shot (params.panel true, or params.layout 'panel') draws the frosted card there and
  * the 3D over it with no environment; the camera's principal point sits on the card's content centre (a view offset),
  * so the shot frames its subject as usual and it lands in the card. (From agent-13's WhatsApp base.)
  */
-export const PANEL = { x0: 1010, x1: 1860, y0: 150, y1: 930, contentY1: 770 };
+export const PANEL = { x0: 1010, x1: 1860, y0: 150, y1: 915, contentY1: 770 };
 
 export abstract class MotionScene extends Scene3D {
   /** The environment; a shot overrides it in its constructor or build(). */
