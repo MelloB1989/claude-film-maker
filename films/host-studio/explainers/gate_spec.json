@@ -876,6 +876,54 @@
     "agent-05's refit R7W (garment_measure 9db4bd18, agent-02): +0.49 cm, her SKIN out past the trousers' outer face at the front (0 to +-30 deg); VISIBLE: qa.clip Body>Trousers 2.55-2.60 % in the WIDE f1042/f1276, up to 1.5 cm at the front waist. v2b read -0.54 (a guard)"
    ],
    "why": "a refit that closes the gap must not push her skin out through the band; FROZEN at 0.1, with the orchestrator's eye backing it on R7W's belly (relayed by agent-02)"
+  },
+  "body.hands_in_frame_mcu_frac": {
+   "area": "performance",
+   "track": "agent-01 / agent-10 (body), agent-09 (measure)",
+   "op": ">=",
+   "line": 0.6,
+   "unit": "fraction",
+   "what": "speaking frames in MCU shots (incl. MCU_L) with >= 1 hand FULLY in the shot's frame (wrist + 4 fingertips projected through the cut camera)",
+   "where": "every speaking frame (or every 2nd) of the MCU shots",
+   "how": "film-ue op qa.hands_in_frame label=<presenter> sequence=<SEQ> 'frames=[every 2nd speaking frame of spans_<film>.json]' (core fleet/agent-09/r7-perf-gate 1169789c) -> metrics.kinds.<KIND>.frac -> numbers/<film>/hands.json",
+   "must_fail": [
+    null,
+    "netflix v2b AND the R7 TEST side A (the orchestrator, 07 Nov: in her_A_N01_MCU the hands were in frame in ~2 of 12 sampled frames: the gestures happened BELOW the MCU frame): measure both on box B"
+   ],
+   "guard": true,
+   "why": "the orchestrator: the viewer sees elbows out and no hands = still stiff; the gesture space is chest-to-collarbone in front of the torso"
+  },
+  "body.hands_in_frame_cu_frac": {
+   "area": "performance",
+   "track": "agent-01 / agent-10 (body), agent-09 (measure)",
+   "op": ">=",
+   "line": 0.3,
+   "unit": "fraction",
+   "what": "speaking frames in CU shots with >= 1 hand FULLY in the shot's frame (wrist + 4 fingertips projected through the cut camera)",
+   "where": "every speaking frame (or every 2nd) of the CU shots",
+   "how": "film-ue op qa.hands_in_frame label=<presenter> sequence=<SEQ> 'frames=[every 2nd speaking frame of spans_<film>.json]' (core fleet/agent-09/r7-perf-gate 1169789c) -> metrics.kinds.<KIND>.frac -> numbers/<film>/hands.json",
+   "must_fail": [
+    null,
+    "netflix v2b AND the R7 TEST side A (the orchestrator, 07 Nov: in her_A_N01_MCU the hands were in frame in ~2 of 12 sampled frames: the gestures happened BELOW the MCU frame): measure both on box B"
+   ],
+   "guard": true,
+   "why": "the orchestrator: the viewer sees elbows out and no hands = still stiff; the gesture space is chest-to-collarbone in front of the torso"
+  },
+  "body.hands_in_frame_wide_frac": {
+   "area": "performance",
+   "track": "agent-01 / agent-10 (body), agent-09 (measure)",
+   "op": ">=",
+   "line": 0.95,
+   "unit": "fraction",
+   "what": "speaking frames in WIDE shots with >= 1 hand FULLY in the shot's frame (wrist + 4 fingertips projected through the cut camera)",
+   "where": "every speaking frame (or every 2nd) of the WIDE shots",
+   "how": "film-ue op qa.hands_in_frame label=<presenter> sequence=<SEQ> 'frames=[every 2nd speaking frame of spans_<film>.json]' (core fleet/agent-09/r7-perf-gate 1169789c) -> metrics.kinds.<KIND>.frac -> numbers/<film>/hands.json",
+   "must_fail": [
+    null,
+    "netflix v2b AND the R7 TEST side A (the orchestrator, 07 Nov: in her_A_N01_MCU the hands were in frame in ~2 of 12 sampled frames: the gestures happened BELOW the MCU frame): measure both on box B"
+   ],
+   "guard": true,
+   "why": "the orchestrator: the viewer sees elbows out and no hands = still stiff; the gesture space is chest-to-collarbone in front of the torso"
   }
  },
  "not_attempted": {
