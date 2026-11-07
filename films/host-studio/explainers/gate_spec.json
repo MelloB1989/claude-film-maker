@@ -423,7 +423,7 @@
    "why": "the brief: no frame where the presenter intersects the chair or desk; the bone check catches what qa.clip's sampled frames can miss"
   },
   "lips.lead_in_cm": {
-   "where": "each on-camera line's silence before its first word, the window clipped to the gap after the previous line (the explainer gaps are ~0.34 s, shorter than 24 f; agent-01)"
+   "where": "each on-camera line's SILENCE PROPER before its first word: frames [previous line's last word + 4 (its compose fade-out), first word - ceil(LEAD_FRAMES 2.5) - 1] (agent-01 5f941ade; the 2.5 f anticipation is the orchestrator's approval, r5/lipsync.md 'Round 6'). A line whose window is under 2 frames (the 0.34 s gaps: netflix N02, N07, N12, N16) is NOT judged by this row; its gap stays judged by lips.silence_open / silence_busy and its onset by lips.eye_onsets (every line, by eye). The first read 0.288 at N07 f504-507 sat on the anticipation + the previous line's fade-out (agent-01), re-run on the fixed window"
   },
   "gfx.caption_band_clear": {
    "area": "captions",
