@@ -167,8 +167,11 @@ def cmd_push(who: str) -> list:
     return [client().push(str(p), box(who, p.name)) for p in files]
 
 
-def cmd_solve(who: str, only=None) -> dict:
-    mesh = mesh_of(who, "Face")
+def cmd_solve(who: str, only=None, face_mesh: str = "") -> dict:
+    """One mouth-only speech.to_face per line. The face mesh is the presenter's in the open level, or `face_mesh`
+    (--face-mesh) when another level is open: both faces share Face_Archetype_Skeleton, so a solve on either mesh
+    plays on both (only the skeleton matters to the exported animation)."""
+    mesh = face_mesh or mesh_of(who, "Face")
     out = {}
     for ln in cues(who)["lines"]:
         k = ln["id"]
@@ -1007,7 +1010,7 @@ def step(name: str, who: str, a) -> dict:
     if name.startswith("check:"):
         r = cmd_check(who, name.split(":")[1])
     else:
-        r = {"push": lambda: cmd_push(who), "solve": lambda: cmd_solve(who, a.only), "bias": lambda: cmd_bias(who),
+        r = {"push": lambda: cmd_push(who), "solve": lambda: cmd_solve(who, a.only, a.face_mesh), "bias": lambda: cmd_bias(who),
              "compose": lambda: cmd_compose(who), "workseq": lambda: cmd_workseq(who, a.fresh),
              "body": lambda: cmd_body(who, a.force), "cams": lambda: cmd_cams(who), "life": lambda: cmd_life(who),
              "face": lambda: cmd_face(who), "sync": lambda: cmd_sync(who), "gaze": lambda: cmd_gaze(who),
@@ -1027,6 +1030,7 @@ def main() -> None:
     ap.add_argument("--seq", default="")
     ap.add_argument("--fresh", action="store_true")
     ap.add_argument("--force", action="store_true", help="body: write even if the pose fails its own check")
+    ap.add_argument("--face-mesh", default="", help="solve: the face SkeletalMesh to solve on (another level open)")
     ap.add_argument("--bless", action="store_true", help="signs: record the live head-signs file as this presenter's")
     ap.add_argument("--from", dest="start", default="body")
     ap.add_argument("--to", dest="stop", default="numbers")
