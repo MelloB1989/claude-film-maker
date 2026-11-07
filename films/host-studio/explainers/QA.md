@@ -71,8 +71,9 @@ sequence, every presenter camera**, not on the karma shots:
 - `qa.garment_look` gives garment.collar_gap_cm (≤ 0.8), collar_roll (== 0), armor_index (≤ 0.5), wpo_cm (≤ 0.2) and
   hem_flare_ratio (≤ 1.15).
 - **His neck: garment.open_edge_shrunk == 0.** This is the operator's "cut". agent-02's r6 root fix turns the backstop
-  off (MaxShrink 0), so the row reads 0 only when `shrink_live` proves 0 verts moved. His explainer is shot on box A
-  only, because only box A has the fix.
+  off (MaxShrink 0), so the row reads 0 only when `shrink_live` proves 0 verts moved. His explainer moves to box B (the
+  orchestrator, 07 Nov), so **garment.head_state_parity == 1** comes first: box A's head files match on box B by checksum,
+  and cull_live reads the same culled count and lowest z on both boxes.
 - garment.silhouette_pct is INFO: there is no seated reference yet.
 - The cloth rows are NOT ATTEMPTED (the orchestrator's ruling: his tee is Epic's default garment, her overshirt stays
   skinned).
@@ -165,9 +166,11 @@ the end of 2024.
 
 ## Order of a film's QA (per box)
 
-1. Editor, read before the render: garment.leaders_ok (every garment leader == Body; the r6n0 lesson), hair.lock, render_cvars, cameras_ok, set.props_overlap.
-2. Editor, after the performance is placed: qa.clip (garments + set + mouth) and qa.garment_look, seated.
-3. agent-04 head.py and agent-01 lips/body on the placed performance.
-4. Finals, from a freshly restarted editor (the karma lesson): exposure, hair numbers.
-5. Composite on the box, then the cut: loudness, format, qc, captions, facts.
-6. `film-qa gate` → SIGN on everything but the eye rows → the review to the orchestrator → the signed strip → SIGN.
+1. His film on box B: garment.head_state_parity (box A's head files by checksum, the same cull_live), and setplan's
+   sign rule re-enabled for him (FACE_ESTIMATED empty once his seated eyes are measured).
+2. Editor, read before the render: garment.leaders_ok (every garment leader == Body; the r6n0 lesson), hair.lock, render_cvars, cameras_ok, set.props_overlap.
+3. Editor, after the performance is placed: qa.clip (garments + set + mouth) and qa.garment_look, seated.
+4. agent-04 head.py and agent-01 lips/body on the placed performance.
+5. Finals, from a freshly restarted editor (the karma lesson): exposure, hair numbers.
+6. Composite on the box, then the cut: loudness, format, qc, captions, facts.
+7. `film-qa gate` → SIGN on everything but the eye rows → the review to the orchestrator → the signed strip → SIGN.
