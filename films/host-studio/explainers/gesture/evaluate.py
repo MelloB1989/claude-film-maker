@@ -43,7 +43,10 @@ def performer(film: str, timing):
     sheet = json.loads((EXPL / "acting" / f"{who}.json").read_text())
     cues = json.loads((EXPL / "audio" / film / "cues.json").read_text())
     sk = S.Skeleton.from_read(json.loads((EXPL / "skeletons" / f"{who}_body_read.json").read_text()))
-    plan = G.plan_from_sheet(sheet, cues, timing=timing)
+    try:  # gesturekit @2fdfb152+ takes the dict form (gap_merge + gestures); older ones only the list
+        plan = G.plan_from_sheet(sheet, cues, timing=timing)
+    except AttributeError:
+        plan = G.plan_from_sheet(sheet, cues, timing=timing["gestures"] if isinstance(timing, dict) else timing)
     se, _ = S.autotune(sk, P.set_of(who), P.STYLE[who])
     return G.Performer(sk, P.set_of(who), se.sy, plan), cues, sheet
 
