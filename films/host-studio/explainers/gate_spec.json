@@ -1,0 +1,415 @@
+{
+ "_about": "Round 6 explainer gate spec for qa/gate.py (film-qa gate --spec films/host-studio/explainers/gate_spec.json NUMBERS...). One run per film (whatsapp = him, box A; netflix = her, box B). QA.md says who produces each number and how. complaints: no waiver on these areas. The karma reel's items that do not apply are INFO with the reason in their row; the cloth items are NOT ATTEMPTED (the orchestrator, 07 Nov: her overshirt stays skinned, his tee is Epic's default garment).",
+ "complaints": [
+  "lips",
+  "head",
+  "garment",
+  "hair",
+  "set",
+  "eye"
+ ],
+ "items": {
+  "lips.eye_onsets": {
+   "area": "lips",
+   "track": "orchestrator",
+   "op": "==",
+   "line": 1,
+   "unit": "bool",
+   "what": "the orchestrator's by-eye mouth onset vs audio onset on EVERY on-camera VO line (0-2 f lead, or occluded with what hides it)",
+   "where": "every on-camera line of the film",
+   "how": "the strip file signed by cc-64d05f6e -> ../reel/r6/eye_onsets.py STRIP --lines <the film's on-camera line ids>",
+   "why": "the karma ruling (07 Nov): the render lip measure is invalid, the eye is the judge, line by line"
+  },
+  "lips.render_lag_frames": {
+   "info": true,
+   "r4": [
+    null,
+    "INFO by the orchestrator's ruling (07 Nov): an invalid measure (round 5b: the round-4 control fails too, random sign). agent-01's landmark measure replaces it once validated"
+   ]
+  },
+  "head.buzz_rms_deg": {
+   "area": "head",
+   "track": "agent-04",
+   "op": "<=",
+   "line": 0.08,
+   "unit": "deg",
+   "what": "high-frequency head jitter (RMS of the head minus its smoothed path)",
+   "where": "the presenter's on-screen spans (edl/<film>.json)",
+   "how": "films/host-studio/explainers/head.py judge CUE --head head.json --eyes eyes.json --gate numbers/head_<film>.json (agent-04, fleet/agent-04/r6-head)",
+   "why": "the operator: 'it must look like it is almost an actual person speaking'; the brief: natural blinks, eyes alive (saccades), head micro-motion"
+  },
+  "head.drift_deg": {
+   "area": "head",
+   "track": "agent-04",
+   "op": "range",
+   "line": [
+    0.15,
+    1.5
+   ],
+   "unit": "deg",
+   "what": "median 2 s spread of the smoothed head: alive, not wandering",
+   "where": "the presenter's on-screen spans (edl/<film>.json)",
+   "how": "films/host-studio/explainers/head.py judge CUE --head head.json --eyes eyes.json --gate numbers/head_<film>.json (agent-04, fleet/agent-04/r6-head)",
+   "why": "the operator: 'it must look like it is almost an actual person speaking'; the brief: natural blinks, eyes alive (saccades), head micro-motion"
+  },
+  "head.frozen_s": {
+   "area": "head",
+   "track": "agent-04",
+   "op": "<=",
+   "line": 1.5,
+   "unit": "s",
+   "what": "longest hold under 0.25 deg/s on the smoothed head (a mannequin)",
+   "where": "the presenter's on-screen spans (edl/<film>.json)",
+   "how": "films/host-studio/explainers/head.py judge CUE --head head.json --eyes eyes.json --gate numbers/head_<film>.json (agent-04, fleet/agent-04/r6-head)",
+   "why": "the operator: 'it must look like it is almost an actual person speaking'; the brief: natural blinks, eyes alive (saccades), head micro-motion"
+  },
+  "head.nods_per_min": {
+   "area": "head",
+   "track": "agent-04",
+   "op": "range",
+   "line": [
+    3.0,
+    24.0
+   ],
+   "unit": "/min",
+   "what": "pitch dips >= 0.7 deg with the speech (emphasis), not on blinks",
+   "where": "the presenter's on-screen spans (edl/<film>.json)",
+   "how": "films/host-studio/explainers/head.py judge CUE --head head.json --eyes eyes.json --gate numbers/head_<film>.json (agent-04, fleet/agent-04/r6-head)",
+   "why": "the operator: 'it must look like it is almost an actual person speaking'; the brief: natural blinks, eyes alive (saccades), head micro-motion"
+  },
+  "eyes.on_lens_share": {
+   "area": "head",
+   "track": "agent-04",
+   "op": ">=",
+   "line": 0.75,
+   "unit": "share",
+   "what": "frames with the eyes within 3 deg of the lens (talking to the viewer)",
+   "where": "the presenter's on-screen spans (edl/<film>.json)",
+   "how": "films/host-studio/explainers/head.py judge CUE --head head.json --eyes eyes.json --gate numbers/head_<film>.json (agent-04, fleet/agent-04/r6-head)",
+   "why": "the operator: 'it must look like it is almost an actual person speaking'; the brief: natural blinks, eyes alive (saccades), head micro-motion"
+  },
+  "eyes.saccades_per_s": {
+   "area": "head",
+   "track": "agent-04",
+   "op": "range",
+   "line": [
+    0.4,
+    3.0
+   ],
+   "unit": "/s",
+   "what": "on-lens eye steps of 0.1-1.5 deg in a frame (eyes alive)",
+   "where": "the presenter's on-screen spans (edl/<film>.json)",
+   "how": "films/host-studio/explainers/head.py judge CUE --head head.json --eyes eyes.json --gate numbers/head_<film>.json (agent-04, fleet/agent-04/r6-head)",
+   "why": "the operator: 'it must look like it is almost an actual person speaking'; the brief: natural blinks, eyes alive (saccades), head micro-motion"
+  },
+  "eyes.glances_per_min": {
+   "area": "head",
+   "track": "agent-04",
+   "op": "range",
+   "line": [
+    2.0,
+    8.0
+   ],
+   "unit": "/min",
+   "what": "looks off the lens > 5 deg for 0.25-2.5 s and back (thinking)",
+   "where": "the presenter's on-screen spans (edl/<film>.json)",
+   "how": "films/host-studio/explainers/head.py judge CUE --head head.json --eyes eyes.json --gate numbers/head_<film>.json (agent-04, fleet/agent-04/r6-head)",
+   "why": "the operator: 'it must look like it is almost an actual person speaking'; the brief: natural blinks, eyes alive (saccades), head micro-motion"
+  },
+  "blinks.per_min": {
+   "area": "head",
+   "track": "agent-04",
+   "op": "range",
+   "line": [
+    10.0,
+    30.0
+   ],
+   "unit": "/min",
+   "what": "blink rate while talking",
+   "where": "the presenter's on-screen spans (edl/<film>.json)",
+   "how": "films/host-studio/explainers/head.py judge CUE --head head.json --eyes eyes.json --gate numbers/head_<film>.json (agent-04, fleet/agent-04/r6-head)",
+   "why": "the operator: 'it must look like it is almost an actual person speaking'; the brief: natural blinks, eyes alive (saccades), head micro-motion"
+  },
+  "body.breath_cycles_per_min": {
+   "area": "body",
+   "track": "agent-01",
+   "op": "range",
+   "line": [
+    8.0,
+    22.0
+   ],
+   "unit": "/min",
+   "what": "chest/shoulder rise cycles on the seated body (spine_05/clavicles), on screen",
+   "where": "every presenter shot",
+   "how": "agent-01's seated-body sampler (seq.sample on spine_05 + clavicle_l/r) -> the dominant 0.13-0.37 Hz cycle",
+   "why": "the brief: breathing; a seated talking head with a still chest reads as a mannequin"
+  },
+  "body.breath_amp_mm": {
+   "area": "body",
+   "track": "agent-01",
+   "op": ">=",
+   "line": 2.0,
+   "unit": "mm",
+   "what": "median peak-to-peak chest rise per breath cycle on screen",
+   "where": "every presenter shot",
+   "how": "the same sampler",
+   "why": "visible, not a heave: ~2-6 mm at the sternum when talking"
+  },
+  "garment.neck_px": {
+   "where": "the SEATED pose, every presenter camera of the film (qa.clip / qa.garment_look on the explainer sequence)"
+  },
+  "garment.collar_gap_cm": {
+   "where": "the SEATED pose, every presenter camera of the film (qa.clip / qa.garment_look on the explainer sequence)"
+  },
+  "garment.collar_roll": {
+   "where": "the SEATED pose, every presenter camera of the film (qa.clip / qa.garment_look on the explainer sequence)"
+  },
+  "garment.armor_index": {
+   "where": "the SEATED pose, every presenter camera of the film (qa.clip / qa.garment_look on the explainer sequence)"
+  },
+  "garment.wpo_cm": {
+   "where": "the SEATED pose, every presenter camera of the film (qa.clip / qa.garment_look on the explainer sequence)"
+  },
+  "garment.pair_fraction": {
+   "where": "the SEATED pose, every presenter camera of the film (qa.clip / qa.garment_look on the explainer sequence)"
+  },
+  "garment.hem_flare_ratio": {
+   "where": "the SEATED pose, every presenter camera of the film (qa.clip / qa.garment_look on the explainer sequence)"
+  },
+  "garment.open_edge_shrunk": {
+   "area": "garment",
+   "track": "K1",
+   "op": "==",
+   "line": 0,
+   "unit": "verts",
+   "guard": true,
+   "what": "face-mesh verts on its open lower edge the neck backstop shrinks (the 'cut' at his neck)",
+   "where": "his face mesh as built (box A); 0 by construction for her",
+   "how": "r5/neck_backstop.py mask report shrunk_on_open_edge, or 0 with the backstop off (agent-02's r6 root fix: MaxShrink 0)",
+   "must_fail": [
+    92,
+    "karma round 5b loop 2: 92/92, the operator's 'cut'"
+   ],
+   "why": "his explainer must carry the neck fix (only box A has it)"
+  },
+  "garment.silhouette_pct": {
+   "info": true,
+   "r4": [
+    null,
+    "INFO for the explainers: the karma reference (r4/clip/Host_after) is a standing pose; the seated pose has no accepted reference yet. armor_index, wpo_cm, neck_px and the orchestrator's eye cover a balloon"
+   ]
+  },
+  "set.clip_px": {
+   "area": "set",
+   "track": "agent-07",
+   "op": "==",
+   "line": 0,
+   "unit": "px",
+   "what": "worst frame's presenter-vs-set intersection pixels: Body/Trousers/tee/Overshirt into the Chair or the Desk and back (qa.clip props + pairs, the intersection-edge rule)",
+   "where": "every presenter camera, n 8 per shot + the sit/stand-up frames if any",
+   "how": "film-ue op qa.clip label=<presenter> sequence=<SEQ> 'props={\"Chair\":\"<chair>\",\"Desk\":\"<desk>\"}' 'pairs=[[\"Body\",\"Chair\"],[\"Trousers\",\"Chair\"],[\"Chair\",\"Trousers\"],[\"Body\",\"Desk\"],[\"Desk\",\"tee\"]]' (core 0ce1c3ae) -> the worst pair px",
+   "why": "the brief: no frame where the presenter intersects the chair or desk"
+  },
+  "set.mic_mouth_px": {
+   "area": "set",
+   "track": "agent-07",
+   "op": "==",
+   "line": 0,
+   "unit": "px",
+   "what": "worst frame's mouth pixels the studio mic covers (qa.clip mouth: a 2 cm disc round the lip bones, the mic nearer than the face)",
+   "where": "every presenter camera, every shot (n 8 + the widest head turn)",
+   "how": "film-ue op qa.clip ... 'props={\"Mic\":\"<mic>\"}' 'mouth={\"blocker\":\"Mic\"}' (core 0ce1c3ae) -> metrics.worst.mouth.blocked_px",
+   "why": "the brief: the mic never covers the mouth in any camera"
+  },
+  "set.props_overlap": {
+   "area": "set",
+   "track": "agent-05",
+   "op": "==",
+   "line": 0,
+   "unit": "count",
+   "what": "prop pairs whose bounds interpenetrate (mic arm in the desk, chair in the desk)",
+   "where": "the set",
+   "how": "film-ue op qa.overlaps labels=[set props] ignore_pairs=[resting contacts]",
+   "why": "clean set; confirm a hit with a still"
+  },
+  "shot.render_matches_r4": {
+   "info": true,
+   "r4": [
+    null,
+    "INFO for the explainers: no round-4 reference exists (new set and cameras); shot.cameras_ok and the orchestrator's review cover a wrong view"
+   ]
+  },
+  "shot.exposure_jump_stops": {
+   "area": "shot",
+   "track": "agent-09",
+   "op": "<=",
+   "line": 0.05,
+   "unit": "stops",
+   "what": "worst frame-to-frame change of the presenter's face-box exposure inside a shot (auto-exposure pumping, a light popping)",
+   "where": "every presenter shot (final frames, on the box)",
+   "how": "qa_av.py exposure FRAMES --shots shots.json --box <face box> (on the box: face data)",
+   "why": "the brief: exposure stable; 0.05 stops is below what reads as a flicker"
+  },
+  "shot.exposure_drift_stops": {
+   "area": "shot",
+   "track": "agent-09",
+   "op": "<=",
+   "line": 0.15,
+   "unit": "stops",
+   "what": "worst drift of the 12-frame moving average of the face-box exposure inside a shot",
+   "where": "every presenter shot",
+   "how": "qa_av.py exposure (as above)",
+   "why": "a slow eye-adaptation drift reads as a dimmer on the face"
+  },
+  "audio.lufs_err_lu": {
+   "area": "audio",
+   "track": "agent-11",
+   "op": "<=",
+   "line": 0.5,
+   "unit": "LU",
+   "what": "|integrated loudness - (-14 LUFS)| of the delivered cut",
+   "where": "the cut",
+   "how": "qa_av.py loudness CUT.mp4 (ffmpeg ebur128)",
+   "why": "the brief: -14 LUFS"
+  },
+  "audio.true_peak_dbtp": {
+   "area": "audio",
+   "track": "agent-11",
+   "op": "<=",
+   "line": -1.0,
+   "unit": "dBTP",
+   "what": "true peak of the delivered cut",
+   "where": "the cut",
+   "how": "qa_av.py loudness CUT.mp4",
+   "why": "the brief: true peak <= -1 dBTP"
+  },
+  "captions.text_match": {
+   "area": "captions",
+   "track": "agent-11",
+   "op": "==",
+   "line": 1,
+   "unit": "bool",
+   "what": "the burnt/side-car captions' words in order equal the VO lines' words (case, punctuation ignored)",
+   "where": "the cut's SRT vs audio/<film>/cues.json",
+   "how": "qa_av.py captions CUT.srt audio/<film>/cues.json",
+   "why": "the brief: captions match the VO"
+  },
+  "captions.onset_ms": {
+   "area": "captions",
+   "track": "agent-11",
+   "op": "<=",
+   "line": 200,
+   "unit": "ms",
+   "what": "worst |first caption start - VO line start|",
+   "where": "every VO line",
+   "how": "qa_av.py captions (as above)",
+   "why": "a caption more than ~5 frames off its line reads as out of sync"
+  },
+  "facts.sourced": {
+   "area": "facts",
+   "track": "agent-11",
+   "op": "==",
+   "line": 1,
+   "unit": "bool",
+   "what": "every number the VO says is softened (over, about, nearly...) or has a sourced claim in facts.json",
+   "where": "every VO line",
+   "how": "qa_av.py facts audio/<film>/cues.json facts_<film>.json",
+   "why": "the brief: facts must be right; numbers softened unless a source pins them"
+  },
+  "deliver.format_ok": {
+   "area": "deliver",
+   "track": "agent-11",
+   "op": "==",
+   "line": 1,
+   "unit": "bool",
+   "what": "1920x1080 square pixels (16:9), 24/25/30 fps, one video + one 48 kHz audio stream",
+   "where": "the delivered cut",
+   "how": "qa_av.py format CUT.mp4",
+   "why": "the operator's standing rule: 16:9 only"
+  },
+  "deliver.qc_ok": {
+   "area": "deliver",
+   "track": "agent-11",
+   "op": "==",
+   "line": 1,
+   "unit": "bool",
+   "what": "film-post qc on the cut passes (no black or frozen runs, duration = EDL, captions in the safe area)",
+   "where": "the delivered cut",
+   "how": "film-post qc CUT.mp4 --edl X.edl --captions X.srt -o qc.json -> pass",
+   "why": "the karma cut's final_qa, for the explainers"
+  },
+  "deliver.duration_s": {
+   "area": "deliver",
+   "track": "agent-11",
+   "op": "range",
+   "line": [
+    50.0,
+    70.0
+   ],
+   "unit": "s",
+   "what": "the cut's length",
+   "where": "the cut",
+   "how": "qa_av.py format CUT.mp4",
+   "why": "the brief: ~60 s",
+   "info": true
+  },
+  "eye.real_person": {
+   "area": "eye",
+   "track": "orchestrator",
+   "op": "==",
+   "line": 1,
+   "unit": "bool",
+   "what": "reads as a real person speaking, at full speed and in the 2x crops (the operator's bar)",
+   "where": "the whole film, watched like the viewer",
+   "how": "the review strip signed by cc-64d05f6e: {\"by\": \"cc-64d05f6e\", \"gate\": {\"eye.real_person\": 1|0, ...}, \"notes\"}",
+   "why": "the brief: every review goes to the orchestrator before anything is called done"
+  },
+  "eye.light": {
+   "area": "eye",
+   "track": "orchestrator",
+   "op": "==",
+   "line": 1,
+   "unit": "bool",
+   "what": "soft studio key with a visible rim, catchlights in both eyes, shallow depth of field, background soft",
+   "where": "the whole film, watched like the viewer",
+   "how": "the review strip signed by cc-64d05f6e: {\"by\": \"cc-64d05f6e\", \"gate\": {\"eye.light\": 1|0, ...}, \"notes\"}",
+   "why": "the brief: every review goes to the orchestrator before anything is called done"
+  },
+  "eye.hair_garment": {
+   "area": "eye",
+   "track": "orchestrator",
+   "op": "==",
+   "line": 1,
+   "unit": "bool",
+   "what": "no popping hair, no garment armour, collar sits on the neck (his neck: no cut, no gap) in the seated pose",
+   "where": "the whole film, watched like the viewer",
+   "how": "the review strip signed by cc-64d05f6e: {\"by\": \"cc-64d05f6e\", \"gate\": {\"eye.hair_garment\": 1|0, ...}, \"notes\"}",
+   "why": "the brief: every review goes to the orchestrator before anything is called done"
+  },
+  "eye.graphics": {
+   "area": "eye",
+   "track": "orchestrator",
+   "op": "==",
+   "line": 1,
+   "unit": "bool",
+   "what": "the graphics are very high-end, correct, and in sync with the VO; no text error",
+   "where": "the whole film, watched like the viewer",
+   "how": "the review strip signed by cc-64d05f6e: {\"by\": \"cc-64d05f6e\", \"gate\": {\"eye.graphics\": 1|0, ...}, \"notes\"}",
+   "why": "the brief: every review goes to the orchestrator before anything is called done"
+  }
+ },
+ "not_attempted": {
+  "garment.cloth_alive": {
+   "reason": "Round 6 explainers: his tee is MetaHuman's default garment (closed shell) and her overshirt stays skinned, the same ruling as the karma reel (cc-64d05f6e, 07 Nov). armor_index, wpo_cm, neck_px and pair_fraction stay hard lines.",
+   "by": "cc-64d05f6e"
+  },
+  "garment.cloth_sound": {
+   "reason": "Round 6 explainers: his tee is MetaHuman's default garment (closed shell) and her overshirt stays skinned, the same ruling as the karma reel (cc-64d05f6e, 07 Nov). armor_index, wpo_cm, neck_px and pair_fraction stay hard lines.",
+   "by": "cc-64d05f6e"
+  },
+  "garment.cloth_detail_ratio": {
+   "reason": "Round 6 explainers: his tee is MetaHuman's default garment (closed shell) and her overshirt stays skinned, the same ruling as the karma reel (cc-64d05f6e, 07 Nov). armor_index, wpo_cm, neck_px and pair_fraction stay hard lines.",
+   "by": "cc-64d05f6e"
+  }
+ }
+}
