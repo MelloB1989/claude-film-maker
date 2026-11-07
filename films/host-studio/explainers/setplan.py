@@ -119,7 +119,9 @@ SUN_LUX = 0.0  # r5: the floor sun patches; her rig gives ~20 lux at her face, a
 # seated garment cuts (body.hide_under on copies, this level's instance only): (component, under garment, reach cm),
 # applied in order from the original meshes. Her r3 shoulder: the Top through the Overshirt seam.
 GARMENT_HIDES = {
-    "her": [("Top", "Overshirt", 6.0), ("Trousers", "Top", 4.0), ("Body", "Top", 4.0)],
+    # r6b (V2, no overshirt; agent-02): the seated waist (Trousers>Top 12 % in the WIDE) and her side (Body>Top 1.3 %,
+    # the same spot in every frame, so the garment and not a gesture) need 6 cm instead of 4
+    "her": [("Top", "Overshirt", 6.0), ("Trousers", "Top", 6.0), ("Body", "Top", 6.0)],
     "him": [],
 }
 GARMENT_SRC = {"her": {"Overshirt": "/Game/Host/Presenter_Overshirt/SKM_Presenter_Overshirt_RW",  # r6: agent-02's
