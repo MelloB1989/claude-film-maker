@@ -887,8 +887,8 @@
    "where": "every speaking frame (or every 2nd) of the MCU shots",
    "how": "film-ue op qa.hands_in_frame label=<presenter> sequence=<SEQ> 'frames=[every 2nd speaking frame of spans_<film>.json]' (core fleet/agent-09/r7-perf-gate 1169789c) -> metrics.kinds.<KIND>.frac -> numbers/<film>/hands.json",
    "must_fail": [
-    null,
-    "netflix v2b AND the R7 TEST side A (the orchestrator, 07 Nov: in her_A_N01_MCU the hands were in frame in ~2 of 12 sampled frames: the gestures happened BELOW the MCU frame): measure both on box B"
+    0.0,
+    "netflix v2b 0.0 (n 39) and TEST side A 0.0 (box B qa.hands_in_frame, core 3a782e71, TEST frames; fleet/agent-06/r7-boxb 276be4a0 hands_A/hands_v2b.json)"
    ],
    "guard": true,
    "why": "the orchestrator: the viewer sees elbows out and no hands = still stiff; the gesture space is chest-to-collarbone in front of the torso"
@@ -903,8 +903,8 @@
    "where": "every speaking frame (or every 2nd) of the CU shots",
    "how": "film-ue op qa.hands_in_frame label=<presenter> sequence=<SEQ> 'frames=[every 2nd speaking frame of spans_<film>.json]' (core fleet/agent-09/r7-perf-gate 1169789c) -> metrics.kinds.<KIND>.frac -> numbers/<film>/hands.json",
    "must_fail": [
-    null,
-    "netflix v2b AND the R7 TEST side A (the orchestrator, 07 Nov: in her_A_N01_MCU the hands were in frame in ~2 of 12 sampled frames: the gestures happened BELOW the MCU frame): measure both on box B"
+    0.0,
+    "netflix v2b 0.0 (n 18) and TEST side A 0.0 (box B qa.hands_in_frame, core 3a782e71, TEST frames; fleet/agent-06/r7-boxb 276be4a0 hands_A/hands_v2b.json)"
    ],
    "guard": true,
    "why": "the orchestrator: the viewer sees elbows out and no hands = still stiff; the gesture space is chest-to-collarbone in front of the torso"
@@ -920,7 +920,7 @@
    "how": "film-ue op qa.hands_in_frame label=<presenter> sequence=<SEQ> 'frames=[every 2nd speaking frame of spans_<film>.json]' (core fleet/agent-09/r7-perf-gate 1169789c) -> metrics.kinds.<KIND>.frac -> numbers/<film>/hands.json",
    "must_fail": [
     null,
-    "netflix v2b AND the R7 TEST side A (the orchestrator, 07 Nov: in her_A_N01_MCU the hands were in frame in ~2 of 12 sampled frames: the gestures happened BELOW the MCU frame): measure both on box B"
+    "none: v2b and side A both read 1.0 in the WIDE (her hands are always in it) (box B qa.hands_in_frame, core 3a782e71, TEST frames; fleet/agent-06/r7-boxb 276be4a0 hands_A/hands_v2b.json); a GUARD against a new failure (gestures leaving the WIDE frame)"
    ],
    "guard": true,
    "why": "the orchestrator: the viewer sees elbows out and no hands = still stiff; the gesture space is chest-to-collarbone in front of the torso"
