@@ -67,7 +67,7 @@ SET = S.Set(seat_top=45.0, seat_front=24.5, desk_top=74.0, desk_near=18.0, desk_
 STYLE = {  # forearms resting on the desk (the orchestrator, r3 stills): elbows planted ~2 cm in from the near edge,
     #          the chest square to the desk (a turn pulls the camera-side elbow off it), hands on their little-finger
     #          edge, shoulders down
-    "her": S.Style(lean=18.0, twist=0.0, knee_out=4.0, foot_out=6.0, pronation=75.0, shin_tilt=6.0, elbow_out=3.0,
+    "her": S.Style(lean=18.0, twist=0.0, hip_above_seat=11.0, knee_out=3.0, foot_out=6.0, pronation=75.0, shin_tilt=6.0, elbow_out=3.0,
                    clavicle_fwd=4.0, clavicle_drop=4.0),
     "him": S.Style(lean=18.0, twist=0.0, knee_out=8.0, foot_out=9.0, pronation=72.0, elbow_out=3.0,
                    clavicle_fwd=5.0, clavicle_drop=3.0),
