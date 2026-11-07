@@ -97,6 +97,25 @@ def resolve(film: str) -> dict:
             "shots": shots}
 
 
+# Thinking glances off-lens (agent-04's head plan): phrase starts on camera where a beat of thought suits the words.
+THINK = {"whatsapp": [("W07", "Is"), ("W10", "Your"), ("W15", "Photos")],
+         "netflix": [("N06", "Every"), ("N08", "Each"), ("N13", "Your")]}
+WHO = {"whatsapp": "him", "netflix": "her"}
+
+
+def head_cues(film: str, e: dict) -> dict:
+    """agent-04's cue JSON: VO t=0 sits on sequence frame 0; words and on-camera spans in seconds."""
+    cues = json.loads((HERE / "audio" / film / "cues.json").read_text())
+    lines = {ln["id"]: ln for ln in cues["lines"]}
+    fps = e["fps"]
+    think = [next(w["start"] for w in lines[i]["words"] if w["w"].strip(",.?:!").startswith(word)) for i, word in THINK[film]]
+    return {"film": film, "fps": fps, "start": 0, "length_s": e["duration"],
+            "words": [{"w": w["w"], "t0": w["start"], "t1": w["end"], "line": ln["id"]} for ln in cues["lines"] for w in ln["words"]],
+            "on_cam": [[round(s["f0"] / fps, 4), round(s["f1"] / fps, 4), s["camera"] + ("_L" if s["kind"] == "panel" else "")]
+                       for s in e["shots"] if s["kind"] in ("pres", "panel")],
+            "think": think}
+
+
 def main() -> None:
     (HERE / "edl").mkdir(exist_ok=True)
     for film in PLANS:
@@ -108,6 +127,8 @@ def main() -> None:
             for s in e["shots"]:
                 w.writerow([s["n"], s["kind"], s.get("camera", ""), s.get("gfx", ""), s["f0"], s["f1"],
                             f"{s['f0'] / e['fps']:.3f}", f"{s['f1'] / e['fps']:.3f}", " ".join(s["lines"]), s["text"]])
+        (HERE / "cues").mkdir(exist_ok=True)
+        (HERE / "cues" / f"{WHO[film]}.json").write_text(json.dumps(head_cues(film, e), indent=1) + "\n")
         print(film, e["frames"], e["share"])
         for s in e["shots"]:
             print(f"  {s['n']:2} {s['kind']:5} {s.get('camera', ''):8} {s.get('gfx', ''):8} {s['f0']:5}-{s['f1']:5} {' '.join(s['lines'])}")

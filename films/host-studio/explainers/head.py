@@ -9,6 +9,7 @@ gaze move (the "turn blinks"), no periodic motion. On top of them, for a talking
   mostly up a little, 0.6-1.1 s, the head following ~30 %; about one per 12 s of screen time, never across a cut.
 
     python head.py plan CUE.json > face_args.json      perf.face's arguments (the driver adds anim/out/wav/signs)
+    python head.py plan audio/whatsapp/cues.json --edl edl/whatsapp.json --who him   (agent-11's files as the cue)
     python head.py sample CUE.json --seq /Game/.../SEQ --label Host_Op [--out DIR]   (on the editor: two ops)
     python head.py judge CUE.json --head head.json --eyes eyes.json [--gate numbers.json]
 
@@ -55,6 +56,24 @@ LINES = {
 }
 
 
+CUT_NO_BLINK_F = 6  # frames after a cut with no blink (agent-11's edit rule)
+
+
+def cue_from_edl(cues: dict, edl: dict, start: int = 0) -> dict:
+    """This module's cue from agent-11's audio/<film>/cues.json and edl/<film>.json: every word of every line (s),
+    and the presenter's screen time = the "pres" and "panel" shots (each its own span: a camera change is a cut)."""
+    fps = cues["fps"]
+    words = [{"w": w["w"], "t0": w["start"], "t1": w["end"]} for ln in cues["lines"] for w in ln["words"]]
+    on_cam = [[s["f0"] / fps, s["f1"] / fps, s.get("camera", "")] for s in edl["shots"] if s["kind"] in ("pres", "panel")]
+    return {"fps": fps, "start": start, "length_s": cues["duration"], "words": words, "on_cam": on_cam,
+            "film": cues.get("film", ""), "presenter": cues.get("presenter", "")}
+
+
+def load_cue(path: str, edl: str | None = None, start: int = 0) -> dict:
+    d = json.loads(Path(path).read_text())
+    return cue_from_edl(d, json.loads(Path(edl).read_text()), start) if edl else d
+
+
 # --------------------------------------------------------------------------------------------------------- plan
 
 def phrase_starts(words: list, gap: float = 0.3) -> list:
@@ -82,14 +101,21 @@ def glances(cue: dict, who: str) -> list:
     out, last = [], -1e9
     want = rng.uniform(*GLANCE_EVERY_S) * 0.6  # the first one comes a little sooner
     for t in sorted(cands):
-        away = t - GLANCE_LEAD
         dur = rng.uniform(*GLANCE_DUR)
-        sp = _span_of(away, on_cam)
-        if sp is None or away - sp[0] < CUT_MARGIN or sp[1] - (away + dur) < CUT_MARGIN:
+        sp = _span_of(t, on_cam) or _span_of(t - GLANCE_LEAD, on_cam)
+        if sp is None:
+            continue
+        # just before the phrase, or as it starts when a cut is right before it (agent-11's think beats sit ~0.4 s
+        # after a cut): never within CUT_MARGIN of either end of the shot
+        away = max(t - GLANCE_LEAD, sp[0] + CUT_MARGIN)
+        dur = min(dur, sp[1] - CUT_MARGIN - away)
+        if dur < GLANCE_DUR[0] - 0.1:
             continue
         if not cue.get("think") and away - last < want:
             continue
         s = side if rng.random() < 0.7 else -side
+        if len(sp) > 2 and str(sp[2]).endswith("_L"):  # a panel shot (framed left, the graphic screen right = the
+            s = 1.0                                     # presenter's left): the glance goes toward the panel
         up = rng.random() < 0.65
         out.append({"t": round(away, 3), "back": round(away + dur, 3), "yaw": round(s * rng.uniform(*GLANCE_YAW), 1),
                     "pitch": round(rng.uniform(3.0, 6.0) if up else -rng.uniform(2.0, 4.0), 1)})
@@ -109,6 +135,11 @@ def plan(cue: dict, who: str) -> dict:
         gaze.append({"t": g["back"], "yaw": 0.0, "pitch": 0.0, "scan": "lens", "head": 1.0})
         for m in (g["t"], g["back"]):
             avoid.append([round(m - BLINK_GUARD[0], 3), round(m + BLINK_GUARD[1], 3)])
+    fps = cue["fps"]
+    for a, *_ in cue["on_cam"]:  # no blink on a cut's first frames
+        if a > 0:
+            avoid.append([round(a, 3), round(a + CUT_NO_BLINK_F / fps, 3)])
+    avoid.sort()
     head = {**HEAD_STYLE, "rest_roll_deg": round(rng.uniform(-1.2, 1.2), 2), "seed": SEED[who]}
     return {"preset": PRESET, "solver_head": "replace", "blink_head": "still", "blink_mode": "replace",
             "blink_state": "talk", "beat_every": 2, "emphasis": "auto", "start_gaze": [0.0, 0.0], "lead": "eyes",
@@ -291,8 +322,10 @@ def main() -> None:
     ap.add_argument("--head")
     ap.add_argument("--eyes")
     ap.add_argument("--gate", help="judge: also write the gate numbers file here")
+    ap.add_argument("--edl", help="CUE is agent-11's audio/<film>/cues.json and this its edl/<film>.json")
+    ap.add_argument("--start", type=int, default=0, help="with --edl: the master frame of the VO's t=0")
     a = ap.parse_args()
-    cue = json.loads(Path(a.cue).read_text())
+    cue = load_cue(a.cue, a.edl, a.start)
     if a.cmd == "plan":
         print(json.dumps(face_args(cue, a.who), indent=1))
     elif a.cmd == "sample":
