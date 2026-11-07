@@ -16,6 +16,14 @@ Times IST. Box B driver: agent-07 (set, light, cameras, HER explainer). Box A: a
 | 16:59-17:04 | Exposure: physical-camera exposure OFF (f/2 and f/2.8 cameras cut with no jump), bias is compensation (higher = brighter); her rig x2 (channel 1) and bias -1.4 → face ~150/255 in the MCU. The daylight window + sheers top-left of the MCU clip (~26 % of the frame) and do not answer the outside card or the sun; left as a soft bright window for the orchestrator's eye |
 | 17:00 | **seq.still's `camera` loses to the sequence's camera cut track**: r1/r2 stills were all the MCU. set.py stills now set the cut track to each camera alone and put the edit back |
 | 17:05 | Review stills r3 (MCU, CU, WIDE, MCU_L, SIDE; f60) → `private/renders/r6/review/explain/r3/` (KMS) → orchestrator. agent-01's face chain (`perform.py all --who her --from cams`) started on box B |
+| 17:08 | **Orchestrator r3**: no window in any presenter frame, sign clear of her head, forearms resting, shoulder poke. Cameras moved to the +Y side (backgrounds = the shelves wall; window opening: 0 points in any frame, offline rule added), boom MIRRORED (local X scale -1 at yaw -90: clamp (70,-72.6,74), capsule (44,-34,99)), lights mirrored (key on the far side), desk 12.5 cm in (x 38..93), sign lowered 30 cm (out of MCU/CU/MCU_L, wholly in the WIDE) |
+| 17:12 | Bridge reinstalled: film/host-studio tip + agent-09's qa.clip set rows (0ce1c3ae): runs on the engine, ops.broken {}. The editor restarts on install: everything saved first. A 61 MB `film-ue push` through the bridge restarted the editor: files go via s3 since |
+| 17:15-17:25 | agent-01's resting pose (33c54724 → cea4bf84 → 1f8db30f): elbows planted, forearms on the top, contacts lifted; bodycheck PASS. Garment cuts on copies (`garments` step): Top under Overshirt (reach 6), Trousers under Top, Body under Top. qa.clip's Top>Overshirt row reads the overshirt's OPEN FRONT (chest centre), not a poke (agent-09 investigating) |
+| 17:25 | Exposure after the light swap: bias -0.7 → -0.4, her rig x2.8 (face ~115-140/255 MCU/CU). r5 stills → orchestrator: "big step up"; asks shoes or a modesty panel, the WIDE's empty right half, the floor sun streaks |
+| 17:35-17:45 | agent-05's SM_WalnutDesk_Panel (modesty panel), SM_FloorLamp (sheer shade, emissive bulb, a 2700 K practical point light), SM_FloorSnakePlant; the -Y wall dressed with copies of SlatPanel/OliveTree + a warm grazer (`dressing` step). **Sun OFF** in the explainer level: her rig gives ~20 lux at her face, so any direct sun patch clips (the window is out of frame) |
+| 17:38-17:50 | agent-01's face chain (`perform.py all --who her --from cams --fresh`, onset-window fix installed in the bridge): every stage PASS; numbers committed (lips lag 0.77 f, track r 0.897, onset lead 77 ms, lead_in 0.0001 cm) |
+| 17:51-17:54 | r6 stills → orchestrator: **PASS by eye** (watch: dither on the lapel edges in the still → finals' AA). Previews shot 1 MCU / 7 CU / 11 WIDE with the mix → `private/renders/r6/explain/netflix/preview/` |
+| 17:56 | qa.clip after the chain: Body>Desk / Desk>Overshirt / Trousers>Chair 0, mouth 0; Body>Chair 8 px + Chair>Trousers 2 px (WIDE) with agent-01. Finals of all 9 presenter shots started (4x8, film cvars, png, garment.leaders_ok read before every job → numbers/netflix/box.json) |
 
 ## The set (setplan.py)
 
@@ -38,6 +46,8 @@ Times IST. Box B driver: agent-07 (set, light, cameras, HER explainer). Box A: a
   then measure his seated eyes (level.bone Face FACIAL_L/R_Eye, FACIAL_C_LipUpper at f60 after seq.scrub) into
   setplan FACE["him"], and re-run `--steps cameras,seq,dress,save` so the cameras and the focus offsets follow his
   real eyes. Stills: `--stills <tag> --frame 60 --extra-cams CAM_SIDE --edl …`. Renders: render.py.
+- Box A replay additions: `--steps level,props,dressing,light,cameras,seq,garments,dress,save` (garments: none for him
+  yet); his FACE is an estimate (FACE_ESTIMATED: the sign rule waits, agent-09 holds his film until it is re-enabled).
 - Gotchas: duplicate+open of the open map crashes (set.py does save-as); seq.still ignores `camera` under a cut track
   (set.py handles it); any perform/body step can drop the garment leaders (run `--steps dress,save` after it); an
   unsaved change is lost when a tool reopens the level (save after every step).
