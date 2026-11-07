@@ -324,9 +324,18 @@ def step_seq(who: str, edl_path: str | None, length: int) -> None:
 def step_garments(who: str) -> None:
     """The seated garment cuts: each component back on its original mesh, then body.hide_under in order (each cut
     is a copy named <mesh>_Under_<garment>; the originals and the studio are untouched)."""
-    src = P.GARMENT_SRC[who]
+    src = dict(P.GARMENT_SRC[who])
     if not src:
         return print("no garment cuts for", who)
+    variant = P.overshirt_variant() if who == "her" else None
+    hides = P.GARMENT_HIDES[who]
+    if variant:
+        if P.OVERSHIRT[variant]:
+            src["Overshirt"] = P.OVERSHIRT[variant]
+        else:
+            src.pop("Overshirt", None)
+            hides = [h for h in hides if "Overshirt" not in h[:2]]
+        print("overshirt:", variant, P.OVERSHIRT[variant])
     print("reset:", ex(f"""import unreal
 from fmbridge.ops import level as L
 out = {{}}
@@ -335,8 +344,12 @@ for c in L.actor({ACTOR[who]!r}).get_components_by_class(unreal.SkeletalMeshComp
     if m:
         c.set_skeletal_mesh_asset(unreal.load_asset(m))
         out[c.get_name()] = m
+    if c.get_name() == "Overshirt":
+        c.set_visibility({variant != "none"!r}, True)
+        c.set_hidden_in_game({variant == "none"!r})
+        out["Overshirt_visible"] = {variant != "none"!r}
 result = out"""))
-    for comp, over, reach in P.GARMENT_HIDES[who]:
+    for comp, over, reach in hides:
         r = op("body.hide_under", label=ACTOR[who], body=comp, garment=over, reach_cm=reach, apply=True)
         print(f"{comp} under {over} (reach {reach}): hidden {r.get('hidden')} ({r.get('fraction')}) → {r.get('mesh')}")
 

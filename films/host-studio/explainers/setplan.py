@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import sys
 from pathlib import Path
 
@@ -126,6 +127,23 @@ GARMENT_SRC = {"her": {"Overshirt": "/Game/Host/Presenter_Overshirt/SKM_Presente
                        "Top": "/Game/Host/Presenter_Outfit/SKM_Presenter_Top",
                        "Trousers": "/Game/Host/Presenter_Outfit/SKM_Presenter_Trousers",
                        "Body": "/Game/Host/Unpacked/Presenter/Body/SKM_Presenter_F_BodyMesh"}, "him": {}}
+
+# r6b (the orchestrator rejected RW: skin holes at both shoulders, a shredded collar): her overshirt is a choice made by
+# eye from stills. set.py reads $EXPL_OVERSHIRT: "orig" (the round-4 weights, the default again), "rw" (agent-02's
+# reweight), "none" (no overshirt: her top alone, so the Top is not cut under it), "rw2" (arms-only reweight)
+OVERSHIRT = {"orig": "/Game/Host/Presenter_Overshirt/SKM_Presenter_Overshirt",
+             "rw": "/Game/Host/Presenter_Overshirt/SKM_Presenter_Overshirt_RW", "none": None,
+             # agent-02's narrower reweight (df8947b2): only the upper-arm/forearm helpers (the cap balloon); the
+             # clavicle/spine helpers that hold the collar on the body stay
+             "rw2": "/Game/Host/Presenter_Overshirt/SKM_Presenter_Overshirt_RW2"}
+
+
+def overshirt_variant() -> str:
+    v = os.environ.get("EXPL_OVERSHIRT", "orig")
+    if v not in OVERSHIRT:
+        raise SystemExit(f"EXPL_OVERSHIRT={v!r}: one of {sorted(OVERSHIRT)}")
+    return v
+
 
 STUDIO_HOST_LIGHTS = ["Key", "Fill", "HairLight", "RimWarm", "RimWindow", "EyeLight"]
 STUDIO_CAMS = ["KarmaHost", "KarmaWide", "KarmaVertical", "KarmaShelf", "KarmaCredenza", "KarmaSign"]
