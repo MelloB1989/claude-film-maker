@@ -29,6 +29,17 @@ export function surfaceMat(role: PaletteKey | `#${string}` = 'surface', o: { rou
   });
 }
 
+/**
+ * Solid accent for hero type and objects: the accent as the surface colour with an emissive glow of `glowK` (the face
+ * reads as lit colour and blooms softly), a clearcoat for the studio's sweeps. emphasis() pulses its emissive.
+ */
+export function accentSolid(role: PaletteKey | `#${string}` = 'accent', glowK = 1.2): THREE.MeshPhysicalMaterial {
+  const m = new THREE.MeshPhysicalMaterial({ color: hdr(role, 1), roughness: 0.35, metalness: 0, clearcoat: 0.8, clearcoatRoughness: 0.15 });
+  m.emissive.copy(hdr(role, 1));
+  m.emissiveIntensity = glowK;
+  return m;
+}
+
 // ———————————————————————————————————————————————————————————————————————————————————————————————— kinetic type
 
 export type Entrance = 'rise' | 'slam' | 'flip' | 'type' | 'drop';
@@ -150,7 +161,10 @@ export class Label {
   readonly mat: THREE.MeshBasicMaterial;
   constructor(text: string, o: { size: number; family?: string; role?: PaletteKey | `#${string}`; k?: number; align?: 'left' | 'center' | 'right'; tracking?: number }) {
     this.mat = inkMat(o.role ?? 'fg', o.k ?? 1);
+    // labels draw on top of streams and objects (no depth test, late in the order): a packet never cuts a word
+    this.mat.depthTest = false;
     this.kt = new KineticText(text, { family: o.family ?? F.ui(600), size: o.size, depth: 0.03, bevel: 0.002, mat: this.mat, align: o.align ?? 'center', tracking: o.tracking });
+    for (const g of this.kt.type.glyphs) g.mesh.renderOrder = 10;
   }
   get group() { return this.kt.group; }
   get width() { return this.kt.width; }
@@ -348,7 +362,8 @@ export class Floor {
     this.mat = new THREE.ShaderMaterial({
       toneMapped: false,
       uniforms: {
-        uBase: { value: hdr('bg', 1) },
+        uBase: { value: hdr('bg', 1.6) },
+        uVoid: { value: hdr('#0A0706', 1) },
         uLine: { value: hdr('fg', 1) },
         uPool: { value: hdr(o.pool ?? 'accent', 1) },
         uPoolK: { value: o.poolK ?? 0.12 },
@@ -362,7 +377,7 @@ export class Floor {
         varying vec2 vXZ;
         void main() { vec4 w = modelMatrix * vec4(position, 1.0); vXZ = w.xz; gl_Position = projectionMatrix * viewMatrix * w; }`,
       fragmentShader: /* glsl */ `
-        uniform vec3 uBase, uLine, uPool; uniform float uPoolK, uGrid, uCell, uReach; uniform vec2 uC, uShift;
+        uniform vec3 uBase, uVoid, uLine, uPool; uniform float uPoolK, uGrid, uCell, uReach; uniform vec2 uC, uShift;
         varying vec2 vXZ;
         void main() {
           vec2 p = (vXZ + uShift) / uCell;
@@ -371,12 +386,16 @@ export class Floor {
           float d = length(vXZ - uC);
           float fade = exp(-d * d / (uReach * uReach));
           float pool = exp(-d * d / (0.35 * uReach * uReach));
-          vec3 c = uBase * (0.55 + 0.45 * fade) + uLine * line * uGrid * fade + uPool * uPoolK * pool;
-          gl_FragColor = vec4(c, 1.0);
+          vec3 c = uBase + uLine * line * uGrid + uPool * uPoolK * pool / max(fade, 0.05);
+          gl_FragColor = vec4(c, smoothstep(0.0, 0.6, fade));
         }`,
       extensions: { derivatives: true } as never,
     });
+    // transparent where it fades, and no depth write: a faded floor must not hide what stands beyond or below it
+    this.mat.transparent = true;
+    this.mat.depthWrite = false;
     this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(size, size), this.mat);
+    this.mesh.renderOrder = -1;
     this.mesh.rotation.x = -Math.PI / 2;
     this.mesh.position.y = o.y ?? -1;
   }
@@ -393,8 +412,8 @@ export class Haze {
     this.mat = new THREE.ShaderMaterial({
       toneMapped: false,
       uniforms: {
-        uA: { value: hdr(o.role ?? '#2A1A12', o.k ?? 1) },
-        uB: { value: hdr(o.role2 ?? 'accentDim', o.k2 ?? 0.18) },
+        uA: { value: hdr(o.role ?? '#22160f', o.k ?? 1) },
+        uB: { value: hdr(o.role2 ?? 'accentDim', o.k2 ?? 0.08) },
         uVoid: { value: hdr('#0A0706', 1) },
         uT: { value: 0 },
       },
@@ -409,9 +428,9 @@ export class Haze {
           gl_FragColor = vec4(uVoid + uA * a + uB * b, 1.0);
         }`,
     });
-    const s = o.size ?? 40;
+    const s = o.size ?? 110;
     this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(s * 1.78, s), this.mat);
-    this.mesh.position.set(0, o.y ?? 0, o.z ?? -12);
+    this.mesh.position.set(0, o.y ?? 0, o.z ?? -40);
   }
   /** Keep it facing the camera and breathing. */
   pose(t: number, cam: THREE.Camera) { this.mat.uniforms.uT!.value = t; this.mesh.quaternion.copy(cam.quaternion); }

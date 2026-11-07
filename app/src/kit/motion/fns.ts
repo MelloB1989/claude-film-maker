@@ -76,3 +76,24 @@ export function hdr(role: PaletteKey | `#${string}`, k = 1): THREE.Color {
 
 /** World units per px at `dist` from a camera of vertical fov `fovDeg` on a 1080 px tall frame. */
 export const unitPerPx = (dist: number, fovDeg: number) => (2 * dist * Math.tan((fovDeg * Math.PI) / 360)) / 1080;
+
+export type V3 = [number, number, number];
+export interface CamKey { t: number; pos: V3; target: V3; fov?: number; ease?: (x: number) => number }
+
+/** A camera through keys: each segment eased (inOutCubic by default) from the key before to the key it heads to. */
+export function keyed(t: number, ks: CamKey[]): { pos: V3; target: V3; fov?: number } {
+  if (t <= ks[0]!.t) return { pos: ks[0]!.pos, target: ks[0]!.target, fov: ks[0]!.fov };
+  for (let i = 1; i < ks.length; i++) {
+    const a = ks[i - 1]!, b = ks[i]!;
+    if (t < b.t) {
+      const k = (b.ease ?? ease.inOutCubic)(clamp((t - a.t) / (b.t - a.t)));
+      const l = (x: V3, y: V3): V3 => [x[0] + (y[0] - x[0]) * k, x[1] + (y[1] - x[1]) * k, x[2] + (y[2] - x[2]) * k];
+      return { pos: l(a.pos, b.pos), target: l(a.target, b.target), fov: (a.fov ?? 30) + ((b.fov ?? a.fov ?? 30) - (a.fov ?? 30)) * k };
+    }
+  }
+  const z = ks[ks.length - 1]!;
+  return { pos: z.pos, target: z.target, fov: z.fov };
+}
+
+/** World units per em for type of cap height `px` (1080p px) at `dist` from a camera of vertical fov `fov`. */
+export const em = (px: number, dist: number, fov = 30) => ((px / 0.7) * 2 * dist * Math.tan((fov * Math.PI) / 360)) / 1080;
