@@ -697,7 +697,7 @@ def main():
     if len(built) == 4:
         hide(allobs, False)
         place = {"chair": (CHAIR_UE, 0), "desk": (DESK_UE, 0), "mic": (MIC_CLAMP_UE, -90),
-                 "plant": (Vector((92.0, -60.0, 74.0)), 0)}
+                 "plant": (Vector((100.0, 25.0, 74.0)), 0)}
         for key, (loc, yaw) in place.items():
             ob = built[key][0]
             ob.matrix_world = Matrix.Translation((loc.x / 100, -loc.y / 100, loc.z / 100)) @ Matrix.Rotation(math.radians(-yaw), 4, "Z")
