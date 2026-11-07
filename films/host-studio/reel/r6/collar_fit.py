@@ -597,6 +597,10 @@ def main(argv=None) -> int:
                     raise SystemExit(f"seq.scrub {ff}: {r}")
             g2 = {**g, "FRAME": setup["frame"], "CHECK_REF": bool(a.face_ref) and i == 0, "CLEAR": a.clear}
             res = _exec(client, "frame", **g2)
+            if i < 3 or i % 20 == 0:
+                pk = res.get("poke", {})
+                print(f"f{f}: band tee verts {pk.get('tee_verts')}, inside the face {pk.get('inside_face')}, "
+                      f"worst (need, t, r, deg) {pk.get('worst')}", flush=True)
             if res.get("ref_vs_face_above_t3"):
                 print("ref face vs worn face above the collar:", res["ref_vs_face_above_t3"])
             if last is not None and res["head_w"] == last:
