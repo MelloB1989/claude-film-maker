@@ -208,3 +208,8 @@ tested in `test_seatkit.py`), `gestures.json` (the emphasis gestures per line).
   frames, plus `face04` / `body01` views for agent-04 and agent-01) and `ACTING.md`. On paper: 19.4 smiles/min, 20.6
   brow moves/min, 0.87 gesture onsets/s, longest neutral stretch inside a line 1.41 s, no gesture twice in a row.
   TEST span: CAM_MCU f0-196 (N01-N03) + CAM_WIDE f1040-1162 (N13) = 13.25 s; N04 (f196-305) optional.
+- 07 Nov 23:47 IST: the orchestrator approved v1 as direction, with two calibrations, applied: full Duchenne (>= 0.8)
+  only on five payoffs (members, just starts, near you, AWS, just plays), mid-line smiles 0.4-0.6 with a shape /
+  asymmetry each; gesture amplitude `amp` per stroke and HELD strokes (`held`, `hold_s` 0.5-1.0). His 17 lines
+  (`acting/him.json`), same staging and calibration (payoffs: messages, Here's how, read it, your hands, a day): 0.94
+  onsets/s, longest neutral stretch <= 1.5 s; his TEST span CAM_MCU f0-179 (W01-W03) + CAM_WIDE f422-480 (W07).
