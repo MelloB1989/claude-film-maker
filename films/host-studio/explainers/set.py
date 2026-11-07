@@ -159,7 +159,16 @@ result = {{"rc": r.returncode, "err": r.stderr[-500:], "props": json.load(open(p
            texture_dest=f"{PROPS_DIR}/Textures", params={"Tiling": round(tiling, 4)})
         mats[slot] = mi
     print("materials:", sorted(mats))
+    # the lamp's shade glows through (thin linen lit from inside), its bulb is emissive
+    mats["M_ShadeLinen"] = (op("look.material", name="MI_Exp_ShadeLinen", kind="Sheer",
+                                       color=[0.78, 0.72, 0.62], transmission=[1.0, 0.75, 0.5], glow=0.6,
+                                       folder=f"{PROPS_DIR}/Materials"))
+    mats["M_LampBulb"] = (op("look.material", name="MI_Exp_LampBulb", kind="Emissive", color=[1.0, 0.72, 0.42],
+                                     intensity=12.0, folder=f"{PROPS_DIR}/Materials"))
+    desk_panel = P.DESK_PANEL in by_name
     for label, (name, loc, yaw, scale) in P.PROPS.items():
+        if label == "ExpDesk" and desk_panel:
+            name = P.DESK_PANEL  # agent-05's desk with the modesty panel replaces the walnut slab
         if name not in by_name:
             print(f"MISSING {label}: no {name}.fbx under {PROPS_S3} (agent-05)")
             continue
@@ -177,7 +186,16 @@ result = {{"rc": r.returncode, "err": r.stderr[-500:], "props": json.load(open(p
         if want:
             op("look.slots", label=label, materials=want)
         print(f"{label}: {mesh} at {list(loc)} yaw {yaw} scale {scale}; slots {sorted(slots)}; undressed {sorted(set(slots) - set(want))}")
-    op("look.channels", labels=list(P.PROPS), channels=[0, 1])
+    placed = [lab for lab in P.PROPS if any(a[0] == lab for a in op("level.actors", contains=lab))]
+    op("look.channels", labels=placed, channels=[0, 1])
+    if desk_panel:
+        op("level.delete", labels=["ExpModesty"])
+    if "ExpLamp" in placed:  # the lamp's bulb: a warm practical on the set's channel
+        x, y, _ = P.PROPS["ExpLamp"][1]
+        b = P.LAMP_BULB
+        op("look.light", label="ExpLampBulb", kind=b["kind"], loc=[x, y, b["z"]], intensity=b["intensity"],
+           temperature=b["temperature"], radius=b["radius"], shadows=True, volumetric=0.0)
+        op("look.channels", labels=["ExpLampBulb"], channels=[0])
 
 
 def step_dressing(who: str) -> None:
@@ -202,6 +220,9 @@ result = out"""))
     op("look.light", label="ExpSideGrazer", volumetric=0.0, shadows=True,
        **{k: (list(v) if isinstance(v, tuple) else v) for k, v in g.items()})
     op("look.channels", labels=["ExpSideGrazer"], channels=[0])
+    if any(a[0] == "ExpDesk" for a in op("level.actors", contains="ExpDesk")) and \
+            "Panel" in json.dumps(op("level.get", label="ExpDesk", components=True)):
+        return print("desk has its own modesty panel")
     m = P.MODESTY
     op("level.spawn", label="ExpModesty", shape="cube", loc=list(m["loc"]), size=list(m["size"]), replace=True)
     op("look.apply", label="ExpModesty", material=f"{PROPS_DIR}/Materials/MI_Exp_Walnut", slot=0)
