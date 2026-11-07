@@ -1,11 +1,11 @@
 {
- "_doc": "Emphasis gestures (perform.py): per line a word (its text, or its index in the line) with the hand (l, r, both; none = alternate) and kind (seatkit.KINDS: lift, open, beat, point). Only on the lines where the presenter is on screen (pres/panel shots). The mic is on the presenter's LEFT (07 Nov r3 set): left-hand gestures stay small.",
+ "_doc": "Emphasis gestures (perform.py): per line a word (its text, or its index in the line) with the hand (l, r, both; none = alternate) and kind (seatkit.KINDS: lift, open, beat, point). Only on the lines where the presenter is on screen (pres/panel shots). The mic is on the presenter's LEFT (07 Nov r3 set): left-hand gestures stay small; HER left hand makes none at all (v1: her hand read behind the mic at N01, the orchestrator), only the tiny automatic settles.",
  "her": [
   {
    "line": "N01",
    "word": "three",
-   "hand": "both",
-   "kind": "open",
+   "hand": "r",
+   "kind": "lift",
    "size": 0.8
   },
   {
@@ -30,15 +30,15 @@
   {
    "line": "N07",
    "word": "near",
-   "hand": "l",
+   "hand": "r",
    "kind": "beat",
    "size": 0.7
   },
   {
    "line": "N08",
    "word": "many",
-   "hand": "both",
-   "kind": "open",
+   "hand": "r",
+   "kind": "lift",
    "size": 0.8
   },
   {
@@ -63,15 +63,15 @@
   {
    "line": "N15",
    "word": "delivers.",
-   "hand": "l",
+   "hand": "r",
    "kind": "lift",
    "size": 0.7
   },
   {
    "line": "N16",
    "word": "plays.",
-   "hand": "both",
-   "kind": "open",
+   "hand": "r",
+   "kind": "lift",
    "size": 0.6
   }
  ],

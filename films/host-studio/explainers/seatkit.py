@@ -278,6 +278,7 @@ class Set:
     mic_radius: float = 9.0  # a sphere around the mic head (and its pop filter) no hand may enter
     boom: list | None = None  # [[x, y, z], ...]: the mic's arm as a polyline, clamp -> elbow -> head, actor frame
     boom_radius: float = 4.0
+    cams: dict | None = None  # {label: [x, y, z]} actor frame: no hand may pass BEHIND the mic from any of them
 
 
 @dataclass
@@ -686,7 +687,21 @@ def check(seater: Seater, posed: dict) -> dict:
                 if b in A:
                     d = poly_dist(A[b], st.boom)
                     need(d >= st.boom_radius + 3.0, "mic.boom", f"{b} {d:.1f} cm from the mic arm", d)
-    return {"hips": [round(x, 1) for x in hips],
+    if st.cams and (st.mic or st.boom):
+        for s in "lr":
+            for b in ("hand_" + s, f"middle_03_{s}", f"index_03_{s}", f"thumb_03_{s}"):
+                if b not in A:
+                    continue
+                for cam, c in st.cams.items():
+                    hit = behind_mic(c, A[b], st)
+                    need(hit is None, "mic.hides_hand", f"{b} is behind the mic from {cam} "
+                         f"({hit:.1f} cm from the line of sight)" if hit is not None else "", hit)
+    arms = {}
+    for s in "lr":
+        v = sub(A["lowerarm_" + s], A["upperarm_" + s])
+        arms[s] = {"flex_deg": round(math.degrees(math.acos(max(-1.0, min(1.0, -v[2] / norm(v))))), 1),
+                   "out_cm": round(v[1] if s == "r" else -v[1], 1)}
+    return {"hips": [round(x, 1) for x in hips], "upper_arms": arms,
             "knees": {s: [round(x, 1) for x in A["calf_" + s]] for s in "lr"},
             "ankles": {s: [round(x, 1) for x in A["foot_" + s]] for s in "lr"},
             "elbows": {s: [round(x, 1) for x in A["lowerarm_" + s]] for s in "lr"},
@@ -699,6 +714,32 @@ def seg_dist(p, a, b) -> float:
     ab = sub(b, a)
     u = max(0.0, min(1.0, dot(sub(p, a), ab) / max(1e-9, dot(ab, ab))))
     return norm(sub(p, add(a, mul(ab, u))))
+
+
+def behind_mic(cam, p, st: "Set"):
+    """None, or how close (cm) the line of sight camera -> p passes to the mic (capsule sphere, or the boom's
+    polyline) at a point nearer the camera than p is: the mic would hide p in that camera."""
+    d = sub(p, cam)
+    L = norm(d)
+    u_ = mul(d, 1.0 / L)
+
+    def ray_point(q):
+        t = max(0.0, min(L - 2.0, dot(sub(q, cam), u_)))
+        return t, norm(sub(q, add(cam, mul(u_, t))))
+
+    worst = None
+    if st.mic:
+        t, r_ = ray_point(st.mic)
+        if r_ < st.mic_radius and t < L - 2.0:
+            worst = r_
+    if st.boom:
+        for a, b in zip(st.boom, st.boom[1:]):
+            for k in range(11):
+                q = add(a, mul(sub(b, a), k / 10.0))
+                t, r_ = ray_point(q)
+                if r_ < st.boom_radius + 1.5 and t < L - 2.0 and (worst is None or r_ < worst):
+                    worst = r_
+    return worst
 
 
 def poly_dist(p, pts) -> float:
@@ -736,13 +777,40 @@ def gestures_from_cues(cues: list, fps: float = 30.0, start_s: float = 0.0) -> l
     return out
 
 
+TUNE = {"desk.elbow_off": ("lean", 1.0, 23.0), "seat.thigh_edge": ("hip_above_seat", 0.4, 12.5),
+        "desk.knee": ("hip_above_seat", -0.4, 9.0)}
+
+
+def autotune(sk: Skeleton, st: Set, sy: Style, steps: int = 8) -> tuple:
+    """A body this pipeline has not seen (his, built only on his box) may miss a contact rule at rest by a little:
+    lean 1 deg more while an elbow is off the desk edge, sit 0.4 cm higher while a thigh meets the seat's front edge,
+    lower while a knee meets the desk's apron; within TUNE's limits. Returns (Seater, [changes])."""
+    from dataclasses import replace
+    changes = []
+    se = Seater(sk, st, sy)
+    for _ in range(steps):
+        codes = {i["code"] for i in check(se, se.fk(se.pose(-1.0, [])))["issues"]}
+        knob = next((TUNE[c] for c in TUNE if c in codes), None)
+        if knob is None:
+            break
+        name, step, limit = knob
+        v = getattr(sy, name) + step
+        if (step > 0 and v > limit) or (step < 0 and v < limit):
+            break
+        sy = replace(sy, **{name: round(v, 2)})
+        changes.append({name: getattr(sy, name)})
+        se = Seater(sk, st, sy)
+    return se, changes
+
+
 def build(data: dict, st: Set, sy: Style, gs: list, length_s: float, fps: int = 30) -> tuple:
     """The seated body animation's tracks on a read skeleton (perform.py READ: parent/local/world/tracks): constant
     tracks for every bone the base animation has (its first pose) with the seated pose over them, per-key tracks for
     the bones the gestures move. Returns (doc for the WRITE job, summary with the checks). Pure: runs in the editor's
     Python as well (perform.py body, so a presenter's skeleton never leaves the box)."""
     sk = Skeleton.from_read(data)
-    se = Seater(sk, st, sy)
+    se, tuned = autotune(sk, st, sy)
+    sy = se.sy
     n = int(round(length_s * fps)) + 1
     still = se.pose(-1.0, [])
     const = {b: data["local"][b] for b in data["tracks"] if b in data["local"]}
@@ -777,6 +845,7 @@ def build(data: dict, st: Set, sy: Style, gs: list, length_s: float, fps: int = 
         keyed[b] = [{**k_, "t": anim_t(b, k_["t"])} for k_ in keyed[b]]
     doc = {"length_s": length_s, "fps": fps, "n_keys": n, "const": const, "keyed": keyed}
     summary = {"rest": rest, "gestures": len(gs), "pass": rest["pass"] and not issues, "issues": issues[:20],
+               "tuned": tuned,
                "wrist_ext": se.ext_base, "yaw_off": round(sk.yaw_off(), 2),
                "frame": {"fwd": se.F["fwd"], "right": se.F["right"]}}
     return doc, summary

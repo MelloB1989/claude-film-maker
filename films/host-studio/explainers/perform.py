@@ -58,7 +58,9 @@ SEED = {"him": 71, "her": 72}
 # presenter's LEFT). Studio -> actor: x - 20, -(y + 20), z.
 SET = S.Set(seat_top=45.0, seat_front=24.5, desk_top=74.0, desk_near=18.0, desk_far=73.0, desk_under=63.4,
             mic=[24.0, -14.0, 99.0], mic_radius=9.0,
-            boom=[[50.0, -52.6, 74.0], [43.8, -42.9, 119.3], [29.5, -20.4, 103.4], [24.0, -14.0, 99.0]])
+            boom=[[50.0, -52.6, 74.0], [43.8, -42.9, 119.3], [29.5, -20.4, 103.4], [24.0, -14.0, 99.0]],
+            cams={"CAM_MCU": [167.5, 78.0, 121.3], "CAM_CU": [132.7, 38.7, 121.0], "CAM_WIDE": [314.1, 101.0, 104.7]})
+# ^ cameras read on box B (07 Nov 20:1x IST); CAM_MCU_L sits where CAM_MCU is
 # ^ agent-07's set after the orchestrator's r3 notes (07 Nov ~18:3x IST): desk in (studio x 38..93), the mic mirrored
 #   to the presenter's LEFT (studio -Y), the cameras on her right (studio +Y, azimuth +17..+24)
 # How each sits (seatkit.Style). The cameras are at studio +Y (azimuth +17..+24): facing +X in Unreal that is the
@@ -67,8 +69,10 @@ SET = S.Set(seat_top=45.0, seat_front=24.5, desk_top=74.0, desk_near=18.0, desk_
 STYLE = {  # forearms resting on the desk (the orchestrator, r3 stills): elbows planted ~2 cm in from the near edge,
     #          the chest square to the desk (a turn pulls the camera-side elbow off it), hands on their little-finger
     #          edge, shoulders down
-    "her": S.Style(lean=19.0, twist=0.0, hip_above_seat=11.0, knee_out=3.0, foot_out=6.0, pronation=75.0, shin_tilt=6.0, elbow_out=3.0,
-                   clavicle_fwd=4.0, clavicle_drop=4.0),
+    # her (the operator + orchestrator, v1: her camera-side shoulder ballooned the overshirt): shoulders down and
+    # back, elbows tucked by her sides, the upper arm as near vertical as the desk allows (a lower desk, set_her.json)
+    "her": S.Style(lean=12.0, twist=0.0, hip_above_seat=11.0, knee_out=3.0, foot_out=6.0, pronation=75.0, shin_tilt=6.0,
+                   elbow_out=-2.0, clavicle_fwd=-1.0, clavicle_drop=5.0),
     "him": S.Style(lean=18.0, twist=0.0, knee_out=8.0, foot_out=9.0, pronation=72.0, elbow_out=3.0,
                    clavicle_fwd=5.0, clavicle_drop=3.0),
 }
@@ -334,7 +338,7 @@ def gestures(who: str) -> list:
             pool = [w for w in words if t - 1.5 <= w["start"] <= t + 1.5]
             if pool:
                 w = max(pool, key=lambda w: w["end"] - w["start"])
-                cs.append({"t": w["start"], "hand": side, "kind": "beat", "size": 0.35 if side == "r" else 0.25,
+                cs.append({"t": w["start"], "hand": side, "kind": "beat", "size": 0.35 if side == "r" else 0.15,
                            "hold": 0.3})
                 side = "r" if side == "l" else "l"
             t += SETTLE_GAP
@@ -382,8 +386,24 @@ WORLD_BONES = list(S.REQUIRED) + [f"{f}_{j}_{s}" for f in ("index", "middle", "r
                                   for j in ("01", "02", "03") for s in "lr"]
 
 
+def set_of(who: str) -> S.Set:
+    """The set for `who`: SET (her r3 set, agent-07) with any field overridden by set_<who>.json next to this file
+    (agent-07 commits his: the mic is aimed at his mouth, so its capsule and arm move). Actor frame: x forward from the
+    chair mark, y the presenter's right (studio y + 20), z up from the floor."""
+    import dataclasses
+    p = HERE / f"set_{who}.json"
+    if not p.exists():
+        return SET
+    given = json.loads(p.read_text())
+    known = {f.name for f in dataclasses.fields(S.Set)}
+    extra = sorted(k for k in given if k not in known and not k.startswith("_"))
+    if extra:  # e.g. desk_y: the desk's sides are not a contact rule here (her elbows sit well inside them)
+        print(f"set_{who}.json: not seatkit.Set fields, ignored: {extra}", file=sys.stderr)
+    return S.Set(**{**SET.__dict__, **{k: v for k, v in given.items() if k in known}})
+
+
 def body_params(who: str) -> dict:
-    return {"set": dict(SET.__dict__), "style": {k: (list(v) if isinstance(v, tuple) else v)
+    return {"set": dict(set_of(who).__dict__), "style": {k: (list(v) if isinstance(v, tuple) else v)
                                                  for k, v in STYLE[who].__dict__.items()},
             "gestures": [g.__dict__ for g in gestures(who)], "length_s": length_s(who), "fps": 30}
 
@@ -401,7 +421,8 @@ def cmd_body(who: str, force: bool = False) -> dict:
                          f"{r['summary']['rest']['issues'][:5]}")
     return {"anim": r["out"], "keys": r["keys"], "bones": r["bones"], "pass": r["pass"],
             "rest": {k: r["summary"]["rest"][k] for k in ("hips", "knees", "elbows", "wrists", "head", "issues")},
-            "wrist_ext": r["summary"]["wrist_ext"], "yaw_off": r["summary"]["yaw_off"]}
+            "wrist_ext": r["summary"]["wrist_ext"], "yaw_off": r["summary"]["yaw_off"],
+            "tuned": r["summary"].get("tuned")}
 
 
 def cmd_calibrate_body(who: str) -> dict:
@@ -485,8 +506,22 @@ def cmd_cams(who: str) -> dict:
                   "char": [round(x, 1) for x in a_]}
     res = {"eye_actor": eye, "cams": out, "actor": got["actor"]}
     missing = [c for c, v in out.items() if v is None]
-    if missing:
-        res["issues"] = [f"cameras not in the level: {missing}"]
+    issues = [f"cameras not in the level: {missing}"] if missing else []
+    # agent-04: a DIRECT cut (presenter to presenter) whose lens direction moves > 10 deg makes the eyes jump on
+    # screen: move a camera instead (agent-07), before the face step
+    on = cue_sheet(who)["on_cam"]
+    jumps = []
+    for (a0, b0, c0), (a1, b1, c1) in zip(on, on[1:]):
+        if abs(b0 - a1) < 1e-3 and out.get(c0) and out.get(c1):
+            d = math.hypot(out[c1]["yaw"] - out[c0]["yaw"], out[c1]["pitch"] - out[c0]["pitch"])
+            jumps.append({"t": round(a1, 3), "from": c0, "to": c1, "deg": round(d, 1)})
+    res["direct_cuts"] = jumps
+    big = [j for j in jumps if j["deg"] > 10.0]
+    if big:
+        issues.append(f"direct cuts with a lens move > 10 deg (move a camera before the face step): {big}")
+    if issues:
+        res["issues"] = issues
+    res["pass"] = not issues
     keep(who, "cams", res)
     return res
 
@@ -661,7 +696,7 @@ def cmd_bodycheck(who: str, seq: str = "", every: int = 2) -> dict:
         q = [lx, ly, dz]
         return [S.dot(q, fr_["fwd"]), S.dot(q, fr_["right"]), dz]
 
-    st = SET
+    st = set_of(who)
     issues, worst = [], {}
     sz = []
     for i, f in enumerate(fr):
@@ -711,61 +746,57 @@ def cmd_bodycheck(who: str, seq: str = "", every: int = 2) -> dict:
     return res
 
 
-PROBE = r"""
-import json, unreal
-import fmbridge.ops.anim as A
-from fmbridge.ops.assets import free
-EAL = unreal.EditorAssetLibrary
-P = json.loads(PARAMS)
-free(P["probe"])
-EAL.duplicate_asset(P["face"], P["probe"])
-a = unreal.load_asset(P["probe"])
-L = a.get_editor_property("sequence_length")
-A._write(a, {n: ([0.0, L], [P["val"]] * 2 if n == P["name"] else [0.0, 0.0]) for n in ("HeadPitch", "HeadYaw", "HeadRoll")})
-EAL.save_asset(P["probe"])
-result = True
-"""
-
-
 def cmd_rolltest(who: str, deg: float = 5.0) -> dict:
-    """Which head curve does what on this face, measured on the placed head bone (agent-04: her 'roll' read as pitch):
-    a copy of the final face with HeadPitch/HeadYaw/HeadRoll each at +-deg (the others 0) on the work sequence's Face
-    track, frame 2 sampled; the head bone's forward elevation (pitch), heading (yaw) and its lateral axis's elevation
-    (roll), relative to all-zero. Changes only the work sequence's Face track, and puts the final face back."""
+    """Which head curve does what on this face, on the live head bone (agent-04: her 'roll' read as pitch). Works
+    before the performance exists: a 1 s probe animation on the face's skeleton with HeadPitch/HeadYaw/HeadRoll each
+    at +-deg (the others 0) plays on the Face in a scratch sequence (/Game/Explainer/Perf/SEQ_RollTest_<who>); frame 12
+    is sampled against all zero. Reported per curve, for each head-bone axis: the rotation [pitch about the body's
+    right, yaw about up, roll about forward] in degrees (a rigid turn reads the same on all three axes). Touches only
+    its own scratch assets, deleted at the end."""
     c = client()
-    path, lab = WORK[who], LABEL[who]
-    face, probe = f"{ANIM}/AS_exp_{who}_gaze", f"{ANIM}/AS_exp_{who}_rollprobe"
-    fr = json.loads((OUT / who / "body_check.json").read_text())["frame"]
+    lab = LABEL[who]
+    seq, probe = f"{ANIM}/SEQ_RollTest_{who}", f"{ANIM}/AS_exp_{who}_rollprobe"
+    mesh = mesh_of(who, "Face")
+    fr = json.loads((OUT / who / "body_check.json").read_text())["frame"] if (OUT / who / "body_check.json").exists() \
+        else {"fwd": [0.0, 1.0, 0.0], "right": [-1.0, 0.0, 0.0]}
+    body = run(CAMS, {"label": lab, "cams": []})["body"]  # the component's yaw turns its frame into the world's
+    yw = math.radians(body["yaw"])
+
+    def world(v):  # component direction -> world (yaw only)
+        return [v[0] * math.cos(yw) - v[1] * math.sin(yw), v[0] * math.sin(yw) + v[1] * math.cos(yw), v[2]]
+
+    R, U, F = world(fr["right"]), [0.0, 0.0, 1.0], world(fr["fwd"])
 
     def angles(row, row0):
-        # seq.sample: [x, y, z, axis_x(3), axis_y(3), axis_z(3)] world; the head bone's axes in its rest are unknown,
-        # so compare each axis's direction with the zero run and report the rotation about the body's frame
         out = {}
         for k, (i0, i1) in {"x": (3, 6), "y": (6, 9), "z": (9, 12)}.items():
-            a, b = row0[i0:i1], row[i0:i1]
-            ax = S.cross(a, b)
-            out[k] = [round(math.degrees(math.asin(max(-1.0, min(1.0, S.dot(ax, v))))), 2)
-                      for v in (fr["right"], [0.0, 0.0, 1.0], fr["fwd"])]
-        return out  # per bone axis: [pitch about right, yaw about up, roll about forward] deg
+            ax = S.cross(row0[i0:i1], row[i0:i1])
+            out[k] = [round(math.degrees(math.asin(max(-1.0, min(1.0, S.dot(ax, v))))), 2) for v in (R, U, F)]
+        return out
 
-    res, rows = {}, {}
+    ok(c.op("seq.new", path=seq, start=0, end=24, fps=24, replace=True))
+    rows = {}
     try:
         for name, val in ((None, 0.0), ("HeadPitch", deg), ("HeadPitch", -deg), ("HeadYaw", deg), ("HeadYaw", -deg),
                           ("HeadRoll", deg), ("HeadRoll", -deg)):
-            run(PROBE, {"face": face, "probe": probe, "name": name, "val": float(val)})
-            ok(c.op("seq.set_anim", path=path, component="Face", anim=probe, label=lab))
-            m = ok(c.op("seq.sample", path=path, actor_label=lab, component="Face", bones=["head"], frames=[2],
+            ok(c.op("anim.new", path=probe, skeleton=mesh, length_s=1.0, fps=30, replace=True))
+            ok(c.op("anim.write_curves", anim=probe, curves={n: [[0.0, 1.0], [val, val] if n == name else [0.0, 0.0]]
+                                                              for n in ("HeadPitch", "HeadYaw", "HeadRoll")}))
+            ok(c.op("seq.anim", path=seq, label=lab, component="Face", sections=[{"anim": probe, "start": 0,
+                                                                                 "end": 24}]))
+            m = ok(c.op("seq.sample", path=seq, actor_label=lab, component="Face", bones=["head"], frames=[12],
                         ticks=8))
             rows[f"{name}{val:+g}" if name else "zero"] = m["bones"]["head"][0]
     finally:
-        ok(c.op("seq.set_anim", path=path, component="Face", anim=face, label=lab))
-        ok(c.exec_code(f"import unreal\nunreal.EditorAssetLibrary.delete_asset({probe!r})\nresult = True"))
+        ok(c.exec_code("import unreal\nfrom fmbridge.ops.assets import free\n"
+                       f"[free(p) for p in ({seq!r}, {probe!r}) if unreal.EditorAssetLibrary.does_asset_exist(p)]\n"
+                       "result = True"))
     z = rows.pop("zero")
-    for k, r in rows.items():
-        res[k] = angles(r, z)
+    res = {k: angles(r, z) for k, r in rows.items()}
     keep(who, "rolltest", res)
-    return {"deg": deg, "per_axis_[pitch,yaw,roll]": res,
-            "read": "for each curve, the largest of pitch/yaw/roll (any bone axis, all agree for a rigid turn) is what it does"}
+    return {"deg": deg, "per_axis_pitch_yaw_roll": res,
+            "read": "per curve, the largest of [pitch, yaw, roll] is what it does; all zero = the curves do not move "
+                    "the head on the live face (it rides the body: 5.8)"}
 
 
 LIP_GAP = ("FACIAL_C_LipUpper", "FACIAL_C_LipLower")
