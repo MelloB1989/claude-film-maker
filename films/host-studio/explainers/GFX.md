@@ -43,5 +43,5 @@ panels sit naturally next to the warm presenter shots.**
   driver a branch + render command. `composite.py` reads `<scene>_full.mov` / `<scene>_panel.mov` from that folder.
 - Captions are NOT the graphics' job: composite.py draws word-chunk captions over EVERY shot, full-frame scenes
   included (QA: every VO word captioned, in order; ruling 07 Nov 16:50). So on ALL scenes, full and panel, keep the
-  caption band y 950-1050 (the bottom 130 px) free of text and key content: a soft darkening there is fine. Keyword
+  bottom 15 % (y 918-1080, the caption safe area) free of their own text and key visuals: a soft darkening there is fine. Keyword
   pops in the graphic stay (they are the graphic, not captions).
