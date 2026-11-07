@@ -159,14 +159,16 @@ def cmd_solve(who: str, only=None) -> dict:
                            mood=mood, intensity=inten, process_mask="mouth", head=False, blinks=False,
                            fallback=False, timeout=1800))
         out[k] = {"anim": r["anim"], "timing": r.get("timing"), "options": r.get("options"),
-                  "missing": r.get("missing_options")}
+                  "missing": r.get("missing_options"), "sha256": __import__("hashlib").sha256(
+                      (HERE / ln["file"]).read_bytes()).hexdigest()}
         if not (r.get("timing") or {}).get("ok", False):
             print(f"WARNING {k}: timing {r.get('timing')}", file=sys.stderr)
         if r.get("missing_options"):
             print(f"WARNING {k}: missing {r.get('missing_options')} (full-face solve? compose keeps only speech)",
                   file=sys.stderr)
         print(k, json.dumps(out[k]), flush=True)
-    keep(who, "solve", out)
+    old = json.loads((OUT / who / "solve.json").read_text()) if (OUT / who / "solve.json").exists() else {}
+    keep(who, "solve", {**old, **out})
     return out
 
 
@@ -562,31 +564,37 @@ BODY_BONES = ["pelvis", "thigh_l", "thigh_r", "calf_l", "calf_r", "foot_l", "foo
               "middle_03_r", "index_03_l", "index_03_r", "thumb_03_l", "thumb_03_r"]
 
 
-def breath(t: list, z: list) -> dict:
-    """Breaths per minute and the median rise (mm) of a sternum height trace: peaks of the smoothed, detrended
-    signal at least 1.6 s apart."""
+def breath(t: list, pts: list) -> dict:
+    """Breaths per minute and the median rise (mm) of the sternum (spine_05, a list of [x, y, z] cm at times t): the
+    trace projected on its main axis of motion after a 4 s trend is removed, band-passed to 0.13-0.37 Hz (agent-09's
+    breathing band); the rate from the dominant frequency there, the rise from each cycle's peak-to-trough."""
     import numpy as np
-    x = np.asarray(z, float)
-    if len(x) < 10:
-        return {"per_min": None, "amp_mm": None}
-    k = 5
-    xs = np.convolve(x, np.ones(k) / k, mode="same")
-    trend = np.convolve(xs, np.ones(61) / 61, mode="same") if len(xs) > 61 else np.full_like(xs, xs.mean())
-    y = xs - trend
-    dt = (t[-1] - t[0]) / (len(t) - 1)
-    gap = int(1.6 / dt)
-    peaks, troughs = [], []
-    for i in range(1, len(y) - 1):
-        if y[i] >= y[i - 1] and y[i] > y[i + 1] and (not peaks or i - peaks[-1] >= gap):
-            peaks.append(i)
+    x = np.asarray(pts, float)
+    t = np.asarray(t, float)
+    if len(x) < 32:
+        return {"per_min": None, "amp_mm": None, "error": "trace too short"}
+    dt = float(np.median(np.diff(t)))
+    k = max(3, int(round(4.0 / dt)) | 1)
+    pad = np.pad(x, ((k // 2, k // 2), (0, 0)), mode="edge")
+    trend = np.stack([np.convolve(pad[:, i], np.ones(k) / k, mode="valid") for i in range(3)], axis=1)
+    d = x - trend[:len(x)]
+    _, _, vt = np.linalg.svd(d - d.mean(0), full_matrices=False)
+    y = d @ vt[0]
+    f = np.fft.rfftfreq(len(y), dt)
+    Y = np.fft.rfft(y - y.mean())
+    band = (f >= 0.13) & (f <= 0.37)
+    if not band.any():
+        return {"per_min": None, "amp_mm": None, "error": "no band"}
+    f0 = float(f[band][np.argmax(np.abs(Y[band]))])
+    yb = np.fft.irfft(np.where(band | ((f > 0.08) & (f < 0.5)), Y, 0), len(y))
+    per = 1.0 / f0
+    step = max(1, int(per / dt))
     amps = []
-    for a, b in zip(peaks, peaks[1:]):
-        lo = int(np.argmin(y[a:b])) + a
-        troughs.append(lo)
-        amps.append((y[a] + y[b]) / 2 - y[lo])
-    span = t[peaks[-1]] - t[peaks[0]] if len(peaks) > 1 else 0.0
-    return {"per_min": round(60.0 * (len(peaks) - 1) / span, 2) if span > 0 else None,
-            "amp_mm": round(10.0 * float(np.median(amps)), 2) if amps else None, "cycles": len(peaks) - 1}
+    for i0 in range(0, len(yb) - step, step):
+        seg = yb[i0:i0 + step]
+        amps.append(float(seg.max() - seg.min()))
+    return {"per_min": round(60.0 * f0, 2), "amp_mm": round(10.0 * float(np.median(amps)), 2) if amps else None,
+            "cycles": len(amps), "axis": [round(float(v), 3) for v in vt[0]]}
 
 
 def cmd_bodycheck(who: str, seq: str = "", every: int = 2) -> dict:
@@ -612,7 +620,7 @@ def cmd_bodycheck(who: str, seq: str = "", every: int = 2) -> dict:
     sz = []
     for i, f in enumerate(fr):
         A = {b: to_actor(m["bones"][b][i][:3]) for b in BODY_BONES if b in m["bones"]}
-        sz.append(A["spine_05"][2])
+        sz.append(A["spine_05"])
         for s in "lr":
             for b in (f"hand_{s}", f"middle_03_{s}", f"index_03_{s}", f"thumb_03_{s}", f"lowerarm_{s}"):
                 p = A.get(b)
@@ -650,13 +658,68 @@ def cmd_bodycheck(who: str, seq: str = "", every: int = 2) -> dict:
     keep(who, "bodycheck", res)
     d = HERE / "numbers" / FILM[who]
     d.mkdir(parents=True, exist_ok=True)
-    (d / "body.json").write_text(json.dumps({"source": f"perform.py bodycheck --who {who} on {path}",
-                                             "numbers": numbers}, indent=1))
+    where = f"{path} f0-{n - 1} every {every}"
+    gate = {k: ({"value": v, "where": where} if v is not None else {"value": None, "error": br.get("error", "not measured")})
+            for k, v in numbers.items()}
+    (d / "body.json").write_text(json.dumps({"gate": gate, "source": f"perform.py bodycheck --who {who}"}, indent=1))
     return res
 
 
+LIP_GAP = ("FACIAL_C_LipUpper", "FACIAL_C_LipLower")
+
+
+def cmd_numbers(who: str, seq: str = "") -> dict:
+    """agent-09's lips rows for this film -> numbers/<film>/lips.json: the curve items from the placed check
+    (lips_placed.json: lag vs each line's own solve, track r, onset lead, silences), lips.lead_in_cm from the lip gap
+    on the evaluated face (cast_gate's lipgap: upper to lower lip bone, mean |change| per frame in the silence before
+    each on-camera line, clipped to the gap after the line before), lips.cues_fresh from the WAVs' hashes at solve
+    time vs now."""
+    import hashlib
+    from filmtools.unreal.cli_lipsync import gate_numbers
+    rep = json.loads((OUT / who / "lips_placed.json").read_text())
+    rep.setdefault("fps", FPS)
+    g = gate_numbers({who: rep}, {}, None, {})["gate"]
+    g.pop("lips.render_conclusive", None)
+    g["lips.render_lag_frames"] = {"value": None, "error": "INFO: the render measure is invalid (07 Nov ruling)"}
+    solved = json.loads((OUT / who / "solve.json").read_text())
+    stale = [k for k, v in solved.items()
+             if v.get("sha256") != hashlib.sha256((HERE / "audio" / FILM[who] / "lines" / f"{k}.wav").read_bytes()).hexdigest()]
+    g["lips.cues_fresh"] = {"value": int(not stale), "where": "every line WAV = the one solved" if not stale
+                            else f"changed since the solve: {stale}"}
+    path = seq or SEQ[who]
+    lines = cues(who)["lines"]
+    on = [(int(round(a * FPS)), int(round(b * FPS))) for a, b, _ in cue_sheet(who)["on_cam"]]
+    wins = []
+    for i, ln in enumerate(lines):
+        f0 = ln["start_f"]
+        if not any(a <= f0 < b for a, b in on):
+            continue
+        lo = max(f0 - 24, (lines[i - 1]["end_f"] + 3) if i else 0, 0)
+        if f0 - lo >= 3:
+            wins.append((ln["id"], lo, f0))
+    fr = sorted({f for _, lo, f0 in wins for f in range(lo - 1, f0)})
+    if not fr:
+        g["lips.lead_in_cm"] = {"value": None, "error": "no on-camera line with a silence before it"}
+    else:
+        m = ok(client().op("seq.sample", path=path, actor_label=LABEL[who], component="Face", bones=list(LIP_GAP),
+                           frames=fr, ticks=2, timeout=3600))
+        gap = {f: S.norm(S.sub(m["bones"][LIP_GAP[0]][i][:3], m["bones"][LIP_GAP[1]][i][:3])) for i, f in enumerate(fr)}
+        worst = None
+        for k, lo, f0 in wins:
+            d = [abs(gap[f] - gap[f - 1]) for f in range(lo, f0) if f in gap and f - 1 in gap]
+            v = sum(d) / len(d) if d else 0.0
+            if worst is None or v > worst[0]:
+                worst = (v, f"{k} f{lo}-{f0 - 1}")
+        g["lips.lead_in_cm"] = {"value": round(worst[0], 4), "where": worst[1]}
+    d = HERE / "numbers" / FILM[who]
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "lips.json").write_text(json.dumps({"gate": g, "source": f"perform.py numbers --who {who} on {path}"},
+                                            indent=1))
+    return {"gate": g}
+
+
 STEPS = ["push", "solve", "bias", "compose", "check:solve", "workseq", "body", "cams", "life", "face", "check:face",
-         "sync", "gaze", "check:final", "place", "check:placed", "bodycheck"]
+         "sync", "gaze", "check:final", "place", "check:placed", "bodycheck", "numbers"]
 
 
 def step(name: str, who: str, a) -> dict:
@@ -667,7 +730,8 @@ def step(name: str, who: str, a) -> dict:
              "compose": lambda: cmd_compose(who), "workseq": lambda: cmd_workseq(who, a.fresh),
              "body": lambda: cmd_body(who, a.force), "cams": lambda: cmd_cams(who), "life": lambda: cmd_life(who),
              "face": lambda: cmd_face(who), "sync": lambda: cmd_sync(who), "gaze": lambda: cmd_gaze(who),
-             "place": lambda: cmd_place(who, a.seq), "preview": lambda: cmd_preview(who, a.seq), "bodycheck": lambda: cmd_bodycheck(who, a.seq),
+             "place": lambda: cmd_place(who, a.seq), "preview": lambda: cmd_preview(who, a.seq),
+             "numbers": lambda: cmd_numbers(who, a.seq), "bodycheck": lambda: cmd_bodycheck(who, a.seq),
              "calibrate_body": lambda: cmd_calibrate_body(who)}[name]()
     return r
 
@@ -675,7 +739,7 @@ def step(name: str, who: str, a) -> dict:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("cmd", choices=["push", "solve", "bias", "compose", "check", "workseq", "cams", "body", "life",
-                                    "calibrate_body", "face", "sync", "gaze", "place", "preview", "bodycheck", "all", "dry"])
+                                    "calibrate_body", "face", "sync", "gaze", "place", "preview", "numbers", "bodycheck", "all", "dry"])
     ap.add_argument("--who", required=True, choices=list(FILM))
     ap.add_argument("--stage", default="solve", choices=["solve", "face", "final", "placed"])
     ap.add_argument("--only", type=lambda s: s.split(","))
@@ -683,7 +747,7 @@ def main() -> None:
     ap.add_argument("--fresh", action="store_true")
     ap.add_argument("--force", action="store_true", help="body: write even if the pose fails its own check")
     ap.add_argument("--from", dest="start", default="push")
-    ap.add_argument("--to", dest="stop", default="bodycheck")
+    ap.add_argument("--to", dest="stop", default="numbers")
     a = ap.parse_args()
     if a.cmd == "dry":  # engine-free: the seated pose on a saved read (body_read.json) + the face args
         data = json.loads((OUT / a.who / "body_read.json").read_text())
