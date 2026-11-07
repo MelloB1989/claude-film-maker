@@ -293,7 +293,11 @@ def plan(who: str, only: set | None = None) -> dict:
                 deg = float(b["deg"] or 4.0) * (1.0 if (b["side"] or "R") == "R" else -1.0)
                 tilts.append({"t": round(b["apex"] - 0.25, 3), "until": round(b["apex"] + 0.95, 3), "roll_deg": deg,
                               "ease_s": 0.4})
-        if L["pause_smile"]:  # an open smile into the pause after the line (teeth; no lip-sync to keep)
+        if L["pause_smile"] and nxt >= cu["length_s"]:
+            # the take's last line: a closed Duchenne held to the end. lipsync.check wants the mouth shut in the end
+            # silence (box B, 08 Nov: the open smile's jaw read "opens 0.11 (allowed 0.1)" at f1386-1427)
+            ev.append(_ev("smile", t1 + 0.05, rng, 0.85, until=round(nxt - 0.3, 3)))
+        elif L["pause_smile"]:  # an open smile into the pause after the line (teeth; no lip-sync to keep)
             end = nxt - LIP_CLEAR_S - KINDS["open"][2]
             if end - t1 > 0.35:
                 ev.append(_ev("open", t1 + 0.05, rng, 0.85, until=round(end, 3)))

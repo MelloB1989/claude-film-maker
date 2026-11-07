@@ -40,3 +40,11 @@ def test_tilts_keep_blinks_off_their_eases():
     for t in p["tilts"]:
         assert any(a <= t["t"] and t["t"] + t["ease_s"] <= b for a, b in p["avoid_blinks"])
         assert any(a <= t["until"] and t["until"] + t["ease_s"] <= b for a, b in p["avoid_blinks"])
+
+
+def test_mouth_shut_in_the_end_silence():
+    cu = FA.cue("her")
+    last = cu["words"][-1]["t1"]
+    for e in FA.plan("her")["expressions"]:
+        if e["until"] + e["release_s"] > last:
+            assert not {n.rstrip("*LR") for n in e["preset"]} & {"jawOpen", "mouthUpperLipRaise"}, e
