@@ -21,6 +21,19 @@ from seatkit import add, sub, mul, dot, cross, norm, unit, ortho, qmul, qinv, qr
 
 FINGERS = ("index", "middle", "ring", "pinky", "thumb")
 
+# Hooks for the code-generated motion (the operator, 08 Nov: no motion libraries; every gesture generated, unique):
+#   gesture_style.py (agent-08) beside this file, any of:
+#     envelope(phase, u, event) -> weight 0..1+ (phase prep|hold|retract, u 0..1): the stroke's time profile
+#       (min-jerk, overshoot past 1 on the stroke, settle); default smoothstep in, hold 1, smoothstep out
+#     vary(pose: HandPose, event, hand) -> HandPose: seeded per-event variation of the goal (nothing repeats)
+#     fingers(event, hand, w) -> {finger: extra curl deg}: finger motion during the gesture (added to the shape)
+#   timing JSON (agent-10's prosody planner), passed to plan_from_sheet(timing=...): [{"line", "word_i",
+#     "prep_t", "stroke_t", "hold_s", "retract_s", "amp", "energy"}] overriding the sheet's per gesture
+try:
+    import gesture_style as STYLE_HOOK  # noqa: E402
+except Exception:
+    STYLE_HOOK = None
+
 # finger shapes: degrees of curl ADDED to the base pose's relaxed curl, per finger (joints 01/02/03 take 0.8/1/0.8)
 SHAPES = {
     "relaxed": {},
@@ -91,15 +104,25 @@ class Event:
     kind: str
     word: str = ""
     big: bool = False
+    energy: float = 0.5
+    seed: int = 0
+    retract: float = 0.35
+    detail: str = ""
+    line: str = ""
 
-    def weight(self, t: float, retract: float = 0.35) -> float:
-        if t <= self.prep or t >= self.stroke + self.hold + retract:
+    def weight(self, t: float, retract: float | None = None) -> float:
+        rt = self.retract if retract is None else retract
+        if t <= self.prep or t >= self.stroke + self.hold + rt:
             return 0.0
         if t < self.stroke:
-            return smooth((t - self.prep) / max(0.05, self.stroke - self.prep))
-        if t <= self.stroke + self.hold:
-            return 1.0
-        return 1.0 - smooth((t - self.stroke - self.hold) / retract)
+            phase, u = "prep", (t - self.prep) / max(0.05, self.stroke - self.prep)
+        elif t <= self.stroke + self.hold:
+            phase, u = "hold", (t - self.stroke) / max(1e-3, self.hold)
+        else:
+            phase, u = "retract", (t - self.stroke - self.hold) / rt
+        if STYLE_HOOK is not None and hasattr(STYLE_HOOK, "envelope"):
+            return float(STYLE_HOOK.envelope(phase, u, self))
+        return {"prep": smooth(u), "hold": 1.0, "retract": 1.0 - smooth(u)}[phase]
 
 
 @dataclass
@@ -154,13 +177,20 @@ def scaled(p: HandPose, k: float) -> HandPose:
     return replace(p, off=off)
 
 
-def plan_from_sheet(sheet: dict, cues: dict, tilts: list | None = None, base_lean: float = 4.0) -> Plan:
-    """agent-11's acting sheet (lines[].body01) + the cue sheet (speaking spans) -> Plan."""
+def plan_from_sheet(sheet: dict, cues: dict, tilts: list | None = None, base_lean: float = 4.0,
+                    timing: list | None = None) -> Plan:
+    """agent-11's acting sheet (lines[].body01) + the cue sheet (speaking spans) -> Plan. `timing` (agent-10's
+    prosody planner) overrides each gesture's prep/stroke/hold/retract/amp/energy by (line, word_i)."""
     events, lean = [], []
+    tmap = {(str(x.get("line")), int(x.get("word_i", -1))): x for x in (timing or [])}
+    seed0 = 1009
     for ln in sheet["lines"]:
         b = ln.get("body01") or {}
         n_count = 0
-        for g in b.get("gestures", []):
+        for g0 in b.get("gestures", []):
+            g = {**g0, **{k: v for k, v in tmap.get((str(b.get("line", ln.get("id"))), int(g0.get("word_i", -2))),
+                                                     {}).items() if k in ("prep_t", "stroke_t", "hold_s", "retract_s",
+                                                                          "amp", "energy")}}
             if g.get("type") == "count":
                 n_count += 1
             amp = float(g.get("amp", {"small": 0.3, "medium": 0.55, "big": 0.85}.get(g.get("size"), 0.55)))
@@ -170,9 +200,16 @@ def plan_from_sheet(sheet: dict, cues: dict, tilts: list | None = None, base_lea
             if pl is not None:  # the left (mic side) stays below and inside the mic line, whatever the amp
                 pl = replace(pl, off=(pl.off[0], min(pl.off[1], 7.0), min(pl.off[2], -3.5)), ext=max(pl.ext, 34.0),
                              pron=min(pl.pron, 60.0))
-            events.append(Event(g.get("hand", "r"), float(g["prep_t"]), float(g["stroke_t"]),
-                                float(g.get("hold_s", 0.25)), pr, pl, g.get("type", "beat"), g.get("word", ""),
-                                g.get("size") == "big"))
+            seed0 += 1
+            ev = Event(g.get("hand", "r"), float(g["prep_t"]), float(g["stroke_t"]), float(g.get("hold_s", 0.25)),
+                       pr, pl, g.get("type", "beat"), g.get("word", ""), g.get("size") == "big",
+                       energy=float(g.get("energy", amp)), seed=seed0, retract=float(g.get("retract_s", 0.35)),
+                       detail=g.get("detail", ""), line=str(b.get("line", ln.get("id", ""))))
+            if STYLE_HOOK is not None and hasattr(STYLE_HOOK, "vary"):
+                ev.pose_r = STYLE_HOOK.vary(ev.pose_r, ev, "r")
+                if ev.pose_l is not None:
+                    ev.pose_l = STYLE_HOOK.vary(ev.pose_l, ev, "l")
+            events.append(ev)
         for k in b.get("lean", []):
             lean.append((float(k["t"]), float(k["deg"])))
     speaking = [(float(c["start"]), float(c["end"])) for c in cues["lines"]]
@@ -271,9 +308,20 @@ class Performer(S.Seater):
             parts.append((w, p))
             if e.big or e.kind in ("open", "size", "deictic", "count"):
                 big = max(big, w)
-        we = min(1.0, sum(w for w, _ in parts))
+        we = min(1.3, sum(w for w, _ in parts))  # > 1: an overshoot past the goal (envelope hook), then settle
+        extra = {}
+        if STYLE_HOOK is not None and hasattr(STYLE_HOOK, "fingers"):
+            for e in self.plan.events:
+                w = e.weight(t)
+                if w > 0 and (e.hand == s or e.hand == "both"):
+                    for k, v in (STYLE_HOOK.fingers(e, s, w) or {}).items():
+                        extra[k] = extra.get(k, 0.0) + float(v)
         base = HIGH_REST
-        hp = blend_poses([(1.0 - we, base)] + [(w / max(1.0, sum(x for x, _ in parts)) * we, p) for w, p in parts])
+        tot = sum(x for x, _ in parts) or 1.0
+        hp = blend_poses([(1.0 - we, base)] + [(w / tot * we, p) for w, p in parts])
+        if extra:
+            sh = dict(hp.shape) if isinstance(hp.shape, dict) else dict(SHAPES.get(hp.shape, {}))
+            hp = replace(hp, shape={k: sh.get(k, 0.0) + extra.get(k, 0.0) for k in FINGERS})
         off = hp.off
         tgt = [st_pt[0] + off[0], st_pt[1] + sg * off[1], st_pt[2] + off[2]]
         # pauses: down to the desk rest (forearms on the edge)
@@ -481,12 +529,12 @@ def metrics(perf: Performer, t0: float, t1: float, fps: float = 30.0) -> dict:
 
 
 def build(data: dict, st, sy, sheet: dict, cues: dict, tilts: list, length_s: float, fps: int = 30,
-          check_every: int = 6) -> tuple:
+          check_every: int = 6, timing: list | None = None) -> tuple:
     """seatkit.build for the performance: the seated pose with the plan driving the upper body, as tracks (constant
     for the bones that never move, per key for spine, neck, head, clavicles, arms, hands and fingers). Returns (doc
     for perform.py's WRITE, summary with the checks and the body rows' numbers)."""
     sk = S.Skeleton.from_read(data)
-    plan = plan_from_sheet(sheet, cues, tilts)
+    plan = plan_from_sheet(sheet, cues, tilts, timing=timing)
     se, tuned = S.autotune(sk, st, sy)
     perf = Performer(sk, st, se.sy, plan)
     n = int(round(length_s * fps)) + 1
@@ -531,7 +579,8 @@ def build(data: dict, st, sy, sheet: dict, cues: dict, tilts: list, length_s: fl
         issues.append({"code": "body.arm_torso", "message": f"upper arm within {min(clear.values()):.1f} cm of the "
                        "torso/breast model (line 3)", "value": min(clear.values())})
     summary = {"pass": not issues, "issues": issues[:30], "n_issues": len(issues), "tuned": tuned, "rows": rows,
-               "events": len(plan.events), "moving_bones": len(moving), "frame": {"fwd": perf.F["fwd"],
+               "events": len(plan.events), "moving_bones": len(moving),
+               "hooks": {"style": bool(STYLE_HOOK), "timing": bool(timing)}, "frame": {"fwd": perf.F["fwd"],
                                                                                    "right": perf.F["right"]},
                "rest": S.check(perf, perf.fk({**const, **first}))}
     doc = {"length_s": length_s, "fps": fps, "n_keys": n, "const": const, "keyed": keyed}

@@ -373,7 +373,8 @@ def job():
         import gesturekit as GK
         importlib.reload(GK)
         doc, summary = GK.build(data, S.Set(**P["set"]), S.Style(**P["style"]), P["perform"]["sheet"],
-                                P["perform"]["cues"], P["perform"]["tilts"], P["length_s"], P["fps"])
+                                P["perform"]["cues"], P["perform"]["tilts"], P["length_s"], P["fps"],
+                                timing=P["perform"].get("timing"))
     else:
         gs = [S.Gesture(**x) for x in P["gestures"]]
         doc, summary = S.build(data, S.Set(**P["set"]), S.Style(**P["style"]), gs, P["length_s"], P["fps"])
@@ -432,7 +433,10 @@ def perform_params(who: str) -> dict:
     tilts = json.loads((a / f"tilts_{who}.json").read_text()) if (a / f"tilts_{who}.json").exists() else []
     if isinstance(tilts, dict):
         tilts = tilts.get("tilts", [])
-    return {"sheet": json.loads((a / f"{who}.json").read_text()), "cues": cues(who), "tilts": tilts}
+    timing = json.loads((a / f"timing_{who}.json").read_text()) if (a / f"timing_{who}.json").exists() else None
+    if isinstance(timing, dict):
+        timing = timing.get("gestures", [])
+    return {"sheet": json.loads((a / f"{who}.json").read_text()), "cues": cues(who), "tilts": tilts, "timing": timing}
 
 
 def cmd_body(who: str, force: bool = False, perform: bool = False) -> dict:
@@ -444,6 +448,8 @@ def cmd_body(who: str, force: bool = False, perform: bool = False) -> dict:
     extra = {}
     if perform:
         client().push(str(HERE / "gesturekit.py"), box(who, "kit", "gesturekit.py"))
+        if (HERE / "gesture_style.py").exists():  # agent-08's generated kinematics (envelope / vary / fingers)
+            client().push(str(HERE / "gesture_style.py"), box(who, "kit", "gesture_style.py"))
         bp["style"].update(PERFORM_STYLE)
         extra = {"perform": perform_params(who)}
     r = run(BODY, {"kit_dir": kit, "read": READ, "label": LABEL[who], "idle": IDLE, "world": WORLD_BONES,
