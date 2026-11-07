@@ -718,7 +718,8 @@ def cmd_numbers(who: str, seq: str = "") -> dict:
     """agent-09's lips rows for this film -> numbers/<film>/lips.json: the curve items from the placed check
     (lips_placed.json: lag vs each line's own solve, track r, onset lead, silences), lips.lead_in_cm from the lip gap
     on the evaluated face (cast_gate's lipgap: upper to lower lip bone, mean |change| per frame in the silence before
-    each on-camera line, clipped to the gap after the line before), lips.cues_fresh from the WAVs' hashes at solve
+    each on-camera line, clipped to the gap after the line before has faded and ending before the approved
+    LEAD_FRAMES anticipation; a gap with under 2 such frames is not judged), lips.cues_fresh from the WAVs' hashes at solve
     time vs now."""
     import hashlib
     from filmtools.unreal.cli_lipsync import gate_numbers
@@ -740,9 +741,12 @@ def cmd_numbers(who: str, seq: str = "") -> dict:
         f0 = ln["start_f"]
         if not any(a <= f0 < b for a, b in on):
             continue
-        lo = max(f0 - 24, (lines[i - 1]["end_f"] + 3) if i else 0, 0)
-        if f0 - lo >= 3:
-            wins.append((ln["id"], lo, f0))
+        # the silence proper: after the line before has faded out (compose fades 3 f past its last word) and before
+        # the approved anticipation (the mouth opens LEAD_FRAMES + up to 1 f ahead of the sound: r5/lipsync.md)
+        lo = max(f0 - 24, (lines[i - 1]["end_f"] + 4) if i else 0, 0)
+        hi = f0 - int(math.ceil(LEAD_FRAMES)) - 1
+        if hi - lo >= 2:
+            wins.append((ln["id"], lo, hi))
     fr = sorted({f for _, lo, f0 in wins for f in range(lo - 1, f0)})
     if not fr:
         g["lips.lead_in_cm"] = {"value": None, "error": "no on-camera line with a silence before it"}
