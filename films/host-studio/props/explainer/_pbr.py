@@ -143,8 +143,8 @@ def tex_brushed(n, seed=2, base=(0.86, 0.865, 0.87)):
     h = 0.6 * s - 1.5 * scratches
     t = np.clip(0.5 + 0.12 * s + 0.08 * noise(n, 200, seed + 3), 0, 1)
     col = mix(base, (0.70, 0.705, 0.71), t * 0.6)
-    rough = np.clip(0.30 + 0.06 * s + 0.05 * noise(n, 120, seed + 4) + 0.2 * scratches, 0.15, 0.6)
-    return col, normal_from_height(h, 0.25), np.ones((n, n)), rough, np.ones((n, n))
+    rough = np.clip(0.30 + 0.03 * s + 0.03 * noise(n, 120, seed + 4) + 0.08 * scratches, 0.2, 0.45)
+    return col, normal_from_height(h, 0.02), np.ones((n, n)), rough, np.ones((n, n))
 
 
 def tex_powder(n, seed=3, base=(0.045, 0.045, 0.048), rough0=0.48):
@@ -153,14 +153,14 @@ def tex_powder(n, seed=3, base=(0.045, 0.045, 0.048), rough0=0.48):
     speck = noise(n, 1.0, seed + 2)
     col = mix(base, (0.06, 0.06, 0.064), np.clip(0.5 + 0.25 * speck, 0, 1))
     rough = np.clip(rough0 + 0.05 * peel + 0.04 * speck, 0, 1)
-    return col, normal_from_height(peel, 0.6), np.ones((n, n)), rough, np.zeros((n, n))
+    return col, normal_from_height(peel, 0.3), np.ones((n, n)), rough, np.zeros((n, n))
 
 
 def tex_rubber(n, seed=4, base=(0.048, 0.048, 0.05)):
     g = noise(n, 1.5, seed) * 0.6 + noise(n, 8, seed + 1) * 0.4
     col = mix(base, (0.07, 0.07, 0.072), np.clip(0.5 + 0.2 * g, 0, 1))
     rough = np.clip(0.82 + 0.05 * g, 0, 1)
-    return col, normal_from_height(g, 0.4), cavity_ao(g, 4, 0.05), rough, np.zeros((n, n))
+    return col, normal_from_height(g, 0.08), cavity_ao(g, 4, 0.05), rough, np.zeros((n, n))
 
 
 def tex_grille(n, seed=5):
@@ -212,7 +212,7 @@ def tex_leather(n, seed=7, base=(0.038, 0.036, 0.036)):
     g = g * 0.7 + 0.3 * (1 - np.abs(noise(n, 4, seed + 1)))
     col = mix(base, (0.065, 0.062, 0.06), np.clip(g - 0.3, 0, 1))
     rough = np.clip(0.52 - 0.12 * g + 0.04 * noise(n, 80, seed + 2), 0, 1)
-    return col, normal_from_height(g, 0.9), cavity_ao(g, 5, 0.25), rough, np.zeros((n, n))
+    return col, normal_from_height(g, 0.4), cavity_ao(g, 5, 0.25), rough, np.zeros((n, n))
 
 
 def tex_plastic(n, seed=8, base=(0.035, 0.035, 0.037)):
@@ -220,14 +220,14 @@ def tex_plastic(n, seed=8, base=(0.035, 0.035, 0.037)):
     g = noise(n, 2.2, seed) * 0.7 + noise(n, 10, seed + 1) * 0.3
     col = mix(base, (0.05, 0.05, 0.052), np.clip(0.5 + 0.2 * g, 0, 1))
     rough = np.clip(0.42 + 0.05 * g, 0, 1)
-    return col, normal_from_height(g, 0.35), np.ones((n, n)), rough, np.zeros((n, n))
+    return col, normal_from_height(g, 0.08), np.ones((n, n)), rough, np.zeros((n, n))
 
 
 def tex_steel(n, seed=9):
     s = noise(n, 1.0, seed, aniso=30)
     col = mix((0.80, 0.80, 0.81), (0.70, 0.70, 0.71), np.clip(0.5 + 0.2 * s, 0, 1))
     rough = np.clip(0.18 + 0.04 * s, 0, 1)
-    return col, normal_from_height(s, 0.1), np.ones((n, n)), rough, np.ones((n, n))
+    return col, normal_from_height(s, 0.02), np.ones((n, n)), rough, np.ones((n, n))
 
 
 def tex_ceramic(n, seed=10):

@@ -294,6 +294,7 @@ def build_desk(M):
             leg = S.cylinder(f"leg{sx}{sy}", b, t, 0.0145, M["Walnut"], segs=32, r2=0.025)
             P.uv_grain_box(leg, 2, P.TILE_M["Walnut"])
             legs.append(leg)
+            parts.append(leg)
             parts.append(S.lathe(f"foot{sx}{sy}", [(0, 0), (0.013, 0), (0.0145, 0.003), (0.0145, 0.009), (0, 0.009)],
                                  [M["Rubber"]], segs=24, matrix=Matrix.Translation((b.x, b.y, 0))))
             hulls.append(P.cyl_pts((b.x, b.y), 0.016, 0.0, 0.01, 8) + P.cyl_pts((t.x, t.y), 0.026, t.z - 0.01, t.z, 8))
