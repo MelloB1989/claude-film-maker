@@ -74,7 +74,10 @@ sequence, every presenter camera**, not on the karma shots:
   off (MaxShrink 0), so the row reads 0 only when `shrink_live` proves 0 verts moved. His explainer moves to box B (the
   orchestrator, 07 Nov), so **garment.head_state_parity == 1** comes first: box A's head files match on box B by checksum,
   and cull_live reads the same culled count and lowest z on both boxes.
-- **Her occlusions (the orchestrator, by eye on box B clip_r7):** Top>Overshirt at the open front, Body>Top where the
+- **Netflix V2 (the orchestrator's pick, 07 Nov): her fitted white ribbed Top with NO overshirt.** clip_r7's
+  occlusion baseline was taken with the overshirt, so it no longer applies. Every pair counts raw again until the
+  orchestrator rules a V2 occlusion by eye on a fresh run.
+- **(Superseded by V2) Her occlusions (the orchestrator, by eye on box B clip_r7):** Top>Overshirt at the open front, Body>Top where the
   wrist sits in front of the torso, and Trousers>Top at the waist are occlusions, not clipping. From then on these
   pairs count only their excess over clip_r7's own worst (`qa.clip before=…/clip_r7/clip.json`), so a NEW poke still
   fails.
@@ -104,6 +107,12 @@ Both checks are the core `qa.clip` extension (`0ce1c3ae`, branch `fleet/agent-09
   `FACIAL_C_LipUpper/LipLower/L_LipCorner/R_LipCorner`; pass `"bones"` if the face names them otherwise.
 - **set.props_overlap == 0**: `qa.overlaps` on the set props (the mic arm in the desk, the chair in the desk).
   Confirm any hit with a still.
+
+### Streaming (box drivers)
+
+**shot.streaming_settled == 1**: every final job warms texture and virtual-texture streaming before its first frame.
+That first frame, in every camera, shows no hard-edged rectangular block. Netflix V2's CU f1300 had two (a pale one and a
+wood mosaic) at the bottom centre.
 
 ### Exposure (agent-09 runs it on the box)
 

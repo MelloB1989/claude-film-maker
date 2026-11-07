@@ -171,8 +171,8 @@
    "where": "the SEATED pose, every presenter camera of the film (qa.clip / qa.garment_look on the explainer sequence)"
   },
   "garment.pair_fraction": {
-   "where": "the SEATED pose on the finals' own state, every presenter camera. Pairs the orchestrator ruled OCCLUSIONS by eye (netflix, box B clip_r7: Top>Overshirt = the open front, Body>Top = the wrist in front of the torso, Trousers>Top = the waist) count only their EXCESS over clip_r7's own worst for that pair (qa.clip before=clip_r7/clip.json, slack 0.01); every other pair counts raw",
-   "how": "film-ue op qa.clip ... before=/srv/ue/qa/expl/<film>/clip_r7/clip.json on the finals' state -> the worst over pairs of (fraction - baseline worst, floored at 0) for the ruled pairs, raw fraction for the rest -> numbers/<film>/clip.json"
+   "where": "the SEATED pose on the finals' own state, every presenter camera. NETFLIX V2 (the orchestrator, 07 Nov): her fitted white ribbed Top, NO overshirt, so clip_r7's occlusion baseline (taken with the overshirt) no longer applies: every pair counts RAW again (Body>Top, Trousers>Top, Top/Body vs Chair/Desk) until the orchestrator rules a V2 occlusion by eye on a fresh run, which then becomes that pair's baseline (qa.clip before=)",
+   "how": "film-ue op qa.clip ... (pairs without Overshirt) on the finals' state -> worst raw fraction, or the excess over a V2 baseline the orchestrator ruled -> numbers/<film>/clip.json"
   },
   "garment.hem_flare_ratio": {
    "where": "the SEATED pose, every presenter camera of the film (qa.clip / qa.garment_look on the explainer sequence)"
@@ -468,6 +468,21 @@
     "his explainer on box B from the 16:14 clone: loop-2 neck (shrink 3.0, the 'cut'), not the passed cull"
    ],
    "why": "the orchestrator, 07 Nov: his explainer moves to box B; it must carry exactly the neck fix that passed on box A"
+  },
+  "shot.streaming_settled": {
+   "area": "shot",
+   "track": "box drivers",
+   "op": "==",
+   "line": 1,
+   "unit": "bool",
+   "what": "texture/virtual-texture streaming settled before every final job: the render spec carries the warm-up (engine warm-up frames + render warm-up, r.Streaming.FullyLoadUsedTextures 1 or an equivalent VT/pool warm-up), and the job's first frame shows no unresolved tile (a hard-edged rectangular block)",
+   "where": "every final job, its first frame in every camera; the netflix CU first",
+   "how": "the driver's render spec read-back + the first frame of each job to the orchestrator's eye -> numbers/<film>/box.json",
+   "must_fail": [
+    0,
+    "netflix V2 her_CAM_CU_f1300 (orchestrator, 07 Nov): two rectangular blocks at the bottom centre (x 1055-1250, y 1010-1080), a pale one and a wood mosaic: an unresolved VT/streaming tile or a near-camera object"
+   ],
+   "why": "the orchestrator: it must not exist in any final frame"
   }
  },
  "not_attempted": {
