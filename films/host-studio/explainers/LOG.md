@@ -135,3 +135,8 @@ tested in `test_seatkit.py`), `gestures.json` (the emphasis gestures per line).
     aws s3 cp --recursive /srv/r6/<film>/out/ s3://rf-render-788655295054-aps1/ue-linux/private/renders/r6/review/explain/
 `--placeholder` lets any missing presenter shot or graphic stand in as a labelled slug (a partial cut for review);
 without it a missing input stops the run and names the file.
+
+## agent-11
+
+- 16:55 ruling: captions on every line, over graphics too, one band in the bottom 15 %. Placeholders re-rendered.
+  agent-09 QA on them: captions.text_match 1 (157/157, 144/144), onset 84 ms, -14.1/-1.7 and -14.0/-1.7, 1080p 48 kHz.
