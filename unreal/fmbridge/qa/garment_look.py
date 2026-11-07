@@ -218,7 +218,8 @@ def local_spread(axial: list, radial: list, angle: list, top: float, *, depth: f
 
 
 def collar_stats(axial: list, radial: list, gap: list, *, window=(-8.0, 4.0), ring_cm: float = 2.0,
-                 band_cm: float = 4.0, angle: list | None = None, wall: list | None = None) -> dict:
+                 band_cm: float = 4.0, angle: list | None = None, wall: list | None = None,
+                 facing: list | None = None) -> dict:
     """The collar band round the neck at one frame. Per garment vertex: `axial` = its height along the neck axis
     from neck_01 (cm, + towards the head), `radial` = its distance from that axis, `gap` = its distance to the skin
     (face or body). In the axial window, the RING is the innermost garment (radial within ring_cm of the smallest)
@@ -226,6 +227,16 @@ def collar_stats(axial: list, radial: list, gap: list, *, window=(-8.0, 4.0), ri
     spread_cm: the band's radial p90 - p10 (a rolled or folded collar is thick), roll: gap over COLLAR_GAP_CM or
     spread over COLLAR_SPREAD_CM}. With `angle` (degrees round the neck axis, per vertex) the spread is LOCAL
     (local_spread: the worst place on the band's top COLLAR_ROLL_DEPTH_CM), else over the whole window."""
+    if facing is not None:
+        # round 6 (orchestrator): the collar rows judge what the shot camera SEES: only the band verts whose outward
+        # direction from the neck axis faces the camera this frame. His neck turning inside a static crew-neck opens
+        # the far side's gap/roll (S15 f1150, S17 f1397), which no camera sees; a stand-off or a roll on the
+        # camera side still fails, and too few facing verts is NOT measured (refused), never a pass
+        n_all = len(axial)
+        sel = [i for i in range(n_all) if facing[i]]
+        axial, radial, gap = [axial[i] for i in sel], [radial[i] for i in sel], [gap[i] for i in sel]
+        angle = [angle[i] for i in sel] if angle is not None else None
+        wall = [wall[i] for i in sel] if wall is not None else None
     pts = [(r, g) for a, r, g in zip(axial, radial, gap) if window[0] <= a <= window[1] and g == g]
     if not pts:
         return {"n": 0}
@@ -238,7 +249,7 @@ def collar_stats(axial: list, radial: list, gap: list, *, window=(-8.0, 4.0), ri
     if len(ring) < COLLAR_MIN_N:
         return {"n": 0, "too_few": len(ring)}
     band = [r for r, _ in pts if rmin - 0.5 <= r <= rmin + band_cm]
-    out = {"n": len(ring), "gap_cm": round(percentile(ring, 0.75), 3),
+    out = {"n": len(ring), "gap_cm": round(percentile(ring, 0.75), 3), **({"facing": True} if facing is not None else {}),
            "spread_cm": round(percentile(band, 0.9) - percentile(band, 0.1), 3)}
     if angle is not None:
         wl = wall if wall is not None else [True] * len(axial)
@@ -342,7 +353,10 @@ def look(m: dict, subject: str = "", *, ramps: dict | None = None, wpo_max_cm: f
                                "armor": COLLAR_GAP_CM}
         unm = col.get("roll_unmeasured") or 0
         terms["collar_roll"] = {"value": None if unm else col["roll_frames"], "score": None, "weight": 0.0, "cloth": 0,
-                                "armor": 1, "unmeasured_frames": unm}
+                                "armor": 1, "unmeasured_frames": unm, "camera_facing": bool(col.get("camera_facing"))}
+        if col.get("all"):  # INFO: the whole band (both sides), next to the camera-facing rows
+            terms["collar_gap_all"] = {"value": col["all"]["gap_cm"], "score": None, "weight": 0.0, "info": True}
+            terms["collar_roll_all"] = {"value": col["all"]["roll_frames"], "score": None, "weight": 0.0, "info": True}
         if unm:
             hard = True
             issues.append(issue("garment.collar_roll", "fail",
