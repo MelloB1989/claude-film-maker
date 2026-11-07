@@ -69,6 +69,8 @@ def gesture_pose(g: dict, hand: str, count_n: int) -> HandPose:
     kind, detail, size = g.get("type", "beat"), g.get("detail", ""), g.get("size", "medium")
     so = SIZE_OUT.get(size, 5.0)
     target = (g.get("target") or "").lower()
+    if detail == "pinch":  # whatever the kind ("size: pinch" = small): thumb and index almost touching, to her right
+        return HandPose((26.0, 15.0, 0.0), pron=70.0, ext=15.0, shape="pinch")
     if kind == "open":
         return HandPose((30.0, 14.0 + so, -2.0 + so * 0.3), pron=-40.0, ext=15.0, shape="open")
     if kind == "size":
@@ -91,10 +93,10 @@ def gesture_pose(g: dict, hand: str, count_n: int) -> HandPose:
     if detail in ("pinch",):
         return HandPose((26.0, 12.0, 2.0), pron=70.0, ext=15.0, shape="pinch")
     # beat: from the high rest a short down-stroke, palm in/down
-    return HandPose((27.0, 11.0 + so * 0.4, -3.0), pron=35.0, ext=6.0, shape="relaxed")
+    return HandPose((29.0, 12.0 + so * 0.4, -2.0), pron=35.0, ext=12.0, shape="relaxed")
 
 
-HIGH_REST = HandPose((22.0, 8.0, -3.0), pron=70.0, ext=14.0, shape="relaxed")  # loose, fingertips near each other
+HIGH_REST = HandPose((22.0, 8.0, -1.0), pron=70.0, ext=14.0, shape="relaxed")  # loose, fingertips near each other
 
 
 @dataclass
@@ -137,9 +139,11 @@ class Plan:
     lean: list  # [(t, deg)]
     tilts: list = field(default_factory=list)  # [{"t", "until", "roll_deg", "ease_s"}]
     base_lean: float = 4.0
+    gap_merge: float = 0.9  # pauses shorter than this keep the hands up (agent-10's timing can set it)
 
-    def speak_w(self, t: float, pre: float = 0.5, post: float = 0.6, gap_merge: float = 0.9) -> float:
+    def speak_w(self, t: float, pre: float = 0.5, post: float = 0.6, gap_merge: float | None = None) -> float:
         """1 while speaking (lines merged across gaps under gap_merge s), eased in/out."""
+        gap_merge = self.gap_merge if gap_merge is None else gap_merge
         spans = []
         for a, b in sorted(self.speaking):
             if not spans and a < 1.5:  # the take opens alive, hands already up (the sheet's 'pre')
@@ -186,12 +190,26 @@ def plan_from_sheet(sheet: dict, cues: dict, tilts: list | None = None, base_lea
     """agent-11's acting sheet (lines[].body01) + the cue sheet (speaking spans) -> Plan. `timing` (agent-10's
     prosody planner) overrides each gesture's prep/stroke/hold/retract/amp/energy by (line, word_i)."""
     events, lean = [], []
-    tmap = {(str(x.get("line")), int(x.get("word_i", -1))): x for x in (timing or [])}
+    gap_merge = 0.9
+    if isinstance(timing, dict):
+        gap_merge = float(timing.get("gap_merge", gap_merge))
+        timing = timing.get("gestures", [])
+    tmap = {(str(x.get("line")), int(x.get("word_i", -1))): x for x in (timing or []) if not x.get("add")}
+    adds = {}
+    for x in timing or []:  # agent-10: new gestures (beats on secondary stresses) the sheet doesn't have
+        if x.get("add"):
+            adds.setdefault(str(x.get("line")), []).append({"type": x.get("type", "beat"), "detail": x.get("detail", ""),
+                                                             "hand": x.get("hand", "r"), "size": x.get("size", "small"),
+                                                             "word": x.get("word", ""), "word_i": x.get("word_i", -1),
+                                                             **{k: x[k] for k in ("prep_t", "stroke_t", "hold_s",
+                                                                                  "retract_s", "amp", "energy")
+                                                                if k in x}})
     seed0 = 1009
     for ln in sheet["lines"]:
         b = ln.get("body01") or {}
         n_count = 0
-        for g0 in b.get("gestures", []):
+        lid = str(b.get("line", ln.get("id", "")))
+        for g0 in sorted(b.get("gestures", []) + adds.get(lid, []), key=lambda g: float(g.get("stroke_t", 0.0))):
             g = {**g0, **{k: v for k, v in tmap.get((str(b.get("line", ln.get("id"))), int(g0.get("word_i", -2))),
                                                      {}).items() if k in ("prep_t", "stroke_t", "hold_s", "retract_s",
                                                                           "amp", "energy")}}
@@ -202,10 +220,11 @@ def plan_from_sheet(sheet: dict, cues: dict, tilts: list | None = None, base_lea
             pr = scaled(gesture_pose(g, "r", n_count), k)
             pl = scaled(gesture_pose(g, "l", n_count), k) if g.get("hand") in ("both", "l") else None
             if pl is not None:  # the left (mic side) stays below and inside the mic line, whatever the amp
-                pl = replace(pl, off=(pl.off[0], min(pl.off[1], 7.0), min(pl.off[2], -3.5)), ext=max(pl.ext, 34.0),
+                pl = replace(pl, off=(min(pl.off[0], 26.0), min(pl.off[1], 4.5), -2.5), ext=max(pl.ext, 34.0),
                              pron=min(pl.pron, 60.0))
             seed0 += 1
-            ev = Event(g.get("hand", "r"), float(g["prep_t"]), float(g["stroke_t"]), float(g.get("hold_s", 0.25)),
+            prep = float(g["prep_t"])  # agent-10's prosody timing owns prep/stroke/hold/retract when present
+            ev = Event(g.get("hand", "r"), prep, float(g["stroke_t"]), float(g.get("hold_s", 0.25)),
                        pr, pl, g.get("type", "beat"), g.get("word", ""), g.get("size") == "big",
                        energy=float(g.get("energy", amp)), seed=seed0, retract=float(g.get("retract_s", 0.35)),
                        detail=g.get("detail", ""), line=str(b.get("line", ln.get("id", ""))))
@@ -217,7 +236,7 @@ def plan_from_sheet(sheet: dict, cues: dict, tilts: list | None = None, base_lea
         for k in b.get("lean", []):
             lean.append((float(k["t"]), float(k["deg"])))
     speaking = [(float(c["start"]), float(c["end"])) for c in cues["lines"]]
-    return Plan(events, speaking, lean, tilts or [], base_lean)
+    return Plan(events, speaking, lean, tilts or [], base_lean, gap_merge)
 
 
 # --- torso model and the arm clearance ---------------------------------------------------------------------------
@@ -273,7 +292,26 @@ class Performer(S.Seater):
         super().__init__(sk, st, replace(sy, lean=plan.base_lean))
         self.plan, self.tor, self.mic_side = plan, torso or Torso(), mic_side
         self._finger_info = self._fingers()
+        self._accented = self._accent_flags()
         self._ready = True
+
+    def _accent_flags(self) -> dict:
+        """{id(event): hands} for the strokes that need an accent: the same hand's pose barely changes from the
+        stroke before (< 5 cm, < 1 s after it), so without one the wrist would not move (agent-10's list: count 2/3,
+        a beat after a beat, a same-place size)."""
+        out = {}
+        for s in "lr":
+            prev = None
+            for e in sorted(self.plan.events, key=lambda e: e.stroke):
+                p = e.pose_r if s == "r" and e.hand in ("r", "both") else (
+                    e.pose_l if s == "l" and e.hand in ("l", "both") else None)
+                if p is None:
+                    continue
+                if (prev is not None and 0.4 <= e.stroke - prev[0] < 1.0 and e.kind in ("count", "beat")
+                        and norm(sub(list(p.off), list(prev[1].off))) < 5.0):
+                    out.setdefault(id(e), set()).add(s)
+                prev = (e.stroke + e.hold, p)
+        return out
 
     # the finger chains and their palm side (from the base pose's own relaxed curl)
     def _fingers(self) -> dict:
@@ -330,11 +368,16 @@ class Performer(S.Seater):
                 sh = dict(hp.shape) if isinstance(hp.shape, dict) else dict(SHAPES.get(hp.shape, {}))
                 hp = replace(hp, shape={k: sh.get(k, 0.0) + extra.get(k, 0.0) for k in FINGERS})
         off = hp.off
-        tgt = [st_pt[0] + off[0], st_pt[1] + sg * off[1], st_pt[2] + off[2]]
+        acc = self.accent(s, t)
+        tgt = [st_pt[0] + off[0] + acc[0], st_pt[1] + sg * (off[1] + acc[1]), st_pt[2] + off[2] + acc[2]]
+        if s == "l":  # the mic-side hand sits 1 cm back and a little lower than the right, whatever drew its pose
+            tgt = [tgt[0] - 1.0, tgt[1], tgt[2] - 0.8]
         # pauses: down to the desk rest (forearms on the edge)
         e0, w0, _ = self.elbow_rest(s, W)
         tgt = [w0[i] + (tgt[i] - w0[i]) * ws for i in range(3)]
-        tgt[2] += 6.0 * math.sin(math.pi * ws)  # an arc up off the desk and back, never through it
+        tgt[2] += 4.0 * math.sin(math.pi * ws)  # an arc up off the desk and back, never through it
+        if s == "l":  # and the mic-side hand's path bows in toward her midline, away from the mic in every camera
+            tgt = add(tgt, mul(self.fr[1], 4.0 * math.sin(math.pi * ws)))
         pole = add(add(mul(f, -0.3), mul(r if s == "r" else mul(r, -1.0), 0.9)), mul(u, -0.35))
         pole_rest = sub(self.comp(e0), self._fk_t("upperarm_" + s, "clavicle_" + s, W))
         pole = add(mul(unit(pole), ws), mul(unit(pole_rest), 1.0 - ws))
@@ -399,6 +442,30 @@ class Performer(S.Seater):
                 if e.big or e.kind in ("open", "size", "count"):
                     lift[s] = max(lift[s], 3.0 * w)
         return turn, lift
+
+    ACCENT_S = 0.24   # the accent's length: a dip (or push) into the stressed syllable and the rebound
+    ACCENT_CM = 3.5
+
+    def accent(self, s: str, t: float) -> tuple:
+        """The stroke itself, on top of the pose: every event's hand makes a short accent at its stroke (agent-10: a
+        stroke whose pose equals the one before barely moved the wrist; the count's next finger alone is not a
+        gesture): beats, presses and opens dip and rebound (down then up), counts and points push forward and back.
+        (fwd, out, up) cm in the sternum frame of that hand."""
+        fx = ox = zx = 0.0
+        for e in self.plan.events:
+            if not (e.hand == s or e.hand == "both") or s not in self._accented.get(id(e), ()):
+                continue
+            u = (t - (e.stroke - 0.06)) / self.ACCENT_S
+            if not 0.0 <= u <= 1.0:
+                continue
+            a = math.sin(math.pi * u) * self.ACCENT_CM * (0.6 + 0.8 * min(1.0, e.energy))
+            if s == "l" and e.hand == "both":
+                a *= 0.5  # the mic-side hand stays quiet
+            if e.kind in ("count", "deictic") or e.detail in ("raise_finger", "point"):
+                fx += a
+            else:
+                zx -= a
+        return fx, ox, zx
 
     CLEAR_WANT = 3.8  # cm: the 3 cm line plus a margin for the model
 
