@@ -139,3 +139,14 @@ def test_hands_in_frame_by_camera_kind():
     rows.update({f: {"camera": "CAM_WIDE", "in": True} for f in range(20, 30)})
     k = L.hands_fracs(rows)
     assert k["MCU"]["frac"] == 0.2 and k["MCU"]["frac"] < k["MCU"]["line"] and k["WIDE"]["frac"] == 1.0
+
+
+def test_smooth_min_jerk_beats_count_and_two_hands_count_once():
+    import math as m
+
+    def path(i, h):  # both hands up at z 90, a smooth 0.3 s stroke every second (min-jerk ramp), rest between
+        k = i % 24
+        s = 0.0 if k >= 8 else 10 * (lambda t: 10 * t**3 - 15 * t**4 + 6 * t**5)(k / 7)
+        return [s, 10.0 if h == "r" else -10.0, 90.0]
+    r = P.body_rows(samples(240, path), FPS, [[0, 240]], 71.0)
+    assert 0.8 <= r["body.gesture_onsets_per_s"]["value"] <= 1.3  # ~1/s, once for the two hands together
