@@ -44,7 +44,9 @@ BOX_PROPS = "/srv/ue/explainer/props"
 REVIEW_S3 = f"{BUCKET}/private/renders/r6/review/explain/"
 ACTOR = {"her": "Presenter", "him": "Host"}
 SEQ = {"her": f"{FOLDER}/SEQ_Explain_Her", "him": f"{FOLDER}/SEQ_Explain_Him"}
-STEPS = ["level", "props", "light", "cameras", "seq", "save"]
+STEPS = ["level", "props", "light", "cameras", "seq", "dress", "save"]
+# the presenter's dress pass (leaders, hair look, accessories; saves the level) and what she wears, per presenter
+DRESS = {"her": HERE.parent / "props/her_outfit_ue/dress_her.py", "him": HERE.parent / "props/his_outfit_ue/dress_him.py"}
 client = None  # filmtools.unreal.client, imported once FILM_UE_BOX is set
 
 
@@ -103,20 +105,27 @@ def step_level(who: str) -> None:
     if gone:
         op("level.delete", labels=gone)
     print("deleted:", gone)
-    # the sign (and its halo card and LEDs) comes down into the seated MCU's background, once (tagged)
+    # the sign (and its halo card and LEDs) at the studio's height + SIGN_DROP: each actor's studio z is kept in a tag
+    # the first time, so a re-run with another drop moves it from there, not from where the last run left it
     print("sign:", ex(f"""import unreal
-from fmbridge.ops import level as L
-moved = []
+moved = {{}}
 for a in unreal.get_editor_subsystem(unreal.EditorActorSubsystem).get_all_level_actors():
     lab = a.get_actor_label()
     if lab in ("Sign", "SignHalo") or (lab.startswith("Halo") and lab[4:].isdigit()):
-        if "exp_sign_drop" in [str(t) for t in a.tags]:
-            continue
         p = a.get_actor_location()
-        a.set_actor_location(unreal.Vector(p.x, p.y, p.z + {P.SIGN_DROP}), False, False)
-        a.tags = list(a.tags) + [unreal.Name("exp_sign_drop")]
-        moved.append(lab)
+        tags = [str(t) for t in a.tags]
+        orig = next((float(t.split("=")[1]) for t in tags if t.startswith("exp_studio_z=")), None)
+        if orig is None:
+            # round 6's first run tagged exp_sign_drop after moving it down 78 cm
+            orig = p.z + 78.0 if "exp_sign_drop" in tags else p.z
+            a.tags = [unreal.Name(t) for t in tags if t != "exp_sign_drop"] + [unreal.Name(f"exp_studio_z={{orig:.3f}}")]
+        a.set_actor_location(unreal.Vector(p.x, p.y, orig + {P.SIGN_DROP}), False, False)
+        moved[lab] = round(orig + {P.SIGN_DROP}, 2)
 result = moved"""))
+    # the window's garden card dimmed in this level only (its own instance; the studio's MI_K_Outside is shared)
+    op("look.material", name="MI_Exp_Outside", kind="Screen", texture="/Game/Studio/Textures/T_Outside",
+       intensity=6.0, roughness=1.0, folder=f"{FOLDER}/Materials")
+    op("look.apply", label="Outside", material=f"{FOLDER}/Materials/MI_Exp_Outside", slot=0)
     who_actor = ACTOR[who]
     op("level.move", label=who_actor, loc=list(P.MARK), rot_={"pitch": 0.0, "yaw": P.YAW, "roll": 0.0})
     print("presenter:", ex(f"""from fmbridge.ops import level as L
@@ -150,25 +159,24 @@ result = {{"rc": r.returncode, "err": r.stderr[-500:], "props": json.load(open(p
            texture_dest=f"{PROPS_DIR}/Textures", params={"Tiling": round(tiling, 4)})
         mats[slot] = mi
     print("materials:", sorted(mats))
-    for label, (name, loc, yaw) in P.PROPS.items():
+    for label, (name, loc, yaw, scale) in P.PROPS.items():
         if name not in by_name:
             print(f"MISSING {label}: no {name}.fbx under {PROPS_S3} (agent-05)")
             continue
-        place = meta.get("assets", {}).get(name, {}).get("placement_ue")
-        if place:  # agent-05's own transform for a posed prop wins over the plan's
-            loc, yaw = place["location"], place["yaw"]
+        # the plan's transform (r3: the boom mirrored to the -Y side; agent-05's props.json placement is the unmirrored
+        # one it was posed for)
         paths = op("assets.import", files=[by_name[name]], dest=PROPS_DIR, replace=True, combine=True, kind="static",
                    nanite=False, collision="none", materials=False, textures=False, name=name)
         mesh = next((x for x in paths if x.split("/")[-1].split(".")[0] == name), paths[0] if paths else "")
         if not mesh:
             raise SystemExit(f"{name}: import returned nothing")
         op("level.spawn", label=label, asset=mesh.split(".")[0], loc=list(loc),
-           rot_={"pitch": 0.0, "yaw": yaw, "roll": 0.0}, replace=True)
+           rot_={"pitch": 0.0, "yaw": yaw, "roll": 0.0}, scale=scale or [1.0, 1.0, 1.0], replace=True)
         slots = op("look.slots", label=label) or {}
         want = {sl: mats[sl] for sl in slots if sl in mats}
         if want:
             op("look.slots", label=label, materials=want)
-        print(f"{label}: {mesh} at {list(loc)} yaw {yaw}; slots {sorted(slots)}; undressed {sorted(set(slots) - set(want))}")
+        print(f"{label}: {mesh} at {list(loc)} yaw {yaw} scale {scale}; slots {sorted(slots)}; undressed {sorted(set(slots) - set(want))}")
     op("look.channels", labels=list(P.PROPS), channels=[0, 1])
 
 
@@ -180,6 +188,7 @@ def step_light(who: str) -> None:
         op("look.light", label=label, volumetric=0.0, **{k: (list(v) if isinstance(v, tuple) else v)
                                                          for k, v in kw.items()})
     op("look.channels", labels=list(rig), channels=[1])
+    op("level.set", label="FM_Sun", component="DirectionalLightComponent", props={"intensity": P.SUN_LUX})
     op("look.channels", labels=[ACTOR[who]], channels=[0, 1])
     # exposure LOCKED: manual, the studio's bias; nothing in the frame may pump it
     op("look.post", label="FM_Post", settings={
@@ -194,7 +203,12 @@ def step_light(who: str) -> None:
 
 
 def step_cameras(who: str) -> None:
+    """The focus track is the actor plus an offset taken from the pose at the time: scrub the sequence first so it is
+    the SEATED eye (box B: unscrubbed, the offset was her standing eye, 30 cm high: ~2.7 cm of focus error at the CU's
+    ±1.2 cm depth of field)."""
     actor = ACTOR[who]
+    if ex(f"import unreal\nresult = unreal.EditorAssetLibrary.does_asset_exist({SEQ[who]!r})"):
+        op("seq.scrub", path=SEQ[who], frame=60)
     for name, c in P.cameras(who).items():
         op("cam.add", label=name, loc=c["loc"], look_at=c["look_at"], focal_mm=c["focal"], aperture=c["aperture"],
            sensor_mm=c["filmback"])
@@ -245,6 +259,17 @@ def step_seq(who: str, edl_path: str | None, length: int) -> None:
     print(f"{seq}: 0-{end}, cuts {cuts}")
 
 
+def step_dress(who: str) -> None:
+    """Leaders back on every garment (any step that touches her components drops them: box B after agent-01's body
+    step), her hair look and accessories, the groom lock (render cvars) — then the leaders check must pass."""
+    ok(client.exec_code(DRESS[who].read_text()))
+    op("groom.lock", labels=[ACTOR[who]])
+    lead = op("mh.leader_check", label=ACTOR[who])
+    if not lead.get("pass"):
+        raise SystemExit(f"leaders: {lead}")
+    print("dressed, leaders pass, groom locked")
+
+
 def step_save() -> None:
     op("level.save")
     print("saved:", op("assets.save", folder=FOLDER).get("saved"))
@@ -256,14 +281,16 @@ def check(who: str) -> int:
     """Read-only: the live set against the plan, and the mic vs her mouth through each camera on the real pose."""
     bad = 0
     actor = ACTOR[who]
-    live = {c["label"]: c for c in (op("cam.describe") or []) if isinstance(c, dict) and "label" in c}
+    live = {c["label"]: c for c in (op("cam.describe") or {}).get("cameras", [])}
     for name, c in P.cameras(who).items():
         lc = live.get(name)
         if not lc:
             print(f"BAD {name}: missing"); bad += 1; continue
-        d = max(abs(a - b) for a, b in zip(lc.get("loc") or lc.get("location"), c["loc"]))
-        f = abs((lc.get("focal_mm") or lc.get("focal")) - c["focal"])
-        print(f"{'ok ' if d < 1.0 and f < 0.05 else 'BAD'} {name}: loc off {d:.2f} cm, focal off {f:.2f} mm")
+        d = max(abs(a - b) for a, b in zip(lc["loc"], c["loc"]))  # the drift keys move it ≤0.4 cm
+        f = abs(lc["focal"] - c["focal"])
+        ft = (lc.get("focus_track") or {}).get("offset") or [0, 0, 0]
+        print(f"{'ok ' if d < 1.0 and f < 0.05 else 'BAD'} {name}: loc off {d:.2f} cm, focal off {f:.2f} mm, "
+              f"focus track offset z {ft[2]:.1f} (the seated eye ~{P.face(who)['eyes'][2]:.0f})")
         bad += not (d < 1.0 and f < 0.05)
     pos = ex(f"from fmbridge.ops import level as L\np = L.actor({actor!r}).get_actor_location()\n"
              "result = [p.x, p.y, p.z]")
@@ -281,13 +308,22 @@ def check(who: str) -> int:
     return bad
 
 
-def stills(who: str, tag: str, frame: int) -> None:
+def stills(who: str, tag: str, frame: int, edl_path: str | None, extra: list | None = None) -> None:
+    """A still through each camera at `frame`. seq.still's `camera` does not beat the sequence's camera cut track
+    (box B: MCU and WIDE stills were the same image), so each still is taken with the cut track set to that camera
+    alone, and the edit is put back after."""
     out = f"/srv/ue/explainer/review/{tag}"
     seq = SEQ[who]
-    for name in P.cameras(who):
-        path = f"{out}/{who}_{name}_f{frame:04d}.png"
-        op("seq.still", path=seq, frame=frame, camera=name, out=path, width=1920, height=1080, settle=48)
-        print("still", path)
+    cams = list(P.cameras(who)) + list(extra or [])
+    try:
+        for name in cams:
+            op("seq.camera_cuts", path=seq, cuts=[[name, 0]])
+            path = f"{out}/{who}_{name}_f{frame:04d}.png"
+            op("seq.still", path=seq, frame=frame, camera=name, out=path, width=1920, height=1080, settle=48)
+            print("still", path)
+    finally:
+        edl = json.loads(Path(edl_path).read_text()) if edl_path else None
+        op("seq.camera_cuts", path=seq, cuts=edl_cuts(edl) if edl else [["CAM_MCU", 0]])
     r = ex(f"""import subprocess
 r = subprocess.run(["aws", "s3", "cp", "--recursive", "--sse", "aws:kms", {out!r}, {REVIEW_S3 + tag + '/'!r},
                     "--only-show-errors"], capture_output=True, text=True)
@@ -307,6 +343,7 @@ def main() -> int:
     ap.add_argument("--check", action="store_true", help="read-only: the live set against the plan")
     ap.add_argument("--stills", metavar="TAG", help="stills through every camera to private/…/review/explain/TAG/")
     ap.add_argument("--frame", type=int, default=48)
+    ap.add_argument("--extra-cams", help="more cameras for --stills (e.g. CAM_SIDE)")
     a = ap.parse_args()
     os.environ["FILM_UE_BOX"] = a.box
     from filmtools.unreal import client as c
@@ -315,7 +352,7 @@ def main() -> int:
     if a.check:
         return 1 if check(a.who) else 0
     if a.stills:
-        stills(a.who, a.stills, a.frame)
+        stills(a.who, a.stills, a.frame, a.edl, [c for c in (a.extra_cams or "").split(",") if c])
         return 0
     for s in a.steps.split(","):
         if s not in STEPS:
@@ -325,7 +362,8 @@ def main() -> int:
             print(f"== {s}")
             {"level": lambda: step_level(a.who), "props": lambda: step_props(a.who),
              "light": lambda: step_light(a.who), "cameras": lambda: step_cameras(a.who),
-             "seq": lambda: step_seq(a.who, a.edl, a.length), "save": step_save}[s]()
+             "seq": lambda: step_seq(a.who, a.edl, a.length), "dress": lambda: step_dress(a.who),
+             "save": step_save}[s]()
     return 0
 
 
