@@ -189,9 +189,9 @@ def tex_grille(n, seed=5):
 def tex_walnut(n, seed=6):
     """Flat-sawn American walnut, oiled satin: cathedral/stripe figure along u, pores, colour drift."""
     u, v = coords(n)
-    warp = 0.035 * noise(n, 300, seed, aniso=3) + 0.01 * noise(n, 60, seed + 1, aniso=6)
-    # 23 growth rings across the tile; the figure modulates with a slow wave along u (cathedral arches)
-    ring_pos = 23 * (v + warp + 0.012 * np.sin(2 * np.pi * (u * 2 + 0.3 * noise(n, 400, seed + 2, aniso=2))))
+    warp = 0.016 * noise(n, 420, seed, aniso=6) + 0.0025 * noise(n, 90, seed + 1, aniso=12)
+    # 30 growth rings across the tile, nearly straight along u, gently drifting (flat-sawn stripe figure)
+    ring_pos = 30 * (v + warp + 0.004 * np.sin(2 * np.pi * (u + 0.15 * noise(n, 500, seed + 2, aniso=4))))
     fr = ring_pos - np.floor(ring_pos)
     late = smooth(0.55, 0.85, fr) * (1 - smooth(0.92, 1.0, fr))    # darker latewood band
     streak = noise(n, 2.5, seed + 3, aniso=25)                     # fibre streaks along u
@@ -252,10 +252,10 @@ def tex_soil(n, seed=11):
 def tex_leaf(n, seed=12):
     """Sansevieria (snake plant) blade: deep green with pale zig-zag cross bands along v (the blade's length)."""
     u, v = coords(n)
-    zig = 0.012 * np.abs(((u * 8) % 1.0) - 0.5) + 0.01 * noise(n, 40, seed)
-    bands = 0.5 + 0.5 * np.sin(2 * np.pi * (v * 22 + zig * 22 + 0.6 * noise(n, 200, seed + 1, aniso=0.3)))
+    zig = 0.010 * np.abs(((u * 6) % 1.0) - 0.5) + 0.003 * noise(n, 60, seed, aniso=3)
+    bands = 0.5 + 0.5 * np.sin(2 * np.pi * (v * 22 + zig * 22 + 0.10 * noise(n, 300, seed + 1, aniso=4)))
     b = smooth(0.55, 0.9, bands)
-    fine = noise(n, 6, seed + 2, aniso=0.2)
+    fine = noise(n, 6, seed + 2, aniso=3) * 0.5
     col = mix((0.10, 0.19, 0.10), (0.36, 0.45, 0.30), np.clip(0.75 * b + 0.08 * fine, 0, 1))
     col = col * (0.9 + 0.1 * np.clip(0.5 + 0.3 * noise(n, 300, seed + 3), 0, 1))[..., None]
     h = 0.15 * fine + 0.05 * b
