@@ -296,7 +296,7 @@ def plan(who: str, only: set | None = None) -> dict:
         if L["pause_smile"] and nxt >= cu["length_s"]:
             # the take's last line: a closed Duchenne held to the end. lipsync.check wants the mouth shut in the end
             # silence (box B, 08 Nov: the open smile's jaw read "opens 0.11 (allowed 0.1)" at f1386-1427)
-            ev.append(_ev("smile", t1 + 0.05, rng, 0.85, until=round(nxt - 0.3, 3)))
+            ev.append({**_ev("smile", t1 + 0.05, rng, 0.85, until=round(nxt - 0.3, 3)), "name": "smile_hold"})
         elif L["pause_smile"]:  # an open smile into the pause after the line (teeth; no lip-sync to keep)
             end = nxt - LIP_CLEAR_S - KINDS["open"][2]
             if end - t1 > 0.35:
