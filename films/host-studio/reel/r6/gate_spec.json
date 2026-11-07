@@ -248,6 +248,13 @@
     "finals before the scope fix: 3 frames"
    ],
    "why": "transparency"
+  },
+  "lips.lead_in_cm": {
+   "info": true,
+   "r4": [
+    0.33,
+    "INFO for the r6 karma by the orchestrator's ruling (cc-64d05f6e, 07 Nov), a scope change, not a waiver: editor lip-bone readers return a frozen face on SEQ_Reel (cast_gate scrub+level.bone and seq.sample both read open 0.0 while talking, all 6 lines, after a fresh install; agent-01's guard voided the row; tool bug, round-7 item). The same property is covered tonight by lips.silence_open 0.001 / silence_busy 0.0 over every pre-line silence, read from the placed curves, AND the orchestrator's eye on the rendered cut (6 frames before each line: mouth closed; 1-2 f lead on every visible line)"
+   ]
   }
  },
  "not_attempted": {
@@ -263,5 +270,12 @@
    "reason": "His tee is MetaHuman's own default garment (assembled to his body, WPO 0). It is a closed-shell mesh, and Chaos cloth on a closed shell collapses (round 5: her overshirt shredded), so no sim this round. The armour complaint is addressed by WPO 0 and the assembled fit (armor_index, wpo_cm and neck_px stay hard lines). Proxy-sim cloth (single-layer sim section + FMCloth mesh-to-mesh) is round 6.",
    "by": "cc-64d05f6e"
   }
- }
+ },
+ "round7_tool_items": [
+  {
+   "item": "editor lip-bone readers (cast_gate lipgap scrub+level.bone, seq.sample) return a frozen face on SEQ_Reel's rig (box A, r6), so lips.lead_in_cm cannot be measured editor-side; fix the reader or replace it with agent-01's landmark measure on rendered frames",
+   "by": "cc-64d05f6e",
+   "found": "agent-01, 07 Nov"
+  }
+ ]
 }
