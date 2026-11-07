@@ -477,13 +477,36 @@ def solvetest(who: str, lid: str, intensity: float | None = None) -> dict:
     return out
 
 
-def boxcheck(who: str, anim: str, only: set | None = None) -> dict:
+def per_frame(cur: dict, length_s: float, fps: float = 24.0) -> dict:
+    """{frame: {curve: value}} of the role curves (agent-09's qa_perf.face_rows_curves input), take frame = t * fps."""
+    from perfkit import curves as C
+    stems = tuple(x for v in ROLES.values() for x in v)
+    names = [n for n in cur if n.startswith(PREFIX) and n[len(PREFIX):].startswith(stems) and cur[n][0]]
+    fr = list(range(int(length_s * fps) + 1))
+    cols = {n: C.resample(*cur[n], [f / fps for f in fr]) for n in names}
+    return {f: {n: round(cols[n][i], 4) for n in names} for i, f in enumerate(fr)}
+
+
+def boxcheck(who: str, anim: str, only: set | None = None, spans: str = "") -> dict:
     """The gate's face rows on what the box made (default the final face, AS_exp_<who>_gaze: solve + perfkit + gaze),
-    over the speaking frames (the test lines with `only`): the curve pre-check agent-09's render rows stand on."""
+    over the speaking frames (the test lines with `only`). Also saves the role curves per frame
+    (out/explainers/face/<who>/frames_<anim name>.json) for agent-09's qa_perf.face_rows_curves on `spans`
+    (spans_<film>.json), whose rows are printed too when that module is in the tree."""
     import perform as PF
     cur = {n: (tv[0], tv[1]) for n, tv in PF.ok(PF.client().op("anim.read_curves", anim=anim)).items()}
     cu = cue(who)
     out = {"anim": anim, "abs": rows(cur, cu, only), "rel20": rows(cur, cu, only, relative=True)}
+    fr = per_frame(cur, cu["length_s"])
+    p = ROOT / "out" / "explainers" / "face" / who / f"frames_{anim.rsplit('/', 1)[-1]}.json"
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(fr))
+    out["frames_file"] = str(p)
+    if spans:
+        try:
+            from filmtools.unreal import qa_perf as Q
+            out["gate09"] = Q.face_rows_curves(fr, 24.0, json.loads(Path(spans).read_text()))
+        except ImportError:
+            out["gate09"] = "qa_perf not in this tree (fleet/agent-09/r7-perf-gate): send frames_file to agent-09"
     out["pass"] = all((out[m][k] >= x if op == ">=" else out[m][k] <= x) for m in ("abs", "rel20")
                       for k, (op, x) in LINES.items())
     return out
@@ -505,6 +528,7 @@ def _only(s: str | None) -> set | None:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("cmd", choices=["plan", "check", "tilts", "solvetest", "boxcheck"])
+    ap.add_argument("--spans", help="boxcheck: agent-09's spans_<film>.json (master frames) for the gate's rows")
     ap.add_argument("--anim", help="boxcheck: the face animation (default /Game/Explainer/Perf/AS_exp_<who>_gaze)")
     ap.add_argument("--line", default="N01", help="solvetest: the line")
     ap.add_argument("--intensity", type=float, help="solvetest: the solver mood's intensity (default the sheet's)")
@@ -526,7 +550,7 @@ def main() -> None:
         out.write_text(json.dumps(r, indent=1))
         print(json.dumps(r, indent=1))
     elif a.cmd == "boxcheck":
-        r = boxcheck(a.who, a.anim or f"/Game/Explainer/Perf/AS_exp_{a.who}_gaze", only)
+        r = boxcheck(a.who, a.anim or f"/Game/Explainer/Perf/AS_exp_{a.who}_gaze", only, a.spans or "")
         print(json.dumps(r, indent=1))
         sys.exit(0 if r["pass"] else 1)
     else:
