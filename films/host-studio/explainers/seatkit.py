@@ -295,6 +295,13 @@ class Style:
     shin_tilt: float = 8.0  # degrees the shin leans forward from vertical (feet ahead of the knees)
     foot_out: float = 8.0  # degrees each foot turns out
     clavicle_fwd: float = 6.0  # degrees of shoulder protraction
+    clavicle_drop: float = 3.0  # degrees the shoulders sit down (relaxed, not held up)
+    rest: str = "forearms"  # "forearms": elbows and forearms resting ON the desk (a podcaster leaning on it);
+    #                         "wrists": only the wrists on the desk, elbows in the air (round 6's first stills)
+    elbow_out: float = 4.0  # cm each elbow sits outside its shoulder
+    elbow_r: float = 3.6  # cm from the elbow joint to the desk under it (the forearm's thickness there)
+    wrist_r: float = 2.6  # cm from the wrist joint to the desk
+    forearm_in: float = 26.0  # degrees each forearm points in toward the midline
     wrist_fwd: float = 36.0  # cm the wrist sits in front of the shoulder line (forward)
     wrist_in: float = 4.0  # cm the wrist sits inside the shoulder (toward the midline)
     wrist_above: float = 3.2  # cm the wrist joint sits above the desk top (the forearm's half thickness)
@@ -461,21 +468,64 @@ class Seater:
                     weights[s].append((g, w))
         for s, (cl, ua, la, ha) in ARMS.items():
             side = r if s == "r" else mul(r, -1.0)
+            sg = 1.0 if s == "r" else -1.0
             W[cl] = [self._fk_t(cl, sk.parent[cl], W),
-                     qmul(axis_angle(u, -sy.clavicle_fwd if s == "r" else sy.clavicle_fwd),
-                          qmul(self._delta(sk.parent[cl], W), sk.q(cl)))]
+                     qmul(axis_angle(f, -sg * sy.clavicle_drop),
+                          qmul(axis_angle(u, -sg * sy.clavicle_fwd),
+                               qmul(self._delta(sk.parent[cl], W), sk.q(cl))))]
             sh = self._fk_t(ua, cl, W)
-            wrist = self.wrist_target(s, W, weights[s])
             l1, l2 = self.A[s]
-            fwd_, out_, up_ = sy.elbow_pole
-            pole = add(add(mul(f, fwd_), mul(side, out_)), mul(u, up_))
+            if sy.rest == "forearms":
+                elbow0, wrist = self.arm_targets(s, W, weights[s])
+                pole = sub(elbow0, sh)
+            else:
+                wrist = self.wrist_target(s, W, weights[s])
+                fwd_, out_, up_ = sy.elbow_pole
+                pole = add(add(mul(f, fwd_), mul(side, out_)), mul(u, up_))
             elbow, wrist = two_bone(sh, wrist, l1, l2, pole)
             back = ortho(sub(elbow, sh), unit(sub(wrist, sh)))
             q_ua = self._aim(ua, la, sub(elbow, sh), back, front_rest=mul(f, -1.0))
             W[ua] = [sh, q_ua]
             W[la] = [self._fk_t(la, ua, W), self._aim(la, ha, sub(wrist, elbow), back, front_rest=mul(f, -1.0))]
-            W[ha] = [self._fk_t(ha, la, W), self.hand_rot(s, W, weights[s])]
+            W[ha] = [self._fk_t(ha, la, W), self.hand_rot(s, W, weights[s], sub(wrist, elbow))]
         return self._locals(W)
+
+    def elbow_rest(self, s, W) -> tuple:
+        """(elbow, wrist) at rest in the actor frame: the elbow ON the desk top (elbow_r above it, elbow_out outside
+        the shoulder, the upper arm's length from the shoulder), the forearm lying on the desk, pointing in by
+        forearm_in; and whether the elbow reached the desk (else it hangs: the desk is too far or too high)."""
+        sy, st = self.sy, self.set
+        sg = 1.0 if s == "r" else -1.0
+        a = self.actor(self._fk_t("upperarm_" + s, "clavicle_" + s, W))
+        l1, l2 = self.A[s]
+        ez = st.desk_top + sy.elbow_r
+        dz = a[2] - ez
+        dy = sy.elbow_out
+        h2 = l1 * l1 - dy * dy - dz * dz
+        reached = h2 > 1.0
+        dx = math.sqrt(max(1.0, h2))
+        if not reached:  # the arm cannot reach down to the desk: hang it as low as it goes, slightly forward
+            ez = a[2] - math.sqrt(max(0.0, l1 * l1 - dy * dy - 1.0))
+        elbow = [a[0] + dx, sg * (abs(a[1]) + dy), ez]
+        drop = sy.elbow_r - sy.wrist_r
+        h = math.sqrt(max(1.0, l2 * l2 - drop * drop))
+        yi = math.radians(sy.forearm_in)
+        wrist = [elbow[0] + h * math.cos(yi), elbow[1] - sg * h * math.sin(yi), elbow[2] - drop]
+        return elbow, wrist, reached
+
+    def arm_targets(self, s, W, active) -> tuple:
+        """Component-space (elbow, wrist): the rest on the desk, a gesture swinging the forearm about the planted
+        elbow (its length kept, so the IK puts the elbow back exactly where it rests)."""
+        e, w, _ = self.elbow_rest(s, W)
+        sg = 1.0 if s == "r" else -1.0
+        l2 = self.A[s][1]
+        d = sub(w, e)
+        for g, wt in active:
+            k = KINDS.get(g.kind, KINDS["lift"])
+            mf, mo, mu = (x * g.size * wt for x in k["move"])
+            d = [d[0] + mf, d[1] + sg * mo, d[2] + mu]
+        d = mul(unit(d), l2)
+        return self.comp(e), self.comp(add(e, d))
 
     # the wrist on the desk, moved by any gestures
     def wrist_target(self, s, W, active) -> list:
@@ -493,7 +543,7 @@ class Seater:
             base = [base[0] + mf, base[1] + (mo if s == "r" else -mo), base[2] + mu]
         return self.comp(base)
 
-    def hand_rot(self, s, W, active):
+    def hand_rot(self, s, W, active, forearm=None):
         """The hand's component rotation: fingers forward and a little in, the palm semi-pronated, opened by
         gestures."""
         sk, sy = self.sk, self.sy
@@ -506,7 +556,14 @@ class Seater:
         ext = self.ext_base.get(s, 0.0) + sum(KINDS.get(g.kind, KINDS["lift"])["extend"] * g.size * w
                                                for g, w in active)
         yaw = math.radians(sy.hand_yaw_in)
-        fingers = unit(add(mul(f, math.cos(yaw)), mul(side, -math.sin(yaw))))
+        if forearm is not None and sy.rest == "forearms":  # the hand continues the forearm, turned in a little more
+            fa = unit([forearm[0], forearm[1], forearm[2]])
+            hz = ortho(fa, u) if abs(dot(fa, u)) < 0.98 else f
+            base = unit(add(mul(hz, math.cos(yaw * 0.5)), mul(ortho(side, hz), -math.sin(yaw * 0.5))))
+            pitch = math.asin(max(-1.0, min(1.0, dot(fa, u))))
+            fingers = unit(add(mul(base, math.cos(pitch)), mul(u, math.sin(pitch))))
+        else:
+            fingers = unit(add(mul(f, math.cos(yaw)), mul(side, -math.sin(yaw))))
         # wrist extension tilts the fingers up
         fingers = unit(add(mul(fingers, math.cos(math.radians(ext))), mul(u, math.sin(math.radians(ext)))))
         pr = math.radians(min(170.0, sy.pronation + sup))
@@ -602,6 +659,11 @@ def check(seater: Seater, posed: dict) -> dict:
         h, e = A["hand_" + s], A["lowerarm_" + s]
         need(h[2] >= st.desk_top + seater.sy.forearm_clear - 0.3, "desk.wrist",
              f"wrist_{s} at z {h[2]:.1f} is inside the desk top {st.desk_top}", h[2])
+        if seater.sy.rest == "forearms":
+            need(e[0] >= st.desk_near + 2.0, "desk.elbow_off", f"elbow_{s} at x {e[0]:.1f} is off the desk's near "
+                 f"edge {st.desk_near} (bring the desk in or lean more)", e[0])
+            need(e[2] <= st.desk_top + seater.sy.elbow_r + 1.0, "desk.elbow_hangs",
+                 f"elbow_{s} at z {e[2]:.1f} hangs above the desk", e[2])
         if e[0] >= st.desk_near:  # an elbow over the desk must stay on it
             need(e[2] >= st.desk_top + 2.0, "desk.elbow", f"elbow_{s} at z {e[2]:.1f} is inside the desk", e[2])
         for fing in ("index", "middle", "pinky", "ring", "thumb"):

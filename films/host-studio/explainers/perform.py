@@ -56,18 +56,23 @@ SEED = {"him": 71, "her": 72}
 # The set (agent-07 / agent-05's props.json, 07 Nov 17:0x IST), in the ACTOR's frame: x forward (to camera), y the presenter's right, z up
 # from the floor; the actor root sits on the chair mark (studio (20, -20, 0), yaw 0: studio +X forward, studio +Y the
 # presenter's LEFT). Studio -> actor: x - 20, -(y + 20), z.
-SET = S.Set(seat_top=45.0, seat_front=24.5, desk_top=74.0, desk_near=30.5, desk_far=85.5, desk_under=63.4,
-            mic=[24.0, 14.0, 99.0], mic_radius=9.0,
-            boom=[[50.0, 52.6, 74.0], [43.8, 42.9, 119.3], [24.0, 14.0, 99.0]])  # agent-05 props.json (16:5x IST)
-# How each sits (seatkit.Style). The cameras are at studio -Y (azimuth -20 MCU/CU, -8 WIDE): facing +X in Unreal that
-# is the presenter's LEFT-front (+Y is their right; the mic is there), so twist < 0. The chest
+SET = S.Set(seat_top=45.0, seat_front=24.5, desk_top=74.0, desk_near=18.0, desk_far=73.0, desk_under=63.4,
+            mic=[24.0, -14.0, 99.0], mic_radius=9.0,
+            boom=[[50.0, -52.6, 74.0], [43.8, -42.9, 119.3], [29.5, -20.4, 103.4], [24.0, -14.0, 99.0]])
+# ^ agent-07's set after the orchestrator's r3 notes (07 Nov ~18:3x IST): desk in (studio x 38..93), the mic mirrored
+#   to the presenter's LEFT (studio -Y), the cameras on her right (studio +Y, azimuth +17..+24)
+# How each sits (seatkit.Style). The cameras are at studio +Y (azimuth +17..+24): facing +X in Unreal that is the
+# presenter's RIGHT-front (the mic is on their left). The chest
 # turns a little toward them, the head and eyes do the rest (face + gaze).
-STYLE = {
-    "her": S.Style(lean=12.0, twist=-6.0, knee_out=4.0, foot_out=6.0, wrist_in=5.0, pronation=52.0, shin_tilt=6.0,
-                   clavicle_fwd=5.0),
-    "him": S.Style(lean=14.0, twist=-6.0, knee_out=8.0, foot_out=9.0, wrist_in=3.0, pronation=48.0,
-                   clavicle_fwd=6.0),
+STYLE = {  # forearms resting on the desk (the orchestrator, r3 stills): elbows planted ~2 cm in from the near edge,
+    #          the chest square to the desk (a turn pulls the camera-side elbow off it), hands on their little-finger
+    #          edge, shoulders down
+    "her": S.Style(lean=18.0, twist=0.0, knee_out=4.0, foot_out=6.0, pronation=75.0, shin_tilt=6.0, elbow_out=3.0,
+                   clavicle_fwd=4.0, clavicle_drop=4.0),
+    "him": S.Style(lean=18.0, twist=0.0, knee_out=8.0, foot_out=9.0, pronation=72.0, elbow_out=3.0,
+                   clavicle_fwd=5.0, clavicle_drop=3.0),
 }
+
 # The line solves' moods (speech.to_face): measured and calm, a little brighter on the hook and the close.
 MOOD = {"hook": ("CONFIDENCE", 0.8), "close": ("CONFIDENCE", 0.8)}
 MOOD_DEFAULT = ("CONFIDENCE", 0.65)
@@ -298,7 +303,7 @@ def gestures(who: str) -> list:
             pool = [w for w in words if t - 1.5 <= w["start"] <= t + 1.5]
             if pool:
                 w = max(pool, key=lambda w: w["end"] - w["start"])
-                cs.append({"t": w["start"], "hand": side, "kind": "beat", "size": 0.35 if side == "l" else 0.25,
+                cs.append({"t": w["start"], "hand": side, "kind": "beat", "size": 0.35 if side == "r" else 0.25,
                            "hold": 0.3})
                 side = "r" if side == "l" else "l"
             t += SETTLE_GAP
