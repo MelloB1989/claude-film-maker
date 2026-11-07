@@ -59,8 +59,8 @@ SEED = {"him": 71, "her": 72}
 SET = S.Set(seat_top=45.0, seat_front=24.5, desk_top=74.0, desk_near=18.0, desk_far=73.0, desk_under=63.4,
             mic=[24.0, -14.0, 99.0], mic_radius=9.0,
             boom=[[50.0, -52.6, 74.0], [43.8, -42.9, 119.3], [29.5, -20.4, 103.4], [24.0, -14.0, 99.0]],
-            cams={"CAM_MCU": [167.5, 78.0, 121.3], "CAM_CU": [132.7, 38.7, 121.0], "CAM_WIDE": [314.1, 101.0, 104.7]})
-# ^ cameras read on box B (07 Nov 20:1x IST); CAM_MCU_L sits where CAM_MCU is
+            cams={"CAM_MCU": [167.5, 78.0, 121.3], "CAM_CU": [132.7, 38.7, 121.0], "CAM_WIDE": [277.0, 89.7, 125.3]})
+# ^ cameras read on box B (07 Nov 20:1x IST; CAM_WIDE moved to eye level 21:xx, agent-11); CAM_MCU_L sits where CAM_MCU is
 # ^ agent-07's set after the orchestrator's r3 notes (07 Nov ~18:3x IST): desk in (studio x 38..93), the mic mirrored
 #   to the presenter's LEFT (studio -Y), the cameras on her right (studio +Y, azimuth +17..+24)
 # How each sits (seatkit.Style). The cameras are at studio +Y (azimuth +17..+24): facing +X in Unreal that is the
