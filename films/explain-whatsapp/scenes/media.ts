@@ -18,7 +18,7 @@ export default class Media extends Explainer {
     phone(c, g, B.x, B.y, 250, { a: ramp(t, 0, 0.25), label: 'friend', on: 0.5 + 0.5 * ramp(t, msg, 0.3) });
     cylinder(c, D.x, D.y, 220, 150, { a: ramp(t, blob - 0.35, 0.35), label: '' });
     note(c, 'blob store', D.x, D.y + 135, ramp(t, blob, 0.35), { size: 24 * L, color: TXT });
-    note(c, 'served via CDN', D.x, D.y + 168, ramp(t, blob + 0.4, 0.35), { size: 17 * L, color: TXT2 });
+    note(c, 'served via CDN', D.x, D.y + 182, ramp(t, blob + 0.4, 0.35), { size: 17 * L, color: TXT2 });
     // the photo: a little framed landscape, sealed, then up to the store
     const up = curve({ x: A.x, y: A.y - 150 }, { x: D.x - 120, y: D.y }, 0.2);
     const u = ease.inOutCubic(clamp((t - (blob - 0.55)) / 0.75));
@@ -44,17 +44,20 @@ export default class Media extends Explainer {
     if (inStore) pill(c, 'encrypted', D.x, D.y - 110, 17 * L, { a: ramp(t, enc - 0.1, 0.3), color: GREEN });
     // the message: only the key (and the blob's address) rides, through the chat server, phone to phone
     const mp = curve({ x: A.x + 70, y: A.y + 20 }, { x: B.x - 70, y: B.y + 20 }, -0.12);
-    wire(c, g, mp, ramp(t, only - 0.2, 0.4), { a: 0.8, width: 2.5, color: GREEN, glow: 0.3 });
     const m = clamp((t - (rides - 0.05)) / (Math.max(0.6, msg - rides + 0.1)));
+    // the wire's glow is added over the layer, so while the message rides it stops short of the pill
+    const riding = m > 0 && m < 1 && ramp(t, ky - 0.2, 0.3) > 0;
+    wire(c, g, mp, riding ? Math.min(ramp(t, only - 0.2, 0.4), Math.max(0, m - 0.16)) : ramp(t, only - 0.2, 0.4), { a: 0.8, width: 2.5, color: GREEN, glow: 0.3 });
+    if (riding) wire(c, g, mp, ramp(t, only - 0.2, 0.4), { s0: Math.min(1, m + 0.16), a: 0.8, width: 2.5, color: GREEN, glow: 0.3 });
     const mpt = mp(m);
     const ka = ramp(t, ky - 0.2, 0.3);
     if (ka > 0 && m < 1) {
       const k = pop(t, ky - 0.25, 0.45);
       c.save(); c.translate(mpt.x, mpt.y); c.scale(k, k);
-      rr(c, -120, -36, 240, 72, 22); c.fillStyle = '#1f5c3a'; c.fill(); c.strokeStyle = GREEN; c.lineWidth = 2.5; c.stroke();
+      rr(c, -124, -36, 264, 72, 22); c.fillStyle = '#1f5c3a'; c.fill(); c.strokeStyle = GREEN; c.lineWidth = 2.5; c.stroke();
       c.restore();
-      key(c, g, mpt.x - 62 * k, mpt.y, 56 * k, { color: '#F2ECE4', glow: 0.5 });
-      note(c, '+ link', mpt.x + 38 * k, mpt.y, ka, { size: 15, color: TXT });
+      key(c, g, mpt.x - 72 * k, mpt.y, 52 * k, { color: '#F2ECE4', glow: 0.5 });
+      note(c, '+ link', mpt.x + 44 * k, mpt.y, ka, { size: 15, color: TXT });
     }
     pill(c, 'only the key rides in the message', 500, 850, 20 * L, { a: ramp(t, ky, 0.35), color: GREEN });
     // the friend fetches the blob and unlocks it

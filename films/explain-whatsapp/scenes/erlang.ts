@@ -86,12 +86,13 @@ export default class Erlang extends Explainer {
     const da = ramp(t, two - 0.1, 0.35);
     if (da > 0) {
       c.save(); c.globalAlpha = da;
-      rr(c, bx + 60, by + bh - 210, bw - 120, 150, 20); c.fillStyle = withA('#1A1410', 0.92); c.fill(); c.strokeStyle = BORDER; c.lineWidth = 2; c.stroke();
+      rr(c, bx + 24, by + bh - 236, bw - 48, 196, 20); c.fillStyle = withA('#1A1410', 0.97); c.fill(); c.strokeStyle = BORDER; c.lineWidth = 2; c.stroke();
       c.restore();
-      text(c, n.toLocaleString('en-US'), bx + bw / 2, by + bh - 150, 66, { face: 'mono', weight: 700, a: da, color: TXT });
-      note(c, 'connections on one server (2012)', bx + bw / 2, by + bh - 95, ramp(t, mil, 0.4), { size: 21 * L });
+      text(c, n.toLocaleString('en-US'), bx + bw / 2, by + bh - 182, 66, { face: 'mono', weight: 700, a: da, color: TXT });
+      note(c, 'connections on one server', bx + bw / 2, by + bh - 126, ramp(t, mil, 0.4), { size: 21 * L });
+      note(c, '(2012)', bx + bw / 2, by + bh - 84, ramp(t, mil, 0.4), { size: 21 * L });
       g.fillStyle = glowInk('accent', 0.25 * da * ramp(t, two + 0.8, 0.3));
-      g.fillRect(bx + 120, by + bh - 116, bw - 240, 3);
+      g.fillRect(bx + 120, by + bh - 150, bw - 240, 3);
     }
     void phone;
   }
