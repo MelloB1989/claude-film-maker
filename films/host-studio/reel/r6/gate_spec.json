@@ -161,6 +161,37 @@
     "a cull reaching the collar line would open a hole at the visible neck"
    ],
    "why": "the orchestrator, 07 Nov: face verts under the tee and >= 3 cm below the collar edge only"
+  },
+  "garment.neck_px": {
+   "what": "VISIBLE neck poke-through, worst frame (qa.clip neck_visible, agent-02 e71f06fa/a670ea02): Face skin the render shows through his tee, as ISLANDS (skin enclosed by cloth, any size) plus TONGUES (skin joined to the collar opening that runs more than tongue_cm down into the cloth, walked in cm at its depth). Known blind spot: a poke joined to the rim cluster and shallower than tongue_cm passes; the orchestrator's crops judge that case",
+   "where": "S13, S15, S17, S18 (6 frames each, the finals' state)",
+   "how": "film-ue op qa.clip ... neck_rule=visible tongue_cm=3.0 (agent-02 a7511df9: 2x r6n2's max tongue 1.49 cm) -> metrics.worst.neck_visible.px; or python -m filmtools.unreal.neckscan <out_dir> on its depth files",
+   "r4": [
+    3,
+    "round 4 S15 1-3 px on the OLD rim measure, waived then; not re-read on the visible measure"
+   ],
+   "must_fail": [
+    39,
+    "round 6 r6n1 (box A clipr6c1, agent-06's neckscan): a 39 px skin island under the collar at S15 f1128, islands in all 4 shots: the blob the orchestrator saw. r6n2 (clipr6c3, passed by eye) reads 0, max tongue 1.49 cm"
+   ],
+   "guard": true,
+   "why": "the orchestrator, 07 Nov: re-scope neck_px to VISIBLE poke-through, honestly and calibrated; a measure fix with must_fail, not a waiver (the rim measure read 262 on a hug the eye passed)"
+  },
+  "garment.neck_rim_px": {
+   "area": "garment",
+   "track": "K1",
+   "op": "<=",
+   "line": 0,
+   "unit": "px",
+   "info": true,
+   "what": "the OLD neck_px (Face>tee px more than neck_margin_cm under the collar rim), kept beside the visible measure so the change shows in the gate log",
+   "where": "S13, S15, S17, S18",
+   "how": "qa.clip metrics.worst.neck_px (reported by neck_rule=visible as info)",
+   "r4": [
+    null,
+    "r6n2 read 262 at the rim on a collar the orchestrator passed by eye: the measure's blind spot (r5b)"
+   ],
+   "why": "transparency: the re-scope must be visible, not silent"
   }
  },
  "not_attempted": {
