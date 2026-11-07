@@ -283,7 +283,7 @@ def _editor(G: dict):
         bvh = pick(SP.build_bvh_for_mesh(fdm), "GeometryScriptDynamicMeshBVH")
         q = unreal.GeometryScriptSpatialQueryOptions()
         g = [[None] * NB for _ in range(NS)]
-        n = inside = 0
+        n = inside = flipped = 0
         worst = None
         br, bt0 = float(G.get("BAND_R", 12.0)), float(G.get("BAND_T0", -7.0))
         for p in verts(tdm):
@@ -298,6 +298,12 @@ def _editor(G: dict):
             d = p - qp
             if d.length() > 4.0:  # nowhere near the face (shoulder, chest): no constraint
                 continue
+            # orient the face normal AWAY from the neck axis (q1: a third of the band read 4 cm "inside" on one side
+            # and 2-3 cm off on the other, the same on every frame: the triangle winding is not a safe outward)
+            _, _, _, rq = fr0.cyl(inv_pos(T, qp))
+            if T.inverse_transform_direction(nrm).dot(rq) < 0:
+                nrm = nrm * -1.0
+                flipped += 1
             sd = d.dot(nrm)
             n += 1
             inside += sd < 0
@@ -307,7 +313,7 @@ def _editor(G: dict):
                 g[s_][b_] = round(need, 3)
             if worst is None or need > worst[0]:
                 worst = (round(need, 3), round(t, 2), round(r, 2), round(th))
-        return {"grid": g, "tee_verts": n, "inside_face": inside, "worst": worst}
+        return {"grid": g, "tee_verts": n, "inside_face": inside, "normals_flipped": flipped, "worst": worst}
 
     def pose_check(F, T):
         """Sanity per frame: the face's median radius 2-4 cm above neck_01 (his neck: ~5-7 cm; a face read at rest
@@ -600,7 +606,7 @@ def main(argv=None) -> int:
             if i < 3 or i % 20 == 0:
                 pk = res.get("poke", {})
                 print(f"f{f}: band tee verts {pk.get('tee_verts')}, inside the face {pk.get('inside_face')}, "
-                      f"worst (need, t, r, deg) {pk.get('worst')}", flush=True)
+                      f"normals flipped {pk.get('normals_flipped')}, worst (need, t, r, deg) {pk.get('worst')}", flush=True)
             if res.get("ref_vs_face_above_t3"):
                 print("ref face vs worn face above the collar:", res["ref_vs_face_above_t3"])
             if last is not None and res["head_w"] == last:
