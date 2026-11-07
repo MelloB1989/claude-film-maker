@@ -223,27 +223,29 @@ def captions(edl: dict, cues: dict, film: str, work: Path) -> tuple[Path, list]:
     events, srt = [], []  # (f0, f1, still)
     blank = work / "cap_blank.png"
     Image.new("RGBA", (W, H), (0, 0, 0, 0)).save(blank)
-    k = 0
+    plan = []  # every chunk in VO order: [c0, c1, words]
     for line in cues["lines"]:
         span = next(((a, b) for a, b in on if a <= line["start_f"] < b), None)
         if not span:
             continue
-        cs = chunks(line)
-        for ci, ch in enumerate(cs):
-            c0 = max(span[0], ch[0]["f0"] - 2)
-            nxt = cs[ci + 1][0]["f0"] - 2 if ci + 1 < len(cs) else None
-            c1 = min(span[1], ch[-1]["f1"] + 8, *( [nxt] if nxt else []))
-            words = [w["w"] for w in ch]
-            srt.append((c0, c1, " ".join(words)))
-            for i, w in enumerate(ch):
-                s0 = c0 if i == 0 else max(c0, w["f0"])
-                s1 = c1 if i + 1 == len(ch) else max(s0 + 1, min(c1, ch[i + 1]["f0"]))
-                if s1 <= s0:
-                    continue
-                p = work / f"cap_{k:04d}.png"
-                caption_image(p, words, i + 1, film)
-                events.append((s0, s1, p))
-                k += 1
+        for ch in chunks(line):
+            plan.append([max(span[0], ch[0]["f0"] - 2), min(span[1], ch[-1]["f1"] + 8), ch])
+    # one caption at a time: a chunk's hold ends where the next one (in this line or the next) begins
+    for cur, nxt in zip(plan, plan[1:]):
+        cur[1] = min(cur[1], nxt[0])
+    k = 0
+    for c0, c1, ch in plan:
+        words = [w["w"] for w in ch]
+        srt.append((c0, c1, " ".join(words)))
+        for i, w in enumerate(ch):
+            s0 = c0 if i == 0 else max(c0, min(c1 - 1, w["f0"]))
+            s1 = c1 if i + 1 == len(ch) else max(s0 + 1, min(c1, ch[i + 1]["f0"]))
+            if s1 <= s0:
+                continue
+            p = work / f"cap_{k:04d}.png"
+            caption_image(p, words, i + 1, film)
+            events.append((s0, s1, p))
+            k += 1
     events.sort()
     lst, f = ["ffconcat version 1.0"], 0
     for a, b, p in events:
@@ -356,6 +358,37 @@ def render_shot(shot: dict, film: str, a: argparse.Namespace, work: Path, used: 
     return out
 
 
+def stream_length(path: Path, stream: str, ffmpeg: str) -> float:
+    """The picture's frame count, or the sound's seconds (the last packet's time plus its own length, ~21 ms)."""
+    r = subprocess.run([ffmpeg, "-hide_banner", "-i", str(path), "-map", f"0:{stream}", "-c", "copy", "-f", "null", "-"],
+                       capture_output=True, text=True)
+    lines = r.stderr.replace("\r", "\n").splitlines()
+    if stream == "v":
+        n = [ln.split("frame=", 1)[1].split()[0] for ln in lines if "frame=" in ln]
+        return float(n[-1]) if n else -1.0
+    t = [ln.rsplit("time=", 1)[1].split()[0] for ln in lines if "time=" in ln]
+    if not t or t[-1].startswith("N/A"):
+        return -1.0
+    h, m, sec = t[-1].split(":")
+    return int(h) * 3600 + int(m) * 60 + float(sec)
+
+
+def verify(out: Path, frames: int, srt: list, ffmpeg: str) -> list[str]:
+    """The delivery's own checks: picture and sound both the film's length (within a frame and an AAC packet), and no
+    two captions on screen at once."""
+    want, bad = frames / FPS, []
+    n = stream_length(out, "v", ffmpeg)
+    if n != frames:
+        bad.append(f"{out.name}: picture {n:.0f} frames, the film is {frames}")
+    got = stream_length(out, "a", ffmpeg)
+    if abs(got - want) > 1.5 / FPS:
+        bad.append(f"{out.name}: audio {got:.3f} s, the film is {want:.3f} s")
+    for (a0, a1, t0), (b0, _, t1) in zip(srt, srt[1:]):
+        if b0 < a1:
+            bad.append(f"captions overlap: '{t0}' ends f{a1}, '{t1}' starts f{b0}")
+    return bad
+
+
 # ------------------------------------------------------------------------------------------------ main
 
 def main() -> None:
@@ -417,19 +450,26 @@ def main() -> None:
                          f"format=auto[v2]")
             last, idx = "[v2]", idx + 1
         frames = edl["frames"]
+        # both streams run the film's exact length: the picture by frame count, the mix (exactly that long, mix.py)
+        # by -t; no -shortest (with two outputs from one graph it cut the audio 3.35 s early, QA 07 Nov)
+        dur = f"{frames / FPS:.6f}"
         chain.append(f"{last}trim=end_frame={frames},setpts=PTS-STARTPTS,split=2[vh][vp]")
         mp4, mov = a.out / f"{name}.mp4", a.out / f"{name}_master.mov"
         outs = ["-map", "[vh]", "-map", "1:a", "-c:v", "libx264", "-preset", "slow", "-crf", "16",
                 "-profile:v", "high", "-pix_fmt", "yuv420p", "-colorspace", "bt709", "-color_primaries", "bt709",
                 "-color_trc", "bt709", "-r", FPS, "-frames:v", frames, "-c:a", "aac", "-b:a", "320k", "-ar", 48000,
-                "-movflags", "+faststart", "-shortest", mp4]
+                "-movflags", "+faststart", "-t", dur, mp4]
         if not a.no_prores:
             outs += ["-map", "[vp]", "-map", "1:a", *PRORES, "-r", FPS, "-frames:v", frames, "-c:a", "pcm_s24le",
-                     "-shortest", mov]
+                     "-t", dur, mov]
         else:
             chain[-1] = chain[-1].replace(",split=2[vh][vp]", "[vh]")
         ff([*inputs, "-filter_complex", ";".join(chain), *outs], a.ffmpeg)
         write_srt(a.out / f"{name}.srt", srt)
+        bad = [b for o in [mp4] + ([] if a.no_prores else [mov]) for b in verify(o, frames, srt, a.ffmpeg)]
+        bad = list(dict.fromkeys(bad))
+        if bad:
+            sys.exit("delivery check FAILED:\n  " + "\n  ".join(bad))
         (a.out / f"{name}.json").write_text(json.dumps({
             "film": a.film, "frames": frames, "fps": FPS, "placeholder": a.placeholder, "shots": used,
             "mix": str(mix.relative_to(ROOT)), "mix_report": json.loads((mix.with_suffix(".json")).read_text()),
