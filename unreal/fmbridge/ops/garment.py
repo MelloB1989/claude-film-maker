@@ -123,13 +123,54 @@ def _mask_image(d: dict, clipped: set, w: int, h: int):
     return _image.Image(w, h, 3, data)
 
 
+MOUTH_BONES = ("FACIAL_C_LipUpper", "FACIAL_C_LipLower", "FACIAL_L_LipCorner", "FACIAL_R_LipCorner")
+
+
+def _props(props: dict | None) -> dict:
+    """{role: "Label" | "Label:Component"} -> {role: [visible mesh components]} for qa.clip's set-piece layers."""
+    out = {}
+    for role, ref in (props or {}).items():
+        label, _, comp = str(ref).partition(":")
+        act = find_actor(label)
+        cs = [c for cls in (unreal.StaticMeshComponent, unreal.SkeletalMeshComponent)
+              for c in act.get_components_by_class(cls) if c.is_visible() and (not comp or c.get_name() == comp)]
+        if not cs:
+            raise OpError(f"prop {role}={ref!r}: no visible mesh component", code="not_found",
+                          hint="level.actors lists the labels; the component is optional (Label or Label:Component)")
+        out[role] = cs
+    return out
+
+
+def _mouth(parts: dict, layers: dict, info: dict, w: int, h: int, spec: dict) -> dict:
+    """qa.clip's mouth check at one frame: the face's mouth bones projected through the shot camera, then
+    qa.clip.mouth_blocked against the blocker's layer."""
+    blocker = spec.get("blocker", "Mic")
+    face = parts.get("Face")
+    if blocker not in layers or face is None:
+        return {"error": f"needs the Face and the {blocker!r} layer (props={{{blocker!r}: label}})", "blocker": blocker}
+    names = {str(b) for b in face.get_all_socket_names()} if hasattr(face, "get_all_socket_names") else None
+    centers = []
+    for b in spec.get("bones") or MOUTH_BONES:
+        if names is not None and b not in names:
+            return {"error": f"the face has no bone {b!r}", "blocker": blocker}
+        p = face.get_socket_location(b)
+        centers.append(_clip.project_px(info, (p.x, p.y, p.z), w, h))
+    zs = [c[2] for c in centers if c[2] > 0]
+    if not zs:
+        return {"error": "the mouth is behind the camera", "blocker": blocker}
+    r_px = float(spec.get("radius_cm", 2.0)) / (2 * min(zs) * math.tan(math.radians(float(info["fov"])) / 2)) * w
+    return {**_clip.mouth_blocked(layers, centers, r_px, blocker=blocker, w=w, h=h,
+                                  tol_cm=float(spec.get("tol_cm", 0.5))), "blocker": blocker, "radius_px": round(r_px, 1)}
+
+
 @op("qa.clip", mutates=False, idempotent=True, tags=["gpu", "slow", "metahuman"])
 def clip(*, label: str, sequence: str, shots: list | None = None, n: int = 6, extra: dict | None = None,
          width_px: int = 480, roles_map: dict | None = None, pairs: list | None = None, ref_dir: str = "",
          before: str = "", out_dir: str = "", stills: bool = True, layer_masks: bool = False, neck_over: str = "",
          tol_cm: float = 0.3,
          band_cm: float = 3.0, near_cm: float = 1.5, neck_margin_cm: float = 1.0, at_open_960: float = 5.0,
-         pair_fraction: float = 0.001, neck_max_px: int = 0, silhouette_pct: float = 2.0):
+         pair_fraction: float = 0.001, neck_max_px: int = 0, silhouette_pct: float = 2.0, props: dict | None = None,
+         mouth: dict | None = None, mouth_max_px: int = 0):
     """Skin or an under-garment coming out through a garment, as the shot's camera sees it, per shot and frame.
 
     Each part (Body, Face, each garment) is depth-captured ALONE from the shot's camera; every (under, over) pair is
@@ -146,9 +187,15 @@ def clip(*, label: str, sequence: str, shots: list | None = None, n: int = 6, ex
     <shot>_<frame>_mask.png (body red, face orange, tee green, trousers blue, clip magenta), _depth.bin, with
     `stills` _final.png, with `layer_masks` <shot>_<frame>_<role>.png per part (grey, 255 where that part alone
     covers the pixel, 0 elsewhere: occlusion by other parts NOT applied). Gate knobs: pair_fraction, neck_max_px, silhouette_pct.
+    props {role: "Label" | "Label:Component"}: set pieces captured as layers too (every visible mesh component of the
+    actor, or the one named), for pairs such as [["Body","Chair"],["Chair","Trousers"],["Body","Desk"]] (a presenter
+    sinking into a seat or a desk). mouth {"blocker": role (default "Mic", a prop), "bones": [face bones] (default
+    MOUTH_BONES), "radius_cm": 2.0, "tol_cm": 0.5}: per frame, the mouth's pixels the blocker covers (qa.clip.mouth_blocked);
+    over mouth_max_px fails. A bone the face lacks is an error in that frame (not measured), never a pass.
     Returns: {"pass", "issues", "metrics": {"worst", "shots": {shot: {frame: {"U>G": {...}, "neck_px", "silhouette"}}}},
     "out_dir"}. Multi-tick (~10 s a frame at 480 px).
     Example: film-ue op qa.clip label=Host sequence=/Game/Reel/SEQ_Reel 'shots=["Reel_S15"]' out_dir=/srv/ue/qa/clip/now
+    Example: film-ue op qa.clip label=Host sequence=/Game/Expl/SEQ_WA 'props={"Chair":"Chair","Mic":"StudioMic"}' 'pairs=[["Body","Chair"],["Chair","Trousers"]]' 'mouth={"blocker":"Mic"}'
     """
     a = find_actor(label)
     w, h = int(width_px), round(int(width_px) * 9 / 16)
@@ -169,14 +216,17 @@ def clip(*, label: str, sequence: str, shots: list | None = None, n: int = 6, ex
                 info = camera_info(cut_camera(sequence, f), aspect=16 / 9)
                 fov = float(info["fov"])
                 parts = roles(a, roles_map)  # afresh each frame: a construction script may re-create components
+                parts.update(_props(props))
                 d = {}
                 for name, c in parts.items():
-                    rt = yield from capture(info, w, h, "depth", show_only=[c], warmup=1)
+                    rt = yield from capture(info, w, h, "depth", show_only=c if isinstance(c, list) else [c], warmup=1)
                     d[name] = read_pixels(rt, "r")[0]
                     yield
                 fr = _clip.judge_frame(d, w, h, fov, pair_list=[tuple(p) for p in pairs] if pairs else None,
                                        neck_over=neck_over, **knobs)
                 mask = fr.pop("_mask")
+                if mouth:
+                    fr["mouth"] = _mouth(parts, d, info, w, h, mouth)
                 base = os.path.join(out_dir, f"{shot}_{f:04d}") if out_dir else ""
                 if ref_dir:
                     rp = os.path.join(ref_dir, f"{shot}_{f:04d}_depth.bin")
@@ -209,7 +259,7 @@ def clip(*, label: str, sequence: str, shots: list | None = None, n: int = 6, ex
             b = json.load(fh)
         prior = b.get("metrics", b).get("shots", b.get("shots"))
     issues = _clip.gate(rep, label, pair_fraction=pair_fraction, neck_max_px=neck_max_px,
-                        silhouette_pct=silhouette_pct, before=prior)
+                        silhouette_pct=silhouette_pct, before=prior, mouth_max_px=mouth_max_px)
     out = _result(issues, {"worst": _clip.summarize(rep), "shots": rep, "size": [w, h], **knobs}, out_dir=out_dir)
     if out_dir:
         with open(os.path.join(out_dir, "clip.json"), "w") as fh:
