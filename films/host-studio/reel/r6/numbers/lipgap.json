@@ -1,0 +1,97 @@
+{
+ "lines": {
+  "S13:him L1": {
+   "on_cm": 0.0,
+   "off_cm": 0.0,
+   "ratio": 0.0,
+   "open_cm": 0.0,
+   "frames": [
+    1030,
+    1054
+   ],
+   "silence": [
+    977,
+    1001
+   ],
+   "pass": false
+  },
+  "S15:him L2": {
+   "on_cm": 0.0,
+   "off_cm": 0.0,
+   "ratio": 0.0,
+   "open_cm": 0.0,
+   "frames": [
+    1102,
+    1126
+   ],
+   "silence": [
+    1156,
+    1180
+   ],
+   "pass": false
+  },
+  "S15:her L3a": {
+   "on_cm": 0.0,
+   "off_cm": 0.0,
+   "ratio": 0.0,
+   "open_cm": 0.0,
+   "frames": [
+    1159,
+    1183
+   ],
+   "silence": [
+    1106,
+    1130
+   ],
+   "pass": false
+  },
+  "S16:her L3b": {
+   "on_cm": 0.0,
+   "off_cm": 0.0,
+   "ratio": 0.0,
+   "open_cm": 0.0,
+   "frames": [
+    1240,
+    1264
+   ],
+   "silence": [
+    1294,
+    1318
+   ],
+   "pass": false
+  },
+  "S17:him L4a": {
+   "on_cm": 0.0,
+   "off_cm": 0.0,
+   "ratio": 0.0,
+   "open_cm": 0.0,
+   "frames": [
+    1351,
+    1375
+   ],
+   "silence": [
+    1398,
+    1422
+   ],
+   "pass": false
+  },
+  "S17:her L4b": {
+   "on_cm": 0.0,
+   "off_cm": 0.0,
+   "ratio": 0.0,
+   "open_cm": 0.0,
+   "frames": [
+    1397,
+    1421
+   ],
+   "silence": [
+    1340,
+    1364
+   ],
+   "pass": false
+  }
+ },
+ "pass": false,
+ "ratio_min": 2.0,
+ "open_min_cm": 0.3
+}

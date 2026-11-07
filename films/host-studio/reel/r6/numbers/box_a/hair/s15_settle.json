@@ -1,0 +1,39 @@
+{
+ "what": "head+hair motion at the shot start (diagnostic)",
+ "shot": "S15",
+ "box": [
+  0.492,
+  0.2256,
+  0.9276,
+  1.0
+ ],
+ "diffs": [
+  1.684,
+  1.667,
+  1.565,
+  1.091,
+  0.609,
+  0.545,
+  0.55,
+  0.519,
+  0.508,
+  0.497,
+  0.502,
+  0.463,
+  0.445,
+  0.412,
+  0.495,
+  0.464
+ ],
+ "start_max": 1.684,
+ "median_after": 0.502,
+ "ratio": 3.355,
+ "line": 1.8,
+ "pass": false,
+ "gate": {
+  "shot.start_motion_ratio": {
+   "value": 3.355,
+   "where": "S15 f1080-1084"
+  }
+ }
+}

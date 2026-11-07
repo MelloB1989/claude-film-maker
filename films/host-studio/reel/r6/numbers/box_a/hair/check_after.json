@@ -1,0 +1,361 @@
+{
+ "pass": true,
+ "problems": [],
+ "notes": [
+  "Host: groom Hair has hair_length_scale overrides [0.85] (shorter strands by design: the same in every shot, unless a sequence keys it)"
+ ],
+ "actors": {
+  "Host": {
+   "label": "Host",
+   "trash": [],
+   "lodsync": [
+    {
+     "name": "LODSync",
+     "forced_lod": 0,
+     "listed": [
+      "Body",
+      "Face",
+      "SkeletalMesh",
+      "SkeletalMesh1",
+      "SkeletalMesh2",
+      "Hair",
+      "Eyebrows",
+      "Fuzz",
+      "Eyelashes",
+      "Mustache",
+      "Beard"
+     ],
+     "live": {
+      "Body": 0,
+      "Face": 0,
+      "SkeletalMesh": 0,
+      "Hair": 0,
+      "Eyebrows": 0,
+      "Fuzz": 0,
+      "Eyelashes": 0,
+      "Mustache": 0,
+      "Beard": 0
+     }
+    }
+   ],
+   "grooms": [
+    {
+     "name": "Hair",
+     "visible": true,
+     "asset": "/Game/Host/Unpacked/Host_Op/Grooms/Hair_S_SideSweptFringe.Hair_S_SideSweptFringe",
+     "use_cards": false,
+     "listed": true,
+     "length_scale": [
+      0.85
+     ],
+     "live_lod": 0,
+     "lod_mode": "DEFAULT",
+     "auto_lod_bias": 0.0,
+     "groups": [
+      {
+       "lods": 8,
+       "geometry": "STRANDS",
+       "visible": true,
+       "screen_size": 1.0,
+       "curve_decimation": 1.0
+      }
+     ]
+    },
+    {
+     "name": "Eyebrows",
+     "visible": true,
+     "asset": "/Game/Host/Unpacked/Host_Op/Grooms/Eyebrows_M_SlightArch.Eyebrows_M_SlightArch",
+     "use_cards": false,
+     "listed": true,
+     "length_scale": [],
+     "live_lod": 0,
+     "lod_mode": "DEFAULT",
+     "auto_lod_bias": 0.5,
+     "groups": [
+      {
+       "lods": 8,
+       "geometry": "STRANDS",
+       "visible": true,
+       "screen_size": 1.0,
+       "curve_decimation": 1.0
+      }
+     ]
+    },
+    {
+     "name": "Fuzz",
+     "visible": true,
+     "asset": "/Game/Host/Unpacked/Host_Op/Grooms/Peachfuzz_M_Thin.Peachfuzz_M_Thin",
+     "use_cards": false,
+     "listed": true,
+     "length_scale": [],
+     "live_lod": 0,
+     "lod_mode": "DEFAULT",
+     "auto_lod_bias": 0.0,
+     "groups": [
+      {
+       "lods": 8,
+       "geometry": "STRANDS",
+       "visible": true,
+       "screen_size": 1.0,
+       "curve_decimation": 1.0
+      }
+     ]
+    },
+    {
+     "name": "Eyelashes",
+     "visible": true,
+     "asset": "/Game/Host/Unpacked/Host_Op/Grooms/Eyelashes_S_Fine.Eyelashes_S_Fine",
+     "use_cards": false,
+     "listed": true,
+     "length_scale": [],
+     "live_lod": 0,
+     "lod_mode": "DEFAULT",
+     "auto_lod_bias": 0.0,
+     "groups": [
+      {
+       "lods": 8,
+       "geometry": "STRANDS",
+       "visible": true,
+       "screen_size": 1.0,
+       "curve_decimation": 1.0
+      }
+     ]
+    },
+    {
+     "name": "Mustache",
+     "visible": true,
+     "asset": "/Game/Host/Unpacked/Host_Op/Grooms/Mustache_S_Full.Mustache_S_Full",
+     "use_cards": false,
+     "listed": true,
+     "length_scale": [],
+     "live_lod": 0,
+     "lod_mode": "DEFAULT",
+     "auto_lod_bias": 0.5,
+     "groups": [
+      {
+       "lods": 8,
+       "geometry": "STRANDS",
+       "visible": true,
+       "screen_size": 1.0,
+       "curve_decimation": 1.0
+      }
+     ]
+    },
+    {
+     "name": "Beard",
+     "visible": true,
+     "asset": null,
+     "use_cards": false,
+     "listed": true,
+     "length_scale": [],
+     "live_lod": 0,
+     "lod_mode": null,
+     "auto_lod_bias": null,
+     "groups": []
+    }
+   ],
+   "skeletal": [
+    {
+     "name": "Trousers",
+     "forced_lod_model": 1
+    },
+    {
+     "name": "Body",
+     "forced_lod_model": 1
+    },
+    {
+     "name": "Face",
+     "forced_lod_model": 1
+    },
+    {
+     "name": "SkeletalMesh",
+     "forced_lod_model": 1
+    }
+   ],
+   "problems": [],
+   "notes": [
+    "Host: groom Hair has hair_length_scale overrides [0.85] (shorter strands by design: the same in every shot, unless a sequence keys it)"
+   ]
+  },
+  "Presenter": {
+   "label": "Presenter",
+   "trash": [],
+   "lodsync": [
+    {
+     "name": "LODSync",
+     "forced_lod": 0,
+     "listed": [
+      "Body",
+      "Face",
+      "SkeletalMesh",
+      "SkeletalMesh1",
+      "SkeletalMesh2",
+      "Hair",
+      "Eyebrows",
+      "Fuzz",
+      "Eyelashes",
+      "Mustache",
+      "Beard"
+     ],
+     "live": {
+      "Body": 0,
+      "Face": 0,
+      "Hair": 0,
+      "Eyebrows": 0,
+      "Fuzz": 0,
+      "Eyelashes": 0,
+      "Mustache": 0,
+      "Beard": 0
+     }
+    }
+   ],
+   "grooms": [
+    {
+     "name": "Hair",
+     "visible": true,
+     "asset": "/Game/Host/Unpacked/Presenter/Grooms/Hair_L_Straight.Hair_L_Straight",
+     "use_cards": false,
+     "listed": true,
+     "length_scale": [],
+     "live_lod": 0,
+     "lod_mode": "DEFAULT",
+     "auto_lod_bias": 0.0,
+     "groups": [
+      {
+       "lods": 8,
+       "geometry": "STRANDS",
+       "visible": true,
+       "screen_size": 1.0,
+       "curve_decimation": 1.0
+      },
+      {
+       "lods": 8,
+       "geometry": "STRANDS",
+       "visible": true,
+       "screen_size": 1.0,
+       "curve_decimation": 1.0
+      }
+     ]
+    },
+    {
+     "name": "Eyebrows",
+     "visible": true,
+     "asset": "/Game/Host/Unpacked/Presenter/Grooms/Eyebrows_M_Thick.Eyebrows_M_Thick",
+     "use_cards": false,
+     "listed": true,
+     "length_scale": [],
+     "live_lod": 0,
+     "lod_mode": "DEFAULT",
+     "auto_lod_bias": 0.5,
+     "groups": [
+      {
+       "lods": 8,
+       "geometry": "STRANDS",
+       "visible": true,
+       "screen_size": 1.0,
+       "curve_decimation": 1.0
+      }
+     ]
+    },
+    {
+     "name": "Fuzz",
+     "visible": true,
+     "asset": "/Game/Host/Unpacked/Presenter/Grooms/Peachfuzz_M_Thin.Peachfuzz_M_Thin",
+     "use_cards": false,
+     "listed": true,
+     "length_scale": [],
+     "live_lod": 0,
+     "lod_mode": "DEFAULT",
+     "auto_lod_bias": 0.0,
+     "groups": [
+      {
+       "lods": 8,
+       "geometry": "STRANDS",
+       "visible": true,
+       "screen_size": 1.0,
+       "curve_decimation": 1.0
+      }
+     ]
+    },
+    {
+     "name": "Eyelashes",
+     "visible": true,
+     "asset": "/Game/Host/Unpacked/Presenter/Grooms/Eyelashes_L_ThickCurl.Eyelashes_L_ThickCurl",
+     "use_cards": false,
+     "listed": true,
+     "length_scale": [],
+     "live_lod": 0,
+     "lod_mode": "DEFAULT",
+     "auto_lod_bias": 0.5,
+     "groups": [
+      {
+       "lods": 8,
+       "geometry": "STRANDS",
+       "visible": true,
+       "screen_size": 1.0,
+       "curve_decimation": 1.0
+      }
+     ]
+    },
+    {
+     "name": "Mustache",
+     "visible": true,
+     "asset": null,
+     "use_cards": false,
+     "listed": true,
+     "length_scale": [],
+     "live_lod": 0,
+     "lod_mode": null,
+     "auto_lod_bias": null,
+     "groups": []
+    },
+    {
+     "name": "Beard",
+     "visible": true,
+     "asset": null,
+     "use_cards": false,
+     "listed": true,
+     "length_scale": [],
+     "live_lod": 0,
+     "lod_mode": null,
+     "auto_lod_bias": null,
+     "groups": []
+    }
+   ],
+   "skeletal": [
+    {
+     "name": "Overshirt",
+     "forced_lod_model": 1
+    },
+    {
+     "name": "Top",
+     "forced_lod_model": 1
+    },
+    {
+     "name": "Trousers",
+     "forced_lod_model": 1
+    },
+    {
+     "name": "Body",
+     "forced_lod_model": 1
+    },
+    {
+     "name": "Face",
+     "forced_lod_model": 1
+    }
+   ],
+   "problems": [],
+   "notes": []
+  }
+ },
+ "cvars": {
+  "r.HairStrands.LODMode": 0.0,
+  "r.HairStrands.AutoLOD.Bias": 1.0,
+  "r.HairStrands.UseCardsInsteadOfStrands": 0.0
+ },
+ "render_cvars": {
+  "r.HairStrands.LODMode": 0,
+  "r.HairStrands.AutoLOD.Bias": 1.0,
+  "r.HairStrands.UseCardsInsteadOfStrands": 0
+ }
+}
