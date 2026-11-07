@@ -59,13 +59,14 @@ SEED = {"him": 71, "her": 72}
 SET = S.Set(seat_top=45.0, seat_front=24.5, desk_top=74.0, desk_near=30.5, desk_far=85.5, desk_under=63.4,
             mic=[24.0, 14.0, 99.0], mic_radius=9.0,
             boom=[[50.0, 52.6, 74.0], [43.8, 42.9, 119.3], [24.0, 14.0, 99.0]])  # agent-05 props.json (16:5x IST)
-# How each sits (seatkit.Style). The cameras are to the presenter's right-front (-20 deg MCU/CU, -8 WIDE): the chest
+# How each sits (seatkit.Style). The cameras are at studio -Y (azimuth -20 MCU/CU, -8 WIDE): facing +X in Unreal that
+# is the presenter's LEFT-front (+Y is their right; the mic is there), so twist < 0. The chest
 # turns a little toward them, the head and eyes do the rest (face + gaze).
 STYLE = {
-    "her": S.Style(lean=12.0, twist=6.0, knee_out=4.0, foot_out=6.0, wrist_in=5.0, pronation=52.0, heel_lift=5.0,
+    "her": S.Style(lean=12.0, twist=-6.0, knee_out=4.0, foot_out=6.0, wrist_in=5.0, pronation=52.0, heel_lift=5.0,
                    shin_tilt=3.0,
                    clavicle_fwd=5.0),
-    "him": S.Style(lean=14.0, twist=6.0, knee_out=8.0, foot_out=9.0, wrist_in=3.0, pronation=48.0,
+    "him": S.Style(lean=14.0, twist=-6.0, knee_out=8.0, foot_out=9.0, wrist_in=3.0, pronation=48.0,
                    clavicle_fwd=6.0),
 }
 # The line solves' moods (speech.to_face): measured and calm, a little brighter on the hook and the close.
