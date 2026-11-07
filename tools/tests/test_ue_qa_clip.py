@@ -399,3 +399,29 @@ def test_gate_neck_rule_visible():
     old = {k: v for k, v in fr.items() if k != "neck_visible"}  # an out_dir judged before this measure: refused
     assert "clip.neck_missing" in [i["code"] for i in clip.gate({"S15": {1128: old}}, "Host", neck_rule="visible")]
     assert clip.summarize({"S15": {1128: fr}})["neck_visible"]["island_px"] == 18
+
+
+def test_collar_camera_facing_scope():
+    # round 6 (orchestrator): the collar rows judge the half of the band facing the shot camera. His neck turning
+    # inside a static crew-neck opens the far side (S15 f1150): passes; a stand-off, a lip, a fold or Fit5 on the
+    # camera side still fail; a frame with too few facing verts is not measured (refused)
+    def facing(ang, cam_deg):  # outward direction at `ang` faces a camera at `cam_deg` round the neck
+        return [math.cos(math.radians(x - cam_deg)) > 0 for x in ang]
+
+    def standoff(a, r, g, ang, side_deg, extra):  # the band stands `extra` cm off the neck on one half
+        f = facing(ang, side_deg)
+        return a, [x + extra if s else x for x, s in zip(r, f)], [x + extra if s else x for x, s in zip(g, f)], ang
+
+    a, r, g, ang = standoff(*band(), 180.0, 1.5)  # the far (back) half stands off on the turn
+    assert GL.collar_stats(a, r, g, angle=ang)["roll"]  # the whole band: fails (kept as INFO)
+    ok = GL.collar_stats(a, r, g, angle=ang, facing=facing(ang, 0.0))
+    assert not ok["roll"] and ok["gap_cm"] <= GL.COLLAR_GAP_CM and ok["facing"], ok
+    a, r, g, ang = standoff(*band(), 0.0, 1.5)  # a FRONT stand-off facing the camera: fails
+    front = GL.collar_stats(a, r, g, angle=ang, facing=facing(ang, 0.0))
+    assert front["roll"] and front["gap_cm"] > GL.COLLAR_GAP_CM
+    for kw in ({"lip": 1.8}, {"fold": 1.6}, {"gap": 2.447, "lip": 1.2}):  # lip, fold, Fit5 on the camera side
+        a, r, g, ang = band(**kw)
+        assert GL.collar_stats(a, r, g, angle=ang, facing=facing(ang, 0.0))["roll"], kw
+    a, r, g, ang = band(n=12, heights=(0.0,))
+    blind = GL.collar_stats(a, r, g, angle=ang, facing=[False] * len(a))  # nothing faces the camera
+    assert blind["n"] == 0
