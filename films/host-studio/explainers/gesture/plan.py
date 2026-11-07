@@ -9,7 +9,9 @@ canned). The orchestrator's rules, 07 Nov:
   preparation takes 0.42 - 0.18 energy s, the retraction 0.45 - 0.2 energy s;
 - beats on secondary stresses: strong syllables of content words between the sheet's gestures, where the hands would
   otherwise be still for more than ~1.2 s while she speaks; small, the right hand (the mic is on her left);
-- rest in pauses over 0.6 s (gap_merge 0.6 for gesturekit's speak weight; no hold or retraction runs into one);
+- rest in pauses over 0.6 s (gap_merge 0.6 for gesturekit's speak weight; no hold or retraction runs into one),
+  except where the next stroke's preparation starts < 0.4 s after the pause: those are `bridge` pauses, the hands
+  hold the high relaxed rest (the orchestrator, 08 Nov: a drop and rise at a cut reads twitchy);
 - never the same type twice in a row among the added beats (the sheet's own deliberate pairs, e.g. the counting and
   N04's two naming beats, are the sheet's and are reported, not changed);
 - the sheet's held strokes stay held (their hold_s) and still: no added beat lands inside any gesture's window.
@@ -28,6 +30,7 @@ FILM_WHO = {"netflix": "her", "whatsapp": "him"}
 LEAD = (0.08, 0.20)  # s before the stressed syllable's peak
 PREP = (0.18, 0.30)  # s of preparation at full / no vocal energy (agent-09's gate counts a beat at > 40 cm/s)
 AMP_MIN = 0.4  # the smallest stroke that still reads as a gesture (and passes 40 cm/s) on her rig
+BRIDGE_PREP = 0.4  # s: a pause followed this soon by a stroke's preparation does not rest (bridge)
 CHAIN = 0.6  # s: a gesture followed this soon by the next holds still until the next one's preparation
 GAP_MERGE = 0.6  # s: pauses longer than this rest
 STILL_MAX = 1.2  # s of still hands while speaking that calls for a beat on a secondary stress
@@ -93,13 +96,40 @@ def timed(e: dict, w: dict, rng, spans) -> dict:
             "lead_s": round(lead, 3), "peak_t": w["peak_t"]}
 
 
+def bridges(ev, spans) -> list:
+    """Pauses (> GAP_MERGE) the hands do NOT rest in (the orchestrator, 08 Nov): where the next stroke's preparation
+    starts < BRIDGE_PREP s after the pause ends, a drop to the desk and straight back up reads twitchy (and every long
+    pause in her take holds a cut); the hands hold gesturekit's high relaxed rest instead. The other pauses rest."""
+    out = []
+    for (a0, a1), (b0, b1) in zip(spans, spans[1:]):
+        nxt = min((e["prep_t"] for e in ev if e["prep_t"] >= a1 - 0.05), default=None)
+        if nxt is not None and nxt - b0 < BRIDGE_PREP:
+            out.append([round(a1, 3), round(b0, 3)])
+    return out
+
+
 def plan(film: str, seed: int = 72) -> dict:
+    first = _plan(film, seed)
+    br = bridges(first["gestures"], first["speech"])
+    if not br:
+        return first
+    res = _plan(film, seed, br)  # again with the bridged pauses as speech (no rest, no retraction into them)
+    res["bridge"] = br
+    return res
+
+
+def _plan(film: str, seed: int = 72, bridge: list | None = None) -> dict:
     who, sheet, cues, pros = load(film)
     rng = random.Random(seed)
     for gi, w in enumerate(pros["words"]):  # the sheet's word_i counts words over the whole film
         w["gi"] = gi
     words = {(w["line"], w["gi"]): w for w in pros["words"]}
     spans = speech_spans(cues)
+    for b0, b1 in bridge or []:  # a bridged pause joins its two speech spans
+        for i in range(len(spans) - 1):
+            if abs(spans[i][1] - b0) < 1e-3 and abs(spans[i + 1][0] - b1) < 1e-3:
+                spans[i:i + 2] = [(spans[i][0], spans[i + 1][1])]
+                break
     fps = cues["fps"]
     out = []
     for ln in sheet["lines"]:
@@ -120,7 +150,8 @@ def plan(film: str, seed: int = 72) -> dict:
     return {"_doc": "agent-10's prosody timing for gesturekit.plan_from_sheet(timing=...): per gesture (line, word_i) "
                     "prep_t / stroke_t (the apex, s on the VO clock; apex_f = the 24 fps frame) / hold_s / retract_s "
                     "/ amp / energy override the sheet's; entries with add: true are beats on secondary stresses "
-                    "(type = body01 kind, detail, hand, size). gap_merge: pauses longer than this rest. Written by "
+                    "(type = body01 kind, detail, hand, size). gap_merge: pauses longer than this rest, except the "
+                    "bridge pauses [[t0, t1]] (the hands hold the high relaxed rest). Written by "
                     "gesture/plan.py from gesture/prosody.py (vo.wav).",
             "film": film, "who": who, "fps": fps, "gap_merge": GAP_MERGE, "seed": seed,
             "gestures": out, "speech": spans, "stats": stats(out, spans)}
