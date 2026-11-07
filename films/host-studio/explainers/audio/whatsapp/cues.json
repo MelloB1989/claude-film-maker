@@ -1,0 +1,1377 @@
+{
+ "film": "whatsapp",
+ "title": "How WhatsApp delivers 100 billion messages a day",
+ "presenter": "him",
+ "voice": "tarun",
+ "fps": 24,
+ "frames": 1359,
+ "duration": 56.625,
+ "sr": 48000,
+ "vo": "audio/whatsapp/vo.wav",
+ "lines": [
+  {
+   "id": "W01",
+   "beat": "hook",
+   "text": "Every day, WhatsApp moves over a hundred billion messages.",
+   "take": 2,
+   "file": "audio/whatsapp/lines/W01.wav",
+   "file_start": 0.75,
+   "file_start_f": 18,
+   "file_len": 3.245,
+   "start": 0.75,
+   "end": 3.745,
+   "start_f": 18,
+   "end_f": 90,
+   "words": [
+    {
+     "w": "Every",
+     "start": 0.75,
+     "end": 1.052,
+     "f0": 18,
+     "f1": 26
+    },
+    {
+     "w": "day,",
+     "start": 1.098,
+     "end": 1.284,
+     "f0": 26,
+     "f1": 31
+    },
+    {
+     "w": "WhatsApp",
+     "start": 1.493,
+     "end": 1.957,
+     "f0": 35,
+     "f1": 47
+    },
+    {
+     "w": "moves",
+     "start": 2.015,
+     "end": 2.236,
+     "f0": 48,
+     "f1": 54
+    },
+    {
+     "w": "over",
+     "start": 2.283,
+     "end": 2.468,
+     "f0": 54,
+     "f1": 60
+    },
+    {
+     "w": "a",
+     "start": 2.515,
+     "end": 2.538,
+     "f0": 60,
+     "f1": 61
+    },
+    {
+     "w": "hundred",
+     "start": 2.596,
+     "end": 2.875,
+     "f0": 62,
+     "f1": 69
+    },
+    {
+     "w": "billion",
+     "start": 2.921,
+     "end": 3.2,
+     "f0": 70,
+     "f1": 77
+    },
+    {
+     "w": "messages.",
+     "start": 3.258,
+     "end": 3.745,
+     "f0": 78,
+     "f1": 90
+    }
+   ]
+  },
+  {
+   "id": "W02",
+   "beat": "hook",
+   "text": "And almost none of them stay on its servers.",
+   "take": 1,
+   "file": "audio/whatsapp/lines/W02.wav",
+   "file_start": 4.0417,
+   "file_start_f": 97,
+   "file_len": 2.409,
+   "start": 4.042,
+   "end": 6.201,
+   "start_f": 97,
+   "end_f": 149,
+   "words": [
+    {
+     "w": "And",
+     "start": 4.042,
+     "end": 4.402,
+     "f0": 97,
+     "f1": 106
+    },
+    {
+     "w": "almost",
+     "start": 4.483,
+     "end": 4.82,
+     "f0": 107,
+     "f1": 116
+    },
+    {
+     "w": "none",
+     "start": 4.878,
+     "end": 5.017,
+     "f0": 117,
+     "f1": 121
+    },
+    {
+     "w": "of",
+     "start": 5.04,
+     "end": 5.099,
+     "f0": 120,
+     "f1": 123
+    },
+    {
+     "w": "them",
+     "start": 5.145,
+     "end": 5.273,
+     "f0": 123,
+     "f1": 127
+    },
+    {
+     "w": "stay",
+     "start": 5.331,
+     "end": 5.493,
+     "f0": 127,
+     "f1": 132
+    },
+    {
+     "w": "on",
+     "start": 5.54,
+     "end": 5.598,
+     "f0": 132,
+     "f1": 135
+    },
+    {
+     "w": "its",
+     "start": 5.644,
+     "end": 5.749,
+     "f0": 135,
+     "f1": 138
+    },
+    {
+     "w": "servers.",
+     "start": 5.772,
+     "end": 6.201,
+     "f0": 138,
+     "f1": 149
+    }
+   ]
+  },
+  {
+   "id": "W03",
+   "beat": "hook",
+   "text": "Here's how.",
+   "take": 1,
+   "file": "audio/whatsapp/lines/W03.wav",
+   "file_start": 6.5,
+   "file_start_f": 156,
+   "file_len": 0.819,
+   "start": 6.5,
+   "end": 7.069,
+   "start_f": 156,
+   "end_f": 170,
+   "words": [
+    {
+     "w": "Here's",
+     "start": 6.5,
+     "end": 6.813,
+     "f0": 156,
+     "f1": 164
+    },
+    {
+     "w": "how.",
+     "start": 6.86,
+     "end": 7.069,
+     "f0": 164,
+     "f1": 170
+    }
+   ]
+  },
+  {
+   "id": "W04",
+   "beat": "connection",
+   "text": "Open the app, and your phone keeps one connection open to WhatsApp.",
+   "take": 2,
+   "file": "audio/whatsapp/lines/W04.wav",
+   "file_start": 7.8333,
+   "file_start_f": 188,
+   "file_len": 3.652,
+   "start": 7.833,
+   "end": 11.235,
+   "start_f": 188,
+   "end_f": 270,
+   "words": [
+    {
+     "w": "Open",
+     "start": 7.833,
+     "end": 8.123,
+     "f0": 188,
+     "f1": 195
+    },
+    {
+     "w": "the",
+     "start": 8.17,
+     "end": 8.251,
+     "f0": 196,
+     "f1": 199
+    },
+    {
+     "w": "app,",
+     "start": 8.309,
+     "end": 8.506,
+     "f0": 199,
+     "f1": 205
+    },
+    {
+     "w": "and",
+     "start": 8.773,
+     "end": 8.913,
+     "f0": 210,
+     "f1": 214
+    },
+    {
+     "w": "your",
+     "start": 8.959,
+     "end": 9.064,
+     "f0": 215,
+     "f1": 218
+    },
+    {
+     "w": "phone",
+     "start": 9.098,
+     "end": 9.342,
+     "f0": 218,
+     "f1": 225
+    },
+    {
+     "w": "keeps",
+     "start": 9.389,
+     "end": 9.656,
+     "f0": 225,
+     "f1": 232
+    },
+    {
+     "w": "one",
+     "start": 9.725,
+     "end": 9.911,
+     "f0": 233,
+     "f1": 238
+    },
+    {
+     "w": "connection",
+     "start": 9.946,
+     "end": 10.329,
+     "f0": 238,
+     "f1": 248
+    },
+    {
+     "w": "open",
+     "start": 10.387,
+     "end": 10.596,
+     "f0": 249,
+     "f1": 255
+    },
+    {
+     "w": "to",
+     "start": 10.643,
+     "end": 10.712,
+     "f0": 255,
+     "f1": 258
+    },
+    {
+     "w": "WhatsApp.",
+     "start": 10.77,
+     "end": 11.235,
+     "f0": 258,
+     "f1": 270
+    }
+   ]
+  },
+  {
+   "id": "W05",
+   "beat": "connection",
+   "text": "On the server, each connection is its own tiny Erlang process.",
+   "take": 3,
+   "file": "audio/whatsapp/lines/W05.wav",
+   "file_start": 11.5417,
+   "file_start_f": 277,
+   "file_len": 3.768,
+   "start": 11.542,
+   "end": 15.06,
+   "start_f": 277,
+   "end_f": 362,
+   "words": [
+    {
+     "w": "On",
+     "start": 11.542,
+     "end": 11.705,
+     "f0": 277,
+     "f1": 281
+    },
+    {
+     "w": "the",
+     "start": 11.751,
+     "end": 11.821,
+     "f0": 282,
+     "f1": 284
+    },
+    {
+     "w": "server,",
+     "start": 11.879,
+     "end": 12.25,
+     "f0": 285,
+     "f1": 294
+    },
+    {
+     "w": "each",
+     "start": 12.552,
+     "end": 12.726,
+     "f0": 301,
+     "f1": 306
+    },
+    {
+     "w": "connection",
+     "start": 12.784,
+     "end": 13.167,
+     "f0": 306,
+     "f1": 316
+    },
+    {
+     "w": "is",
+     "start": 13.214,
+     "end": 13.295,
+     "f0": 317,
+     "f1": 320
+    },
+    {
+     "w": "its",
+     "start": 13.353,
+     "end": 13.469,
+     "f0": 320,
+     "f1": 324
+    },
+    {
+     "w": "own",
+     "start": 13.539,
+     "end": 13.771,
+     "f0": 324,
+     "f1": 331
+    },
+    {
+     "w": "tiny",
+     "start": 13.829,
+     "end": 14.143,
+     "f0": 331,
+     "f1": 340
+    },
+    {
+     "w": "Erlang",
+     "start": 14.212,
+     "end": 14.491,
+     "f0": 341,
+     "f1": 348
+    },
+    {
+     "w": "process.",
+     "start": 14.549,
+     "end": 15.06,
+     "f0": 349,
+     "f1": 362
+    }
+   ]
+  },
+  {
+   "id": "W06",
+   "beat": "connection",
+   "text": "One server once held two million of them.",
+   "take": 2,
+   "file": "audio/whatsapp/lines/W06.wav",
+   "file_start": 15.3333,
+   "file_start_f": 368,
+   "file_len": 2.108,
+   "start": 15.333,
+   "end": 17.191,
+   "start_f": 368,
+   "end_f": 413,
+   "words": [
+    {
+     "w": "One",
+     "start": 15.333,
+     "end": 15.53,
+     "f0": 368,
+     "f1": 373
+    },
+    {
+     "w": "server",
+     "start": 15.577,
+     "end": 15.89,
+     "f0": 373,
+     "f1": 382
+    },
+    {
+     "w": "once",
+     "start": 15.948,
+     "end": 16.134,
+     "f0": 382,
+     "f1": 388
+    },
+    {
+     "w": "held",
+     "start": 16.157,
+     "end": 16.331,
+     "f0": 387,
+     "f1": 392
+    },
+    {
+     "w": "two",
+     "start": 16.366,
+     "end": 16.494,
+     "f0": 392,
+     "f1": 396
+    },
+    {
+     "w": "million",
+     "start": 16.552,
+     "end": 16.842,
+     "f0": 397,
+     "f1": 405
+    },
+    {
+     "w": "of",
+     "start": 16.889,
+     "end": 16.958,
+     "f0": 405,
+     "f1": 408
+    },
+    {
+     "w": "them.",
+     "start": 17.016,
+     "end": 17.191,
+     "f0": 408,
+     "f1": 413
+    }
+   ]
+  },
+  {
+   "id": "W07",
+   "beat": "store-forward",
+   "text": "You hit send. Is your friend online?",
+   "take": 2,
+   "file": "audio/whatsapp/lines/W07.wav",
+   "file_start": 17.9583,
+   "file_start_f": 431,
+   "file_len": 2.154,
+   "start": 17.958,
+   "end": 19.862,
+   "start_f": 431,
+   "end_f": 477,
+   "words": [
+    {
+     "w": "You",
+     "start": 17.958,
+     "end": 18.121,
+     "f0": 431,
+     "f1": 435
+    },
+    {
+     "w": "hit",
+     "start": 18.179,
+     "end": 18.33,
+     "f0": 436,
+     "f1": 440
+    },
+    {
+     "w": "send.",
+     "start": 18.388,
+     "end": 18.747,
+     "f0": 441,
+     "f1": 450
+    },
+    {
+     "w": "Is",
+     "start": 18.864,
+     "end": 19.003,
+     "f0": 452,
+     "f1": 457
+    },
+    {
+     "w": "your",
+     "start": 19.049,
+     "end": 19.154,
+     "f0": 457,
+     "f1": 460
+    },
+    {
+     "w": "friend",
+     "start": 19.189,
+     "end": 19.409,
+     "f0": 460,
+     "f1": 466
+    },
+    {
+     "w": "online?",
+     "start": 19.479,
+     "end": 19.862,
+     "f0": 467,
+     "f1": 477
+    }
+   ]
+  },
+  {
+   "id": "W08",
+   "beat": "store-forward",
+   "text": "Then it goes straight down their connection.",
+   "take": 1,
+   "file": "audio/whatsapp/lines/W08.wav",
+   "file_start": 20.1667,
+   "file_start_f": 484,
+   "file_len": 2.026,
+   "start": 20.167,
+   "end": 21.943,
+   "start_f": 484,
+   "end_f": 527,
+   "words": [
+    {
+     "w": "Then",
+     "start": 20.167,
+     "end": 20.364,
+     "f0": 484,
+     "f1": 489
+    },
+    {
+     "w": "it",
+     "start": 20.411,
+     "end": 20.469,
+     "f0": 489,
+     "f1": 492
+    },
+    {
+     "w": "goes",
+     "start": 20.515,
+     "end": 20.701,
+     "f0": 492,
+     "f1": 497
+    },
+    {
+     "w": "straight",
+     "start": 20.724,
+     "end": 21.015,
+     "f0": 497,
+     "f1": 505
+    },
+    {
+     "w": "down",
+     "start": 21.049,
+     "end": 21.212,
+     "f0": 505,
+     "f1": 510
+    },
+    {
+     "w": "their",
+     "start": 21.258,
+     "end": 21.409,
+     "f0": 510,
+     "f1": 514
+    },
+    {
+     "w": "connection.",
+     "start": 21.444,
+     "end": 21.943,
+     "f0": 514,
+     "f1": 527
+    }
+   ]
+  },
+  {
+   "id": "W09",
+   "beat": "store-forward",
+   "text": "If not, it waits. And once it's delivered, it's deleted.",
+   "take": 3,
+   "file": "audio/whatsapp/lines/W09.wav",
+   "file_start": 22.25,
+   "file_start_f": 534,
+   "file_len": 3.211,
+   "start": 22.25,
+   "end": 25.211,
+   "start_f": 534,
+   "end_f": 606,
+   "words": [
+    {
+     "w": "If",
+     "start": 22.25,
+     "end": 22.401,
+     "f0": 534,
+     "f1": 538
+    },
+    {
+     "w": "not,",
+     "start": 22.471,
+     "end": 22.668,
+     "f0": 539,
+     "f1": 545
+    },
+    {
+     "w": "it",
+     "start": 22.865,
+     "end": 22.981,
+     "f0": 548,
+     "f1": 552
+    },
+    {
+     "w": "waits.",
+     "start": 23.039,
+     "end": 23.376,
+     "f0": 552,
+     "f1": 562
+    },
+    {
+     "w": "And",
+     "start": 23.55,
+     "end": 23.678,
+     "f0": 565,
+     "f1": 569
+    },
+    {
+     "w": "once",
+     "start": 23.736,
+     "end": 23.922,
+     "f0": 569,
+     "f1": 575
+    },
+    {
+     "w": "it's",
+     "start": 23.945,
+     "end": 24.084,
+     "f0": 574,
+     "f1": 579
+    },
+    {
+     "w": "delivered,",
+     "start": 24.131,
+     "end": 24.572,
+     "f0": 579,
+     "f1": 590
+    },
+    {
+     "w": "it's",
+     "start": 24.618,
+     "end": 24.758,
+     "f0": 590,
+     "f1": 595
+    },
+    {
+     "w": "deleted.",
+     "start": 24.804,
+     "end": 25.211,
+     "f0": 595,
+     "f1": 606
+    }
+   ]
+  },
+  {
+   "id": "W10",
+   "beat": "ticks",
+   "text": "Your ticks? One: the server has it.",
+   "take": 2,
+   "file": "audio/whatsapp/lines/W10.wav",
+   "file_start": 25.9583,
+   "file_start_f": 623,
+   "file_len": 2.572,
+   "start": 25.958,
+   "end": 28.28,
+   "start_f": 623,
+   "end_f": 679,
+   "words": [
+    {
+     "w": "Your",
+     "start": 25.958,
+     "end": 26.167,
+     "f0": 623,
+     "f1": 629
+    },
+    {
+     "w": "ticks?",
+     "start": 26.225,
+     "end": 26.585,
+     "f0": 629,
+     "f1": 639
+    },
+    {
+     "w": "One:",
+     "start": 26.945,
+     "end": 27.247,
+     "f0": 646,
+     "f1": 654
+    },
+    {
+     "w": "the",
+     "start": 27.444,
+     "end": 27.549,
+     "f0": 658,
+     "f1": 662
+    },
+    {
+     "w": "server",
+     "start": 27.607,
+     "end": 27.92,
+     "f0": 662,
+     "f1": 671
+    },
+    {
+     "w": "has",
+     "start": 27.967,
+     "end": 28.117,
+     "f0": 671,
+     "f1": 675
+    },
+    {
+     "w": "it.",
+     "start": 28.187,
+     "end": 28.28,
+     "f0": 676,
+     "f1": 679
+    }
+   ]
+  },
+  {
+   "id": "W11",
+   "beat": "ticks",
+   "text": "Two: it reached their phone. Blue: they've read it.",
+   "take": 3,
+   "file": "audio/whatsapp/lines/W11.wav",
+   "file_start": 28.5833,
+   "file_start_f": 686,
+   "file_len": 3.35,
+   "start": 28.583,
+   "end": 31.683,
+   "start_f": 686,
+   "end_f": 761,
+   "words": [
+    {
+     "w": "Two:",
+     "start": 28.583,
+     "end": 28.873,
+     "f0": 686,
+     "f1": 693
+    },
+    {
+     "w": "it",
+     "start": 29.245,
+     "end": 29.372,
+     "f0": 701,
+     "f1": 705
+    },
+    {
+     "w": "reached",
+     "start": 29.431,
+     "end": 29.686,
+     "f0": 706,
+     "f1": 713
+    },
+    {
+     "w": "their",
+     "start": 29.721,
+     "end": 29.848,
+     "f0": 713,
+     "f1": 717
+    },
+    {
+     "w": "phone.",
+     "start": 29.872,
+     "end": 30.22,
+     "f0": 716,
+     "f1": 726
+    },
+    {
+     "w": "Blue:",
+     "start": 30.522,
+     "end": 30.882,
+     "f0": 732,
+     "f1": 742
+    },
+    {
+     "w": "they've",
+     "start": 31.149,
+     "end": 31.381,
+     "f0": 747,
+     "f1": 754
+    },
+    {
+     "w": "read",
+     "start": 31.404,
+     "end": 31.555,
+     "f0": 753,
+     "f1": 758
+    },
+    {
+     "w": "it.",
+     "start": 31.602,
+     "end": 31.683,
+     "f0": 758,
+     "f1": 761
+    }
+   ]
+  },
+  {
+   "id": "W12",
+   "beat": "groups",
+   "text": "In a group, your phone encrypts once. The server fans it out to everyone.",
+   "take": 1,
+   "file": "audio/whatsapp/lines/W12.wav",
+   "file_start": 32.4167,
+   "file_start_f": 778,
+   "file_len": 3.71,
+   "start": 32.417,
+   "end": 35.877,
+   "start_f": 778,
+   "end_f": 862,
+   "words": [
+    {
+     "w": "In",
+     "start": 32.417,
+     "end": 32.568,
+     "f0": 778,
+     "f1": 782
+    },
+    {
+     "w": "a",
+     "start": 32.614,
+     "end": 32.638,
+     "f0": 782,
+     "f1": 784
+    },
+    {
+     "w": "group,",
+     "start": 32.684,
+     "end": 32.881,
+     "f0": 784,
+     "f1": 790
+    },
+    {
+     "w": "your",
+     "start": 32.928,
+     "end": 33.032,
+     "f0": 790,
+     "f1": 793
+    },
+    {
+     "w": "phone",
+     "start": 33.067,
+     "end": 33.311,
+     "f0": 793,
+     "f1": 800
+    },
+    {
+     "w": "encrypts",
+     "start": 33.334,
+     "end": 33.694,
+     "f0": 800,
+     "f1": 809
+    },
+    {
+     "w": "once.",
+     "start": 33.752,
+     "end": 34.042,
+     "f0": 810,
+     "f1": 817
+    },
+    {
+     "w": "The",
+     "start": 34.228,
+     "end": 34.344,
+     "f0": 821,
+     "f1": 825
+    },
+    {
+     "w": "server",
+     "start": 34.391,
+     "end": 34.669,
+     "f0": 825,
+     "f1": 833
+    },
+    {
+     "w": "fans",
+     "start": 34.716,
+     "end": 34.948,
+     "f0": 833,
+     "f1": 839
+    },
+    {
+     "w": "it",
+     "start": 34.983,
+     "end": 35.041,
+     "f0": 839,
+     "f1": 841
+    },
+    {
+     "w": "out",
+     "start": 35.076,
+     "end": 35.203,
+     "f0": 841,
+     "f1": 845
+    },
+    {
+     "w": "to",
+     "start": 35.238,
+     "end": 35.296,
+     "f0": 845,
+     "f1": 848
+    },
+    {
+     "w": "everyone.",
+     "start": 35.389,
+     "end": 35.877,
+     "f0": 849,
+     "f1": 862
+    }
+   ]
+  },
+  {
+   "id": "W13",
+   "beat": "e2ee",
+   "text": "And the server can't read a word of it.",
+   "take": 3,
+   "file": "audio/whatsapp/lines/W13.wav",
+   "file_start": 36.625,
+   "file_start_f": 879,
+   "file_len": 2.2,
+   "start": 36.625,
+   "end": 38.575,
+   "start_f": 879,
+   "end_f": 926,
+   "words": [
+    {
+     "w": "And",
+     "start": 36.625,
+     "end": 36.811,
+     "f0": 879,
+     "f1": 884
+    },
+    {
+     "w": "the",
+     "start": 36.857,
+     "end": 36.927,
+     "f0": 884,
+     "f1": 887
+    },
+    {
+     "w": "server",
+     "start": 36.985,
+     "end": 37.356,
+     "f0": 887,
+     "f1": 897
+    },
+    {
+     "w": "can't",
+     "start": 37.403,
+     "end": 37.635,
+     "f0": 897,
+     "f1": 904
+    },
+    {
+     "w": "read",
+     "start": 37.682,
+     "end": 37.844,
+     "f0": 904,
+     "f1": 909
+    },
+    {
+     "w": "a",
+     "start": 37.89,
+     "end": 37.925,
+     "f0": 909,
+     "f1": 911
+    },
+    {
+     "w": "word",
+     "start": 37.995,
+     "end": 38.262,
+     "f0": 911,
+     "f1": 919
+    },
+    {
+     "w": "of",
+     "start": 38.308,
+     "end": 38.378,
+     "f0": 919,
+     "f1": 922
+    },
+    {
+     "w": "it.",
+     "start": 38.448,
+     "end": 38.575,
+     "f0": 922,
+     "f1": 926
+    }
+   ]
+  },
+  {
+   "id": "W14",
+   "beat": "e2ee",
+   "text": "The Signal protocol keeps the keys on your phones.",
+   "take": 3,
+   "file": "audio/whatsapp/lines/W14.wav",
+   "file_start": 38.875,
+   "file_start_f": 933,
+   "file_len": 2.537,
+   "start": 38.875,
+   "end": 41.162,
+   "start_f": 933,
+   "end_f": 988,
+   "words": [
+    {
+     "w": "The",
+     "start": 38.875,
+     "end": 39.014,
+     "f0": 933,
+     "f1": 937
+    },
+    {
+     "w": "Signal",
+     "start": 39.061,
+     "end": 39.339,
+     "f0": 937,
+     "f1": 945
+    },
+    {
+     "w": "protocol",
+     "start": 39.386,
+     "end": 39.827,
+     "f0": 945,
+     "f1": 956
+    },
+    {
+     "w": "keeps",
+     "start": 39.897,
+     "end": 40.117,
+     "f0": 957,
+     "f1": 963
+    },
+    {
+     "w": "the",
+     "start": 40.164,
+     "end": 40.233,
+     "f0": 963,
+     "f1": 966
+    },
+    {
+     "w": "keys",
+     "start": 40.28,
+     "end": 40.477,
+     "f0": 966,
+     "f1": 972
+    },
+    {
+     "w": "on",
+     "start": 40.535,
+     "end": 40.593,
+     "f0": 972,
+     "f1": 975
+    },
+    {
+     "w": "your",
+     "start": 40.628,
+     "end": 40.733,
+     "f0": 975,
+     "f1": 978
+    },
+    {
+     "w": "phones.",
+     "start": 40.756,
+     "end": 41.162,
+     "f0": 978,
+     "f1": 988
+    }
+   ]
+  },
+  {
+   "id": "W15",
+   "beat": "media",
+   "text": "Photos go to a blob store, encrypted. Only the key rides in the message.",
+   "take": 3,
+   "file": "audio/whatsapp/lines/W15.wav",
+   "file_start": 41.9167,
+   "file_start_f": 1006,
+   "file_len": 4.673,
+   "start": 41.917,
+   "end": 46.34,
+   "start_f": 1006,
+   "end_f": 1113,
+   "words": [
+    {
+     "w": "Photos",
+     "start": 41.917,
+     "end": 42.37,
+     "f0": 1006,
+     "f1": 1017
+    },
+    {
+     "w": "go",
+     "start": 42.428,
+     "end": 42.532,
+     "f0": 1018,
+     "f1": 1021
+    },
+    {
+     "w": "to",
+     "start": 42.602,
+     "end": 42.672,
+     "f0": 1022,
+     "f1": 1025
+    },
+    {
+     "w": "a",
+     "start": 42.753,
+     "end": 42.788,
+     "f0": 1026,
+     "f1": 1027
+    },
+    {
+     "w": "blob",
+     "start": 42.846,
+     "end": 43.113,
+     "f0": 1028,
+     "f1": 1035
+    },
+    {
+     "w": "store,",
+     "start": 43.171,
+     "end": 43.554,
+     "f0": 1036,
+     "f1": 1046
+    },
+    {
+     "w": "encrypted.",
+     "start": 43.624,
+     "end": 44.274,
+     "f0": 1046,
+     "f1": 1063
+    },
+    {
+     "w": "Only",
+     "start": 44.669,
+     "end": 44.924,
+     "f0": 1072,
+     "f1": 1079
+    },
+    {
+     "w": "the",
+     "start": 44.982,
+     "end": 45.052,
+     "f0": 1079,
+     "f1": 1082
+    },
+    {
+     "w": "key",
+     "start": 45.121,
+     "end": 45.319,
+     "f0": 1082,
+     "f1": 1088
+    },
+    {
+     "w": "rides",
+     "start": 45.4,
+     "end": 45.725,
+     "f0": 1089,
+     "f1": 1098
+    },
+    {
+     "w": "in",
+     "start": 45.76,
+     "end": 45.818,
+     "f0": 1098,
+     "f1": 1100
+    },
+    {
+     "w": "the",
+     "start": 45.853,
+     "end": 45.922,
+     "f0": 1100,
+     "f1": 1103
+    },
+    {
+     "w": "message.",
+     "start": 45.957,
+     "end": 46.34,
+     "f0": 1102,
+     "f1": 1113
+    }
+   ]
+  },
+  {
+   "id": "W16",
+   "beat": "close",
+   "text": "Tiny processes. Messages that don't linger. Keys that never leave your hands.",
+   "take": 1,
+   "file": "audio/whatsapp/lines/W16.wav",
+   "file_start": 47.0833,
+   "file_start_f": 1130,
+   "file_len": 5.173,
+   "start": 47.083,
+   "end": 52.006,
+   "start_f": 1130,
+   "end_f": 1249,
+   "words": [
+    {
+     "w": "Tiny",
+     "start": 47.083,
+     "end": 47.478,
+     "f0": 1130,
+     "f1": 1140
+    },
+    {
+     "w": "processes.",
+     "start": 47.547,
+     "end": 48.232,
+     "f0": 1141,
+     "f1": 1158
+    },
+    {
+     "w": "Messages",
+     "start": 48.627,
+     "end": 49.068,
+     "f0": 1167,
+     "f1": 1178
+    },
+    {
+     "w": "that",
+     "start": 49.115,
+     "end": 49.242,
+     "f0": 1178,
+     "f1": 1182
+    },
+    {
+     "w": "don't",
+     "start": 49.289,
+     "end": 49.498,
+     "f0": 1182,
+     "f1": 1188
+    },
+    {
+     "w": "linger.",
+     "start": 49.568,
+     "end": 49.962,
+     "f0": 1189,
+     "f1": 1200
+    },
+    {
+     "w": "Keys",
+     "start": 50.334,
+     "end": 50.636,
+     "f0": 1208,
+     "f1": 1216
+    },
+    {
+     "w": "that",
+     "start": 50.682,
+     "end": 50.821,
+     "f0": 1216,
+     "f1": 1220
+    },
+    {
+     "w": "never",
+     "start": 50.903,
+     "end": 51.112,
+     "f0": 1221,
+     "f1": 1227
+    },
+    {
+     "w": "leave",
+     "start": 51.17,
+     "end": 51.367,
+     "f0": 1228,
+     "f1": 1233
+    },
+    {
+     "w": "your",
+     "start": 51.402,
+     "end": 51.53,
+     "f0": 1233,
+     "f1": 1237
+    },
+    {
+     "w": "hands.",
+     "start": 51.576,
+     "end": 52.006,
+     "f0": 1237,
+     "f1": 1249
+    }
+   ]
+  },
+  {
+   "id": "W17",
+   "beat": "close",
+   "text": "That's a hundred billion messages a day.",
+   "take": 1,
+   "file": "audio/whatsapp/lines/W17.wav",
+   "file_start": 52.2917,
+   "file_start_f": 1255,
+   "file_len": 2.549,
+   "start": 52.292,
+   "end": 54.591,
+   "start_f": 1255,
+   "end_f": 1311,
+   "words": [
+    {
+     "w": "That's",
+     "start": 52.292,
+     "end": 52.617,
+     "f0": 1255,
+     "f1": 1263
+    },
+    {
+     "w": "a",
+     "start": 52.675,
+     "end": 52.71,
+     "f0": 1264,
+     "f1": 1266
+    },
+    {
+     "w": "hundred",
+     "start": 52.803,
+     "end": 53.221,
+     "f0": 1267,
+     "f1": 1278
+    },
+    {
+     "w": "billion",
+     "start": 53.302,
+     "end": 53.732,
+     "f0": 1279,
+     "f1": 1290
+    },
+    {
+     "w": "messages",
+     "start": 53.801,
+     "end": 54.254,
+     "f0": 1291,
+     "f1": 1303
+    },
+    {
+     "w": "a",
+     "start": 54.312,
+     "end": 54.347,
+     "f0": 1303,
+     "f1": 1305
+    },
+    {
+     "w": "day.",
+     "start": 54.405,
+     "end": 54.591,
+     "f0": 1305,
+     "f1": 1311
+    }
+   ]
+  }
+ ]
+}

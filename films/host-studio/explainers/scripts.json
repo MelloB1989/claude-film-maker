@@ -1,0 +1,183 @@
+{
+ "_doc": "Round 6 explainers: the to-camera scripts. One line = one sentence-ish = one face solve. 'beat' groups lines into the 5-7 beats the edit cuts on. Sources per claim: LOG.md 'Fact check'. Producer: agent-11.",
+ "fps": 24,
+ "explainers": {
+  "whatsapp": {
+   "title": "How WhatsApp delivers 100 billion messages a day",
+   "presenter": "him",
+   "lines": [
+    {
+     "id": "W01",
+     "beat": "hook",
+     "text": "Every day, WhatsApp moves over a hundred billion messages."
+    },
+    {
+     "id": "W02",
+     "beat": "hook",
+     "text": "And almost none of them stay on its servers."
+    },
+    {
+     "id": "W03",
+     "beat": "hook",
+     "text": "Here's how."
+    },
+    {
+     "id": "W04",
+     "beat": "connection",
+     "text": "Open the app, and your phone keeps one connection open to WhatsApp."
+    },
+    {
+     "id": "W05",
+     "beat": "connection",
+     "text": "On the server, each connection is its own tiny Erlang process."
+    },
+    {
+     "id": "W06",
+     "beat": "connection",
+     "text": "One server once held two million of them."
+    },
+    {
+     "id": "W07",
+     "beat": "store-forward",
+     "text": "You hit send. Is your friend online?"
+    },
+    {
+     "id": "W08",
+     "beat": "store-forward",
+     "text": "Then it goes straight down their connection."
+    },
+    {
+     "id": "W09",
+     "beat": "store-forward",
+     "text": "If not, it waits. And once it's delivered, it's deleted."
+    },
+    {
+     "id": "W10",
+     "beat": "ticks",
+     "text": "Your ticks? One: the server has it."
+    },
+    {
+     "id": "W11",
+     "beat": "ticks",
+     "text": "Two: it reached their phone. Blue: they've read it."
+    },
+    {
+     "id": "W12",
+     "beat": "groups",
+     "text": "In a group, your phone encrypts once. The server fans it out to everyone."
+    },
+    {
+     "id": "W13",
+     "beat": "e2ee",
+     "text": "And the server can't read a word of it."
+    },
+    {
+     "id": "W14",
+     "beat": "e2ee",
+     "text": "The Signal protocol keeps the keys on your phones."
+    },
+    {
+     "id": "W15",
+     "beat": "media",
+     "text": "Photos go to a blob store, encrypted. Only the key rides in the message."
+    },
+    {
+     "id": "W16",
+     "beat": "close",
+     "text": "Tiny processes. Messages that don't linger. Keys that never leave your hands."
+    },
+    {
+     "id": "W17",
+     "beat": "close",
+     "text": "That's a hundred billion messages a day."
+    }
+   ]
+  },
+  "netflix": {
+   "title": "How Netflix streams to 300 million people without buffering",
+   "presenter": "her",
+   "lines": [
+    {
+     "id": "N01",
+     "beat": "hook",
+     "text": "Netflix has over three hundred million paying members."
+    },
+    {
+     "id": "N02",
+     "beat": "hook",
+     "text": "Hit play, and it just starts."
+    },
+    {
+     "id": "N03",
+     "beat": "hook",
+     "text": "But the video doesn't come from the cloud."
+    },
+    {
+     "id": "N04",
+     "beat": "open-connect",
+     "text": "Netflix builds its own servers, called Open Connect Appliances."
+    },
+    {
+     "id": "N05",
+     "beat": "open-connect",
+     "text": "Internet providers get them free, inside their own networks."
+    },
+    {
+     "id": "N06",
+     "beat": "prefill",
+     "text": "Every night, Netflix predicts what your area will watch."
+    },
+    {
+     "id": "N07",
+     "beat": "prefill",
+     "text": "And copies it to the box near you."
+    },
+    {
+     "id": "N08",
+     "beat": "encoding",
+     "text": "Each title is encoded at many sizes and bitrates."
+    },
+    {
+     "id": "N09",
+     "beat": "encoding",
+     "text": "A cartoon needs fewer bits than an action film, so each gets its own ladder."
+    },
+    {
+     "id": "N10",
+     "beat": "abr",
+     "text": "The video is cut into chunks a few seconds long."
+    },
+    {
+     "id": "N11",
+     "beat": "abr",
+     "text": "Your player picks the right rung for every chunk."
+    },
+    {
+     "id": "N12",
+     "beat": "abr",
+     "text": "Network dips? The next chunk is a little softer."
+    },
+    {
+     "id": "N13",
+     "beat": "planes",
+     "text": "Your login, profile, recommendations: that all runs on AWS."
+    },
+    {
+     "id": "N14",
+     "beat": "planes",
+     "text": "Press play, and AWS points you to that box. It streams the video."
+    },
+    {
+     "id": "N15",
+     "beat": "close",
+     "text": "The cloud decides. The box next door delivers."
+    },
+    {
+     "id": "N16",
+     "beat": "close",
+     "text": "That's why it just plays."
+    }
+   ]
+  }
+ }
+}
