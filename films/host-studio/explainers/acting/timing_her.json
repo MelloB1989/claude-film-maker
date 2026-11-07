@@ -1,5 +1,5 @@
 {
- "_doc": "agent-10's prosody timing for gesturekit.plan_from_sheet(timing=...): per gesture (line, word_i) prep_t / stroke_t (the apex, s on the VO clock; apex_f = the 24 fps frame) / hold_s / retract_s / amp / energy override the sheet's; entries with add: true are beats on secondary stresses (type = body01 kind, detail, hand, size). gap_merge: pauses longer than this rest. Written by gesture/plan.py from gesture/prosody.py (vo.wav).",
+ "_doc": "agent-10's prosody timing for gesturekit.plan_from_sheet(timing=...): per gesture (line, word_i) prep_t / stroke_t (the apex, s on the VO clock; apex_f = the 24 fps frame) / hold_s / retract_s / amp / energy override the sheet's; entries with add: true are beats on secondary stresses (type = body01 kind, detail, hand, size). gap_merge: pauses longer than this rest, except the bridge pauses [[t0, t1]] (the hands hold the high relaxed rest). Written by gesture/plan.py from gesture/prosody.py (vo.wav).",
  "film": "netflix",
  "who": "her",
  "fps": 24,
@@ -1014,14 +1014,6 @@
  "speech": [
   [
    0.75,
-   7.807
-  ],
-  [
-   8.542,
-   16.56
-  ],
-  [
-   17.292,
    22.792
   ],
   [
@@ -1030,14 +1022,6 @@
   ],
   [
    33.333,
-   42.947
-  ],
-  [
-   43.708,
-   52.855
-  ],
-  [
-   53.625,
    57.452
   ]
  ],
@@ -1045,8 +1029,8 @@
   "gestures": 50,
   "sheet": 43,
   "added_beats": 7,
-  "speaking_s": 52.19,
-  "onsets_per_s": 0.958,
+  "speaking_s": 55.19,
+  "onsets_per_s": 0.906,
   "lead_s_range": [
    0.08,
    0.183
@@ -1084,6 +1068,24 @@
     0.263
    ]
   ],
-  "pauses_rest": 6
- }
+  "pauses_rest": 2
+ },
+ "bridge": [
+  [
+   7.807,
+   8.542
+  ],
+  [
+   16.56,
+   17.292
+  ],
+  [
+   42.947,
+   43.708
+  ],
+  [
+   52.855,
+   53.625
+  ]
+ ]
 }
