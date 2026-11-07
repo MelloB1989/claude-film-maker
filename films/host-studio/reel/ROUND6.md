@@ -1,0 +1,26 @@
+# Round 6 (07 Nov): his neck, the final 65 s + 45 s cut (track K, box A)
+
+Box driver: agent-06. Orchestrator: cc-64d05f6e. Box A i-0284d544cdf14905e (gr6.4xlarge, L4), up 16:14 IST,
+self-terminate 00:14 IST. In round 5b's end state (his loop-2 neck, her round-4 overshirt). Driven from kali as in
+round 5b; branch `fleet/agent-06/r6-boxa` (film/host-studio 8b2bad4e + agent-04 1dad107b).
+
+| IST | What |
+|---|---|
+| 16:21 | K0: editor fresh (box boot 16:14), doctor OK (5.8.4, Vulkan SM6, 371 ops, 140 GB free); trees → 8b2bad4e (kali + `/srv/ue/r5tree`); look_check ok |
+| 16:22 | Leaders had dropped on the editor start (him Trousers None; her Overshirt/Top/Trousers None) → dress_him, dress_her + seq_dress → both pass; groom.lock + lock_check pass; probe_cam 13/13; framing ok |
+| 16:23 | agent-05's Blender props on box A's CPU (`/srv/ue/props_r6`, nice 15, 6 threads; no face data) |
+| 16:24 | K2 (agent-04 1dad107b, tree → 1dad107b): perf.calibrate Host turn_by=auto (fresh) → naturalize her / him `--no-turn-blinks` → restage/sync/gaze both → place (b22f3372) → settle → looks → head → lips |
+| 16:28 | K2 stopped after sync him on my own guard ("this face turns its head itself": expected with turn_on Face since r5b's turn_by=auto calibration, rc 0); calibrate (fresh) turn_on Face, naturalize her/him, restage + sync him done. Resume from gaze him after K1 S1 |
+| 16:30 | K1 S0: unshrunk face ref = `/Game/Host/Snap/SKM_Host_Op_FaceMesh_r5`; S1 (agent-02 collar_fit measure, f8349460) failed in stage `frame` (`_G` written as JSON into Python source: `true`) → fixed 24c39287 (json.loads), re-run |
+| 16:35 | **S1 INVALID** (agent-02 agrees): worst need 11.0 cm, 24/24 sectors, worst frames at f960-966 / f1563-1571; 51 "head did not move" f1413-1554. Cause (agent-02): the temp ref face is a leader-pose follower whose CPU pose never updates → read at rest. New plan: measure the LIVE face with the backstop off |
+| 16:35-16:43 | K2 resumed: gaze him (S13/S15/S17/S18 err p95 ≤ 0.11° after pass 2), restage/sync/gaze her, place (b22f3372) rc 0. **settle rc 1**: section starts clean (him f961 excess 0.074°, her f1081 0.088°), only f1559 fails (him 2.0°, her 4.2°, plan 0: the last frame) → agent-04. head: him blink_nod 0.0 / locked 0.084 / buzz 0.043; her 0.0 / 0.128 (gate_head blink_nod 0.466 at f1303-1307, line 0.6); lips check placed rc 0; leaders, lock, saved |
+| 16:43 | S3 (agent-02 a251dd1b/2ffddb7e, tree 058e211f): snapshot → `/srv/ue/reel/r6/snap_preS3` (Host_Op, WI_Host_DefaultGarment_Neck, BP_Host_Op, Host_Op_Outfits, face mesh); backstop_off: MaxShrink 3.0 → 0.0, MaxCull 0, saved |
+| 16:47 | S3 build (mh.build force 138 s), saved, level.open, host_swap (tee SkeletalMesh, Short → MI_K_HisHidden, leader_pass); **shrink_live REF r5: 0 moved (by index and by surface, max 0.0)**: his face is MetaHuman's, unshrunk (open_edge_shrunk 0 by construction). Her leaders dropped on level.open → re-led |
+| 16:47-16:52 | S1' (live face, m1b): **invalid again** (worst 15.2, median 10.5 cm; face neck radius p50 9.5-12 cm vs ~5-7 expected). agent-02: bin max face vs min tee mixes the face's lower flange with the collar → rays (7172c190) |
+| 16:52 | agent-04's f1559 probe: faces end at f1559.3 (her_face 19.97 s from 1080, him_face 24.97 s from 960); the baked body's last key leans 4°/1.8° toward the idle at the last frame. Fix e4c9c01f (place holds END-2's pose on END-1) |
+| 16:53-17:00 | K2c on the rebuilt face: calibrate (turn_on Face, 1.041), naturalize him `--no-turn-blinks`, restage/sync/gaze, place (e4c9c01f) → **settle PASS** (f1559 him 0.244°, her 0.253°; starts 0.074 / 0.088); head pass both (gate blink_nod 0.466 her f1303-1307, locked 0.128); lips placed rc 0; leaders, lock, saved |
+| 17:00-17:08 | K1 tee-side measure q1 (agent-02 b3dcddc3) + **baseline neck previews r6n0** (backstop OFF, Epic's collar): editor HUNG in MRQ at 17:08 (0 frames in 20 min, game thread stalled, GPU 100 %; log + nvidia-smi kept in `/srv/ue/reel/r6/hang/`), editor restart 17:30, re-rendered 17:30-17:45 (his Trousers off leader in that run: neck only) → `private/renders/r6/review/karma/r6n0/` |
+| 17:45 | Orchestrator by eye on r6n0: **his face very dark + a dark band through the tee across his chest** |
+| 17:48-17:58 | Face-box luma (`r6/face_luma.py`): S15 f1128 0.24, S13 f1040 0.12 of round 4, rgb ~[35,10,6]; hers 1.14 (fine); lighting channels [1,1,0] on every component (= hers); leaders Body. NOT the S3 build: restoring r5b's Face/Body Baked + Materials + Textures (today's kept in `/srv/ue/reel/r6/snap_postS3_skin`) left it at 0.16; nor the face mesh |
+| 17:58 | **Cause: two stray actors ON his mark, rendering**: `Test_perf_Him` (perf.py restage's test copy, bounds (30,42,92); hers is parked at z −2500; moving its root did not move its components) and `FMQA_NeckRefFace` (collar_fit S1's temp face, never cleaned up). Both deleted → S13 0.982, S15 0.953 of round 4 (0.997 / 1.053 of r5b). r6n0, its garment gate (neck_px 297, Face>tee 666 px) and the measures m1..q1 are contaminated |
+| 18:00 | New hard pre-render guard `r6/guard.sh` (every render): delete FMQA_* and on-set Test_perf_* copies (`strays.py`), leaders == Body for every garment (`lead.sh`, mh.dress Trousers if dress_him alone does not re-lead), lock, probe_cam 13/13; `LUMA=1` adds the face-luma stills (0.9-1.1 of round 4) after any build |
