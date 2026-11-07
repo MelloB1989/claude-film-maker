@@ -116,3 +116,10 @@ def test_a_held_smile_drifting_around_the_line_is_one_event():
                      "cheekSquintLeft": 0.35, "cheekSquintRight": 0.35})
     r = P.face_rows(s, FPS, [[0, 240]], lines={"smile": 0.25, "squint": 0.2}, neutral=False)
     assert r["face.smile_events_per_min"]["value"] == 6  # one smile in 10 s
+
+
+def test_desk_twitches_are_not_gestures():
+    def path(i, h):  # quick 3 cm shifts on the desk every second: fast, but small
+        k = i % 24
+        return [0.0, (10.0 if h == "r" else -10.0) + (3.0 if 2 <= k < 4 else 0.0), 75.0]
+    assert P.body_rows(samples(240, path), FPS, [[0, 240]], 71.0)["body.gesture_onsets_per_s"]["value"] == 0

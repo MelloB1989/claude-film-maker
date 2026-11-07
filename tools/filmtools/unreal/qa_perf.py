@@ -33,6 +33,7 @@ SMILE, SQUINT, BROW = 0.20, 0.10, 0.20
 SMILE_HOLD_F, BROW_MIN_S, BROW_MAX_S = 4, 0.12, 1.0
 HYST = 0.8  # an event ends below 80 % of its line
 REST_CMS, MOVE_CMS, ONSET_GAP_S = 10.0, 25.0, 0.25
+GESTURE_AMP_CM, GESTURE_WIN_S = 8.0, 0.6  # provisional: calibrated on v2b's samples (must fail) and a gesturing take
 DESK_CLEAR_CM = 8.0  # the wrist bone of a forearm RESTING on the desk sits ~3-4 cm above its top: "up off the desk" is more
 
 
@@ -177,7 +178,13 @@ def body_rows(samples: dict, fps: float, spans: list, desk_z: float, hands=("han
                 resting[h] = True
             elif v > MOVE_CMS and resting[h]:
                 resting[h] = False
-                if (fr[i] - last_onset[h]) / fps >= ONSET_GAP_S:
+                # a GESTURE, not a twitch: within GESTURE_WIN_S the hand gets GESTURE_AMP_CM away from where it started
+                # (v2b's pinned hands shifted on the desk at 25 cm/s peaks but a few cm only: they passed a speed-only
+                # detector at 0.59/s)
+                p0 = samples["bones"][h][i - 1][:3]
+                reach = max((math.dist(p0, samples["bones"][h][j][:3]) for j in range(i, min(len(fr), i + int(
+                    GESTURE_WIN_S * fps) + 1)) if fr[j] - fr[i] == j - i), default=0.0)
+                if reach >= GESTURE_AMP_CM and (fr[i] - last_onset[h]) / fps >= ONSET_GAP_S:
                     onsets += 1
                     last_onset[h] = fr[i]
     secs = len(idx) / fps
