@@ -41,7 +41,7 @@ UNDER_OVER = (("Trousers", "tee"), ("Trousers", "Top"), ("shoes", "Trousers"), (
               ("Trousers", "Overshirt"))
 UPPER = ("tee", "Top", "Overshirt", "Torso", "Shirt", "Hoodie", "Jacket")  # garments a face's neck can come through
 DEFAULTS = {"tol_cm": 0.3, "band_cm": 3.0, "near_cm": 1.5, "rim_jump_cm": 4.0, "neck_margin_cm": 1.0,
-            "at_open_960": 5.0, "rim_reach_px": 24, "tongue_cm": 4.0}
+            "at_open_960": 5.0, "rim_reach_px": 24, "tongue_cm": 3.0}
 GATE = {"pair_fraction": 0.001, "neck_px": 0, "silhouette_pct": 2.0}
 
 
@@ -185,7 +185,7 @@ def neck_px(layers: dict, mask: set, w: int, h: int, fov_deg: float, *, face: st
 
 
 def neck_visible(layers: dict, mask: set, w: int, h: int, fov_deg: float, *, face: str = "Face", over: str = "tee",
-                 band_cm: float = 3.0, tongue_cm: float = 4.0, seen_tol_cm: float = 1e-3) -> dict:
+                 band_cm: float = 3.0, tongue_cm: float = 3.0, seen_tol_cm: float = 1e-3) -> dict:
     """The neck gate as the VIEWER sees it (round 6, the orchestrator's re-scope): Face skin poking through the
     garment, not the neck rising a little above a hugging collar.
 

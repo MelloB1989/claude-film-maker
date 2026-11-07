@@ -170,7 +170,7 @@ def clip(*, label: str, sequence: str, shots: list | None = None, n: int = 6, ex
          tol_cm: float = 0.3,
          band_cm: float = 3.0, near_cm: float = 1.5, neck_margin_cm: float = 1.0, at_open_960: float = 5.0,
          pair_fraction: float = 0.001, neck_max_px: int = 0, silhouette_pct: float = 2.0, props: dict | None = None,
-         mouth: dict | None = None, mouth_max_px: int = 0, neck_rule: str = "rim", tongue_cm: float = 4.0):
+         mouth: dict | None = None, mouth_max_px: int = 0, neck_rule: str = "rim", tongue_cm: float = 3.0):
     """Skin or an under-garment coming out through a garment, as the shot's camera sees it, per shot and frame.
 
     Each part (Body, Face, each garment) is depth-captured ALONE from the shot's camera; every (under, over) pair is

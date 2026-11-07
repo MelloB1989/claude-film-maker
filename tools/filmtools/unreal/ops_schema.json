@@ -14550,7 +14550,7 @@
      "kind": "keyword",
      "type": "float",
      "required": false,
-     "default": 4.0
+     "default": 3.0
     }
    ],
    "returns": null,
