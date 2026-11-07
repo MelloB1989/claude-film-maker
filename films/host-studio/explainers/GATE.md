@@ -19,8 +19,25 @@ the orchestrator's (cc-64d05f6e), 07 Nov 2026. Each is a scope change or a measu
 | grain, WIDE | `shot.grain_wide_sigma` ≤ 0.8 on flat patches only (wall + a second plaster patch). f300's wall (1.002) fails it; netflix V2 shot 11 (0.55) passes. The WIDE neck and desk patches are INFO (texture at that scale). Evidence: the orchestrator's 1:1 look at shot 11 f1100. |
 | his move to box B | `garment.head_state_parity`: agent-06's `him_state` manifest (sha256), and cull_live reading 912 culled verts at z 144.2-153.3, as on box A. |
 
+## Her neckline strip (netflix V2)
+
+The orchestrator ruled on 07 Nov, about 23:10 IST.
+
+- **The defect:** a dark grey strip, about 10 px wide, ran down the inside of her scoop neckline on her left (test30
+  MCU f29, x about 1040-1075, y about 600-830 at 1080p). It read as a strap.
+- **The cause:** the rim key light's shadow from her own Top onto her skin at the edge (agent-02's diagnosis, key-shadow
+  ON/OFF). It was not the texture and not the geometry. Edge1N did not help, so no asset change ships; her original Top
+  asset is restored.
+- **The fix:** `Top.cast_shadow` OFF, set through setplan + set.py so it is reproducible. Recorded in r5/garment.md:
+  rim key-shadow, so turn Top.cast_shadow off for tight tops.
+- **The strip measure:** 0.884 with p10 188 after the fix, against 0.717 with p10 77 as rendered.
+- **The evidence:** the orchestrator compared it against test30 at 1:1. The band becomes a soft light-grey inner edge
+  that reads as real fabric. The rest of the torso is identical: knit, under-bust shading, sleeve hems, chair.
+- **WIDE shot 11:** stays as rendered, because the band cannot be seen at WIDE scale. If it is ever re-rendered, check
+  her shadow on the chair and desk.
+
 ## Verdicts
 
-- **Netflix V2:** shot 11 (WIDE) passes grain. The close shots wait for agent-02's neckline fix. The full gate runs on
-  composite v2.
+- **Netflix V2:** shot 11 (WIDE) passes grain. The neckline is fixed (`Top.cast_shadow` off), so her 8 close shots are
+  rendering. The full gate runs on composite v2.
 - **WhatsApp:** not started. The head-state pull to box B comes first.
