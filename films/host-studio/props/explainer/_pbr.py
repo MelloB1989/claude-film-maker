@@ -26,7 +26,7 @@ N = 2048
 TILE_M = {
     "ChairFabric": 0.08, "BrushedAlu": 0.25, "PowderBlack": 0.12, "Rubber": 0.06, "Grille": 0.025,
     "Walnut": 0.60, "Leather": 0.06, "PlasticBlack": 0.08, "Steel": 0.06, "Ceramic": 0.20, "Soil": 0.10,
-    "Leaf": 0.12,
+    "Leaf": 0.12, "Brass": 0.25, "ShadeLinen": 0.10, "LampBulb": 0.05,
 }
 
 
@@ -263,10 +263,24 @@ def tex_leaf(n, seed=12):
     return col, normal_from_height(h, 0.6), np.ones((n, n)), rough, np.zeros((n, n))
 
 
+def tex_brass(n, seed=13):
+    """Satin brushed brass (warm, streaks along u)."""
+    col, nrm, ao, rough, metal = tex_brushed(n, seed, base=(0.86, 0.70, 0.45))
+    return col, nrm, ao, np.clip(rough + 0.03, 0, 1), metal
+
+
+def tex_linen(n, seed=14):
+    """Lamp-shade linen: an open, slubby plain weave in warm off-white (light shows through it in Unreal)."""
+    col, nrm, ao, rough, metal = tex_fabric(n, seed, a=(0.86, 0.82, 0.74), b=(0.78, 0.73, 0.64))
+    slub = np.clip(noise(n, 3, seed + 9, aniso=25), 0, None) * 0.08
+    return np.clip(col * (1 + slub)[..., None], 0, 1), nrm, ao, rough, metal
+
+
 TEXTURES = {
     "ChairFabric": tex_fabric, "BrushedAlu": tex_brushed, "PowderBlack": tex_powder, "Rubber": tex_rubber,
     "Grille": tex_grille, "Walnut": tex_walnut, "Leather": tex_leather, "PlasticBlack": tex_plastic,
     "Steel": tex_steel, "Ceramic": tex_ceramic, "Soil": tex_soil, "Leaf": tex_leaf,
+    "Brass": tex_brass, "ShadeLinen": tex_linen,
 }
 
 
