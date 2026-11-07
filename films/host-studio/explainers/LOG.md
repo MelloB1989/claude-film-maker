@@ -20,15 +20,15 @@ Producer: agent-11. Times IST, 07 Nov 2026. Branch `fleet/agent-11/r6-explainers
 ## Timeline
 
 - 16:19 brief in. Worktree, voices found in `films/host-studio/reel/vo.py`.
-- 16:35 scripts v1 (162 / 167 words). Two takes a line at speed 1.0: Tripti reads at 2.2 words/s, Netflix ran ~85 s.
-- 16:50 scripts v2: trimmed to 156 / 144 words; speed him 1.06, her 1.14; three takes a line. Selects picked by
+- 16:21 scripts v1 (162 / 167 words). Two takes a line at speed 1.0: Tripti reads at 2.2 words/s, Netflix ran ~85 s.
+- 16:23 scripts v2: trimmed to 156 / 144 words; speed him 1.06, her 1.14; three takes a line. Selects picked by
   measure (no stray pause inside a phrase, no stretched word, then the tighter read): `selects.json`.
-- 17:00 VO built: gaps 0.34 s inside a beat, 0.80 s at a beat change, 0.8 s lead, 2.0 s tail.
+- 16:25 VO built: gaps 0.34 s inside a beat, 0.80 s at a beat change, 0.8 s lead, 2.0 s tail.
   WhatsApp 56.6 s, Netflix 59.5 s. EDLs, cue sheets and the graphics brief sent to agent-01/04/06/07/08/12.
-- 17:10 palette to dark-warm (the orchestrator's brief to the graphics agents: consistent with the karma set).
-- 17:15 head cues for agent-04. Music: two seeds per film; seed 1 picked for both (a quieter hook, a lift, a resolve
+- 16:28 palette to dark-warm (the orchestrator's brief to the graphics agents: consistent with the karma set).
+- 16:30 head cues for agent-04. Music: two seeds per film; seed 1 picked for both (a quieter hook, a lift, a resolve
   on the last line; seed 2 of Netflix sat flatter and fell off early).
-- 17:30 agent-09's first read: W17 unsoftened → "That's over a hundred billion messages a day." retaken; WhatsApp now
+- 16:33 agent-09's first read: W17 unsoftened → "That's over a hundred billion messages a day." retaken; WhatsApp now
   56.33 s (1352 f), only shots 14-15 moved. Mixes: WhatsApp −14.05 LUFS / −1.71 dBTP, Netflix −14.03 / −1.68,
   bed ducked a median 7 dB under the voice.
 
