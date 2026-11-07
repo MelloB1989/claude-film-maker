@@ -737,6 +737,53 @@ def bake(who: str, source: str, target: str, anim: str, out: str, bones, head_co
 H2B_BONES = {"her": ["spine_04", "spine_05", "neck_01", "neck_02", "head"], "him": ["neck_01", "neck_02", "head"]}
 
 
+TRACKCHECK = r"""
+import json, math, unreal
+AL, APE = unreal.AnimationLibrary, unreal.AnimPoseExtensions
+P = json.loads(PARAMS)
+def job():
+    a = unreal.load_asset(P["anim"])
+    L = float(AL.get_sequence_length(a))
+    names = [str(n) for n in AL.get_animation_track_names(a)]
+    bones = [b for b in names if not P["bones"] or b in P["bones"]]
+    out = {"anim": P["anim"], "length_s": L, "tracks": len(names), "bad": [], "jumps": []}
+    prev = {}
+    f0, f1 = P["span"]
+    for f in range(f0, f1):
+        t = min(L, f / P["fps"])
+        pose = APE.get_anim_pose_at_time(a, t, unreal.AnimPoseEvaluationOptions())
+        for b in bones:
+            tr = APE.get_bone_pose(pose, b, unreal.AnimPoseSpaces.LOCAL)
+            q, p_ = tr.rotation, tr.translation
+            vals = [q.x, q.y, q.z, q.w, p_.x, p_.y, p_.z]
+            n = math.sqrt(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w)
+            if any(v != v or abs(v) > 1e5 for v in vals) or abs(n - 1.0) > 1e-2:
+                if len(out["bad"]) < 40:
+                    out["bad"].append({"frame": f, "bone": b, "q": [round(v, 4) for v in vals[:4]], "norm": round(n, 4),
+                                       "t": [round(v, 2) for v in vals[4:]]})
+            if b in prev:
+                pq = prev[b]
+                d = abs(sum(x * y for x, y in zip(pq, vals[:4])))
+                ang = math.degrees(2 * math.acos(min(1.0, d))) if n > 0 else 0.0
+                if ang > P["jump_deg"] and len(out["jumps"]) < 40:
+                    out["jumps"].append({"frame": f, "bone": b, "deg": round(ang, 1)})
+            prev[b] = vals[:4]
+        if f % 30 == 29:
+            yield
+    return out
+result = job()
+"""
+
+
+def cmd_trackcheck(who: str, anim: str = "", span: str = "", bones: str = "") -> dict:
+    """Read-only, nothing played: an animation's bone tracks key by key (AnimPose), flagging NaN/huge values,
+    non-unit quaternions and frame-to-frame turns over 25 deg (box B: his bake 3 killed the editor at frames 240-479
+    on top of the new bake 2, every time). Default anim: AS_exp_<who>_body (bake 2's output)."""
+    a0, a1 = (int(x) for x in span.split(":")) if span else (0, frames(who))
+    return run(TRACKCHECK, {"anim": anim or f"{ANIM}/AS_exp_{who}_body", "span": [a0, a1], "fps": FPS,
+                            "bones": [b for b in bones.split(",") if b], "jump_deg": 25.0}, 1800)
+
+
 def fresh_editor(who: str, level: str) -> dict:
     """Save what's dirty, restart the editor, reopen `level`, re-lead the garments (box B, 07 Nov: his 8th-14th
     sampling job in a row killed the editor even with a GC after each; a fresh editor ran bake 3's 6 jobs clean)."""
@@ -1190,7 +1237,8 @@ def step(name: str, who: str, a) -> dict:
              "body": lambda: cmd_body(who, a.force), "cams": lambda: cmd_cams(who), "life": lambda: cmd_life(who),
              "face": lambda: cmd_face(who), "sync": lambda: cmd_sync(who, a.from_bake, a.restart_level), "gaze": lambda: cmd_gaze(who),
              "place": lambda: cmd_place(who, a.seq), "preview": lambda: cmd_preview(who, a.seq),
-             "numbers": lambda: cmd_numbers(who, a.seq), "signs": lambda: cmd_signs(who, a.bless), "rolltest": lambda: cmd_rolltest(who), "bodycheck": lambda: cmd_bodycheck(who, a.seq, a.every, a.chunk, a.span),
+             "numbers": lambda: cmd_numbers(who, a.seq),
+             "trackcheck": lambda: cmd_trackcheck(who, a.anim, a.span, a.bones), "signs": lambda: cmd_signs(who, a.bless), "rolltest": lambda: cmd_rolltest(who), "bodycheck": lambda: cmd_bodycheck(who, a.seq, a.every, a.chunk, a.span),
              "calibrate_body": lambda: cmd_calibrate_body(who)}[name]()
     return r
 
@@ -1198,7 +1246,7 @@ def step(name: str, who: str, a) -> dict:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("cmd", choices=["push", "solve", "bias", "compose", "check", "workseq", "cams", "body", "life",
-                                    "calibrate_body", "face", "sync", "gaze", "place", "preview", "numbers", "rolltest", "signs", "bodycheck", "all", "dry"])
+                                    "calibrate_body", "face", "sync", "gaze", "place", "preview", "numbers", "rolltest", "signs", "trackcheck", "bodycheck", "all", "dry"])
     ap.add_argument("--who", required=True, choices=list(FILM))
     ap.add_argument("--stage", default="solve", choices=["solve", "face", "final", "placed"])
     ap.add_argument("--only", type=lambda s: s.split(","))
@@ -1208,6 +1256,8 @@ def main() -> None:
     ap.add_argument("--from-bake", type=int, default=1, help="sync: resume at bake 2 or 3 after a crash")
     ap.add_argument("--restart-level", default="", help="sync: restart the editor before bakes 2 and 3 and reopen "
                     "this level (a long run of sampling jobs kills it on his scene)")
+    ap.add_argument("--anim", default="", help="trackcheck: the animation (default AS_exp_<who>_body)")
+    ap.add_argument("--bones", default="", help="trackcheck: comma list (default all tracks)")
     ap.add_argument("--every", type=int, default=2, help="bodycheck: every n-th frame")
     ap.add_argument("--chunk", type=int, default=120, help="bodycheck: frames per seq.sample call (0 = one call)")
     ap.add_argument("--span", default="", help="bodycheck: a:b frame range")
