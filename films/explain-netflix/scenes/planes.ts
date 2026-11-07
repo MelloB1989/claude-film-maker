@@ -56,7 +56,7 @@ export default class Planes extends NfScene {
     });
 
     // ——— you ———
-    const ux = 960, uy = 900;
+    const ux = 960, uy = 826;
     const kU = rev(t, 0.15, 0.4);
     screen(c, g, ux, uy, 'tv', 1.2, { a: kU, on: 0.25 + 0.75 * rev(t, tStreams + 0.3, 0.4) });
     // the play mark, pressed on "play"
@@ -86,7 +86,7 @@ export default class Planes extends NfScene {
     const kp = rev(t, tPoints + 0.2, 0.6, ease.inOutCubic) * (1 - rev(t, tStreams + 0.5, 0.4));
     if (kp > 0) {
       link(c, g, [ax + aw - 120, ay + 6], [boxes[chosen][0], boxes[chosen][1] - 60], kp, { color: 'accent2', width: 3, dash: true, vertical: true, bend: -0.6, glow: 0.8 });
-      pill(c, g, 'use this box', 960, 200, { a: clamp(kp * 2 - 1), color: 'accent2', size: 24 });
+      pill(c, g, 'use this box', 960, 236, { a: clamp(kp * 2 - 1), color: 'accent2', size: 24 });
     }
     // the stream: that box → you (red, heavy, many packets)
     const ks = rev(t, tStreams, 0.45, ease.inOutCubic);
@@ -94,7 +94,7 @@ export default class Planes extends NfScene {
       const from: [number, number] = [boxes[chosen][0] - 20, boxes[chosen][1] + 60], to: [number, number] = [ux + 70, uy - 30];
       link(c, g, from, to, ks, { color: 'accent', width: 6, packets: 7, t, speed: 1.4, glow: 1.4, vertical: true });
     }
-    pill(c, g, 'AWS decides · the box delivers', 960, 1030, { a: rev(t, tVideo + 0.1, 0.35), color: 'accent', filled: true, size: 24 });
+    pill(c, g, 'AWS decides · the box delivers', 1560, 150, { a: rev(t, tVideo + 0.1, 0.35), color: 'accent', filled: true, size: 24 });
     void land; void lerp;
   }
 }

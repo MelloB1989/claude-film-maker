@@ -12,9 +12,9 @@ export default class Buffer extends NfScene {
     const tNet = this.cue('network', 0.2), tDip = this.cue('dips', 0.72), tChunk = this.cue('chunk', 1.8), tSoft = this.cue('softer', 2.65);
     if (!this.look.panel) {
       heading(c, this.p('kick', 'When the network dips'), this.p('title', 'Softer for a moment, never a stall'), t);
-      const s = 1.5;
+      const s = 1.4;
       c.save(); g.save();
-      for (const x of [c, g]) { x.translate((W - PANEL_W * s) / 2, 260); x.scale(s, s); }
+      for (const x of [c, g]) { x.translate((W - PANEL_W * s) / 2, 236); x.scale(s, s); }
       this.body(c, g, t, f, { tNet, tDip, tChunk, tSoft });
       c.restore(); g.restore();
     } else this.body(c, g, t, f, { tNet, tDip, tChunk, tSoft });
@@ -91,7 +91,7 @@ export default class Buffer extends NfScene {
     // the playhead at the meter's start, a tick for the "danger" line
     c.fillStyle = rgba('fg'); c.beginPath(); c.arc(X0 + 20, MY + MH / 2, 9, 0, TAU); c.fill();
     c.fillStyle = 'rgba(242,236,228,0.35)'; c.fillRect(X0 + (X1 - X0) * 0.15, MY - 8, 2, MH + 16);
-    pill(c, g, 'No stall', X1 - 70, MY + MH + 50, { a: rev(t, T.tSoft + 0.25, 0.35), color: 'accent', filled: true, size: 22 });
+    pill(c, g, 'No stall', X1 - 70, MY - 34, { a: rev(t, T.tSoft + 0.25, 0.35), color: 'accent', filled: true, size: 22 });
     void f;
   }
 }

@@ -221,7 +221,7 @@ export abstract class NfScene extends Scene2D {
 
 /** The panel box of a presenter shot (x 1010-1860, y 150-930; GFX.md): a frosted card, a title bar; returns the
  * origin of its content area, which is PANEL_W x PANEL_H (the bottom 160 px of the box are kept clear for captions). */
-export const PANEL = { x: 1010, y: 150, w: 850, h: 780 };
+export const PANEL = { x: 1010, y: 150, w: 850, h: 765 };
 export const PANEL_W = 850, PANEL_H = 560;
 function panelCard(c: Ctx, g: Ctx, title: string, lt: number, fade: number) {
   const { x, y, w, h } = PANEL;

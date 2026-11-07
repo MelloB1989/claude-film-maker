@@ -29,14 +29,14 @@ export default class Oca extends NfScene {
 
     // the ISP's network
     const kI = rev(t, this.cue('providers', 0.55) - 0.1, 0.45);
-    const ix = 1060, iy = 300, iw = 760, ih = 650;
+    const ix = 1060, iy = 290, iw = 760, ih = 600;
     c.save(); c.translate(0, (1 - kI) * 30);
     card(c, ix, iy, iw, ih, { a: kI, r: 28, fill: ['rgba(40,30,26,0.75)', 'rgba(22,16,13,0.85)'], edge: 'rgba(242,180,76,0.28)' });
     kicker(c, 'Your internet provider', ix + 36, iy + 52, kI, 'accent2');
     c.restore();
 
     // homes
-    const homes = [1170, 1340, 1510, 1680].map((x, i) => ({ x, y: 840, at: 0.3 + i * 0.06 }));
+    const homes = [1170, 1340, 1510, 1680].map((x, i) => ({ x, y: 810, at: 0.3 + i * 0.06 }));
     // the long way round (before the appliance), fading once it lands
     const longK = rev(t, 0.15, 0.6, ease.inOutCubic);
     const longFade = 1 - rev(t, this.cue('inside', 2.3), 0.6);

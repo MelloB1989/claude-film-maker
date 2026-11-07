@@ -16,7 +16,7 @@ export default class Abr extends NfScene {
     const N = rungs.length;
     const X0 = 330, X1 = 1780, gap = 10, cw = (X1 - X0 - gap * (N - 1)) / N;
     const rowY = 400, ch = 60;
-    const laneY = (r: number) => 900 - r * 72;
+    const laneY = (r: number) => 800 - r * 62;
 
     const tVideo = this.cue('video', 0.55), tCut = this.cue('cut', 1.0), tFew = this.cue('few', 2.15);
     const tPlayer = this.cue('player', 3.65), tPicks = this.cue('picks', 4.25), tRung = this.cue('rung', 5.0), tEvery = this.cue('every', 5.85);
@@ -54,8 +54,8 @@ export default class Abr extends NfScene {
     // the player
     const kP = land(t, tPlayer, 0.6);
     if (kP > 0) {
-      screen(c, g, 110, 640, 'tv', 1.0 * clamp(kP), { a: clamp(kP * 1.5), on: rev(t, tPicks, 0.4) });
-      text(c, 'your player', 110, 712, { size: 22, color: 'fgDim', align: 'center', alpha: clamp(kP) });
+      screen(c, g, 110, 600, 'tv', 1.0 * clamp(kP), { a: clamp(kP * 1.5), on: rev(t, tPicks, 0.4) });
+      text(c, 'your player', 110, 672, { size: 22, color: 'fgDim', align: 'center', alpha: clamp(kP) });
     }
 
     // the chunks
@@ -97,7 +97,7 @@ export default class Abr extends NfScene {
       // a packet arriving at the player as each chunk is picked
       const kf = clamp((t - pickAt) / 0.5);
       if (kf > 0 && kf < 1) {
-        const px = lerp(xx + w / 2, 170, ease.inQuad(kf)), py = lerp(y, 640, ease.inQuad(kf));
+        const px = lerp(xx + w / 2, 170, ease.inQuad(kf)), py = lerp(y, 600, ease.inQuad(kf));
         c.fillStyle = rgba('accentBright', 0.9 * (1 - kf)); c.beginPath(); c.arc(px, py, 5, 0, TAU); c.fill();
       }
     }
@@ -110,7 +110,7 @@ export default class Abr extends NfScene {
       c.beginPath(); c.moveTo(bx, by); c.lineTo(bx, by + 12); c.lineTo(bx + cw, by + 12); c.lineTo(bx + cw, by); c.stroke();
       pill(c, g, 'a few seconds each', bx + cw / 2, by + 52, { a: kb, color: 'accent', size: 24 });
     }
-    pill(c, g, 'The right rung, chunk by chunk', 1020, 1000, { a: rev(t, tEvery, 0.35), color: 'accent', filled: true, size: 26 });
+    pill(c, g, 'The right rung, chunk by chunk', 1020, 866, { a: rev(t, tEvery, 0.35), color: 'accent', filled: true, size: 26 });
     void f; void tRung;
   }
 }
