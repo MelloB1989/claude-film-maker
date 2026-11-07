@@ -273,6 +273,42 @@ def _editor(G: dict):
                 g[s_][b_] = round(need, 3)
         return {"grid": g, "rays": n_rays, "covered": n_hit}
 
+    def band_need(tdm, fdm, T, fr0, clear):
+        """need per (sector, bin) from the TEE's side: every tee vertex in the collar zone (r <= BAND_R cm from the
+        neck axis, BAND_T0 <= t) gets its signed distance to the posed face surface (+ outside along the face's
+        outward triangle normal); need = clear - sd (> 0: the collar is inside the neck, or closer than clear).
+        Binned by the TEE vertex's own (sector, height), so the push lands exactly on the verts that need it. The
+        face-side measures compared the face's lower flange or far rays with the collar (m1b/m1c: 8-16 cm)."""
+        SP, MQ_ = unreal.GeometryScript_MeshSpatial, unreal.GeometryScript_MeshQueries
+        bvh = pick(SP.build_bvh_for_mesh(fdm), "GeometryScriptDynamicMeshBVH")
+        q = unreal.GeometryScriptSpatialQueryOptions()
+        g = [[None] * NB for _ in range(NS)]
+        n = inside = 0
+        worst = None
+        br, bt0 = float(G.get("BAND_R", 12.0)), float(G.get("BAND_T0", -7.0))
+        for p in verts(tdm):
+            t, r, th, _ = fr0.cyl(inv_pos(T, p))
+            if r > br or t < bt0 or t >= T1:
+                continue
+            tp = pick(SP.find_nearest_point_on_mesh(fdm, bvh, p, q), "GeometryScriptTrianglePoint")
+            if not tp.get_editor_property("valid"):
+                continue
+            qp = tp.get_editor_property("position")
+            nrm = pick(MQ_.get_triangle_face_normal(fdm, tp.get_editor_property("triangle_id")), "Vector")
+            d = p - qp
+            if d.length() > 4.0:  # nowhere near the face (shoulder, chest): no constraint
+                continue
+            sd = d.dot(nrm)
+            n += 1
+            inside += sd < 0
+            need = clear - sd
+            s_, b_ = _sector(th), _bin(t)
+            if g[s_][b_] is None or need > g[s_][b_]:
+                g[s_][b_] = round(need, 3)
+            if worst is None or need > worst[0]:
+                worst = (round(need, 3), round(t, 2), round(r, 2), round(th))
+        return {"grid": g, "tee_verts": n, "inside_face": inside, "worst": worst}
+
     def pose_check(F, T):
         """Sanity per frame: the face's median radius 2-4 cm above neck_01 (his neck: ~5-7 cm; a face read at rest
         while the body moves reads far off) and how many face verts fall in that slab at all."""
@@ -328,7 +364,7 @@ def _editor(G: dict):
         F = verts(posed(fc))
         tdm = posed(tee_comp(cs))
         out = {"face": grids(F, Ts, fr, keep_max=True), "tee": grids(verts(tdm), Ts, fr, keep_max=False),
-               "poke": poke_grid(F, tdm, Ts, fr, float(G.get("CLEAR", 0.3))),
+               "poke": band_need(tdm, posed(fc), Ts, fr, float(G.get("CLEAR", 0.3))),
                "neck01_w": [round(c, 2) for c in (lambda v: (v.x, v.y, v.z))(body.get_socket_location("neck_01"))],
                "head_w": [round(c, 2) for c in (lambda v: (v.x, v.y, v.z))(body.get_socket_location("head"))],
                "face_src": "ref" if ref else "Face", "pose": pose_check(F, Ts)}
@@ -561,6 +597,10 @@ def main(argv=None) -> int:
                     raise SystemExit(f"seq.scrub {ff}: {r}")
             g2 = {**g, "FRAME": setup["frame"], "CHECK_REF": bool(a.face_ref) and i == 0, "CLEAR": a.clear}
             res = _exec(client, "frame", **g2)
+            if i < 3 or i % 20 == 0:
+                pk = res.get("poke", {})
+                print(f"f{f}: band tee verts {pk.get('tee_verts')}, inside the face {pk.get('inside_face')}, "
+                      f"worst (need, t, r, deg) {pk.get('worst')}", flush=True)
             if res.get("ref_vs_face_above_t3"):
                 print("ref face vs worn face above the collar:", res["ref_vs_face_above_t3"])
             if last is not None and res["head_w"] == last:
