@@ -357,3 +357,27 @@ drops the shrink entirely and enlarges the GARMENT.
   the component), `r6/cull_live.py`, `r6/collar_cells.py`, `r6/shoulder_weights.py` + `r6/reweight_helpers.py` (her
   overshirt: 60 % of its shoulder weight on RBF helper joints; the full and the arm-only reweights both opened holes at
   her collar; the orchestrator took her overshirt off instead).
+
+## 11. Round 6 (07 Nov night): HER neckline band = the key light's shadow of the Top's rim (agent-02, agent-07)
+- **The flag (orchestrator, test30 f29, her MCU):** a flat mid-grey band ~10 px wide with hard edges down the inside of
+  her scoop on her left, from under the hair to the bottom of the scoop. It read as a strap.
+- **Ruled out, one at a time (box B, agent-07 drove):**
+  - `r6/strip_id.py` (camera rays through the box vs every posed component, hidden ones included): only the Top's front
+    faces and her Face skin, no back faces, no hidden or extra mesh. Not the inner face, not an undershirt.
+  - `r6/scoop_fit.py measure` (the edge picked in the view: per 4-px row, the visible Top vertex nearest the skin; 9
+    frames): the edge already lies ON her skin (stand-off p50 +0.07 / -0.16 cm). No pull to make. `r6/strip_cols.py`'s
+    1.4-1.8 cm was depth along the view at a grazing angle, not a gap; agent-02 misread it as stand-off at first.
+  - Strip luma over the Top beside it at finals spec: as-is 0.717, Tex forced white 0.734, Normal flat 0.716. Not the
+    texture, not the normal map. `r6/uv_probe.py`: the edge wall's UVs are not collapsed (0.6x the fabric's density).
+  - `r6/edge_fix.py MODE=normals` (the wall takes the outer fabric's normals, positions 0.0): 0.712. Not the mesh normals.
+- **Cause (agent-07):** the KEY light's shadow of the Top's rim on her skin. Key shadows off 0.898; the Top's
+  cast_shadow off alone 0.884 (p10 188 vs 77).
+- **Fix (orchestrator, approved at 1:1):** `Top.cast_shadow = False` through setplan + set.py (reproducible). The band
+  becomes a soft light-grey inner edge; knit, under-bust shading, sleeve hems and chair otherwise identical. Her WIDE
+  (shot 11) stays as rendered (invisible at that scale); re-render it and check her shadow on the chair/desk.
+- **No asset change ships:** her Top is back on `SKM_Presenter_Top`. `SKM_Presenter_Top_Edge1N` / `_Edge1B` exist in
+  the project, unused.
+- **Rule for tight tops:** a hard band at a garment edge under a near-point key is the rim's cast shadow. Test the key's
+  shadow and the garment's cast_shadow ON/OFF FIRST (minutes, no assets), before touching geometry or materials.
+- **Tools:** `r6/strip_id.py`, `r6/strip_cols.py` (offline, on the box), `r6/scoop_fit.py` (measure/pull; closed shell:
+  fold rim or view box), `r6/mid_diag.py` (temp MID: white / flat normal, restore), `r6/uv_probe.py`, `r6/edge_fix.py`.
