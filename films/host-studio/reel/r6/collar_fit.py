@@ -394,7 +394,7 @@ def _editor(G: dict):
 # ------------------------------------------------------------------------------------------------ driver
 def _exec(client, stage: str, **g) -> dict:
     src = open(__file__).read()
-    code = f"_G = {json.dumps({'STAGE': stage, **g})}\n{src}\nresult = _editor(_G)\n"
+    code = f"import json as _j\n_G = _j.loads({json.dumps(json.dumps({'STAGE': stage, **g}))})\n{src}\nresult = _editor(_G)\n"
     r = client.exec_code(code, timeout=900)
     if not r.get("ok"):
         raise SystemExit(f"{stage}: {json.dumps(r)[:2000]}")
