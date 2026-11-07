@@ -98,3 +98,18 @@ def test_judge_alive_and_frozen(tmp_path):
     h, e = _files(f, alive=False)
     r = H.judge(_cue(), h, e, "him")
     assert not r["pass"] and "head.frozen_s" in r["failed"] and "head.drift_deg" in r["failed"]
+
+
+def test_cams_reaim():
+    cue = _cue()
+    cue["cams"] = {"CamA": [0.0, 0.0], "CamB": [20.0, 0.0]}
+    cue["on_cam"] = [[0.0, 14.0, "CamA"], [14.0, 38.0, "CamB"], [45.0, 60.0, "CamA"]]
+    p = H.plan(cue, "him")
+    ra = p["reaims"]
+    assert [r["on_screen"] for r in ra] == [True, False]
+    assert ra[0]["t"] == 14.0 and ra[0]["head"] == H.REAIM_HEAD_CUT and ra[1]["t"] == 41.5
+    for g, sp in ((g, H._span_of(g["t"], cue["on_cam"])) for g in p["glances"]):
+        ly = cue["cams"][sp[2]][0]
+        got = next(x for x in p["gaze"] if x["t"] == g["t"])
+        assert abs(got["yaw"] - (ly + g["yaw"])) < 0.11
+    assert any(a <= 14.0 <= b for a, b in p["avoid_blinks"])
