@@ -74,6 +74,10 @@ sequence, every presenter camera**, not on the karma shots:
   off (MaxShrink 0), so the row reads 0 only when `shrink_live` proves 0 verts moved. His explainer moves to box B (the
   orchestrator, 07 Nov), so **garment.head_state_parity == 1** comes first: box A's head files match on box B by checksum,
   and cull_live reads the same culled count and lowest z on both boxes.
+- **Her occlusions (the orchestrator, by eye on box B clip_r7):** Top>Overshirt at the open front, Body>Top where the
+  wrist sits in front of the torso, and Trousers>Top at the waist are occlusions, not clipping. From then on these
+  pairs count only their excess over clip_r7's own worst (`qa.clip before=…/clip_r7/clip.json`), so a NEW poke still
+  fails.
 - garment.silhouette_pct is INFO: there is no seated reference yet.
 - The cloth rows are NOT ATTEMPTED (the orchestrator's ruling: his tee is Epic's default garment, her overshirt stays
   skinned).
