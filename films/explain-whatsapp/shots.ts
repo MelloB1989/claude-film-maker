@@ -10,12 +10,12 @@ const scenes: Record<string, ShotSpec['scene']> = {
   title: () => import('./v3/title'),
   connect: () => import('./v3/connect'),
   erlang: () => import('./v3/erlang'),
-  store: () => import('./scenes/store'),
-  ticks: () => import('./scenes/ticks'),
-  group: () => import('./scenes/group'),
-  e2e: () => import('./scenes/e2e'),
-  media: () => import('./scenes/media'),
-  end: () => import('./scenes/end'),
+  store: () => import('./v3/store'),
+  ticks: () => import('./v3/ticks'),
+  group: () => import('./v3/group'),
+  e2e: () => import('./v3/e2e'),
+  media: () => import('./v3/media'),
+  end: () => import('./v3/end'),
 };
 
 export interface GfxShot { id: string; kind: string; frames: number; seconds: number }
