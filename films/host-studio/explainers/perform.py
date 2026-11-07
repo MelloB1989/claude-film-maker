@@ -56,13 +56,13 @@ SEED = {"him": 71, "her": 72}
 # The set (agent-07 / agent-05's props.json, 07 Nov 17:0x IST), in the ACTOR's frame: x forward (to camera), y the presenter's right, z up
 # from the floor; the actor root sits on the chair mark (studio (20, -20, 0), yaw 0: studio +X forward, studio +Y the
 # presenter's LEFT). Studio -> actor: x - 20, -(y + 20), z.
-SET = S.Set(seat_top=45.0, seat_front=24.5, desk_top=74.0, desk_near=18.0, desk_far=73.0, desk_under=63.4,
-            mic=[24.0, -14.0, 99.0], mic_radius=9.0,
-            boom=[[50.0, -52.6, 74.0], [43.8, -42.9, 119.3], [29.5, -20.4, 103.4], [24.0, -14.0, 99.0]],
+SET = S.Set(seat_top=45.0, seat_front=24.5, desk_top=71.0, desk_near=12.0, desk_far=67.0, desk_under=60.4,
+            mic=[21.0, -14.0, 96.0], mic_radius=9.0,
+            boom=[[64.6, -30.28, 71.0], [53.9, -26.0, 116.3], [29.2, -16.0, 100.4], [21.0, -14.0, 96.0]],
             cams={"CAM_MCU": [167.5, 78.0, 121.3], "CAM_CU": [132.7, 38.7, 121.0], "CAM_WIDE": [277.0, 89.7, 125.3]})
-# ^ cameras read on box B (07 Nov 20:1x IST; CAM_WIDE moved to eye level 21:xx, agent-11); CAM_MCU_L sits where CAM_MCU is
-# ^ agent-07's set after the orchestrator's r3 notes (07 Nov ~18:3x IST): desk in (studio x 38..93), the mic mirrored
-#   to the presenter's LEFT (studio -Y), the cameras on her right (studio +Y, azimuth +17..+24)
+# ^ her set as on box B, 07 Nov ~22:00 IST (agent-11): the waterfall desk (top 71, near edge studio x 32), the mic on her
+#   left with its clamp at the desk's far edge (the same numbers as set_her.json, which still wins when present)
+#   (history: r3 set 18:3x IST moved the mic to her LEFT (studio -Y) and the cameras to her right, azimuth +17..+24)
 # How each sits (seatkit.Style). The cameras are at studio +Y (azimuth +17..+24): facing +X in Unreal that is the
 # presenter's RIGHT-front (the mic is on their left). The chest
 # turns a little toward them, the head and eyes do the rest (face + gaze).
@@ -576,9 +576,10 @@ def cmd_sync(who: str) -> dict:
 
 
 EYE_CURVES = [f"CTRL_expressions_eyeLook{d}{e}" for e in "LR" for d in ("Left", "Right", "Up", "Down")]
-CORR_SMOOTH_S = 0.25       # the lock's correction is averaged over this window: its 2-frame solve jitter goes, the eyes
-#                            still counter the head's nods and micro-motion (~2 Hz); 0.8 s let them drift off the lens
-#                            (judge: on_lens_share 0.677, p95 10.9 deg)
+CORR_SIGMA_S = 1 / 30      # the lock's correction low-passed by a Gaussian of this sigma (zero phase): its 2-frame
+#                            solve jitter (~15 Hz) goes (x0.007), the eyes keep countering the head's beat nods and
+#                            micro-motion (2 Hz x0.92, 3 Hz x0.82; agent-04: VOR). A 0.8 s mean let them ride the head off
+#                            the lens (judge: on_lens_share 0.677, p95 10.9 deg)
 CORR_FADE_S = 0.12         # and faded in/out at each locked span's ends
 
 
@@ -599,9 +600,9 @@ def lock_spans(who: str) -> list:
 def cmd_gaze(who: str) -> dict:
     """The eyes on each shot's camera WITHOUT replacing perf.face's eyes: gaze_lock solves the exact aim per locked
     span (glances left out), then only the slow part of its correction (locked - perf.face, averaged over
-    CORR_SMOOTH_S, faded at the span ends) is added to perf.face's eyes -> AS_exp_<who>_gaze. perf.face's
+    CORR_SIGMA_S, faded at the span ends) is added to perf.face's eyes -> AS_exp_<who>_gaze. perf.face's
     fixational darts and glances stay (agent-04's judge read 7.97 saccades/s of lock jitter and 0 glances when the lock
-    replaced the eyes outright)."""
+    replaced the eyes outright). The correction is low-passed (CORR_SIGMA_S), not averaged over a window."""
     c = client()
     path, lab = WORK[who], LABEL[who]
     src, raw, out = f"{ANIM}/AS_exp_{who}_follow", f"{ANIM}/AS_exp_{who}_lock", f"{ANIM}/AS_exp_{who}_gaze"
@@ -651,7 +652,9 @@ def blend_eyes(a: dict, b: dict, spans: list) -> tuple:
         ramp = np.minimum(np.clip((t - t0) / CORR_FADE_S, 0, 1), np.clip((t1 - t) / CORR_FADE_S, 0, 1))
         w = np.where(inside, np.maximum(w, ramp), w)
     dt = float(np.median(np.diff(t))) if len(t) > 1 else 1 / 30
-    k = max(1, int(round(CORR_SMOOTH_S / dt)) | 1)
+    sig = max(1e-3, CORR_SIGMA_S / dt)
+    half = int(math.ceil(3 * sig))
+    ker = np.exp(-0.5 * (np.arange(-half, half + 1) / sig) ** 2)
     out, stat = {}, {}
     for e in "LR":
         for pos, neg in (("Left", "Right"), ("Up", "Down")):
@@ -660,8 +663,8 @@ def blend_eyes(a: dict, b: dict, spans: list) -> tuple:
             sb = on(b, np_) - on(b, nn)
             d = (sb - sa) * (w > 0)
             # average the correction inside the locked frames only (no bleed from unlocked neighbours)
-            num = np.convolve(d, np.ones(k), mode="same")
-            den = np.convolve((w > 0).astype(float), np.ones(k), mode="same")
+            num = np.convolve(d, ker, mode="same")
+            den = np.convolve((w > 0).astype(float), ker, mode="same")
             corr = np.where(den > 0, num / np.maximum(den, 1e-9), 0.0) * w
             v = sa + corr
             out[np_] = [t.round(4).tolist(), np.clip(v, 0, 1).round(5).tolist()]
@@ -669,6 +672,16 @@ def blend_eyes(a: dict, b: dict, spans: list) -> tuple:
             stat[f"{e}_{pos}{neg}"] = {"corr_mean": round(float(np.mean(np.abs(corr[w > 0]))) if (w > 0).any() else 0.0, 4),
                                        "jitter_removed": round(float(np.std(np.diff(d[w > 0]))) if (w > 0).sum() > 2 else 0.0, 4)}
     return out, stat
+
+
+def lead(who: str) -> dict:
+    """Every garment back on leader pose to the body (they drop after sequence/animation work: box B, 07 Nov), then
+    the check: exit on a garment that still does not follow."""
+    ok(client().op("mh.leader", label=LABEL[who]))
+    r = ok(client().op("mh.leader_check", label=LABEL[who]))
+    if not r.get("pass"):
+        raise SystemExit(f"garments not following {LABEL[who]}'s body: {r.get('why')}")
+    return {"pass": True, "metric": r.get("metric")}
 
 
 def cmd_preview(who: str, seq: str = "") -> list:
