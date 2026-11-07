@@ -233,3 +233,11 @@ tested in `test_seatkit.py`), `gestures.json` (the emphasis gestures per line).
   render. The TEST render (shots 1,2,11) started anyway, so the face can be judged while the arms are fixed.
 - 08 Nov 02:20-02:45 IST: agent-13's WhatsApp v3 batch 1 (12 files) synced to gfx/v3/explain-whatsapp; graphics-only dry
   composite g3a on box B: all 9 graphics, 1352 f, lufs err 0.1, TP -1.7, text_match 1, onset 84 ms, facts 1, qc_ok 1.
+- 08 Nov 03:30-04:15 IST (agent-11, box B): the TEST's WIDE shot hit a Vulkan GPU crash (TerminateOnGPUCrash); the
+  editor restarted itself, and a shot-11-only retry rendered clean. agent-10 found the left-arm cause: gesture_style's
+  MIC_L (7 out, 3.5 cm below the sternum point) straightened her left arm on all 14 two-hand gestures, so the elbow rose
+  into her chest. d2589d46 (9 out, level) failed the body's own mic check from CAM_WIDE at t 46.4. 7976d7b6 (9 out,
+  2 cm below) passes. Applied as two files on agent-06's driver tree: body --perform 0 issues, all --from sync passes,
+  head on_lens 0.916, mesh arms over every two-hand gesture (80 frames) L min 5.92 / R min 5.30 cm (f66: -7.05 ->
+  +6.30). TEST render netflix_r7F (shots 1, 2, 11) 04:04-04:10; `test_clip.sh` on the box composites the film with
+  placeholders and cuts the TEST spans: netflix_r7F_TEST.mp4 (13.25 s) + stills, private review, to the orchestrator.
