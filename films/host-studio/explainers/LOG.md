@@ -213,6 +213,13 @@ tested in `test_seatkit.py`), `gestures.json` (the emphasis gestures per line).
   asymmetry each; gesture amplitude `amp` per stroke and HELD strokes (`held`, `hold_s` 0.5-1.0). His 17 lines
   (`acting/him.json`), same staging and calibration (payoffs: messages, Here's how, read it, your hands, a day): 0.94
   onsets/s, longest neutral stretch <= 1.5 s; his TEST span CAM_MCU f0-179 (W01-W03) + CAM_WIDE f422-480 (W07).
+- 08 Nov 01:10 IST: overnight prep for composite v3. `comp_box.sh` runs the whole composite on a box in one command,
+  CPU only (graphics sync, composite.py, contact + stills, qa_av all with filmtools so qc_ok runs, upload to private review).
+  It's staged on box B as /srv/ue/explain/src4 (src3 + qa_av.py + comp_box.sh). WhatsApp graphics-only dry run
+  `PLACEHOLDER=1 comp_box.sh whatsapp p1 none`: 1352 f, -14.1/-1.7, text_match 1 (157 words / 46 captions), onset 84 ms,
+  facts 1, qc_ok 1. SFX for the v3 graphics: `sfx.py` made 9 cues x 2 takes (~118 credits) with ElevenLabs sound
+  generation, picked by measurement; `place` lays each film's sfx_v3.json on the timeline and `mix.py --sfx` adds the
+  stems (a fake list held -14.03/-1.67). The v3 graphics and hit lists land ~07:30 IST (agent-12 netflix, agent-13 whatsapp).
 - 07 Nov ~01:30 IST (r7, agent-04): her face acts. Cause of the "pale" face: mouth-only solves, plus a plan that
   added only random brow flashes (brow_chance 0.45) and no smiles. `face_acting.py` turns agent-11's sheet
   (v1.1) into perf.face events on the exact words: brows, curious one-brow, Duchenne (cheek + squint) only on the
