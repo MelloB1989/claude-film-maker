@@ -383,12 +383,16 @@ export class Floor {
           float d = length(vXZ - uC);
           float fade = exp(-d * d / (uReach * uReach));
           float pool = exp(-d * d / (0.35 * uReach * uReach));
-          vec3 c = mix(uVoid, uBase, fade) + uLine * line * uGrid * fade + uPool * uPoolK * pool;
-          gl_FragColor = vec4(c, 1.0);
+          vec3 c = uBase + uLine * line * uGrid + uPool * uPoolK * pool / max(fade, 0.05);
+          gl_FragColor = vec4(c, smoothstep(0.0, 0.6, fade));
         }`,
       extensions: { derivatives: true } as never,
     });
+    // transparent where it fades, and no depth write: a faded floor must not hide what stands beyond or below it
+    this.mat.transparent = true;
+    this.mat.depthWrite = false;
     this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(size, size), this.mat);
+    this.mesh.renderOrder = -1;
     this.mesh.rotation.x = -Math.PI / 2;
     this.mesh.position.y = o.y ?? -1;
   }
@@ -421,9 +425,9 @@ export class Haze {
           gl_FragColor = vec4(uVoid + uA * a + uB * b, 1.0);
         }`,
     });
-    const s = o.size ?? 40;
+    const s = o.size ?? 110;
     this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(s * 1.78, s), this.mat);
-    this.mesh.position.set(0, o.y ?? 0, o.z ?? -12);
+    this.mesh.position.set(0, o.y ?? 0, o.z ?? -40);
   }
   /** Keep it facing the camera and breathing. */
   pose(t: number, cam: THREE.Camera) { this.mat.uniforms.uT!.value = t; this.mesh.quaternion.copy(cam.quaternion); }
