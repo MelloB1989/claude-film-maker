@@ -243,6 +243,10 @@ def _editor(G: dict):
         Ts = rc.get_socket_transform("spine_05", W)
         o, hd = inv_pos(Ts, rc.get_socket_location("neck_01")), inv_pos(Ts, rc.get_socket_location("head"))
         u = hd - o
+        if u.length() < 2.0:  # a just-spawned component without bone transforms reads every socket at its origin
+            EAS.destroy_actor(rb)
+            raise RuntimeError(f"rest neck_01 -> head is {u.length():.2f} cm: the temp Body has no ref pose yet; "
+                               "run setup again")
         u = u * (1.0 / (u.length() or 1.0))
         x = Ts.inverse_transform_direction(unreal.Vector(1, 0, 0))
         e1 = x - u * x.dot(u)
