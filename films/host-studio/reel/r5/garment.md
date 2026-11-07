@@ -327,3 +327,33 @@ drops the shrink entirely and enlarges the GARMENT.
   covered 437 instead of 1160). Put the uncut face back (the r5 snapshot) before any re-mask. The 3.0 cull (727
   verts gone) barely moved qa.clip (neck_px 297 -> 262, Face>tee 666 -> 637): the S15 skin is within 3 cm of the
   rim, his neck at the collar, not the chest flange. 1.5 cull: 912 gone (z 144.2-153.3), kept verts moved 0.0.
+
+### Round 6 outcome (07 Nov night): what ships, what the gate says, round 7
+- **Shipped (his karma finals, r6n2, passed by the orchestrator's eye):** Epic's assembled default tee UNTOUCHED (WPO
+  0), the backstop shrink OFF (no tear possible: open_edge_shrunk 0), and the face's chest flange CULLED 1.5 cm+ under
+  the collar edge (912 verts, z 144.2-153.3, kept verts moved 0.0; `cull_live.py`). The 3.0 cull alone left r6n1's
+  blob numbers; the 1.5 cull removed the blob (an island 39 px at S15 f1128). The back/sides collar push
+  (`collar_fit.py push`, cap 1.4, front untouched) was built but STOPPED by the orchestrator: not needed.
+- **Neck gate re-scoped (core a7511df9):** `neck_visible` = SEEN face pixels in skin ISLANDS enclosed by the tee +
+  TONGUES > 3.0 cm (walked) from the collar opening. Calibrated with `neckscan` on box A's depth: r6n1 FAILS (39 px,
+  islands in all 4 shots), r6n2 PASSES (0; the old rim rule read 262), longest tongue 1.49 cm in both. Blind spot: a
+  shallow poke joined to the rim cluster passes; the eye judges it.
+- **Collar roll (core f41af577):** only wall-like verts are layers (the yoke over the shoulder read 3.1-3.9 cm).
+- **Collar gap/roll and silhouette are INFO for round 6** (the orchestrator's ruling): silhouette's reference is round
+  4's different performance; the collar measure is NOT validated on this tee + cull. Tonight's evidence
+  (`r6/collar_cells.py` dumps at f1082/1150/1397): the ring is found by RADIUS from neck_01 -> head, an axis at the BACK
+  of his neck; his crew neck's front sits 8-10 cm out and dips ~3 cm, so rings took chest/shoulder; the gap was the
+  NEAREST-skin distance, to skin culled under the tee (ring verts with their nearest skin 1.0-1.24 cm above them). The
+  camera-facing scope (b454f979) and per-sector rings (8bc9bc3b) did not fix that (gap 2.4-4.5); 8bc9bc3b's
+  "nearest skin above = not measured" rule could even let round 5b loop 2's shrunk crevice pass.
+- **Round 7 item:** `fleet/agent-02/r6-collar-ray` 950d4ccc: the gap is a ray from each ring vertex straight in to the
+  FIRST skin at its own height (a shrunk neck reads its crevice and fails; a culled hole is not measured); the ring
+  is the garment within 6 cm of that skin, per sector <= 2 cm under its own top. Prove it on the finals AND on round
+  5b loop 2 (must FAIL: swap the Face component to the pre-S3 snapshot face, no build), then gate. Also round 7: a
+  pose-matched silhouette reference.
+- **Tools left for the next person:** `r6/collar_fit.py` (measure from the TEE side: collar-zone tee verts' signed
+  distance to the posed face; push on a copy, cap + front keep; verify; probe; always cleans FMQA_*; refuses with
+  another face/body within 1 m), `r6/backstop_off.py`, `neck_backstop.py` CULL mode (re-mask needs the UNCUT face on
+  the component), `r6/cull_live.py`, `r6/collar_cells.py`, `r6/shoulder_weights.py` + `r6/reweight_helpers.py` (her
+  overshirt: 60 % of its shoulder weight on RBF helper joints; the full and the arm-only reweights both opened holes at
+  her collar; the orchestrator took her overshirt off instead).
