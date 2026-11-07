@@ -30,7 +30,7 @@ export default class Oca extends NfScene {
     // the ISP's network
     const kI = rev(t, this.cue('providers', 0.55) - 0.1, 0.45);
     const ix = 1060, iy = 290, iw = 760, ih = 600;
-    c.save(); c.translate(0, (1 - kI) * 30);
+    c.save(); c.translate(0, -(1 - kI) * 30);
     card(c, ix, iy, iw, ih, { a: kI, r: 28, fill: ['rgba(40,30,26,0.75)', 'rgba(22,16,13,0.85)'], edge: 'rgba(242,180,76,0.28)' });
     kicker(c, 'Your internet provider', ix + 36, iy + 52, kI, 'accent2');
     c.restore();

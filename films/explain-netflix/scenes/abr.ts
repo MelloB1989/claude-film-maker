@@ -110,7 +110,7 @@ export default class Abr extends NfScene {
       c.beginPath(); c.moveTo(bx, by); c.lineTo(bx, by + 12); c.lineTo(bx + cw, by + 12); c.lineTo(bx + cw, by); c.stroke();
       pill(c, g, 'a few seconds each', bx + cw / 2, by + 52, { a: kb, color: 'accent', size: 24 });
     }
-    pill(c, g, 'The right rung, chunk by chunk', 1020, 866, { a: rev(t, tEvery, 0.35), color: 'accent', filled: true, size: 26 });
+    pill(c, g, 'The right rung, chunk by chunk', 1020, 846, { a: rev(t, tEvery, 0.35), color: 'accent', filled: true, size: 26 });
     void f; void tRung;
   }
 }

@@ -17,8 +17,8 @@ export default class Ladder extends NfScene {
     const cols = [{ d: A, x: 140, at: this.cue('cartoon', 0.3) - 0.05, kind: 'flat' as const }, { d: B, x: 1000, at: this.cue('action', 2.2) - 0.05, kind: 'grain' as const }];
     for (const col of cols) {
       const k = rev(t, col.at, 0.4);
-      const x = col.x, y = 240;
-      card(c, x, y + (1 - k) * 30, 780, 600, { a: k, r: 24 });
+      const x = col.x, y = 220;
+      card(c, x, y + (1 - k) * 30, 780, 580, { a: k, r: 24 });
       if (k <= 0) continue;
       c.save(); c.translate(0, (1 - k) * 30); c.globalAlpha *= k;
       // the thumbnail
@@ -45,7 +45,7 @@ export default class Ladder extends NfScene {
     const kc = land(t, this.cue('each', 3.95), 0.55);
     if (kc > 0) {
       c.save(); c.globalAlpha *= clamp(kc);
-      pill(c, g, 'Same 1080p · far fewer bits', W2, 868 + (1 - kc) * 20, { color: 'accent', filled: true, size: 26 });
+      pill(c, g, 'Same 1080p · far fewer bits', W2, 846 - (1 - kc) * 20, { color: 'accent', filled: true, size: 26 });
       c.restore();
     }
     text(c, 'bitrates illustrative', 1780, 226, { size: 18, color: 'fgFaint', align: 'right', alpha: rev(t, 0.5, 0.4) });
