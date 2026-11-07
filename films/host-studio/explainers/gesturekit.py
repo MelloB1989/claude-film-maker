@@ -629,7 +629,7 @@ RIGHT_MIN_LAT = 15.0  # cm her right hand stays to her right of the sternum poin
 LEFT_RESTS = False  # r7b: the left hand rested on the desk between its own gestures while the mic hung at her sternum;
 #                     with the mic moved up to her mouth (the orchestrator, 08 Nov) it gestures like the right
 LEFT_MAX_LAT = 9.0
-LEFT_TWO = (24.0, 9.0, 0.0)  # cm her left hand on a two-hand gesture (agent-10, see plan_from_sheet)
+LEFT_TWO = (24.0, 9.0, -2.0)  # cm her left hand on a two-hand gesture (agent-10, see plan_from_sheet)
 LEFT_MAX_Z = 40.0  # cm over the sternum point for her left hand (no cap with the mic at her mouth)  # cm: her left hand stays at least 3 cm to her RIGHT of the sternum point while she speaks
 
 FRAME_WANT = {"CAM_MCU": 0.6, "CAM_MCU_L": 0.6, "CAM_CU": 0.3, "CAM_WIDE": 0.95}  # the orchestrator's lines
