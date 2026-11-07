@@ -36,7 +36,7 @@
   }
  },
  "pre": {
-  "note": "Already alive when the cut opens: an easy closed-mouth grin building, a small head tilt to his right (4 deg), an inhale with the shoulders rising 1 cm, hands loosely together at bust height in front of him (fingers loosely laced, elbows out), already in the bottom of the MCU frame, not on the desk. A small lean in from 0.4 s.",
+  "note": "Already alive when the cut opens: an easy closed-mouth grin building, a small head tilt to his right (4 deg), an inhale with the shoulders rising 1 cm, hands loosely together at the sternum in front of him (fingers loosely laced, elbows out), at the bottom edge of the MCU frame, not on the desk. A small lean in from 0.4 s.",
   "face": [
    {
     "kind": "smile_soft",
@@ -161,7 +161,7 @@
      "amp": 0.3,
      "held": false,
      "target": "camera",
-     "apex_height": "bust",
+     "apex_height": "sternum",
      "word_i": 0
     },
     {
@@ -177,7 +177,7 @@
      "amp": 0.85,
      "held": true,
      "target": "front",
-     "apex_height": "upper_chest",
+     "apex_height": "collarbone",
      "start_word": "hundred",
      "note": "hands start 15 cm apart in front of his sternum, spread to shoulder width; L hand below the mic",
      "word_i": 7
@@ -195,7 +195,7 @@
      "amp": 0.3,
      "held": false,
      "target": "camera",
-     "apex_height": "bust",
+     "apex_height": "sternum",
      "word_i": 8
     }
    ],
@@ -291,7 +291,7 @@
       "amp": 0.3,
       "held": false,
       "target": "camera",
-      "apex_height": "bust"
+      "apex_height": "sternum"
      },
      {
       "type": "size",
@@ -306,7 +306,7 @@
       "amp": 0.85,
       "held": true,
       "target": "front",
-      "apex_height": "upper_chest"
+      "apex_height": "collarbone"
      },
      {
       "type": "beat",
@@ -321,7 +321,7 @@
       "amp": 0.3,
       "held": false,
       "target": "camera",
-      "apex_height": "bust"
+      "apex_height": "sternum"
      }
     ],
     "hands_in_frame_min": 0.6,
@@ -408,7 +408,7 @@
      "amp": 0.3,
      "held": false,
      "target": "front",
-     "apex_height": "bust",
+     "apex_height": "sternum",
      "word_i": 10
     },
     {
@@ -424,7 +424,7 @@
      "amp": 0.55,
      "held": false,
      "target": "her right, low",
-     "apex_height": "sternum",
+     "apex_height": "upper_chest",
      "note": "palm-down sweep out to his right: none",
      "word_i": 11
     }
@@ -486,7 +486,7 @@
       "amp": 0.3,
       "held": false,
       "target": "front",
-      "apex_height": "bust"
+      "apex_height": "sternum"
      },
      {
       "type": "deictic",
@@ -501,7 +501,7 @@
       "amp": 0.55,
       "held": false,
       "target": "her right, low",
-      "apex_height": "sternum"
+      "apex_height": "upper_chest"
      }
     ],
     "hands_in_frame_min": null,
@@ -582,7 +582,7 @@
      "amp": 0.3,
      "held": true,
      "target": "camera",
-     "apex_height": "upper_chest",
+     "apex_height": "collarbone",
      "note": "palms up, collarbone height: here it is",
      "word_i": 19
     }
@@ -646,7 +646,7 @@
       "amp": 0.3,
       "held": true,
       "target": "camera",
-      "apex_height": "upper_chest"
+      "apex_height": "collarbone"
      }
     ],
     "hands_in_frame_min": 0.3,
@@ -739,7 +739,7 @@
      "amp": 0.3,
      "held": false,
      "target": "front",
-     "apex_height": "bust",
+     "apex_height": "sternum",
      "note": "a thumb tap on an imaginary phone",
      "word_i": 22
     },
@@ -756,7 +756,7 @@
      "amp": 0.3,
      "held": false,
      "target": "up",
-     "apex_height": "bust",
+     "apex_height": "sternum",
      "note": "one finger: one",
      "word_i": 27
     },
@@ -773,7 +773,7 @@
      "amp": 0.55,
      "held": true,
      "target": "panel (his left)",
-     "apex_height": "sternum",
+     "apex_height": "upper_chest",
      "note": "draws the line from his chest toward the panel: cross-body, chest height, stops 15 cm left of the sternum under the mic head",
      "word_i": 28
     }
@@ -845,7 +845,7 @@
       "amp": 0.3,
       "held": false,
       "target": "front",
-      "apex_height": "bust"
+      "apex_height": "sternum"
      },
      {
       "type": "beat",
@@ -860,7 +860,7 @@
       "amp": 0.3,
       "held": false,
       "target": "up",
-      "apex_height": "bust"
+      "apex_height": "sternum"
      },
      {
       "type": "deictic",
@@ -875,7 +875,7 @@
       "amp": 0.55,
       "held": true,
       "target": "panel (his left)",
-      "apex_height": "sternum"
+      "apex_height": "upper_chest"
      }
     ],
     "hands_in_frame_min": 0.6,
@@ -965,7 +965,7 @@
      "amp": 0.55,
      "held": false,
      "target": "front",
-     "apex_height": "sternum",
+     "apex_height": "upper_chest",
      "word_i": 34
     },
     {
@@ -981,7 +981,7 @@
      "amp": 0.3,
      "held": true,
      "target": "front",
-     "apex_height": "bust",
+     "apex_height": "sternum",
      "word_i": 40
     },
     {
@@ -997,7 +997,7 @@
      "amp": 0.3,
      "held": false,
      "target": "camera",
-     "apex_height": "bust",
+     "apex_height": "sternum",
      "word_i": 42
     }
    ],
@@ -1065,7 +1065,7 @@
       "amp": 0.55,
       "held": false,
       "target": "front",
-      "apex_height": "sternum"
+      "apex_height": "upper_chest"
      },
      {
       "type": "size",
@@ -1080,7 +1080,7 @@
       "amp": 0.3,
       "held": true,
       "target": "front",
-      "apex_height": "bust"
+      "apex_height": "sternum"
      },
      {
       "type": "beat",
@@ -1095,7 +1095,7 @@
       "amp": 0.3,
       "held": false,
       "target": "camera",
-      "apex_height": "bust"
+      "apex_height": "sternum"
      }
     ],
     "hands_in_frame_min": null,
@@ -1176,7 +1176,7 @@
      "amp": 0.3,
      "held": false,
      "target": "up",
-     "apex_height": "bust",
+     "apex_height": "sternum",
      "word_i": 43
     },
     {
@@ -1192,7 +1192,7 @@
      "amp": 0.85,
      "held": false,
      "target": "front",
-     "apex_height": "upper_chest",
+     "apex_height": "collarbone",
      "start_word": "two",
      "word_i": 48
     }
@@ -1255,7 +1255,7 @@
       "amp": 0.3,
       "held": false,
       "target": "up",
-      "apex_height": "bust"
+      "apex_height": "sternum"
      },
      {
       "type": "size",
@@ -1270,7 +1270,7 @@
       "amp": 0.85,
       "held": false,
       "target": "front",
-      "apex_height": "upper_chest"
+      "apex_height": "collarbone"
      }
     ],
     "hands_in_frame_min": null,
@@ -1599,7 +1599,7 @@
      "amp": 0.55,
      "held": false,
      "target": "front, down",
-     "apex_height": "sternum",
+     "apex_height": "upper_chest",
      "note": "a flat hand slides straight forward",
      "word_i": 61
     }
@@ -1651,7 +1651,7 @@
       "amp": 0.55,
       "held": false,
       "target": "front, down",
-      "apex_height": "sternum"
+      "apex_height": "upper_chest"
      }
     ],
     "hands_in_frame_min": null,
@@ -1745,7 +1745,7 @@
      "amp": 0.3,
      "held": false,
      "target": "her right",
-     "apex_height": "bust",
+     "apex_height": "sternum",
      "word_i": 66
     },
     {
@@ -1761,7 +1761,7 @@
      "amp": 0.3,
      "held": true,
      "target": "camera",
-     "apex_height": "bust",
+     "apex_height": "sternum",
      "note": "palm out: it waits",
      "word_i": 68
     },
@@ -1778,7 +1778,7 @@
      "amp": 0.55,
      "held": false,
      "target": "front",
-     "apex_height": "sternum",
+     "apex_height": "upper_chest",
      "note": "a crisp wipe: gone",
      "word_i": 74
     }
@@ -1853,7 +1853,7 @@
       "amp": 0.3,
       "held": false,
       "target": "her right",
-      "apex_height": "bust"
+      "apex_height": "sternum"
      },
      {
       "type": "open",
@@ -1868,7 +1868,7 @@
       "amp": 0.3,
       "held": true,
       "target": "camera",
-      "apex_height": "bust"
+      "apex_height": "sternum"
      },
      {
       "type": "beat",
@@ -1883,7 +1883,7 @@
       "amp": 0.55,
       "held": false,
       "target": "front",
-      "apex_height": "sternum"
+      "apex_height": "upper_chest"
      }
     ],
     "hands_in_frame_min": null,
@@ -1977,7 +1977,7 @@
      "amp": 0.55,
      "held": true,
      "target": "panel (his left)",
-     "apex_height": "sternum",
+     "apex_height": "upper_chest",
      "note": "cross-body open palm toward the ticks, under the mic head",
      "word_i": 76
     },
@@ -1994,7 +1994,7 @@
      "amp": 0.55,
      "held": false,
      "target": "his right, chest height",
-     "apex_height": "sternum",
+     "apex_height": "upper_chest",
      "note": "index up (1), the hand back on his right",
      "word_i": 77
     },
@@ -2011,7 +2011,7 @@
      "amp": 0.3,
      "held": false,
      "target": "camera",
-     "apex_height": "bust",
+     "apex_height": "sternum",
      "word_i": 80
     }
    ],
@@ -2085,7 +2085,7 @@
       "amp": 0.55,
       "held": true,
       "target": "panel (his left)",
-      "apex_height": "sternum"
+      "apex_height": "upper_chest"
      },
      {
       "type": "count",
@@ -2100,7 +2100,7 @@
       "amp": 0.55,
       "held": false,
       "target": "his right, chest height",
-      "apex_height": "sternum"
+      "apex_height": "upper_chest"
      },
      {
       "type": "beat",
@@ -2115,7 +2115,7 @@
       "amp": 0.3,
       "held": false,
       "target": "camera",
-      "apex_height": "bust"
+      "apex_height": "sternum"
      }
     ],
     "hands_in_frame_min": 0.6,
@@ -2196,7 +2196,7 @@
      "amp": 0.55,
      "held": false,
      "target": "his right, chest height",
-     "apex_height": "sternum",
+     "apex_height": "upper_chest",
      "note": "+ middle (2)",
      "word_i": 82
     },
@@ -2213,7 +2213,7 @@
      "amp": 0.55,
      "held": true,
      "target": "panel (his left)",
-     "apex_height": "sternum",
+     "apex_height": "upper_chest",
      "note": "the two fingers turn toward the panel's blue ticks",
      "word_i": 87
     },
@@ -2230,7 +2230,7 @@
      "amp": 0.3,
      "held": false,
      "target": "camera",
-     "apex_height": "bust",
+     "apex_height": "sternum",
      "word_i": 89
     }
    ],
@@ -2292,7 +2292,7 @@
       "amp": 0.55,
       "held": false,
       "target": "his right, chest height",
-      "apex_height": "sternum"
+      "apex_height": "upper_chest"
      },
      {
       "type": "deictic",
@@ -2307,7 +2307,7 @@
       "amp": 0.55,
       "held": true,
       "target": "panel (his left)",
-      "apex_height": "sternum"
+      "apex_height": "upper_chest"
      },
      {
       "type": "open",
@@ -2322,7 +2322,7 @@
       "amp": 0.3,
       "held": false,
       "target": "camera",
-      "apex_height": "bust"
+      "apex_height": "sternum"
      }
     ],
     "hands_in_frame_min": 0.6,
@@ -2403,7 +2403,7 @@
      "amp": 0.3,
      "held": true,
      "target": "up",
-     "apex_height": "bust",
+     "apex_height": "sternum",
      "word_i": 97
     },
     {
@@ -2419,7 +2419,7 @@
      "amp": 0.85,
      "held": false,
      "target": "front",
-     "apex_height": "upper_chest",
+     "apex_height": "collarbone",
      "note": "both hands fan out from the centre",
      "word_i": 100
     }
@@ -2482,7 +2482,7 @@
       "amp": 0.3,
       "held": true,
       "target": "up",
-      "apex_height": "bust"
+      "apex_height": "sternum"
      },
      {
       "type": "open",
@@ -2497,7 +2497,7 @@
       "amp": 0.85,
       "held": false,
       "target": "front",
-      "apex_height": "upper_chest"
+      "apex_height": "collarbone"
      }
     ],
     "hands_in_frame_min": null,
@@ -2579,7 +2579,7 @@
      "amp": 0.3,
      "held": false,
      "target": "camera",
-     "apex_height": "upper_chest",
+     "apex_height": "collarbone",
      "note": "palm out, a small side-to-side 'no'",
      "word_i": 108
     },
@@ -2596,7 +2596,7 @@
      "amp": 0.3,
      "held": false,
      "target": "camera",
-     "apex_height": "upper_chest",
+     "apex_height": "collarbone",
      "word_i": 111
     }
    ],
@@ -2661,7 +2661,7 @@
       "amp": 0.3,
       "held": false,
       "target": "camera",
-      "apex_height": "upper_chest"
+      "apex_height": "collarbone"
      },
      {
       "type": "beat",
@@ -2676,7 +2676,7 @@
       "amp": 0.3,
       "held": false,
       "target": "camera",
-      "apex_height": "upper_chest"
+      "apex_height": "collarbone"
      }
     ],
     "hands_in_frame_min": 0.3,
@@ -2757,7 +2757,7 @@
      "amp": 0.3,
      "held": false,
      "target": "camera",
-     "apex_height": "bust",
+     "apex_height": "sternum",
      "word_i": 115
     },
     {
@@ -2773,7 +2773,7 @@
      "amp": 0.3,
      "held": false,
      "target": "camera",
-     "apex_height": "bust",
+     "apex_height": "sternum",
      "word_i": 121
     }
    ],
@@ -2835,7 +2835,7 @@
       "amp": 0.3,
       "held": false,
       "target": "camera",
-      "apex_height": "bust"
+      "apex_height": "sternum"
      },
      {
       "type": "open",
@@ -2850,7 +2850,7 @@
       "amp": 0.3,
       "held": false,
       "target": "camera",
-      "apex_height": "bust"
+      "apex_height": "sternum"
      }
     ],
     "hands_in_frame_min": null,
@@ -2952,7 +2952,7 @@
      "amp": 0.3,
      "held": false,
      "target": "panel (his left)",
-     "apex_height": "bust",
+     "apex_height": "sternum",
      "note": "cross-body, under the mic head",
      "word_i": 123
     },
@@ -2969,7 +2969,7 @@
      "amp": 0.55,
      "held": true,
      "target": "front",
-     "apex_height": "sternum",
+     "apex_height": "upper_chest",
      "note": "sets a box down in front of him",
      "word_i": 128
     },
@@ -2986,7 +2986,7 @@
      "amp": 0.3,
      "held": true,
      "target": "camera",
-     "apex_height": "bust",
+     "apex_height": "sternum",
      "note": "just the key: thumb and index",
      "word_i": 130
     },
@@ -3003,7 +3003,7 @@
      "amp": 0.3,
      "held": false,
      "target": "front",
-     "apex_height": "bust",
+     "apex_height": "sternum",
      "word_i": 136
     }
    ],
@@ -3079,7 +3079,7 @@
       "amp": 0.3,
       "held": false,
       "target": "panel (his left)",
-      "apex_height": "bust"
+      "apex_height": "sternum"
      },
      {
       "type": "size",
@@ -3094,7 +3094,7 @@
       "amp": 0.55,
       "held": true,
       "target": "front",
-      "apex_height": "sternum"
+      "apex_height": "upper_chest"
      },
      {
       "type": "size",
@@ -3109,7 +3109,7 @@
       "amp": 0.3,
       "held": true,
       "target": "camera",
-      "apex_height": "bust"
+      "apex_height": "sternum"
      },
      {
       "type": "open",
@@ -3124,7 +3124,7 @@
       "amp": 0.3,
       "held": false,
       "target": "front",
-      "apex_height": "bust"
+      "apex_height": "sternum"
      }
     ],
     "hands_in_frame_min": 0.6,
@@ -3253,7 +3253,7 @@
      "amp": 0.3,
      "held": false,
      "target": "his right, chest height",
-     "apex_height": "bust",
+     "apex_height": "sternum",
      "note": "index (1)",
      "word_i": 137
     },
@@ -3270,7 +3270,7 @@
      "amp": 0.55,
      "held": false,
      "target": "his right, chest height",
-     "apex_height": "sternum",
+     "apex_height": "upper_chest",
      "note": "+ middle (2)",
      "word_i": 139
     },
@@ -3287,7 +3287,7 @@
      "amp": 0.55,
      "held": true,
      "target": "his right, chest height",
-     "apex_height": "sternum",
+     "apex_height": "upper_chest",
      "note": "+ ring (3)",
      "word_i": 143
     },
@@ -3304,7 +3304,7 @@
      "amp": 0.55,
      "held": true,
      "target": "front",
-     "apex_height": "sternum",
+     "apex_height": "upper_chest",
      "note": "both palms up, showing his hands: literal",
      "word_i": 148
     }
@@ -3405,7 +3405,7 @@
       "amp": 0.3,
       "held": false,
       "target": "his right, chest height",
-      "apex_height": "bust"
+      "apex_height": "sternum"
      },
      {
       "type": "count",
@@ -3420,7 +3420,7 @@
       "amp": 0.55,
       "held": false,
       "target": "his right, chest height",
-      "apex_height": "sternum"
+      "apex_height": "upper_chest"
      },
      {
       "type": "count",
@@ -3435,7 +3435,7 @@
       "amp": 0.55,
       "held": true,
       "target": "his right, chest height",
-      "apex_height": "sternum"
+      "apex_height": "upper_chest"
      },
      {
       "type": "open",
@@ -3450,7 +3450,7 @@
       "amp": 0.55,
       "held": true,
       "target": "front",
-      "apex_height": "sternum"
+      "apex_height": "upper_chest"
      }
     ],
     "hands_in_frame_min": 0.6,
@@ -3548,7 +3548,7 @@
      "amp": 0.55,
      "held": false,
      "target": "front",
-     "apex_height": "collarbone",
+     "apex_height": "chin",
      "start_word": "hundred",
      "note": "the hook's spread again, smaller (CU)",
      "word_i": 153
@@ -3566,7 +3566,7 @@
      "amp": 0.3,
      "held": true,
      "target": "front",
-     "apex_height": "upper_chest",
+     "apex_height": "collarbone",
      "note": "palms open, held to the cut",
      "word_i": 156
     }
@@ -3638,7 +3638,7 @@
       "amp": 0.55,
       "held": false,
       "target": "front",
-      "apex_height": "collarbone"
+      "apex_height": "chin"
      },
      {
       "type": "open",
@@ -3653,7 +3653,7 @@
       "amp": 0.3,
       "held": true,
       "target": "front",
-      "apex_height": "upper_chest"
+      "apex_height": "collarbone"
      }
     ],
     "hands_in_frame_min": 0.3,
