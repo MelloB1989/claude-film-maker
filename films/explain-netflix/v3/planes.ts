@@ -10,7 +10,7 @@ import { THREE, F, Cloud, ServerBox, KineticText, Label, MotionScene, glowMat, s
 
 const FOV = 30, D = 9.2;
 const em = (px: number) => emFor(px, D, FOV);
-const TV = v(-2.45, -0.1, 0), AWS = v(1.0, 1.05, -0.4), BOX = v(1.75, -0.5, 0.2);
+const TV = v(-2.45, -0.1, 0), AWS = v(1.0, 1.05, -0.4), BOX = v(1.75, -0.2, 0.2);
 
 export default class Planes extends MotionScene {
   private tv!: THREE.Group;
@@ -98,7 +98,7 @@ export default class Planes extends MotionScene {
     this.boxRing.position.copy(BOX).add(v(0, -0.32, 0));
     s.add(this.boxRing);
     this.boxLabel = this.own(new Label('Open Connect', { size: em(52) }));
-    this.boxLabel.group.position.copy(BOX).add(v(0.15, -0.68, 0.4));
+    this.boxLabel.group.position.copy(BOX).add(v(0.15, -0.6, 0.4));
     s.add(this.boxLabel.group);
     this.use = this.own(new Label('use this box', { size: em(44), family: F.mono(500), role: 'accent2', k: 1.3, align: 'right' }));
     this.use.group.position.copy(BOX).add(v(-0.85, 0.1, 0.3));

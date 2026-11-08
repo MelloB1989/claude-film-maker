@@ -115,10 +115,11 @@ export default class Ladder extends MotionScene {
   protected cam(t: number): CamPose {
     const tAction = this.cue('action', 2.2), tSo = this.cue('so', 3.4), A = this.cols[0]!.x, B = this.cols[1]!.x;
     return keyed(t, [
-      { t: 0, pos: [A + 0.2, 0.0, 6.7], target: [A + 0.35, -0.15, 0], fov: FOV },
-      { t: tAction - 0.25, pos: [A + 0.45, 0.0, 6.5], target: [A + 0.5, -0.15, 0], fov: FOV },
-      { t: tAction + 0.3, pos: [B + 0.1, 0.0, 6.7], target: [B + 0.35, -0.15, 0], fov: FOV, ease: (x) => 1 - Math.pow(1 - x, 4) },
-      { t: tSo - 0.1, pos: [B - 0.1, 0.0, 6.6], target: [B + 0.2, -0.15, 0], fov: FOV },
+      // the close keys keep the 240p rung (y -1.28) above the caption band (y 900) and the screen inside the top
+      { t: 0, pos: [A + 0.2, 0.0, 7.2], target: [A + 0.35, -0.28, 0], fov: FOV },
+      { t: tAction - 0.25, pos: [A + 0.45, 0.0, 7.0], target: [A + 0.5, -0.28, 0], fov: FOV },
+      { t: tAction + 0.3, pos: [B + 0.1, 0.0, 7.2], target: [B + 0.35, -0.28, 0], fov: FOV, ease: (x) => 1 - Math.pow(1 - x, 4) },
+      { t: tSo - 0.1, pos: [B - 0.1, 0.0, 7.1], target: [B + 0.2, -0.28, 0], fov: FOV },
       { t: tSo + 0.9, pos: [0.15, 0.12, D * 1.03], target: [0.1, 0.04, 0], fov: FOV },
       { t: this.len, pos: [-0.1, 0.1, D * 1.01], target: [0.1, 0.04, 0], fov: FOV },
     ]);

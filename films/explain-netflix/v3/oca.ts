@@ -98,7 +98,8 @@ export default class Oca extends MotionScene {
     const tIn = this.cue('inside', 2.3);
     const k = smooth(t, tIn - 0.5, 1.9);
     const w = { pos: v(0.2, 2.0, 8.4), tgt: v(-0.3, -0.55, -2.4) };
-    const c = { pos: v(1.7, 1.1, 5.1), tgt: v(PLAT.x + 0.05, PLAT.y + 0.6, PLAT.z) };
+    // close enough to fill the frame, far enough that the platform's front rim stays above the caption band (y 900)
+    const c = { pos: v(1.89, 1.13, 6.47), tgt: v(PLAT.x + 0.05, PLAT.y + 0.35, PLAT.z) };
     const drift = t * 0.06;
     const p = w.pos.clone().lerp(c.pos, k).add(v(drift, 0, -drift * 0.5)), g = w.tgt.clone().lerp(c.tgt, k);
     return { pos: [p.x, p.y, p.z], target: [g.x, g.y, g.z], fov: FOV };

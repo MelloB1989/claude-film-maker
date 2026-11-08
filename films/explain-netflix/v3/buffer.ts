@@ -62,7 +62,7 @@ export default class Buffer extends MotionScene {
     this.soft = this.own(new Label('a little softer', { size: em(PN ? 44 : 52), role: 'accent2', k: 1.3, align: 'center' }));
     this.r720 = this.own(new Label('720p', { size: em(PN ? 40 : 44), family: F.mono(500), role: 'accent2', k: 1.3 }));
     this.nostall = this.own(new Label('no stall', { size: em(PN ? 44 : 48), family: F.mono(500), role: 'accent', k: 1.4, align: 'left', tracking: 0.04 }));
-    this.nostall.group.position.set(HEAD - 0.3, Y - (PN ? 1.0 : 0.72), 0.3);
+    this.nostall.group.position.set(HEAD - 0.3, Y - (PN ? 1.0 : 0.6), 0.3);
     for (const l of [this.hero.group, this.soft.group, this.r720.group, this.nostall.group]) s.add(l);
     this.frame({ centre: [0, 0.3, 0], w: 6.4, h: 3.2, dist: this.D });
   }

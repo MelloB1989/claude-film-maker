@@ -84,7 +84,7 @@ export default class Abr extends MotionScene {
   protected cam(t: number): CamPose {
     // part A: low and close, tracking along the bar; part B: back and up to the whole ladder
     const tSwing = this.cue('your', 3.4, 0, -4);
-    const k = smooth(t, tSwing - 0.25, 1.1);
+    const k = smooth(t, tSwing - 0.25, 0.8);
     const a = { pos: v(-1.6 + t * 0.55, STRIP_Y + 0.05, 3.9), tgt: v(-0.5 + t * 0.45, STRIP_Y + 0.1, 0) };
     const b = { pos: v(0.15 - 0.1 * (t - tSwing), 0.6, 8.9), tgt: v(-0.15, 0.22, 0) };
     const p = a.pos.clone().lerp(b.pos, k), g = a.tgt.clone().lerp(b.tgt, k);
@@ -128,12 +128,15 @@ export default class Abr extends MotionScene {
     this.hero.exit(t, tSwing - 0.3, 0.4);
     this.few.pose(t, tFew, 'type', 1 - win(t, tSwing - 0.4, 0.3));
     this.bracket.pose(t, tFew - 0.05, 0.3, t < tSwing - 0.4 ? 1 : 0);
-    // the ladder comes up on "Your player"
+    // the ladder comes up on "Your player", once the swing has framed it (mid swing the shelves would cross the
+    // caption band); a shelf not yet grown is hidden (scaled to a sliver it showed as a stray diagonal line)
+    const tLad = Math.max(tPlayer - 0.2, tSwing + 0.5);
     this.shelves.forEach((m, k) => {
-      const sk = spring(t, tPlayer - 0.2 + k * 0.05, 0.5, 0.08);
+      const sk = spring(t, tLad + k * 0.05, 0.5, 0.08);
       m.scale.set(Math.max(0.001, sk), 1, 1);
+      m.visible = sk > 0.01;
     });
-    this.resLabels.forEach((l, k) => l.pose(t, tPlayer - 0.1 + k * 0.05, 'rise'));
+    this.resLabels.forEach((l, k) => l.pose(t, tLad + 0.1 + k * 0.05, 'rise'));
     this.net.pose(t, tPlayer + 0.1, 0.8, 1 + 0.5 * pulse(t, tPick, 0.05, 0.4));
     this.netLabel.pose(t, tPlayer + 0.6, 'rise');
     this.title.enter(t, tRight - 0.12, 'rise', 1 / 24);
