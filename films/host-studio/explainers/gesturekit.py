@@ -697,6 +697,8 @@ class Performer(S.Seater):
     MIC_IN = (0.25, 0.6)  # the fingers' inward aim per cm ahead (his cross-body deictic at 42.0 s aimed further in
     #                       than 0.25: middle_03_r 3.2 cm from the line of sight in CAM_MCU_L)
     MIC_ACCENT = ((0.0, 0.0), (3.2, -1.5))  # (fwd, up) cm: the goal, and the style accent's push after the apex
+    TWO_HAND_MIN = 0.6  # the other hand's travel kept at least this share when it follows a mic-moved goal in
+    TWO_HAND_MOVE_CM = 8.0  # a mic move this big or more (his 10-12 cm; her 3-7 cm keep their balance as drawn)
     MIC_DIRS = ((-0.5, -0.5, -0.7), (-0.5, 0.5, -0.7), (0.0, 0.7, -0.7))  # (back, in(-)/out(+), down) per cm step
 
     def cut_cams(self, t0: float, t1: float) -> list:
@@ -767,6 +769,8 @@ class Performer(S.Seater):
                         e.pose_r = moved
                     else:
                         e.pose_l = moved
+                    e.mic_moved = getattr(e, "mic_moved", frozenset()) | {s}  # (the style layer keeps its bow)
+                    e.mic_from = {**getattr(e, "mic_from", {}), s: (p, d * math.sqrt(0.25 + 0.25 + 0.49))}
                     log.append({"t": t, "hand": e.hand, "side": s, "moved_cm": round(d * math.sqrt(0.25 + 0.25 + 0.49), 1)})
                 elif s == self.mic_side:
                     if e.hand == "both":
@@ -782,6 +786,27 @@ class Performer(S.Seater):
                     break
                 else:
                     log.append({"t": t, "hand": e.hand, "side": s, "unresolved": True})
+        for e in self.plan.events:  # a two-hand stroke whose mic-side goal came in: the other hand travels less too,
+            #   so the left's share stays >= TWO_HAND_MIN (agent-13's two_hand row; his left came in 10-12 cm)
+            mf = getattr(e, "mic_from", {}).get(self.mic_side)
+            if e.hand != "both" or mf is None or mf[1] < self.TWO_HAND_MOVE_CM or e.pose_l is None:
+                continue
+            rest = HIGH_REST.off
+            p0 = mf[0]
+            p1 = e.pose_l if self.mic_side == "l" else e.pose_r
+            a0, a1 = math.dist(p0.off, rest), math.dist(p1.off, rest)
+            if a0 < 1e-6 or a1 >= a0:
+                continue
+            k = max(self.TWO_HAND_MIN, a1 / a0)  # the other hand by the share the mic-side hand lost: the stroke's own
+            #   two-hand balance kept
+            p = e.pose_r if other == "r" else e.pose_l
+            q = replace(p, off=tuple(rest[i] + k * (p.off[i] - rest[i]) for i in range(3)))
+            if other == "r":
+                e.pose_r = q
+            else:
+                e.pose_l = q
+            e.mic_moved = e.mic_moved | {other}
+            log.append({"t": round(e.stroke, 2), "hand": "both", "side": other, "scaled": round(k, 2)})
         return log
 
     def _fit_poses(self, W) -> None:
@@ -919,17 +944,26 @@ class Performer(S.Seater):
         d0 = sub(sk.p("middle_01_" + s), sk.p("hand_" + s))
         a0 = sub(sk.p("pinky_01_" + s), sk.p("index_01_" + s))
         fa = self._trail(s, unit(forearm))
-        hz = ortho(fa, u) if abs(dot(fa, u)) < 0.98 else f
         wg = self._wg_rot.get(s, self._wg.get(s, 1.0))  # (agent-13: on the yaw unlagged, the hand's turn began with or
         #   before the upper arm's in 22 of 53 moves: lag 25 ms on a 30 line)
         yw = math.radians(getattr(hp, "yaw", 0.0) + YAW_BASE.get(s, 0.0) * wg + REST_YAW * (1.0 - wg))
-        hz = unit(add(mul(hz, math.cos(yw)), mul(ortho(side, hz), math.sin(yw))))
+        # the fingers continue the forearm turned by the yaw about the vertical (outward, + toward her side): the same as
+        #   rebuilding it from its heading and pitch, without the heading, which on a steep forearm (64 deg up at a
+        #   press, 4.5 s) swung 33 deg in one frame for 6 of the forearm: the hand snapped (agent-13's finger snaps)
+        ys = yw if s == "r" else -yw
+        fingers = unit(add(add(mul(fa, math.cos(ys)), mul(cross(u, fa), math.sin(ys))), mul(u, dot(u, fa) * (1.0 - math.cos(ys)))))
         ws = self._ws.get(s, 1.0)  # speaking: a true extension; at the desk rest the old pitch (its pose was tuned on it)
-        pitch = math.asin(max(-1.0, min(1.0, dot(fa, u)))) + math.radians(hp.ext * (1.0 - ws))
-        fingers = unit(add(mul(hz, math.cos(pitch)), mul(u, math.sin(pitch))))
+        if hp.ext * (1.0 - ws):
+            k_ = cross(fingers, u)
+            if norm(k_) > 1e-6:
+                fingers = qrot(axis_angle(unit(k_), hp.ext * (1.0 - ws)), fingers)
         pr = math.radians(hp.pron)
         flat = ortho(side, fingers)
         up_ = ortho(u, fingers) if abs(dot(u, fingers)) < 0.98 else ortho(mul(f, -1.0), fingers)
+        k_up = smooth((abs(dot(u, fingers)) - 0.55) / 0.3)  # steep fingers: the palm's up from the flat axis instead
+        if k_up > 0:  # (ortho(u, fingers) swings as the fingers near vertical; the shallow poses keep their tuned roll)
+            up2 = unit(cross(fingers, flat)) if s == "r" else unit(cross(flat, fingers))
+            up_ = ortho(add(mul(up_, 1.0 - k_up), mul(up2, k_up)), fingers)
         across = unit(add(mul(flat, math.cos(pr)), mul(up_, -math.sin(pr))))
         if hp.ext and ws > 0:  # r7F: a true extension, about the palm's own across axis (back of the hand); it was a pitch about
             #         world up, which on a thumb-up hand (counts, raise_finger: pron 80-95, ext 40-45) bent it radially
@@ -964,10 +998,17 @@ class Performer(S.Seater):
                     k = j.split("_")[1]
                     share = {"01": 0.8, "02": 1.0, "03": 0.8}[k]
                     pip = float(shape.get("_pip_" + f, 0.0)) if isinstance(shape, dict) and k != "01" else 0.0
-                    cum = qmul(axis_angle(axis, curl * share + pip), cum)  # (+ the middle/end joints' own drift)
+                    ang = curl * share + pip  # (+ the middle/end joints' own drift)
+                    if k != "01":
+                        ang = max(ang, PIP_MIN_DEG)  # a straight finger's drift never bends it backwards (agent-13's
+                        #   claw: his count's index at PIP -11)
+                    cum = qmul(axis_angle(axis, ang), cum)
                     q = qmul(cum, qmul(dh, sk.q(j)))
                 W[j] = [self._fk_t(j, parent, W) if parent in W else sk.p(j), q]
                 parent = j
+
+
+PIP_MIN_DEG = -5.0  # deg a finger's middle and end joints at most bent back
 
 
 def blend_poses(parts: list) -> HandPose:
