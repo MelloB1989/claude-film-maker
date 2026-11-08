@@ -111,7 +111,7 @@ taken from agent-01's head (c62de4a1+). agent-13's copy built his performer with
 mic_cams, so the box rows would have scored a different motion from the anim the build writes. Hers is unaffected.
 
 **Her r7J verify (09 Nov, T2, 0fa53868 + c62de4a1 tool-only, watch dropped; agent-06's numbers): GATE PASS, 0 FAIL**
-(body.rest_hand_torso_cm pending: the rest gate ran rc 0). Body build pass; bust 3.7 / side 0.5; agent-02 arms rest
+(rest_hand_torso_cm 19.55, f198 left). Body build pass; bust 3.7 / side 0.5; agent-02 arms rest
 3.72 / 1.28, gestures 3.97 / 1.32; hands_in_frame MCU 0.676, CU 0.392, WIDE 1.0; parity plain 0.364, --shoulder 0.247,
 --torso 0.186; movement + hand rows (placed dump and track) 0 FAIL: finger_snap 0.0, claw 0, spread 2.85,
 rest_contact 0, palm_to_camera 0; breath 2.22 mm at 15.1/min; waist fit 0.02, poke -0.26; lips lag 0.68 f, track
