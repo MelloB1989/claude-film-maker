@@ -46,6 +46,12 @@ class _GK:
 
 GK = _GK()
 
+V_MEAN = 70.0       # cm/s a stroke's mean wrist speed at most (min-jerk peaks ~1.9x: ~1.3-1.6 m/s with the skew)
+LEFT_EXT_MIN = 20.0  # deg the left hand's wrist extension on a gesture at least (its fingers met the desk lower; 34
+#   held her left wrist cocked back ~31 deg the whole take, agent-10's audit)
+TWO_HAND_LAG_S = (0.04, 0.08)  # s the left trails the right on a two-hand stroke (same-frame peaks read robotic)
+HOLD_MIN_S = 0.1    # s a hold kept at least when the next move takes its time
+V_RETRACT = 55.0    # cm/s a retract home's mean speed at most (softer than the stroke)
 COART_S = 0.45      # a gap shorter than this flows straight into the next gesture
 PARTIAL_S = 1.1     # a gap shorter than this falls only halfway to the rest
 LAG_S = {"pinky": 0.030, "ring": 0.045, "thumb": 0.050, "middle": 0.062, "index": 0.080}  # fingers behind the wrist
@@ -58,6 +64,11 @@ MIC_L = (9.0, -2.0)  # the left hand (mic side) on a gesture: out <= 9 cm, up <=
 
 
 # --- small helpers -----------------------------------------------------------------------------------------------
+
+def dist(a, b) -> float:
+    """cm between two HandPoses' wrist goals."""
+    return math.sqrt(sum((a.off[i] - b.off[i]) ** 2 for i in range(3)))
+
 
 def seed_of(*parts) -> int:
     """A stable seed (not Python's salted hash) from any parts."""
@@ -199,6 +210,15 @@ class HandTrack:
             target = self._pose_of(e)  # vary() has already drawn this event's goal
             apex = e.stroke + v.dt
             start = max(e.prep, t)
+            # a long move starts earlier (r7F: from the lowered rest a count rose 29 cm in 0.18 s, 4 m/s at the wrist,
+            # a snap): its mean speed at most V_MEAN, the stroke still landing on its word
+            start = max(t, min(start, apex - dist(cur, target) / V_MEAN))
+            need = apex - dist(cur, target) / V_MEAN
+            if start > need and segs and segs[-1].kind == "hold" and segs[-1].t1 == t:  # no room after the last
+                #   hold: the hold gives some of its time back (down to HOLD_MIN_S), the move starts sooner
+                h = segs[-1]
+                start = max(h.t0 + HOLD_MIN_S, need)
+                h.t1 = start
             if apex - start < 0.12:  # no room: a quick move, never backwards in time
                 start = apex - 0.12
             if segs and start > t:
@@ -219,7 +239,7 @@ class HandTrack:
                 segs.append(Seg(hold_end, t1, target, mid, "retract", v, ev=i, w_from=1.0, w_to=0.5))
                 cur, cur_w, t = mid, 0.5, t1
                 continue
-            t1 = hold_end + v.retract
+            t1 = hold_end + min(max(v.retract, dist(target, rest) / V_RETRACT), gap)
             segs.append(Seg(hold_end, t1, target, rest, "retract", v, ev=i, w_from=1.0, w_to=0.0))
             cur, cur_w, cur_ev, t = rest, 0.0, -1, t1
         return segs
@@ -359,6 +379,10 @@ def var_of(event, hand: str) -> Var:
       overshoot (a straighter arm brings the elbow in onto the chest), the path bowing outward."""
     v = Var.draw(seed_of(getattr(event, "line", ""), getattr(event, "seed", 0), getattr(event, "detail", ""),
                          event.kind, hand), float(getattr(event, "energy", 0.5)))
+    if hand == "l" and event.hand == "both":  # the left trails the right by 40-80 ms (agent-10: 4 of 14 peaked together)
+        lo, hi = TWO_HAND_LAG_S
+        v.dt = var_of(event, "r").dt + lo + (hi - lo) * random.Random(seed_of(getattr(event, "line", ""),
+                                                                               getattr(event, "seed", 0), "lag")).random()
     if hand == "l":
         v.amp, v.dz, v.overshoot = min(v.amp, 1.0), max(-0.3, min(0.0, v.dz)), v.overshoot * 0.5
         v.bulge = (0.4 * v.bulge[0], min(0.0, v.bulge[1]), min(0.0, v.bulge[2]) * 0.3)
@@ -382,7 +406,7 @@ def vary(pose, event, hand: str):
     p = v.apply(pose)
     if hand == "l":
         p = _mic_clamp(p)
-        p = GK.HandPose(p.off, min(p.pron, 60.0), max(p.ext, 34.0), p.shape)
+        p = GK.HandPose(p.off, min(p.pron, 60.0), max(p.ext, LEFT_EXT_MIN), p.shape)
     return p
 
 

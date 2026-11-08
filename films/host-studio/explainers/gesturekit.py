@@ -120,7 +120,8 @@ HIGH_REST = HandPose((25.0, 10.0, -4.0), pron=80.0, ext=0.0, shape="rest")  # th
 #   chest (swivel) only with the elbows up at 90-92 cm, a reach; at 25 / 10 out they hang at 83-86, the wrists 27 cm
 #   forward of her spine, the fingertips 3-5 cm over the desk (offline on her skeleton, 0 issues)
 REST_POLE = (-0.2, 0.9, -0.6)  # the elbows' direction at the rest (fwd, out, up)
-REST_YAW = 32.0  # deg out off the forearm at the rest (gesture_style's track carries no yaw): the forearms come in
+REST_YAW = 15.0  # deg out off the forearm at the rest (r7F naturalness: 32 bent the wrists back 31 deg; 15 keeps them
+#                  near neutral, the fingertips still 3.8 cm apart) (gesture_style's track carries no yaw): the forearms come in
 #                  from the elbows at ~60 deg, the fingers then point forward and in, the tips meeting at the midline
 
 
@@ -356,6 +357,11 @@ class Performer(S.Seater):
         sk = self.sk
         out = {}
         for s in "lr":
+            # the palm's normal (reference pose), toward the palm: the side the reference middle finger curls to
+            hd = unit(sub(sk.p(f"middle_01_{s}"), sk.p(f"hand_{s}")))
+            n = unit(cross(hd, sub(sk.p(f"index_01_{s}"), sk.p(f"pinky_01_{s}"))))
+            if dot(sub(sk.p(f"middle_03_{s}"), sk.p(f"middle_01_{s}")), n) < 0:
+                n = mul(n, -1.0)
             for f in FINGERS:
                 joints = [j for j in (f"{f}_metacarpal_{s}", f"{f}_01_{s}", f"{f}_02_{s}", f"{f}_03_{s}")
                           if j in sk.local]
@@ -363,9 +369,13 @@ class Performer(S.Seater):
                     continue
                 tip, base = sk.p(joints[-1]), sk.p(joints[1] if "metacarpal" in joints[0] else joints[0])
                 d = unit(sub(tip, base))
-                mid = sk.p(f"middle_03_{s}") if f != "middle" else tip
-                ps = sub(sk.p(f"middle_03_{s}"), sk.p(f"middle_01_{s}"))
-                out[(s, f)] = {"joints": joints, "palm": ps}
+                # r7F: each joint bends about the finger's own hinge, d x n, so + curl moves it toward the palm. It
+                # was cross(d, ortho(middle chord, d)): nearly parallel vectors, so one curl flexed some joints, bent
+                # others backward (-66 deg) and barely moved the rest (the orchestrator's 'claws')
+                ax = unit(cross(d, n))
+                if f == "thumb":  # the thumb lies on its side: d x n opened it; flipped it folds in over the palm
+                    ax = mul(ax, -1.0)
+                out[(s, f)] = {"joints": joints, "axis": ax}
         return out
 
     def gesture_w(self, s: str, t: float) -> float:
@@ -620,7 +630,7 @@ class Performer(S.Seater):
                 continue
             curl = float(shape.get(f, 0.0)) if isinstance(shape, dict) else 0.0
             joints = info["joints"]
-            ps = qrot(dh, info["palm"])
+            axis = qrot(dh, info["axis"])  # the hinge, in the hand's current frame
             cum = [0.0, 0.0, 0.0, 1.0]
             parent = "hand_" + s
             for j in joints:
@@ -628,10 +638,6 @@ class Performer(S.Seater):
                     q = qmul(dh, sk.q(j))
                 else:
                     share = {"01": 0.8, "02": 1.0, "03": 0.8}[j.split("_")[1]]
-                    d = unit(qrot(qmul(cum, dh), sub(sk.p(joints[-1]), sk.p(j)))) if j != joints[-1] else None
-                    if d is None:
-                        d = unit(qrot(qmul(cum, dh), sub(sk.p(j), sk.p(sk.parent[j]))))
-                    axis = cross(d, ortho(ps, d)) if norm(cross(d, ps)) > 1e-6 else qrot(dh, [0.0, 0.0, 1.0])
                     cum = qmul(axis_angle(axis, curl * share), cum)
                     q = qmul(cum, qmul(dh, sk.q(j)))
                 W[j] = [self._fk_t(j, parent, W) if parent in W else sk.p(j), q]
@@ -652,7 +658,8 @@ def blend_poses(parts: list) -> HandPose:
     return HandPose(tuple(off), pron, ext, shapes, yaw)
 
 
-YAW_BASE = {"r": 40.0, "l": 0.0}  # deg her right fingers always turn out a little: turned in, they reached the mic
+YAW_BASE = {"r": 30.0, "l": 0.0}  # deg her right fingers always turn out a little: turned in, they reached the mic
+#   (40 with the mic at her chest; 30 with it at her mouth: the wrist bent 37-45 deg; at 25 the mic hides the hand)
 RIGHT_MIN_LAT = 15.0  # cm her right hand stays to her right of the sternum point while she speaks
 LEFT_RESTS = False  # r7b: the left hand rested on the desk between its own gestures while the mic hung at her sternum;
 #                     with the mic moved up to her mouth (the orchestrator, 08 Nov) it gestures like the right

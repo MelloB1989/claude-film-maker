@@ -114,9 +114,79 @@ def plan(film: str, seed: int = 72) -> dict:
     first = _plan(film, seed)
     br = bridges(first["gestures"], first["speech"])
     if not br:
-        return first
+        return paced(first, film)
     res = _plan(film, seed, br)  # again with the bridged pauses as speech (no rest, no retraction into them)
     res["bridge"] = br
+    return paced(res, film)
+
+
+# r7F (the operator: the hands look 'a little weird ... natural human like'): with the rest at her lower ribcage a
+# 0.2 s preparation up to a collarbone apex peaked at 300-430 cm/s, a snap. A human wrist on a conversational stroke
+# peaks at ~100-200 cm/s. The preparation's length follows the distance (the apex stays on the syllable).
+PEAK = (150.0, 200.0)  # cm/s, the wrist's peak on a preparation at no / full vocal energy
+PREP_MAX = 0.6  # s
+
+
+def _peaks(res: dict, film: str) -> dict:
+    """{gesture index: the gesturing wrist's peak speed (cm/s) over its preparation}, on agent-01's performer."""
+    import math
+    import evaluate as E
+    perf, _, _ = E.performer(film, res)
+    out, fps = {}, 60
+    for k, g in enumerate(res["gestures"]):
+        ev = next((e for e in perf.plan.events if abs(e.stroke - g["stroke_t"]) < 1e-3), None)
+        if ev is None:
+            continue
+        sides = ("l", "r") if ev.hand == "both" else (ev.hand,)
+        prev, pk = None, 0.0
+        for i in range(int(ev.prep * fps), int(ev.stroke * fps) + 2):
+            F = perf.fk(perf.pose(i / fps))
+            P = {s: perf.actor(F["hand_" + s][0]) for s in sides}
+            if prev:
+                pk = max(pk, max(math.dist(P[s], prev[s]) * fps for s in sides))
+            prev = P
+        out[k] = pk
+    return out
+
+
+def paced(res: dict, film: str, rounds: int = 4) -> dict:
+    """Lengthen each preparation whose wrist peak is over PEAK (energy-scaled) by the ratio, up to PREP_MAX and never
+    before the previous gesture's apex + 0.1 s; then chain again (a chained hold ends where the next prep starts)."""
+    ev = res["gestures"]
+    cues = json.loads((EXPL / "audio" / film / "cues.json").read_text())
+    for _ in range(rounds):
+        changed = False
+        for k, pk in _peaks(res, film).items():
+            g = ev[k]
+            want = PEAK[0] + (PEAK[1] - PEAK[0]) * g["energy"]
+            if pk <= want * 1.03:
+                continue
+            dur = g["stroke_t"] - g["prep_t"]
+            lo = ev[k - 1]["stroke_t"] + 0.1 if k else 0.0
+            ln0 = next((c["start"] for c in cues["lines"] if c["start"] - 0.05 <= g["stroke_t"] <= c["end"] + 0.3), None)
+            p0 = g.setdefault("_prep0", g["prep_t"])
+            if g.get("_held_in") and pk > 1.3 * want and not g.get("_free"):
+                g["_free"] = True  # still a snap at the line's start: it prepares before the line (anticipation)
+            if g.get("_held_in") and not g.get("_free"):
+                changed = changed or pk > 1.3 * want
+            if ln0 is not None and p0 >= ln0 - 0.03 and not g.get("_free"):
+                lo = max(lo, min(p0, ln0 + 0.05))  # a prep that started in its line starts from stillness in it
+                g["_held_in"] = True               # (agent-09's gate counts an onset from a rest in speaking frames)
+            new = max(lo, g["stroke_t"] - min(PREP_MAX, dur * pk / want))
+            if new < g["prep_t"] - 0.005:
+                g["prep_t"] = round(new, 3)
+                g["paced"] = True
+                changed = True
+        if not changed:
+            break
+        cameras(ev, film)
+        chain(ev, res["speech"])
+        for g in ev:
+            g.pop("_cam", None)
+    for g in ev:
+        for k_ in ("_prep0", "_held_in", "_free"):
+            g.pop(k_, None)
+    res["stats"] = stats(ev, res["speech"])
     return res
 
 
