@@ -1,0 +1,12 @@
+# film-farm acceptance A, the reference: the same job as blender-test.yaml in one chunk (one box).
+id: blender-test-1box
+engine: blender
+frames: [1, 97]
+privacy: public
+presenter: false
+chunk: 96
+output: {prefix: "s3://BUCKET/farm/tests/blender-test-1box/frames/", ext: png, pad: 4, fps: 24}
+blender:
+  version: "5.2.2"
+  device: OPTIX
+  build: "@examples/farm/blender_scene.py"

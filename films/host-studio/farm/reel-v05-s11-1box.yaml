@@ -1,0 +1,30 @@
+# film-farm acceptance B, the reference: reel-v05-s11.yaml in ONE chunk on one box (render.job splits it at the cut
+# itself, as any one-box render does).
+id: reel-v05-s11-1box
+engine: ue
+frames: [600, 780]
+cuts: []
+chunk: 180
+preroll: 24
+privacy: private
+presenter: false
+output: {prefix: "s3://BUCKET/ue-linux/private/farm/tests/reel-v05-s11-1box/frames/", ext: png, pad: 4, fps: 24}
+ue:
+  fresh_editor: true
+  wait_compile: true
+  stall_s: 900
+  spec:
+    sequence: /Game/Reel/SEQ_Reel
+    level: /Game/Studio/Studio
+    preset: final
+    spatial: 4
+    temporal: 8
+    width: 1920
+    height: 1080
+    aa_method: none
+    warmup_engine: 22
+    warmup_render: 24
+    shutter_timing: open
+    cvars: {r.SSS.Quality: 1, r.SSS.HalfRes: 0, r.HairStrands.LODMode: 0, r.HairStrands.AutoLOD.Bias: 1.0,
+            r.HairStrands.UseCardsInsteadOfStrands: 0, r.HairStrands.SkyLighting: 0,
+            r.Streaming.FullyLoadUsedTextures: 1, r.Streaming.PoolSize: 12000}

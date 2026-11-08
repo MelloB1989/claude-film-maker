@@ -34,6 +34,7 @@ SMILE_HOLD_F, BROW_MIN_S, BROW_MAX_S = 4, 0.12, 1.0
 HYST = 0.8  # an event ends below 80 % of its line
 REST_CMS, MOVE_CMS, ONSET_GAP_S = 10.0, 25.0, 0.25
 BEAT_CMS = 40.0
+REST_LATCH_S = 0.25  # a beat needs a rest within this long before it (agent-10: a min-jerk start ramps 10->40 cm/s over 2-4 frames)
 DESK_CLEAR_CM = 10.0  # her resting wrist bone sits ~6 cm over the desk top (v2b): 'up off the desk' is ~4 cm more
 
 
@@ -167,8 +168,9 @@ def body_rows(samples: dict, fps: float, spans: list, desk_z: float, hands=("han
 
     A hand is UP when its wrist bone is more than DESK_CLEAR_CM above the desk top (a forearm resting on the desk puts
     it ~6 cm up on her rig: v2b's resting wrists read 76.7-77.0 over a 71 cm top). A GESTURE onset is the hand going
-    UP (one per lift, its return to the desk is not another), plus each BEAT while it stays up: the speed rising from
-    under REST_CMS past BEAT_CMS while not moving down toward the desk, >= ONSET_GAP_S after the last onset."""
+    UP (one per lift, its return to the desk is not another), plus each BEAT while it stays up: past BEAT_CMS within
+    REST_LATCH_S of a rest (< REST_CMS), not moving down toward the desk, >= ONSET_GAP_S after the last onset of
+    EITHER hand (a two-hand gesture counts once)."""
     fr = samples["frames"]
     idx = [i for i, f in enumerate(fr) if _in(f, spans)]
     keys = ("body.gesture_onsets_per_s", "body.hands_above_desk_frac", "body.wrist_travel_cm_per_s")
@@ -178,12 +180,16 @@ def body_rows(samples: dict, fps: float, spans: list, desk_z: float, hands=("han
     onsets, above, travel, n = 0, 0, 0.0, 0
     last = {h: -1e9 for h in hands}
     up = {h: False for h in hands}
-    slow = {h: True for h in hands}
+    rest_at = {h: -1e9 for h in hands}  # the last frame each hand was at rest (< REST_CMS)
+    prev = None
     for i in idx:
         Z = {h: samples["bones"][h][i][2] for h in hands}
         if any(z > line for z in Z.values()):
             above += 1
-        cont = i > 0 and fr[i] == fr[i - 1] + 1
+        # continuous only within a speaking run: at a span's first frame the hand's up/down state is SEEDED, never an
+        # onset (agent-10: a hand already up at a span start counted as 'goes up', a phantom per window)
+        cont = prev == i - 1 and fr[i] == fr[i - 1] + 1
+        prev = i
         for h in hands:
             was_up, up[h] = up[h], Z[h] > line
             if not cont:
@@ -195,12 +201,15 @@ def body_rows(samples: dict, fps: float, spans: list, desk_z: float, hands=("han
             onset = False
             if up[h] and not was_up:
                 onset = True  # the hand goes up off the desk
-            elif up[h] and slow[h] and v > BEAT_CMS and b[2] - a[2] > -0.5 * v / fps:
-                onset = True  # a beat in the air (not the return toward the desk)
-            if onset and (fr[i] - last[h]) / fps >= ONSET_GAP_S:
+            elif (up[h] and (fr[i] - rest_at[h]) / fps <= REST_LATCH_S and v > BEAT_CMS
+                  and b[2] - a[2] > -0.5 * v / fps):
+                onset = True  # a beat in the air from a recent rest (not the return toward the desk)
+            # one ONSET_GAP across BOTH hands: a two-hand gesture counts once (agent-10)
+            if onset and (fr[i] - max(last.values())) / fps >= ONSET_GAP_S:
                 onsets += 1
                 last[h] = fr[i]
-            slow[h] = v < REST_CMS
+            if v < REST_CMS:
+                rest_at[h] = fr[i]
     secs = len(idx) / fps
     where = f"{len(idx)} speaking frames ({secs:.1f} s), desk top z {desk_z}, up = wrist > {line:.1f}"
     return {"body.gesture_onsets_per_s": {"value": round(onsets / secs, 3), "where": where},

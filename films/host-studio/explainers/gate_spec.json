@@ -231,7 +231,7 @@
    "line": 0,
    "unit": "px",
    "what": "worst frame's mouth pixels the studio mic covers (qa.clip mouth: a 2 cm disc round the lip bones, the mic nearer than the face)",
-   "where": "every presenter camera, every shot (n 8 + the widest head turn)",
+   "where": "every presenter camera (CAM_MCU / CAM_CU / CAM_MCU_L / CAM_WIDE), every shot; round 7: the mic moves UP to chin/mouth height, 12-18 cm in front and 10-15 cm to the presenter's left (the orchestrator), so this row now bites",
    "how": "film-ue op qa.clip ... 'props={\"Mic\":\"<mic>\"}' 'mouth={\"blocker\":\"Mic\"}' (core 0ce1c3ae) -> metrics.worst.mouth.blocked_px",
    "why": "the brief: the mic never covers the mouth in any camera"
   },
@@ -733,19 +733,19 @@
    "op": ">=",
    "line": 3.0,
    "unit": "cm",
-   "what": "min over frames and sides of the upper arm's distance to the torso (posed Body + upper garment), NEGATIVE = the arm inside the torso's volume (the breast covering it)",
-   "where": "every speaking + on-screen frame of the presenter (cue words x edl presenter spans)",
+   "what": "min over frames and sides of the upper arm's distance to the torso (posed Body + upper garment), NEGATIVE = the arm inside the torso's volume (the breast covering it). The SIGN is solid (inside vs clear); the DEPTH of a negative reading is approximate (agent-02: the deepest torso point moves between frames), so the gate is the sign + the >= 3 cm line, never the magnitude of a fail",
+   "where": "min over on-screen frames (edl presenter + panel shots), both sides",
    "how": "agent-02's films/host-studio/reel/r7/garment_measure.py (fleet/agent-02/r7-garment c42b3aac): per frame, min over both sides of the SIGNED distance from the upper-arm skin (Body verts nearest upperarm_<s> at the ref pose, from 30 % shoulder->elbow) to the nearest torso triangle (torso skin + the Top's torso part, sleeves excluded), sign from the triangle normal, < 0 = inside -> numbers/<film>/garment.json. Cross-check (INFO): agent-09's qa.limb_clearance (bone-segment split, radial sign)",
    "must_fail": [
-    null,
-    "netflix v2b (the operator's REJECT, 07 Nov 23:45): measure on box B's v2b frames/curves and put the value here; the line must fail it"
+    -8.19,
+    "netflix v2b (agent-02 garment_measure, valid: the ref-pose self-check passes on every frame; arms_v2b3, fleet/agent-06/r7-boxb): -8.19 at f1044, -8.19..-8.16 through 00:43.5-00:46: both upper arms inside the Top/breast, the operator's complaint. Controls: ref pose +5.19 (0 verts inside), R7 elbows-out +5.7..+7.0"
    ],
    "guard": true,
    "why": "the operator, 07 Nov: 'her expression is pale, no emotion at all ... hands stuck to her body ... boob covering the upper limb ... these presenters must look confident, happy, full of energy, not robotic' (R7_common.md). The numbers support the eye; the operator decides",
    "info_for": "TEST",
    "r4": [
     null,
-    "INFO for the R7 TEST by the orchestrator's ruling (07 Nov), a scope change, not a waiver: no validated measure yet (agent-09's cross-check structurally constant at -10; agent-02's mesh measure failing its ref-pose self-check). The judge: the orchestrator's eye at 1x and 2x on the MCU + WIDE test frames (the 00:44 arm-under-breast case is obvious when present), with agent-01's design-time clearance from gesturekit (3.8/3.8 cm on a torso+breast model) as supporting evidence. It must be a real GATE (validated, must_fail = v2b) before the full re-render"
+    "VALIDATED 07 Nov (agent-02's measure with controls); INFO for the R7 TEST by the orchestrator's earlier ruling, a GATE for the full re-render (and for the TEST too if the orchestrator says so now that it is validated)"
    ],
    "info": true
   },
@@ -876,6 +876,170 @@
     "agent-05's refit R7W (garment_measure 9db4bd18, agent-02): +0.49 cm, her SKIN out past the trousers' outer face at the front (0 to +-30 deg); VISIBLE: qa.clip Body>Trousers 2.55-2.60 % in the WIDE f1042/f1276, up to 1.5 cm at the front waist. v2b read -0.54 (a guard)"
    ],
    "why": "a refit that closes the gap must not push her skin out through the band; FROZEN at 0.1, with the orchestrator's eye backing it on R7W's belly (relayed by agent-02)"
+  },
+  "body.hands_in_frame_mcu_frac": {
+   "area": "performance",
+   "track": "agent-01 / agent-10 (body), agent-09 (measure)",
+   "op": ">=",
+   "line": 0.6,
+   "unit": "fraction",
+   "what": "speaking frames in MCU shots (incl. MCU_L) with >= 1 hand FULLY in the shot's frame (wrist + 4 fingertips projected through the cut camera)",
+   "where": "every speaking frame (or every 2nd) of the MCU shots",
+   "how": "film-ue op qa.hands_in_frame label=<presenter> sequence=<SEQ> 'frames=[every 2nd speaking frame of spans_<film>.json]' (core fleet/agent-09/r7-perf-gate 1169789c) -> metrics.kinds.<KIND>.frac -> numbers/<film>/hands.json",
+   "must_fail": [
+    0.0,
+    "netflix v2b 0.0 (n 39) and TEST side A 0.0 (box B qa.hands_in_frame, core 3a782e71, TEST frames; fleet/agent-06/r7-boxb 276be4a0 hands_A/hands_v2b.json)"
+   ],
+   "guard": true,
+   "why": "the orchestrator: the viewer sees elbows out and no hands = still stiff; the gesture space is chest-to-collarbone in front of the torso",
+   "line_by_film": {
+    "netflix": 0.5
+   },
+   "line_by_film_reason": "the orchestrator's ruling (08 Nov), her explainer: her rest pose goes LOWER (wrists ~80 cm, ~30 cm forward of the spine, clear of the bust and the desk), so in CAM_MCU the rest may sit at the frame's bottom edge; a natural rest beats visible hands in the pauses, and the gestures still rise into the frame. His film keeps 0.6"
+  },
+  "body.hands_in_frame_cu_frac": {
+   "area": "performance",
+   "track": "agent-01 / agent-10 (body), agent-09 (measure)",
+   "op": ">=",
+   "line": 0.3,
+   "unit": "fraction",
+   "what": "speaking frames in CU shots with >= 1 hand FULLY in the shot's frame (wrist + 4 fingertips projected through the cut camera)",
+   "where": "every speaking frame (or every 2nd) of the CU shots",
+   "how": "film-ue op qa.hands_in_frame label=<presenter> sequence=<SEQ> 'frames=[every 2nd speaking frame of spans_<film>.json]' (core fleet/agent-09/r7-perf-gate 1169789c) -> metrics.kinds.<KIND>.frac -> numbers/<film>/hands.json",
+   "must_fail": [
+    0.0,
+    "netflix v2b 0.0 (n 18) and TEST side A 0.0 (box B qa.hands_in_frame, core 3a782e71, TEST frames; fleet/agent-06/r7-boxb 276be4a0 hands_A/hands_v2b.json)"
+   ],
+   "guard": true,
+   "why": "the orchestrator: the viewer sees elbows out and no hands = still stiff; the gesture space is chest-to-collarbone in front of the torso"
+  },
+  "body.hands_in_frame_wide_frac": {
+   "area": "performance",
+   "track": "agent-01 / agent-10 (body), agent-09 (measure)",
+   "op": ">=",
+   "line": 0.95,
+   "unit": "fraction",
+   "what": "speaking frames in WIDE shots with >= 1 hand FULLY in the shot's frame (wrist + 4 fingertips projected through the cut camera)",
+   "where": "every speaking frame (or every 2nd) of the WIDE shots",
+   "how": "film-ue op qa.hands_in_frame label=<presenter> sequence=<SEQ> 'frames=[every 2nd speaking frame of spans_<film>.json]' (core fleet/agent-09/r7-perf-gate 1169789c) -> metrics.kinds.<KIND>.frac -> numbers/<film>/hands.json",
+   "must_fail": [
+    null,
+    "none: v2b and side A both read 1.0 in the WIDE (her hands are always in it) (box B qa.hands_in_frame, core 3a782e71, TEST frames; fleet/agent-06/r7-boxb 276be4a0 hands_A/hands_v2b.json); a GUARD against a new failure (gestures leaving the WIDE frame)"
+   ],
+   "guard": true,
+   "why": "the orchestrator: the viewer sees elbows out and no hands = still stiff; the gesture space is chest-to-collarbone in front of the torso"
+  },
+  "set.mic_face_px": {
+   "area": "set",
+   "track": "agent-06 (box B) / agent-07",
+   "op": "==",
+   "line": 0,
+   "unit": "px",
+   "what": "pixels of the FACE (3 cm discs round both eyes, the lips and the jaw) that the studio mic covers, from the shot's camera: the mic must not overlap the face box and the lips stay fully visible",
+   "where": "every presenter camera (MCU, CU, MCU_L, WIDE), n 8 per shot + the widest head turns",
+   "how": "film-ue op qa.clip label=<presenter> sequence=<SEQ> 'props={\"Mic\":\"<mic>\"}' 'pairs=[]' 'mouth={\"blocker\":\"Mic\",\"radius_cm\":3.0,\"bones\":[\"FACIAL_L_Eye\",\"FACIAL_R_Eye\",\"FACIAL_C_LipUpper\",\"FACIAL_C_LipLower\",\"FACIAL_C_Jaw\"]}' -> metrics.worst.mouth.blocked_px (a missing bone errors: pass the rig's names)",
+   "must_fail": [
+    null,
+    "a mic placed over the face (a deliberate bad placement on a still, or the first mic-move attempt if it covers): measure one to prove the row bites"
+   ],
+   "guard": true,
+   "why": "the orchestrator, 07 Nov: move the mic to the mouth like a real studio mic; it must NOT cover the mouth or the face in any camera"
+  },
+  "set.mic_hand_clear_cm": {
+   "area": "set",
+   "track": "agent-01",
+   "op": ">=",
+   "line": 5.0,
+   "unit": "cm",
+   "info": true,
+   "what": "the closest a hand or forearm comes to the mic/boom in the picture (agent-01's body constraint after the mic move)",
+   "where": "every speaking frame",
+   "how": "agent-01's gesturekit design check (perform.py body.mic_touch counts contacts)",
+   "r4": [
+    null,
+    "INFO: agent-01's design-time number; body.mic_touch (== 0, hard) counts actual contact"
+   ],
+   "why": "the orchestrator: the mic clear by >= 5 cm in the picture"
+  },
+  "shot.farm_frames_ok": {
+   "area": "shot",
+   "track": "agent-07 (farm driver) / agent-09",
+   "op": "==",
+   "line": 1,
+   "unit": "bool",
+   "what": "every job's frames present exactly once in its output at the right size (filmtools.farm.verify)",
+   "where": "every farm job of the finals (one per shot, chunked with pre-roll)",
+   "how": "the farm driver's export (verify + continuity + every chunk's done.json guard per job) -> farm_rows.py farm_<film>.json -> numbers/<film>/farm.json",
+   "must_fail": [
+    0,
+    "a missing / duplicated frame, a flagged seam, or a chunk without leaders (farm_rows tests)"
+   ],
+   "guard": true,
+   "why": "the finals now render on N farm workers in chunks: none may be lost or doubled"
+  },
+  "shot.chunk_seams_ok": {
+   "area": "shot",
+   "track": "agent-07 (farm driver) / agent-09",
+   "op": "==",
+   "line": 1,
+   "unit": "bool",
+   "what": "no flagged jump at a chunk boundary inside a shot (filmtools.farm.verify.continuity: a hair/cloth/temporal restart at a seam despite the pre-roll)",
+   "where": "every farm job of the finals (one per shot, chunked with pre-roll)",
+   "how": "the farm driver's export (verify + continuity + every chunk's done.json guard per job) -> farm_rows.py farm_<film>.json -> numbers/<film>/farm.json",
+   "must_fail": [
+    0,
+    "a missing / duplicated frame, a flagged seam, or a chunk without leaders (farm_rows tests)"
+   ],
+   "guard": true,
+   "why": "the karma S17+S18 lesson (a new render job pops the hair) on the farm's chunk seams"
+  },
+  "set.strays_ok": {
+   "area": "shot",
+   "track": "agent-07 (farm driver) / agent-09",
+   "op": "==",
+   "line": 1,
+   "unit": "bool",
+   "what": "no Test_*/FMQA_* actor or a second presenter in any chunk's level (the farm guard)",
+   "where": "every farm job of the finals (one per shot, chunked with pre-roll)",
+   "how": "the farm driver's export (verify + continuity + every chunk's done.json guard per job) -> farm_rows.py farm_<film>.json -> numbers/<film>/farm.json",
+   "must_fail": [
+    0,
+    "a missing / duplicated frame, a flagged seam, or a chunk without leaders (farm_rows tests)"
+   ],
+   "guard": true,
+   "why": "agent-06's r6 guard, per chunk"
+  },
+  "shot.farm_state_parity": {
+   "area": "shot",
+   "track": "agent-07 (farm) / agent-06 (box D)",
+   "op": "==",
+   "line": 1,
+   "unit": "bool",
+   "guard": true,
+   "what": "every farm chunk rendered EXACTLY the scene state the orchestrator passed on box D (the ue.sync manifest id / AMI box D pushed after the verify PASS == what each worker pulled)",
+   "where": "every chunk of every farm job",
+   "how": "farm_rows.py: expected_state at the top of farm_<film>.json + 'state' in each chunk's hook dict",
+   "must_fail": [
+    0,
+    "a worker on a stale sync (farm_rows test)"
+   ],
+   "why": "the operator: render in parallel 'once scene is ready with everything'; a worker on an older state would render the rejected rest pose or garments"
+  },
+  "body.rest_hand_torso_cm": {
+   "area": "performance",
+   "track": "agent-01 / agent-10 (body), agent-09 (measure)",
+   "op": ">=",
+   "line": 15.0,
+   "unit": "cm",
+   "guard": true,
+   "what": "on the REST/bridge frames (both hands still >= 0.25 s), the min distance from either hand (wrist + knuckles + fingertips) to the chest surface (posed Body + Top near the spine, the arms and hands excluded)",
+   "where": "every rest frame (film-qa perf-rest on seq.sample hand samples, every 2nd)",
+   "how": "film-qa perf-rest samples.json -> frames; film-ue op qa.hand_torso_clearance label=<presenter> sequence=<SEQ> 'frames=[...]' (core fleet/agent-09/r7-perf-gate) -> metrics.worst_cm -> numbers/<film>/rest.json",
+   "must_fail": [
+    null,
+    "her r7F TEST (hands hovering at the top of her chest, 'fidgeting with her top', the orchestrator 08 Nov): measure it on box D; the new rest (wrists ~80 cm, ~25-30 cm forward) must pass. Line 15 PROVISIONAL until both are measured"
+   ],
+   "why": "the orchestrator, 08 Nov: a natural presenter rest is hands loosely together at the lower ribcage, 20-30 cm in front of the torso, not touching the body"
   }
  },
  "not_attempted": {
@@ -896,5 +1060,5 @@
   "shot.grain_sigma_close": "shot.grain_sigma",
   "shot.grain_sigma_wide": "shot.grain_wide_sigma"
  },
- "_films": "items with 'films' apply only to those films (gate_film.py --film filters them); 'aliases' maps a producer's key to the spec's id; 'info_films' makes an item INFO for those films with 'info_reason'"
+ "_films": "items with 'films' apply only to those films (gate_film.py --film filters them); 'aliases' maps a producer's key to the spec's id; 'info_films' makes an item INFO for those films with 'info_reason'; 'line_by_film' sets an item's line per film"
 }

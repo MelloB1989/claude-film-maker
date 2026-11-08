@@ -128,3 +128,31 @@ def test_desk_twitches_are_not_gestures():
 def test_frown_is_reported():
     curves = {f: {"CTRL_expressions_browDownL": 0.5 if f < 60 else 0.0} for f in range(240)}
     assert P.face_rows_curves(curves, FPS, [[0, 240]])["face.curves_frown_frac"]["value"] == 0.25
+
+
+def test_hands_in_frame_by_camera_kind():
+    L = _limbs()
+    assert L.cam_kind("CAM_MCU_L") == "MCU" and L.cam_kind("CAM_CU") == "CU" and L.cam_kind("CAM_WIDE") == "WIDE"
+    assert L.hand_in([(100, 100, 50), (120, 90, 50)], 1920, 1080)
+    assert not L.hand_in([(100, 100, 50), (120, 1100, 50)], 1920, 1080)  # a fingertip below the frame
+    rows = {f: {"camera": "CAM_MCU", "in": f % 5 == 0} for f in range(20)}
+    rows.update({f: {"camera": "CAM_WIDE", "in": True} for f in range(20, 30)})
+    k = L.hands_fracs(rows)
+    assert k["MCU"]["frac"] == 0.2 and k["MCU"]["frac"] < k["MCU"]["line"] and k["WIDE"]["frac"] == 1.0
+
+
+def test_smooth_min_jerk_beats_count_and_two_hands_count_once():
+    import math as m
+
+    def path(i, h):  # both hands up at z 90, a smooth 0.3 s stroke every second (min-jerk ramp), rest between
+        k = i % 24
+        s = 0.0 if k >= 8 else 10 * (lambda t: 10 * t**3 - 15 * t**4 + 6 * t**5)(k / 7)
+        return [s, 10.0 if h == "r" else -10.0, 90.0]
+    r = P.body_rows(samples(240, path), FPS, [[0, 240]], 71.0)
+    assert 0.8 <= r["body.gesture_onsets_per_s"]["value"] <= 1.3  # ~1/s, once for the two hands together
+
+
+def test_a_hand_already_up_at_a_span_start_is_not_an_onset():
+    still_up = samples(120, lambda i, h: [0.0, 10.0 if h == "r" else -10.0, 92.0 if h == "r" else 75.0])
+    r = P.body_rows(still_up, FPS, [[0, 40], [60, 120]], 71.0)  # two spans, the right hand up and still
+    assert r["body.gesture_onsets_per_s"]["value"] == 0
