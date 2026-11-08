@@ -342,6 +342,7 @@ class Performer(S.Seater):
     def __init__(self, sk, st, sy, plan: Plan, torso: Torso | None = None, mic_side: str = "l"):
         self._ready = False  # seatkit's own setup (wrist extension, desk rest) runs on seatkit's pose
         self._wg = {}
+        self._ws = {}
         super().__init__(sk, st, replace(sy, lean=plan.base_lean))
         self.plan, self.tor, self.mic_side = plan, torso or Torso(), mic_side
         self._finger_info = self._fingers()
@@ -412,6 +413,7 @@ class Performer(S.Seater):
             ws *= max([e.weight(t) for e in self.plan.events if e.hand in ("l", "both")] or [0.0])
         wg = self.gesture_w(s, t)
         self._wg[s] = wg  # hand_rot_p fades YAW_BASE in with it
+        self._ws[s] = ws
         if STYLE_HOOK is not None and hasattr(STYLE_HOOK, "hand"):
             hp, big = STYLE_HOOK.hand(self, s, t)  # the whole hand track (co-articulation, wrist lead, cascade)
         else:
@@ -627,6 +629,7 @@ class Performer(S.Seater):
     HIGH_OVER_SHOULDER = 2.0  # cm: a wrist goal this far over the shoulder joint is a high apex (upper_chest = +5)
     LOW_DOWN = 0.6  # cm down per cm in, for a low stroke
     HIGH_DOWN = 0.0  # and for a high one (it comes in only: lowered, the CU lost the key beats, 0.14)
+    FIT_MARGIN = 2.0  # deg under each line the goals are fitted to (agent-13: 60.03 on a 60 line)
     REACH_MAX = 24.0  # cm a goal comes in at most
     ABD_MAX = 35.0  # deg the upper arm's abduction at most when a clearing elbow allows (the orchestrator's row)
     ELEV_REST, ELEV_STROKE = 30.0, 45.0  # deg the upper arm off hanging, at most (agent-13's lines, the orchestrator:
@@ -677,6 +680,7 @@ class Performer(S.Seater):
             if not rest and hp.off[2] > APEX_MAX_Z:  # the variation's amp took it past the collarbone line
                 hp = replace(hp, off=(hp.off[0], hp.off[1], APEX_MAX_Z))
             cap, k = self.cap_at(sh, goal(hp.off), 0.0 if rest else 1.0)
+            cap -= self.FIT_MARGIN
             e0 = elev(hp.off)
             if e0 <= cap:
                 return hp
@@ -751,12 +755,24 @@ class Performer(S.Seater):
         wg = self._wg.get(s, 1.0)
         yw = math.radians(getattr(hp, "yaw", 0.0) + YAW_BASE.get(s, 0.0) * wg + REST_YAW * (1.0 - wg))
         hz = unit(add(mul(hz, math.cos(yw)), mul(ortho(side, hz), math.sin(yw))))
-        pitch = math.asin(max(-1.0, min(1.0, dot(fa, u)))) + math.radians(hp.ext)
+        ws = self._ws.get(s, 1.0)  # speaking: a true extension; at the desk rest the old pitch (its pose was tuned on it)
+        pitch = math.asin(max(-1.0, min(1.0, dot(fa, u)))) + math.radians(hp.ext * (1.0 - ws))
         fingers = unit(add(mul(hz, math.cos(pitch)), mul(u, math.sin(pitch))))
         pr = math.radians(hp.pron)
         flat = ortho(side, fingers)
         up_ = ortho(u, fingers) if abs(dot(u, fingers)) < 0.98 else ortho(mul(f, -1.0), fingers)
         across = unit(add(mul(flat, math.cos(pr)), mul(up_, -math.sin(pr))))
+        if hp.ext and ws > 0:  # r7F: a true extension, about the palm's own across axis (back of the hand); it was a pitch about
+            #         world up, which on a thumb-up hand (counts, raise_finger: pron 80-95, ext 40-45) bent it radially
+            n_ref = unit(cross(sub(sk.p("middle_01_" + s), sk.p("hand_" + s)),
+                               sub(sk.p("index_01_" + s), sk.p("pinky_01_" + s))))
+            if dot(sub(sk.p("middle_03_" + s), sk.p("middle_01_" + s)), n_ref) < 0:
+                n_ref = mul(n_ref, -1.0)
+            sgn = 1.0 if dot(cross(d0, a0), n_ref) > 0 else -1.0
+            palm = mul(unit(cross(fingers, across)), sgn)  # toward the palm, in the goal frame
+            k = cross(fingers, mul(palm, -1.0))
+            if norm(k) > 1e-6:
+                fingers = qrot(axis_angle(k, hp.ext * ws), fingers)
         return qmul(S.frame_to_frame(d0, a0, fingers, across), sk.q("hand_" + s))
 
     def _finger_pose(self, s, hp: HandPose, W):
@@ -803,7 +819,7 @@ RIGHT_MIN_LAT = 15.0  # cm her right hand stays to her right of the sternum poin
 LEFT_RESTS = False  # r7b: the left hand rested on the desk between its own gestures while the mic hung at her sternum;
 #                     with the mic moved up to her mouth (the orchestrator, 08 Nov) it gestures like the right
 LEFT_MAX_LAT = 16.0  # r7F: 9 with the mic at her chest (MIC_L)
-LEFT_SHARE = 0.45  # the left's move on a two-hand stroke, of the right's
+LEFT_SHARE = 0.58  # the left's move on a two-hand stroke, of the right's
 LEFT_TWO = (24.0, 9.0, -2.0)  # cm her left hand on a two-hand gesture (agent-10, see plan_from_sheet)
 LEFT_MAX_Z = 40.0  # cm over the sternum point for her left hand (no cap with the mic at her mouth)  # cm: her left hand stays at least 3 cm to her RIGHT of the sternum point while she speaks
 

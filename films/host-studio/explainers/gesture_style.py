@@ -50,6 +50,8 @@ V_MEAN = 70.0       # cm/s a stroke's mean wrist speed at most (min-jerk peaks ~
 LEFT_EXT_MIN = 20.0  # deg the left hand's wrist extension on a gesture at least (its fingers met the desk lower; 34
 #   held her left wrist cocked back ~31 deg the whole take, agent-10's audit)
 TWO_HAND_LAG_S = (0.04, 0.08)  # s the left trails the right on a two-hand stroke (same-frame peaks read robotic)
+ACCENT_W = 0.22     # s the accent bump's width
+ACCENT_K = 0.7      # x its amplitude
 ROT_LAG_S = 0.06    # s the hand's turn and the fingers trail the wrist's path (proximal to distal)
 HOLD_MIN_S = 0.1    # s a hold kept at least when the next move takes its time
 V_RETRACT = 55.0    # cm/s a retract home's mean speed at most (softer than the stroke)
@@ -274,14 +276,15 @@ class HandTrack:
         return out
 
     def accent(self, t: float) -> tuple:
-        """The accents' offset at t: a cos^2 bump 0.12 s wide centred just before the apex (the impact)."""
+        """The accents' offset at t: a cos^2 bump ACCENT_W s wide centred just before the apex (the impact). (r7F: it
+        was 0.12 s, a narrow spike on top of the stroke's bell; agent-13 read peak/mean 2.5-3.7)"""
         off = [0.0, 0.0, 0.0]
         for apex, vec in self.accents:
-            x = (t - (apex - 0.02)) / 0.06
+            x = (t - (apex - 0.02)) / (ACCENT_W / 2.0)
             if -1.0 < x < 1.0:
                 g = math.cos(0.5 * math.pi * x) ** 2
                 for i in range(3):
-                    off[i] += vec[i] * g
+                    off[i] += vec[i] * g * ACCENT_K
         return off
 
     def micro(self, t: float, w: float, held: bool) -> tuple:
