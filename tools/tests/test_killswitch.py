@@ -168,7 +168,7 @@ ACCT = "000000000000"
 
 
 def test_reaper_policy_cannot_terminate_or_touch_non_gpu():
-    p = deploy.reaper_policy(ACCT, "ap-south-1")
+    p = deploy.reaper_policy(ACCT, ["ap-south-1", "ap-northeast-1"])
     actions = [a for s in p["Statement"] for a in ([s["Action"]] if isinstance(s["Action"], str) else s["Action"])]
     assert not any("Terminate" in a for a in actions)
     assert set(actions) == {"ec2:DescribeInstances", "ec2:StopInstances", "cloudwatch:DescribeAlarms",
@@ -177,7 +177,9 @@ def test_reaper_policy_cannot_terminate_or_touch_non_gpu():
     stop = next(s for s in p["Statement"] if s["Action"] == "ec2:StopInstances")
     assert stop["Condition"] == {"StringLike": {"ec2:InstanceType": ["g*", "p*"]}}
     w = next(s for s in p["Statement"] if "cloudwatch:PutMetricAlarm" in s["Action"])
-    assert w["Resource"].endswith(":alarm:killswitch-*")
+    assert w["Resource"] == [f"arn:aws:cloudwatch:{r}:{ACCT}:alarm:killswitch-*" for r in ("ap-south-1",
+                                                                                             "ap-northeast-1")]
+    assert stop["Resource"] == [f"arn:aws:ec2:{r}:{ACCT}:instance/*" for r in ("ap-south-1", "ap-northeast-1")]
 
 
 def test_schedule_and_function_docs():
@@ -229,3 +231,51 @@ def test_would_fire_needs_five_contiguous_points():
 def test_busy_runs_span_first_to_last_busy_point():
     r = deploy.busy_runs(pts([3, 3, 30, 5, 28, 3, 3]), 15, 300)
     assert [p["Average"] for p in r[0]] == [30, 5, 28]
+
+
+class FakeAws:
+    """The AWS CLI per region for deploy/undeploy: nothing exists until created; records every call."""
+
+    def __init__(self):
+        self.calls, self.made = [], set()
+
+    def cli(self, region, profile):
+        def aws(*a):
+            self.calls.append((region, *a[:2]))
+            svc, op = a[0], a[1]
+            key = (region if svc not in ("iam", "sts") else "global", svc, a[3] if len(a) > 3 else "")
+            if op == "get-caller-identity":
+                return {"Account": ACCT}
+            if op.startswith("get-"):
+                if key not in self.made:
+                    raise deploy.provision.AwsError(f"aws {svc} {op}: (NoSuchEntity) none", "NoSuchEntity")
+                return {}
+            if op.startswith("create-"):
+                self.made.add(key)
+            if op == "describe-alarms":
+                return {"MetricAlarms": []}
+            return {}
+        return aws
+
+
+def test_deploy_covers_both_regions_roles_once(monkeypatch):
+    monkeypatch.setattr(deploy.time, "sleep", lambda s: None)
+    f = FakeAws()
+    ctx = deploy.Ctx(list(deploy.REGIONS), "nani", cli=f.cli)
+    deploy.cmd_deploy(ctx, None, lambda s: None)
+    ops = [(r, svc, op) for r, svc, op in f.calls]
+    for r in ("ap-south-1", "ap-northeast-1"):
+        assert (r, "lambda", "create-function") in ops
+        assert (r, "scheduler", "create-schedule") in ops
+        assert (r, "logs", "create-log-group") in ops
+    assert sum(op == "create-role" for _, _, op in ops) == 2  # the reaper's and the scheduler's, once each
+    assert not any("terminate" in op or "run-instances" in op for _, _, op in ops)
+
+
+def test_undeploy_covers_both_regions(monkeypatch):
+    f = FakeAws()
+    ctx = deploy.Ctx(list(deploy.REGIONS), "nani", cli=f.cli)
+    args = type("A", (), {"keep_alarms": False, "purge_logs": True})()
+    deploy.cmd_undeploy(ctx, args, lambda s: None)
+    regions = {r for r, svc, op in f.calls if op == "describe-alarms"}
+    assert regions == {"ap-south-1", "ap-northeast-1"}

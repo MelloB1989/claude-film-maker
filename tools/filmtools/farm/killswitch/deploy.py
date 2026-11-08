@@ -1,14 +1,16 @@
 """Deploy, inspect and remove the GPU kill switch (the killswitch-reaper Lambda, its role, its schedule).
 
 Runs where the AWS CLI has the account (kali, profile nani), like the rest of the farm; the account id is read at
-run time (sts), never written down. From tools/:
+run time (sts), never written down. Every command covers ap-south-1 and ap-northeast-1 (--regions narrows it): the
+IAM roles are global and shared, while each region gets its own function, schedule, log group and alarms (an alarm
+and its ec2:stop action live in the instance's region). From tools/:
 
     python -m filmtools.farm.killswitch.deploy show                 # the alarm, IAM and schedule JSON it would apply
     python -m filmtools.farm.killswitch.deploy dry-run              # what the reaper would do right now (changes nothing)
     python -m filmtools.farm.killswitch.deploy calibrate --name 'ue-box-b*' --hours 48
     python -m filmtools.farm.killswitch.deploy deploy               # create or update everything (idempotent)
     python -m filmtools.farm.killswitch.deploy invoke               # run the deployed reaper once, print its log
-    python -m filmtools.farm.killswitch.deploy drill-alarm i-0abc --period 60    # a short alarm for a drill box
+    python -m filmtools.farm.killswitch.deploy --regions ap-south-1 drill-alarm i-0abc --period 60   # a drill box
     python -m filmtools.farm.killswitch.deploy undeploy [--keep-alarms]
 """
 from __future__ import annotations
@@ -34,6 +36,7 @@ SCHEDULE = "killswitch-reaper-schedule"
 SCHEDULE_ROLE = "killswitch-reaper-schedule-role"  # EventBridge Scheduler needs a role of its own to invoke
 SCHEDULE_POLICY = "killswitch-reaper-invoke"
 RATE = "rate(10 minutes)"
+REGIONS = ("ap-south-1", "ap-northeast-1")  # Mumbai and Tokyo: every region the operator runs GPU boxes in
 LOG_GROUP = f"/aws/lambda/{FUNCTION}"
 LOG_RETENTION_DAYS = 30
 EVENTS_SLR = "AWSServiceRoleForCloudWatchEvents"  # what CloudWatch alarm EC2 actions (stop) run as
@@ -52,19 +55,20 @@ def lambda_trust() -> dict:
                                                     "Action": "sts:AssumeRole"}]}
 
 
-def reaper_policy(account: str, region: str) -> dict:
+def reaper_policy(account: str, regions: list[str]) -> dict:
+    """One role for every region's reaper (IAM is global); each resource is listed per region."""
     return {"Version": "2012-10-17", "Statement": [
         {"Sid": "SeeInstances", "Effect": "Allow", "Action": "ec2:DescribeInstances", "Resource": "*"},
         {"Sid": "StopGpuInstancesOnly", "Effect": "Allow", "Action": "ec2:StopInstances",
-         "Resource": f"arn:aws:ec2:{region}:{account}:instance/*",
+         "Resource": [f"arn:aws:ec2:{r}:{account}:instance/*" for r in regions],
          "Condition": {"StringLike": {"ec2:InstanceType": GPU_TYPES}}},
         # DescribeAlarms is a read and takes no resource-level restriction; the writes are held to killswitch-*
         {"Sid": "ReadAlarms", "Effect": "Allow", "Action": "cloudwatch:DescribeAlarms", "Resource": "*"},
         {"Sid": "KillswitchAlarmsOnly", "Effect": "Allow",
          "Action": ["cloudwatch:PutMetricAlarm", "cloudwatch:DeleteAlarms"],
-         "Resource": f"arn:aws:cloudwatch:{region}:{account}:alarm:killswitch-*"},
+         "Resource": [f"arn:aws:cloudwatch:{r}:{account}:alarm:killswitch-*" for r in regions]},
         {"Sid": "OwnLogs", "Effect": "Allow", "Action": ["logs:CreateLogStream", "logs:PutLogEvents"],
-         "Resource": f"arn:aws:logs:{region}:{account}:log-group:{LOG_GROUP}:*"}]}
+         "Resource": [f"arn:aws:logs:{r}:{account}:log-group:{LOG_GROUP}:*" for r in regions]}]}
 
 
 def scheduler_trust(account: str) -> dict:
@@ -77,9 +81,9 @@ def function_arn(account: str, region: str) -> str:
     return f"arn:aws:lambda:{region}:{account}:function:{FUNCTION}"
 
 
-def scheduler_policy(account: str, region: str) -> dict:
+def scheduler_policy(account: str, regions: list[str]) -> dict:
     return {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Action": "lambda:InvokeFunction",
-                                                    "Resource": function_arn(account, region)}]}
+                                                    "Resource": [function_arn(account, r) for r in regions]}]}
 
 
 def schedule_doc(account: str, region: str) -> dict:
@@ -172,29 +176,57 @@ def drop_role(aws, name: str, log):
     log(f"deleted role {name}")
 
 
+class Ctx:
+    """The regions a command covers, an AWS CLI per region, and the reaper's settings per region."""
+
+    def __init__(self, regions: list[str], profile: str, cli=provision.aws_cli):
+        self.regions, self.profile, self.cli, self._aws, self._acct = regions, profile, cli, {}, None
+
+    def aws(self, region: str):
+        if region not in self._aws:
+            self._aws[region] = self.cli(region, self.profile)
+        return self._aws[region]
+
+    def conf(self, region: str) -> dict:
+        return reaper.settings({"AWS_REGION": region})
+
+    def account(self) -> str:
+        self._acct = self._acct or account_of(self.aws(self.regions[0]))
+        return self._acct
+
+
 # --- commands --------------------------------------------------------------------------------------------------------
-def cmd_show(aws, conf, args, log):
-    acct = account_of(aws)
+def cmd_show(ctx, args, log):
+    regions, acct = ctx.regions, ctx.account()
     redact = (lambda d: json.loads(json.dumps(d).replace(acct, "<account>"))) if not args.with_account else (lambda d: d)
-    docs = {"alarm (per GPU instance; PutMetricAlarm)": reaper.alarm_spec("i-EXAMPLE", conf),
-            f"{ROLE} trust": lambda_trust(), f"{ROLE} inline policy {POLICY}": reaper_policy(acct, conf["region"]),
-            f"{SCHEDULE_ROLE} trust": scheduler_trust(acct),
-            f"{SCHEDULE_ROLE} inline policy {SCHEDULE_POLICY}": scheduler_policy(acct, conf["region"]),
-            "schedule (EventBridge Scheduler)": schedule_doc(acct, conf["region"]),
-            "function": function_doc(acct, conf),
-            "logs": {"LogGroup": LOG_GROUP, "RetentionDays": LOG_RETENTION_DAYS},
-            "service-linked role for alarm EC2 actions": EVENTS_SLR}
+    docs = {"regions (each gets its own function, schedule, log group and alarms)": regions,
+            "alarm (per GPU instance, in the instance's region; PutMetricAlarm)":
+                reaper.alarm_spec("i-EXAMPLE", ctx.conf(regions[0])),
+            f"{ROLE} trust (global, shared by every region)": lambda_trust(),
+            f"{ROLE} inline policy {POLICY}": reaper_policy(acct, regions),
+            f"{SCHEDULE_ROLE} trust (global)": scheduler_trust(acct),
+            f"{SCHEDULE_ROLE} inline policy {SCHEDULE_POLICY}": scheduler_policy(acct, regions)}
+    for r in regions:
+        docs[f"schedule in {r} (EventBridge Scheduler)"] = schedule_doc(acct, r)
+        docs[f"function in {r}"] = function_doc(acct, ctx.conf(r))
+    docs["logs (per region)"] = {"LogGroup": LOG_GROUP, "RetentionDays": LOG_RETENTION_DAYS}
+    docs["service-linked role for alarm EC2 actions"] = EVENTS_SLR
     for k, v in docs.items():
         log(f"## {k}\n{json.dumps(redact(v), indent=2)}\n")
 
 
-def cmd_dry_run(aws, conf, args, log):
+def cmd_dry_run(ctx, args, log):
+    for r in ctx.regions:
+        dry_run_region(ctx.aws(r), ctx.conf(r), log)
+
+
+def dry_run_region(aws, conf, log):
     ec2, cw = ReadOnly(Cli(aws, "ec2")), ReadOnly(Cli(aws, "cloudwatch"))
     conf = dict(conf, dry_run=True)
     instances = reaper.all_instances(ec2)
     alarms = reaper.killswitch_alarms(cw)
     now = time.time()
-    log(f"GPU instances in {conf['region']}:")
+    log(f"== {conf['region']}: GPU instances")
     for i in instances:
         if not reaper.is_gpu(i.get("InstanceType", "")):
             continue
@@ -260,20 +292,24 @@ def busy_runs(pts: list[dict], busy: float, period: int) -> list[list[dict]]:
     return out
 
 
-def cmd_calibrate(aws, conf, args, log):
-    ids = args.instance or []
-    if args.name:
-        for i in provision.instances(aws, f"Name=tag:Name,Values={args.name}"):
-            ids.append(i["InstanceId"])
-    if not ids:
-        sys.exit("calibrate: no instance (give --instance or --name)")
+def cmd_calibrate(ctx, args, log):
+    if not (args.instance or args.name):
+        sys.exit("calibrate: give --instance or --name")
+    for r in ctx.regions:  # CloudWatch keeps a terminated box's metrics: --instance works after it is gone
+        aws, ids = ctx.aws(r), list(args.instance or [])
+        if args.name:
+            ids += [i["InstanceId"] for i in provision.instances(aws, f"Name=tag:Name,Values={args.name}")]
+        calibrate_region(aws, ctx.conf(r), ids, args, log)
+
+
+def calibrate_region(aws, conf, ids, args, log):
     th, n, per = conf["threshold"], conf["periods"], 300
     for iid in ids:
         pts = cpu_points(aws, iid, args.hours)
         fmt = lambda t: datetime.fromtimestamp(t, timezone.utc).strftime("%m-%d %H:%M")  # noqa: E731
-        log(f"== {iid}: {len(pts)} five-minute points over {args.hours:g} h")
         if not pts:
-            continue
+            continue  # not in this region
+        log(f"== {conf['region']} {iid}: {len(pts)} five-minute points over {args.hours:g} h")
         avgs = [p["Average"] for p in pts]
         q = statistics.quantiles(avgs, n=20) if len(avgs) > 1 else avgs * 19
         log(f"   CPU average: min {min(avgs):.2f}  p5 {q[0]:.2f}  median {statistics.median(avgs):.2f}  "
@@ -307,11 +343,24 @@ def _below(run: list[dict], th: float) -> list[list[dict]]:
     return out + ([cur] if cur else [])
 
 
-def cmd_deploy(aws, conf, args, log):
-    region, acct = conf["region"], account_of(aws)
+def cmd_deploy(ctx, args, log):
+    aws, acct, regions = ctx.aws(ctx.regions[0]), ctx.account(), ctx.regions
     if quiet(aws, "iam", "get-role", "--role-name", EVENTS_SLR) is None:
         aws("iam", "create-service-linked-role", "--aws-service-name", "events.amazonaws.com")
         log(f"created service-linked role {EVENTS_SLR} (alarm stop actions run as it)")
+    new = ensure_role(aws, ROLE, lambda_trust(), POLICY, reaper_policy(acct, regions), log)
+    new |= ensure_role(aws, SCHEDULE_ROLE, scheduler_trust(acct), SCHEDULE_POLICY, scheduler_policy(acct, regions), log)
+    if new:
+        log("waiting 15 s for IAM to see the new roles")
+        time.sleep(15)
+    for r in regions:
+        deploy_region(ctx.aws(r), ctx.conf(r), acct, log)
+    log(f"deployed in {', '.join(regions)}: the first runs are within 10 minutes; `invoke` runs them now")
+
+
+def deploy_region(aws, conf, acct, log):
+    region = conf["region"]
+    log(f"== {region}")
     try:
         aws("logs", "create-log-group", "--log-group-name", LOG_GROUP)
         log(f"created log group {LOG_GROUP}")
@@ -319,11 +368,6 @@ def cmd_deploy(aws, conf, args, log):
         if "ResourceAlreadyExists" not in str(e):
             raise
     aws("logs", "put-retention-policy", "--log-group-name", LOG_GROUP, "--retention-in-days", str(LOG_RETENTION_DAYS))
-    new = ensure_role(aws, ROLE, lambda_trust(), POLICY, reaper_policy(acct, region), log)
-    new |= ensure_role(aws, SCHEDULE_ROLE, scheduler_trust(acct), SCHEDULE_POLICY, scheduler_policy(acct, region), log)
-    if new:
-        log("waiting 15 s for IAM to see the new roles")
-        time.sleep(15)
     fdoc = function_doc(acct, conf)
     zb64 = base64.b64encode(zip_bytes()).decode()
     if quiet(aws, "lambda", "get-function", "--function-name", FUNCTION) is None:
@@ -349,31 +393,48 @@ def cmd_deploy(aws, conf, args, log):
     verb = "create-schedule" if quiet(aws, "scheduler", "get-schedule", "--name", SCHEDULE) is None else "update-schedule"
     aws("scheduler", verb, "--cli-input-json", json.dumps(sdoc))
     log(f"{verb.split('-')[0]}d schedule {SCHEDULE} ({RATE})")
-    log("deployed: the first run is within 10 minutes; `invoke` runs one now")
 
 
-def cmd_invoke(aws, conf, args, log):
-    out = Path(args.out)
-    r = aws("lambda", "invoke", "--function-name", FUNCTION, "--log-type", "Tail", str(out))
-    log(base64.b64decode(r.get("LogResult", "")).decode(errors="replace"))
-    log(f"result: {out.read_text()}")
-    if r.get("FunctionError"):
+def cmd_invoke(ctx, args, log):
+    failed = False
+    for region in ctx.regions:
+        log(f"== {region}")
+        failed |= invoke_region(ctx.aws(region), Path(args.out), log)
+    if failed:
         sys.exit(1)
 
 
-def cmd_drill_alarm(aws, conf, args, log):
-    c = dict(conf, period_s=args.period)
+def invoke_region(aws, out: Path, log) -> bool:
+    r = aws("lambda", "invoke", "--function-name", FUNCTION, "--log-type", "Tail", str(out))
+    log(base64.b64decode(r.get("LogResult", "")).decode(errors="replace"))
+    log(f"result: {out.read_text()}")
+    return bool(r.get("FunctionError"))
+
+
+def cmd_drill_alarm(ctx, args, log):
+    if len(ctx.regions) != 1:
+        sys.exit("drill-alarm: name the instance's region (--regions <one>)")
+    aws, c = ctx.aws(ctx.regions[0]), dict(ctx.conf(ctx.regions[0]), period_s=args.period)
     spec = reaper.alarm_spec(args.instance, c)
     aws("cloudwatch", "put-metric-alarm", "--cli-input-json", json.dumps(spec))
     log(f"alarm {spec['AlarmName']}: {c['periods']} x {args.period} s under {c['threshold']:g} %"
         + ("  (1-min periods need detailed monitoring: aws ec2 monitor-instances)" if args.period < 300 else ""))
 
 
-def cmd_undeploy(aws, conf, args, log):
-    quiet(aws, "scheduler", "delete-schedule", "--name", SCHEDULE) is not None and log(f"deleted schedule {SCHEDULE}")
-    quiet(aws, "lambda", "delete-function", "--function-name", FUNCTION) is not None and log(f"deleted {FUNCTION}")
+def cmd_undeploy(ctx, args, log):
+    for r in ctx.regions:
+        log(f"== {r}")
+        undeploy_region(ctx.aws(r), args, log)
+    aws = ctx.aws(ctx.regions[0])
     drop_role(aws, SCHEDULE_ROLE, log)
     drop_role(aws, ROLE, log)
+    log(f"left in place: the service-linked role {EVENTS_SLR} (shared with every EC2 alarm action)"
+        + ("" if args.purge_logs else f", the log group {LOG_GROUP} in each region"))
+
+
+def undeploy_region(aws, args, log):
+    quiet(aws, "scheduler", "delete-schedule", "--name", SCHEDULE) is not None and log(f"deleted schedule {SCHEDULE}")
+    quiet(aws, "lambda", "delete-function", "--function-name", FUNCTION) is not None and log(f"deleted {FUNCTION}")
     if not args.keep_alarms:
         names = [a["AlarmName"] for a in reaper.killswitch_alarms(Cli(aws, "cloudwatch"))]
         for k in range(0, len(names), 100):
@@ -381,14 +442,14 @@ def cmd_undeploy(aws, conf, args, log):
         log(f"deleted {len(names)} killswitch alarm(s)")
     if args.purge_logs:
         quiet(aws, "logs", "delete-log-group", "--log-group-name", LOG_GROUP) is not None and log(f"deleted {LOG_GROUP}")
-    log(f"left in place: the service-linked role {EVENTS_SLR} (shared with every EC2 alarm action)"
-        + ("" if args.purge_logs else f", the log group {LOG_GROUP}"))
 
 
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="python -m filmtools.farm.killswitch.deploy", description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--region", default="ap-south-1")
+    ap.add_argument("--regions", default=",".join(REGIONS),
+                    help=f"comma-separated (default {','.join(REGIONS)}); deploy and undeploy want them all, since "
+                         "the shared role's policy lists exactly these")
     ap.add_argument("--profile", default="nani")
     sub = ap.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("show")
@@ -409,11 +470,10 @@ def main(argv=None):
     s.add_argument("--keep-alarms", action="store_true")
     s.add_argument("--purge-logs", action="store_true")
     args = ap.parse_args(argv)
-    conf = reaper.settings({"AWS_REGION": args.region})
-    aws = provision.aws_cli(args.region, args.profile)
+    ctx = Ctx([r.strip() for r in args.regions.split(",") if r.strip()], args.profile)
     {"show": cmd_show, "dry-run": cmd_dry_run, "calibrate": cmd_calibrate, "deploy": cmd_deploy,
      "invoke": cmd_invoke, "drill-alarm": cmd_drill_alarm, "undeploy": cmd_undeploy}[args.cmd](
-        aws, conf, args, lambda s: print(s, flush=True))
+        ctx, args, lambda s: print(s, flush=True))
 
 
 if __name__ == "__main__":

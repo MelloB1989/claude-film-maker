@@ -215,8 +215,11 @@ An image costs its snapshots (~300 GB gp3 snapshot, ~$15/month) until it is dere
 
 The farm's own idle and TTL checks run on the boxes and on whoever drives them. The kill switch does not: it lives
 entirely in AWS, so a box is stopped even when the laptop, the fleet or the box's own worker is gone. It covers
-**every** GPU instance in the region (families `g*`, `gr*`, `p*`, whatever project launched it), and only those.
-It **stops**; it never terminates.
+**every** GPU instance (families `g*`, `gr*`, `p*`, whatever project launched it), and only those, in
+**ap-south-1 and ap-northeast-1** (Mumbai and Tokyo; `REGIONS` in `deploy.py`). It **stops**; it never terminates.
+The two roles are global and shared; each region has its own function, schedule, log group and alarms, so one
+region's reaper keeps running if the other's breaks. A new region means adding it to `REGIONS` and running `deploy`
+again (the role's policy lists exactly these regions).
 
 | Piece | What it does |
 |---|---|
@@ -239,10 +242,10 @@ From `tools/`, where the AWS CLI has the account (the account id is read at run 
 ```
 python -m filmtools.farm.killswitch.deploy show                  # the alarm, IAM and schedule documents
 python -m filmtools.farm.killswitch.deploy dry-run               # what the reaper would do now; changes nothing
-python -m filmtools.farm.killswitch.deploy calibrate --name 'ue-box-b*' --hours 48   # would the alarm have fired?
+python -m filmtools.farm.killswitch.deploy calibrate --instance i-0abc --hours 48   # would the alarm have fired? (works after termination)
 python -m filmtools.farm.killswitch.deploy deploy                # create or update (idempotent)
 python -m filmtools.farm.killswitch.deploy invoke                # one run now, with its log
-python -m filmtools.farm.killswitch.deploy drill-alarm i-0abc --period 60   # 5 x 1 min (needs detailed monitoring)
+python -m filmtools.farm.killswitch.deploy --regions ap-south-1 drill-alarm i-0abc --period 60   # 5 x 1 min drill
 python -m filmtools.farm.killswitch.deploy undeploy              # schedule, function, roles and every killswitch alarm
 python -m filmtools.farm.killswitch.deploy undeploy --keep-alarms --purge-logs
 ```
