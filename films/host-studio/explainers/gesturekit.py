@@ -1556,6 +1556,7 @@ class Performer(S.Seater):
                 W[j] = [self._fk_t(j, parent, W) if parent in W else sk.p(j), Q[j]]
                 parent = j
 
+    DESK_PULL_MAX = 6.0  # deg the contact pulls a resting hand DOWN onto the desk at most (its push out stays 16)
     DESK_LIVE = 0.15  # cm the pads' height breathes about DESK_TIP (0.21 Hz)
     DESK_TIP = 0.9  # cm a resting hand's lowest fingertip (its centre line) over the desk top: the pad on it
     REST_WRIST_UNDER = 0.2  # cm the resting wrist joint sits under the presenter's forearm_clear: the heel of the palm
@@ -1623,7 +1624,9 @@ class Performer(S.Seater):
         reach = math.hypot(arm[0], arm[1])  # a turn about a level axis lifts the tip by ~ this x the angle
         if reach < 3.0:
             return
-        ang = max(-self.DESK_PITCH_MAX, min(self.DESK_PITCH_MAX, math.degrees(math.asin(max(-1.0, min(1.0, err / reach))))))
+        cap = self.DESK_PITCH_MAX if err < 0.0 else self.DESK_PULL_MAX  # out of the desk up to 16; down onto it <= 6 (in
+        #   the air the rest weight ramps during a retract: a 16-deg pull-down turned the hand 10-12 deg/frame, a snap)
+        ang = max(-cap, min(cap, math.degrees(math.asin(max(-1.0, min(1.0, err / reach))))))
         ax = unit(across)
         # settled onto the desk by the rest's weight, out of it in full, blended over the last 0.5 cm (a switch at the
         # surface flicked the landing fingers: agent-13's finger_snap, L t3.4)
