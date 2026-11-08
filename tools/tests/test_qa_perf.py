@@ -182,3 +182,23 @@ def test_torso_cloud_drops_the_other_hands_fingers_and_the_lap():
     cloud = L.torso_cloud(chest + lap + other_fingers, torso, [], fingers=fingers)
     assert all(p[2] >= 100 for p in cloud)  # no lap point
     assert L.nearest([[38.0, -2.0, 118.0]], cloud)["cm"] > 15  # the right hand ~24 cm off the chest, not 4 cm off a finger
+
+
+def test_parity_absorbs_a_rigid_frame_change_and_catches_a_stale_layer():
+    import math as m
+    fr = list(range(48))
+    def pos(i, b):
+        k = P.PARITY_BONES.index(b)
+        return [10 + k + 5 * m.sin(i / 6 + k), -20 + 3 * k, 90 + 4 * m.cos(i / 5 + k)]
+    off = {"frames": fr, "bones": {b: [pos(i, b) for i in fr] for b in P.PARITY_BONES}}
+    th = m.radians(-90)  # the editor in world coordinates: yawed -90 and moved
+    def world(p):
+        x, y, z = p
+        return [x * m.cos(th) - y * m.sin(th) + 300, x * m.sin(th) + y * m.cos(th) - 120, z + 5]
+    ed = {"frames": fr, "bones": {b: [world(p) for p in v] for b, v in off["bones"].items()}}
+    assert P.parity(ed, off)["value"] < 0.01
+    stale = {"frames": fr, "bones": {b: [list(p) for p in v] for b, v in ed["bones"].items()}}
+    for i in range(20, 30):  # a stale layer moves the right hand 6 cm for 10 frames
+        stale["bones"]["hand_r"][i][2] += 6
+    r = P.parity(stale, off)
+    assert r["value"] > 4 and r["at"].startswith("hand_r@")

@@ -237,5 +237,40 @@ def rest_frames(samples: dict, fps: float, hands=("hand_l", "hand_r"), hold_s: f
     return out
 
 
+PARITY_BONES = ("hand_l", "hand_r", "lowerarm_l", "lowerarm_r", "middle_03_l", "middle_03_r", "index_03_l",
+                "index_03_r", "thumb_03_l", "thumb_03_r")
+
+
+def parity(editor: dict, offline: dict, bones=PARITY_BONES) -> dict:
+    """editor_offline_parity_cm (round 7: a stale additive layer on the editor's sequence played a body the offline
+    rows never saw; agent-13). Both inputs in seq.sample form ({frames, bones: {name: [[x, y, z, ...], ...]}}), any
+    coordinate frame: ONE rigid transform (Kabsch, rotation + translation) is fitted over every common frame and bone,
+    so a constant offset or a different world/actor frame is absorbed; what is left is per-frame disagreement. Returns
+    {"value": the worst residual (cm), "p95", "at": "<bone>@<frame>", "n"}."""
+    import numpy as np
+    fe = {f: i for i, f in enumerate(editor["frames"])}
+    fo = {f: i for i, f in enumerate(offline["frames"])}
+    common = sorted(set(fe) & set(fo))
+    names = [b for b in bones if b in editor["bones"] and b in offline["bones"]]
+    if len(common) < 2 or not names:
+        return {"value": None, "error": f"{len(common)} common frames, bones {names}"}
+    A, B, tag = [], [], []
+    for f in common:
+        for b in names:
+            A.append(editor["bones"][b][fe[f]][:3])
+            B.append(offline["bones"][b][fo[f]][:3])
+            tag.append(f"{b}@{f}")
+    A, B = np.asarray(A, float), np.asarray(B, float)
+    ca, cb = A.mean(0), B.mean(0)
+    H = (B - cb).T @ (A - ca)
+    U, _, Vt = np.linalg.svd(H)
+    d = np.sign(np.linalg.det(Vt.T @ U.T))
+    R = Vt.T @ np.diag([1, 1, d]) @ U.T
+    res = np.linalg.norm((B - cb) @ R.T + ca - A, axis=1)
+    k = int(res.argmax())
+    return {"value": round(float(res[k]), 2), "p95": round(float(np.percentile(res, 95)), 2), "at": tag[k],
+            "n": len(res), "where": f"{len(common)} frames x {len(names)} bones, after one rigid fit"}
+
+
 def _spans(path: str) -> list:
     return [[int(a), int(b)] for a, b in json.loads(Path(path).read_text())]
