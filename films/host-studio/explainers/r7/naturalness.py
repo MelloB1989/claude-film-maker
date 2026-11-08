@@ -25,8 +25,9 @@ HIGH_APEX_CM = 16.0  # wrist over the sternum point that counts as an upper_ches
 TORSO_DEPTH = 11.0
 STILL_CM_S = 2.5  # wrist speed under which a frame is still (a hold), not part of a movement
 MIN_MOVES = 5  # wrist movements a hand needs before its path/speed fractions count  # cm from the spine_05 joint to the front of the chest/stomach (seated adult, either presenter)
+MIN_REST = 15  # frames (0.5 s) a rest class needs before its elevation counts
 DESK_TOP, DESK_NEAR = 71.0, 12.0  # set_her.json / set_him.json (same desk): its top z and near edge x, actor frame, cm
-DESK_REST_Z = 8.0  # a joint head within this of the desk top rests on it (the arm's radius + the sleeve, ~3-5 cm)
+DESK_REST_Z = 12.0  # the wrist head of a hand resting on the desk sits at most this over its top (on the hand's edge 8-10)
 
 
 # ---------- vectors ----------
@@ -220,10 +221,15 @@ class Take:
                 hum = math.degrees(math.acos(max(-1, min(1, -u[2] / norm(u)))))
                 # supported (the orchestrator, 08 Nov: forearms on the desk): the wrist over the desk and the forearm
                 # down on it
-                on = W[0] >= DESK_NEAR + 5.0 and W[2] <= DESK_TOP + DESK_REST_Z and min(E[2], W[2]) <= DESK_TOP + 6.0
+                #   across the near edge (the wrist >= 10 cm past it, the elbow within 11 cm of it: her belly rest on
+                #   1e88aca8, elbow x -0.7 / wrist 18.6, hangs) and down on it (a hand on its little-finger edge puts
+                #   the wrist head 8-10 cm over the top)
+                on = (W[0] >= DESK_NEAR + 10.0 and E[0] >= DESK_NEAR - 11.0 and W[2] <= DESK_TOP + DESK_REST_Z
+                      and min(E[2], W[2]) <= DESK_TOP + 7.0)
                 (desk if on else hang).append(hum)
-            r[s]["humerus_rest_p50"] = med(hang)
-            r[s]["humerus_rest_desk_p50"] = med(desk)
+            r[s]["humerus_rest_p50"] = med(hang) if len(hang) >= MIN_REST else float("nan")  # a few frames in passing
+            r[s]["humerus_rest_desk_p50"] = med(desk) if len(desk) >= MIN_REST else float("nan")  # is not a rest
+            r[s]["rest_hang_n"], r[s]["rest_desk_n"] = len(hang), len(desk)
             r[s]["rest_desk_frac"] = len(desk) / max(1, len(desk) + len(hang))
         return r
 
