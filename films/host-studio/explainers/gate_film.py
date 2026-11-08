@@ -59,6 +59,13 @@ def main(argv=None) -> int:
     gate = sys.modules["fmqa.gate"]
     spec = scoped(json.loads(Path(x.spec).read_text()), x.film)
     nums = merge(x.numbers, spec.get("aliases", {}))
+    for k, it in spec["items"].items():  # a row that may be n/a: null/NaN from its producer reads INFO, not FAIL
+        v = nums.get(k)
+        val = v.get("value") if isinstance(v, dict) else v
+        if it.get("na_ok") and k in nums and (val is None or (isinstance(val, float) and val != val)):
+            it["info"] = True
+            it["r4"] = [None, "n/a: " + it.get("na_reason", "nothing to measure")]
+            nums[k] = None
     r = gate.judge(nums, spec=spec)
     r["film"] = x.film
     out = json.dumps(r, indent=1, default=str)
