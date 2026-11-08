@@ -7,6 +7,7 @@
 #   comp_box.sh whatsapp v1 "" "48 240 600"
 #   PLACEHOLDER=1 comp_box.sh whatsapp p1 none     # graphics-only dry run (missing shots become labelled slugs)
 #   PRES_S3=private/renders/r7/farm/explain/netflix/final comp_box.sh netflix v3   # r7: the farm's finals, synced first
+#   RENDER_BUCKET=s3://rf-render-788655295054-apne1 PRES_S3=… comp_box.sh netflix v3   # on a Tokyo box (T, T2)
 #
 # SRC is this checkout's root (default: the tree this script sits in); TOOLS a tools/ with filmtools for qc_ok
 # (default: SRC/tools if present, else /srv/ue/r5tree/tools). Outputs: /srv/ue/explain/<film>/out_<tag>/.
@@ -15,8 +16,9 @@ FILM=$1; TAG=$2; PRES=${3:-}; STILLS=${4:-"48 240 600"}
 HERE=$(cd "$(dirname "$0")" && pwd)
 SRC=${SRC:-$(cd "$HERE/../../.." && pwd)}
 TOOLS=${TOOLS:-$([ -d "$SRC/tools/filmtools" ] && echo "$SRC/tools" || echo /srv/ue/r5tree/tools)}
-B=s3://rf-render-788655295054-aps1/ue-linux
-export AWS_REGION=${AWS_REGION:-ap-south-1}
+# r7 cost policy: same-region data only, so a Tokyo box reads the Tokyo bucket (RENDER_BUCKET=s3://rf-render-788655295054-apne1)
+B=${RENDER_BUCKET:-s3://rf-render-788655295054-aps1}/ue-linux
+case $B in *-apne1/*) export AWS_REGION=${AWS_REGION:-ap-northeast-1} ;; *) export AWS_REGION=${AWS_REGION:-ap-south-1} ;; esac
 EX=$SRC/films/host-studio/explainers
 GFXP=${GFXP:-gfx/v3/explain-$FILM}  # the v3 graphics (orchestrator); GFXP=gfx/explain-<film> for v2
 GFX=/srv/ue/explain/$FILM/gfx_${GFXP//\//_}
@@ -25,7 +27,7 @@ OUT=/srv/ue/explain/$FILM/out_$TAG
 # r7: the finals come from the render farm (agent-07): shot<NN>_<CAM>/<frame>.png under PRES_S3, synced onto this box
 if [ -n "${PRES_S3:-}" ]; then
     PRES=/srv/ue/explain/$FILM/pres_${PRES_S3//\//_}
-    aws s3 sync --only-show-errors "$B/$PRES_S3/" "$PRES/"
+    aws s3 sync --only-show-errors --exclude "*.mp4" "$B/$PRES_S3/" "$PRES/"  # render.py's shot previews not needed
 fi
 UV="nice -n 10 $HOME/.local/bin/uv run --no-project --with pillow --with imageio-ffmpeg --with numpy"
 
@@ -53,4 +55,12 @@ for k, v in (rows.items() if isinstance(rows, dict) else []):
         print(f"  {k}: {v['value']}" + (f"  ERROR {v['error']}" if v.get("error") else ""))
 EOF
 aws s3 cp --recursive --sse aws:kms --only-show-errors --exclude 'comp_*' "$OUT/" "$B/private/renders/r6/review/explain/"
+# a Tokyo box: frames and review files stay in Tokyo; only the deliverables (mp4, ProRes master, srt) go to Mumbai too
+case $B in *-apne1/*)
+    [ -n "${PLACEHOLDER:-}" ] && echo "placeholder run: not a deliverable, nothing copied to Mumbai" || \
+    for f in "$MP4" "$OUT/${NAME}_master.mov" "$OUT/$NAME.srt"; do
+        [ -f "$f" ] && aws s3 cp --sse aws:kms --only-show-errors --region ap-south-1 "$f" \
+            "s3://rf-render-788655295054-aps1/ue-linux/private/renders/r6/review/explain/$(basename "$f")"
+    done ;;
+esac
 ls -la "$OUT" | grep -v comp_

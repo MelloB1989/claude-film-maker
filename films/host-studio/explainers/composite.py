@@ -384,12 +384,14 @@ def render_shot(shot: dict, film: str, a: argparse.Namespace, work: Path, used: 
 
 def stream_length(path: Path, stream: str, ffmpeg: str) -> float:
     """The picture's frame count, or the sound's seconds (the last packet's time plus its own length, ~21 ms)."""
+    if stream == "v":  # one framecrc line per packet: ffmpeg 6.1 prints no frame= progress on a stream copy
+        r = subprocess.run([ffmpeg, "-hide_banner", "-loglevel", "error", "-i", str(path), "-map", "0:v", "-c", "copy",
+                            "-f", "framecrc", "-"], capture_output=True, text=True)
+        n = sum(1 for ln in r.stdout.splitlines() if ln and not ln.startswith("#"))
+        return float(n) if r.returncode == 0 and n else -1.0
     r = subprocess.run([ffmpeg, "-hide_banner", "-i", str(path), "-map", f"0:{stream}", "-c", "copy", "-f", "null", "-"],
                        capture_output=True, text=True)
     lines = r.stderr.replace("\r", "\n").splitlines()
-    if stream == "v":
-        n = [ln.split("frame=", 1)[1].split()[0] for ln in lines if "frame=" in ln]
-        return float(n[-1]) if n else -1.0
     t = [ln.rsplit("time=", 1)[1].split()[0] for ln in lines if "time=" in ln]
     if not t or t[-1].startswith("N/A"):
         return -1.0

@@ -65,9 +65,13 @@ HER = {
                 ("open_palm", "R", ("N01", "Netflix"), {"size": "small", "target": "camera",
                                                         "note": "palm up and slightly out, chest height, presenting"}),
                 ("size", "both", ("N01", "million"), {"start": ("N01", "three"), "size": "big", "target": "front",
-                                                      "hold": 0.6, "note": "hands start 15 cm apart in front of her sternum on "
-                                                              "'three', spread to shoulder width on 'million': a huge "
-                                                              "number; L hand stays below the mic"}),
+                                                      "hold": 0.6, "height": "upper_chest",
+                                                      "note": "hands start 15 cm apart in front of her sternum on "
+                                                              "'three', spread OUT to shoulder width on 'million' at "
+                                                              "chest height (wrists at or below the collarbone), palms in/"
+                                                              "forward, the path bowing forward, never up: a huge number; "
+                                                              "L hand stays below the mic (if it can't join, the R spreads "
+                                                              "out to her right at chest height, never toward the face)"}),
                 ("beat", "R", ("N01", "paying"), {"size": "small", "target": "camera"}),
             ],
             "lean": [(("N01", "over"), 7), (("N01", "members"), 4)],
@@ -80,11 +84,14 @@ HER = {
                      ("nod", ("N02", "starts.", 1, 0.3), {})],
             "gestures": [
                 ("press", "R", ("N02", "play,"), {"size": "small", "target": "camera",
-                                                  "note": "index finger presses an imaginary play button toward the "
-                                                          "lens, collarbone height so it enters the CU"}),
+                                                  "note": "index finger presses an imaginary play button FORWARD "
+                                                          "toward the lens, entering the CU from below at collarbone "
+                                                          "height; never up beside the face, never a palm-out wave"}),
                 ("release", "both", ("N02", "starts.", 1, 0.3), {"size": "medium", "target": "front",
-                                                                "note": "fingers spring open outward, 'ta-da', "
-                                                                        "shoulders lift"}),
+                                                                "height": "upper_chest",
+                                                                "note": "fingers spring open outward and slightly "
+                                                                        "DOWN, 'ta-da', shoulders lift; never up "
+                                                                        "beside the face"}),
             ],
             "lean": [(("N02", "Hit"), 6), (("N02", "starts."), 3)],
         },
@@ -237,8 +244,10 @@ HER = {
             "arc": "body", "emotion": "confident, brisk list, then a clean landing", "intensity": 0.75,
             "base": {"smile": 0.3, "brows": 0.05},
             "note": "THE 00:44 SHOT (WIDE): the rejected v2b sat here with hands clasped and upper arms pinned into the "
-                    "torso. Elbows 20+ cm off the torso the whole line; the count hand out to her right at chest "
-                    "height; the shoulders and torso turn a little with each count",
+                    "torso. Elbows 20+ cm off the torso the whole line; the R hand LISTS (R7 hands, the operator's 'zombie' "
+                    "claw at 00:08): open, palm up/in, placing the three items left to right along a line in front of "
+                    "her at chest height, forearm angled toward camera, no hold over 0.6 s; the shoulders and torso "
+                    "turn a little with each placement",
             "face": [("brow_flash", ("N13", "login,"), {}),
                      ("glance", ("N13", "Your"), {"dir": "up, her right", "dur": 0.3,
                                                   "note": "agent-04's THINK beat, quick"}),
@@ -247,13 +256,16 @@ HER = {
                      ("smile", ("N13", "AWS."), {"amount": 0.85, "hold": 0.6, "note": "Duchenne"}),
                      ("nod", ("N13", "AWS."), {})],
             "gestures": [
-                ("count", "R", ("N13", "login,"), {"size": "medium", "target": "her right, chest height",
-                                                   "note": "index up (1)"}),
-                ("count", "R", ("N13", "profile,"), {"size": "medium", "target": "her right, chest height",
-                                                     "note": "+ middle (2)"}),
-                ("count", "R", ("N13", "recommendations:", 1, 0.6), {"size": "medium",
-                                                                     "target": "her right, chest height",
-                                                                     "hold": 0.5, "note": "+ ring (3)"}),
+                ("list", "R", ("N13", "login,"), {"size": "medium", "target": "front, her midline", "height": "sternum",
+                                                  "item": 1, "of": 3,
+                                                  "note": "open hand, palm angled up/in, PLACES item 1 of 3 on a line in front of her at chest height (at her midline); the forearm angled toward camera, wrist below the collarbone, a small drift, no finger counting"}),
+                ("list", "R", ("N13", "profile,"), {"size": "medium", "target": "front, a hand-width to her right",
+                                                    "height": "sternum", "item": 2, "of": 3,
+                                                    "note": "open hand, palm angled up/in, PLACES item 2 of 3 on a line in front of her at chest height (a hand-width to her right); the forearm angled toward camera, wrist below the collarbone, a small drift, no finger counting"}),
+                ("list", "R", ("N13", "recommendations:", 1, 0.6), {"size": "medium",
+                                                                    "target": "front, two hand-widths to her right",
+                                                                    "height": "sternum", "item": 3, "of": 3, "hold": 0.5,
+                                                                    "note": "open hand, palm angled up/in, PLACES item 3 of 3 on a line in front of her at chest height (two hand-widths to her right, away from the mic); the forearm angled toward camera, wrist below the collarbone, a small drift, no finger counting"}),
                 ("open_palm", "both", ("N13", "that"), {"size": "big", "target": "front",
                                                          "hold": 0.7, "note": "palms up, spread to shoulder width: 'all of it'; "
                                                                  "L hand below and inside the mic line"}),
@@ -371,7 +383,9 @@ HIM = {
             "gestures": [
                 ("press", "R", ("W04", "app,"), {"size": "small", "target": "front", "note": "a thumb tap on an "
                                                                                            "imaginary phone"}),
-                ("raise_finger", "R", ("W04", "one"), {"size": "small", "target": "up", "note": "one finger: one"}),
+                ("place", "R", ("W04", "one"), {"size": "small", "target": "front", "height": "sternum",
+                                                "note": "an open hand sets down 'one' in front of him at chest "
+                                                        "height (no finger count)"}),
                 ("deictic", "R", ("W04", "connection", 1, 0.4), {"size": "medium", "target": "panel (his left)",
                                                                  "hold": 0.7,
                                                                  "note": "draws the line from his chest toward the "
@@ -397,9 +411,13 @@ HIM = {
             "face": [("brow_flash", ("W06", "two"), {}),
                      ("smile", ("W06", "million"), {"amount": 0.55, "hold": 0.4, "shape": "open lips"}),
                      ("nod", ("W06", "them."), {})],
-            "gestures": [("raise_finger", "R", ("W06", "One"), {"size": "small", "target": "up"}),
+            "gestures": [("place", "R", ("W06", "One"), {"size": "small", "target": "front", "height": "sternum",
+                                                         "note": "an open hand sets down 'one server' (no finger count)"}),
                          ("size", "both", ("W06", "million"), {"start": ("W06", "two"), "size": "big",
-                                                               "target": "front"})],
+                                                               "target": "front",
+                                                               "note": "spread OUT at chest height (wrists at or below "
+                                                                       "the collarbone), bowing forward, never up "
+                                                                       "toward the face"})],
             "lean": [(("W06", "two"), 6)],
         },
         "W07": {
@@ -454,8 +472,9 @@ HIM = {
                 ("deictic", "R", ("W10", "ticks?"), {"size": "medium", "target": "panel (his left)", "hold": 0.5,
                                                      "note": "cross-body open palm toward the ticks, under the mic "
                                                              "head"}),
-                ("count", "R", ("W10", "One:"), {"size": "medium", "target": "his right, chest height", "height": "sternum",
-                                                 "note": "index up (1), the hand back on his right"}),
+                ("list", "R", ("W10", "One:"), {"size": "medium", "target": "front, his midline", "height": "sternum",
+                                                "item": 1, "of": 2,
+                                                "note": "open hand, palm angled up/in, PLACES item 1 of 2 on a line in front of him at chest height (back from the panel to his midline); the forearm angled toward camera, wrist below the collarbone, a small drift, no finger counting"}),
                 ("beat", "R", ("W10", "has"), {"size": "small", "target": "camera"}),
             ],
             "lean": [(("W10", "Your"), 5)],
@@ -468,10 +487,11 @@ HIM = {
                      ("smile", ("W11", "read"), {"amount": 0.85, "hold": 0.5,
                                                  "note": "full Duchenne (payoff 3/5): the blue ticks"})],
             "gestures": [
-                ("count", "R", ("W11", "Two:"), {"size": "medium", "target": "his right, chest height", "height": "sternum",
-                                                 "note": "+ middle (2)"}),
+                ("list", "R", ("W11", "Two:"), {"size": "medium", "target": "front, a hand-width to his right",
+                                                "height": "sternum", "item": 2, "of": 2,
+                                                "note": "open hand, palm angled up/in, PLACES item 2 of 2 on a line in front of him at chest height (a hand-width to his right); the forearm angled toward camera, wrist below the collarbone, a small drift, no finger counting"}),
                 ("deictic", "R", ("W11", "Blue:"), {"size": "medium", "target": "panel (his left)", "hold": 0.5,
-                                                    "note": "the two fingers turn toward the panel's blue ticks"}),
+                                                    "note": "the open hand turns toward the panel's blue ticks"}),
                 ("open_palm", "R", ("W11", "read"), {"size": "small", "target": "camera"}),
             ],
             "lean": [(("W11", "Blue:"), 7)],
@@ -540,12 +560,14 @@ HIM = {
                      ("smile", ("W16", "hands."), {"amount": 0.85, "hold": 0.5, "note": "full Duchenne (payoff 4/5)"}),
                      ("nod", ("W16", "hands."), {})],
             "gestures": [
-                ("count", "R", ("W16", "Tiny"), {"size": "small", "target": "his right, chest height",
-                                                 "note": "index (1)"}),
-                ("count", "R", ("W16", "Messages"), {"size": "medium", "target": "his right, chest height",
-                                                     "note": "+ middle (2)"}),
-                ("count", "R", ("W16", "Keys"), {"size": "medium", "target": "his right, chest height",
-                                                 "hold": 0.5, "note": "+ ring (3)"}),
+                ("list", "R", ("W16", "Tiny"), {"size": "small", "target": "front, his midline", "height": "sternum",
+                                                "item": 1, "of": 3, "note": "open hand, palm angled up/in, PLACES item 1 of 3 on a line in front of him at chest height (at his midline); the forearm angled toward camera, wrist below the collarbone, a small drift, no finger counting"}),
+                ("list", "R", ("W16", "Messages"), {"size": "medium", "target": "front, a hand-width to his right",
+                                                    "height": "sternum", "item": 2, "of": 3,
+                                                    "note": "open hand, palm angled up/in, PLACES item 2 of 3 on a line in front of him at chest height (a hand-width to his right); the forearm angled toward camera, wrist below the collarbone, a small drift, no finger counting"}),
+                ("list", "R", ("W16", "Keys"), {"size": "medium", "target": "front, two hand-widths to his right",
+                                                "height": "sternum", "item": 3, "of": 3, "hold": 0.5,
+                                                "note": "open hand, palm angled up/in, PLACES item 3 of 3 on a line in front of him at chest height (two hand-widths to his right); the forearm angled toward camera, wrist below the collarbone, a small drift, no finger counting"}),
                 ("open_palm", "both", ("W16", "hands."), {"size": "medium", "target": "front", "hold": 0.6,
                                                           "note": "both palms up, showing his hands: literal"}),
             ],
@@ -658,6 +680,9 @@ def resolve(sheet: dict) -> dict:
             if "start" in x:
                 st, sw = word_t(lines, x["start"])
                 g["prep_t"], g["prep_f"], g["start_word"] = round(st - 0.15, 3), fr(st - 0.15), sw
+            for k in ("item", "of"):  # a LIST gesture's place on its line (agent-01's list kind)
+                if k in x:
+                    g[k] = x[k]
             if "note" in x:
                 g["note"] = x["note"]
             gest.append(g)
@@ -731,6 +756,13 @@ HEIGHT = {"CAM_MCU": {"small": "sternum", "medium": "upper_chest", "big": "colla
 # there too ("height": the N06/N12 panel opens, the N15 beat, his W10/W11 counts). checks() reports the share.
 # The orchestrator's ruling (a), 08 Nov: key beats top out at the upper chest/collarbone (the wrist <= ~22 cm over the
 # sternum point; a chin apex needed 70-78 deg of upper-arm lift against the 60 deg line), nothing at the chin.
+# The orchestrator's verdict on her verify (netflix_r7H): no hand or finger above the chin or within ~10 cm of the
+# face/hair in any cut camera (no sheet line calls for a face gesture); the 'million' size spreads and the N02
+# release sit at the upper chest, and the N02 press pushes forward from below.
+# R7 hands (agent-08's brief, item 3; the orchestrator: no finger counting anywhere). Her N13, his W10/W11 and W16 LIST
+# (his 'one' beats on W04/W06 place an open hand instead of a raised finger): an open
+# hand placing each item along a line in front at chest height, held <= 0.6 s; no hold at the shoulder with the
+# forearm vertical.
 HIGH = ("upper_chest", "collarbone", "chin")
 # hands_in_frame_frac (>= 1 hand fully in frame, of the speaking frames), per camera: agent-09's gate row
 IN_FRAME = {"CAM_MCU": 0.6, "CAM_MCU_L": 0.6, "CAM_CU": 0.3, "CAM_WIDE": 1.0}
@@ -741,17 +773,17 @@ def apex_height(camera: str | None, off_cam: bool, size: str) -> str:
 
 
 BODY_TYPE = {"beat": "beat", "open_palm": "open", "release": "open", "point_viewer": "open", "sweep": "open",
-             "count": "count", "deictic": "deictic", "size": "size", "pinch": "size", "ladder": "size",
+             "count": "count", "list": "list", "deictic": "deictic", "size": "size", "pinch": "size", "ladder": "size",
              "place": "size", "carry": "size", "high_low": "deictic", "press": "beat", "chop": "beat",
              "wave_off": "deictic", "raise_finger": "beat"}
 
 
 def body01(row: dict) -> dict:
-    """agent-01's shape: type in beat|open|count|deictic|size (`detail` keeps the sheet's own name), hand r|l|both."""
+    """agent-01's shape: type in beat|open|count|list|deictic|size (`detail` keeps the sheet's own name), hand r|l|both."""
     g = [{"type": BODY_TYPE[x["type"]], "detail": x["type"], "hand": x["hand"].lower(), "word": x["word"],
           "word_i": x["word_i"], "stroke_t": x["stroke_t"], "prep_t": x["prep_t"], "hold_s": x["hold_s"],
           "size": x["size"], "amp": x["amp"], "held": x["held"], "target": x["target"],
-          "apex_height": x["apex_height"]} for x in row["gestures"]]
+          "apex_height": x["apex_height"], **{k: x[k] for k in ("item", "of") if k in x}} for x in row["gestures"]]
     return {"line": row["id"], "on_cam": row["on_cam"], "camera": row["camera"], "gestures": g,
             "hands_in_frame_min": IN_FRAME.get(row["camera"]) if row["on_cam"] else None,
             "lean": [{"kind": "in" if x["deg"] >= 5 else "neutral", "deg": x["deg"], "word": x["word"], "t": x["t"]}
@@ -778,7 +810,7 @@ def checks(a: dict) -> dict:
         holds[ln["id"]] = round(max(gap, ln["t1"] - cur), 2)
         g = ln["gestures"]
         repeats += [f"{ln['id']} {x['type']}@{x['word']}" for p, x in zip(g, g[1:])
-                    if p["type"] == x["type"] and p["type"] not in ("beat", "count", "size")]
+                    if p["type"] == x["type"] and p["type"] not in ("beat", "count", "list", "size")]
     return {"speaking_s": round(speak, 2), "smiles_per_min": round(smiles / speak * 60, 1),
             "brow_flash_per_min": round(brows / speak * 60, 1),
             "gesture_onsets_per_s": {"all": round(sum(len(ln["gestures"]) for ln in a["lines"]) / speak, 2),
