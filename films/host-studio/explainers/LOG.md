@@ -337,3 +337,15 @@ tested in `test_seatkit.py`), `gestures.json` (the emphasis gestures per line).
 | ~20:40 | hide_under: inside_cm (a short ray in along -normal also counts) + fill_max (small uncovered islands with the garment in reach everywhere). Her Body<Trousers 4.0 / inside 3 / fill 400, Top<Trousers inside 2. arm_girth.py: upper arm + forearm +10 % round the bone axis by her own arm weights (deltoid ramps in over 30 %, the watch band's 6.5 cm and the hands 0), the Top's sleeves by the same field; new _Arms assets, setplan EXPL_ARMS (default on) |
 | T2 | arm_girth: radius upper 3.48 -> 3.83, fore 2.77 -> 3.04 (both sides), max move 0.47 cm, hands/watch 0, verts equal, Top bones = body's. Body<Trousers: inside 80, filled [120, 80, 79, 4, 4, 1, 1] (the hip crease; arms 7.1k and feet 3.5k islands untouched). agent-02: waist skin poke 0.79 -> none, fit 0.02; arms on _Arms rest bust 3.59 / side 1.73, gesture 3.97 / 1.71 (pass). T2 saved on the originals + the new hides until the girth is approved |
 
+| ~21:30 | Orchestrator APPROVED by eye: the waist after = clean dark trousers, no see-through gap at the band; _Arms reads subtly fuller, sleeves follow, the watch sits fine. _Arms + the new hides = her level of record |
+
+Her setup of record (any box, from r7-girth or a tree with it merged):
+1. fmbridge with garment.py at r7-girth (body.hide_under inside_cm / fill_max) loaded in the editor.
+2. Once per project (refuses to overwrite; already done on T2):
+   `film-ue exec -c "STAGE='apply'; SCALE=0.10; exec(open('<tree>/films/host-studio/props/her_outfit_ue/arm_girth.py').read())"`
+   -> SKM_Presenter_F_BodyMesh_Arms, SKM_Presenter_Top_R7W_Arms. `STAGE='check'` re-reads them (radius +10 %, hands/watch 0).
+3. `set.py --who her --steps garments,dress` with EXPL_ARMS unset (= 1): the Body/Top on _Arms, then the hides
+   Top<Trousers 2.5/inside 2, Body<Top 6, Body<Trousers 4/inside 3/fill 400; check the Body<Trousers line's filled
+   list is the hip crease only (T2: [120, 80, 79, 4, 4, 1, 1]). Leaders pass, then save (assets + level).
+4. Gates on it: agent-02 waist_skin_poke_cm <= 0 (WIDE), arms rest + gesture (bust >= 3, side >= 0.5).
+EXPL_ARMS=0 gives the slim originals (with the new hides) for comparisons only.
