@@ -1330,7 +1330,10 @@
    "info_films": [
     "whatsapp"
    ],
-   "info_reason": "the orchestrator (09 Nov): his outfit measures are artefacts (sleeve split -8, every-vertex 14 at the shoulder; no clip by eye at f0/6/12/84); INFO for him until agent-02's motion-based sleeve split reads ~0 there and FAILS a known clip; his arms are gated by the orchestrator's eye on TEST + finals"
+   "info_reason": "the orchestrator (09 Nov): his outfit measures are artefacts (sleeve split -8, every-vertex 14 at the shoulder; no clip by eye at f0/6/12/84); INFO for him until agent-02's motion-based sleeve split reads ~0 there and FAILS a known clip; his arms are gated by the orchestrator's eye on TEST + finals; his front line is 0.5 (no penetration; the 3 cm bust line is hers), the orchestrator 09 Nov",
+   "line_by_film": {
+    "whatsapp": 0.5
+   }
   },
   "body.upperarm_side_clear_cm": {
    "area": "performance",

@@ -197,6 +197,9 @@ arms is the orchestrator's by-eye review of his TEST and finals (MCU / MCU_L / W
 agent-02's measure is SLEEVES=2 (20b833dd, opt-in; her default path and numbers are unchanged). His arms_9fe8fee0
 (-7.87 side) is DROPPED as a must_fail: not a real clip (LAYERS: the arm lay on a gap in the torso set). SLEEVES=2 gates
 him only once it reads ~0 on his clean frames AND fails her v2b clip under SLEEVES=2 itself.
+**His arm lines (the orchestrator, 09 Nov):** HIM front clearance >= 0.5 cm (no penetration; he has no bust, so the 3 cm
+front line is hers only) and side >= 0.5 cm. HER bust/front stays >= 3 and side >= 0.5. His rows are still INFO
+tonight, with the orchestrator's eye as his arm gate.
 
 ## Verdicts
 
