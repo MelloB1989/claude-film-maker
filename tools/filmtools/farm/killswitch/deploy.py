@@ -2,15 +2,13 @@
 
 Runs where the AWS CLI has the account (kali, profile nani), like the rest of the farm; the account id is read at
 run time (sts), never written down. Every command covers ap-south-1 and ap-northeast-1 (--regions narrows it): the
-IAM roles are global and shared, while each region gets its own function, schedule, log group and alarms (an alarm
-and its ec2:stop action live in the instance's region). From tools/:
+IAM roles are global and shared, while each region gets its own function, schedule and log group. From tools/:
 
-    python -m filmtools.farm.killswitch.deploy show                 # the alarm, IAM and schedule JSON it would apply
+    python -m filmtools.farm.killswitch.deploy show                 # the idle rule, IAM and schedule it would apply
     python -m filmtools.farm.killswitch.deploy dry-run              # what the reaper would do right now (changes nothing)
     python -m filmtools.farm.killswitch.deploy calibrate --name 'ue-box-b*' --hours 48
     python -m filmtools.farm.killswitch.deploy deploy               # create or update everything (idempotent)
     python -m filmtools.farm.killswitch.deploy invoke               # run the deployed reaper once, print its log
-    python -m filmtools.farm.killswitch.deploy --regions ap-south-1 drill-alarm i-0abc --period 60   # a drill box
     python -m filmtools.farm.killswitch.deploy undeploy [--keep-alarms] [--purge-logs] [--dry-run]
 """
 from __future__ import annotations
@@ -40,7 +38,6 @@ IDLE_VCPU = 0.8  # an idle UE editor costs ~0.5 vCPU on any box; box B's lowest 
 REGIONS = ("ap-south-1", "ap-northeast-1")  # Mumbai and Tokyo: every region the operator runs GPU boxes in
 LOG_GROUP = f"/aws/lambda/{FUNCTION}"
 LOG_RETENTION_DAYS = 30
-EVENTS_SLR = "AWSServiceRoleForCloudWatchEvents"  # what CloudWatch alarm EC2 actions (stop) run as
 GPU_TYPES = ["g*", "p*"]  # g* covers gr*
 SRC = Path(reaper.__file__)
 
@@ -64,10 +61,11 @@ def reaper_policy(account: str, regions: list[str]) -> dict:
         {"Sid": "StopGpuInstancesOnly", "Effect": "Allow", "Action": "ec2:StopInstances",
          "Resource": [f"arn:aws:ec2:{r}:{account}:instance/*" for r in regions],
          "Condition": {"StringLike": {"ec2:InstanceType": GPU_TYPES}}},
-        # DescribeAlarms is a read and takes no resource-level restriction; the writes are held to killswitch-*
-        {"Sid": "ReadAlarms", "Effect": "Allow", "Action": "cloudwatch:DescribeAlarms", "Resource": "*"},
-        {"Sid": "KillswitchAlarmsOnly", "Effect": "Allow",
-         "Action": ["cloudwatch:PutMetricAlarm", "cloudwatch:DeleteAlarms"],
+        # the reaper reads each box's CPU and judges idleness itself; both reads take no resource-level restriction
+        {"Sid": "ReadCpuAndAlarms", "Effect": "Allow",
+         "Action": ["cloudwatch:GetMetricStatistics", "cloudwatch:DescribeAlarms"], "Resource": "*"},
+        # only to sweep the first design's killswitch-idle-* alarms; it creates none
+        {"Sid": "DeleteKillswitchAlarmsOnly", "Effect": "Allow", "Action": "cloudwatch:DeleteAlarms",
          "Resource": [f"arn:aws:cloudwatch:{r}:{account}:alarm:killswitch-*" for r in regions]},
         {"Sid": "OwnLogs", "Effect": "Allow", "Action": ["logs:CreateLogStream", "logs:PutLogEvents"],
          "Resource": [f"arn:aws:logs:{r}:{account}:log-group:{LOG_GROUP}:*" for r in regions]}]}
@@ -206,10 +204,11 @@ def cmd_show(ctx, args, log):
             f"threshold per box: IDLE_VCPU {ctx.idle_vcpu:g} / vCPUs x 100 (CPU % is a share of all vCPUs)":
                 {f"{k} vCPU": reaper.threshold_for({"CpuOptions": {"CoreCount": k // 2, "ThreadsPerCore": 2}},
                                                    ctx.conf(regions[0])) for k in (4, 8, 16, 32, 48, 64, 192)},
-            "alarm (per GPU instance, in the instance's region; PutMetricAlarm), e.g. an 8-vCPU box":
-                reaper.alarm_spec("i-EXAMPLE", ctx.conf(regions[0]),
-                                  reaper.threshold_for({"CpuOptions": {"CoreCount": 4, "ThreadsPerCore": 2}},
-                                                       ctx.conf(regions[0]))),
+            "idle rule (the reaper, every 10 min; no CloudWatch alarm)": {
+                "metric": "AWS/EC2 CPUUtilization, Average, 300 s, per instance (GetMetricStatistics)",
+                "stop when": "the newest 5 complete periods, ALL begun at or after the box's last start (LaunchTime),"
+                             " back to back, the newest ended <= 15 min ago, each under the box's threshold",
+                "so": "a restarted box is never judged on pre-stop points; idle is stopped after 25-40 min"},
             f"{ROLE} trust (global, shared by every region)": lambda_trust(),
             f"{ROLE} inline policy {POLICY}": reaper_policy(acct, regions),
             f"{SCHEDULE_ROLE} trust (global)": scheduler_trust(acct),
@@ -218,7 +217,6 @@ def cmd_show(ctx, args, log):
         docs[f"schedule in {r} (EventBridge Scheduler)"] = schedule_doc(acct, r)
         docs[f"function in {r}"] = function_doc(acct, ctx.conf(r))
     docs["logs (per region)"] = {"LogGroup": LOG_GROUP, "RetentionDays": LOG_RETENTION_DAYS}
-    docs["service-linked role for alarm EC2 actions"] = EVENTS_SLR
     for k, v in docs.items():
         log(f"## {k}\n{json.dumps(redact(v), indent=2)}\n")
 
@@ -234,21 +232,23 @@ def dry_run_region(aws, conf, log):
     instances = reaper.all_instances(ec2)
     alarms = reaper.killswitch_alarms(cw)
     now = time.time()
+    cpu = {i["InstanceId"]: reaper.cpu_since_start(cw, i, conf, now) for i in reaper.watched(instances, conf, now)}
     log(f"== {conf['region']}: GPU instances")
     for i in instances:
         if not reaper.is_gpu(i.get("InstanceType", "")):
             continue
-        t = reaper.tags_of(i)
-        up = f"up {reaper.uptime_h(i, now):.1f} h" if i["State"]["Name"] == "running" else ""
-        al = next((a for a in alarms if a["AlarmName"] == reaper.PREFIX + i["InstanceId"]), None)
-        log(f"  {i['InstanceId']}  {i['InstanceType']:<13} {i['State']['Name']:<10} {t.get('Name', ''):<28} "
-            f"{reaper.vcpus(i) or '?'} vCPU, CPU < {reaper.threshold_for(i, conf):g} %"
-            f"{f' (alarm has {al['Threshold']:g} %)' if al and 'Threshold' in al else ''}  "
-            f"TTL {reaper.ttl_hours(i, conf['default_ttl_h']):g} h  {up}"
+        t, iid = reaper.tags_of(i), i["InstanceId"]
+        running = i["State"]["Name"] == "running"
+        th = reaper.threshold_for(i, conf)
+        verdict = (reaper.idle_verdict(cpu[iid], reaper.started(i), now, conf, th)[1] if iid in cpu
+                   else "not read (under 25 min up, opted out or not running)")
+        log(f"  {iid}  {i['InstanceType']:<13} {i['State']['Name']:<10} {t.get('Name', ''):<28} "
+            f"{reaper.vcpus(i) or '?'} vCPU, idle < {th:g} %  TTL {reaper.ttl_hours(i, conf['default_ttl_h']):g} h"
+            f"{f'  up {reaper.uptime_h(i, now) * 60:.0f} min' if running else ''}"
             f"{'  KillSwitch=' + t[reaper.OPT_OUT_TAG] if reaper.OPT_OUT_TAG in t else ''}"
-            f"{'  [armed]' if any(a['AlarmName'] == reaper.PREFIX + i['InstanceId'] for a in alarms) else ''}")
-    log(f"killswitch alarms: {len(alarms)}")
-    acts = reaper.plan(instances, alarms, conf, now)
+            + (f"\n      CPU since start: {verdict}" if running else ""))
+    log(f"killswitch alarms (first design, to sweep): {len(alarms)}")
+    acts = reaper.plan(instances, alarms, cpu, conf, now)
     log("the reaper WOULD:" if acts else "the reaper would do nothing")
     for a in acts:
         log(f"  {a['do']:<7} {a['instance']}  {a.get('name', '')}  ({a['why']})")
@@ -396,9 +396,6 @@ def calibrate_region(aws, conf, ids, args, log):
 
 def cmd_deploy(ctx, args, log):
     aws, acct, regions = ctx.aws(ctx.regions[0]), ctx.account(), ctx.regions
-    if quiet(aws, "iam", "get-role", "--role-name", EVENTS_SLR) is None:
-        aws("iam", "create-service-linked-role", "--aws-service-name", "events.amazonaws.com")
-        log(f"created service-linked role {EVENTS_SLR} (alarm stop actions run as it)")
     new = ensure_role(aws, ROLE, lambda_trust(), POLICY, reaper_policy(acct, regions), log)
     new |= ensure_role(aws, SCHEDULE_ROLE, scheduler_trust(acct), SCHEDULE_POLICY, scheduler_policy(acct, regions), log)
     if new:
@@ -462,19 +459,6 @@ def invoke_region(aws, out: Path, log) -> bool:
     return bool(r.get("FunctionError"))
 
 
-def cmd_drill_alarm(ctx, args, log):
-    if len(ctx.regions) != 1:
-        sys.exit("drill-alarm: name the instance's region (--regions <one>)")
-    aws, c = ctx.aws(ctx.regions[0]), dict(ctx.conf(ctx.regions[0]), period_s=args.period)
-    th = reaper.threshold_for(aws("ec2", "describe-instances", "--instance-ids", args.instance)
-                              ["Reservations"][0]["Instances"][0], c)
-    spec = reaper.alarm_spec(args.instance, c, th, drill=True)  # the reaper leaves a drill alarm as it is
-    c["threshold"] = th
-    aws("cloudwatch", "put-metric-alarm", "--cli-input-json", json.dumps(spec))
-    log(f"alarm {spec['AlarmName']}: {c['periods']} x {args.period} s under {c['threshold']:g} %"
-        + ("  (1-min periods need detailed monitoring: aws ec2 monitor-instances)" if args.period < 300 else ""))
-
-
 def would(aws, log):
     """The AWS CLI with every write replaced by a line saying what it would do; reads still run (undeploy --dry-run)."""
     def call(*a, **kw):
@@ -497,8 +481,8 @@ def cmd_undeploy(ctx, args, log):
     aws = ctx.aws(ctx.regions[0])
     drop_role(aws, SCHEDULE_ROLE, log)
     drop_role(aws, ROLE, log)
-    log(f"left in place: the service-linked role {EVENTS_SLR} (shared with every EC2 alarm action)"
-        + ("" if args.purge_logs else f", the log group {LOG_GROUP} in each region"))
+    if not args.purge_logs:
+        log(f"left in place: the log group {LOG_GROUP} in each region")
 
 
 def undeploy_region(aws, args, log):
@@ -538,9 +522,6 @@ def main(argv=None):
     sub.add_parser("deploy")
     s = sub.add_parser("invoke")
     s.add_argument("--out", default="/tmp/killswitch-invoke.json")
-    s = sub.add_parser("drill-alarm")
-    s.add_argument("instance")
-    s.add_argument("--period", type=int, default=60)
     s = sub.add_parser("undeploy")
     s.add_argument("--keep-alarms", action="store_true")
     s.add_argument("--purge-logs", action="store_true")
@@ -548,7 +529,7 @@ def main(argv=None):
     args = ap.parse_args(argv)
     ctx = Ctx([r.strip() for r in args.regions.split(",") if r.strip()], args.profile, idle_vcpu=args.idle_vcpu)
     {"show": cmd_show, "dry-run": cmd_dry_run, "calibrate": cmd_calibrate, "deploy": cmd_deploy,
-     "invoke": cmd_invoke, "drill-alarm": cmd_drill_alarm, "undeploy": cmd_undeploy}[args.cmd](
+     "invoke": cmd_invoke, "undeploy": cmd_undeploy}[args.cmd](
         ctx, args, lambda s: print(s, flush=True))
 
 

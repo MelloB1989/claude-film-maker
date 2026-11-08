@@ -1,14 +1,20 @@
 """killswitch-reaper: the Lambda that keeps every GPU box in the region on a leash, from inside AWS.
 
 Every 10 minutes (an EventBridge Scheduler schedule) it
-  (a) arms an idle alarm (killswitch-idle-<instance-id>) on every running GPU instance that has none: CPU average
-      under 4 % for 5 consecutive 5-minute periods stops the box (stop, never terminate);
+  (a) stops every running GPU instance that has been idle for the last 5 five-minute periods: average CPU under
+      IDLE_VCPU (0.8) vCPUs in each, counting ONLY periods that began after the box's last start;
   (b) stops every running GPU instance whose uptime is over its TTLHours tag (12 h without one);
-  (c) deletes killswitch alarms whose instance is terminated or gone;
+  (c) deletes any killswitch-idle-* CloudWatch alarm (the first design's; see below);
   (d) logs every action, one JSON line each, to its CloudWatch Logs group.
 
+Why the reaper judges idleness itself rather than a CloudWatch alarm with an ec2:stop action: an alarm evaluates
+the most recent datapoints it can FIND, reaching back past a gap, and TreatMissingData applies only when it finds
+too few. So a box restarted after an idle stretch was judged on its pre-stop points and stopped 2-3 minutes after
+the start (box T, twice, 08 Nov). Here every datapoint whose period began before LaunchTime (the last start) is
+ignored, so a restarted box always gets its full 25 minutes.
+
 A GPU instance is one of the g*, gr* and p* families. Nothing else is ever touched, and nothing is ever terminated.
-Tag KillSwitch=off opts a box out: no TTL stop, and its idle alarm is deleted (re-armed once the tag goes).
+Tag KillSwitch=off opts a box out of both stops.
 
 This file is the whole Lambda: standard library plus the boto3 the runtime ships. `run()` takes the EC2 and
 CloudWatch clients, so the tests (and `deploy.py dry-run`) drive it with stand-ins.
@@ -20,11 +26,13 @@ import os
 import re
 import time
 from datetime import UTC, datetime
+from itertools import pairwise
 
-PREFIX = "killswitch-idle-"
+PREFIX = "killswitch-idle-"  # the first design's alarms, swept
 GPU_FAMILY = re.compile(r"^(g|gr|p)\d")
 OPT_OUT_TAG = "KillSwitch"
 TTL_TAG = "TTLHours"
+MAX_LAG_S = 900  # the newest complete period must have ended at most this long ago (basic monitoring lags 5-10 min)
 
 
 def settings(env=None) -> dict:
@@ -60,9 +68,20 @@ def ttl_hours(inst: dict, default: float) -> float:
         return default
 
 
+def _ts(v) -> float:
+    if isinstance(v, str):
+        v = datetime.fromisoformat(v)  # 3.11+ reads the trailing Z
+    if v.tzinfo is None:
+        v = v.replace(tzinfo=UTC)
+    return v.timestamp()
+
+
+def started(inst: dict) -> float:
+    return _ts(inst["LaunchTime"])  # the last start, not the first launch: a stopped-and-started box starts anew
+
+
 def uptime_h(inst: dict, now: float) -> float:
-    # LaunchTime is the last start, not the first launch: a stopped-and-started box starts a new clock
-    return (now - _ts(inst["LaunchTime"])) / 3600
+    return (now - started(inst)) / 3600
 
 
 def vcpus(inst: dict) -> int:
@@ -75,27 +94,6 @@ def threshold_for(inst: dict, conf: dict) -> float:
     if conf.get("idle_vcpu", 0) > 0 and n:
         return round(min(50.0, conf["idle_vcpu"] / n * 100), 2)
     return conf["threshold"]
-
-
-DRILL = "kill switch DRILL"  # an alarm whose description starts so is left as it is (deploy.py drill-alarm)
-CHECKED = ("Namespace", "MetricName", "Statistic", "Period", "EvaluationPeriods", "DatapointsToAlarm", "Threshold",
-           "ComparisonOperator", "TreatMissingData", "AlarmActions")
-
-
-def alarm_spec(instance_id: str, conf: dict, threshold: float | None = None, drill: bool = False) -> dict:
-    """The PutMetricAlarm arguments for one instance."""
-    n, period = conf["periods"], conf["period_s"]
-    th = conf["threshold"] if threshold is None else threshold
-    return {"AlarmName": PREFIX + instance_id,
-            "AlarmDescription": f"{DRILL if drill else 'kill switch'}: stop {instance_id} after {n} x "
-                                f"{period // 60} min with average CPU under {th:g} % (made by killswitch-reaper)",
-            "Namespace": "AWS/EC2", "MetricName": "CPUUtilization",
-            "Dimensions": [{"Name": "InstanceId", "Value": instance_id}],
-            "Statistic": "Average", "Period": period, "EvaluationPeriods": n, "DatapointsToAlarm": n,
-            "Threshold": th, "ComparisonOperator": "LessThanThreshold",
-            "TreatMissingData": "notBreaching",
-            "ActionsEnabled": True,
-            "AlarmActions": [f"arn:aws:automate:{conf['region']}:ec2:stop"]}
 
 
 def all_instances(ec2) -> list[dict]:
@@ -120,85 +118,58 @@ def killswitch_alarms(cw) -> list[dict]:
             return out
 
 
-def stale(alarm: dict, want: dict) -> list[str]:
-    """The fields where an existing alarm differs from what it should be (none for a drill alarm)."""
-    if (alarm.get("AlarmDescription") or "").startswith(DRILL):
-        return []
-    out = []
-    for k in CHECKED:
-        a, w = alarm.get(k), want[k]
-        if isinstance(w, float):
-            if a is None or abs(float(a) - w) > 0.005:
-                out.append(k)
-        elif a != w:
-            out.append(k)
-    return out
+def cpu_since_start(cw, inst: dict, conf: dict, now: float) -> list[dict]:
+    """The box's 5-minute CPU averages since its last start (a few periods more than the window, at most)."""
+    per = conf["period_s"]
+    start = max(started(inst), now - (conf["periods"] + 4) * per)
+    r = cw.get_metric_statistics(
+        Namespace="AWS/EC2", MetricName="CPUUtilization",
+        Dimensions=[{"Name": "InstanceId", "Value": inst["InstanceId"]}],
+        StartTime=datetime.fromtimestamp(start - start % per, UTC).isoformat(),
+        EndTime=datetime.fromtimestamp(now, UTC).isoformat(), Period=per, Statistics=["Average"])
+    return [{"t": _ts(p["Timestamp"]), "avg": float(p["Average"])} for p in r.get("Datapoints", [])]
 
 
-def grace_s(conf: dict) -> int:
-    return conf["periods"] * conf["period_s"] + 300  # the alarm's window, plus one period for the metric's lag
+def idle_verdict(points: list[dict], launched: float, now: float, conf: dict, th: float) -> tuple[bool, str]:
+    """(idle?, why). Idle = the newest `periods` complete periods, all begun at or after the last start, back to back,
+    the newest ended within MAX_LAG_S, and every one averaging under `th` %. Anything less is not idle."""
+    n, per = conf["periods"], conf["period_s"]
+    pts = sorted((p for p in points if p["t"] >= launched and p["t"] + per <= now), key=lambda p: p["t"])
+    if len(pts) < n:
+        return False, f"{len(pts)} of {n} periods since the start"
+    last = pts[-n:]
+    if any(b["t"] - a["t"] != per for a, b in pairwise(last)):
+        return False, "a gap in the last periods"
+    if now - (last[-1]["t"] + per) > MAX_LAG_S:
+        return False, "no recent datapoint"
+    vals = ", ".join(f"{p['avg']:.2f}" for p in last)
+    if all(p["avg"] < th for p in last):
+        return True, f"idle {n} x {per // 60} min under {th:g} %: {vals}"
+    return False, f"busy ({vals})"
 
 
-def _ts(v) -> float:
-    if isinstance(v, str):
-        v = datetime.fromisoformat(v)
-    if v.tzinfo is None:
-        v = v.replace(tzinfo=UTC)
-    return v.timestamp()
-
-
-def stuck(alarm: dict, inst: dict) -> bool:
-    """In ALARM since before the box's last start: an alarm acts only on entering ALARM, so it would never fire."""
-    if alarm.get("StateValue") != "ALARM" or "StateUpdatedTimestamp" not in alarm:
-        return False
-    return _ts(alarm["StateUpdatedTimestamp"]) < _ts(inst["LaunchTime"])
-
-
-def plan(instances: list[dict], alarms: list[dict], conf: dict, now: float) -> list[dict]:
-    """What to do, as actions: {"do": arm|rearm|reset|wait|disarm|stop|delete, "instance": id, "why": ...}.
-    Pure, so tested. A stopped box's alarm is left as it is; it is brought up to date after its next start."""
+def plan(instances: list[dict], alarms: list[dict], cpu: dict, conf: dict, now: float) -> list[dict]:
+    """What to do, as actions: {"do": stop|delete, "instance": id, "why": ...}. `cpu` maps an instance id to its
+    points (cpu_since_start). Pure, so it is tested."""
     acts = []
-    by_id = {i["InstanceId"]: i for i in instances}
-    armed = {a["AlarmName"][len(PREFIX):]: a for a in alarms}
     for inst in instances:
         iid, itype, state = inst["InstanceId"], inst.get("InstanceType", ""), inst["State"]["Name"]
-        if not is_gpu(itype):
+        if not is_gpu(itype) or state != "running" or opted_out(inst):
             continue
         name = tags_of(inst).get("Name", "")
-        if opted_out(inst):
-            if iid in armed:
-                acts.append({"do": "disarm", "instance": iid, "name": name, "type": itype,
-                             "why": f"tag {OPT_OUT_TAG}=off"})
-            continue
-        if state != "running":
-            continue
-        th, up = threshold_for(inst, conf), uptime_h(inst, now)
-        al = armed.get(iid)
-        # Grace: writing an alarm makes CloudWatch evaluate the datapoints it already holds, which on a box started
-        # less than n periods ago include the idle ones from before its last stop; that once stopped a box 100 s
-        # after a restart. So nothing is armed, re-armed or reset until every point in the window is from this run.
-        if up * 3600 < grace_s(conf):
-            if al is None or stale(al, alarm_spec(iid, conf, th)) or stuck(al, inst):
-                acts.append({"do": "wait", "instance": iid, "name": name, "type": itype,
-                             "why": f"up {up * 60:.0f} min < {grace_s(conf) // 60} min grace"})
-        elif al is None:
-            acts.append({"do": "arm", "instance": iid, "name": name, "type": itype, "threshold": th,
-                         "why": f"running GPU, no alarm (CPU < {th:g} % = {vcpus(inst) or '?'} vCPU box)"})
-        elif stuck(al, inst):
-            acts.append({"do": "reset", "instance": iid, "name": name, "type": itype, "threshold": th,
-                         "why": "alarm in ALARM since before this start: it would never fire again"})
-        elif diff := stale(al, alarm_spec(iid, conf, th)):
-            acts.append({"do": "rearm", "instance": iid, "name": name, "type": itype, "threshold": th,
-                         "why": f"alarm differs in {', '.join(diff)} (now CPU < {th:g} %)"})
-        ttl = ttl_hours(inst, conf["default_ttl_h"])
+        up, ttl = uptime_h(inst, now), ttl_hours(inst, conf["default_ttl_h"])
         if up > ttl:
             acts.append({"do": "stop", "instance": iid, "name": name, "type": itype,
                          "why": f"up {up:.1f} h > TTL {ttl:g} h"})
-    for iid in sorted(armed):
-        inst = by_id.get(iid)
-        if inst is None or inst["State"]["Name"] == "terminated":
-            acts.append({"do": "delete", "instance": iid,
-                         "why": "instance terminated" if inst else "instance not found"})
+            continue
+        th = threshold_for(inst, conf)
+        idle, why = idle_verdict(cpu.get(iid, []), started(inst), now, conf, th)
+        if idle:
+            acts.append({"do": "stop", "instance": iid, "name": name, "type": itype,
+                         "why": f"{why} ({vcpus(inst) or '?'} vCPU box)"})
+    for a in alarms:
+        acts.append({"do": "delete", "instance": a["AlarmName"][len(PREFIX):],
+                     "why": "an alarm of the first design (alarm stop actions misjudge restarted boxes)"})
     return acts
 
 
@@ -207,14 +178,9 @@ def apply(acts: list[dict], ec2, cw, conf: dict, log) -> list[dict]:
     for a in acts:
         rec = dict(a, dry_run=conf["dry_run"])
         try:
-            if conf["dry_run"] or a["do"] == "wait":
+            if conf["dry_run"]:
                 pass
-            elif a["do"] in ("arm", "rearm"):
-                cw.put_metric_alarm(**alarm_spec(a["instance"], conf, a.get("threshold")))
-            elif a["do"] == "reset":  # a new alarm starts from INSUFFICIENT_DATA, so it can enter ALARM again
-                cw.delete_alarms(AlarmNames=[PREFIX + a["instance"]])
-                cw.put_metric_alarm(**alarm_spec(a["instance"], conf, a.get("threshold")))
-            elif a["do"] in ("disarm", "delete"):
+            elif a["do"] == "delete":
                 cw.delete_alarms(AlarmNames=[PREFIX + a["instance"]])
             elif a["do"] == "stop":
                 ec2.stop_instances(InstanceIds=[a["instance"]])  # never terminate_instances
@@ -226,16 +192,29 @@ def apply(acts: list[dict], ec2, cw, conf: dict, log) -> list[dict]:
     return done
 
 
+def watched(instances: list[dict], conf: dict, now: float) -> list[dict]:
+    """The boxes whose CPU is worth reading: running GPU, not opted out, up for at least the window."""
+    return [i for i in instances if is_gpu(i.get("InstanceType", "")) and i["State"]["Name"] == "running"
+            and not opted_out(i) and (now - started(i)) >= conf["periods"] * conf["period_s"]]
+
+
 def run(ec2, cw, conf: dict, now: float | None = None, log=None) -> dict:
     log = log or (lambda rec: print(json.dumps(rec, default=str)))
     now = time.time() if now is None else now
     instances, alarms = all_instances(ec2), killswitch_alarms(cw)
-    done = apply(plan(instances, alarms, conf, now), ec2, cw, conf, log)
+    cpu, notes = {}, []
+    for inst in watched(instances, conf, now):
+        try:
+            cpu[inst["InstanceId"]] = cpu_since_start(cw, inst, conf, now)
+        except Exception as e:  # noqa: BLE001  no reading means not idle; the next run tries again
+            notes.append({"note": "cpu read failed", "instance": inst["InstanceId"], "error": str(e)[:300]})
+    for n in notes:
+        log(n)
+    done = apply(plan(instances, alarms, cpu, conf, now), ec2, cw, conf, log)
     gpus = [i for i in instances if is_gpu(i.get("InstanceType", ""))]
     summary = {"summary": True, "gpu_instances": len(gpus),
-               "gpu_running": sum(i["State"]["Name"] == "running" for i in gpus),
-               "alarms": len(alarms), "actions": sum(d["do"] != "wait" for d in done),
-               "waiting": sum(d["do"] == "wait" for d in done), "failed": sum(not d["ok"] for d in done),
+               "gpu_running": sum(i["State"]["Name"] == "running" for i in gpus), "watched": len(cpu),
+               "actions": len(done), "failed": sum(not d["ok"] for d in done) + len(notes),
                "dry_run": conf["dry_run"]}
     log(summary)
     return summary

@@ -11,8 +11,10 @@ import pytest
 
 from filmtools.farm.killswitch import deploy, reaper
 
-NOW = datetime(2026, 11, 8, 12, 0, tzinfo=UTC).timestamp()
+NOW = datetime(2026, 11, 8, 12, 0, tzinfo=UTC).timestamp()  # on a 5-minute boundary
 CONF = reaper.settings({"AWS_REGION": "ap-south-1"})
+VCONF = dict(CONF, idle_vcpu=0.8)
+MIN = 60
 
 
 def inst(iid, itype="g6e.4xlarge", state="running", up_h=1.0, vcpu=16, **tags):
@@ -44,9 +46,12 @@ class FakeEC2:
 
 
 class FakeCW:
-    def __init__(self, names=()):
+    """CloudWatch: 5-minute CPU averages per instance ({id: {period start: avg}}) and the old alarms."""
+
+    def __init__(self, names=(), cpu=None):
         self.alarms = {n: {"AlarmName": n} for n in names}
-        self.puts = []
+        self.cpu = cpu or {}
+        self.reads = []
 
     def describe_alarms(self, AlarmNamePrefix, AlarmTypes, NextToken=None):
         names = sorted(n for n in self.alarms if n.startswith(AlarmNamePrefix))
@@ -56,83 +61,157 @@ class FakeCW:
             r["NextToken"] = str(k + 1)
         return r
 
-    def put_metric_alarm(self, **spec):
-        self.puts.append(spec)
-        self.alarms[spec["AlarmName"]] = spec
+    def get_metric_statistics(self, Namespace, MetricName, Dimensions, StartTime, EndTime, Period, Statistics):
+        assert (Namespace, MetricName, Period, Statistics) == ("AWS/EC2", "CPUUtilization", 300, ["Average"])
+        iid = Dimensions[0]["Value"]
+        a, b = reaper._ts(StartTime), reaper._ts(EndTime)
+        self.reads.append((iid, a, b))
+        return {"Datapoints": [{"Timestamp": datetime.fromtimestamp(t, UTC), "Average": v}
+                               for t, v in self.cpu.get(iid, {}).items() if a <= t < b]}
 
     def delete_alarms(self, AlarmNames):
         for n in AlarmNames:
             assert n.startswith("killswitch-")
             self.alarms.pop(n)
 
+    def put_metric_alarm(self, **kw):  # the reaper must never create an alarm
+        raise AssertionError("put_metric_alarm called")
 
-def go(ec2, cw, **conf):
+
+def series(start, avgs, step=300):
+    return {start + k * step: v for k, v in enumerate(avgs)}
+
+
+def go(ec2, cw, now=NOW, **conf):
     logs = []
-    s = reaper.run(ec2, cw, dict(CONF, **conf), now=NOW, log=logs.append)
+    s = reaper.run(ec2, cw, dict(VCONF, **conf), now=now, log=logs.append)
     return s, logs
+
+
+def stops(logs):
+    return [r["instance"] for r in logs if r.get("do") == "stop"]
 
 
 @pytest.mark.parametrize("t,gpu", [("g6e.4xlarge", True), ("gr6.4xlarge", True), ("g4dn.xlarge", True),
                                    ("g5g.xlarge", True), ("p5.48xlarge", True), ("p4d.24xlarge", True),
-                                   ("t3.micro", False), ("c7g.large", False), ("m5.xlarge", False),
-                                   ("inf2.xlarge", False), ("", False)])
+                                   ("t3.micro", False), ("t4g.nano", False), ("c7g.large", False),
+                                   ("m5.xlarge", False), ("inf2.xlarge", False), ("", False)])
 def test_gpu_families(t, gpu):
     assert reaper.is_gpu(t) is gpu
 
 
-def test_alarm_spec_is_the_brief():
-    a = reaper.alarm_spec("i-0abc", CONF)
-    assert a["AlarmName"] == "killswitch-idle-i-0abc"
-    assert (a["Namespace"], a["MetricName"], a["Statistic"]) == ("AWS/EC2", "CPUUtilization", "Average")
-    assert a["Dimensions"] == [{"Name": "InstanceId", "Value": "i-0abc"}]
-    assert (a["Period"], a["EvaluationPeriods"], a["DatapointsToAlarm"]) == (300, 5, 5)
-    assert (a["Threshold"], a["ComparisonOperator"]) == (4.0, "LessThanThreshold")
-    assert a["TreatMissingData"] == "notBreaching"
-    assert a["AlarmActions"] == ["arn:aws:automate:ap-south-1:ec2:stop"]
-    assert not any("terminate" in x for x in a["AlarmActions"])
+# --- the idle rule -------------------------------------------------------------------------------------------------
+def test_idle_box_is_stopped_busy_box_is_not():
+    # two 8-vCPU boxes up 1 h: line 10 %. One idles at 6 % (an editor, ~0.5 vCPU), one works at 14-17 %
+    idle, busy = inst("i-idle", vcpu=8), inst("i-busy", vcpu=8)
+    cw = FakeCW(cpu={"i-idle": series(NOW - 3600, [6.0] * 12), "i-busy": series(NOW - 3600, [15.0] * 12)})
+    ec2 = FakeEC2([idle, busy])
+    _, logs = go(ec2, cw)
+    assert ec2.stopped == ["i-idle"]
+    assert "idle 5 x 5 min under 10 %" in next(r["why"] for r in logs if r.get("do") == "stop")
 
 
-def test_arms_running_gpus_only_across_pages():
-    ec2 = FakeEC2([inst("i-1"), inst("i-2", "t3.micro"), inst("i-3", "gr6.4xlarge"),
-                   inst("i-4", state="stopped"), inst("i-5", "p5.48xlarge", state="pending")])
-    cw = FakeCW()
-    s, logs = go(ec2, cw)
-    assert sorted(cw.alarms) == ["killswitch-idle-i-1", "killswitch-idle-i-3"]
+def test_one_busy_period_in_the_window_saves_the_box():
+    cw = FakeCW(cpu={"i-1": series(NOW - 3600, [6.0] * 9 + [25.0] + [6.0] * 2)})  # the 3rd newest is busy
+    ec2 = FakeEC2([inst("i-1", vcpu=8)])
+    go(ec2, cw)
     assert ec2.stopped == []
-    assert s["actions"] == 2 and s["failed"] == 0 and s["gpu_running"] == 2
-    assert all(r["ok"] for r in logs[:-1]) and logs[-1]["summary"]
 
 
-def test_already_armed_is_left_alone():
-    cw = FakeCW(["killswitch-idle-i-1"])
-    cw.alarms["killswitch-idle-i-1"].update(Period=60, AlarmDescription=reaper.DRILL + ": ...")  # left alone
-    go(FakeEC2([inst("i-1")]), cw)
-    assert cw.puts == [] and cw.alarms["killswitch-idle-i-1"]["Period"] == 60
+def test_restart_after_idle_then_busy_must_not_stop():
+    """Box T, 08 Nov: idle at 6-9 % until a stop, restarted 3 min ago, busy since. CloudWatch still holds the pre-stop
+    idle points; the alarm design was judged on them and stopped the box. The reaper ignores every period that began
+    before the start, so it does not stop it, however long it has been up, while it is busy."""
+    start = NOW - 3 * MIN
+    pre = series(start - 40 * MIN, [6.0, 7.0, 6.0, 6.0, 9.0, 8.0])  # pre-stop idle, then the box was stopped
+    for up_min in (3, 10, 20, 40, 90):
+        now = start + up_min * MIN
+        post = series(start - start % 300 + 300, [15.0] * (up_min // 5))  # busy since the start
+        t = inst("i-t", vcpu=8)
+        t["LaunchTime"] = datetime.fromtimestamp(start, UTC)
+        ec2 = FakeEC2([t])
+        go(ec2, FakeCW(cpu={"i-t": pre | post}), now=now)
+        assert ec2.stopped == [], f"stopped {up_min} min after a restart"
 
 
+def test_restart_then_idle_must_stop_once_it_has_25_min_of_its_own():
+    start = NOW - 3 * MIN  # 11:57: mid-period, so the 11:55 period straddles the start and does not count
+    pre = series(start - 40 * MIN, [6.0] * 7)
+    t = inst("i-t", vcpu=8)
+    t["LaunchTime"] = datetime.fromtimestamp(start, UTC)
+    first_full = start - start % 300 + 300  # 12:00
+    stopped_at = None
+    for up_min in range(3, 60):
+        now = start + up_min * MIN
+        post = series(first_full, [6.0] * max(0, int((now - first_full) // 300)))  # idle since the start
+        ec2 = FakeEC2([t])
+        go(ec2, FakeCW(cpu={"i-t": pre | post}), now=now)
+        if ec2.stopped:
+            stopped_at = up_min
+            break
+    # 5 full periods 12:00-12:25 exist once 12:25 has passed: 28 min after the 11:57 start, never earlier than 25
+    assert stopped_at == 28
+
+
+def test_a_gap_or_old_data_is_not_idle():
+    t = inst("i-1", vcpu=8)
+    gap = series(NOW - 3600, [6.0] * 12)
+    del gap[NOW - 3 * 300]
+    assert reaper.idle_verdict([{"t": k, "avg": v} for k, v in gap.items()], NOW - 3600, NOW, VCONF, 10.0)[0] is False
+    old = series(NOW - 3600, [6.0] * 6)  # nothing in the last 30 min (metrics delayed)
+    ok, why = reaper.idle_verdict([{"t": k, "avg": v} for k, v in old.items()], NOW - 3600, NOW, VCONF, 10.0)
+    assert not ok and why == "no recent datapoint"
+    ec2 = FakeEC2([t])
+    go(ec2, FakeCW(cpu={}))  # no data at all: not idle
+    assert ec2.stopped == []
+
+
+def test_reads_cpu_only_since_the_start_and_only_for_boxes_worth_reading():
+    boxes = [inst("i-up", vcpu=8), inst("i-young", vcpu=8, up_h=20 / 60), inst("i-off", vcpu=8, KillSwitch="off"),
+             inst("i-stopped", vcpu=8, state="stopped"), inst("i-cpu", "c7i.4xlarge")]
+    cw = FakeCW()
+    go(FakeEC2(boxes), cw)
+    assert [r[0] for r in cw.reads] == ["i-up"]
+    _, a, _ = cw.reads[0]
+    assert a >= NOW - 3600 - 300 and a >= NOW - 9 * 300  # never before the start (rounded to its period)
+
+
+def test_a_failed_read_is_not_idle_and_is_logged():
+    class Broken(FakeCW):
+        def get_metric_statistics(self, **kw):
+            raise RuntimeError("Throttling")
+    ec2 = FakeEC2([inst("i-1", vcpu=8)])
+    s, logs = go(ec2, Broken())
+    assert ec2.stopped == [] and s["failed"] == 1 and logs[0]["note"] == "cpu read failed"
+
+
+# --- TTL, opt-out, sweep, safety ------------------------------------------------------------------------------------
 def test_ttl_stops_with_tag_and_default():
     ec2 = FakeEC2([inst("i-1", up_h=13), inst("i-2", up_h=11), inst("i-3", up_h=3, TTLHours="2"),
                    inst("i-4", up_h=30, TTLHours="48"), inst("i-5", up_h=13, TTLHours="junk"),
                    inst("i-6", "m5.xlarge", up_h=500)])
-    go(ec2, FakeCW([f"killswitch-idle-i-{k}" for k in range(1, 6)]))
+    busy = {f"i-{k}": series(NOW - 3600, [30.0] * 12) for k in range(1, 7)}
+    go(ec2, FakeCW(cpu=busy))
     assert sorted(ec2.stopped) == ["i-1", "i-3", "i-5"]
 
 
-def test_opt_out_skips_ttl_and_disarms():
-    ec2 = FakeEC2([inst("i-1", up_h=40, KillSwitch="off"), inst("i-2", up_h=1, KillSwitch="OFF"),
-                   inst("i-3", up_h=1, KillSwitch="on")])
-    cw = FakeCW(["killswitch-idle-i-1"])
-    go(ec2, cw)
+def test_opt_out_skips_both_stops():
+    ec2 = FakeEC2([inst("i-1", up_h=40, KillSwitch="off"), inst("i-2", vcpu=8, KillSwitch="OFF")])
+    go(ec2, FakeCW(cpu={"i-2": series(NOW - 3600, [1.0] * 12)}))
     assert ec2.stopped == []
-    assert sorted(cw.alarms) == ["killswitch-idle-i-3"]  # i-1 disarmed, i-2 never armed, i-3 armed
 
 
-def test_sweeps_alarms_of_terminated_or_missing_instances():
-    ec2 = FakeEC2([inst("i-1", state="terminated"), inst("i-2", state="stopped"), inst("i-3", "t3.micro")])
-    cw = FakeCW(["killswitch-idle-i-1", "killswitch-idle-i-2", "killswitch-idle-i-gone"])
-    _, logs = go(ec2, cw)
-    assert sorted(cw.alarms) == ["killswitch-idle-i-2"]  # a stopped box keeps its alarm
-    assert {r["why"] for r in logs if r.get("do") == "delete"} == {"instance terminated", "instance not found"}
+def test_never_touches_a_non_gpu_box():
+    ec2 = FakeEC2([inst("i-cpu", "t4g.nano", up_h=500, vcpu=2), inst("i-c7", "c7i.4xlarge", up_h=20)])
+    go(ec2, FakeCW(cpu={"i-cpu": series(NOW - 3600, [0.1] * 12)}))
+    assert ec2.stopped == []
+
+
+def test_sweeps_the_first_designs_alarms_and_never_creates_one():
+    cw = FakeCW(["killswitch-idle-i-1", "killswitch-idle-i-gone"])
+    _, logs = go(FakeEC2([inst("i-1", vcpu=8)]), cw)
+    assert cw.alarms == {}
+    assert sorted(r["instance"] for r in logs if r.get("do") == "delete") == ["i-1", "i-gone"]
 
 
 def test_one_failure_does_not_stop_the_rest():
@@ -144,11 +223,13 @@ def test_one_failure_does_not_stop_the_rest():
 
 
 def test_dry_run_changes_nothing():
-    ec2 = FakeEC2([inst("i-1", up_h=20), inst("i-9", state="terminated")])
-    cw = FakeCW(["killswitch-idle-i-9"])
+    ec2 = FakeEC2([inst("i-1", up_h=20), inst("i-2", vcpu=8)])
+    cw = FakeCW(["killswitch-idle-i-9"], cpu={"i-2": series(NOW - 3600, [6.0] * 12)})
     s, logs = go(ec2, cw, dry_run=True)
-    assert ec2.stopped == [] and cw.puts == [] and "killswitch-idle-i-9" in cw.alarms
-    assert {r["do"] for r in logs if "do" in r} == {"arm", "stop", "delete"} and s["dry_run"]
+    assert ec2.stopped == [] and "killswitch-idle-i-9" in cw.alarms
+    assert sorted((r["do"], r["instance"]) for r in logs if "do" in r) == [("delete", "i-9"), ("stop", "i-1"),
+                                                                           ("stop", "i-2")]
+    assert s["dry_run"]
 
 
 def test_launch_time_as_cli_string():
@@ -158,10 +239,10 @@ def test_launch_time_as_cli_string():
 
 
 def test_handler_reads_env(monkeypatch):
-    monkeypatch.setenv("KILLSWITCH_THRESHOLD", "3")
+    monkeypatch.setenv("KILLSWITCH_IDLE_VCPU", "0.8")
     monkeypatch.setenv("KILLSWITCH_DEFAULT_TTL_H", "6")
     c = reaper.settings()
-    assert c["threshold"] == 3 and c["default_ttl_h"] == 6 and c["periods"] == 5 and not c["dry_run"]
+    assert c["idle_vcpu"] == 0.8 and c["default_ttl_h"] == 6 and c["periods"] == 5 and not c["dry_run"]
 
 
 # --- deploy ----------------------------------------------------------------------------------------------------------
@@ -172,12 +253,12 @@ def test_reaper_policy_cannot_terminate_or_touch_non_gpu():
     p = deploy.reaper_policy(ACCT, ["ap-south-1", "ap-northeast-1"])
     actions = [a for s in p["Statement"] for a in ([s["Action"]] if isinstance(s["Action"], str) else s["Action"])]
     assert not any("Terminate" in a for a in actions)
-    assert set(actions) == {"ec2:DescribeInstances", "ec2:StopInstances", "cloudwatch:DescribeAlarms",
-                            "cloudwatch:PutMetricAlarm", "cloudwatch:DeleteAlarms", "logs:CreateLogStream",
-                            "logs:PutLogEvents"}
+    assert set(actions) == {"ec2:DescribeInstances", "ec2:StopInstances", "cloudwatch:GetMetricStatistics",
+                            "cloudwatch:DescribeAlarms", "cloudwatch:DeleteAlarms", "logs:CreateLogStream",
+                            "logs:PutLogEvents"}  # no PutMetricAlarm: the reaper creates no alarm
     stop = next(s for s in p["Statement"] if s["Action"] == "ec2:StopInstances")
     assert stop["Condition"] == {"StringLike": {"ec2:InstanceType": ["g*", "p*"]}}
-    w = next(s for s in p["Statement"] if "cloudwatch:PutMetricAlarm" in s["Action"])
+    w = next(s for s in p["Statement"] if s["Action"] == "cloudwatch:DeleteAlarms")
     assert w["Resource"] == [f"arn:aws:cloudwatch:{r}:{ACCT}:alarm:killswitch-*" for r in ("ap-south-1",
                                                                                              "ap-northeast-1")]
     assert stop["Resource"] == [f"arn:aws:ec2:{r}:{ACCT}:instance/*" for r in ("ap-south-1", "ap-northeast-1")]
@@ -295,7 +376,6 @@ def test_undeploy_dry_run_writes_nothing():
     assert any("iam delete-role --role-name killswitch-reaper-role" in o for o in would)
 
 
-VCONF = dict(CONF, idle_vcpu=0.8)
 
 
 @pytest.mark.parametrize("vcpu,th", [(4, 20.0), (8, 10.0), (16, 5.0), (192, 0.42), (0, 4.0)])
@@ -313,17 +393,6 @@ def test_idle_editor_reads_the_same_in_vcpus():
                                                                                                 VCONF)
 
 
-def test_rearms_a_stale_alarm_and_leaves_a_current_one():
-    ec2 = FakeEC2([inst("i-1", vcpu=8), inst("i-2", vcpu=16), inst("i-3", vcpu=8, state="stopped")])
-    cw = FakeCW()
-    cw.alarms["killswitch-idle-i-1"] = reaper.alarm_spec("i-1", CONF)  # the old flat 4 %
-    cw.alarms["killswitch-idle-i-2"] = reaper.alarm_spec("i-2", VCONF, 5.0)  # already right
-    cw.alarms["killswitch-idle-i-3"] = reaper.alarm_spec("i-3", CONF)  # stopped: left until it has run 30 min
-    s, logs = go(ec2, cw, idle_vcpu=0.8)
-    assert [(p["AlarmName"], p["Threshold"]) for p in cw.puts] == [("killswitch-idle-i-1", 10.0)]
-    assert {r["do"] for r in logs if "do" in r} == {"rearm"} and s["failed"] == 0
-    s, _ = go(ec2, cw, idle_vcpu=0.8)
-    assert s["actions"] == 0  # settled
 
 
 def test_floor_25_is_the_highest_threshold_that_stays_quiet():
@@ -356,41 +425,3 @@ def test_work_window_can_name_its_box():
     a, b, lab, iid = deploy.parse_window("i-0abc@2026-11-08T12:00/2026-11-08T12:30=render")
     assert (b - a, lab, iid) == (1800, "render", "i-0abc")
     assert deploy.parse_window("2026-11-08T12:00/2026-11-08T12:30")[2:] == ("2026-11-08T12:00/2026-11-08T12:30", "")
-
-
-def test_restarted_box_with_stale_idle_points_is_not_stopped():
-    """Box T, 10:47 UTC: restarted 3 min earlier, its alarm still at the old 4 %, and CloudWatch holding the 5 idle
-    points from before the stop (6-9 %, under the new 10 %). Writing the alarm then made CloudWatch evaluate those
-    points and stop the box 100 s later. Inside the grace the reaper writes nothing, so that cannot happen."""
-    t = inst("i-t", vcpu=8, up_h=3 / 60)
-    old = dict(reaper.alarm_spec("i-t", CONF), StateValue="OK")
-    cw = FakeCW()
-    cw.alarms[old["AlarmName"]] = old
-    s, logs = go(FakeEC2([t, inst("i-new", vcpu=8, up_h=10 / 60)]), cw, idle_vcpu=0.8)
-    assert cw.puts == [] and cw.alarms["killswitch-idle-i-t"]["Threshold"] == 4.0
-    assert {(r["instance"], r["do"]) for r in logs if "do" in r} == {("i-t", "wait"), ("i-new", "wait")}
-    assert s["actions"] == 0 and s["waiting"] == 2
-    # 31 min after the start every point in the window is from this run: now it is brought up to date
-    t["LaunchTime"] = datetime.fromtimestamp(NOW - 31 * 60, UTC)
-    go(FakeEC2([t]), cw, idle_vcpu=0.8)
-    assert [(p["AlarmName"], p["Threshold"]) for p in cw.puts] == [("killswitch-idle-i-t", 10.0)]
-
-
-def test_grace_is_the_window_plus_a_period():
-    assert reaper.grace_s(CONF) == 30 * 60
-
-
-def test_an_alarm_stuck_in_alarm_since_before_the_start_is_reset():
-    t = inst("i-t", vcpu=8, up_h=2)
-    before = datetime.fromtimestamp(NOW - 3 * 3600, UTC).isoformat()
-    cw = FakeCW()
-    cw.alarms["killswitch-idle-i-t"] = dict(reaper.alarm_spec("i-t", VCONF, 10.0), StateValue="ALARM",
-                                            StateUpdatedTimestamp=before)
-    _, logs = go(FakeEC2([t]), cw, idle_vcpu=0.8)
-    assert [r["do"] for r in logs if "do" in r] == ["reset"]
-    assert "StateValue" not in cw.alarms["killswitch-idle-i-t"]  # a new alarm: INSUFFICIENT_DATA, can fire again
-    # in ALARM since after this start: it already acted (or is about to), so it is left alone
-    cw.alarms["killswitch-idle-i-t"].update(StateValue="ALARM",
-                                            StateUpdatedTimestamp=datetime.fromtimestamp(NOW - 60, UTC))
-    s, _ = go(FakeEC2([t]), cw, idle_vcpu=0.8)
-    assert s["actions"] == 0
