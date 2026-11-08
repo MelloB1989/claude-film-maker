@@ -73,6 +73,12 @@ eye on CAM_MCU f0-100 (box C):
   are kept for the key beats (agent-11 lowers some if more than ~1/3 are high). The rest-elevation line stays 30 deg.
   agent-13 updates the rows.
 
+**The clock (08 Nov):** the sequence, editor and composite are 24 fps; agent-01's arm_track is 30 fps. Every row maps
+frames by TIME (the orchestrator's rule). Matched frame-to-frame, the 'stale life layer' readings (44 / 47 cm) were a
+clock artefact and are VOID (agent-13): time-matched, the editor agrees with the track to ~0.35 cm. agent-09's tools:
+perf-rest and perf-parity paired frames by number (fixed e500c1d9). perf-face, perf-body, hands_in_frame,
+limb/hand_torso, qa_av and the spans all read 24 fps sequence frames only.
+
 **Cost policy (the operator via the orchestrator, 08 Nov):** at most two GPU boxes (T his, T2 hers). The finals
 render ON those boxes, not on farm workers, so the farm rows are INFO, and leaders and streaming come from each box's
 box.json per job. Every gate passes BEFORE a render: no re-renders, and the verify/test spans are kept to the minimum.
