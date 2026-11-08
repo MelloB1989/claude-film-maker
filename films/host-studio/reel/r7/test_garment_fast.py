@@ -264,29 +264,31 @@ def test_sleeves2_takes_back_flank_cloth_that_stays_with_the_spine():
     pose = {"l": (2.0, -17.5, 30.0), "r": (2.0, 17.5, 30.0)}
     for as_np, E in ((False, gm.PyEngine()), (True, gf.NpEngine())):
         D = make_D_sleeved(pose, as_np)
-        # a flank patch on each side, 10 cm under the T-pose arm (nearest it on the ref), still in the seated frame
+        # a flank patch on each side under the T-pose arm (nearest it on the ref), still in the seated frame, outside
+        # the hanging sleeve's tube (8 cm off its bone, sleeve r 7.5); and one INSIDE the tube (hidden: never torso)
         for n0 in ("rest", "posed"):
             P, T = D[n0]["Top"]
             P, T = [tuple(map(float, p)) for p in P], [tuple(map(int, t)) for t in T]
-            for y in (-16.5, 16.5):
+            for y, z in ((-24.0, 45.5), (24.0, 45.5), (-16.5, 41.0), (16.5, 41.0)):
                 o = len(P)
-                P += [(-1.5, y, 43.5), (1.5, y, 43.5), (1.5, y, 46.5), (-1.5, y, 46.5)]
+                P += [(-1.5, y, z), (1.5, y, z), (1.5, y, z + 3), (-1.5, y, z + 3)]
                 T += [(o, o + 1, o + 2), (o, o + 2, o + 3)]
             D[n0]["Top"] = (np.asarray(P, float), np.asarray(T, np.int64)) if as_np else (P, T)
         a = gm.arms_compute(D, {"SLEEVES": "1"}, E)
         b = gm.arms_compute(D, {"SLEEVES": "2"}, E)
         for sd in ("l", "r"):
             assert a["sides"][sd]["flank_moved_in"] == {}
-            assert b["sides"][sd]["flank_moved_in"]["Top"] == 4, b["sides"][sd]["flank_moved_in"]   # only the patch
+            mv = b["sides"][sd]["flank_moved_in"]["Top"]
+            assert mv["added"] == 4 and mv["inside_sleeve"] == 4 and abs(mv["sleeve_r"] - 7.5) < 0.2, mv
             assert b["sides"][sd]["torso_tris"] == a["sides"][sd]["torso_tris"] + 2
             assert b["sides"][sd]["rest_clear_cm"] == a["sides"][sd]["rest_clear_cm"]                # same self-check
     pa = flat(gm.arms_compute(D, {"SLEEVES": "2"}, gf.NpEngine()))
     D2 = make_D_sleeved(pose, False)
     for n0 in ("rest", "posed"):
         P, T = list(D2[n0]["Top"][0]), list(D2[n0]["Top"][1])
-        for y in (-16.5, 16.5):
+        for y, z in ((-24.0, 45.5), (24.0, 45.5), (-16.5, 41.0), (16.5, 41.0)):
             o = len(P)
-            P += [(-1.5, y, 43.5), (1.5, y, 43.5), (1.5, y, 46.5), (-1.5, y, 46.5)]
+            P += [(-1.5, y, z), (1.5, y, z), (1.5, y, z + 3), (-1.5, y, z + 3)]
             T += [(o, o + 1, o + 2), (o, o + 2, o + 3)]
         D2[n0]["Top"] = (P, T)
     pb = flat(gm.arms_compute(D2, {"SLEEVES": "2"}, gm.PyEngine()))
