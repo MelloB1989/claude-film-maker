@@ -118,7 +118,12 @@ POSE_ORIGIN = HandPose((22.0, 17.0, 13.0), pron=40.0, ext=10.0, shape="relaxed",
 # with her top): the presenter's rest. Hands loosely together in a soft steeple at the lower ribcage, well in front of
 # her (not touching her), palms facing, wrists straight, fingers gently curved; the gestures rise from it into the
 # frame. The fingers aim at the midline (YAW_BASE is faded out at the rest, see hand_targets).
-HIGH_REST = HandPose((16.0, 10.0, -4.0), pron=80.0, ext=0.0, shape="rest")  # r7F rows: x 25 -> 17.5, the fit that
+HIGH_REST = HandPose((27.0, 10.0, -5.5), pron=80.0, ext=12.0, shape="rest")  # the DESK REST (the orchestrator, 08 Nov:
+#   at x 16 her hands sat 3-4 cm off her belly, 'stuck to the body'): the forearms on the desk across its near edge,
+#   the elbows just behind it (x ~8, ~22 out, z ~76, 37-39 deg: the supported-arm line is 40), the wrists ~29 cm
+#   forward, ~7 cm over the desk top (each hand rests on its little-finger edge, palms facing: lower, the ring and
+#   pinky tips went into the desk), the hands loosely together 14-16 cm off the belly. Before:
+# HIGH_REST (16, 10, -4)  # r7F rows: x 25 -> 17.5, the fit that
 #   lets the elbows hang at <= 30 deg (Performer._fit_poses reports it as rest_fit)  # the orchestrator's ruling (08 Nov): lower
 #   than agent-10's (24, 8.5, 2.5), which put her wrists at her bust height 8 cm in front of it; wrists ~80 cm, under
 #   CAM_MCU's bottom edge. Not the ruled x 30: that far forward, with the hands together, the upper arms can clear her
@@ -613,12 +618,22 @@ class Performer(S.Seater):
             if self.SWIVEL_LOW:
                 if ea[0] < sha[0] - 6.0:  # nor back behind her
                     continue
-                if ea[0] > st_.desk_near - 6.0 and ea[2] < st_.desk_top + self.sy.elbow_r + 1.0:  # nor into the desk
-                    continue
+                if ea[0] > st_.desk_near - 1.0:  # over the desk: the elbow on it at most
+                    if ea[2] < st_.desk_top + self.sy.elbow_r + 1.0:
+                        continue
+                else:  # behind its near edge (the desk rest: the forearm across the edge): the forearm clears the edge
+                    wa = self.actor(w2)
+                    if wa[0] > st_.desk_near:
+                        z_edge = ea[2] + (wa[2] - ea[2]) * (st_.desk_near - ea[0]) / max(1e-6, wa[0] - ea[0])
+                        if z_edge < st_.desk_top + self.FOREARM_R:
+                            continue
             A2 = {**A, "upperarm_" + s: sha, "lowerarm_" + s: ea}
             c, c_side, c_bust = clearance(A2, None, s, self.tor, parts=True)
-            if self.SIDE_WANT is not None:  # the bust by CLEAR_WANT, her side only by SIDE_WANT
-                c = min(c_bust - self.CLEAR_WANT, c_side - self.SIDE_WANT) + self.CLEAR_WANT
+            if self.SIDE_WANT is not None:  # the bust by CLEAR_WANT (at the desk rest REST_BUST_WANT), her side only
+                #                             by SIDE_WANT
+                k_ = smooth(min(1.0, self._wg.get(s, 1.0) / 0.5))  # the full line from half a gesture on (the
+                bw = self.CLEAR_WANT * k_ + self.REST_BUST_WANT * (1.0 - k_)  # build's gate counts it there)
+                c = min(c_bust - bw, c_side - self.SIDE_WANT) + self.CLEAR_WANT
             if best is None or c > best[0]:
                 best = (c, e, w2)
             if c >= self.CLEAR_WANT:
@@ -633,6 +648,10 @@ class Performer(S.Seater):
             return low[1], low[2]
         return (best[1], best[2]) if best else (elbow, wr)
 
+    REST_BUST_WANT = 0.0  # cm the upper arm off the breast MODEL at the desk rest (the orchestrator, 08 Nov: the forearms
+    #   on the desk bring the elbows forward past the side of her chest, as any seated arm; the sphere model is crude
+    #   there, agent-02's mesh measure judges the rest)
+    FOREARM_R = 3.0  # cm the forearm's half-thickness (+ sleeve) where it crosses the desk's near edge
     ELEV_HIGH = 60.0  # deg for an apex at/above upper_chest (the orchestrator's ruling (B), 08 Nov)
     HIGH_OVER_SHOULDER = 2.0  # cm: a wrist goal this far over the shoulder joint is a high apex (upper_chest = +5)
     LOW_DOWN = 0.6  # cm down per cm in, for a low stroke
@@ -641,7 +660,8 @@ class Performer(S.Seater):
     FIT_MARGIN = 2.0  # deg under each line the goals are fitted to (agent-13: 60.03 on a 60 line)
     REACH_MAX = 24.0  # cm a goal comes in at most
     ABD_MAX = 35.0  # deg the upper arm's abduction at most when a clearing elbow allows (the orchestrator's row)
-    ELEV_REST, ELEV_STROKE = 30.0, 45.0  # deg the upper arm off hanging, at most (agent-13's lines, the orchestrator:
+    ELEV_REST, ELEV_STROKE = 40.0, 45.0  # deg the upper arm off hanging, at most (agent-13's lines, the orchestrator:
+    #   rest 40 with the forearms supported on the desk, 30 hanging;
     #   the clearance by shoulder FLEXION, the elbow forward and down, not abducted out: chicken wings)
     LOWER_APEX = False  # lower a high apex too when pulling it in can't meet the cap (off: it emptied CAM_CU's frame,
     #                     0.0, and put fingers in the desk; the high strokes keep their elevation, see ELEV_STROKE)
@@ -683,7 +703,15 @@ class Performer(S.Seater):
                 return self.comp([st_pt[0] + off[0], st_pt[1] + sg * off[1], st_pt[2] + off[2]])
 
             def elev(off):
-                e, _ = self.swivel(s, sh, goal(off), l1, l2, pole, W, 1.0)
+                wg0 = self._wg.get(s)
+                self._wg[s] = 0.0 if rest else 1.0  # the swivel's bust line for this goal
+                try:
+                    e, _ = self.swivel(s, sh, goal(off), l1, l2, pole, W, 1.0)
+                finally:
+                    if wg0 is None:
+                        self._wg.pop(s, None)
+                    else:
+                        self._wg[s] = wg0
                 return self.elevation(sh, e)
 
             if not rest and hp.off[2] > APEX_MAX_Z:  # the variation's amp took it past the collarbone line
@@ -903,6 +931,7 @@ def build(data: dict, st, sy, sheet: dict, cues: dict, tilts: list, length_s: fl
     keyed = {b: [] for b in moving}
     issues, clear = [], {"l": 1e9, "r": 1e9}
     side_c, bust_c = {"l": 1e9, "r": 1e9}, {"l": 1e9, "r": 1e9}
+    rest_bust = {"l": 1e9, "r": 1e9}
     framing = {}
     rest_clear = 1e9
     track = []  # track_out: the arm track per frame (on the box for his body: his skeleton never leaves it)
@@ -935,7 +964,11 @@ def build(data: dict, st, sy, sheet: dict, cues: dict, tilts: list, length_s: fl
                     c_, c_side, c_bust = clearance(A, F, s, perf.tor, parts=True)
                     if up:
                         clear[s] = min(clear[s], c_)
-                        side_c[s], bust_c[s] = min(side_c[s], c_side), min(bust_c[s], c_bust)
+                        side_c[s] = min(side_c[s], c_side)
+                        if perf.gesture_w(s, t) >= 0.5:  # the bust line in gestures; at the desk rest the arm lies
+                            bust_c[s] = min(bust_c[s], c_bust)  # beside the chest (agent-02's mesh judges it)
+                        else:
+                            rest_bust[s] = min(rest_bust[s], c_bust)
                     else:
                         rest_clear = min(rest_clear, c_)
                 cam = next((c for a, b, c in plan.on_cam if a <= t < b), None)
@@ -959,6 +992,7 @@ def build(data: dict, st, sy, sheet: dict, cues: dict, tilts: list, length_s: fl
     rows = {"upperarm_torso_clear_cm": {s: round(v, 1) for s, v in clear.items()},
             "upperarm_bust_clear_cm": {s: round(v, 1) for s, v in bust_c.items()},
             "upperarm_side_clear_cm": {s: round(v, 1) for s, v in side_c.items()},
+            "rest_upperarm_bust_model_cm": {s: round(v, 1) for s, v in rest_bust.items()},  # (the model; mesh judges)
             "left_resting_arm_clear_cm": round(rest_clear, 1) if rest_clear < 1e8 else None,
             "hands_in_frame_frac": {c: round(a / b, 3) for c, (a, b) in framing.items() if b}}
     for c, want in {**FRAME_WANT, **(frame_want or {})}.items():  # frame_want: a presenter's own lines
