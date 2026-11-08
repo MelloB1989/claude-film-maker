@@ -1141,12 +1141,14 @@
    "unit": "fraction",
    "what": "wrist movements (>= 8 cm) whose path strays < 3 % of its chord: straight lines",
    "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply",
-   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement 22baa9a5; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json",
+   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement 93d10277; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json",
    "must_fail": [
     0.609,
     "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): 0.609; agent-01's ee99f626 reads 0.0 ok"
    ],
-   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md"
+   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md",
+   "na_ok": true,
+   "na_reason": "fewer than 5 wrist movements on both hands (agent-13 93d10277 MIN_MOVES): too few to judge a share"
   },
   "move.shape_claw_frac": {
    "area": "performance",
@@ -1201,12 +1203,14 @@
    "unit": "fraction",
    "what": "wrist movements with a peak/mean speed of 1.6-2.3 (minimum jerk 1.875), worse hand",
    "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply",
-   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement 22baa9a5; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json",
+   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement 93d10277; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json",
    "must_fail": [
     0.391,
     "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): 0.391; agent-01's ee99f626 reads 0.646 ok"
    ],
-   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md"
+   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md",
+   "na_ok": true,
+   "na_reason": "fewer than 5 wrist movements on both hands (agent-13 93d10277 MIN_MOVES): too few to judge a share"
   },
   "move.wrist_flexext_p90_deg": {
    "area": "performance",
