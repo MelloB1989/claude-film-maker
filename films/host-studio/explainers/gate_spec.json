@@ -1310,8 +1310,9 @@
    ],
    "must_fail_whatsapp": [
     1.61,
-    "his aba900fe + 7b03480f: bust 1.61 @f54 (< 3)"
-   ]
+    "his arms_9fe8fee0: front 1.61 @f54"
+   ],
+   "how_whatsapp": "agent-02: garment_measure arms --label Host --engine fast --set TOP=SkeletalMesh --set SLEEVES=1, frames 0-179:6,422-480:6 (his TEST), every frame seated + gestures; his OUTFIT is the torso surface (his Body has no torso skin under it)"
   },
   "body.upperarm_side_clear_cm": {
    "area": "performance",
@@ -1334,8 +1335,9 @@
    ],
    "must_fail_whatsapp": [
     -7.87,
-    "his aba900fe + 7b03480f (box T, agent-02 fast engine, SLEEVES=1, TOP=SkeletalMesh): side -7.87 @f84; bust 1.61 @f54"
-   ]
+    "his arms_9fe8fee0 (aba900fe + 7b03480f): side -7.87 @f84 (left, 200 verts inside)"
+   ],
+   "how_whatsapp": "agent-02: garment_measure arms --label Host --engine fast --set TOP=SkeletalMesh --set SLEEVES=1, frames 0-179:6,422-480:6 (his TEST), every frame seated + gestures; his OUTFIT is the torso surface (his Body has no torso skin under it)"
   },
   "move.humerus_elev_high_deg": {
    "area": "performance",
