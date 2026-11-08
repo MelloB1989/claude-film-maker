@@ -78,6 +78,12 @@ LIST_STEP = 7.0  # cm between a list's items (a hand-width, palm across)
 HOLD_MAX_S = 0.6  # R7 hands (agent-08): a count / beat / list hold at most this (with its drift), never a pose held up
 
 
+LIST_MAX_Z = 6.0  # cm over the sternum point a list's places sit at most, whatever the sheet's apex_height (the
+#   orchestrator, r7I f~1110: N13's 'sternum' places (APEX_Z 14) sat near shoulder height, the wrist 92 cm and the
+#   fingertips 98-100 with her shoulder joints at 98; at 6 the wrist is at the sternum; at 4 agent-13's lag_hand_ms
+#   fell to 25 with the palm guard)
+
+
 def list_y(g: dict) -> float:
     return RIGHT_MIN_LAT + LIST_STEP * (max(1, int(g.get("item", 1))) - 1)
 
@@ -124,7 +130,7 @@ POSE_ORIGIN = HandPose((22.0, 17.0, 13.0), pron=40.0, ext=10.0, shape="relaxed",
 # with her top): the presenter's rest. Hands loosely together in a soft steeple at the lower ribcage, well in front of
 # her (not touching her), palms facing, wrists straight, fingers gently curved; the gestures rise from it into the
 # frame. The fingers aim at the midline (YAW_BASE is faded out at the rest, see hand_targets).
-REST_PRON, REST_EXT = 0.0, 8.0  # R7 hands (the orchestrator's review: the resting hand hovered on its fingertips, the
+REST_PRON, REST_EXT = 0.0, 3.0  # R7 hands (the orchestrator's review: the resting hand hovered on its fingertips, the
 #   wrist cocked, the fingers splayed: a spider): the hand rests PALM DOWN on the desk, the wrist neutral, the fingers
 #   together and gently curled ('rest'), the contact through the palm and the finger pads, never the tips alone. On
 #   her rig (offline, both hands, t44.5 / t58.8): the wrist joint 3.5-3.7 cm over the desk top (seatkit's rest), the
@@ -191,6 +197,8 @@ class Plan:
     gap_merge: float = 0.9  # pauses shorter than this keep the hands up (agent-10's timing can set it)
     on_cam: list = field(default_factory=list)  # [[t0, t1, camera label]] the shots she is in
     bridges: list = field(default_factory=list)  # [[t0, t1]] pauses that keep the hands up (agent-10's timing)
+    rest_only: list = field(default_factory=list)  # [[t0, t1]] the hands rest on the desk, no gestures (the operator's
+    #   fallback: shoulders, torso, head and breath stay alive; the hands home REST_ONLY_EASE before t0, up after t1)
     mic_cams: list = field(default_factory=list)  # [[t0, t1, camera]] shots filmed besides the edit's (his TEST render
     #   films CAM_MCU over 0-7.46 s): the mic rule guards these too; the framing rows stay on on_cam
 
@@ -240,6 +248,16 @@ class Plan:
         a = (max(pk[i] - self.BREATH_IN_S, p0) if i < len(pk) else p0 + 4.4)
         u = min(1.0, (t - p0) / max(1e-6, a - p0))
         return self.BREATH_CM * (1.0 - u * u * u * (10 - 15 * u + 6 * u * u))
+
+    REST_ONLY_EASE = 0.6  # s the hands take home before a rest_only range and back up after it
+
+    def rest_w(self, t: float) -> float:
+        """1 inside a rest_only range (the hands at the desk rest), eased over REST_ONLY_EASE outside its ends."""
+        e, w = self.REST_ONLY_EASE, 0.0
+        for a, b in self.rest_only:
+            if a - e < t < b + e:
+                w = max(w, min(smooth((t - (a - e)) / e), 1.0 - smooth((t - b) / e)))
+        return w
 
     def speak_w(self, t: float, pre: float = 0.5, post: float = 0.6, gap_merge: float | None = None) -> float:
         """1 while speaking (lines merged across gaps under gap_merge s), eased in/out."""
@@ -318,7 +336,7 @@ def catalogue_plan(on_cam=None) -> Plan:
 
 def plan_from_sheet(sheet: dict, cues: dict, tilts: list | None = None, base_lean: float = 4.0,
                     timing: list | None = None, on_cam: list | None = None, close_alive: float | None = None,
-                    mic_cams: list | None = None) -> Plan:
+                    mic_cams: list | None = None, rest_only: list | None = None) -> Plan:
     """agent-11's acting sheet (lines[].body01) + the cue sheet (speaking spans) -> Plan. `timing` (agent-10's
     prosody planner) overrides each gesture's prep/stroke/hold/retract/amp/energy by (line, word_i)."""
     events, lean = [], []
@@ -357,8 +375,8 @@ def plan_from_sheet(sheet: dict, cues: dict, tilts: list | None = None, base_lea
                 if g.get("type") == "beat" and g.get("detail") in ("beat", "", None):
                     z = min(z, BEAT_MAX_Z)  # beats can sit lower, still in frame (the orchestrator), off the mic
                 pr = replace(pr, off=(pr.off[0], pr.off[1], z))
-            if g.get("type") == "list":  # the line's places as drawn, whatever the amp
-                pr = replace(pr, off=(pr.off[0], list_y(g), pr.off[2]))
+            if g.get("type") == "list":  # the line's places as drawn, whatever the amp, at the sternum
+                pr = replace(pr, off=(pr.off[0], list_y(g), min(pr.off[2], LIST_MAX_Z)))
             pl = scaled(gesture_pose(g, "l", n_count), k) if g.get("hand") in ("both", "l") else None
             if pl is not None:  # the left (mic side) of a two-hand gesture: forward <= LEFT_TWO[0], out LEFT_TWO[1], up
                 #                 >= LEFT_TWO[2] over the sternum point. Tucked in and low (out 7, up -3.5) the arm went
@@ -388,7 +406,12 @@ def plan_from_sheet(sheet: dict, cues: dict, tilts: list | None = None, base_lea
     if close_alive and speaking:  # the take's length: after the last line the hands stay at the speaking desk rest
         #   to the end, as the take opens alive (his forearms can't reach the desk rest: elbows off the edge, 55.4 s)
         bridges = list(bridges) + [[max(b_ for _, b_ in speaking), float(close_alive) + 1.0]]
-    return Plan(events, speaking, lean, tilts or [], base_lean, gap_merge, on_cam or [], bridges, mic_cams or [])
+    ro = [[float(a), float(b)] for a, b in rest_only or []]
+    if ro:  # the operator's fallback: no gesture reaches into a rest range or its eases (the hands rest there)
+        e = Plan.REST_ONLY_EASE
+        events = [ev for ev in events
+                  if not any(ev.prep < b + e and ev.stroke + ev.hold + ev.retract > a - e for a, b in ro)]
+    return Plan(events, speaking, lean, tilts or [], base_lean, gap_merge, on_cam or [], bridges, ro, mic_cams or [])
 
 
 # --- torso model and the arm clearance ---------------------------------------------------------------------------
@@ -541,7 +564,7 @@ class Performer(S.Seater):
         sg = 1.0 if s == "r" else -1.0
         A_l, A_r = (self.actor(self._fk_t("upperarm_" + x, "clavicle_" + x, W)) for x in "lr")
         st_pt = [(A_l[0] + A_r[0]) / 2 + 8.0, (A_l[1] + A_r[1]) / 2, (A_l[2] + A_r[2]) / 2 - 14.0]
-        ws = self.plan.speak_w(t)
+        ws = self.plan.speak_w(t) * (1.0 - self.plan.rest_w(t))  # (a rest_only range: at the desk, speaking or not)
         if s == "l" and LEFT_RESTS:
             # her left forearm rests on the desk while she speaks and rises only for its own / two-hand gestures:
             # anywhere up near her chest it sat over the mic in the picture (it hangs at sternum height, frame right)
@@ -627,6 +650,8 @@ class Performer(S.Seater):
     def pose(self, t: float = 0.0, gestures=None) -> dict:
         if not self._ready:
             return super().pose(t, gestures or [])
+        if getattr(self, "_pg_tab", None) is None:
+            self.palm_prime()
         self._t = t  # (the hand's trail keeps a short history per frame)
         self._breath_v = None  # (seatkit's own pose goes through _locals too: no breath until the arms are done)
         sk, sy = self.sk, self.sy
@@ -1466,56 +1491,148 @@ class Performer(S.Seater):
             k = cross(fingers, mul(palm, -1.0))
             if norm(k) > 1e-6:
                 fingers = qrot(axis_angle(k, hp.ext * ws), fingers)
-        across = self._palm_off_camera(s, fingers, across, d0, a0, side)
+        fingers, across = self._palm_off_camera(s, fingers, across, d0, a0, side, fa)
         return qmul(S.frame_to_frame(d0, a0, fingers, across), sk.q("hand_" + s))
 
     PALM_OFF_FWD = 95.0  # deg the palm's normal keeps off straight forward when the fingers point up (agent-13's
     #   move.palm_to_camera_frames: within 60 deg with the fingers up is the 'halt'; the orchestrator, 09 Nov: an
     #   offering / placing palm faces up and in, never the camera): 95 turns it to face her midline (in), a touch back
+    PALM_MAX = 150.0  # deg the guard turns at most (80-100: the palm stayed on the lens at the deictics, 137 / 26 frames)
     PALM_UP_RAMP = (0.15, 0.4)  # the fingers' up component over which the rule fades in (continuous: no snap)
 
-    def _palm_off_camera(self, s, fingers, across, d0, a0, side):
-        """The hand turned about its fingers (supination, toward her midline) the least that keeps the palm's normal
-        PALM_OFF_FWD off forward, faded in by how far the fingers point up; a 'press' (palm out on purpose) exempt."""
+    def _palm_off_camera(self, s, fingers, across, d0, a0, side, fa):
+        """(fingers, across) turned about the forearm `fa` (supination, toward her midline) the least that keeps the
+        palm's normal PALM_OFF_FWD off forward, faded in by how far the fingers point up; a 'press' (palm out on
+        purpose) exempt. About the forearm, not the fingers: turned about an extended hand's fingers, its extension
+        became a radial bend (agent-13's wrist_radial_p95 18.7 on the left, 963942f4); the forearm's twist keeps it."""
+        t = getattr(self, "_t", None)
+        if t is None:
+            return fingers, across
+        rec = getattr(self, "_pg_rec", None)
+        if rec is not None:  # the priming pass: what each frame wants, unguarded
+            rec[s].append((t, self._palm_want(s, fingers, across, d0, a0, t, fa)))
+            return fingers, across
+        ang = self._palm_at(s, t - self.PALM_DELAY)
+        if not ang:
+            return fingers, across
+        q = axis_angle(fa, ang)
+        return qrot(q, fingers), qrot(q, across)
+
+    PALM_W = 24.0  # rad/s the guard's turn follows what each frame wants: a critically damped spring run forward and
+    #   back over the take (zero phase: it turns ahead of the arrival and eases out after the release, never stops
+    #   dead). Per frame it turned the hand 45-87 deg in 3-4 frames as the wrist stopped and unwound as fast on the
+    #   retract, the thumb's IP head >= 90 cm/s stopping dead (agent-13's / agent-08's finger_snap 7.32/min, 963942f4);
+    #   a causal spring lagged into the holds (palm_to_camera) or, faster, snapped. Tried and dropped (agent-13's rows):
+    #   a rate-capped cone ahead of the want (lag_hand -58..-128), a causal release or a longer release delay (snaps at
+    #   the landings, 3-7/min), the turn planned per stroke on minimum jerks (snaps 4.2 at the arrivals), either sense
+    #   the shorter way round (snaps 7-9)
+    PALM_DELAY = 0.055  # s the curve runs behind the frame's want (the zero-phase turn led the upper arm: lag_hand_ms;
+    #   on d1869ce7 + this, agent-13's rows: W 24 / 0.055 lag_hand 38, snaps 0, palm_to_camera 0, radial 2.7; 22 / 0.05
+    #   passes too; 20 / 0.045 lag 20; 22 / 0.06 a palm frame at 17.3)
+    PALM_DT = 1.0 / 30.0  # s the guard's curve is sampled at (linear between; the pass costs one pose per sample)
+
+    def _palm_at(self, s, t):
+        tab = getattr(self, "_pg_tab", None)
+        if tab is None:
+            return 0.0
+        xs = tab[s]
+        k = (t - tab["t0"]) / self.PALM_DT
+        if k <= 0:
+            return xs[0]
+        if k >= len(xs) - 1:
+            return xs[-1]
+        i = int(k)
+        return xs[i] + (xs[i + 1] - xs[i]) * (k - i)
+
+    def palm_prime(self, t1=None):
+        """The guard's curve over the take: what each frame wants (a pose pass with the guard off), smoothed forward and
+        back by the spring. pose() primes itself on its first call; the pass leaves the performer as it found it."""
+        import copy
+        evs = self.plan.events
+        t1 = t1 if t1 is not None else max([e.stroke + e.hold + e.retract for e in evs] or [0.0]) + 1.0
+        keep = {k: v for k, v in self.__dict__.items()}
+        memo = {id(v): v for k, v in keep.items() if k in ("sk", "plan", "set", "sy", "fr")}
+        snap = copy.deepcopy(keep, memo)
+        self._pg_tab = {"t0": 0.0, "l": [0.0], "r": [0.0]}  # (re-entry: the pass itself sees no table)
+        self._pg_rec = {"l": [], "r": []}
+        try:
+            n = int(t1 / self.PALM_DT) + 1
+            for i in range(n):
+                self.pose(i * self.PALM_DT)
+            rec = self._pg_rec
+        finally:
+            self.__dict__.clear()
+            self.__dict__.update(snap)
+        tab = {"t0": 0.0}
+        for s in "lr":
+            want = [0.0] * n
+            for tt, a in rec[s]:  # the last call in a frame stands (the pose's own)
+                want[min(n - 1, max(0, int(round(tt / self.PALM_DT))))] = a
+            sg = -1.0 if s == "r" else 1.0  # (one sense per side: supination)
+            m = [max(0.0, sg * x) for x in want]
+            tab[s] = [sg * x for x in self._spring_pass(self._spring_pass(m)[::-1])[::-1]]
+        self._pg_tab = tab
+
+    def _spring_pass(self, xs):
+        w, dt = self.PALM_W, self.PALM_DT
+        ex = math.exp(-w * dt)
+        a, v, out = xs[0], 0.0, []
+        for x in xs:
+            x0 = a - x
+            c = v + w * x0
+            a, v = x + (x0 + c * dt) * ex, (v - w * c * dt) * ex
+            out.append(a)
+        return out
+
+    PALM_WG = (0.15, 0.6)  # the stroke weight over which the guard comes in: done by the arrival (a hold that began
+    #   palm-out counted on palm_to_camera), the spring's lag on top
+
+    def _palm_want(self, s, fingers, across, d0, a0, t, fa):
+        """The signed guard angle (deg about the forearm) this frame wants, before palm_prime smooths it."""
         f, r, u = self.fr
         k_up = smooth((dot(fingers, u) - self.PALM_UP_RAMP[0]) / (self.PALM_UP_RAMP[1] - self.PALM_UP_RAMP[0]))
-        t = getattr(self, "_t", None)
-        if k_up <= 0 or t is None:
-            return across
+        if k_up <= 0:
+            return 0.0
         press = sum(e.weight(t) for e in self.plan.events
                     if (e.hand == s or e.hand == "both") and "press" in (e.kind + " " + str(getattr(e, "detail", ""))))
-        k_up *= max(0.0, 1.0 - min(1.0, press)) * smooth((self._wg.get(s, 0.0) - 0.4) / 0.5)  # at the strokes (the
-        #   landings keep the hand's own contact turn: a pinky went into the desk)
+        wr = self._wg_rot.get(s, self._wg.get(s, 0.0))  # the hand's own turn clock (ROT_LAG_S behind the arm: on the
+        #   arm's weight the guard turned the hand with or before the upper arm, agent-13's lag_hand_ms)
+        k_up *= max(0.0, 1.0 - min(1.0, press)) * smooth((wr - self.PALM_WG[0]) / (self.PALM_WG[1] - self.PALM_WG[0]))
+        #   at the strokes (the landings keep the hand's own contact turn: a pinky went into the desk)
         if k_up <= 0:
-            return across
+            return 0.0
         sk = self.sk
         n_ref = unit(cross(sub(sk.p("middle_01_" + s), sk.p("hand_" + s)), sub(sk.p("index_01_" + s), sk.p("pinky_01_" + s))))
         if dot(sub(sk.p("middle_03_" + s), sk.p("middle_01_" + s)), n_ref) < 0:
             n_ref = mul(n_ref, -1.0)
         sgn = 1.0 if dot(cross(d0, a0), n_ref) > 0 else -1.0
 
-        def palm_of(ac):
-            return mul(unit(cross(fingers, ac)), sgn)
-
         def off(phi):
-            return math.degrees(math.acos(max(-1.0, min(1.0, dot(palm_of(qrot(axis_angle(fingers, phi), across)), f)))))
+            q = axis_angle(fa, phi)
+            palm = mul(unit(cross(qrot(q, fingers), qrot(q, across))), sgn)
+            return math.degrees(math.acos(max(-1.0, min(1.0, dot(palm, f)))))
 
         if off(0.0) >= self.PALM_OFF_FWD:
-            return across
+            return 0.0
         sg = -1.0 if s == "r" else 1.0  # always the supination sense (toward her midline): a sign taken from the palm
         #   flipped frame to frame near its zero, the hand flapping (410 cm/s fingertips, 21.5 s)
-        lo, hi = 0.0, 150.0  # deg (axis_angle takes degrees)
-        if off(sg * hi) < self.PALM_OFF_FWD:
-            phi = hi
-        else:
-            for _ in range(14):
+        # the least turn within PALM_MAX that gets there; short of it, the turn (in PALM_MAX) that gets furthest: about a
+        #   forearm pointing near the lens no turn takes the palm off it, and a 150 deg ask unwound in 0.2 s (snaps)
+        cand = [i * 2.5 for i in range(int(self.PALM_MAX / 2.5) + 1)]
+        offs = [off(sg * c) for c in cand]
+        ok = [c for c, o in zip(cand, offs) if o >= self.PALM_OFF_FWD]
+        if ok:
+            lo, hi = max(0.0, ok[0] - 2.5), ok[0]
+            for _ in range(8):
                 mid = 0.5 * (lo + hi)
                 if off(sg * mid) >= self.PALM_OFF_FWD:
                     hi = mid
                 else:
                     lo = mid
             phi = hi
-        return qrot(axis_angle(fingers, sg * phi * k_up), across)
+        else:
+            phi = cand[max(range(len(cand)), key=lambda i: offs[i])]
+        return sg * phi * k_up
 
     def _finger_pose(self, s, hp: HandPose, W):
         """Each finger to its shape's ABSOLUTE anatomical angles (handshape.finger_angles: MCP-first synergy, DIP ~2/3
@@ -1523,6 +1640,8 @@ class Performer(S.Seater):
         opposition (in front of the palm, across toward the pinky), then MCP and IP flexion."""
         sk = self.sk
         shape = HS.full(hp.shape)
+        self._shape_now = getattr(self, "_shape_now", {})
+        self._shape_now[s] = shape  # (the desk's finger lift un-curls along the same synergy)
         dh = qmul(W["hand_" + s][1], qinv(sk.q("hand_" + s)))
         for f in FINGERS:
             info = self._finger_info.get((s, f))
@@ -1554,6 +1673,7 @@ class Performer(S.Seater):
                 W[j] = [self._fk_t(j, parent, W) if parent in W else sk.p(j), Q[j]]
                 parent = j
 
+    DESK_PULL_MAX = 6.0  # deg the contact pulls a resting hand DOWN onto the desk at most (its push out stays 16)
     DESK_LIVE = 0.15  # cm the pads' height breathes about DESK_TIP (0.21 Hz)
     DESK_TIP = 0.9  # cm a resting hand's lowest fingertip (its centre line) over the desk top: the pad on it
     REST_WRIST_UNDER = 0.2  # cm the resting wrist joint sits under the presenter's forearm_clear: the heel of the palm
@@ -1565,7 +1685,7 @@ class Performer(S.Seater):
     DESK_PITCH_MAX = 16.0  # deg the contact solve pitches the hand at most. A trade-off at the LANDINGS (the elbow drops
     #   onto the desk at 140-220 cm/s): 30 keeps every finger out of the desk but snaps 5.2 /min; 16 snaps 3.1 with a
     #   landing pinky DIP 0.6-0.7 cm under for a frame. The landing itself must ease (agent-01's rest IK)
-    REST_HAND_PITCH, REST_PITCH_BAND = 10.0, 8.0  # deg: the resting palm's long axis over the desk (hers sits 4-13)
+    REST_HAND_PITCH, REST_PITCH_BAND = 2.0, 8.0  # deg: the resting palm's long axis over the desk (hers sits 4-13)
     #   and the band the safety level leaves alone
 
     def _desk_contact(self, s: str, W, k: float) -> None:
@@ -1621,7 +1741,9 @@ class Performer(S.Seater):
         reach = math.hypot(arm[0], arm[1])  # a turn about a level axis lifts the tip by ~ this x the angle
         if reach < 3.0:
             return
-        ang = max(-self.DESK_PITCH_MAX, min(self.DESK_PITCH_MAX, math.degrees(math.asin(max(-1.0, min(1.0, err / reach))))))
+        cap = self.DESK_PITCH_MAX if err < 0.0 else self.DESK_PULL_MAX  # out of the desk up to 16; down onto it <= 6 (in
+        #   the air the rest weight ramps during a retract: a 16-deg pull-down turned the hand 10-12 deg/frame, a snap)
+        ang = max(-cap, min(cap, math.degrees(math.asin(max(-1.0, min(1.0, err / reach))))))
         ax = unit(across)
         # settled onto the desk by the rest's weight, out of it in full, blended over the last 0.5 cm (a switch at the
         # surface flicked the landing fingers: agent-13's finger_snap, L t3.4)
@@ -1633,37 +1755,111 @@ class Performer(S.Seater):
         for b in [ha] + bones:
             W[b] = [add(piv, qrot(r, sub(W[b][0], piv))), qnorm(qmul(r, W[b][1]))]
         self._fingers_off_desk(s, W)
+        self._roll_off_desk(s, W)
         self._thumb_off_desk(s, W)
 
+    def _roll_off_desk(self, s: str, W) -> None:
+        """The last resort: a fingertip still under the desk line after the pitch and the fingers' own lift (a landing
+        hand rolled onto its little-finger side: t22.03, the pinky 3 cm under) rolls the hand about its long axis by
+        just enough. Only those frames: levelling the roll by the rest's weight on every landing snapped (20 /min)."""
+        sk, ha = self.sk, "hand_" + s
+        mk = f"middle_01_{s}"
+        if mk not in W:
+            return
+        for _ in range(3):  # a linear step on an arc: repeat on the lowest tip
+            tips = []
+            for f in ("index", "middle", "ring", "pinky"):
+                j = f"{f}_03_{s}"
+                if j in W and j in sk.local and norm(sk.local[j]["t"]) > 1e-6:
+                    lt = sk.local[j]["t"]
+                    tips.append(add(W[j][0], mul(qrot(W[j][1], unit(lt)), TIP_K.get(f, 0.75) * norm(lt))))
+            if not tips:
+                return
+            low = min(tips, key=lambda p_: self.actor(p_)[2])
+            need = self.set.desk_top + self.DESK_TIP_MIN - self.actor(low)[2]
+            if need <= 0.0:
+                return
+            piv = W[ha][0]
+            lax = unit(sub(W[mk][0], piv))
+            arm = sub(low, piv)
+            rad = norm(sub(arm, mul(lax, dot(arm, lax))))  # the tip's distance off the long axis
+            if rad < 0.5:
+                return
+            ang = min(20.0, math.degrees(math.asin(min(1.0, (need + 0.05) / rad))))
+            r = axis_angle(lax, ang)
+            if self.actor(add(piv, qrot(r, arm)))[2] < self.actor(low)[2]:
+                r = axis_angle(lax, -ang)
+            for b in [ha] + [b for b in W if b.endswith("_" + s) and b.split("_")[0] in FINGERS]:
+                W[b] = [add(piv, qrot(r, sub(W[b][0], piv))), qnorm(qmul(r, W[b][1]))]
+
     def _fingers_off_desk(self, s: str, W) -> None:
-        """A finger whose DIP joint or tip dips under the desk line lifts at its knuckle by just enough (a landing:
-        the hand's pitch is capped, and pitching it further bends the wrist past the flex/ext line; the finger alone
-        gives, the way a real finger meets the desk)."""
+        """A finger whose DIP joint or tip dips under the desk line UN-CURLS along its own synergy by just enough
+        (bisection on the closure; each joint straightens by the synergy's own difference about the finger's hinge):
+        a landing, the hand's pitch capped. Lifted at the knuckle alone it made the claw pattern (agent-13's
+        finger_claw at t22.0); along the synergy it never can."""
         sk = self.sk
+        shape = getattr(self, "_shape_now", {}).get(s)
+        if not shape:
+            return
+        dh = qmul(W["hand_" + s][1], qinv(sk.q("hand_" + s)))
         for f in ("index", "middle", "ring", "pinky"):
-            j1, j3 = f"{f}_01_{s}", f"{f}_03_{s}"
-            if j1 not in W or j3 not in W or j3 not in sk.local:
+            info = self._finger_info.get((s, f))
+            j1, j2, j3 = f"{f}_01_{s}", f"{f}_02_{s}", f"{f}_03_{s}"
+            if not info or j3 not in W or j3 not in sk.local:
                 continue
             lt = sk.local[j3]["t"]
-            for _ in range(2):
-                tip = add(W[j3][0], mul(qrot(W[j3][1], unit(lt)), TIP_K.get(f, 0.75) * norm(lt)))
-                pts = [(W[j3][0], self.set.desk_top + self.DESK_THUMB), (tip, self.set.desk_top + self.DESK_TIP_MIN)]
-                worst, line = min(pts, key=lambda pl: self.actor(pl[0])[2] - pl[1])
-                need = line - self.actor(worst)[2]
-                if need <= 0.0:
-                    break
-                piv = W[j1][0]
+            if norm(lt) < 1e-6:
+                continue
+            axis = qrot(dh, info["axis"])
+            c0 = float(shape.get(f, 0.0))
+            pip_x = float(shape.get("_pip_" + f, 0.0))
+            a0 = HS.finger_angles(f, c0, pip_x)
+            base = {j: list(W[j]) for j in (j1, j2, j3)}
+
+            def posed(dc):
+                a1 = HS.finger_angles(f, c0 - dc, pip_x)
+                out = {j: list(v) for j, v in base.items()}
+                for j, k in ((j1, 0), (j2, 1), (j3, 2)):  # straighten at this joint: it and the joints beyond it
+                    r = axis_angle(axis, a1[k] - a0[k])
+                    piv = out[j][0]
+                    for jj in (j1, j2, j3)[(j1, j2, j3).index(j):]:
+                        out[jj] = [add(piv, qrot(r, sub(out[jj][0], piv))), qnorm(qmul(r, out[jj][1]))]
+                tip = add(out[j3][0], mul(qrot(out[j3][1], unit(lt)), TIP_K.get(f, 0.75) * norm(lt)))
+                low = min(self.actor(out[j3][0])[2] - (self.set.desk_top + self.DESK_THUMB),
+                          self.actor(tip)[2] - (self.set.desk_top + self.DESK_TIP_MIN))
+                return out, low
+            out, low = posed(0.0)
+            if low >= 0.0:
+                continue
+            lo, hi = 0.0, c0 + 6.0
+            o_hi, l_hi = posed(hi)
+            if l_hi < 0.0:  # straight and still under (the hand low on that side): the residual at the knuckle, <= 8
+                #   deg (a straight finger cannot read as a claw: its PIP is ~5)
+                out = o_hi
+                tip = add(out[j3][0], mul(qrot(out[j3][1], unit(lt)), TIP_K.get(f, 0.75) * norm(lt)))
+                worst = min((out[j3][0], tip), key=lambda p_: self.actor(p_)[2])
+                piv = out[j1][0]
                 arm = sub(worst, piv)
                 reach = math.hypot(arm[0], arm[1])
-                if reach < 1.0:
-                    break
-                ang = math.degrees(math.asin(max(-1.0, min(1.0, need / reach)))) * 1.05
-                ax = unit(cross(arm, [0.0, 0.0, 1.0]))
-                r = axis_angle(ax, ang)
-                if self.actor(add(piv, qrot(r, arm)))[2] < self.actor(worst)[2]:
-                    r = axis_angle(ax, -ang)
-                for b in [x for x in W if x.startswith(f + "_") and x.endswith("_" + s) and "metacarpal" not in x]:
-                    W[b] = [add(piv, qrot(r, sub(W[b][0], piv))), qnorm(qmul(r, W[b][1]))]
+                if reach > 1.0:
+                    ang = min(8.0, math.degrees(math.asin(min(1.0, (-l_hi + 0.05) / reach))))
+                    r = axis_angle(axis, -ang)
+                    if self.actor(add(piv, qrot(r, arm)))[2] < self.actor(worst)[2]:
+                        r = axis_angle(axis, ang)
+                    for jj in (j1, j2, j3):
+                        out[jj] = [add(piv, qrot(r, sub(out[jj][0], piv))), qnorm(qmul(r, out[jj][1]))]
+            else:
+                for _ in range(10):
+                    mid = 0.5 * (lo + hi)
+                    o_m, l_m = posed(mid)
+                    if l_m >= 0.0:
+                        hi, out = mid, o_m
+                    else:
+                        lo = mid
+                if hi == c0 + 6.0:
+                    out = o_hi
+            for j in (j1, j2, j3):
+                W[j] = out[j]
 
     def _thumb_off_desk(self, s: str, W) -> None:
         """A thumb joint under DESK_THUMB rides up on the desk: the thumb turns up at its base (CMC) by just enough
@@ -1796,13 +1992,15 @@ def metrics(perf: Performer, t0: float, t1: float, fps: float = 30.0) -> dict:
 def build(data: dict, st, sy, sheet: dict, cues: dict, tilts: list, length_s: float, fps: int = 30,
           check_every: int = 6, timing: list | None = None, on_cam: list | None = None,
           frame_want: dict | None = None, track_out: str | None = None, close_alive: bool = False,
-          mic_cams: list | None = None, torso: dict | None = None, catalogue: bool = False) -> tuple:
+          mic_cams: list | None = None, torso: dict | None = None, catalogue: bool = False,
+          rest_only: list | None = None) -> tuple:
     """seatkit.build for the performance: the seated pose with the plan driving the upper body, as tracks (constant
     for the bones that never move, per key for spine, neck, head, clavicles, arms, hands and fingers). Returns (doc
     for perform.py's WRITE, summary with the checks and the body rows' numbers)."""
     sk = S.Skeleton.from_read(data)
     plan = catalogue_plan() if catalogue else plan_from_sheet(
-        sheet, cues, tilts, timing=timing, on_cam=on_cam, close_alive=length_s if close_alive else None, mic_cams=mic_cams)
+        sheet, cues, tilts, timing=timing, on_cam=on_cam, close_alive=length_s if close_alive else None, mic_cams=mic_cams,
+        rest_only=rest_only)
     se, tuned = S.autotune(sk, st, sy)
     perf = Performer(sk, st, se.sy, plan, torso=Torso(**torso) if torso else None)
     n = int(round(length_s * fps)) + 1

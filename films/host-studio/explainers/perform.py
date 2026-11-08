@@ -33,6 +33,7 @@ import argparse
 import json
 import math
 import sys
+import os
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -430,6 +431,7 @@ def job():
                                 **({"close_alive": True} if P["perform"].get("close_alive") else {}),
                                 **({"mic_cams": P["perform"]["mic_cams"]} if P["perform"].get("mic_cams") else {}),
                                 **({"torso": P["perform"]["torso"]} if P["perform"].get("torso") else {}),
+                                **({"rest_only": P["perform"]["rest_only"]} if P["perform"].get("rest_only") else {}),
                                 **({"catalogue": True} if P["perform"].get("catalogue") else {}))
     else:
         gs = [S.Gesture(**x) for x in P["gestures"]]
@@ -472,7 +474,10 @@ def set_of(who: str) -> S.Set:
     extra = sorted(k for k in given if k not in known and not k.startswith("_"))
     if extra:  # e.g. desk_y: the desk's sides are not a contact rule here (her elbows sit well inside them)
         print(f"set_{who}.json: not seatkit.Set fields, ignored: {extra}", file=sys.stderr)
-    return S.Set(**{**SET.__dict__, **{k: v for k, v in given.items() if k in known}})
+    st = S.Set(**{**SET.__dict__, **{k: v for k, v in given.items() if k in known}})
+    if HANDS_FALLBACK and FALLBACK_CAMS.get(who):  # the operator's fallback: the talking cams chest-up
+        st = dataclasses.replace(st, rigs={c: {**r, **FALLBACK_CAMS[who].get(c, {})} for c, r in st.rigs.items()})
+    return st
 
 
 def body_params(who: str) -> dict:
@@ -494,9 +499,26 @@ def perform_params(who: str) -> dict:
         tilts = tilts.get("tilts", [])
     timing = json.loads((a / f"timing_{who}.json").read_text()) if (a / f"timing_{who}.json").exists() else None
     return {"sheet": json.loads((a / f"{who}.json").read_text()), "cues": cues(who), "tilts": tilts, "timing": timing,
-            "on_cam": cue_sheet(who)["on_cam"], "frame_want": FRAME_WANT_WHO.get(who),
+            "on_cam": cue_sheet(who)["on_cam"],
+            "frame_want": {**(FRAME_WANT_WHO.get(who) or {}),  # (the fallback's chest-up cams: hands out by design)
+                           **({c: 0.0 for c in FALLBACK_CAMS.get(who, {})} if HANDS_FALLBACK else {})} or None,
             "close_alive": who == "him",  # his last 2 s (behind the closing graphic) stay at the speaking rest
-            "mic_cams": MIC_CAMS.get(who, []), "torso": TORSO_OF.get(who)}
+            "mic_cams": MIC_CAMS.get(who, []), "torso": TORSO_OF.get(who),
+            "rest_only": REST_ONLY_FALLBACK.get(who, []) if HANDS_FALLBACK else []}
+
+
+# The operator's hands fallback (the orchestrator, 10 Nov; prepared, NOT applied): if her hands still look bad on the
+# r7I preview, the talking shots go chest-up (FALLBACK_CAMS, the hands below the frame edge) and in the WIDE her hands
+# rest on the desk, no gestures (gesturekit's rest_only: shoulders, torso, head, breath alive). agent-11's shot list
+# (fleet/agent-11/r7-acting FALLBACK_HER.md): shot 11 CAM_WIDE f1034-1168 at 24 fps = 43.083-48.667 s with handles.
+HANDS_FALLBACK = os.environ.get("HANDS_FALLBACK") == "1"  # switched on for a run: HANDS_FALLBACK=1 python3 perform.py ...
+REST_ONLY_FALLBACK = {"her": [[43.083, 48.667]]}
+# her talking cameras chest-up (same names and positions, a longer lens tilted for it): the frame's bottom edge at the
+# chest 100 cm up, the head's top 7 % under the top edge (offline on her kit track, r7 body). Her gesture peaks reach
+# 107-110 cm (over the neck joint), so a fingertip still enters from the bottom edge in some on-camera frames: CAM_MCU
+# 15 %, CAM_MCU_L 8 %, CAM_CU 33 % (no whole hand in any); the edge at 95 cm: 28 / 44 / 36 %.
+FALLBACK_CAMS = {"her": {"CAM_MCU": {"focal": 117.5, "pitch": -1.62}, "CAM_MCU_L": {"focal": 115.5, "pitch": -1.58},
+                         "CAM_CU": {"focal": 88.0, "pitch": -2.08}}}
 
 
 # a presenter's torso model over gesturekit.Torso's (hers) and the outfit gate (the orchestrator, 09 Nov: his upper arms

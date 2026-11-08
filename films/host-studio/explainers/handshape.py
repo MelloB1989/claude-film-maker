@@ -65,8 +65,8 @@ THUMB_IP = 62.0
 #   pinch    a soft precision pinch: index and thumb pads toward each other, the others cascading behind
 #   soft_fist  a loose fist, the thumb across the middle phalanges
 SHAPES = {
-    "relaxed": {"index": 22, "middle": 28, "ring": 34, "pinky": 40, "thumb": 60, "_opp": 10},
-    "rest": {"index": 18, "middle": 20, "ring": 17, "pinky": 13, "thumb": 12, "_opp": -10},
+    "relaxed": {"index": 15, "middle": 19, "ring": 23, "pinky": 27, "thumb": 50, "_opp": 10},
+    "rest": {"index": 13, "middle": 19, "ring": 13, "pinky": 7, "thumb": 10, "_opp": -10, "_spread": -1.5},
     "open": {"index": 3, "middle": 4, "ring": 6, "pinky": 9, "thumb": 5, "_opp": -45},
     "list": {"index": 8, "middle": 10, "ring": 13, "pinky": 17, "thumb": 8, "_opp": -20},
     "point": {"index": 3, "middle": 80, "ring": 84, "pinky": 86, "thumb": 90, "_opp": 0},

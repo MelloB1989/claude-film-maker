@@ -62,7 +62,7 @@ LEFT_ARC = (0.08, 0.12)  # x the chord: the left hand's own arc (agent-13: its e
 LEFT_ARC_DIR = (-0.6, -0.2, 0.75)  # (fwd, out, up): its arc bows up and back toward her (the mic is forward and out)
 RIGHT_ARC_DIR = (-0.3, 0.45, 0.85)  # a mic-moved right stroke's bow: up, out and a little back
 RIGHT_ARC_MIN = 0.06  # x the chord: every right move's bow off the straight line at least (agent-13's line: 0.03)
-FING_END = 0.85    # x a move: the fingers' shape change ends here (R7 hands: they settle before the wrist stops)
+FING_END = 1.0    # x a move: the fingers' shape change ends here (R7 hands: they settle before the wrist stops)
 ROT_LAG_S = 0.08    # s the hand's turn and the fingers trail the wrist's path (proximal to distal)
 DRIFT_CM = 0.8      # cm the wrist's slow drift, each axis (orchestrator: real hands are never 0 cm/s in a hold)
 RIGHT_DRIFT_K = 1.3  # the right hand's drift x this (its rest life on the desk keeps DESK_DRIFT)
@@ -85,7 +85,7 @@ MOVE_MIN_S = 0.3  # s: a stroke's move at least (agent-13: 0.13-0.25 s strokes p
 #   at 2.4-3.6x their mean speed, vel_bell 8/15 at 24 fps; the apex stays on its word, the hold before gives the time)
 PARTIAL_S = 1.1     # a gap shorter than this falls only halfway to the rest
 LAG_S = {"pinky": 0.030, "ring": 0.045, "thumb": 0.050, "middle": 0.062, "index": 0.080}  # fingers behind the wrist
-SHAPE_SPREAD = {"rest": 0.0, "relaxed": 0.0, "open": 3.0, "point": 0.0, "count1": 0.0, "count2": 3.0, "count3": 3.0,
+SHAPE_SPREAD = {"rest": -1.5, "relaxed": 0.0, "open": 3.0, "point": 0.0, "count1": 0.0, "count2": 3.0, "count3": 3.0,
                 "pinch": 0.0, "soft_fist": 0.0, "list": 1.0, "raise": 0.0}  # deg opening handshape's together fan
 SIM_FAIL = 0.95
 MIC_L = (14.0, 8.0)  # the left hand (mic side) on a gesture: out <= 14 cm, up <= 8 cm from the sternum point
@@ -192,7 +192,7 @@ class Var:
         rest = getattr(GK, "POSE_ORIGIN", GK.HIGH_REST).off  # the amp's origin, not the (r7F, lower) rest
         off = tuple(rest[i] + (p.off[i] - rest[i]) * self.amp + (self.dz if i == 2 else 0.0) for i in range(3))
         sh = shape_dict(p.shape)
-        sh = {f: sh[f] + self.fingers.get(f, 0.0) for f in GK.FINGERS} | {"_spread": max(0.0, sh["_spread"] + self.spread), "_opp": sh["_opp"]}
+        sh = {f: sh[f] + self.fingers.get(f, 0.0) for f in GK.FINGERS} | {"_spread": max(-2.0, sh["_spread"] + self.spread), "_opp": sh["_opp"]}
         return GK.HandPose(off, p.pron + self.d_pron, p.ext + self.d_ext, sh)
 
 
