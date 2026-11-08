@@ -5,8 +5,9 @@ deg, 32 cm up the spine; r -6.59 at f0). The split: agent-01 opens the elbows (u
 this tool takes the REMAINDER out of the cloth, capped (CAP, <= ~4 cm), blended so no dent reads from the front
 cameras. The same method as her waist: measured on the posed frames, solved per vertex, carried back to the bind pose.
 
-  1. MEASURE (driver: seq.scrub each frame, then the editor's 'frame' stage): each torso vertex of the outfit (arm
-     weight < ARM_MAX, between the hips and the shoulders, on that arm's side), posed: its offset from the upper arm's
+  1. MEASURE (driver: seq.scrub each frame, then the editor's 'frame' stage): each torso vertex of the outfit (nearer
+     the spine than the upper arm on the ref pose, as agent-02's SLEEVES=1 split; between the hips and the shoulders,
+     on that arm's side), posed: its offset from the upper arm's
      axis (upperarm -> lowerarm, posed sockets) in the arm's cross-section. The arm is a tube of its own measured
      radius R(t) (her/his body's REF mesh, the arm-weighted verts' p90 radius per 5 % of the upper arm). need = how
      far the vertex must move toward his spine axis (MEDIAL: perpendicular to the arm, toward the spine line
@@ -16,7 +17,7 @@ cameras. The same method as her waist: measured on the posed frames, solved per 
      vertex. Kept on the box (OUT/accum.json); only numbers come back. Also per frame: how deep the arm is in his
      BODY's torso (the cloth can never clear more than the body allows: that part is agent-01's).
   2. PUSH: a field over the outfit's torso in the bind pose: D(v) = max over needing u of need(u) x K(|v - u|) (K = 1
-     within CORE_CM, cosine^2 to 0 over FALL_CM), the direction the K-weighted mean, damped on sleeve-weighted verts,
+     within CORE_CM, cosine^2 to 0 over FALL_CM), the direction the K-weighted mean, none on the sleeve,
      capped at CAP: a broad soft hollow, never a crease. Written on a COPY (DEST) of the mesh his BP renders (the
      component's own asset: MetaHuman's resized garment), weights/UVs/normals/vertex order untouched.
   3. CHECK: dress DEST on the component (setplan GARMENT_SRC him), then MEASURE again with OUT2: need <= 0 where the
@@ -38,7 +39,7 @@ import math
 LABEL = "Host"
 SEQ = "/Game/Explainer/SEQ_Explain_Him"
 ARM = ("upperarm", "lowerarm", "bicep", "tricep", "elbow")
-ARM_MAX = 0.5      # a vertex with more arm weight than this is sleeve: it moves with the arm already
+SLEEVE_FADE = 3.0  # cm into the sleeve (nearer the upper arm than the spine by): the push fades to 0 over it
 MARGIN = 0.7       # cm outside the arm tube (the gate's 0.5 + 0.2)
 T_RANGE = (0.12, 0.95)  # of the upper arm, shoulder -> elbow: where the tube counts (the armpit is the shoulder's)
 CORE_CM, FALL_CM = 1.5, 7.0
@@ -190,6 +191,11 @@ def _editor(G: dict):
     def v3(p):
         return (p.x, p.y, p.z)
 
+    def seg_dist(p, a, b):
+        t = min(1.0, max(0.0, seg_t(p, a, b)))
+        q = tuple(a[k] + (b[k] - a[k]) * t for k in range(3))
+        return math.sqrt(dot(sub(p, q), sub(p, q)))
+
     def seg_t(p, s, e):
         d = sub(e, s)
         return dot(sub(p, s), d) / dot(d, d)
@@ -243,9 +249,12 @@ def _editor(G: dict):
                 continue
             side = "l" if lo > 0 else "r"
             ws = weights(gdm, v)
-            aw = sum(w for i, w in ws if 0 <= i < len(gnames) and gnames[i].startswith(ARM))
             dom = gnames[max(ws, key=lambda x: x[1])[0]] if ws else "spine_05"
-            zone[v] = [side, round(aw, 3), dom, [round(x, 4) for x in p]]
+            # sleeve or torso by GEOMETRY on the ref pose, as agent-02's arms measure splits them (SLEEVES=1: nearest
+            # the upper arm = sleeve): a flank vertex skinned mostly to the arm but nearer the spine is torso here
+            # too, so it is measured and pushed. Slot 1 = how far into the sleeve, cm (d_spine - d_arm; <= 0 torso)
+            sl = seg_dist(p, H["pelvis"], H["neck_01"]) - seg_dist(p, H[f"upperarm_{side}"], H[f"lowerarm_{side}"])
+            zone[v] = [side, round(sl, 3), dom, [round(x, 4) for x in p]]
         doms = sorted({z[2] for z in zone.values()})
         refT = {b: [list(v3(gref[b].translation)), [gref[b].rotation.x, gref[b].rotation.y, gref[b].rotation.z,
                                                      gref[b].rotation.w]] for b in doms}
@@ -256,7 +265,7 @@ def _editor(G: dict):
         with open(os.path.join(out_dir, "accum.json"), "w") as fh:
             json.dump({}, fh)
         return {"garment": S["garment_asset"], "body": S["body_asset"], "verts": len(gp), "zone_verts": len(zone),
-                "zone_sleeve": sum(1 for z in zone.values() if z[1] > ARM_MAX), "R_l": R["l"], "R_r": R["r"],
+                "zone_sleeve": sum(1 for z in zone.values() if z[1] > 0), "R_l": R["l"], "R_r": R["r"],
                 "dominant_bones": doms[:40]}
 
     S = json.load(open(setup_path))
@@ -278,7 +287,7 @@ def _editor(G: dict):
             Rs = S["R"][side]
             worst, n_need = None, 0
             for vs, (zs, aw, dom, _) in S["zone"].items():
-                if zs != side or aw > ARM_MAX:
+                if zs != side or aw > 0:
                     continue
                 p = gpos[int(vs)]
                 t = seg_t(p, s, e)
@@ -359,7 +368,7 @@ def _editor(G: dict):
         new = list(gp)
         moved = {"l": [0, 0.0], "r": [0, 0.0]}
         for v, (mag, d) in F.items():
-            damp = max(0.0, 1.0 - aw[v] / ARM_MAX)
+            damp = min(1.0, max(0.0, 1.0 - aw[v] / SLEEVE_FADE))  # the sleeve takes a fading share: no step at the armhole
             mag *= damp
             if mag <= 1e-4:
                 continue
