@@ -162,6 +162,15 @@ rows (dump + kit) 0 FAIL, lag 53.3 dump / 74.9 kit; rest 19.55; arms rest 3.67 /
 0.676, CU 0.392, WIDE 1.0; breath 2.22 mm at 15.1/min; waist 0.02 / -0.26; place + lips rc 0. Finals B render to
 netflix_finals_B with the head gate first; the orchestrator picks A or B by eye.
 
+**Her final composite B (netflix_r6_r7B, finals_B; agent-11 and agent-06 on T2, numbers only): GATE PASS, 0 FAIL.**
+-14.0 LUFS (err 0.0), TP -1.7, 1920x1080, 59.46 s, captions 144/144 words with onset 84 ms, facts 1, qc 1.
+comp_check.py (13ac7c08, its first real run): black 0, presenter-shot dups 0, A/V offset 0.0 ms (corr 1.0), A/V length
+0.3 ms. Clearance vs her head (the head joint +-11 cm projected through the cut camera, conservative): the lower
+third's visible card (alpha > 32) ends at x 644 against the head's 685 (41 px; the drawn card at alpha > 128 ends at
+568). Only the faint gradient plate edge (alpha 8-32) comes within 16 px, with no overlap: the 20 px line is judged on
+the visible card. Panel cards start at x 963 / 965 against the head's 552 / 543. Stills f48 / f481 / f997 are with the
+orchestrator for the eye. A's composite is kept as the backup.
+
 ## Verdicts
 
 ### Netflix v2b: REJECTED BY THE OPERATOR (07 Nov, about 23:45 IST). The SIGN below is SUPERSEDED.
