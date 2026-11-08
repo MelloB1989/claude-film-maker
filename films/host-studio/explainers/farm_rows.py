@@ -3,7 +3,10 @@
 The farm driver exports one JSON per film from film-farm's own outputs:
     {"jobs": [{"id": "<job>", "verify": <filmtools.farm.verify.verify(...)>,
                "continuity": <filmtools.farm.verify.continuity(...)>,
-               "guards": [<each chunk's done.json guard dict: leaders_ok, strays, face_luma, face_ok, ok, why>]}]}
+               "guards": [<each chunk's done.json["hook"]: the dict the explainer hook's before_chunk() returned:
+                           leaders_ok, strays, face_luma, face_ok, ok, why (agent-08; absent if the job has no hook)>]}]}
+verify() lists S3 keys and sizes only (no pixels), so it can run where the AWS CLI has the account. continuity() needs
+frame differences of PRESENTER renders, so it runs ON A BOX or a farm worker (the face rule).
 Rows: shot.farm_frames_ok (every job's frames present exactly once at the right size), shot.chunk_seams_ok (no
 flagged jump at a chunk boundary inside a shot: a hair/cloth/temporal restart at a seam), garment.leaders_ok (the
 minimum over every chunk's guard, the r6n0 lesson), set.strays_ok (no Test_*/FMQA_*/second presenter in any chunk).
