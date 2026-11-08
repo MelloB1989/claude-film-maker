@@ -48,3 +48,9 @@ def test_mouth_shut_in_the_end_silence():
     for e in FA.plan("her")["expressions"]:
         if e["until"] + e["release_s"] > last:
             assert not {n.rstrip("*LR") for n in e["preset"]} & {"jawOpen", "mouthUpperLipRaise"}, e
+
+
+def test_his_smile_mouth_share_divided_by_his_speech_gain():
+    him = [e for e in FA.plan("him")["expressions"] if e["name"] == "smile"][0]["preset"]
+    assert abs(him["mouthCornerPull*"][0] * FA.MOUTH_GAIN["him"] - FA.RECIPES["duchenne"]["mouthCornerPull*"][0]) < 1e-9
+    assert him["eyeCheekRaise*"] == FA.RECIPES["duchenne"]["eyeCheekRaise*"]
