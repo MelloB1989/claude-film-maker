@@ -124,7 +124,7 @@ POSE_ORIGIN = HandPose((22.0, 17.0, 13.0), pron=40.0, ext=10.0, shape="relaxed",
 # with her top): the presenter's rest. Hands loosely together in a soft steeple at the lower ribcage, well in front of
 # her (not touching her), palms facing, wrists straight, fingers gently curved; the gestures rise from it into the
 # frame. The fingers aim at the midline (YAW_BASE is faded out at the rest, see hand_targets).
-REST_PRON, REST_EXT = 0.0, 8.0  # R7 hands (the orchestrator's review: the resting hand hovered on its fingertips, the
+REST_PRON, REST_EXT = 0.0, 3.0  # R7 hands (the orchestrator's review: the resting hand hovered on its fingertips, the
 #   wrist cocked, the fingers splayed: a spider): the hand rests PALM DOWN on the desk, the wrist neutral, the fingers
 #   together and gently curled ('rest'), the contact through the palm and the finger pads, never the tips alone. On
 #   her rig (offline, both hands, t44.5 / t58.8): the wrist joint 3.5-3.7 cm over the desk top (seatkit's rest), the
@@ -1629,6 +1629,8 @@ class Performer(S.Seater):
         opposition (in front of the palm, across toward the pinky), then MCP and IP flexion."""
         sk = self.sk
         shape = HS.full(hp.shape)
+        self._shape_now = getattr(self, "_shape_now", {})
+        self._shape_now[s] = shape  # (the desk's finger lift un-curls along the same synergy)
         dh = qmul(W["hand_" + s][1], qinv(sk.q("hand_" + s)))
         for f in FINGERS:
             info = self._finger_info.get((s, f))
@@ -1671,7 +1673,7 @@ class Performer(S.Seater):
     DESK_PITCH_MAX = 16.0  # deg the contact solve pitches the hand at most. A trade-off at the LANDINGS (the elbow drops
     #   onto the desk at 140-220 cm/s): 30 keeps every finger out of the desk but snaps 5.2 /min; 16 snaps 3.1 with a
     #   landing pinky DIP 0.6-0.7 cm under for a frame. The landing itself must ease (agent-01's rest IK)
-    REST_HAND_PITCH, REST_PITCH_BAND = 10.0, 8.0  # deg: the resting palm's long axis over the desk (hers sits 4-13)
+    REST_HAND_PITCH, REST_PITCH_BAND = 2.0, 8.0  # deg: the resting palm's long axis over the desk (hers sits 4-13)
     #   and the band the safety level leaves alone
 
     def _desk_contact(self, s: str, W, k: float) -> None:
@@ -1739,37 +1741,111 @@ class Performer(S.Seater):
         for b in [ha] + bones:
             W[b] = [add(piv, qrot(r, sub(W[b][0], piv))), qnorm(qmul(r, W[b][1]))]
         self._fingers_off_desk(s, W)
+        self._roll_off_desk(s, W)
         self._thumb_off_desk(s, W)
 
+    def _roll_off_desk(self, s: str, W) -> None:
+        """The last resort: a fingertip still under the desk line after the pitch and the fingers' own lift (a landing
+        hand rolled onto its little-finger side: t22.03, the pinky 3 cm under) rolls the hand about its long axis by
+        just enough. Only those frames: levelling the roll by the rest's weight on every landing snapped (20 /min)."""
+        sk, ha = self.sk, "hand_" + s
+        mk = f"middle_01_{s}"
+        if mk not in W:
+            return
+        for _ in range(3):  # a linear step on an arc: repeat on the lowest tip
+            tips = []
+            for f in ("index", "middle", "ring", "pinky"):
+                j = f"{f}_03_{s}"
+                if j in W and j in sk.local and norm(sk.local[j]["t"]) > 1e-6:
+                    lt = sk.local[j]["t"]
+                    tips.append(add(W[j][0], mul(qrot(W[j][1], unit(lt)), TIP_K.get(f, 0.75) * norm(lt))))
+            if not tips:
+                return
+            low = min(tips, key=lambda p_: self.actor(p_)[2])
+            need = self.set.desk_top + self.DESK_TIP_MIN - self.actor(low)[2]
+            if need <= 0.0:
+                return
+            piv = W[ha][0]
+            lax = unit(sub(W[mk][0], piv))
+            arm = sub(low, piv)
+            rad = norm(sub(arm, mul(lax, dot(arm, lax))))  # the tip's distance off the long axis
+            if rad < 0.5:
+                return
+            ang = min(20.0, math.degrees(math.asin(min(1.0, (need + 0.05) / rad))))
+            r = axis_angle(lax, ang)
+            if self.actor(add(piv, qrot(r, arm)))[2] < self.actor(low)[2]:
+                r = axis_angle(lax, -ang)
+            for b in [ha] + [b for b in W if b.endswith("_" + s) and b.split("_")[0] in FINGERS]:
+                W[b] = [add(piv, qrot(r, sub(W[b][0], piv))), qnorm(qmul(r, W[b][1]))]
+
     def _fingers_off_desk(self, s: str, W) -> None:
-        """A finger whose DIP joint or tip dips under the desk line lifts at its knuckle by just enough (a landing:
-        the hand's pitch is capped, and pitching it further bends the wrist past the flex/ext line; the finger alone
-        gives, the way a real finger meets the desk)."""
+        """A finger whose DIP joint or tip dips under the desk line UN-CURLS along its own synergy by just enough
+        (bisection on the closure; each joint straightens by the synergy's own difference about the finger's hinge):
+        a landing, the hand's pitch capped. Lifted at the knuckle alone it made the claw pattern (agent-13's
+        finger_claw at t22.0); along the synergy it never can."""
         sk = self.sk
+        shape = getattr(self, "_shape_now", {}).get(s)
+        if not shape:
+            return
+        dh = qmul(W["hand_" + s][1], qinv(sk.q("hand_" + s)))
         for f in ("index", "middle", "ring", "pinky"):
-            j1, j3 = f"{f}_01_{s}", f"{f}_03_{s}"
-            if j1 not in W or j3 not in W or j3 not in sk.local:
+            info = self._finger_info.get((s, f))
+            j1, j2, j3 = f"{f}_01_{s}", f"{f}_02_{s}", f"{f}_03_{s}"
+            if not info or j3 not in W or j3 not in sk.local:
                 continue
             lt = sk.local[j3]["t"]
-            for _ in range(2):
-                tip = add(W[j3][0], mul(qrot(W[j3][1], unit(lt)), TIP_K.get(f, 0.75) * norm(lt)))
-                pts = [(W[j3][0], self.set.desk_top + self.DESK_THUMB), (tip, self.set.desk_top + self.DESK_TIP_MIN)]
-                worst, line = min(pts, key=lambda pl: self.actor(pl[0])[2] - pl[1])
-                need = line - self.actor(worst)[2]
-                if need <= 0.0:
-                    break
-                piv = W[j1][0]
+            if norm(lt) < 1e-6:
+                continue
+            axis = qrot(dh, info["axis"])
+            c0 = float(shape.get(f, 0.0))
+            pip_x = float(shape.get("_pip_" + f, 0.0))
+            a0 = HS.finger_angles(f, c0, pip_x)
+            base = {j: list(W[j]) for j in (j1, j2, j3)}
+
+            def posed(dc):
+                a1 = HS.finger_angles(f, c0 - dc, pip_x)
+                out = {j: list(v) for j, v in base.items()}
+                for j, k in ((j1, 0), (j2, 1), (j3, 2)):  # straighten at this joint: it and the joints beyond it
+                    r = axis_angle(axis, a1[k] - a0[k])
+                    piv = out[j][0]
+                    for jj in (j1, j2, j3)[(j1, j2, j3).index(j):]:
+                        out[jj] = [add(piv, qrot(r, sub(out[jj][0], piv))), qnorm(qmul(r, out[jj][1]))]
+                tip = add(out[j3][0], mul(qrot(out[j3][1], unit(lt)), TIP_K.get(f, 0.75) * norm(lt)))
+                low = min(self.actor(out[j3][0])[2] - (self.set.desk_top + self.DESK_THUMB),
+                          self.actor(tip)[2] - (self.set.desk_top + self.DESK_TIP_MIN))
+                return out, low
+            out, low = posed(0.0)
+            if low >= 0.0:
+                continue
+            lo, hi = 0.0, c0 + 6.0
+            o_hi, l_hi = posed(hi)
+            if l_hi < 0.0:  # straight and still under (the hand low on that side): the residual at the knuckle, <= 8
+                #   deg (a straight finger cannot read as a claw: its PIP is ~5)
+                out = o_hi
+                tip = add(out[j3][0], mul(qrot(out[j3][1], unit(lt)), TIP_K.get(f, 0.75) * norm(lt)))
+                worst = min((out[j3][0], tip), key=lambda p_: self.actor(p_)[2])
+                piv = out[j1][0]
                 arm = sub(worst, piv)
                 reach = math.hypot(arm[0], arm[1])
-                if reach < 1.0:
-                    break
-                ang = math.degrees(math.asin(max(-1.0, min(1.0, need / reach)))) * 1.05
-                ax = unit(cross(arm, [0.0, 0.0, 1.0]))
-                r = axis_angle(ax, ang)
-                if self.actor(add(piv, qrot(r, arm)))[2] < self.actor(worst)[2]:
-                    r = axis_angle(ax, -ang)
-                for b in [x for x in W if x.startswith(f + "_") and x.endswith("_" + s) and "metacarpal" not in x]:
-                    W[b] = [add(piv, qrot(r, sub(W[b][0], piv))), qnorm(qmul(r, W[b][1]))]
+                if reach > 1.0:
+                    ang = min(8.0, math.degrees(math.asin(min(1.0, (-l_hi + 0.05) / reach))))
+                    r = axis_angle(axis, -ang)
+                    if self.actor(add(piv, qrot(r, arm)))[2] < self.actor(worst)[2]:
+                        r = axis_angle(axis, ang)
+                    for jj in (j1, j2, j3):
+                        out[jj] = [add(piv, qrot(r, sub(out[jj][0], piv))), qnorm(qmul(r, out[jj][1]))]
+            else:
+                for _ in range(10):
+                    mid = 0.5 * (lo + hi)
+                    o_m, l_m = posed(mid)
+                    if l_m >= 0.0:
+                        hi, out = mid, o_m
+                    else:
+                        lo = mid
+                if hi == c0 + 6.0:
+                    out = o_hi
+            for j in (j1, j2, j3):
+                W[j] = out[j]
 
     def _thumb_off_desk(self, s: str, W) -> None:
         """A thumb joint under DESK_THUMB rides up on the desk: the thumb turns up at its base (CMC) by just enough
