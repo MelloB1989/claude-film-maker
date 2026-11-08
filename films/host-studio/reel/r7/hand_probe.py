@@ -7,8 +7,8 @@ only come out (presenter geometry stays on the box).
 
 Per hand, the skin of the palm and fingers (thumb and forearm left out, by the nearest bone segment) is projected on
 the plane along the hand (hand -> middle_01) x its palm normal (the side the thumb tip sits on). `rest_heights` (pure,
-tested off the box) finds the resting line: the edge of the projection's convex hull on the palm side that starts at
-the heel of the palm (the hull's contact nearest the wrist) and runs distally; heights are taken square to it.
+tested off the box): the heel contact is the deepest palm-side point within 0.4 of the palm length from the wrist;
+the surface then tips about it until it meets skin further out; heights are taken square to it.
   heel_flat:   the surface square to the palm normal, touching the heel only (the hand tipped up off its fingers)
   heel_pads:   the surface touching the heel and the next contact out (the knuckle or finger pads, as the ref pose's
                fingers lie: its MCP/PIP flexion is printed so the reading can be judged against MCP ~20 / PIP ~30)
@@ -50,10 +50,12 @@ def rest_heights(pts, joints, heel_x):
         return None
     h0 = max(heel, key=lambda p: p[1])                       # the deepest heel point
     flat = {k: round(h0[1] - v[1], 2) for k, v in joints.items()}
-    i = hull.index(h0)
-    if i + 1 >= len(hull):
+    # tip the surface about the heel contact until it meets skin past the heel (x > heel_x): the knuckle or finger
+    # pads (a dense mesh's next hull vertex is only the heel pad's own curve)
+    far = [p for p in hull if p[0] > heel_x]
+    if not far:
         return {"heel_flat": flat, "heel_pads": None, "contacts": [list(h0)]}
-    h1 = hull[i + 1]                                         # the next contact distally along the palm-side hull
+    h1 = max(far, key=lambda p: (p[1] - h0[1]) / (p[0] - h0[0]))
     pads = {k: round(_height(v, h0, h1), 2) for k, v in joints.items()}
     return {"heel_flat": flat, "heel_pads": pads, "contacts": [[round(h0[0], 2), round(h0[1], 2)],
                                                                 [round(h1[0], 2), round(h1[1], 2)]],

@@ -7,7 +7,7 @@ from hand_probe import rest_heights  # noqa: E402
 
 # (x along the hand from the wrist joint, y toward the palm surface), cm: the back of the hand at y -1.8, the heel
 # pad 3.5 cm under the wrist at x 1, the palm 2.5 under, the knuckle pads at x 9 2.5 under, finger pads at x 15 1.5
-PALM = [(-1.0, 3.0), (1.0, 3.5), (3.0, 3.2), (5.0, 2.6), (7.0, 2.4), (9.0, 2.5), (12.0, 2.0), (15.0, 1.5), (17.0, 0.8)]
+PALM = [(-1.0, 3.0), (1.0, 3.5), (1.4, 3.49), (3.0, 3.2), (5.0, 2.6), (7.0, 2.4), (9.0, 2.5), (12.0, 2.0), (15.0, 1.5), (17.0, 0.8)]
 BACK = [(x, -1.8) for x in range(-1, 18)]
 
 
