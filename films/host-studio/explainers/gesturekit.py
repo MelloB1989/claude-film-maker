@@ -66,11 +66,13 @@ class HandPose:
 # r7b (the orchestrator on side A: the gestures were BELOW the MCU frame): the sheet's apex_height per gesture
 # (agent-11) as the wrist's height over the sternum point (shoulders - 14 cm, ~84 cm seated on her). MCU's bottom edge
 # is about her bust line (~85 cm): bust puts the fingertips just inside it
-APEX_Z = {"bust": 8.0, "lower_chest": 11.0, "sternum": 14.0, "upper_chest": 19.0, "collarbone": 25.0, "chin": 30.0}
+APEX_Z = {"bust": 8.0, "lower_chest": 11.0, "sternum": 14.0, "upper_chest": 19.0, "collarbone": 22.0, "chin": 30.0}
 # (agent-10's projection: the CU's bottom edge sits at ~102 cm on her gesture plane, so collarbone strokes need the
 #  wrist near 110 cm = the sternum point + ~25)
 
 BEAT_MAX_Z = 16.0  # cm over the sternum point: a beat's apex never higher (N15 'delivers' at upper chest met the mic)
+APEX_MAX_Z = 22.0  # cm over the sternum point: the wrist never higher (the orchestrator, 08 Nov: key beats cap at the
+#   collarbone, <= 60 deg of upper arm)
 
 # the poses a gesture moves to, per kind/detail and size; the right hand's (the left mirrors out)
 SIZE_OUT = {"small": 0.0, "medium": 5.0, "big": 10.0}
@@ -114,13 +116,14 @@ POSE_ORIGIN = HandPose((22.0, 17.0, 13.0), pron=40.0, ext=10.0, shape="relaxed",
 # with her top): the presenter's rest. Hands loosely together in a soft steeple at the lower ribcage, well in front of
 # her (not touching her), palms facing, wrists straight, fingers gently curved; the gestures rise from it into the
 # frame. The fingers aim at the midline (YAW_BASE is faded out at the rest, see hand_targets).
-HIGH_REST = HandPose((25.0, 10.0, -4.0), pron=80.0, ext=0.0, shape="rest")  # the orchestrator's ruling (08 Nov): lower
+HIGH_REST = HandPose((16.0, 10.0, -4.0), pron=80.0, ext=0.0, shape="rest")  # r7F rows: x 25 -> 17.5, the fit that
+#   lets the elbows hang at <= 30 deg (Performer._fit_poses reports it as rest_fit)  # the orchestrator's ruling (08 Nov): lower
 #   than agent-10's (24, 8.5, 2.5), which put her wrists at her bust height 8 cm in front of it; wrists ~80 cm, under
 #   CAM_MCU's bottom edge. Not the ruled x 30: that far forward, with the hands together, the upper arms can clear her
 #   chest (swivel) only with the elbows up at 90-92 cm, a reach; at 25 / 10 out they hang at 83-86, the wrists 27 cm
 #   forward of her spine, the fingertips 3-5 cm over the desk (offline on her skeleton, 0 issues)
 REST_POLE = (-0.2, 0.9, -0.6)  # the elbows' direction at the rest (fwd, out, up)
-REST_YAW = 15.0  # deg out off the forearm at the rest (r7F naturalness: 32 bent the wrists back 31 deg; 15 keeps them
+REST_YAW = 8.0  # deg out off the forearm at the rest (r7F naturalness: 32 bent the wrists back 31 deg; 15 keeps them
 #                  near neutral, the fingertips still 3.8 cm apart) (gesture_style's track carries no yaw): the forearms come in
 #                  from the elbows at ~60 deg, the fingers then point forward and in, the tips meeting at the midline
 
@@ -249,7 +252,7 @@ def plan_from_sheet(sheet: dict, cues: dict, tilts: list | None = None, base_lea
             k = 0.55 + 0.8 * amp  # 0.3 -> 0.79, 0.55 -> 0.99, 0.85 -> 1.23 of the pose's distance from the high rest
             pr = scaled(gesture_pose(g, "r", n_count), k)
             if g.get("apex_height") in APEX_Z:  # the sheet's height wins: in the shot, not at the desk
-                z = APEX_Z[g["apex_height"]]
+                z = min(APEX_Z[g["apex_height"]], APEX_MAX_Z)  # key beats at most at the collarbone
                 if g.get("type") == "beat" and g.get("detail") in ("beat", "", None):
                     z = min(z, BEAT_MAX_Z)  # beats can sit lower, still in frame (the orchestrator), off the mic
                 pr = replace(pr, off=(pr.off[0], pr.off[1], z))
@@ -259,7 +262,9 @@ def plan_from_sheet(sheet: dict, cues: dict, tilts: list | None = None, base_lea
                 #                 straight and the elbow rose in front of her chest, inside the Top (box B, agent-11:
                 #                 -7 cm at N01 'million', N13 'that'); this keeps it out and down as at the high rest.
                 #                 Higher than this, the hand passes behind the mic from CAM_CU / CAM_WIDE.
-                pl = replace(pl, off=(min(pl.off[0], LEFT_TWO[0]), LEFT_TWO[1], max(pl.off[2], LEFT_TWO[2])))
+                # r7F (agent-13: the left travelled 0.27 of the right on two-hand strokes, line 0.4-0.7): the left
+                #   follows the right's move from the rest at LEFT_SHARE, mirrored, inside the mic box (gesture_style)
+                pl = replace(pl, off=tuple(HIGH_REST.off[i] + LEFT_SHARE * (pr.off[i] - HIGH_REST.off[i]) for i in range(3)))
             seed0 += 1
             prep = float(g["prep_t"])  # agent-10's prosody timing owns prep/stroke/hold/retract when present
             ev = Event(g.get("hand", "r"), prep, float(g["stroke_t"]), float(g.get("hold_s", 0.25)),
@@ -286,13 +291,19 @@ class Torso:
     is the judge, this keeps the pose honest while it is built."""
     a: float = 13.5
     b: float = 10.5
+    a_waist: float = 11.5  # r7F: the waist under the ribcage is narrower (the cylinder had her chest's width all the
+    b_waist: float = 9.5   # way down, so an elbow hanging at her side read as inside her): a, b taper to these
+    waist_h: tuple = (4.0, 14.0)
+    side_from: int = 10  # /20 of the upper arm: under the armpit (30-50 %) the arm lies against her side as any arm
+    #   does; agent-02's mesh calls that a fold, a hit reads at 50 % or more and into the bust. The bust spheres
+    #   still count from 40 %; the torso's side from 50 %  # cm up the spine from spine_03: waist below the first, the full chest above the second
     breast_r: float = 7.5
     breast_down: float = 9.0
     breast_out: float = 7.0
     arm_r: float = 4.2
 
 
-def clearance(A: dict, F: dict, s: str, tor: Torso) -> float:
+def clearance(A: dict, F: dict, s: str, tor: Torso, parts: bool = False):
     """cm between her upper arm's surface and the torso (below the armpit) / breast model, along the arm's outer 60 %
     (the operator's complaint: the breast covering the upper arm)."""
     p3, p5 = A["spine_03"], A["spine_05"]
@@ -303,21 +314,24 @@ def clearance(A: dict, F: dict, s: str, tor: Torso) -> float:
     if dot(lat, [0.0, 1.0, 0.0]) < 0:
         lat = mul(lat, -1.0)
     sh, el = A["upperarm_" + s], A["lowerarm_" + s]
-    best = 1e9
+    best = side_best = bust_best = 1e9
     for k in range(8, 21):  # the arm from 40 % out (the armpit end always touches)
         q = add(sh, mul(sub(el, sh), k / 20.0))
         d = sub(q, p3)
         h = dot(d, ax)
-        if -5.0 <= h <= dot(sub(top, p3), ax):
+        if -5.0 <= h <= dot(sub(top, p3), ax) and k >= tor.side_from:
             x, y = dot(d, fwd), dot(d, lat)
             rr = math.hypot(x, y)
             th = math.atan2(x, y)
-            r_e = tor.a * tor.b / math.sqrt((tor.b * math.cos(th)) ** 2 + (tor.a * math.sin(th)) ** 2)
-            best = min(best, rr - r_e - tor.arm_r)
+            k_ = max(0.0, min(1.0, (h - tor.waist_h[0]) / (tor.waist_h[1] - tor.waist_h[0])))
+            ta, tb = tor.a_waist + (tor.a - tor.a_waist) * k_, tor.b_waist + (tor.b - tor.b_waist) * k_
+            r_e = ta * tb / math.sqrt((tb * math.cos(th)) ** 2 + (ta * math.sin(th)) ** 2)
+            side_best = min(side_best, rr - r_e - tor.arm_r)
         for side in (1.0, -1.0):
             c = add(add(add(p5, mul(ax, -tor.breast_down)), mul(fwd, tor.b - 1.0)), mul(lat, side * tor.breast_out))
-            best = min(best, norm(sub(q, c)) - tor.breast_r - tor.arm_r)
-    return best
+            bust_best = min(bust_best, norm(sub(q, c)) - tor.breast_r - tor.arm_r)
+    best = min(side_best, bust_best)
+    return (best, side_best, bust_best) if parts else best
 
 
 # --- the performer ---------------------------------------------------------------------------------------------------
@@ -328,6 +342,7 @@ class Performer(S.Seater):
     def __init__(self, sk, st, sy, plan: Plan, torso: Torso | None = None, mic_side: str = "l"):
         self._ready = False  # seatkit's own setup (wrist extension, desk rest) runs on seatkit's pose
         self._wg = {}
+        self._ws = {}
         super().__init__(sk, st, replace(sy, lean=plan.base_lean))
         self.plan, self.tor, self.mic_side = plan, torso or Torso(), mic_side
         self._finger_info = self._fingers()
@@ -398,6 +413,7 @@ class Performer(S.Seater):
             ws *= max([e.weight(t) for e in self.plan.events if e.hand in ("l", "both")] or [0.0])
         wg = self.gesture_w(s, t)
         self._wg[s] = wg  # hand_rot_p fades YAW_BASE in with it
+        self._ws[s] = ws
         if STYLE_HOOK is not None and hasattr(STYLE_HOOK, "hand"):
             hp, big = STYLE_HOOK.hand(self, s, t)  # the whole hand track (co-articulation, wrist lead, cascade)
         else:
@@ -486,6 +502,7 @@ class Performer(S.Seater):
                 ang = -roll * share if self._rhs else roll * share
                 W[b] = [W[b][0], qmul(axis_angle(f, ang), W[b][1])]
             W["head"] = [self._fk_t("head", "neck_02", W), W["head"][1]]
+        self._fit_poses(W)  # once: each gesture's goal fitted to the elevation lines
         # arms by the plan
         for s, (cl, ua, la, ha) in S.ARMS.items():
             sg = 1.0 if s == "r" else -1.0
@@ -550,36 +567,166 @@ class Performer(S.Seater):
         return fx, ox, zx
 
     CLEAR_WANT = 3.8  # cm: the 3 cm line plus a margin for the model
+    SIDE_WANT = 0.5  # cm: when set, the torso's SIDE needs only this (the bust keeps CLEAR_WANT): relaxed arms lie
+    #                   against the ribcage (the orchestrator's 30 deg rest line can't be met 3.8 cm off it)
+
+    SWIVEL_LOW = True  # r7F (agent-13): of the elbow positions that clear, the LOWEST (it hung); else the first one
+    #                    out from the pole, which swung it up and out (the upper arm 78 deg off hanging at apexes)
 
     def swivel(self, s, sh, wrist, l1, l2, pole, W, ws):
-        """Two-bone IK, then the elbow swung outward about the shoulder-wrist axis (10 deg steps, up to 80) until the
-        upper arm clears the torso/breast model by CLEAR_WANT (while she speaks; the desk rest keeps its pole)."""
+        """Two-bone IK, then the elbow about the shoulder-wrist axis: of the positions round the circle (5 deg steps)
+        whose upper arm clears the torso/breast model by CLEAR_WANT (and the mic, the boom, the desk, never in across
+        the body nor back behind the shoulder), the lowest; none clearing: the clearest (while she speaks; the desk
+        rest keeps its pole)."""
         elbow, wr = S.two_bone(sh, wrist, l1, l2, pole)
         if ws < 0.5:
             return elbow, wr
         A = {b: self.actor(W[b][0]) for b in ("spine_03", "spine_05")}
         axis = unit(sub(wr, sh))
         side = self.fr[1] if s == "r" else mul(self.fr[1], -1.0)
-        best = None
-        for k in range(0, 9):
-            for sgn in ((1.0,) if k == 0 else (1.0, -1.0)):
-                pk = qrot(axis_angle(axis, sgn * 10.0 * k), pole)
-                e, w2 = S.two_bone(sh, wrist, l1, l2, pk)
-                A2 = {**A, "upperarm_" + s: self.actor(sh), "lowerarm_" + s: self.actor(e)}
-                c = clearance(A2, None, s, self.tor)
-                if dot(sub(e, sh), side) < 0:  # never swing the elbow in across the body
+        st_ = self.set
+        sha = self.actor(sh)
+        best, low = None, None
+        steps = [0] + [k * sg for k in range(1, 37) for sg in (1, -1)] if self.SWIVEL_LOW else \
+            [0] + [k * sg for k in range(1, 9) for sg in (1, -1)]
+        step = 5.0 if self.SWIVEL_LOW else 10.0
+        for k in steps:
+            if self.SWIVEL_LOW and k == -36:
+                continue
+            pk = qrot(axis_angle(axis, step * k), pole)
+            e, w2 = S.two_bone(sh, wrist, l1, l2, pk)
+            if dot(sub(e, sh), side) < 0:  # never swing the elbow in across the body
+                continue
+            ea = self.actor(e)  # nor into the mic: box B's bodycheck had her left elbow 9 cm from the capsule
+            if st_.mic and norm(sub(ea, st_.mic)) < st_.mic_radius + 2.5:
+                continue
+            if st_.boom and S.poly_dist(ea, st_.boom) < st_.boom_radius + 3.5:
+                continue
+            if self.SWIVEL_LOW:
+                if ea[0] < sha[0] - 6.0:  # nor back behind her
                     continue
-                ea = self.actor(e)  # nor into the mic: box B's bodycheck had her left elbow 9 cm from the capsule
-                st_ = self.set
-                if st_.mic and norm(sub(ea, st_.mic)) < st_.mic_radius + 2.5:
+                if ea[0] > st_.desk_near - 6.0 and ea[2] < st_.desk_top + self.sy.elbow_r + 1.0:  # nor into the desk
                     continue
-                if st_.boom and S.poly_dist(ea, st_.boom) < st_.boom_radius + 3.5:
-                    continue
-                if best is None or c > best[0]:
-                    best = (c, e, w2)
-                if c >= self.CLEAR_WANT:
+            A2 = {**A, "upperarm_" + s: sha, "lowerarm_" + s: ea}
+            c, c_side, c_bust = clearance(A2, None, s, self.tor, parts=True)
+            if self.SIDE_WANT is not None:  # the bust by CLEAR_WANT, her side only by SIDE_WANT
+                c = min(c_bust - self.CLEAR_WANT, c_side - self.SIDE_WANT) + self.CLEAR_WANT
+            if best is None or c > best[0]:
+                best = (c, e, w2)
+            if c >= self.CLEAR_WANT:
+                if not self.SWIVEL_LOW:
                     return e, w2
+                ua = sub(ea, sha)  # abduction: the upper arm's lean out to her side, in her frontal plane
+                abd = math.degrees(math.atan2(abs(ua[1]), max(1e-6, -ua[2]))) if ua[2] < 0 else 90.0
+                key = (abd > self.ABD_MAX, ea[2])  # within the abduction line first, then the lowest
+                if low is None or key < low[0]:
+                    low = (key, e, w2)
+        if low is not None:
+            return low[1], low[2]
         return (best[1], best[2]) if best else (elbow, wr)
+
+    ELEV_HIGH = 60.0  # deg for an apex at/above upper_chest (the orchestrator's ruling (B), 08 Nov)
+    HIGH_OVER_SHOULDER = 2.0  # cm: a wrist goal this far over the shoulder joint is a high apex (upper_chest = +5)
+    LOW_DOWN = 0.6  # cm down per cm in, for a low stroke
+    HIGH_OUT = 0.3  # cm out per cm in, for a high one (0.6 took the CU key beats out of its frame, 0.29)
+    HIGH_DOWN = 0.0  # and for a high one (it comes in only: lowered, the CU lost the key beats, 0.14)
+    FIT_MARGIN = 2.0  # deg under each line the goals are fitted to (agent-13: 60.03 on a 60 line)
+    REACH_MAX = 24.0  # cm a goal comes in at most
+    ABD_MAX = 35.0  # deg the upper arm's abduction at most when a clearing elbow allows (the orchestrator's row)
+    ELEV_REST, ELEV_STROKE = 30.0, 45.0  # deg the upper arm off hanging, at most (agent-13's lines, the orchestrator:
+    #   the clearance by shoulder FLEXION, the elbow forward and down, not abducted out: chicken wings)
+    LOWER_APEX = False  # lower a high apex too when pulling it in can't meet the cap (off: it emptied CAM_CU's frame,
+    #                     0.0, and put fingers in the desk; the high strokes keep their elevation, see ELEV_STROKE)
+    REACH_STEP = (2.0, 0.0)  # cm per try: the wrist goal in toward her shoulder (down put her fingers in the desk)
+
+    def elevation(self, sh, elbow) -> float:
+        """deg the upper arm off hanging straight down (flexion and abduction together)."""
+        return math.degrees(math.acos(max(-1.0, min(1.0, -dot(unit(sub(elbow, sh)), self.fr[2])))))
+
+    def cap_at(self, sh, goal, wg) -> tuple:
+        """(elevation cap deg, highness 0..1) for a wrist goal: 45 for a stroke under upper_chest, 60 at upper_chest ..
+        collarbone (shoulder + 3 .. + 5 cm ramp; the orchestrator's (B), agent-13's classes), blended from ELEV_REST by
+        the gesture weight. Continuous, so the wrist never jumps where a stroke crosses the line."""
+        h = dot(sub(goal, sh), self.fr[2])
+        k = max(0.0, min(1.0, (h - 3.0) / 2.0))  # below upper_chest (shoulder + 5) 45, at it 60
+        return self.ELEV_REST + (self.ELEV_STROKE + (self.ELEV_HIGH - self.ELEV_STROKE) * k - self.ELEV_REST) * wg, k
+
+    def _fit_poses(self, W) -> None:
+        """Each event's wrist goal (and the high rest, reported) moved in toward her, a low stroke also a little down,
+        by the least distance (bisection) at which the lowest clearing elbow meets its elevation line (cap_at). On the
+        GOALS, not per frame: per frame the pull jumped where the line could not be met (800 cm/s); the track then
+        glides between fitted goals."""
+        if getattr(self.plan, "_fitted", False) or not self.SWIVEL_LOW:
+            return
+        self.plan._fitted = True
+        f, r, u = self.fr
+        A_l, A_r = (self.actor(self._fk_t("upperarm_" + x, "clavicle_" + x, W)) for x in "lr")
+        st_pt = [(A_l[0] + A_r[0]) / 2 + 8.0, (A_l[1] + A_r[1]) / 2, (A_l[2] + A_r[2]) / 2 - 14.0]
+        self.fit_log = []
+
+        def fit(hp: HandPose, s: str, rest: bool = False) -> HandPose:
+            sg = 1.0 if s == "r" else -1.0
+            sh = self._fk_t("upperarm_" + s, "clavicle_" + s, W)
+            l1, l2 = self.A[s]
+            pole = (add(add(mul(f, -0.3), mul(r, 0.9)), mul(u, -0.35)) if s == "r"
+                    else add(add(mul(f, -0.3), mul(r, -0.9)), mul(u, -0.5)))
+
+            def goal(off):
+                return self.comp([st_pt[0] + off[0], st_pt[1] + sg * off[1], st_pt[2] + off[2]])
+
+            def elev(off):
+                e, _ = self.swivel(s, sh, goal(off), l1, l2, pole, W, 1.0)
+                return self.elevation(sh, e)
+
+            if not rest and hp.off[2] > APEX_MAX_Z:  # the variation's amp took it past the collarbone line
+                hp = replace(hp, off=(hp.off[0], hp.off[1], APEX_MAX_Z))
+            cap, k = self.cap_at(sh, goal(hp.off), 0.0 if rest else 1.0)
+            cap -= self.FIT_MARGIN
+            e0 = elev(hp.off)
+            if e0 <= cap:
+                return hp
+            down = 0.0 if rest else self.LOW_DOWN * (1.0 - k) + self.HIGH_DOWN * k
+
+            out_ = 0.0 if rest else self.HIGH_OUT * k
+
+            def moved(d):  # in, down (low strokes), out to her side (high ones: a hand near her midline at the
+                #            collarbone needed the elbow up over 60)
+                return (hp.off[0] - d, hp.off[1] + out_ * d, hp.off[2] - down * d)
+
+            # scan in (elevation is not monotonic: too close, the clearance swings the elbow back up), take the least
+            # pull that meets the line, else the lowest elevation; then refine between the last two samples
+            best_d, best_e, prev = 0.0, e0, 0.0
+            d, hi = 1.5, None
+            while d <= self.REACH_MAX + 1e-6:
+                ed = elev(moved(d))
+                if ed <= cap:
+                    hi = d
+                    break
+                if ed < best_e:
+                    best_d, best_e = d, ed
+                prev, d = d, d + 1.5
+            if hi is not None:
+                lo = prev
+                for _ in range(5):
+                    mid = (lo + hi) / 2.0
+                    if elev(moved(mid)) <= cap:
+                        hi = mid
+                    else:
+                        lo = mid
+            else:
+                hi = best_d
+            out = replace(hp, off=moved(hi))
+            self.fit_log.append({"s": s, "cap": round(cap, 1), "from": round(e0, 1), "to": round(elev(out.off), 1),
+                                 "in_cm": round(hi, 1), "off": [round(x, 1) for x in out.off]})
+            return out
+
+        for e in self.plan.events:
+            if e.hand in ("r", "both"):
+                e.pose_r = fit(e.pose_r, "r")
+            if e.pose_l is not None and e.hand in ("l", "both"):
+                e.pose_l = fit(e.pose_l, "l")
+        self.rest_fit = {s: fit(HIGH_REST, s, rest=True).off for s in "lr"}
+        self._gs_tracks = None  # the style track was drawn (torso() asks for its weights) from the unfitted goals
 
     def _world_from(self, locs: dict) -> dict:
         """seatkit's local result back to component transforms for the bones it set (FK over its own chain)."""
@@ -612,12 +759,24 @@ class Performer(S.Seater):
         wg = self._wg.get(s, 1.0)
         yw = math.radians(getattr(hp, "yaw", 0.0) + YAW_BASE.get(s, 0.0) * wg + REST_YAW * (1.0 - wg))
         hz = unit(add(mul(hz, math.cos(yw)), mul(ortho(side, hz), math.sin(yw))))
-        pitch = math.asin(max(-1.0, min(1.0, dot(fa, u)))) + math.radians(hp.ext)
+        ws = self._ws.get(s, 1.0)  # speaking: a true extension; at the desk rest the old pitch (its pose was tuned on it)
+        pitch = math.asin(max(-1.0, min(1.0, dot(fa, u)))) + math.radians(hp.ext * (1.0 - ws))
         fingers = unit(add(mul(hz, math.cos(pitch)), mul(u, math.sin(pitch))))
         pr = math.radians(hp.pron)
         flat = ortho(side, fingers)
         up_ = ortho(u, fingers) if abs(dot(u, fingers)) < 0.98 else ortho(mul(f, -1.0), fingers)
         across = unit(add(mul(flat, math.cos(pr)), mul(up_, -math.sin(pr))))
+        if hp.ext and ws > 0:  # r7F: a true extension, about the palm's own across axis (back of the hand); it was a pitch about
+            #         world up, which on a thumb-up hand (counts, raise_finger: pron 80-95, ext 40-45) bent it radially
+            n_ref = unit(cross(sub(sk.p("middle_01_" + s), sk.p("hand_" + s)),
+                               sub(sk.p("index_01_" + s), sk.p("pinky_01_" + s))))
+            if dot(sub(sk.p("middle_03_" + s), sk.p("middle_01_" + s)), n_ref) < 0:
+                n_ref = mul(n_ref, -1.0)
+            sgn = 1.0 if dot(cross(d0, a0), n_ref) > 0 else -1.0
+            palm = mul(unit(cross(fingers, across)), sgn)  # toward the palm, in the goal frame
+            k = cross(fingers, mul(palm, -1.0))
+            if norm(k) > 1e-6:
+                fingers = qrot(axis_angle(k, hp.ext * ws), fingers)
         return qmul(S.frame_to_frame(d0, a0, fingers, across), sk.q("hand_" + s))
 
     def _finger_pose(self, s, hp: HandPose, W):
@@ -658,12 +817,13 @@ def blend_poses(parts: list) -> HandPose:
     return HandPose(tuple(off), pron, ext, shapes, yaw)
 
 
-YAW_BASE = {"r": 30.0, "l": 0.0}  # deg her right fingers always turn out a little: turned in, they reached the mic
+YAW_BASE = {"r": 10.0, "l": 0.0}  # deg her right fingers always turn out a little: turned in, they reached the mic
 #   (40 with the mic at her chest; 30 with it at her mouth: the wrist bent 37-45 deg; at 25 the mic hides the hand)
 RIGHT_MIN_LAT = 15.0  # cm her right hand stays to her right of the sternum point while she speaks
 LEFT_RESTS = False  # r7b: the left hand rested on the desk between its own gestures while the mic hung at her sternum;
 #                     with the mic moved up to her mouth (the orchestrator, 08 Nov) it gestures like the right
-LEFT_MAX_LAT = 9.0
+LEFT_MAX_LAT = 16.0  # r7F: 9 with the mic at her chest (MIC_L)
+LEFT_SHARE = 0.58  # the left's move on a two-hand stroke, of the right's
 LEFT_TWO = (24.0, 9.0, -2.0)  # cm her left hand on a two-hand gesture (agent-10, see plan_from_sheet)
 LEFT_MAX_Z = 40.0  # cm over the sternum point for her left hand (no cap with the mic at her mouth)  # cm: her left hand stays at least 3 cm to her RIGHT of the sternum point while she speaks
 
@@ -732,6 +892,7 @@ def build(data: dict, st, sy, sheet: dict, cues: dict, tilts: list, length_s: fl
     moving = sorted(set(first) - {"pelvis"} - {b for s in "lr" for b in S.LEGS[s]})
     keyed = {b: [] for b in moving}
     issues, clear = [], {"l": 1e9, "r": 1e9}
+    side_c, bust_c = {"l": 1e9, "r": 1e9}, {"l": 1e9, "r": 1e9}
     framing = {}
     rest_clear = 1e9
     for i in range(n):
@@ -758,9 +919,10 @@ def build(data: dict, st, sy, sheet: dict, cues: dict, tilts: list, length_s: fl
                     # per arm while it is UP and gesturing; the left resting on the desk (LEFT_RESTS) is reported apart
                     up = s == "r" or not LEFT_RESTS or any(e.hand in ("l", "both") and e.weight(t) > 0.3
                                                            for e in plan.events)
-                    c_ = clearance(A, F, s, perf.tor)
+                    c_, c_side, c_bust = clearance(A, F, s, perf.tor, parts=True)
                     if up:
                         clear[s] = min(clear[s], c_)
+                        side_c[s], bust_c[s] = min(side_c[s], c_side), min(bust_c[s], c_bust)
                     else:
                         rest_clear = min(rest_clear, c_)
                 cam = next((c for a, b, c in plan.on_cam if a <= t < b), None)
@@ -782,6 +944,8 @@ def build(data: dict, st, sy, sheet: dict, cues: dict, tilts: list, length_s: fl
     for b in keyed:
         keyed[b] = [{**k_, "t": anim_t(b, k_["t"])} for k_ in keyed[b]]
     rows = {"upperarm_torso_clear_cm": {s: round(v, 1) for s, v in clear.items()},
+            "upperarm_bust_clear_cm": {s: round(v, 1) for s, v in bust_c.items()},
+            "upperarm_side_clear_cm": {s: round(v, 1) for s, v in side_c.items()},
             "left_resting_arm_clear_cm": round(rest_clear, 1) if rest_clear < 1e8 else None,
             "hands_in_frame_frac": {c: round(a / b, 3) for c, (a, b) in framing.items() if b}}
     for c, want in {**FRAME_WANT, **(frame_want or {})}.items():  # frame_want: a presenter's own lines
@@ -793,10 +957,15 @@ def build(data: dict, st, sy, sheet: dict, cues: dict, tilts: list, length_s: fl
         extra = STYLE_HOOK.report(perf, length_s)
         rows.update(extra.get("rows", {}))
         issues.extend(extra.get("issues", []))
-    ok_clear = min(clear.values()) >= 3.0
+    if Performer.SIDE_WANT is None:
+        ok_clear = min(clear.values()) >= 3.0
+        worst = min(clear.values())
+    else:  # the bust by 3, her side only not into it
+        ok_clear = min(bust_c.values()) >= 3.0 and min(side_c.values()) >= 0.0
+        worst = min(min(bust_c.values()), min(side_c.values()) + 3.0)
     if not ok_clear:
-        issues.append({"code": "body.arm_torso", "message": f"upper arm within {min(clear.values()):.1f} cm of the "
-                       "torso/breast model (line 3)", "value": min(clear.values())})
+        issues.append({"code": "body.arm_torso", "message": f"upper arm within {worst:.1f} cm of the "
+                       "torso/breast model (line 3)", "value": worst})
     summary = {"pass": not issues, "issues": issues[:30], "n_issues": len(issues), "tuned": tuned, "rows": rows,
                "events": len(plan.events), "moving_bones": len(moving),
                "hooks": {"style": bool(STYLE_HOOK), "timing": bool(timing)}, "frame": {"fwd": perf.F["fwd"],

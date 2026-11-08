@@ -283,3 +283,36 @@ tested in `test_seatkit.py`), `gestures.json` (the emphasis gestures per line).
 | 10:28 | Box C verified (both levels, SEQs, Perf/r7A, r7B, v2b, SM_MicBoom_her, _R7W/_R7W2 garments, set_her/him), her level re-led. Box B's spot request sir-kri7mksg cancelled, box B terminated |
 | 10:35 | Operator: no on-demand, spot only. Box C saved, API-stopped 10:40, AMI ami-03d0ee853276c5958 (newest state), box C terminated 10:42. agent-07's spot hunter launches box D from it |
 | 10:45 | Ready for box D: her verify at r7-body 773091c2 (rest 25,10,-4; her MCU hands line 0.5): bless signs (kali out/ was wiped; live c95d1126), body --perform, arms on rest frames, cams, preview, FACE_SOLVE=full all --from sync, render CAM_MCU shot 1 (netflix_r7R). Then his chain (x/newbox.sh repoints the driver) |
+- 08 Nov 02:14-03:20 IST (agent-11, interim box B driver: agent-06 and the pc2 agents unreachable): box B was
+  spot-reclaimed at 02:14:51 (no g6e capacity in ap-south-1a; the persistent request restarted it itself at 02:21). Nothing
+  was lost: agent-06's cams + `FACE_SOLVE=full all --from face` had been saved (assets 01:58-02:10, level 02:12). After
+  the restart the editor opened /Game/Studio, and the SSM tunnel was stale (`film-ue close` + `tunnel`). Her level was
+  reopened and the garments re-led, then agent-06's chain_T2 resumed from head sample. Head gate on fresh data:
+  on_lens 0.916, every span >= 0.82 (the head's own aim off the lens: 1.1-1.8 deg MCU/WIDE, 6.9-7.4 deg CU). Face
+  (gate09, whole take): active 0.83, smiles 20.8/min, brows 29.2/min, neutral 0.79 s, frown 0. Hands in frame: MCU 1.0,
+  CU 0.89, WIDE 1.0. ARMS FAIL: the left upper arm is inside the Top by up to 7.05 cm at f66 and f1118-1136, the two
+  big two-hand spreads where the sheet keeps the left hand inside the mic line (N01 "million", N13 "that"); the right
+  arm is 5.8-8.5 cm clear. The arms measure's cleanup leaves the garments unled: re-lead (`mh.leader`) before any
+  render. The TEST render (shots 1,2,11) started anyway, so the face can be judged while the arms are fixed.
+- 08 Nov 02:20-02:45 IST: agent-13's WhatsApp v3 batch 1 (12 files) synced to gfx/v3/explain-whatsapp; graphics-only dry
+  composite g3a on box B: all 9 graphics, 1352 f, lufs err 0.1, TP -1.7, text_match 1, onset 84 ms, facts 1, qc_ok 1.
+- 08 Nov 03:30-04:15 IST (agent-11, box B): the TEST's WIDE shot hit a Vulkan GPU crash (TerminateOnGPUCrash); the
+  editor restarted itself, and a shot-11-only retry rendered clean. agent-10 found the left-arm cause: gesture_style's
+  MIC_L (7 out, 3.5 cm below the sternum point) straightened her left arm on all 14 two-hand gestures, so the elbow rose
+  into her chest. d2589d46 (9 out, level) failed the body's own mic check from CAM_WIDE at t 46.4. 7976d7b6 (9 out,
+  2 cm below) passes. Applied as two files on agent-06's driver tree: body --perform 0 issues, all --from sync passes,
+  head on_lens 0.916, mesh arms over every two-hand gesture (80 frames) L min 5.92 / R min 5.30 cm (f66: -7.05 ->
+  +6.30). TEST render netflix_r7F (shots 1, 2, 11) 04:04-04:10; `test_clip.sh` on the box composites the film with
+  placeholders and cuts the TEST spans: netflix_r7F_TEST.mp4 (13.25 s) + stills, private review, to the orchestrator.
+- 2026-11-08 ~05:55 IST, agent-11: agent-13's WhatsApp v3 polish pass (12 files, soft caption band, no full-frame
+  flashes on the panels) re-synced to gfx/v3/explain-whatsapp. Dry composite g3b: 1352 f, lufs err 0.1, TP -1.7,
+  text_match 1, onset 84 ms, facts 1, qc_ok 1 (same as g3a).
+- 2026-11-08 09:05 IST, agent-11: box B spot-stopped at 08:37 IST (03:07 UTC) with no capacity, idle since r7F, so
+  nothing was lost. kali rebooted and wiped the interim driver trees under /tmp. agent-06 is back and drives box B
+  again; handed over with the r7F state, re-lead before every render, and numbers_test not yet run.
+- 08 Nov 10:29 IST (agent-11): the orchestrator's TEST verdict (her rest pose to agent-01/10/08; the lower third off the
+  gesture zone). The lower third moves TOP-LEFT: agent-12 bakes it into Netflix's lowerthird.mov (plate right edge x 680,
+  370c2c3d); composite.py's drawn card (WhatsApp) is x 96-660, y 80-243 with the title wrapped, clear of the MCU head
+  (setplan projection from x ~704). comp_box.sh PRES_S3 pulls agent-07's farm finals. Box C (agent-06's, CPU only):
+  WhatsApp dry composite g4: card measured at x 96-619, y 81-241 (f48 vs f4); 1352 f, lufs_err 0.1, TP -1.7, captions 1,
+  onset 84 ms, facts 1, qc_ok 1.

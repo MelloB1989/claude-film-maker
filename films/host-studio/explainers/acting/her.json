@@ -427,7 +427,7 @@
      "amp": 0.55,
      "held": false,
      "target": "front",
-     "apex_height": "chin",
+     "apex_height": "collarbone",
      "note": "fingers spring open outward, 'ta-da', shoulders lift",
      "word_i": 13
     }
@@ -511,7 +511,7 @@
       "amp": 0.55,
       "held": false,
       "target": "front",
-      "apex_height": "chin"
+      "apex_height": "collarbone"
      }
     ],
     "hands_in_frame_min": 0.3,
@@ -1066,7 +1066,7 @@
      "amp": 0.55,
      "held": false,
      "target": "camera",
-     "apex_height": "upper_chest",
+     "apex_height": "sternum",
      "note": "offering",
      "word_i": 35
     },
@@ -1083,7 +1083,7 @@
      "amp": 0.55,
      "held": false,
      "target": "front",
-     "apex_height": "upper_chest",
+     "apex_height": "sternum",
      "note": "hands circle a space in front of her",
      "word_i": 36
     }
@@ -1146,7 +1146,7 @@
       "amp": 0.55,
       "held": false,
       "target": "camera",
-      "apex_height": "upper_chest"
+      "apex_height": "sternum"
      },
      {
       "type": "open",
@@ -1161,7 +1161,7 @@
       "amp": 0.55,
       "held": false,
       "target": "front",
-      "apex_height": "upper_chest"
+      "apex_height": "sternum"
      }
     ],
     "hands_in_frame_min": null,
@@ -1285,7 +1285,7 @@
      "amp": 0.55,
      "held": false,
      "target": "front",
-     "apex_height": "upper_chest",
+     "apex_height": "sternum",
      "note": "a small circle, palm up: a crystal ball",
      "word_i": 43
     },
@@ -1410,7 +1410,7 @@
       "amp": 0.55,
       "held": false,
       "target": "front",
-      "apex_height": "upper_chest"
+      "apex_height": "sternum"
      },
      {
       "type": "open",
@@ -1706,7 +1706,7 @@
      "amp": 0.85,
      "held": true,
      "target": "front",
-     "apex_height": "chin",
+     "apex_height": "collarbone",
      "note": "...and widen to shoulder width on 'sizes'",
      "word_i": 63
     },
@@ -1723,7 +1723,7 @@
      "amp": 0.55,
      "held": false,
      "target": "up",
-     "apex_height": "chin",
+     "apex_height": "collarbone",
      "note": "flat palm steps up three rungs",
      "word_i": 65
     }
@@ -1736,7 +1736,7 @@
      "deg": 5
     }
    ],
-   "note": "CU: gestures held high (collarbone to chin) so the hands enter the bottom of the frame; the shoulders carry the rest",
+   "note": "CU: gestures held high (at the collarbone, never the chin) so the hands enter the bottom of the frame; the shoulders carry the rest",
    "face04": {
     "line": "N08",
     "emotion": "explaining, crisp clarity",
@@ -1811,7 +1811,7 @@
       "amp": 0.85,
       "held": true,
       "target": "front",
-      "apex_height": "chin"
+      "apex_height": "collarbone"
      },
      {
       "type": "size",
@@ -1826,7 +1826,7 @@
       "amp": 0.55,
       "held": false,
       "target": "up",
-      "apex_height": "chin"
+      "apex_height": "collarbone"
      }
     ],
     "hands_in_frame_min": 0.3,
@@ -1933,7 +1933,7 @@
      "amp": 0.85,
      "held": false,
      "target": "front",
-     "apex_height": "collarbone",
+     "apex_height": "sternum",
      "word_i": 73
     },
     {
@@ -1949,7 +1949,7 @@
      "amp": 0.55,
      "held": false,
      "target": "up",
-     "apex_height": "upper_chest",
+     "apex_height": "sternum",
      "word_i": 80
     }
    ],
@@ -2034,7 +2034,7 @@
       "amp": 0.85,
       "held": false,
       "target": "front",
-      "apex_height": "collarbone"
+      "apex_height": "sternum"
      },
      {
       "type": "size",
@@ -2049,7 +2049,7 @@
       "amp": 0.55,
       "held": false,
       "target": "up",
-      "apex_height": "upper_chest"
+      "apex_height": "sternum"
      }
     ],
     "hands_in_frame_min": null,
@@ -2118,7 +2118,7 @@
      "amp": 0.55,
      "held": false,
      "target": "front",
-     "apex_height": "upper_chest",
+     "apex_height": "sternum",
      "word_i": 84
     },
     {
@@ -2179,7 +2179,7 @@
       "amp": 0.55,
       "held": false,
       "target": "front",
-      "apex_height": "upper_chest"
+      "apex_height": "sternum"
      },
      {
       "type": "size",
@@ -2465,7 +2465,7 @@
      "amp": 0.55,
      "held": false,
      "target": "camera",
-     "apex_height": "upper_chest",
+     "apex_height": "sternum",
      "note": "it's fine",
      "word_i": 103
     },
@@ -2585,7 +2585,7 @@
       "amp": 0.55,
       "held": false,
       "target": "camera",
-      "apex_height": "upper_chest"
+      "apex_height": "sternum"
      },
      {
       "type": "size",
@@ -3049,7 +3049,7 @@
      "amp": 0.55,
      "held": false,
      "target": "her right",
-     "apex_height": "upper_chest",
+     "apex_height": "sternum",
      "word_i": 122
     },
     {
@@ -3065,7 +3065,7 @@
      "amp": 0.55,
      "held": false,
      "target": "front",
-     "apex_height": "upper_chest",
+     "apex_height": "sternum",
      "word_i": 128
     }
    ],
@@ -3142,7 +3142,7 @@
       "amp": 0.55,
       "held": false,
       "target": "her right",
-      "apex_height": "upper_chest"
+      "apex_height": "sternum"
      },
      {
       "type": "open",
@@ -3157,7 +3157,7 @@
       "amp": 0.55,
       "held": false,
       "target": "front",
-      "apex_height": "upper_chest"
+      "apex_height": "sternum"
      }
     ],
     "hands_in_frame_min": null,
@@ -3259,8 +3259,8 @@
      "amp": 0.55,
      "held": true,
      "target": "up, her right",
-     "apex_height": "chin",
-     "note": "open palm raised to chin height: up there",
+     "apex_height": "collarbone",
+     "note": "open palm raised to collarbone height: up there",
      "word_i": 132
     },
     {
@@ -3293,7 +3293,7 @@
      "amp": 0.55,
      "held": false,
      "target": "front",
-     "apex_height": "upper_chest",
+     "apex_height": "sternum",
      "word_i": 138
     }
    ],
@@ -3376,7 +3376,7 @@
       "amp": 0.55,
       "held": true,
       "target": "up, her right",
-      "apex_height": "chin"
+      "apex_height": "collarbone"
      },
      {
       "type": "size",
@@ -3406,7 +3406,7 @@
       "amp": 0.55,
       "held": false,
       "target": "front",
-      "apex_height": "upper_chest"
+      "apex_height": "sternum"
      }
     ],
     "hands_in_frame_min": 0.6,
@@ -3504,7 +3504,7 @@
      "amp": 0.55,
      "held": true,
      "target": "front",
-     "apex_height": "chin",
+     "apex_height": "collarbone",
      "note": "palms up, a small outward 'ta-da', the shoulders lift; held to the cut",
      "word_i": 143
     }
@@ -3582,7 +3582,7 @@
       "amp": 0.55,
       "held": true,
       "target": "front",
-      "apex_height": "chin"
+      "apex_height": "collarbone"
      }
     ],
     "hands_in_frame_min": 0.3,
@@ -3684,6 +3684,7 @@
    }
   },
   "same_gesture_twice": [],
+  "apex_high_share": 0.326,
   "on_cam_lines": [
    "N01",
    "N02",

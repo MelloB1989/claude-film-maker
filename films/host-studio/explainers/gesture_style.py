@@ -50,6 +50,16 @@ V_MEAN = 70.0       # cm/s a stroke's mean wrist speed at most (min-jerk peaks ~
 LEFT_EXT_MIN = 20.0  # deg the left hand's wrist extension on a gesture at least (its fingers met the desk lower; 34
 #   held her left wrist cocked back ~31 deg the whole take, agent-10's audit)
 TWO_HAND_LAG_S = (0.04, 0.08)  # s the left trails the right on a two-hand stroke (same-frame peaks read robotic)
+MIC_L_CAM = {"CAM_CU": (14.0, 3.5), "CAM_WIDE": (14.0, 4.5)}  # per live camera: in the CU the mic hid her left hand over 5 cm (the cut hides
+#   the change of box)
+ACCENT_W = 0.22     # s the accent's own small move, after the apex
+ACCENT_K = 0.7      # x its amplitude
+ACCENT_GAP_S = 0.1  # s after the apex it starts
+OVERSHOOT_K = 0.0   # x the drawn overshoot (r7F, agent-13: the settle back from it was a slow second movement on the
+#   tail of every stroke, so peak/mean read 2.4-3.9 instead of one bell's 1.875; off, right bells 0.64 -> 0.84)
+LEFT_ARC = (0.08, 0.12)  # x the chord: the left hand's own arc (agent-13: its echoes were dead-straight 10 cm lines)
+LEFT_ARC_DIR = (-0.6, -0.2, 0.75)  # (fwd, out, up): its arc bows up and back toward her (the mic is forward and out)
+ROT_LAG_S = 0.06    # s the hand's turn and the fingers trail the wrist's path (proximal to distal)
 HOLD_MIN_S = 0.1    # s a hold kept at least when the next move takes its time
 V_RETRACT = 55.0    # cm/s a retract home's mean speed at most (softer than the stroke)
 COART_S = 0.45      # a gap shorter than this flows straight into the next gesture
@@ -59,7 +69,8 @@ SPREAD_SIGN = {"index": -1.0, "middle": 0.0, "ring": 0.6, "pinky": 1.2, "thumb":
 SHAPE_SPREAD = {"rest": 2.0, "relaxed": 3.0, "open": 9.0, "point": 2.0, "count1": 2.0, "count2": 6.0, "count3": 7.0,
                 "pinch": 1.0, "soft_fist": 0.0}
 SIM_FAIL = 0.95
-MIC_L = (9.0, -2.0)  # the left hand (mic side) on a gesture: out <= 9 cm, up <= -2 cm from the sternum point
+MIC_L = (14.0, 8.0)  # the left hand (mic side) on a gesture: out <= 14 cm, up <= 8 cm from the sternum point
+#   (r7F: 9 / -2 with the mic at her chest; with it at her mouth and the rest low, that box held her left hand still)
 #   (agent-10: was 7 / -3.5, which put her left elbow up in front of her chest, inside the Top on box B)
 
 
@@ -149,8 +160,9 @@ class Var:
                    d_pron=max(-9.0, min(9.0, g(0, 4.5))), d_ext=max(-6.0, min(6.0, g(0, 3.0))),
                    dz=max(-2.0, min(2.0, g(0, 1.0))), spread=max(-3.0, min(4.0, g(0, 1.6))),
                    fingers={f: max(-6.0, min(6.0, g(0, 2.5))) for f in GK.FINGERS},
-                   overshoot=(0.05 + 0.07 * energy) * r.uniform(0.7, 1.3), settle=r.uniform(0.12, 0.2),
-                   retract=r.uniform(0.32, 0.5), skew=r.uniform(1.2, 1.45), lag=r.uniform(0.8, 1.25))
+                   overshoot=OVERSHOOT_K * (0.02 + 0.03 * energy) * r.uniform(0.7, 1.3), settle=r.uniform(0.08, 0.12),
+                   retract=r.uniform(0.32, 0.5), skew=1.0, lag=r.uniform(0.8, 1.25))  # skew 1: one min-jerk
+#                  bell (agent-13: the skewed peak plus the settle read as a spike and a long tail)
 
     def apply(self, p: GK.HandPose) -> GK.HandPose:
         rest = getattr(GK, "POSE_ORIGIN", GK.HIGH_REST).off  # the amp's origin, not the (r7F, lower) rest
@@ -245,7 +257,7 @@ class HandTrack:
         return segs
 
     def _accents(self) -> list:
-        """[(apex t, offset vector cm)]: a quick dip-and-push about the apex of every stroke whose goal is close to
+        """[(apex t, its move's s, offset vector cm, the next move)]: a small dip or push after the apex of every stroke whose goal is close to
         where the hand already is (a count's next finger, a beat after an open palm), so it still reads as a
         stroke (agent-10: 18/50 strokes stayed under the 40 cm/s beat line). Forward-down on the right (forward and
         a little up when the hand is already low), a small pull back toward the body on the left (the mic and the
@@ -267,19 +279,49 @@ class HandTrack:
                 vec = (0.7 * amp, 0.0, -0.7 * amp)  # a dip
             else:  # already low over the desk: a push forward and a little up (a dip put the fingers in the desk)
                 vec = (0.95 * amp, 0.0, 0.3 * amp)
-            out.append((s.t1, vec))
+            # its own move into the hold once the stroke has stopped, kept, and given back with the next move (the
+            # same min-jerk as that move: one bell) (r7F, agent-13: a bump about the apex sharpened the stroke's bell)
+            k_ = self.segs.index(s)
+            nxt = next((q for q in self.segs[k_ + 1:] if q.kind in ("stroke", "coart", "retract")), None)
+            hold_end = nxt.t0 if nxt else s.t1 + 1e9
+            t0 = s.t1 + ACCENT_GAP_S  # a beat after the stroke stops: two bells, not one with a shoulder
+            if hold_end - t0 < 0.1:
+                continue  # no room in the hold
+            out.append((t0, min(ACCENT_W, hold_end - t0), vec, nxt))
         return out
 
     def accent(self, t: float) -> tuple:
-        """The accents' offset at t: a cos^2 bump 0.12 s wide centred just before the apex (the impact)."""
+        """The accents' offset at t: a small min-jerk move of its own from the apex (where the stroke's speed is 0) into
+        the hold, held, then faded out with the next move's own progress."""
         off = [0.0, 0.0, 0.0]
-        for apex, vec in self.accents:
-            x = (t - (apex - 0.02)) / 0.06
-            if -1.0 < x < 1.0:
-                g = math.cos(0.5 * math.pi * x) ** 2
-                for i in range(3):
-                    off[i] += vec[i] * g
+        for apex, w, vec, nxt in self.accents:
+            if t <= apex:
+                continue
+            g = mj(clip01((t - apex) / w))
+            if nxt is not None and t > nxt.t0:
+                if t >= nxt.t1:
+                    continue
+                g *= 1.0 - mj((t - nxt.t0) / max(1e-3, nxt.t1 - nxt.t0))
+            for i in range(3):
+                off[i] += vec[i] * g * ACCENT_K
         return off
+
+    def arc(self, s: Seg, v: Var) -> tuple:
+        """The path's mid-way offset: the draw's, or on the LEFT its own arc, LEFT_ARC of the chord bowed up and back
+        (perpendicular to the chord; never the right's arc mirrored)."""
+        if self.side != "l":
+            return v.bulge if s.kind != "retract" else tuple(-0.5 * c for c in v.bulge)
+        ch = [s.b.off[i] - s.a.off[i] for i in range(3)]
+        c = math.sqrt(sum(x * x for x in ch))
+        if c < 1.0:
+            return (0.0, 0.0, 0.0)
+        d = LEFT_ARC_DIR
+        k = sum(d[i] * ch[i] for i in range(3)) / (c * c)
+        p = [d[i] - k * ch[i] for i in range(3)]
+        n = math.sqrt(sum(x * x for x in p)) or 1.0
+        lo, hi = LEFT_ARC
+        frac = lo + (hi - lo) * clip01((v.lag - 0.8) / 0.45)
+        return tuple(p[i] / n * frac * c for i in range(3))
 
     def micro(self, t: float, w: float, held: bool) -> tuple:
         """(offset cm, d_pron, d_ext, {finger: deg}): the never-frozen layer. Larger drift on a held stroke."""
@@ -291,7 +333,15 @@ class HandTrack:
         return off, dp, de, fing
 
     def at(self, t: float) -> tuple:
-        """(HandPose with a per-finger shape dict, {event index: weight})."""
+        """(HandPose with a per-finger shape dict, {event index: weight}). The hand's turn and the fingers follow the
+        wrist's path ROT_LAG_S behind it (agent-13: proximal to distal, shoulder -> elbow -> wrist -> fingers)."""
+        hp, w = self._at(t)
+        if ROT_LAG_S <= 0:
+            return hp, w
+        lag, _ = self._at(t - ROT_LAG_S)
+        return GK.HandPose(hp.off, lag.pron, lag.ext, lag.shape), w
+
+    def _at(self, t: float) -> tuple:
         rest = GK.HIGH_REST
         seg = None
         for s in self.segs:
@@ -330,19 +380,20 @@ class HandTrack:
         lag = v.lag if v else 1.0
         if s.kind in ("stroke", "coart"):
             x = mj(u ** v.skew) * (1.0 + v.overshoot)  # arrives past the target; the hold settles it
-            u_rot = mj(clip01(u + 0.12))  # the wrist turns ahead of the hand
+            u_rot = mj(u)  # (r7F: it turned 0.12 ahead; now the whole turn trails the path, ROT_LAG_S)
             u_f = {f: mj(clip01((t - s.t0 - LAG_S[f] * lag) / d)) for f in GK.FINGERS}
-            hp = lerp_pose(s.a, s.b, x, u_rot, u_f, v.bulge, u)
+            hp = lerp_pose(s.a, s.b, x, u_rot, u_f, self.arc(s, v), mj(u))  # the arc by the path's
+            #   progress (sin(pi u) in time set the speed off 0 at the start)
             w_in = s.w_from + (s.w_to - s.w_from) * mj(u)
             w = {s.ev: w_in}
             if s.prev_ev >= 0:
                 w[s.prev_ev] = (1.0 - mj(u)) * s.w_from
             return hp, w, False
-        # retract: soft (no overshoot, no skew), the wrist follows the hand, a smaller bulge
+        # retract: soft (no overshoot, no skew), the wrist follows the hand, a smaller arc
         x = mj(u)
         u_rot = mj(clip01(u - 0.12))
         u_f = {f: mj(clip01((t - s.t0 - LAG_S[f] * lag) / d)) for f in GK.FINGERS}
-        hp = lerp_pose(s.a, s.b, x, u_rot, u_f, tuple(-0.5 * c for c in v.bulge), u)
+        hp = lerp_pose(s.a, s.b, x, u_rot, u_f, self.arc(s, v), x)
         return hp, {s.ev: s.w_from + (s.w_to - s.w_from) * x}, False
 
     def _from_of(self, hold: Seg) -> GK.HandPose:
@@ -393,11 +444,12 @@ def var_of(event, hand: str) -> Var:
     return v
 
 
-def _mic_clamp(p, w: float = 1.0):
+def _mic_clamp(p, w: float = 1.0, box: tuple | None = None):
     """The left hand inside the mic line on a gesture (eased in with the gesture's weight from the rest)."""
     rest = GK.HIGH_REST.off
-    y_lim = MIC_L[0] + max(0.0, rest[1] - MIC_L[0]) * (1.0 - w)
-    z_lim = MIC_L[1] + max(0.0, rest[2] - MIC_L[1]) * (1.0 - w)
+    box = box or MIC_L
+    y_lim = box[0] + max(0.0, rest[1] - box[0]) * (1.0 - w)
+    z_lim = box[1] + max(0.0, rest[2] - box[1]) * (1.0 - w)
     return GK.HandPose((p.off[0], min(p.off[1], y_lim), min(p.off[2], z_lim)), p.pron, p.ext, p.shape)
 
 
@@ -438,7 +490,10 @@ def hand(perf, s: str, t: float) -> tuple:
     if s == "l":
         two = max([wi for i, wi in w.items() if perf.plan.events[i].hand == "both"] or [0.0])
         if two > 0:
-            hp = _mic_clamp(hp, min(1.0, two))
+            on = getattr(perf.plan, "on_cam", None) or []
+            cam = next((c for a, b, c in on if a <= t < b), None)
+            box = MIC_L_CAM.get(cam) if on else min(MIC_L_CAM.values(), key=lambda b: b[1])  # no cut list: every
+            hp = _mic_clamp(hp, min(1.0, two), box)  # camera counts, so the tightest box
     return hp, big
 
 

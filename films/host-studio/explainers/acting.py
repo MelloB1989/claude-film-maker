@@ -145,7 +145,7 @@ HER = {
                                                     "hold": 0.7, "note": "introduces the panel: cross-body open palm, chest height, "
                                                             "stops 15 cm left of the sternum, under the mic head; "
                                                             "head and eyes turn 10 deg with it, back by 'Netflix'"}),
-                ("open_palm", "R", ("N06", "predicts", 1, 0.3), {"size": "medium", "target": "front",
+                ("open_palm", "R", ("N06", "predicts", 1, 0.3), {"size": "medium", "target": "front", "height": "sternum",
                                                                  "note": "a small circle, palm up: a crystal ball"}),
                 ("point_viewer", "R", ("N06", "your"), {"size": "small", "target": "camera",
                                                          "note": "open hand toward the lens, not a jabbing finger"}),
@@ -169,7 +169,7 @@ HER = {
         "N08": {
             "arc": "body", "emotion": "explaining, crisp clarity", "intensity": 0.7,
             "base": {"smile": 0.2, "brows": 0.1},
-            "note": "CU: gestures held high (collarbone to chin) so the hands enter the bottom of the frame; the "
+            "note": "CU: gestures held high (at the collarbone, never the chin) so the hands enter the bottom of the frame; the "
                     "shoulders carry the rest",
             "face": [("glance", ("N08", "Each"), {"dir": "her right", "dur": 0.35,
                                                   "note": "agent-04's THINK beat; back on the lens by 'title'"}),
@@ -227,7 +227,7 @@ HER = {
                 ("deictic", "R", ("N12", "dips?"), {"size": "medium", "target": "panel (her left)",
                                                     "note": "flat palm-down hand dips toward the panel (cross-body, "
                                                             "chest height, under the mic head)"}),
-                ("open_palm", "R", ("N12", "next"), {"size": "medium", "target": "camera", "note": "it's fine"}),
+                ("open_palm", "R", ("N12", "next"), {"size": "medium", "target": "camera", "note": "it's fine", "height": "sternum"}),
                 ("pinch", "R", ("N12", "little"), {"size": "small", "target": "camera",
                                                     "hold": 0.6, "note": "thumb and index almost touching"}),
             ],
@@ -280,12 +280,12 @@ HER = {
                      ("nod", ("N15", "delivers.", 1, 0.35), {}),
                      ("smile", ("N15", "delivers.", 1, 0.35), {"amount": 0.6, "hold": 0.5, "shape": "open lips, building to N16"})],
             "gestures": [
-                ("high_low", "R", ("N15", "cloud"), {"size": "medium", "target": "up, her right", "height": "chin",
-                                                     "hold": 0.5, "note": "open palm raised to chin height: up there"}),
+                ("high_low", "R", ("N15", "cloud"), {"size": "medium", "target": "up, her right", "height": "collarbone",
+                                                     "hold": 0.5, "note": "open palm raised to collarbone height: up there"}),
                 ("place", "both", ("N15", "box"), {"size": "medium", "target": "front", "height": "sternum",
                                                     "note": "both hands come down to the sternum, the frame's edge: "
                                                             "right here"}),
-                ("beat", "both", ("N15", "delivers.", 1, 0.35), {"size": "medium", "target": "front"}),
+                ("beat", "both", ("N15", "delivers.", 1, 0.35), {"size": "medium", "target": "front", "height": "sternum"}),
             ],
             "lean": [(("N15", "cloud"), 4), (("N15", "box"), 7)],
         },
@@ -454,7 +454,7 @@ HIM = {
                 ("deictic", "R", ("W10", "ticks?"), {"size": "medium", "target": "panel (his left)", "hold": 0.5,
                                                      "note": "cross-body open palm toward the ticks, under the mic "
                                                              "head"}),
-                ("count", "R", ("W10", "One:"), {"size": "medium", "target": "his right, chest height",
+                ("count", "R", ("W10", "One:"), {"size": "medium", "target": "his right, chest height", "height": "sternum",
                                                  "note": "index up (1), the hand back on his right"}),
                 ("beat", "R", ("W10", "has"), {"size": "small", "target": "camera"}),
             ],
@@ -468,7 +468,7 @@ HIM = {
                      ("smile", ("W11", "read"), {"amount": 0.85, "hold": 0.5,
                                                  "note": "full Duchenne (payoff 3/5): the blue ticks"})],
             "gestures": [
-                ("count", "R", ("W11", "Two:"), {"size": "medium", "target": "his right, chest height",
+                ("count", "R", ("W11", "Two:"), {"size": "medium", "target": "his right, chest height", "height": "sternum",
                                                  "note": "+ middle (2)"}),
                 ("deictic", "R", ("W11", "Blue:"), {"size": "medium", "target": "panel (his left)", "hold": 0.5,
                                                     "note": "the two fingers turn toward the panel's blue ticks"}),
@@ -716,20 +716,28 @@ def face04(row: dict) -> dict:
 # Gesture space (orchestrator, side A review): the apex of a stroke sits chest-to-chin in front of the torso, never at
 # desk height. agent-10's framing check (her gesture plane): CAM_MCU's bottom edge is at her sternum point (z 85),
 # CAM_CU's above her shoulders (z 102). So in MCU a small beat peaks at the sternum (the hand at the frame's edge),
-# medium/big at the upper chest and collarbone (the hands in the frame's lower third); in CU the key strokes rise to the
-# chin. Heights, low to high: bust, lower_chest, sternum, upper_chest, collarbone, chin.
+# medium/big at the upper chest and collarbone (the hands in the frame's lower third); in CU the strokes sit at the
+# collarbone (ruling (a): nothing at the chin). Heights, low to high: bust, lower_chest, sternum, upper_chest, collarbone, chin.
 HEIGHT = {"CAM_MCU": {"small": "sternum", "medium": "upper_chest", "big": "collarbone"},
           "CAM_MCU_L": {"small": "sternum", "medium": "upper_chest", "big": "collarbone"},
-          "CAM_CU": {"small": "collarbone", "medium": "chin", "big": "chin"},
+          "CAM_CU": {"small": "collarbone", "medium": "collarbone", "big": "collarbone"},
           "CAM_WIDE": {"small": "lower_chest", "medium": "sternum", "big": "upper_chest"},
-          None: {"small": "sternum", "medium": "upper_chest", "big": "collarbone"}}  # off camera: MCU heights (the
-# TEST span plays N03 on CAM_MCU, and the next shot can open mid-gesture)
+          None: {"small": "sternum", "medium": "upper_chest", "big": "collarbone"},  # a gfx line kept on camera: MCU
+          #  heights (the TEST span plays N03 on CAM_MCU, and the next shot can open mid-gesture)
+          "off": {"small": "sternum", "medium": "sternum", "big": "sternum"}}  # off_cam lines: nobody sees them
+# The orchestrator (agent-01's elbow ruling, ee99f626): high apexes are for emphasis. Most strokes sit at mid/lower chest,
+# with the collarbone only on the sheet's key beats and the CU moments, and at most ~1/3 at or above the upper chest
+# (ELEV_STROKE 60 deg only there). So off-camera strokes stay at the sternum, and a few non-key visible ones are pinned
+# there too ("height": the N06/N12 panel opens, the N15 beat, his W10/W11 counts). checks() reports the share.
+# The orchestrator's ruling (a), 08 Nov: key beats top out at the upper chest/collarbone (the wrist <= ~22 cm over the
+# sternum point; a chin apex needed 70-78 deg of upper-arm lift against the 60 deg line), nothing at the chin.
+HIGH = ("upper_chest", "collarbone", "chin")
 # hands_in_frame_frac (>= 1 hand fully in frame, of the speaking frames), per camera: agent-09's gate row
 IN_FRAME = {"CAM_MCU": 0.6, "CAM_MCU_L": 0.6, "CAM_CU": 0.3, "CAM_WIDE": 1.0}
 
 
 def apex_height(camera: str | None, off_cam: bool, size: str) -> str:
-    return HEIGHT[None if off_cam else camera][size]
+    return HEIGHT["off" if off_cam else camera][size]
 
 
 BODY_TYPE = {"beat": "beat", "open_palm": "open", "release": "open", "point_viewer": "open", "sweep": "open",
@@ -776,7 +784,10 @@ def checks(a: dict) -> dict:
             "gesture_onsets_per_s": {"all": round(sum(len(ln["gestures"]) for ln in a["lines"]) / speak, 2),
                                      "per_line": rates},
             "neutral_hold_max_s": {"max": max(holds.values()), "per_line": holds},
-            "same_gesture_twice": repeats, "on_cam_lines": [ln["id"] for ln in on]}
+            "same_gesture_twice": repeats,
+            "apex_high_share": round(sum(g["apex_height"] in HIGH for ln in a["lines"] for g in ln["gestures"])
+                                     / max(1, sum(len(ln["gestures"]) for ln in a["lines"])), 3),
+            "on_cam_lines": [ln["id"] for ln in on]}
 
 
 # ------------------------------------------------------------------------------------------------ the readable sheet
@@ -836,11 +847,12 @@ five payoffs; mid-line smiles 0.4-0.6, varied in shape and asymmetry. Confident,
 amplitude varies (`amp` 0-1: small 0.3, medium 0.55, big 0.85), and the HELD strokes keep the shape after the stroke
 for `hold_s` before retracting: deliberate, confident.
 
-**Gesture space (side A review, agent-10's framing check):** the apex of every stroke sits chest-to-chin in front of
+**Gesture space (side A review, agent-10's framing check):** the apex of every stroke sits chest-to-collarbone in front of
 the torso, never at desk height. `CAM_MCU`'s bottom edge is at her sternum (z 85 on her gesture plane): small beats
 peak at the sternum (the hand at the edge), medium at the upper chest, big at the collarbone, so the hands sit in the
-frame's lower third. `CAM_CU`'s bottom edge is above her shoulders (z 102): small strokes at the collarbone, the key
-ones at the chin. Each gesture carries its `apex_height`; each on-camera line its `hands_in_frame_min` (at least
+frame's lower third. `CAM_CU`'s bottom edge is above her shoulders (z 102): its strokes at the collarbone, never the
+chin (the orchestrator's ruling (a): the wrist <= ~22 cm over the sternum point). At most ~1/3 of the strokes sit at or
+above the upper chest (`apex_high_share`): off-camera strokes stay at the sternum. Each gesture carries its `apex_height`; each on-camera line its `hands_in_frame_min` (at least
 one hand fully in frame: MCU/MCU_L 0.6, CU 0.3, WIDE 1.0 of the speaking frames). The high rest is hands together at
 the sternum, at the MCU frame's edge.
 
