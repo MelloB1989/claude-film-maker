@@ -73,6 +73,10 @@ eye on CAM_MCU f0-100 (box C):
   are kept for the key beats (agent-11 lowers some if more than ~1/3 are high). The rest-elevation line stays 30 deg.
   agent-13 updates the rows.
 
+**Cost policy (the operator via the orchestrator, 08 Nov):** at most two GPU boxes (T his, T2 hers). The finals
+render ON those boxes, not on farm workers, so the farm rows are INFO, and leaders and streaming come from each box's
+box.json per job. Every gate passes BEFORE a render: no re-renders, and the verify/test spans are kept to the minimum.
+
 **Round 7 rulings (the orchestrator, 07 Nov):**
 
 | ruling | what it changes |

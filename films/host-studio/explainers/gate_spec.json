@@ -975,7 +975,12 @@
     "a missing / duplicated frame, a flagged seam, or a chunk without leaders (farm_rows tests)"
    ],
    "guard": true,
-   "why": "the finals now render on N farm workers in chunks: none may be lost or doubled"
+   "why": "the finals now render on N farm workers in chunks: none may be lost or doubled",
+   "info": true,
+   "r4": [
+    null,
+    "INFO under the orchestrator's COST POLICY (08 Nov): the finals render ON boxes T (his) and T2 (hers), not on farm workers, so there are no farm jobs, chunks or seams to judge; garment.leaders_ok and shot.streaming_settled come from the box's render.py box.json per job again. If the farm is used after all (the orchestrator's exception for an idle box), these rows go back to hard"
+   ]
   },
   "shot.chunk_seams_ok": {
    "area": "shot",
@@ -991,7 +996,12 @@
     "a missing / duplicated frame, a flagged seam, or a chunk without leaders (farm_rows tests)"
    ],
    "guard": true,
-   "why": "the karma S17+S18 lesson (a new render job pops the hair) on the farm's chunk seams"
+   "why": "the karma S17+S18 lesson (a new render job pops the hair) on the farm's chunk seams",
+   "info": true,
+   "r4": [
+    null,
+    "INFO under the orchestrator's COST POLICY (08 Nov): the finals render ON boxes T (his) and T2 (hers), not on farm workers, so there are no farm jobs, chunks or seams to judge; garment.leaders_ok and shot.streaming_settled come from the box's render.py box.json per job again. If the farm is used after all (the orchestrator's exception for an idle box), these rows go back to hard"
+   ]
   },
   "set.strays_ok": {
    "area": "shot",
@@ -1007,7 +1017,12 @@
     "a missing / duplicated frame, a flagged seam, or a chunk without leaders (farm_rows tests)"
    ],
    "guard": true,
-   "why": "agent-06's r6 guard, per chunk"
+   "why": "agent-06's r6 guard, per chunk",
+   "info": true,
+   "r4": [
+    null,
+    "INFO under the orchestrator's COST POLICY (08 Nov): the finals render ON boxes T (his) and T2 (hers), not on farm workers, so there are no farm jobs, chunks or seams to judge; garment.leaders_ok and shot.streaming_settled come from the box's render.py box.json per job again. If the farm is used after all (the orchestrator's exception for an idle box), these rows go back to hard"
+   ]
   },
   "shot.farm_state_parity": {
    "area": "shot",
@@ -1023,7 +1038,12 @@
     0,
     "a worker on a stale sync (farm_rows test)"
    ],
-   "why": "the operator: render in parallel 'once scene is ready with everything'; a worker on an older state would render the rejected rest pose or garments"
+   "why": "the operator: render in parallel 'once scene is ready with everything'; a worker on an older state would render the rejected rest pose or garments",
+   "info": true,
+   "r4": [
+    null,
+    "INFO under the orchestrator's COST POLICY (08 Nov): the finals render ON boxes T (his) and T2 (hers), not on farm workers, so there are no farm jobs, chunks or seams to judge; garment.leaders_ok and shot.streaming_settled come from the box's render.py box.json per job again. If the farm is used after all (the orchestrator's exception for an idle box), these rows go back to hard"
+   ]
   },
   "body.rest_hand_torso_cm": {
    "area": "performance",
