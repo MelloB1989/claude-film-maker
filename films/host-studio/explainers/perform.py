@@ -524,7 +524,10 @@ FALLBACK_CAMS = {"her": {"CAM_MCU": {"focal": 117.5, "pitch": -1.62}, "CAM_MCU_L
 # a presenter's torso model over gesturekit.Torso's (hers) and the outfit gate (the orchestrator, 09 Nov: his upper arms
 # 6.6-7.9 cm inside his outfit's flank on box T, with the model reading +0.5 there: side_pad 8.5 brings the model's
 # side out to his outfit; the gate, >= 0.5 at every checked frame, both arms, seated and in gestures)
-TORSO_OF = {"him": {"side_pad": 8.5, "gate": 0.5, "side_from": 9, "warn": True}}  # side_from 9: agent-02's worst at arm_t 0.46
+TORSO_OF = {"him": {"side_pad": 8.5, "gate": 0.5, "side_from": 9, "warn": True, "breast_r": 4.5, "breast_out": 4.0}}
+# side_from 9: agent-02's worst at arm_t 0.46. breast_r / breast_out: his chest, not her bust spheres (7.5 / 7.0): with
+#   hers his 3 cm front line lifted the elbows to 91 cm in his strokes (wings; his proxy: humerus_elev_high 77.6, 28
+#   holds over the collar); a pectoral 4.5 / 4.0 until agent-02 measures his chest front
 
 
 # shots filmed besides the edit's, which the mic rule and the body check guard too (gesturekit.Plan.mic_cams), e.g.
