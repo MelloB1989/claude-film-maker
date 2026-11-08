@@ -394,3 +394,10 @@ EXPL_ARMS=0 gives the slim originals (with the new hides) for comparisons only.
 - Him (box T, branch fleet/agent-06/r7-him e3f0bc15 = e7903a6e + agent-01 9dc4db55 + aad624a9): him_sweep on the box (8 Performer variants, rows only). REST_WRIST_UNDER=0.5 picked: TEST spans 0-179 + 422-480 pass every row, rest_contact 0; whole-take finger_snap 6.4/min still open for his finals. Confirmed with arm_track_who + naturalness on the box.
 - His body build on aad624a9 then failed its own check (nothing written): desk.wrist (both wrists z 73.3 against the desk top 71.0 at t 0-0.4, the lowered opening rest) and floor.ball (+1.26 cm). Not framing-only (agent-04), so T saved + API-stopped. Next T run: agent-01's fix, body build first, then rows / LAYERS / flank / re-gate / head stages / 13 s TEST.
 - His body reads stay on box T and are deleted after each run; only rows leave it.
+- 09 Nov ~05:00-05:20 IST (agent-05, his flank, box T body 3c2adc79): CLOSED, NO REFIT. The orchestrator's eye on the
+  before stills (CAM_MCU/WIDE f0/f84): no arm-into-flank clipping. agent-02's side -8 cm and reel/r7/him_flank.py's
+  m1 (l 4.8 / r 3.9 cm) both came from an A-pose sleeve/torso split that hid the flank under the armpit; m1b (every
+  vertex) read 14 cm at arm t 0.13 with his own BODY 3.5-3.9 cm "inside" the arm tube: the tube model is too fat at
+  the shoulder, so it is an artefact too. His original outfit stays; /Game/Host/Fit/SKM_Host_Outfit_R7Flank (from m1)
+  sits unused. him_flank.py stays as a tool; do not trust its numbers near the shoulder (t < ~0.35) without a tighter
+  arm model.
