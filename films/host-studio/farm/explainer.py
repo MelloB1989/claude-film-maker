@@ -36,15 +36,37 @@ PRESETS = {
 
 # run on the worker before every chunk (film-farm's ue "hook"): op(name, **args) is the box's bridge
 HOOK = r'''
+def state_of(job):
+    """What this worker renders from (agent-09's shot.farm_state_parity): the id in the project sync's STATE.json
+    (agent-06 writes it at the root of the pushed project delta), else the box's AMI."""
+    import json, os, urllib.request
+    for s in job["ue"].get("sync") or []:
+        p = os.path.join(s["local"], "STATE.json")
+        if os.path.exists(p):
+            return "sync:" + str(json.load(open(p)).get("id"))
+    try:
+        tok = urllib.request.urlopen(urllib.request.Request(
+            "http://169.254.169.254/latest/api/token", method="PUT",
+            headers={"X-aws-ec2-metadata-token-ttl-seconds": "60"}), timeout=2).read().decode()
+        return "ami:" + urllib.request.urlopen(urllib.request.Request(
+            "http://169.254.169.254/latest/meta-data/ami-id", headers={"X-aws-ec2-metadata-token": tok}),
+            timeout=2).read().decode()
+    except Exception as e:
+        return "unknown:" + type(e).__name__
+
+
 def before_chunk(op, job, chunk):
     a = job["ue"]["hook_args"]
+    state, want = state_of(job), a.get("expect_state")
+    if want and state != want:  # a stale sync or the wrong image: refuse before any render time is spent
+        return {"ok": False, "why": "state %s != expected %s" % (state, want), "state": state}
     actor, cam, seq = a["actor"], a["camera"], a["sequence"]
     op("seq.camera_cuts", path=seq, cuts=[[cam, 0]])        # this shot's camera alone (in memory: never saved)
     op("mh.leader", label=actor)                            # leaders are lost on every editor start
     bad = [lab for lab, cls, _ in op("level.actors")
            if lab.startswith(("Test_", "FMQA_")) or (("BP_Host" in cls or "BP_Presenter" in cls) and lab != actor)]
     lead = op("mh.leader_check", label=actor)
-    out = {"strays": bad, "leaders_ok": int(bool(lead.get("pass")))}
+    out = {"strays": bad, "leaders_ok": int(bool(lead.get("pass"))), "state": state}
     frame = (max(chunk["start"], chunk["render_from"]) + chunk["end"]) // 2
     path = "/srv/farm/_guard/%s_%s_f%04d.png" % (job["id"], cam, frame)
     op("seq.scrub", path=seq, frame=frame)
@@ -64,17 +86,23 @@ def before_chunk(op, job, chunk):
 
 
 def shot_camera(s: dict) -> str:
-    return s.get("camera") or ""
+    """explainers/set.py's: agent-11's PANEL shots (her in the left half, a graphic panel on the right) use CAM_MCU_L;
+    graphics shots have none."""
+    cam = s.get("camera")
+    if not cam or s.get("kind") == "gfx":
+        return ""
+    return "CAM_MCU_L" if s.get("kind") == "panel" and cam == "CAM_MCU" else cam
 
 
 def render_plan(edl: dict, handles: int = 6) -> list:
     """Every presenter shot as [n, camera, first, end) with ±handles, clamped (explainers/set.py's)."""
     end = int(edl.get("frames") or max(s["f1"] for s in edl["shots"]))
     return [[s["n"], shot_camera(s), max(0, s["f0"] - handles), min(end, s["f1"] + handles)]
-            for s in edl["shots"] if shot_camera(s) and s.get("kind", "pres") == "pres"]
+            for s in edl["shots"] if shot_camera(s)]
 
 
-def jobs(who: str, film: str, edl: dict, preset: str, chunk: int = 96, preroll: int = 24, sync: list | None = None) -> list:
+def jobs(who: str, film: str, edl: dict, preset: str, chunk: int = 96, preroll: int = 24, sync: list | None = None,
+         state: str = "") -> list:
     out = []
     for n, cam, f0, f1 in render_plan(edl):
         spec = {"sequence": SEQ[who], "level": LEVELS[who], "preroll": "cut", "warmup_engine": 22,
@@ -85,7 +113,8 @@ def jobs(who: str, film: str, edl: dict, preset: str, chunk: int = 96, preroll: 
             "privacy": "private", "presenter": True,
             "output": {"prefix": f"{OUT}/{film}/{preset}/shot{n:02d}_{cam}/", "ext": "png", "pad": 4, "fps": 24},
             "ue": {"spec": spec, "fresh_editor": True, "wait_compile": True, "stall_s": 900, "sync": sync or [],
-                   "hook": HOOK, "hook_args": {"actor": ACTOR[who], "camera": cam, "sequence": SEQ[who]}},
+                   "hook": HOOK, "hook_args": {"actor": ACTOR[who], "camera": cam, "sequence": SEQ[who],
+                                                "expect_state": state}},
         })
     return out
 
@@ -101,11 +130,13 @@ def main() -> int:
     ap.add_argument("--sync", action="append", default=[], metavar="S3=LOCAL",
                     help="a delta to sync onto each box first (repeat), e.g. "
                          "s3://B/ue-linux/private/project/HostStudio=/srv/ue/projects/HostStudio")
+    ap.add_argument("--state", default="", help="the passed scene state every chunk must render: sync:<STATE.json id> "
+                    "or ami:<id> (the hook refuses a chunk on any other)")
     ap.add_argument("--out", required=True, help="folder for the job files")
     a = ap.parse_args()
     edl = json.loads(Path(a.edl).read_text())
     sync = [{"s3": x.split("=", 1)[0], "local": x.split("=", 1)[1]} for x in a.sync]
-    js = jobs(a.who, a.film, edl, a.preset, a.chunk, sync=sync)
+    js = jobs(a.who, a.film, edl, a.preset, a.chunk, sync=sync, state=a.state)
     if a.shots:
         keep = {int(x) for x in a.shots.split(",")}
         js = [j for j, (n, *_r) in zip(js, render_plan(edl)) if n in keep]
