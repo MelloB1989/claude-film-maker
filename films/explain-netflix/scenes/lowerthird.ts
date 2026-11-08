@@ -36,18 +36,26 @@ export default class LowerThird extends NfScene {
   }
 }
 
-/** Words of s in lines no wider than maxW at the given face, size and tracking. */
+/** Words of s in as few lines no wider than maxW as fit, at the given face, size and tracking, balanced (the narrowest
+ * width that still needs no more lines), so no word is left alone on the last line. */
 function wrap(c: CanvasRenderingContext2D, s: string, maxW: number, fam: string, size: number, track: number): string[] {
   c.save();
   c.font = font(fam, size);
   (c as any).letterSpacing = `${track}px`;
-  const lines: string[] = [];
-  let cur = '';
-  for (const word of s.split(' ')) {
-    const next = cur ? `${cur} ${word}` : word;
-    if (cur && c.measureText(next).width > maxW) { lines.push(cur); cur = word; } else cur = next;
-  }
-  if (cur) lines.push(cur);
+  const greedy = (w: number) => {
+    const lines: string[] = [];
+    let cur = '';
+    for (const word of s.split(' ')) {
+      const next = cur ? `${cur} ${word}` : word;
+      if (cur && c.measureText(next).width > w) { lines.push(cur); cur = word; } else cur = next;
+    }
+    if (cur) lines.push(cur);
+    return lines;
+  };
+  const n = greedy(maxW).length;
+  let lo = 0, hi = maxW;
+  while (hi - lo > 1) { const mid = (lo + hi) / 2; if (greedy(mid).length > n) lo = mid; else hi = mid; }
+  const lines = greedy(hi);
   c.restore();
   return lines;
 }
