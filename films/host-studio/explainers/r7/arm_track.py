@@ -21,10 +21,6 @@ import gesturekit as G  # noqa: E402
 import perform as PF  # noqa: E402
 import seatkit as S  # noqa: E402
 
-BONES = [f"{b}_{s}" for s in "lr" for b in ("clavicle", "upperarm", "lowerarm", "hand")] + \
-        [f"{f}_{j}_{s}" for s in "lr" for f in ("thumb", "index", "middle", "ring", "pinky") for j in ("01", "02", "03")] + \
-        ["spine_03", "spine_05", "neck_01", "head"]
-
 
 def main() -> None:
     ap = argparse.ArgumentParser()
@@ -44,17 +40,10 @@ def main() -> None:
     frames = []
     for i in range(0, n, a.every):
         t = i / fps
-        F = perf.fk({**const, **perf.pose(t)})
-        frames.append({"f": i, "t": round(t, 4), "speak_w": round(plan.speak_w(t), 3),
-                       "gesture_w": {s: round(perf.gesture_w(s, t), 3) for s in "lr"},
-                       "p": {b: [round(x, 4) for x in perf.actor(F[b][0])] for b in BONES if b in F},
-                       "hand_q": {s: [round(x, 5) for x in F["hand_" + s][1]] for s in "lr"}})
-    ev = [{"hand": e.hand, "kind": e.kind, "prep": e.prep, "stroke": e.stroke, "hold": e.hold,
-           "line": getattr(e, "line", "")} for e in plan.events]
+        frames.append(G.track_frame(perf, plan, perf.fk({**const, **perf.pose(t)}), i, t))
     out = Path(a.out)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps({"who": "her", "fps": fps, "frame": "actor: x fwd, y her right, z up, cm",
-                               "on_cam": plan.on_cam, "events": ev, "frames": frames}))
+    out.write_text(json.dumps({"who": "her", **G.track_doc(plan, fps, frames)}))
     print(out, len(frames), "frames")
 
 
