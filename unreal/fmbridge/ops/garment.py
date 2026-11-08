@@ -956,7 +956,8 @@ def covered(n_verts: int, tris: list, hit: list, rings: int = 2) -> list:
 
 @op("body.hide_under", mutates=True, idempotent=True, tags=["metahuman", "experimental"])
 def hide_under(*, label: str, garment: str, body: str = "Body", reach_cm: float = 4.0, rings: int = 2,
-               apply: bool = False, dest: str = "", inside_cm: float = 0.0, fill_max: int = 0) -> dict:
+               apply: bool = False, dest: str = "", inside_cm: float = 0.0, fill_max: int = 0,
+               within: list | None = None) -> dict:
     """Hide the body where a garment covers it (MetaHuman does this for its own garments; a garment of your own
     needs it too): a body vertex is covered when a ray out along its normal meets the garment within reach_cm, a
     triangle is hidden when all its corners are, less `rings` triangles round the border (cloth that moves off the
@@ -965,7 +966,8 @@ def hide_under(*, label: str, garment: str, body: str = "Body", reach_cm: float 
     fitted in another pose (her seated waist refit, carried back to bind) can sit inside the skin in the reference
     pose, where the outward ray never meets it. fill_max > 0 also covers every uncovered island of at most that many
     vertices that covered skin surrounds and the garment is within reach of everywhere (fill_holes), before the
-    rings shrink.
+    rings shrink. within [[x, y, z, r], ...] (reference-pose cm): only body vertices inside one of these spheres can
+    be covered (a local refit hides only its own region's skin).
 
     With apply=False (default) it only counts. With apply=True the triangles are deleted on a COPY of the body mesh
     (dest, default <body mesh>_Under_<garment>), set on the component, and leader pose re-applied (mh.leader).
@@ -1006,7 +1008,11 @@ def hide_under(*, label: str, garment: str, body: str = "Body", reach_cm: float 
         raise OpError(f"could not read the body's vertex normals ({len(normals or [])} for {len(vs)} verts)",
                       code="engine", hint="a mesh with vertex-ID gaps: re-save the body mesh, or check editor.api_names")
     hit, inside = [], 0
+    spheres = [(unreal.Vector(x, y, z), float(r)) for x, y, z, r in (within or [])]
     for k, (p, n) in enumerate(zip(vs, normals)):
+        if spheres and not any((p - c).length() <= r for c, r in spheres):
+            hit.append(False)
+            continue
         d = n * (1.0 / (n.length() or 1.0))
         h = gs.ray(p, d, float(reach_cm)) is not None
         if not h and inside_cm > 0 and gs.ray(p, d * -1.0, float(inside_cm)) is not None:

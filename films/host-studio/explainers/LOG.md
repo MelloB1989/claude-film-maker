@@ -357,3 +357,25 @@ tested in `test_seatkit.py`), `gestures.json` (the emphasis gestures per line).
 | 2026-11-08 17:21 IST | agent-13 | r7 movement: b4325b5b (agent-01 hand heading + finger ease) passes all 19 rows incl. finger_snap (whole 1.05 /min, windows 0), at 30 fps and an exact 24 fps solve; 30->24 interpolation error in the windows 0.62 cm (was 3.04); released |
 | 2026-11-08 20:28 IST | agent-13 | r7 GATE OWNER (agent-09 rate-limited): branch fleet/agent-13/r7-gate off 178a28bf; agent-08 hand rows added (claw, DIP/PIP, fold_at_limit, cascade, thumb_flat/stiff, hold_over_collar; report hold_chest, claw_score); parity text time-matched; n/a-able move rows |
 | 2026-11-08 22:10 IST | agent-06 | Editor boxes after the power cut. T2 (her) on agent-08's 928407cb: body, life, gates. Parity --shoulder 0.306 seat / 0.407 placed. Rest 19.18. Arms on _Arms: bust 3.56/3.81, side 1.25/1.31. hands_in_frame placed MCU 0.723 / CU 0.392 / WIDE 1.0. Breath z 2.65 mm @ 12.1/min. Waist: no visible skin. Catalogue v3 (30 ok, 3 SKIP) and 00:08 after v3 are in private/review/explain/hands/. FOUND: the place stage lifts her from spine_04 up by +2.6 z / -0.55 x (spine_03 0.00), so the resting hands float over the desk; --shoulder parity cancels it, and agent-13's --torso row and the rows on the placed dump now catch it. mp_pilot (agent-12 kling_her_t1) rendered CAM_WIDE + CAM_MCU 0-239 preview to private/review/explain/mp_pilot/kling_t1/ (parity 1.12 worst, p95 0.28). T (him): agent-01 66785bbe fails its own body check (hands_out_of_frame MCU 0.45, arm_outfit -1.2), and merged with 928407cb fails desk.finger; T stays stopped for the combined sha. |
+
+### Round 7 her waist 2 + arm girth (agent-05, branch fleet/agent-05/r7-girth; task 917b, with agent-02, agent-06 on T2)
+
+| IST (8 Nov) | What |
+|---|---|
+| ~20:00 | The operator: "some clipping near her waist", arms "a little bit (not much) thin". netflix_r7H WIDE f1034-1167: skin through the band's lower edge |
+| ~20:30 | Cause: body.hide_under picks the skin to hide in the REF pose with an outward ray only; R7W2 was fitted seated and carried back to bind, so at her hip crease it sits INSIDE her skin there: never covered, and rings=2 widened each miss. agent-02 (current body): skin 0.75-0.79 cm out at +-40 deg (front hip crease), 6.3 cm under the band edge, ~170 verts, every frame |
+| ~20:40 | hide_under: inside_cm (a short ray in along -normal also counts) + fill_max (small uncovered islands with the garment in reach everywhere). Her Body<Trousers 4.0 / inside 3 / fill 400, Top<Trousers inside 2. arm_girth.py: upper arm + forearm +10 % round the bone axis by her own arm weights (deltoid ramps in over 30 %, the watch band's 6.5 cm and the hands 0), the Top's sleeves by the same field; new _Arms assets, setplan EXPL_ARMS (default on) |
+| T2 | arm_girth: radius upper 3.48 -> 3.83, fore 2.77 -> 3.04 (both sides), max move 0.47 cm, hands/watch 0, verts equal, Top bones = body's. Body<Trousers: inside 80, filled [120, 80, 79, 4, 4, 1, 1] (the hip crease; arms 7.1k and feet 3.5k islands untouched). agent-02: waist skin poke 0.79 -> none, fit 0.02; arms on _Arms rest bust 3.59 / side 1.73, gesture 3.97 / 1.71 (pass). T2 saved on the originals + the new hides until the girth is approved |
+
+| ~21:30 | Orchestrator APPROVED by eye: the waist after = clean dark trousers, no see-through gap at the band; _Arms reads subtly fuller, sleeves follow, the watch sits fine. _Arms + the new hides = her level of record |
+
+Her setup of record (any box, from r7-girth or a tree with it merged):
+1. fmbridge with garment.py at r7-girth (body.hide_under inside_cm / fill_max) loaded in the editor.
+2. Once per project (refuses to overwrite; already done on T2):
+   `film-ue exec -c "STAGE='apply'; SCALE=0.10; exec(open('<tree>/films/host-studio/props/her_outfit_ue/arm_girth.py').read())"`
+   -> SKM_Presenter_F_BodyMesh_Arms, SKM_Presenter_Top_R7W_Arms. `STAGE='check'` re-reads them (radius +10 %, hands/watch 0).
+3. `set.py --who her --steps garments,dress` with EXPL_ARMS unset (= 1): the Body/Top on _Arms, then the hides
+   Top<Trousers 2.5/inside 2, Body<Top 6, Body<Trousers 4/inside 3/fill 400; check the Body<Trousers line's filled
+   list is the hip crease only (T2: [120, 80, 79, 4, 4, 1, 1]). Leaders pass, then save (assets + level).
+4. Gates on it: agent-02 waist_skin_poke_cm <= 0 (WIDE), arms rest + gesture (bust >= 3, side >= 0.5).
+EXPL_ARMS=0 gives the slim originals (with the new hides) for comparisons only.
