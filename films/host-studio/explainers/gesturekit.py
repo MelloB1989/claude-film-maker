@@ -1466,7 +1466,7 @@ class Performer(S.Seater):
             k = cross(fingers, mul(palm, -1.0))
             if norm(k) > 1e-6:
                 fingers = qrot(axis_angle(k, hp.ext * ws), fingers)
-        across = self._palm_off_camera(s, fingers, across, d0, a0, side)
+        fingers, across = self._palm_off_camera(s, fingers, across, d0, a0, side, fa)
         return qmul(S.frame_to_frame(d0, a0, fingers, across), sk.q("hand_" + s))
 
     PALM_OFF_FWD = 95.0  # deg the palm's normal keeps off straight forward when the fingers point up (agent-13's
@@ -1474,34 +1474,63 @@ class Performer(S.Seater):
     #   offering / placing palm faces up and in, never the camera): 95 turns it to face her midline (in), a touch back
     PALM_UP_RAMP = (0.15, 0.4)  # the fingers' up component over which the rule fades in (continuous: no snap)
 
-    def _palm_off_camera(self, s, fingers, across, d0, a0, side):
-        """The hand turned about its fingers (supination, toward her midline) the least that keeps the palm's normal
-        PALM_OFF_FWD off forward, faded in by how far the fingers point up; a 'press' (palm out on purpose) exempt."""
+    def _palm_off_camera(self, s, fingers, across, d0, a0, side, fa):
+        """(fingers, across) turned about the forearm `fa` (supination, toward her midline) the least that keeps the
+        palm's normal PALM_OFF_FWD off forward, faded in by how far the fingers point up; a 'press' (palm out on
+        purpose) exempt. About the forearm, not the fingers: turned about an extended hand's fingers, its extension
+        became a radial bend (agent-13's wrist_radial_p95 18.7 on the left, 963942f4); the forearm's twist keeps it."""
+        t = getattr(self, "_t", None)
+        if t is None:
+            return fingers, across
+        ang = self._palm_slew(s, t, self._palm_want(s, fingers, across, d0, a0, t, fa))
+        if not ang:
+            return fingers, across
+        q = axis_angle(fa, ang)
+        return qrot(q, fingers), qrot(q, across)
+
+    PALM_RATE = 150.0  # deg/s the guard's turn at most (agent-13's finger_snap: it turned 45-87 deg in 3-4 frames as the
+    #   wrist stopped, 31.2 / 33.9 s; ~18 cm out, 150 deg/s is a fingertip ~47 cm/s)
+
+    def _palm_slew(self, s, t, want):
+        """The guard's angle toward `want` at PALM_RATE, once per frame (a second call in a frame gets the same answer;
+        a gap or a step back in time starts over at `want`)."""
+        st_ = getattr(self, "_pg", {}).get(s)  # (t_prev, a_prev, t_cur, a_cur)
+        if st_ is not None and t == st_[2]:
+            t0, a0 = st_[0], st_[1]
+        elif st_ is not None and st_[2] < t <= st_[2] + 2.5 / 30.0:
+            t0, a0 = st_[2], st_[3]
+        else:
+            t0, a0 = None, want
+        a = want if t0 is None else a0 + max(-1.0, min(1.0, (want - a0) / max(1e-6, self.PALM_RATE * (t - t0)))) * \
+            self.PALM_RATE * (t - t0)
+        self._pg = {**getattr(self, "_pg", {}), s: (t0 if t0 is not None else t, a0, t, a)}
+        return a
+
+    def _palm_want(self, s, fingers, across, d0, a0, t, fa):
+        """The signed guard angle (deg about the forearm) this frame wants, before the rate limit."""
         f, r, u = self.fr
         k_up = smooth((dot(fingers, u) - self.PALM_UP_RAMP[0]) / (self.PALM_UP_RAMP[1] - self.PALM_UP_RAMP[0]))
-        t = getattr(self, "_t", None)
-        if k_up <= 0 or t is None:
-            return across
+        if k_up <= 0:
+            return 0.0
         press = sum(e.weight(t) for e in self.plan.events
                     if (e.hand == s or e.hand == "both") and "press" in (e.kind + " " + str(getattr(e, "detail", ""))))
         k_up *= max(0.0, 1.0 - min(1.0, press)) * smooth((self._wg.get(s, 0.0) - 0.4) / 0.5)  # at the strokes (the
         #   landings keep the hand's own contact turn: a pinky went into the desk)
         if k_up <= 0:
-            return across
+            return 0.0
         sk = self.sk
         n_ref = unit(cross(sub(sk.p("middle_01_" + s), sk.p("hand_" + s)), sub(sk.p("index_01_" + s), sk.p("pinky_01_" + s))))
         if dot(sub(sk.p("middle_03_" + s), sk.p("middle_01_" + s)), n_ref) < 0:
             n_ref = mul(n_ref, -1.0)
         sgn = 1.0 if dot(cross(d0, a0), n_ref) > 0 else -1.0
 
-        def palm_of(ac):
-            return mul(unit(cross(fingers, ac)), sgn)
-
         def off(phi):
-            return math.degrees(math.acos(max(-1.0, min(1.0, dot(palm_of(qrot(axis_angle(fingers, phi), across)), f)))))
+            q = axis_angle(fa, phi)
+            palm = mul(unit(cross(qrot(q, fingers), qrot(q, across))), sgn)
+            return math.degrees(math.acos(max(-1.0, min(1.0, dot(palm, f)))))
 
         if off(0.0) >= self.PALM_OFF_FWD:
-            return across
+            return 0.0
         sg = -1.0 if s == "r" else 1.0  # always the supination sense (toward her midline): a sign taken from the palm
         #   flipped frame to frame near its zero, the hand flapping (410 cm/s fingertips, 21.5 s)
         lo, hi = 0.0, 150.0  # deg (axis_angle takes degrees)
@@ -1515,7 +1544,7 @@ class Performer(S.Seater):
                 else:
                     lo = mid
             phi = hi
-        return qrot(axis_angle(fingers, sg * phi * k_up), across)
+        return sg * phi * k_up
 
     def _finger_pose(self, s, hp: HandPose, W):
         """Each finger to its shape's ABSOLUTE anatomical angles (handshape.finger_angles: MCP-first synergy, DIP ~2/3
