@@ -217,5 +217,25 @@ def body_rows(samples: dict, fps: float, spans: list, desk_z: float, hands=("han
             "body.wrist_travel_cm_per_s": {"value": round(travel / max(1, n), 2), "where": where}}
 
 
+def rest_frames(samples: dict, fps: float, hands=("hand_l", "hand_r"), hold_s: float = 0.25, every: int = 2) -> list:
+    """The REST/bridge frames: both hands under REST_CMS for at least hold_s (any frame of the sampled set, speaking
+    or not: the rest lives in the pauses). Every `every`-th such frame, for qa.hand_torso_clearance."""
+    fr = samples["frames"]
+    still = []
+    for i in range(1, len(fr)):
+        if fr[i] != fr[i - 1] + 1:
+            still.append(False)
+            continue
+        still.append(all(math.dist(samples["bones"][h][i - 1][:3], samples["bones"][h][i][:3]) * fps < REST_CMS
+                         for h in hands))
+    still = [False] + still
+    need, out, run = int(round(hold_s * fps)), [], 0
+    for i, s in enumerate(still):
+        run = run + 1 if s else 0
+        if run >= need and (run - need) % every == 0:
+            out.append(fr[i])
+    return out
+
+
 def _spans(path: str) -> list:
     return [[int(a), int(b)] for a, b in json.loads(Path(path).read_text())]

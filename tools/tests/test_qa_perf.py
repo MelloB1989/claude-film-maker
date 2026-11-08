@@ -156,3 +156,17 @@ def test_a_hand_already_up_at_a_span_start_is_not_an_onset():
     still_up = samples(120, lambda i, h: [0.0, 10.0 if h == "r" else -10.0, 92.0 if h == "r" else 75.0])
     r = P.body_rows(still_up, FPS, [[0, 40], [60, 120]], 71.0)  # two spans, the right hand up and still
     assert r["body.gesture_onsets_per_s"]["value"] == 0
+
+
+def test_rest_frames_and_hand_to_chest():
+    s = samples(120, lambda i, h: [0.0, 10.0 if h == "r" else -10.0, 80.0 + (5.0 * (i // 3) if 30 <= i < 60 else
+                                                                               (50.0 if i >= 60 else 0.0))])
+    rf = P.rest_frames(s, FPS, every=1)
+    assert rf and all(f < 30 or f >= 66 for f in rf)  # the moving stretch is not rest
+    L = _limbs()
+    torso = ([0, 0, 100], [0, 0, 150])
+    body = cylinder(*torso, 14)  # the chest surface ~14 cm out from the spine
+    cloud = L.torso_cloud(body, torso, [])
+    near = L.nearest([[17, 0, 128]], cloud)["cm"]  # hands 3 cm off the chest: the rejected high rest
+    far = L.nearest([[38, 0, 118]], cloud)["cm"]   # hands ~24 cm in front: the new rest
+    assert near < 5 and far > 15

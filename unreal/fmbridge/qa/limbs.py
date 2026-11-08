@@ -94,3 +94,38 @@ def hands_fracs(rows: dict) -> dict:
         o["cameras"].add(r["camera"])
     return {k: {"frac": round(o["in"] / o["n"], 3), "n": o["n"], "line": o["line"], "cameras": sorted(o["cameras"])}
             for k, o in out.items()}
+
+
+# --- resting hands vs the chest (round 7: 'both hands hover at the TOP OF HER CHEST ... like claws'; the orchestrator) --
+def torso_cloud(points, torso, limbs, *, torso_r: float = 30.0, limb_r: float = 9.0) -> list:
+    """The torso surface points: within torso_r of the spine (spine_03 -> neck_01) and not within limb_r of any limb
+    segment in `limbs` (upper arms, forearms, hands: [(a, b), ...]), so the arms and hands never count as chest."""
+    out = []
+    for p in points:
+        if seg(p, *torso)[1] > torso_r:
+            continue
+        if any(seg(p, *ls)[1] <= limb_r for ls in limbs):
+            continue
+        out.append(p)
+    return out
+
+
+def nearest(points, cloud, *, cell: float = 4.0, reach: float = 40.0) -> dict:
+    """{"cm": the min distance from any of `points` to the cloud (capped at reach), "at": that point}."""
+    if not points or not cloud:
+        return {"cm": None, "error": f"{len(points)} hand / {len(cloud)} torso points"}
+    grid = {}
+    for q in cloud:
+        grid.setdefault(tuple(int(math.floor(c / cell)) for c in q), []).append(q)
+    k = int(math.ceil(reach / cell))
+    best, at = reach, None
+    for p in points:
+        cx, cy, cz = (int(math.floor(c / cell)) for c in p)
+        for dx in range(-k, k + 1):
+            for dy in range(-k, k + 1):
+                for dz in range(-k, k + 1):
+                    for q in grid.get((cx + dx, cy + dy, cz + dz), ()):
+                        d = math.dist(p, q)
+                        if d < best:
+                            best, at = d, p
+    return {"cm": round(best, 2), "at": [round(c, 1) for c in at] if at else None}
