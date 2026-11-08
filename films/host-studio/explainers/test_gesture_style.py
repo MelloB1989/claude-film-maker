@@ -161,7 +161,7 @@ def test_similarity_flags_copies_and_passes_variation():
     assert not rep2["pass"]
 
 
-def test_build_on_her_skeleton_passes_with_the_hooks():
+def test_build_on_her_skeleton_passes_with_the_hooks(tmp_path):
     """gesturekit.build with the hooks on her skeleton read, the first 6 s of her sheet (the hook N01-N02)."""
     import perform as P
     import seatkit as S
@@ -171,8 +171,10 @@ def test_build_on_her_skeleton_passes_with_the_hooks():
     pp = P.perform_params("her")
     data = json.load(open(HERE / "skeletons" / "her_body_read.json"))
     doc, summ = GK.build(data, S.Set(**bp["set"]), S.Style(**bp["style"]), pp["sheet"], pp["cues"], pp["tilts"],
-                         6.0, 30)
+                         6.0, 30, track_out=str(tmp_path / "arm_track.json"))
     assert summ["hooks"]["style"] and summ["pass"], summ["issues"][:5]
+    tr = json.load(open(summ["arm_track"]["path"]))  # the arm track for agent-13's rows (his: written on the box)
+    assert len(tr["frames"]) == 181 and "hand_l" in tr["frames"][90]["p"] and "middle_03_r" in tr["frames"][90]["p"]
     assert min(summ["rows"]["upperarm_bust_clear_cm"].values()) >= 3.0  # the bust by 3 (her side: not into it)
     assert min(summ["rows"]["upperarm_side_clear_cm"].values()) >= 0.0
 
@@ -180,5 +182,6 @@ def test_build_on_her_skeleton_passes_with_the_hooks():
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_"):
-            fn()
+            import inspect, pathlib, tempfile
+            fn(*([pathlib.Path(tempfile.mkdtemp())] if inspect.signature(fn).parameters else []))
             print("ok", name)

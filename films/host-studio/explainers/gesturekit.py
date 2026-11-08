@@ -13,7 +13,9 @@ point so the hands ride the torso's lean and turn.
 """
 from __future__ import annotations
 
+import json
 import math
+from pathlib import Path
 from dataclasses import dataclass, field, replace
 
 import seatkit as S
@@ -885,7 +887,7 @@ def metrics(perf: Performer, t0: float, t1: float, fps: float = 30.0) -> dict:
 
 def build(data: dict, st, sy, sheet: dict, cues: dict, tilts: list, length_s: float, fps: int = 30,
           check_every: int = 6, timing: list | None = None, on_cam: list | None = None,
-          frame_want: dict | None = None) -> tuple:
+          frame_want: dict | None = None, track_out: str | None = None) -> tuple:
     """seatkit.build for the performance: the seated pose with the plan driving the upper body, as tracks (constant
     for the bones that never move, per key for spine, neck, head, clavicles, arms, hands and fingers). Returns (doc
     for perform.py's WRITE, summary with the checks and the body rows' numbers)."""
@@ -903,12 +905,15 @@ def build(data: dict, st, sy, sheet: dict, cues: dict, tilts: list, length_s: fl
     side_c, bust_c = {"l": 1e9, "r": 1e9}, {"l": 1e9, "r": 1e9}
     framing = {}
     rest_clear = 1e9
+    track = []  # track_out: the arm track per frame (on the box for his body: his skeleton never leaves it)
     for i in range(n):
         t = i / fps
         loc = perf.pose(t)
         for b in moving:
             v = loc.get(b, const[b])
             keyed[b].append({k: [round(x, 6) for x in v[k]] for k in ("t", "q", "s")})
+        if track_out:
+            track.append(track_frame(perf, plan, perf.fk({**const, **loc}), i, t))
         if i % check_every == 0:
             F = perf.fk({**const, **loc})
             c = S.check(perf, F)
@@ -980,4 +985,29 @@ def build(data: dict, st, sy, sheet: dict, cues: dict, tilts: list, length_s: fl
                                                                                    "right": perf.F["right"]},
                "rest": S.check(perf, perf.fk({**const, **first}))}
     doc = {"length_s": length_s, "fps": fps, "n_keys": n, "const": const, "keyed": keyed}
+    if track_out:
+        Path(track_out).parent.mkdir(parents=True, exist_ok=True)
+        Path(track_out).write_text(json.dumps(track_doc(plan, fps, track)))
+        summary["arm_track"] = {"path": str(track_out), "frames": len(track)}
     return doc, summary
+
+
+TRACK_BONES = [f"{b}_{s}" for s in "lr" for b in ("clavicle", "upperarm", "lowerarm", "hand")] + \
+    [f"{f}_{j}_{s}" for s in "lr" for f in ("thumb", "index", "middle", "ring", "pinky") for j in ("01", "02", "03")] + \
+    ["spine_03", "spine_05", "neck_01", "head"]
+
+
+def track_frame(perf, plan, F, i: int, t: float) -> dict:
+    """One frame of the arm track for agent-13's naturalness rows (actor frame, cm, 0.1 mm: 0.01 cm read a slow drift
+    as frozen)."""
+    return {"f": i, "t": round(t, 4), "speak_w": round(plan.speak_w(t), 3),
+            "gesture_w": {s: round(perf.gesture_w(s, t), 3) for s in "lr"},
+            "p": {b: [round(x, 4) for x in perf.actor(F[b][0])] for b in TRACK_BONES if b in F},
+            "hand_q": {s: [round(x, 5) for x in F["hand_" + s][1]] for s in "lr"}}
+
+
+def track_doc(plan, fps: int, frames: list) -> dict:
+    ev = [{"hand": e.hand, "kind": e.kind, "prep": e.prep, "stroke": e.stroke, "hold": e.hold,
+           "line": getattr(e, "line", "")} for e in plan.events]
+    return {"fps": fps, "frame": "actor: x fwd, y the presenter's right, z up, cm", "on_cam": plan.on_cam,
+            "events": ev, "frames": frames}

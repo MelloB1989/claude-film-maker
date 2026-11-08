@@ -405,7 +405,8 @@ def job():
         doc, summary = GK.build(data, S.Set(**P["set"]), S.Style(**P["style"]), P["perform"]["sheet"],
                                 P["perform"]["cues"], P["perform"]["tilts"], P["length_s"], P["fps"],
                                 timing=P["perform"].get("timing"), on_cam=P["perform"].get("on_cam"),
-                                **({"frame_want": P["perform"]["frame_want"]} if P["perform"].get("frame_want") else {}))
+                                **({"frame_want": P["perform"]["frame_want"]} if P["perform"].get("frame_want") else {}),
+                                **({"track_out": P["perform"]["track_out"]} if P["perform"].get("track_out") else {}))
     else:
         gs = [S.Gesture(**x) for x in P["gestures"]]
         doc, summary = S.build(data, S.Set(**P["set"]), S.Style(**P["style"]), gs, P["length_s"], P["fps"])
@@ -487,7 +488,8 @@ def cmd_body(who: str, force: bool = False, perform: bool = False) -> dict:
         if (HERE / "gesture_style.py").exists():  # agent-08's generated kinematics (envelope / vary / fingers)
             client().push(str(HERE / "gesture_style.py"), box(who, "kit", "gesture_style.py"))
         bp["style"].update(PERFORM_STYLE)
-        extra = {"perform": perform_params(who)}
+        extra = {"perform": {**perform_params(who), "track_out": box(who, "kit", "arm_track.json")}}  # the arm track
+        #   for agent-13's rows, written ON THE BOX (his skeleton never leaves it): run the rows there
     r = run(BODY, {"kit_dir": kit, "read": READ, "label": LABEL[who], "idle": IDLE, "world": WORLD_BONES,
                    "out": f"{ANIM}/AS_exp_{who}_seat", "force": force, **bp, **extra}, 3600)
     keep(who, "body_check", r["summary"])
@@ -497,7 +499,8 @@ def cmd_body(who: str, force: bool = False, perform: bool = False) -> dict:
     if perform:
         return {"anim": r["out"], "keys": r["keys"], "bones": r["bones"], "pass": r["pass"],
                 "rows": r["summary"].get("rows"), "events": r["summary"].get("events"),
-                "issues": r["summary"].get("issues", [])[:10], "tuned": r["summary"].get("tuned")}
+                "issues": r["summary"].get("issues", [])[:10], "tuned": r["summary"].get("tuned"),
+                "arm_track": r["summary"].get("arm_track")}
     return {"anim": r["out"], "keys": r["keys"], "bones": r["bones"], "pass": r["pass"],
             "rest": {k: r["summary"]["rest"][k] for k in ("hips", "knees", "elbows", "wrists", "head", "issues")},
             "wrist_ext": r["summary"]["wrist_ext"], "yaw_off": r["summary"]["yaw_off"],
