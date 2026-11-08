@@ -34,7 +34,7 @@ CHEST_BELOW_COLLAR = 4.0  # cm: the chest line under the clavicle heads (agent-0
 FOLD_PIP = 95.0  # deg: a held fold at/over this is at the joint limit (agent-08, R7 hands)
 SPREAD_OK = ("open", "deictic", "raise_finger", "count", "pinch")  # kinds/details that part the fingers on purpose
 REST_TIP_CM = 1.5  # cm: the lowest fingertip (finger_tips' centre line) over the desk top on a resting hand (agent-08)
-REST_HEEL = {"her": 2.9}  # per presenter, from agent-02's mesh (him pending: the default applies)
+REST_HEEL = {"her": 2.9, "him": 3.34}  # per presenter, agent-02 on each mesh: heel-only wrist head + 0.5 (her 2.35, him 2.84 on SKM_Host body, 09 Nov)
 REST_HEEL_CM = 2.9  # cm: the wrist head over the desk top with the heel of the palm down (agent-02 on her mesh: 2.35 heel
 #   only, 1.85 heel + pads; + 0.5 tolerance) (the orchestrator: contact
 #   through the palm and fingers, never the tips only)
@@ -398,6 +398,14 @@ class Take:
                 return (i - 1 + (th - w[i - 1]) / max(1e-9, w[i] - w[i - 1])) * self.dt
         return None
 
+    @staticmethod
+    def _low(w, a, b):
+        """the first local low of w from a (walk while it still falls), at most b."""
+        k = a
+        while k < b and w[k + 1] < w[k]:
+            k += 1
+        return k
+
     def lag(self):
         """proximal-to-distal onset: upper arm -> forearm -> hand (absolute orientation) -> fingers, per movement."""
         r = {}
@@ -416,8 +424,10 @@ class Take:
             segs = self.segments(s)
             for a, b in segs:
                 a0 = max(0, a - 3)
-                o = [self._onset(w, a0, b) for w in (up, fo, hd)]
-                of = self._onset(fw, a0, b)
+                # each series' onset is searched from its OWN low after a0: a tail still decaying from the previous
+                # arrival is not an onset (agent-01, 09 Nov: 20 of his 21 'leading' hands were that tail)
+                o = [self._onset(w, self._low(w, a0, b), b) for w in (up, fo, hd)]
+                of = self._onset(fw, self._low(fw, a0, b), b)
                 if None in o:
                     continue
                 lags.append(1000 * (o[2] - o[0]))
