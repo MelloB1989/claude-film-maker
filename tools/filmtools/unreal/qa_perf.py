@@ -241,11 +241,23 @@ PARITY_BONES = ("hand_l", "hand_r", "lowerarm_l", "lowerarm_r", "middle_03_l", "
                 "index_03_r", "thumb_03_l", "thumb_03_r")
 
 
-def parity(editor: dict, offline: dict, bones=PARITY_BONES) -> dict:
+FIT_BONES = ("spine_05", "neck_01", "head", "spine_03")
+
+
+def from_arm_track(doc: dict) -> dict:
+    """agent-01's arm_track (gesturekit.track_doc: {frames: [{f, p: {bone: [x, y, z]}}]}) -> seq.sample form."""
+    fr = doc["frames"]
+    names = sorted({b for x in fr for b in x["p"]})
+    return {"frames": [int(x["f"]) for x in fr], "bones": {b: [x["p"].get(b, [float("nan")] * 3) for x in fr] for b in names}}
+
+
+def parity(editor: dict, offline: dict, bones=PARITY_BONES, fit=FIT_BONES) -> dict:
     """editor_offline_parity_cm (round 7: a stale additive layer on the editor's sequence played a body the offline
     rows never saw; agent-13). Both inputs in seq.sample form ({frames, bones: {name: [[x, y, z, ...], ...]}}), any
     coordinate frame: ONE rigid transform (Kabsch, rotation + translation) is fitted over every common frame and bone,
-    so a constant offset or a different world/actor frame is absorbed; what is left is per-frame disagreement. Returns
+    so a constant offset or a different world/actor frame is absorbed; what is left is per-frame disagreement. The
+    fit uses the TORSO/HEAD bones only (`fit`, when both sides have them), and the hands are measured under it: a fit
+    on the hands would soak up part of a stale arm layer (agent-13). Returns
     {"value": the worst residual (cm), "p95", "at": "<bone>@<frame>", "n"}."""
     import numpy as np
     fe = {f: i for i, f in enumerate(editor["frames"])}
@@ -261,15 +273,22 @@ def parity(editor: dict, offline: dict, bones=PARITY_BONES) -> dict:
             B.append(offline["bones"][b][fo[f]][:3])
             tag.append(f"{b}@{f}")
     A, B = np.asarray(A, float), np.asarray(B, float)
-    ca, cb = A.mean(0), B.mean(0)
-    H = (B - cb).T @ (A - ca)
+    fn = [b for b in fit if b in editor["bones"] and b in offline["bones"]]
+    if fn:  # the rigid fit on the torso/head only
+        FA = np.asarray([editor["bones"][b][fe[f]][:3] for f in common for b in fn], float)
+        FB = np.asarray([offline["bones"][b][fo[f]][:3] for f in common for b in fn], float)
+    else:
+        FA, FB = A, B
+    ca, cb = FA.mean(0), FB.mean(0)
+    H = (FB - cb).T @ (FA - ca)
     U, _, Vt = np.linalg.svd(H)
     d = np.sign(np.linalg.det(Vt.T @ U.T))
     R = Vt.T @ np.diag([1, 1, d]) @ U.T
     res = np.linalg.norm((B - cb) @ R.T + ca - A, axis=1)
     k = int(res.argmax())
     return {"value": round(float(res[k]), 2), "p95": round(float(np.percentile(res, 95)), 2), "at": tag[k],
-            "n": len(res), "where": f"{len(common)} frames x {len(names)} bones, after one rigid fit"}
+            "n": len(res), "where": f"{len(common)} frames x {len(names)} bones, after one rigid fit on "
+            f"{'+'.join(fn) if fn else 'the measured bones (no torso bones on both sides)'}"}
 
 
 def _spans(path: str) -> list:

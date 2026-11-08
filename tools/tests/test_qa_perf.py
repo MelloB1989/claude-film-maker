@@ -191,11 +191,14 @@ def test_parity_absorbs_a_rigid_frame_change_and_catches_a_stale_layer():
         k = P.PARITY_BONES.index(b)
         return [10 + k + 5 * m.sin(i / 6 + k), -20 + 3 * k, 90 + 4 * m.cos(i / 5 + k)]
     off = {"frames": fr, "bones": {b: [pos(i, b) for i in fr] for b in P.PARITY_BONES}}
+    for k, b in enumerate(P.FIT_BONES):  # a still torso/head to fit on
+        off["bones"][b] = [[0.0 + k, 0.0, 120.0 + 10 * k] for _ in fr]
     th = m.radians(-90)  # the editor in world coordinates: yawed -90 and moved
     def world(p):
         x, y, z = p
         return [x * m.cos(th) - y * m.sin(th) + 300, x * m.sin(th) + y * m.cos(th) - 120, z + 5]
     ed = {"frames": fr, "bones": {b: [world(p) for p in v] for b, v in off["bones"].items()}}
+    assert P.from_arm_track({"frames": [{"f": 3, "p": {"hand_r": [1, 2, 3]}}]})["bones"]["hand_r"] == [[1, 2, 3]]
     assert P.parity(ed, off)["value"] < 0.01
     stale = {"frames": fr, "bones": {b: [list(p) for p in v] for b, v in ed["bones"].items()}}
     for i in range(20, 30):  # a stale layer moves the right hand 6 cm for 10 frames
