@@ -25,6 +25,9 @@ HIGH_APEX_CM = 16.0  # wrist over the sternum point that counts as an upper_ches
 TORSO_DEPTH = 11.0
 STILL_CM_S = 2.5  # wrist speed under which a frame is still (a hold), not part of a movement
 MIN_MOVES = 5  # wrist movements a hand needs before its path/speed fractions count  # cm from the spine_05 joint to the front of the chest/stomach (seated adult, either presenter)
+CHIN_BELOW_HEAD = 5.0  # cm: the chin under the head bone's head (the skull base); neck_01 sits ~10 under it, the
+#   shoulders ~19: the chin is ~11-13 cm above the suprasternal notch (seated adult, either presenter)
+FACE_C, FACE_R = (7.0, 0.0, 4.0), 11.0  # the face/hair shell: centre off the head joint (fwd, right, up), radius cm
 SNAP_CM_S = 90.0  # fingertip speed relative to the wrist that, stopped dead within 2 frames, is a snap
 SEQ_FPS = 24.0  # the film's sequence / EDL rate: --span frames are on it (the dumps run at 30)
 MIN_REST = 15  # frames (0.5 s) a rest class needs before its elevation counts
@@ -506,10 +509,39 @@ class Take:
             out[s] = {"n": len(hits), "per_min": len(hits) / mins if mins > 0 else float("nan"), "t": sorted(hits)}
         return out
 
+    def near_face(self):
+        """hands up at the face (the orchestrator, 09 Nov: 'no hand/finger above the chin, or within ~10 cm of the
+        face/hair, in any cut camera'): on-camera frames (the dump's on_cam, within the spans) where any wrist or finger
+        joint head is above the chin line (the head joint - CHIN_BELOW_HEAD) or inside the face shell (a sphere at the
+        head joint + FACE_C, radius FACE_R + 10 cm)."""
+        cams = self.d.get("on_cam") or []
+        out = {"frames": 0, "on_cam_frames": 0, "t": [], "max_over_chin_cm": float("-inf")}
+        for i, f in enumerate(self.F):
+            if not self.inside[i] or (cams and not any(a <= f["t"] < b for a, b, *_ in cams)):
+                continue
+            out["on_cam_frames"] += 1
+            H = f["p"]["head"]
+            chin = H[2] - CHIN_BELOW_HEAD
+            c = add(H, list(FACE_C))
+            hit = False
+            for s in "lr":
+                for b in ["hand_" + s] + [f"{fn}_0{j}_{s}" for fn in ("thumb",) + FINGERS for j in (2, 3)]:
+                    P = f["p"].get(b)
+                    if P is None:
+                        continue
+                    out["max_over_chin_cm"] = max(out["max_over_chin_cm"], P[2] - chin)
+                    hit = hit or P[2] > chin or norm(sub(P, c)) < FACE_R + 10.0
+            if hit:
+                out["frames"] += 1
+                tt = round(f["t"], 1)
+                if tt not in out["t"]:
+                    out["t"].append(tt)
+        return out
+
     def report(self):
         return {"wrist": self.wrist(), "forearm": self.forearm(), "shape": self.shapes(), "body": self.body(),
                 "kin": self.kinematics(), "lag": self.lag(), "asym": self.asym(), "fingers": self.frozen(),
-                "torso": self.torso(), "travel": self.travel(), "holds": self.holds(), "snaps": self.snaps()}
+                "torso": self.torso(), "travel": self.travel(), "holds": self.holds(), "snaps": self.snaps(), "face": self.near_face()}
 
 
 # ---------- the gate rows ----------
@@ -574,6 +606,10 @@ ROWS = {
                                  "finger shapes that snap in: a fingertip >= 90 cm/s relative to the wrist stopped "
                                  "to <= 25 % within 2 frames, per speaking minute, worse hand (minimum jerk holds for "
                                  "the fingers too; 'fingers snapping between fixed shapes' is a robotic tell)"),
+    "move.hand_near_face_frames": (lambda r: r["face"]["frames"], "==", 0, "frames",
+                                   "on-camera frames with any wrist/finger joint above the chin line (head joint - 5 cm) "
+                                   "or within 10 cm of the face/hair shell (the orchestrator, 09 Nov: no face gestures "
+                                   "on either presenter's sheet)"),
     "move.mirror_corr_p50": (lambda r: r["asym"]["mirror_corr_p50"], "<=", 0.95, "corr",
                              "GUARD: two-hand strokes, median correlation of the left wrist velocity with the right's "
                              "mirrored (1.0 = a mirror copy)"),
