@@ -55,6 +55,11 @@ fleet/agent-12/r7-gfx-core), to the shared style guide docs/STYLE_V3.md (both ex
 - The caption-band gate (tools/gate.sh) failed on six v3 shots at first: oca's platform rim, the 240p rungs in ladder's
   close-ups, abr's shelves mid-swing (plus slivers of unborn shelves), and three low labels (prefill, buffer, planes).
   Cameras and labels were moved, and all eleven deliverables now pass.
+- The Mac came back: the eight full shots were re-rendered there at 8-sample motion blur (~0.15 s per frame) and re-gated
+  (all pass, max 1/255). The orchestrator's preview review got two label fixes in the same pass: in planes, the pointer
+  beam crossed 'Recommendations' and the stream started under 'use this box' (both labels moved off them, toward the
+  camera); in prefill, 'the box near you' ended just past title-safe (now 42 px, right-aligned on the gauge, ending at
+  x ~1775). The panels and the lower third are unchanged (1-sample matte passes).
 
 Facts on screen are unchanged from round 6 (facts_netflix.json): 300+ million members; Open Connect Appliances given
 free, inside the ISP's network; nightly off-peak fill by predicted popularity; per-title ladders (rung lengths
