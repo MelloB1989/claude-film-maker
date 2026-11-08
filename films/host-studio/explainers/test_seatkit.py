@@ -159,3 +159,18 @@ def test_wrists_mode_still_works():
     sk = skeleton()
     se = S.Seater(sk, S.Set(), S.Style(rest="wrists"))
     assert S.check(se, se.fk(se.pose()))["pass"]
+
+
+def test_ball_pitched_onto_the_floor():
+    """a rest ball the posed foot doesn't carry to (his box read: +1.26 cm, floor.ball): the foot pitches about its
+    ankle until the ball is down; a ball already down is left alone."""
+    st = S.Set(mic=[24, -14, 99], desk_near=12.0)
+    sk = skeleton()
+    se = S.Seater(sk, st)
+    q0 = se.pose()["foot_l"]["q"]
+    sk.world["ball_l"] = {"t": [*sk.world["ball_l"]["t"][:2], sk.world["ball_l"]["t"][2] - 1.26], "q": sk.world["ball_l"]["q"]}
+    se = S.Seater(sk, st)
+    loc = se.pose()
+    chk = S.check(se, se.fk(loc))
+    assert not [i for i in chk["issues"] if i["code"] == "floor.ball"], chk["issues"]
+    assert loc["foot_l"]["q"] != q0 and loc["foot_r"]["q"] == S.Seater(skeleton(), st).pose()["foot_r"]["q"]

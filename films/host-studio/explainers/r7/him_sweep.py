@@ -22,21 +22,27 @@ sys.path.insert(0, str(HERE))
 
 import gesturekit as G  # noqa: E402
 import naturalness as N  # noqa: E402
+import perform as PF  # noqa: E402
 from arm_track_who import track_of  # noqa: E402
 
 TEST_SPANS = [(0, 179), (422, 480)]
 
 
-def apply(var: str) -> dict:
-    """set a variant's attributes; returns the old values to put back."""
-    old = {}
+def apply(var: str) -> list:
+    """set a variant's attributes; returns the old values to put back, [(target, name, value)]."""
+    old = []
     if var == "base":
         return old
     for kv in var.split(","):
         k, v = kv.split("=")
         tgt, name = (G, k[2:]) if k.startswith("G.") else (G.Performer, k)
-        old[(tgt, name)] = getattr(tgt, name)
-        setattr(tgt, name, type(old[(tgt, name)])(float(v)) if isinstance(old[(tgt, name)], (int, float)) else eval(v))
+        was = getattr(tgt, name)
+        old.append((tgt, name, was))
+        setattr(tgt, name, type(was)(float(v)) if isinstance(was, (int, float)) else eval(v))
+        for tune in PF.TUNE_OF.values():  # a presenter's own constant (perform.TUNE_OF) would set it back per Performer
+            if name in tune and tgt is G.Performer:
+                old.append((tune, name, tune[name]))
+                tune[name] = getattr(tgt, name)
     return old
 
 
@@ -65,8 +71,8 @@ def main() -> None:
         try:
             doc = track_of(a.who, Path(a.read))
         finally:
-            for (tgt, name), v in old.items():
-                setattr(tgt, name, v)
+            for tgt, name, v in reversed(old):
+                tgt.__setitem__(name, v) if isinstance(tgt, dict) else setattr(tgt, name, v)
         line = [var]
         for spans in ([None, TEST_SPANS] if a.spans else [None]):
             tk = N.Take(doc, spans)
