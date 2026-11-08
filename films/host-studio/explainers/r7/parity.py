@@ -44,7 +44,15 @@ def at(B, fps, t, bone):
     return [p + (q - p) * u for p, q in zip(a, b)]
 
 
-def parity(ed, off, spans=None, ed_fps=24.0, off_fps=30.0, seq_fps=24.0):
+def _rel(P, b):
+    """bone b from its side's shoulder (the upperarm head): a breath layer on the spine/clavicles carries the whole
+    arm with it, which is not a different arm."""
+    s = b[-1]
+    sh = P.get("upperarm_" + s)
+    return None if sh is None or P.get(b) is None else [x - y for x, y in zip(P[b], sh)]
+
+
+def parity(ed, off, spans=None, ed_fps=24.0, off_fps=30.0, seq_fps=24.0, rel=False):
     """editor frames at their own rate (the sequence's, 24) vs the offline track (30), matched by TIME; spans are
     sequence frames at seq_fps."""
     (A, ed_fps), (B, off_fps) = frames(ed, ed_fps), frames(off, off_fps)
@@ -56,8 +64,12 @@ def parity(ed, off, spans=None, ed_fps=24.0, off_fps=30.0, seq_fps=24.0):
         fm, fb = 0.0, ""
         for b in HAND:
             q = at(B, off_fps, f / ed_fps, b)
-            if b in A[f] and q is not None:
-                d = math.dist(A[f][b], q)
+            e = A[f].get(b)
+            if rel and q is not None and e is not None:
+                sq, se = at(B, off_fps, f / ed_fps, "upperarm_" + b[-1]), A[f].get("upperarm_" + b[-1])
+                q, e = (None, None) if sq is None or se is None else ([x - y for x, y in zip(q, sq)], _rel(A[f], b))
+            if e is not None and q is not None:
+                d = math.dist(e, q)
                 per_bone[b] = max(per_bone.get(b, 0.0), d)
                 if d > fm:
                     fm, fb = d, b
@@ -91,11 +103,14 @@ def main(argv=None):
     ap.add_argument("--editor-fps", type=float, default=24.0, help="the editor dump's frame rate if it carries no fps")
     ap.add_argument("--offline-fps", type=float, default=30.0, help="the offline track's, if it carries no fps")
     ap.add_argument("--seq-fps", type=float, default=24.0)
+    ap.add_argument("--shoulder", action="store_true",
+                    help="measure the hands from their shoulder (upperarm head): a breath layer on the spine/clavicles "
+                         "(the orchestrator kept life, 08 Nov) carries the arm without changing it")
     ap.add_argument("--json")
     a = ap.parse_args(argv)
     spans = [tuple(int(x) for x in s.split("-")) for s in a.span] or None
     rep = parity(json.loads(Path(a.editor).read_text()), json.loads(Path(a.offline).read_text()), spans,
-                 a.editor_fps, a.offline_fps, a.seq_fps)
+                 a.editor_fps, a.offline_fps, a.seq_fps, a.shoulder)
     r = row(rep)
     k, v = next(iter(r.items()))
     print(f"{k}  {v['value']} cm (<= {LINE_CM})  {'ok' if v['pass'] else 'n/a' if v['pass'] is None else 'FAIL'}  "
