@@ -327,3 +327,13 @@ tested in `test_seatkit.py`), `gestures.json` (the emphasis gestures per line).
 | 15:30-18:30 | Body iterations ac3dc14a -> 906d80d3 -> 8a45d961 -> b4325b5b (her), up to 9eaf6a4b / ea9eadc0 / aba900fe (him): mic occlusion per cut camera, finger snaps eased, life scaled for him. Box T killed twice by the kill switch re-arm (stale idle points) and once by Tokyo capacity; T2 spot-interrupted 11:42-11:49 UTC mid face pass. |
 | 19:15 | Her T2 gates on b4325b5b: parity --shoulder 0.919 cm, all rows on the kit track (finger_snap 0), rest 16.36 cm, arms rest + gesture pass (agent-02 949cde7c), hands_in_frame MCU 0.797 / CU 0.529 / WIDE 1.0, head gate pass (on_lens 0.916). Breath z 1.62 mm (target 2-3.5) goes to the finals' life (d85ecdc6). |
 | 19:33 | Her verify render netflix_r7H shots 1, 2, 11 at the finals preset on T2 (7 min); Tokyo private review/explain/netflix_r7H/final/. T2 saved + API-stopped for the orchestrator's review. |
+
+### Round 7 her waist 2 + arm girth (agent-05, branch fleet/agent-05/r7-girth; task 917b, with agent-02, agent-06 on T2)
+
+| IST (8 Nov) | What |
+|---|---|
+| ~20:00 | The operator: "some clipping near her waist", arms "a little bit (not much) thin". netflix_r7H WIDE f1034-1167: skin through the band's lower edge |
+| ~20:30 | Cause: body.hide_under picks the skin to hide in the REF pose with an outward ray only; R7W2 was fitted seated and carried back to bind, so at her hip crease it sits INSIDE her skin there: never covered, and rings=2 widened each miss. agent-02 (current body): skin 0.75-0.79 cm out at +-40 deg (front hip crease), 6.3 cm under the band edge, ~170 verts, every frame |
+| ~20:40 | hide_under: inside_cm (a short ray in along -normal also counts) + fill_max (small uncovered islands with the garment in reach everywhere). Her Body<Trousers 4.0 / inside 3 / fill 400, Top<Trousers inside 2. arm_girth.py: upper arm + forearm +10 % round the bone axis by her own arm weights (deltoid ramps in over 30 %, the watch band's 6.5 cm and the hands 0), the Top's sleeves by the same field; new _Arms assets, setplan EXPL_ARMS (default on) |
+| T2 | arm_girth: radius upper 3.48 -> 3.83, fore 2.77 -> 3.04 (both sides), max move 0.47 cm, hands/watch 0, verts equal, Top bones = body's. Body<Trousers: inside 80, filled [120, 80, 79, 4, 4, 1, 1] (the hip crease; arms 7.1k and feet 3.5k islands untouched). agent-02: waist skin poke 0.79 -> none, fit 0.02; arms on _Arms rest bust 3.59 / side 1.73, gesture 3.97 / 1.71 (pass). T2 saved on the originals + the new hides until the girth is approved |
+
