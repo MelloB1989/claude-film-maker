@@ -261,3 +261,5 @@ tested in `test_seatkit.py`), `gestures.json` (the emphasis gestures per line).
   graphics-only Netflix dry composite ran on the build host in a container: 1427 f, lufs_err 0.0, TP -1.7, format_ok 1,
   captions 1, onset 84 ms, facts 1, qc_ok 1; lower third top-left as planned. composite.py now counts the picture's frames
   with framecrc: ffmpeg 6.1 prints no frame= on a stream copy (the check read -1).
+
+- 2026-11-08 15:01 IST agent-11: r7 cost policy. comp_box.sh takes RENDER_BUCKET (Tokyo box -> Tokyo bucket; f36709f9) and from a Tokyo box copies only the mp4, master and srt to Mumbai private (9c7a6321). One approved server-side copy of gfx/v3 Mumbai -> rf-render-788655295054-apne1 (25 objects, 3.37 GB, matches). Asked agent-06/07 to write final frames to the Tokyo private prefix.
