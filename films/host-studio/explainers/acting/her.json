@@ -1066,7 +1066,7 @@
      "amp": 0.55,
      "held": false,
      "target": "camera",
-     "apex_height": "upper_chest",
+     "apex_height": "sternum",
      "note": "offering",
      "word_i": 35
     },
@@ -1083,7 +1083,7 @@
      "amp": 0.55,
      "held": false,
      "target": "front",
-     "apex_height": "upper_chest",
+     "apex_height": "sternum",
      "note": "hands circle a space in front of her",
      "word_i": 36
     }
@@ -1146,7 +1146,7 @@
       "amp": 0.55,
       "held": false,
       "target": "camera",
-      "apex_height": "upper_chest"
+      "apex_height": "sternum"
      },
      {
       "type": "open",
@@ -1161,7 +1161,7 @@
       "amp": 0.55,
       "held": false,
       "target": "front",
-      "apex_height": "upper_chest"
+      "apex_height": "sternum"
      }
     ],
     "hands_in_frame_min": null,
@@ -1285,7 +1285,7 @@
      "amp": 0.55,
      "held": false,
      "target": "front",
-     "apex_height": "upper_chest",
+     "apex_height": "sternum",
      "note": "a small circle, palm up: a crystal ball",
      "word_i": 43
     },
@@ -1410,7 +1410,7 @@
       "amp": 0.55,
       "held": false,
       "target": "front",
-      "apex_height": "upper_chest"
+      "apex_height": "sternum"
      },
      {
       "type": "open",
@@ -1933,7 +1933,7 @@
      "amp": 0.85,
      "held": false,
      "target": "front",
-     "apex_height": "collarbone",
+     "apex_height": "sternum",
      "word_i": 73
     },
     {
@@ -1949,7 +1949,7 @@
      "amp": 0.55,
      "held": false,
      "target": "up",
-     "apex_height": "upper_chest",
+     "apex_height": "sternum",
      "word_i": 80
     }
    ],
@@ -2034,7 +2034,7 @@
       "amp": 0.85,
       "held": false,
       "target": "front",
-      "apex_height": "collarbone"
+      "apex_height": "sternum"
      },
      {
       "type": "size",
@@ -2049,7 +2049,7 @@
       "amp": 0.55,
       "held": false,
       "target": "up",
-      "apex_height": "upper_chest"
+      "apex_height": "sternum"
      }
     ],
     "hands_in_frame_min": null,
@@ -2118,7 +2118,7 @@
      "amp": 0.55,
      "held": false,
      "target": "front",
-     "apex_height": "upper_chest",
+     "apex_height": "sternum",
      "word_i": 84
     },
     {
@@ -2179,7 +2179,7 @@
       "amp": 0.55,
       "held": false,
       "target": "front",
-      "apex_height": "upper_chest"
+      "apex_height": "sternum"
      },
      {
       "type": "size",
@@ -2465,7 +2465,7 @@
      "amp": 0.55,
      "held": false,
      "target": "camera",
-     "apex_height": "upper_chest",
+     "apex_height": "sternum",
      "note": "it's fine",
      "word_i": 103
     },
@@ -2585,7 +2585,7 @@
       "amp": 0.55,
       "held": false,
       "target": "camera",
-      "apex_height": "upper_chest"
+      "apex_height": "sternum"
      },
      {
       "type": "size",
@@ -3049,7 +3049,7 @@
      "amp": 0.55,
      "held": false,
      "target": "her right",
-     "apex_height": "upper_chest",
+     "apex_height": "sternum",
      "word_i": 122
     },
     {
@@ -3065,7 +3065,7 @@
      "amp": 0.55,
      "held": false,
      "target": "front",
-     "apex_height": "upper_chest",
+     "apex_height": "sternum",
      "word_i": 128
     }
    ],
@@ -3142,7 +3142,7 @@
       "amp": 0.55,
       "held": false,
       "target": "her right",
-      "apex_height": "upper_chest"
+      "apex_height": "sternum"
      },
      {
       "type": "open",
@@ -3157,7 +3157,7 @@
       "amp": 0.55,
       "held": false,
       "target": "front",
-      "apex_height": "upper_chest"
+      "apex_height": "sternum"
      }
     ],
     "hands_in_frame_min": null,
@@ -3293,7 +3293,7 @@
      "amp": 0.55,
      "held": false,
      "target": "front",
-     "apex_height": "upper_chest",
+     "apex_height": "sternum",
      "word_i": 138
     }
    ],
@@ -3406,7 +3406,7 @@
       "amp": 0.55,
       "held": false,
       "target": "front",
-      "apex_height": "upper_chest"
+      "apex_height": "sternum"
      }
     ],
     "hands_in_frame_min": 0.6,
@@ -3684,6 +3684,7 @@
    }
   },
   "same_gesture_twice": [],
+  "apex_high_share": 0.326,
   "on_cam_lines": [
    "N01",
    "N02",

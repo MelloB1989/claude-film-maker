@@ -145,7 +145,7 @@ HER = {
                                                     "hold": 0.7, "note": "introduces the panel: cross-body open palm, chest height, "
                                                             "stops 15 cm left of the sternum, under the mic head; "
                                                             "head and eyes turn 10 deg with it, back by 'Netflix'"}),
-                ("open_palm", "R", ("N06", "predicts", 1, 0.3), {"size": "medium", "target": "front",
+                ("open_palm", "R", ("N06", "predicts", 1, 0.3), {"size": "medium", "target": "front", "height": "sternum",
                                                                  "note": "a small circle, palm up: a crystal ball"}),
                 ("point_viewer", "R", ("N06", "your"), {"size": "small", "target": "camera",
                                                          "note": "open hand toward the lens, not a jabbing finger"}),
@@ -227,7 +227,7 @@ HER = {
                 ("deictic", "R", ("N12", "dips?"), {"size": "medium", "target": "panel (her left)",
                                                     "note": "flat palm-down hand dips toward the panel (cross-body, "
                                                             "chest height, under the mic head)"}),
-                ("open_palm", "R", ("N12", "next"), {"size": "medium", "target": "camera", "note": "it's fine"}),
+                ("open_palm", "R", ("N12", "next"), {"size": "medium", "target": "camera", "note": "it's fine", "height": "sternum"}),
                 ("pinch", "R", ("N12", "little"), {"size": "small", "target": "camera",
                                                     "hold": 0.6, "note": "thumb and index almost touching"}),
             ],
@@ -285,7 +285,7 @@ HER = {
                 ("place", "both", ("N15", "box"), {"size": "medium", "target": "front", "height": "sternum",
                                                     "note": "both hands come down to the sternum, the frame's edge: "
                                                             "right here"}),
-                ("beat", "both", ("N15", "delivers.", 1, 0.35), {"size": "medium", "target": "front"}),
+                ("beat", "both", ("N15", "delivers.", 1, 0.35), {"size": "medium", "target": "front", "height": "sternum"}),
             ],
             "lean": [(("N15", "cloud"), 4), (("N15", "box"), 7)],
         },
@@ -454,7 +454,7 @@ HIM = {
                 ("deictic", "R", ("W10", "ticks?"), {"size": "medium", "target": "panel (his left)", "hold": 0.5,
                                                      "note": "cross-body open palm toward the ticks, under the mic "
                                                              "head"}),
-                ("count", "R", ("W10", "One:"), {"size": "medium", "target": "his right, chest height",
+                ("count", "R", ("W10", "One:"), {"size": "medium", "target": "his right, chest height", "height": "sternum",
                                                  "note": "index up (1), the hand back on his right"}),
                 ("beat", "R", ("W10", "has"), {"size": "small", "target": "camera"}),
             ],
@@ -468,7 +468,7 @@ HIM = {
                      ("smile", ("W11", "read"), {"amount": 0.85, "hold": 0.5,
                                                  "note": "full Duchenne (payoff 3/5): the blue ticks"})],
             "gestures": [
-                ("count", "R", ("W11", "Two:"), {"size": "medium", "target": "his right, chest height",
+                ("count", "R", ("W11", "Two:"), {"size": "medium", "target": "his right, chest height", "height": "sternum",
                                                  "note": "+ middle (2)"}),
                 ("deictic", "R", ("W11", "Blue:"), {"size": "medium", "target": "panel (his left)", "hold": 0.5,
                                                     "note": "the two fingers turn toward the panel's blue ticks"}),
@@ -722,14 +722,20 @@ HEIGHT = {"CAM_MCU": {"small": "sternum", "medium": "upper_chest", "big": "colla
           "CAM_MCU_L": {"small": "sternum", "medium": "upper_chest", "big": "collarbone"},
           "CAM_CU": {"small": "collarbone", "medium": "chin", "big": "chin"},
           "CAM_WIDE": {"small": "lower_chest", "medium": "sternum", "big": "upper_chest"},
-          None: {"small": "sternum", "medium": "upper_chest", "big": "collarbone"}}  # off camera: MCU heights (the
-# TEST span plays N03 on CAM_MCU, and the next shot can open mid-gesture)
+          None: {"small": "sternum", "medium": "upper_chest", "big": "collarbone"},  # a gfx line kept on camera: MCU
+          #  heights (the TEST span plays N03 on CAM_MCU, and the next shot can open mid-gesture)
+          "off": {"small": "sternum", "medium": "sternum", "big": "sternum"}}  # off_cam lines: nobody sees them
+# The orchestrator (agent-01's elbow ruling, ee99f626): high apexes are for emphasis. Most strokes sit at mid/lower chest,
+# with the collarbone only on the sheet's key beats and the CU moments, and at most ~1/3 at or above the upper chest
+# (ELEV_STROKE 60 deg only there). So off-camera strokes stay at the sternum, and a few non-key visible ones are pinned
+# there too ("height": the N06/N12 panel opens, the N15 beat, his W10/W11 counts). checks() reports the share.
+HIGH = ("upper_chest", "collarbone", "chin")
 # hands_in_frame_frac (>= 1 hand fully in frame, of the speaking frames), per camera: agent-09's gate row
 IN_FRAME = {"CAM_MCU": 0.6, "CAM_MCU_L": 0.6, "CAM_CU": 0.3, "CAM_WIDE": 1.0}
 
 
 def apex_height(camera: str | None, off_cam: bool, size: str) -> str:
-    return HEIGHT[None if off_cam else camera][size]
+    return HEIGHT["off" if off_cam else camera][size]
 
 
 BODY_TYPE = {"beat": "beat", "open_palm": "open", "release": "open", "point_viewer": "open", "sweep": "open",
@@ -776,7 +782,10 @@ def checks(a: dict) -> dict:
             "gesture_onsets_per_s": {"all": round(sum(len(ln["gestures"]) for ln in a["lines"]) / speak, 2),
                                      "per_line": rates},
             "neutral_hold_max_s": {"max": max(holds.values()), "per_line": holds},
-            "same_gesture_twice": repeats, "on_cam_lines": [ln["id"] for ln in on]}
+            "same_gesture_twice": repeats,
+            "apex_high_share": round(sum(g["apex_height"] in HIGH for ln in a["lines"] for g in ln["gestures"])
+                                     / max(1, sum(len(ln["gestures"]) for ln in a["lines"])), 3),
+            "on_cam_lines": [ln["id"] for ln in on]}
 
 
 # ------------------------------------------------------------------------------------------------ the readable sheet
