@@ -159,7 +159,7 @@ def palm_normal(P: dict, s: str) -> list:
 HAND_SIGN = {"l": -1.0, "r": 1.0}  # handedness: flexion is + about (pinky_01 - index_01) x this (MetaHuman / UE rig)
 
 
-def _flex(a, b, axis, sgn) -> float:
+def flex(a, b, axis, sgn) -> float:
     """Signed deg from bone direction a to b about the hinge axis (each projected off it: lateral deviation and
     abduction drop out), + toward the palm. Fold-proof: no sign taken from a finger's own pose."""
     a = _unit(_sub(a, [axis[i] * _dot(a, axis) for i in range(3)]))
@@ -181,7 +181,7 @@ def hand_angles(P: dict, Q: dict, s: str) -> dict:
         if not all(j in Q for j in js):
             continue
         d = [bone_dir(Q[j], sign) for j in js]
-        out[f] = tuple(_flex(d[i], d[i + 1], axis, HAND_SIGN[s]) for i in range(3))
+        out[f] = tuple(flex(d[i], d[i + 1], axis, HAND_SIGN[s]) for i in range(3))
     js = [f"thumb_01_{s}", f"thumb_02_{s}", f"thumb_03_{s}"]
     if all(j in Q for j in js):
         d = [bone_dir(Q[j], sign) for j in js]

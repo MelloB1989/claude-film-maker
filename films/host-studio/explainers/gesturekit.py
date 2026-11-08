@@ -431,10 +431,12 @@ class Performer(S.Seater):
         out = {}
         P = {b: sk.p(b) for b in sk.world}
         Q = {b: sk.q(b) for b in sk.world}
+        self._knuckle = {}  # the knuckle line (index_01 -> pinky_01) per hand, reference pose
         for s in "lr":
             n = HS.palm_normal(P, s)  # toward the palm: the side the fingers curl to
             ref = HS.hand_angles(P, Q, s)
             sign = 1.0 if s == "l" else -1.0
+            self._knuckle[s] = unit(sub(sk.p(f"pinky_01_{s}"), sk.p(f"index_01_{s}")))
             for f in FINGERS:
                 joints = [j for j in (f"{f}_metacarpal_{s}", f"{f}_01_{s}", f"{f}_02_{s}", f"{f}_03_{s}")
                           if j in sk.local]
@@ -1230,21 +1232,36 @@ class Performer(S.Seater):
                 bends = {"01": None, "02": mcp - r_mcp + pip_x * 0.5, "03": ip - r_ip + pip_x}
             else:
                 ang = HS.finger_angles(f, shape.get(f, 0.0), float(shape.get("_pip_" + f, 0.0)))
-                bends = {"01": ang[0] - info["ref"][0], "02": ang[1] - info["ref"][1], "03": ang[2] - info["ref"][2]}
-            cum = [0.0, 0.0, 0.0, 1.0]
+                bends = {k: ang[i] - info["ref"][i] for i, k in enumerate(("01", "02", "03"))}
+            Q = self._finger_chain(joints, bends, axis, dh, cmc if f == "thumb" else None, f == "thumb")
+            if f != "thumb":  # one correction: a splayed finger bends about its own hinge, measured about the knuckle
+                #               line (handshape.hand_angles, the rows'): her left pinky landed 5 deg short at a fold
+                sign = 1.0 if s == "l" else -1.0
+                kn = qrot(dh, self._knuckle[s])
+                d = [HS.bone_dir(Q[j], sign) for j in joints]
+                got = [HS.flex(d[i], d[i + 1], kn, HS.HAND_SIGN[s]) for i in range(len(d) - 1)][-3:]
+                bends = {k: bends[k] + ang[i] - got[i] for i, k in enumerate(("01", "02", "03"))}
+                Q = self._finger_chain(joints, bends, axis, dh, None, False)
             parent = "hand_" + s
             for j in joints:
-                if "metacarpal" in j:
-                    q = qmul(dh, sk.q(j))
-                else:
-                    k = j.split("_")[1]
-                    if bends[k] is None:  # the thumb's CMC: the whole thumb swings
-                        cum = qmul(cmc, cum)
-                    else:
-                        cum = qmul(axis_angle(qrot(cum, axis) if f == "thumb" else axis, bends[k]), cum)
-                    q = qmul(cum, qmul(dh, sk.q(j)))
-                W[j] = [self._fk_t(j, parent, W) if parent in W else sk.p(j), q]
+                W[j] = [self._fk_t(j, parent, W) if parent in W else sk.p(j), Q[j]]
                 parent = j
+
+    def _finger_chain(self, joints, bends, axis, dh, cmc, thumb: bool) -> dict:
+        """{joint: component rotation} down one finger: each joint turned by its bend about the hinge (the thumb's
+        hinge carried by its CMC swing)."""
+        sk, cum, out = self.sk, [0.0, 0.0, 0.0, 1.0], {}
+        for j in joints:
+            if "metacarpal" in j:
+                out[j] = qmul(dh, sk.q(j))
+                continue
+            k = j.split("_")[1]
+            if bends[k] is None:  # the thumb's CMC: the whole thumb swings
+                cum = qmul(cmc, cum)
+            else:
+                cum = qmul(axis_angle(qrot(cum, axis) if thumb else axis, bends[k]), cum)
+            out[j] = qmul(cum, qmul(dh, sk.q(j)))
+        return out
 
 
 def blend_poses(parts: list) -> HandPose:

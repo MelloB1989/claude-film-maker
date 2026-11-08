@@ -508,6 +508,7 @@ def cmd_body(who: str, force: bool = False, perform: bool = False) -> dict:
         client().push(str(HERE / "gesturekit.py"), box(who, "kit", "gesturekit.py"))
         if (HERE / "gesture_style.py").exists():  # agent-08's generated kinematics (envelope / vary / fingers)
             client().push(str(HERE / "gesture_style.py"), box(who, "kit", "gesture_style.py"))
+        client().push(str(HERE / "handshape.py"), box(who, "kit", "handshape.py"))  # the hand shapes (R7 hands)
         bp["style"].update(PERFORM_STYLE)
         extra = {"perform": {**perform_params(who), "track_out": box(who, "kit", "arm_track.json")}}  # the arm track
         #   for agent-13's rows, written ON THE BOX (his skeleton never leaves it): run the rows there
