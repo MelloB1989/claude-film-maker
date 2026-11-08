@@ -628,6 +628,7 @@ class Performer(S.Seater):
     ELEV_HIGH = 60.0  # deg for an apex at/above upper_chest (the orchestrator's ruling (B), 08 Nov)
     HIGH_OVER_SHOULDER = 2.0  # cm: a wrist goal this far over the shoulder joint is a high apex (upper_chest = +5)
     LOW_DOWN = 0.6  # cm down per cm in, for a low stroke
+    HIGH_OUT = 0.3  # cm out per cm in, for a high one (0.6 took the CU key beats out of its frame, 0.29)
     HIGH_DOWN = 0.0  # and for a high one (it comes in only: lowered, the CU lost the key beats, 0.14)
     FIT_MARGIN = 2.0  # deg under each line the goals are fitted to (agent-13: 60.03 on a 60 line)
     REACH_MAX = 24.0  # cm a goal comes in at most
@@ -686,8 +687,11 @@ class Performer(S.Seater):
                 return hp
             down = 0.0 if rest else self.LOW_DOWN * (1.0 - k) + self.HIGH_DOWN * k
 
-            def moved(d):
-                return (hp.off[0] - d, hp.off[1], hp.off[2] - down * d)
+            out_ = 0.0 if rest else self.HIGH_OUT * k
+
+            def moved(d):  # in, down (low strokes), out to her side (high ones: a hand near her midline at the
+                #            collarbone needed the elbow up over 60)
+                return (hp.off[0] - d, hp.off[1] + out_ * d, hp.off[2] - down * d)
 
             # scan in (elevation is not monotonic: too close, the clearance swings the elbow back up), take the least
             # pull that meets the line, else the lowest elevation; then refine between the last two samples

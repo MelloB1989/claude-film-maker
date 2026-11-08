@@ -50,6 +50,8 @@ V_MEAN = 70.0       # cm/s a stroke's mean wrist speed at most (min-jerk peaks ~
 LEFT_EXT_MIN = 20.0  # deg the left hand's wrist extension on a gesture at least (its fingers met the desk lower; 34
 #   held her left wrist cocked back ~31 deg the whole take, agent-10's audit)
 TWO_HAND_LAG_S = (0.04, 0.08)  # s the left trails the right on a two-hand stroke (same-frame peaks read robotic)
+MIC_L_CAM = {"CAM_CU": (14.0, 3.5), "CAM_WIDE": (14.0, 4.5)}  # per live camera: in the CU the mic hid her left hand over 5 cm (the cut hides
+#   the change of box)
 ACCENT_W = 0.22     # s the accent bump's width
 ACCENT_K = 0.7      # x its amplitude
 ROT_LAG_S = 0.06    # s the hand's turn and the fingers trail the wrist's path (proximal to distal)
@@ -62,7 +64,7 @@ SPREAD_SIGN = {"index": -1.0, "middle": 0.0, "ring": 0.6, "pinky": 1.2, "thumb":
 SHAPE_SPREAD = {"rest": 2.0, "relaxed": 3.0, "open": 9.0, "point": 2.0, "count1": 2.0, "count2": 6.0, "count3": 7.0,
                 "pinch": 1.0, "soft_fist": 0.0}
 SIM_FAIL = 0.95
-MIC_L = (13.0, 2.0)  # the left hand (mic side) on a gesture: out <= 13 cm, up <= 2 cm from the sternum point
+MIC_L = (14.0, 8.0)  # the left hand (mic side) on a gesture: out <= 14 cm, up <= 8 cm from the sternum point
 #   (r7F: 9 / -2 with the mic at her chest; with it at her mouth and the rest low, that box held her left hand still)
 #   (agent-10: was 7 / -3.5, which put her left elbow up in front of her chest, inside the Top on box B)
 
@@ -407,11 +409,12 @@ def var_of(event, hand: str) -> Var:
     return v
 
 
-def _mic_clamp(p, w: float = 1.0):
+def _mic_clamp(p, w: float = 1.0, box: tuple | None = None):
     """The left hand inside the mic line on a gesture (eased in with the gesture's weight from the rest)."""
     rest = GK.HIGH_REST.off
-    y_lim = MIC_L[0] + max(0.0, rest[1] - MIC_L[0]) * (1.0 - w)
-    z_lim = MIC_L[1] + max(0.0, rest[2] - MIC_L[1]) * (1.0 - w)
+    box = box or MIC_L
+    y_lim = box[0] + max(0.0, rest[1] - box[0]) * (1.0 - w)
+    z_lim = box[1] + max(0.0, rest[2] - box[1]) * (1.0 - w)
     return GK.HandPose((p.off[0], min(p.off[1], y_lim), min(p.off[2], z_lim)), p.pron, p.ext, p.shape)
 
 
@@ -452,7 +455,9 @@ def hand(perf, s: str, t: float) -> tuple:
     if s == "l":
         two = max([wi for i, wi in w.items() if perf.plan.events[i].hand == "both"] or [0.0])
         if two > 0:
-            hp = _mic_clamp(hp, min(1.0, two))
+            on = getattr(perf.plan, "on_cam", None) or []
+            cam = next((c for a, b, c in on if a <= t < b), None)
+            hp = _mic_clamp(hp, min(1.0, two), MIC_L_CAM.get(cam))
     return hp, big
 
 
