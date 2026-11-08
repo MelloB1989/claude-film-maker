@@ -1447,7 +1447,7 @@
    "how": "agent-06 lists the life asset's keyed bones",
    "r4": [
     null,
-    "FALLBACK row only (the orchestrator's ruling): gates together with seat-only plain parity <= 1.0 and the life-only hand delta <= 1.2 cm, if --shoulder fails on the rendered dump"
+    "FALLBACK row only (the orchestrator's ruling): gates together with seat-only plain parity <= 1.0 and the life-only hand delta <= 1.2 cm, if --shoulder fails on the rendered dump. HIS aba900fe (agent-06): 0 (clavicle_l/r, pelvis, spine_01-05 only)"
    ],
    "why": "a breathing layer must not change the arm"
   },
@@ -1463,7 +1463,7 @@
    "how": "r7/parity.py seat+life dump vs the seat-only dump",
    "r4": [
     null,
-    "FALLBACK row only, with life.arm_keys and seat-only parity (the orchestrator's ruling)"
+    "FALLBACK row only, with life.arm_keys and seat-only parity (the orchestrator's ruling). HIS aba900fe: 0.863 cm (worst f50-57 middle_03_r); seat-only vs kit 0.116: all three fallback rows PASS on aba900fe (superseded by the breath-in-seat sha)"
    ],
    "why": "breathing carries the arm a little; not more than 1.2 cm"
   },
