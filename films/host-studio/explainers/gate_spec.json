@@ -1665,6 +1665,36 @@
    ],
    "na_ok": true,
    "na_reason": "the track carries no fingertips (pre-b2d3bcc0)"
+  },
+  "move.finger_spread_p90_deg": {
+   "area": "performance",
+   "track": "agent-13 (measure) / agent-08 (hand shapes) / agent-01 (body)",
+   "where": "her speaking frames (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "why": "the orchestrator's review of the hand stills (09 Nov): 'piano/spider' spread fingers, and a resting hand hovering on its fingertips",
+   "op": "<=",
+   "line": 5.0,
+   "unit": "deg",
+   "what": "p90 over on-camera frames of a resting hand (gesture_w < 0.1) or a stroke hold of a non-spreading kind (not open / deictic / raise_finger / count / pinch) of the widest ADJACENT finger abduction (the proximal phalanges _01->_02 projected into the palm plane), worse hand: relaxed fingers stay nearly together",
+   "how": "r7/naturalness.py --who <her|him> (agent-13, fleet/agent-13/r7-movement e5f5b63c+) on the 30 fps track WITH fingertips (gesturekit.track_frame 'tips', agent-01 b2d3bcc0+) -> numbers/<film>/naturalness.json",
+   "must_fail": [
+    9.46,
+    "her b4325b5b 9.12 whole / 9.46 verify windows; 4fdd6af3 10.6 / 12.0; 404db805 27.1 (agent-13)"
+   ]
+  },
+  "move.rest_contact_bad_frames": {
+   "area": "performance",
+   "track": "agent-13 (measure) / agent-08 (hand shapes) / agent-01 (body)",
+   "where": "her speaking frames (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "why": "the orchestrator's review of the hand stills (09 Nov): 'piano/spider' spread fingers, and a resting hand hovering on its fingertips",
+   "op": "==",
+   "line": 0,
+   "unit": "frames @30",
+   "what": "on-camera frames with a RESTING hand (gesture_w < 0.1) over the desk (wrist x >= desk_near) whose lowest palm point (the four _01 knuckle heads and the wrist head) is > 3.5 cm over the desk top: hovering or on the fingertips only (a palm on the desk puts those heads ~1.5-2.5 cm up)",
+   "how": "r7/naturalness.py --who <her|him> (agent-13, fleet/agent-13/r7-movement e5f5b63c+) on the 30 fps track WITH fingertips (gesturekit.track_frame 'tips', agent-01 b2d3bcc0+) -> numbers/<film>/naturalness.json",
+   "must_fail": [
+    219,
+    "her b4325b5b 715 whole / 219 verify windows (337 of the 715 with a fingertip within 2.5 cm of the top: tips-only); 4fdd6af3 the same; 404db805 812"
+   ]
   }
  },
  "not_attempted": {
