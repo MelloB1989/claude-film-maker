@@ -135,25 +135,28 @@
    "track": "agent-01",
    "op": "range",
    "line": [
-    8.0,
-    22.0
+    10.0,
+    20.0
    ],
    "unit": "/min",
    "what": "chest/shoulder rise cycles on the seated body (spine_05/clavicles), on screen",
    "where": "every presenter shot",
    "how": "agent-01's seated-body sampler (seq.sample on spine_05 + clavicle_l/r) -> the dominant 0.13-0.37 Hz cycle",
-   "why": "the brief: breathing; a seated talking head with a still chest reads as a mannequin"
+   "why": "the orchestrator's ruling (08 Nov): 10-20 breaths/min, on the vertical sternum rise"
   },
   "body.breath_amp_mm": {
    "area": "body",
    "track": "agent-01",
-   "op": ">=",
-   "line": 2.0,
+   "op": "range",
+   "line": [
+    2.0,
+    3.5
+   ],
    "unit": "mm",
-   "what": "median peak-to-peak chest rise per breath cycle on screen",
+   "what": "median VERTICAL (z) sternum rise per breath cycle while speaking (spine_05), not the main motion axis: visible breathing, not a heave",
    "where": "every presenter shot",
-   "how": "the same sampler",
-   "why": "visible, not a heave: ~2-6 mm at the sternum when talking"
+   "how": "agent-01's seated-body sampler on spine_05, z component only -> numbers/<film>/body.json",
+   "why": "the orchestrator's ruling (08 Nov): the breath row measures the vertical rise; target ~2-3.5 mm at 10-20/min; the forward-back speech sway is separate (body.speech_sway_mm, INFO)"
   },
   "garment.neck_px": {
    "where": "the SEATED pose, every presenter camera of the film (qa.clip / qa.garment_look on the explainer sequence)"
@@ -1407,6 +1410,22 @@
     8.4,
     "her body 8a45d961: 8.4/min whole take (13.5 in the verify windows); 404db805 25.5, 52ab5ea2 11.5 (agent-13)"
    ]
+  },
+  "body.speech_sway_mm": {
+   "area": "performance",
+   "track": "agent-01",
+   "op": "<=",
+   "line": 8.0,
+   "unit": "mm",
+   "info": true,
+   "what": "forward-back torso sway with the speech (spine_05, the main horizontal axis), median peak-to-peak",
+   "where": "the speaking frames",
+   "how": "agent-01's seated-body sampler",
+   "r4": [
+    null,
+    "INFO by the orchestrator's ruling (08 Nov): natural (his ~5 mm at 12.8/min); kept, reported, not gated"
+   ],
+   "why": "separate from the breath (vertical)"
   }
  },
  "not_attempted": {
