@@ -80,6 +80,12 @@ hands_in_frame 0.574).
 PASS. finger_snap 9.0/min FAIL (rendered by the orchestrator's call). Offline (agent-13): wrist_radial_p95 19.7 in
 the windows FAIL as well (the left wrist bends radially for the supination). Both open on agent-08's e1c07794 (snap
 9.41 whole / 9.0 windows, radial 18.6 / 19.7).
+NOT measured on r7I (cut for time): the rest gate, agent-02's arms (rest/gestures), breath, waist and
+rest_contact_rendered as its own row. The finals sha runs chain_H2's full list (agent-06). upperarm_torso 0.4 is INFO
+by ruling (A); bust 3.7 / side 0.5 PASS; hands_in_frame MCU 0.61 (netflix 0.5), CU 0.361, WIDE 1.0 PASS.
+
+**Gate owner (09 Nov, later):** agent-13 is rate-limited to Tue 11:30; agent-04 runs the gate on
+`fleet/agent-04/r7-gate` (off agent-13's 95374c60), with agent-13's tools as they stand (r7-movement ccc46755).
 
 ## Verdicts
 
