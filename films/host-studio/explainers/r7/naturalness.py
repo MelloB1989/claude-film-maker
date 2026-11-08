@@ -275,7 +275,8 @@ class Take:
                 fa, pn = self.fa[s][i]
                 c = shape_class(fa, pn)
                 cnt[c] = cnt.get(c, 0) + 1
-                wrong = c in ("claw", "pinch") and e["kind"] != "pinch" or (c == "flat")
+                asked = "pinch" in (e["kind"], e.get("detail", ""))  # the sheet's 'size: pinch' asks for one
+                wrong = c == "claw" or (c == "pinch" and not asked) or c == "flat"
                 bad += wrong
                 if wrong:
                     per.append({"f": i, "hand": s, "kind": e["kind"], "line": e.get("line", ""), "shape": c})
