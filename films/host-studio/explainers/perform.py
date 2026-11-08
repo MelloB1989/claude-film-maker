@@ -431,6 +431,8 @@ def job():
         gs = [S.Gesture(**x) for x in P["gestures"]]
         doc, summary = S.build(data, S.Set(**P["set"]), S.Style(**P["style"]), gs, P["length_s"], P["fps"])
     yield
+    for w in summary.get("warnings") or []:  # (gesturekit: the arm-vs-outfit numbers until the refit lands)
+        print(f"WARNING {w['code']}: {w['message']}", file=sys.stderr)
     if P.get("probe") or (not summary["pass"] and not P["force"]):  # probe: read and solve only, nothing written
         return {"pass": summary["pass"], "summary": summary, "written": False}
     anim_new(path=P["out"], skeleton=data["mesh"], length_s=doc["length_s"], fps=doc["fps"], replace=True)
@@ -496,7 +498,7 @@ def perform_params(who: str) -> dict:
 # a presenter's torso model over gesturekit.Torso's (hers) and the outfit gate (the orchestrator, 09 Nov: his upper arms
 # 6.6-7.9 cm inside his outfit's flank on box T, with the model reading +0.5 there: side_pad 8.5 brings the model's
 # side out to his outfit; the gate, >= 0.5 at every checked frame, both arms, seated and in gestures)
-TORSO_OF = {"him": {"side_pad": 8.5, "gate": 0.5, "side_from": 9}}  # side_from 9: agent-02's worst at arm_t 0.46
+TORSO_OF = {"him": {"side_pad": 8.5, "gate": 0.5, "side_from": 9, "warn": True}}  # side_from 9: agent-02's worst at arm_t 0.46
 
 
 # shots filmed besides the edit's, which the mic rule and the body check guard too (gesturekit.Plan.mic_cams), e.g.

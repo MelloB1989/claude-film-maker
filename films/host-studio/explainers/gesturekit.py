@@ -414,6 +414,9 @@ class Torso:
     #   box's mesh measure had his upper arms 6.6-7.9 cm inside his outfit's flank with this model at +0.5)
     gate: float | None = None  # cm: when set, the upper arm's side line at EVERY checked frame, both arms, seated, in
     #   pauses and in gestures (the orchestrator, 09 Nov, for him: an arm into the outfit is a GATE, not info)
+    warn: bool = False  # the arm-vs-torso issues (arm_outfit, arm_front, arm_torso) as WARNINGS, printed with their
+    #   numbers, until the outfit refit lands (the orchestrator, 09 Nov: the chain writes a body to refit against;
+    #   the FINAL gate keeps them hard)
 
 
 def clearance(A: dict, F: dict, s: str, tor: Torso, parts: bool = False):
@@ -805,7 +808,8 @@ class Performer(S.Seater):
             ang = math.radians(a * sg)  # out: toward her side (+y right, -y left), about +x
             c_, s_ = math.cos(ang), math.sin(ang)
             ua = [ua0[0], ua0[1] * c_ - ua0[2] * s_, ua0[1] * s_ + ua0[2] * c_]
-            if a and (self._abdo(ua, s) > self.REST_ABD_MAX or self._hum(ua) > self.REST_ELEV_MAX):
+            if a and (self._abdo(ua, s) > self.REST_ABD_MAX or self._hum(ua) > self.REST_ELEV_MAX
+                      or sha[2] + ua[2] > st.desk_top + sy.elbow_r + self.REST_LIFT_CM):
                 break  # agent-13's rest lines: the gate reports what is left (the outfit slim's share)
             e = add(sha, ua)
             wz = st.desk_top + sy.wrist_r
@@ -830,6 +834,8 @@ class Performer(S.Seater):
         return self.tor if self.tor.gate is None or wg < 0.5 else replace(self.tor, side_pad=0.0)
 
     TIP_DESK_CM = 4.0  # cm over the desk the forearm-line fingertip keeps in a gated swivel (the fingers curl below it)
+    REST_LIFT_CM = 3.0  # cm a gated rest's elbow rises at most over its desk contact (the orchestrator: forearm on the
+    #   desk, the elbow not hanging; the outfit refit takes what this leaves)
     REST_ABD_MAX = 24.0  # deg agent-13's move.rest_abduction_deg line 25 (out of the sagittal plane, median at rest)
     REST_ELEV_MAX = 39.0  # deg and the desk rest's elevation line 40
 
@@ -863,7 +869,7 @@ class Performer(S.Seater):
         if self.tor.gate is not None and self._wg.get(s, 1.0) < 0.5:  # a gated torso (him): up to ABD_EXTRA past the plain solve (an open posture)
             abd_cap = max(self.ABD_MAX, (math.degrees(math.atan2(abs(ua0[1]), max(1e-6, -ua0[2])))
                                          if ua0[2] < 0 else 90.0) + self.ABD_EXTRA)
-        best, low = None, None
+        best, low, floor = None, None, None
         steps = [0] + [k * sg for k in range(1, 37) for sg in (1, -1)] if self.SWIVEL_LOW else \
             [0] + [k * sg for k in range(1, 9) for sg in (1, -1)]
         step = 5.0 if self.SWIVEL_LOW else 10.0
@@ -895,10 +901,15 @@ class Performer(S.Seater):
             ua = sub(ea, sha)  # abduction: the upper arm's lean out to her side, in her frontal plane
             abd = math.degrees(math.atan2(abs(ua[1]), max(1e-6, -ua[2]))) if ua[2] < 0 else 90.0
             if self.tor.gate is not None:  # a gated torso (him): never past its abduction line (no chicken wings),
-                if k != 0 and (abd > abd_cap or (self._wg.get(s, 1.0) < 0.5 and (
-                        self._abdo(ua, s) > max(self.REST_ABD_MAX, self._abdo(ua0, s))
-                        or self._hum(ua) > max(self.REST_ELEV_MAX, self._hum(ua0))))):  # at the rest agent-13's
-                    continue  # lines; the gate reports what is left
+                if floor is None or ea[2] < floor[0]:
+                    floor = (ea[2], e, w2)  # (none allowed: the lowest of the circle)
+                rest_ = self._wg.get(s, 1.0) < 0.5
+                over = abd > abd_cap or (rest_ and (self._abdo(ua, s) > max(self.REST_ABD_MAX, self._abdo(ua0, s))
+                                                    or self._hum(ua) > max(self.REST_ELEV_MAX, self._hum(ua0))))
+                hangs = rest_ and ea[2] > st_.desk_top + self.sy.elbow_r + self.REST_LIFT_CM
+                if (k != 0 and over) or hangs:
+                    # at the rest agent-13's lines and the elbow not hanging (the orchestrator, 09 Nov); the gate
+                    continue  # reports what is left
                 wa = self.actor(w2)  # nor the fingertips (along the forearm) into the desk
                 tip = add(wa, mul(unit(sub(wa, ea)), self.hand_len[s] + 2.0))
                 if tip[0] > st_.desk_near and tip[2] < st_.desk_top + self.TIP_DESK_CM and k != 0:
@@ -920,6 +931,8 @@ class Performer(S.Seater):
                     low = (key, e, w2)
         if low is not None:
             return low[1], low[2]
+        if best is None and floor is not None:
+            return floor[1], floor[2]
         return (best[1], best[2]) if best else (elbow, wr)
 
     REST_BUST_WANT = 0.0  # cm the upper arm off the breast MODEL at the desk rest (the orchestrator, 08 Nov: the forearms
@@ -1721,9 +1734,13 @@ def build(data: dict, st, sy, sheet: dict, cues: dict, tilts: list, length_s: fl
     if not ok_clear:
         issues.append({"code": "body.arm_torso", "message": f"upper arm within {worst:.1f} cm of the "
                        "torso/breast model (line 3)", "value": worst})
+    warnings = []
+    if perf.tor.warn:
+        warnings = [x for x in issues if x["code"] in ("body.arm_outfit", "body.arm_front", "body.arm_torso")]
+        issues = [x for x in issues if x not in warnings]
     rows["mic_plan"] = getattr(perf, "mic_log", [])  # the planner's mic rule: goals moved / strokes handed over
     rows["face_fit"] = getattr(perf, "face_log", [])  # goals brought down under the chin line (the orchestrator, 09 Nov)
-    summary = {"pass": not issues, "issues": issues[:30], "n_issues": len(issues), "tuned": tuned, "rows": rows,
+    summary = {"pass": not issues, "issues": issues[:30], "n_issues": len(issues), "warnings": warnings, "tuned": tuned, "rows": rows,
                "events": len(plan.events), "moving_bones": len(moving),
                "hooks": {"style": bool(STYLE_HOOK), "timing": bool(timing)}, "frame": {"fwd": perf.F["fwd"],
                                                                                    "right": perf.F["right"]},
