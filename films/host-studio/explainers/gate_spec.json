@@ -1034,10 +1034,10 @@
    "guard": true,
    "what": "on the REST/bridge frames (both hands still >= 0.25 s), the min distance from either hand (wrist + knuckles + fingertips) to the chest surface (posed Body + Top near the spine, the arms and hands excluded)",
    "where": "every rest frame (film-qa perf-rest on seq.sample hand samples, every 2nd)",
-   "how": "film-qa perf-rest samples.json -> frames; film-ue op qa.hand_torso_clearance label=<presenter> sequence=<SEQ> 'frames=[...]' (core fleet/agent-09/r7-perf-gate) -> metrics.worst_cm -> numbers/<film>/rest.json",
+   "how": "film-qa perf-rest samples.json -> frames; film-ue op qa.hand_torso_clearance label=<presenter> sequence=<SEQ> 'frames=[...]' (core fleet/agent-09/r7-perf-gate b1d46e42+) -> metrics.worst_cm -> numbers/<film>/rest.json",
    "must_fail": [
-    0.48,
-    "her r7F TEST body (box D, agent-06, qa.hand_torso_clearance on 30 perf-rest frames in f0-200 + f1040-1162): worst 0.48 cm, her LEFT hand at 0.48 on every rest frame (the same high rest pose each time: hands at the top of her chest), the right hand 10.8-19.4; only the gesture-adjacent frames read ~11.5 / 28-30. The new rest (agent-01 1e88aca8) is being measured; the line is set between them"
+    null,
+    "INVALID first runs (agent-06: r7F 0.48, the new body 0.38): the measure's chest cloud held the OTHER hand's fingers and the lap, so it read hand-to-hand on the 'hands together' rest (agent-09's bug, fixed b1d46e42); both bodies being re-measured"
    ],
    "why": "the orchestrator, 08 Nov: a natural presenter rest is hands loosely together at the lower ribcage, 20-30 cm in front of the torso, not touching the body"
   },
