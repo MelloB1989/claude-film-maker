@@ -406,7 +406,12 @@ def job():
     data = g["result"]
     yield
     if P.get("perform"):  # r7: the presenter performance from the acting sheet (gesturekit, pushed beside seatkit)
-        try:  # agent-08's hooks: reloaded first, or the editor's Python keeps a stale copy across runs
+        try:  # the hand shapes, then agent-08's hooks: reloaded first, or the editor keeps a stale copy across runs
+            import handshape
+            importlib.reload(handshape)
+        except ImportError:
+            pass
+        try:
             import gesture_style
             importlib.reload(gesture_style)
         except ImportError:

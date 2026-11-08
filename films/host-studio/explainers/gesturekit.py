@@ -97,7 +97,7 @@ def gesture_pose(g: dict, hand: str, count_n: int) -> HandPose:
     if kind == "list":  # R7 hands (agent-08 / agent-11): an open hand, palm up and in, PLACING each item on a line in
         #   front at chest height, the forearm angled toward the camera; item n a hand-width further right (from the
         #   right hand's working line, RIGHT_MIN_LAT, off the mic)
-        return HandPose((30.0, list_y(g), 0.0), pron=-30.0, ext=8.0, shape="open")
+        return HandPose((30.0, list_y(g), 0.0), pron=-30.0, ext=8.0, shape="list")
     if kind == "count":
         # to her right at chest height, out wide (from her right-front cameras a high count hand sat over the mic)
         return HandPose((20.0, 28.0, 0.0), pron=95.0, ext=12.0, shape=f"count{max(1, min(3, count_n))}")
