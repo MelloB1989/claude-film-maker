@@ -361,7 +361,8 @@ class FakeAWS:
                     out = [i for i in out if provision.tags_of(i).get(k[4:]) in vals]
             return {"Reservations": [{"Instances": out}]}
         if verb == "describe-subnets":
-            return {"Subnets": [{"AvailabilityZone": f"ap-south-1{z}", "SubnetId": f"subnet-{z}"} for z in "abc"]}
+            return {"Subnets": [{"AvailabilityZone": f"ap-south-1{z}", "SubnetId": f"subnet-{z}"}
+                                for z in getattr(self, "subnets", "abc")]}
         if verb == "describe-images":
             return {"Images": [{"RootDeviceName": "/dev/sda1",
                                 "BlockDeviceMappings": [{"Ebs": {"VolumeSize": 300}}]}]}
@@ -409,6 +410,24 @@ def test_launch_falls_back_and_tags(monkeypatch):
     assert run[run.index("--instance-initiated-shutdown-behavior") + 1] == "terminate"
     ud = run[run.index("--user-data") + 1]
     assert "film-farm-worker.service" in ud and '"idle_s": 600' in ud
+
+
+def test_launch_tokyo_zones_and_setup():
+    """Tokyo's default subnets are a, c, d (no b): d is tried after a and c. --setup runs once before the worker."""
+    aws = FakeAWS(spot_quota=32, no_capacity={("g6e.2xlarge", "spot", "subnet-a"), ("g6e.2xlarge", "spot", "subnet-c")})
+    aws.subnets = "acd"
+    rows = provision.launch(aws, farm="f1", n=1, ami="ami-x", bucket=B, region="ap-northeast-1", ttl_h=2,
+                            idle_min=10, types=("g6e.2xlarge",), market="spot", log=lambda *a: None,
+                            put_code=lambda u, b: None, extra_conf={"setup": f"s3://{B}/farm/f1/setup/abc.sh"})
+    assert [r["zone"] for r in rows] == ["ap-northeast-1d"]
+    run = [c for c in aws.calls if c[1] == "run-instances"][-1]
+    ud = run[run.index("--user-data") + 1]
+    assert f"s3://{B}/farm/f1/setup/abc.sh" in ud and "setup.done" in ud
+    assert "ExecStartPre=/usr/local/bin/film-farm-setup" in ud and "TimeoutStartSec=infinity" in ud
+    # without --setup the step is a no-op script
+    plain = provision.user_data({"region": "ap-south-1", "ttl_until": 2e9}, "s3://b/c.tgz")
+    body = plain.split("cat > /usr/local/bin/film-farm-setup <<'FMEOF'\n")[1].split("FMEOF")[0]
+    assert body == "#!/bin/bash\nset -eu\n"
 
 
 def test_spot_is_persistent_and_stops():
