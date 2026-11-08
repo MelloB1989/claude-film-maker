@@ -39,6 +39,7 @@ REST_HEEL_CM = 2.9  # cm: the wrist head over the desk top with the heel of the 
 #   only, 1.85 heel + pads; + 0.5 tolerance) (the orchestrator: contact
 #   through the palm and fingers, never the tips only)
 SPREAD_MIN_INPLANE = 0.5  # a proximal phalanx > 60 deg out of the palm plane (a closed finger): no spread read
+PALM_CAM_OK = ("press",)  # gestures whose palm faces the lens on purpose
 SNAP_CM_S = 90.0  # fingertip speed relative to the wrist that, stopped dead within 2 frames, is a snap
 SEQ_FPS = 24.0  # the film's sequence / EDL rate: --span frames are on it (the dumps run at 30)
 MIN_REST = 15  # frames (0.5 s) a rest class needs before its elevation counts
@@ -640,8 +641,8 @@ class Take:
                         (P[f"{fn}_01_{s}"], P[f"{fn}_02_{s}"], P[f"{fn}_03_{s}"], P[f"{fn}_tip_{s}"])
                     a, b, c, d = sub(j1, W), sub(j2, j1), sub(j3, j2), sub(tp, j3)
                     m, pp, dd = bend(a, b, lat, s), bend(b, c, lat, s), bend(c, d, lat, s)
-                    if m < 20.0 and pp > 15.0 and dd >= pp:
-                        hit = True
+                    if (m < 20.0 and pp > 15.0 and dd >= pp) or m < -10.0 or (pp >= 10.0 and m < 0.5 * pp - 10.0):
+                        hit = True  # intrinsic-minus, MCP hyperextension, or MCP lagging PIP (the orchestrator's anatomy)
                     if pp + dd > 1.67 * (m + 8.0) + 25.0:  # handshape.claw_score's symmetric form (report)
                         cs_hit = True
                     if pp >= 20.0:
@@ -753,13 +754,35 @@ class Take:
                     out["t"].append(tt)
         return out
 
+    def palm_cam(self):
+        """the 'halt' hand (the orchestrator, 09 Nov, her 00:08 list): stroke-hold frames on camera where the palm faces
+        the camera (the palm normal within 60 deg of +x, the actor's front, where the cameras stand) with the fingers
+        pointing up; a 'press' toward the lens is the one gesture meant that way."""
+        out = {"frames": 0, "t": []}
+        for e in self.ev:
+            if e["kind"] in PALM_CAM_OK or e.get("detail", "") in PALM_CAM_OK or e["kind"] == "rest":
+                continue
+            for i in range(self.idx(e["stroke"]), self.idx(e["stroke"] + e["hold"]) + 1):
+                if not self._oncam(i):
+                    continue
+                for s in self.hands_of(e):
+                    d, _, n = hand_frame(self.F[i]["p"], s)
+                    if n[0] > 0.5 and d[2] > 0.3:
+                        out["frames"] += 1
+                        tt = round(self.F[i]["t"], 1)
+                        if tt not in out["t"]:
+                            out["t"].append(tt)
+                        break
+        return out
+
     def report(self):
         return {"wrist": self.wrist(), "forearm": self.forearm(), "shape": self.shapes(), "body": self.body(),
                 "kin": self.kinematics(), "lag": self.lag(), "asym": self.asym(), "fingers": self.frozen(),
                 "torso": self.torso(), "travel": self.travel(), "holds": self.holds(), "snaps": self.snaps(), "face": self.near_face(),
                 "hold_high": self.hold_height(), "cascade": self.cascade(), "dip": self.dip(),
                 "thumb": self.thumb(), "fold": self.fold_limit(),
-                "spread": self.spread(), "rest_contact": self.rest_contact()}
+                "spread": self.spread(), "rest_contact": self.rest_contact(),
+                "palm_cam": self.palm_cam()}
 
 
 # ---------- the gate rows ----------
@@ -839,8 +862,8 @@ ROWS = {
                                  "on-camera resting frames held in the AIR (wrist > desk + 6; on the desk the palm's arch "
                                  "sets the pads) whose MCP+PIP flexion does not rise index -> pinky, worse hand"),
     "move.finger_claw_frames": (lambda r: r["dip"]["claw_frames"], "==", 0, "frames",
-                                "on-camera speaking frames with a finger in the intrinsic-minus claw: MCP < 20 with "
-                                "PIP > 15 and DIP >= PIP (agent-08); needs fingertip points in the track, else n/a"),
+                                "on-camera speaking frames with a finger in a claw: intrinsic-minus (MCP < 20, PIP > 15, "
+                                "DIP >= PIP), MCP hyperextended < -10, or MCP < PIP/2 - 10 (the orchestrator); needs tips"),
     "move.dip_pip_ratio_bad_frac": (lambda r: r["dip"]["ratio_bad_frac"], "<=", 0.10, "fraction",
                                     "finger-frames (PIP >= 20) whose DIP/PIP falls outside 0.5-0.85 (agent-08: DIP ~ "
                                     "0.67 PIP); needs fingertip points, else n/a"),
@@ -855,6 +878,10 @@ ROWS = {
                                      "on-camera resting-hand frames over the desk that hover (lowest fingertip > 1.5 "
                                      "cm over the top) or rest tented on the pads (wrist head > 2.9: the heel off the "
                                      "desk; the orchestrator, 09 Nov: never fingertip-only)"),
+    "move.palm_to_camera_frames": (lambda r: r["palm_cam"]["frames"], "==", 0, "frames",
+                                   "on-camera stroke-hold frames (not a 'press') with the palm facing the camera "
+                                   "(normal within 60 deg of the front) and the fingers up: the 'halt' hand (the "
+                                   "orchestrator, 09 Nov: a list palm angles up/in toward the midline)"),
     "move.thumb_flat_frames": (lambda r: _worst(r, ("thumb", "flat_frames"), max), "==", 0, "frames",
                                "on-camera speaking frames with a flat thumb on a curled hand: the thumb's proximal "
                                "phalanx < 10 deg out of the palm plane toward the palm while the fingers' mean MCP > "
