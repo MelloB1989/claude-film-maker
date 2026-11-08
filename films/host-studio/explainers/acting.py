@@ -65,9 +65,13 @@ HER = {
                 ("open_palm", "R", ("N01", "Netflix"), {"size": "small", "target": "camera",
                                                         "note": "palm up and slightly out, chest height, presenting"}),
                 ("size", "both", ("N01", "million"), {"start": ("N01", "three"), "size": "big", "target": "front",
-                                                      "hold": 0.6, "note": "hands start 15 cm apart in front of her sternum on "
-                                                              "'three', spread to shoulder width on 'million': a huge "
-                                                              "number; L hand stays below the mic"}),
+                                                      "hold": 0.6, "height": "upper_chest",
+                                                      "note": "hands start 15 cm apart in front of her sternum on "
+                                                              "'three', spread OUT to shoulder width on 'million' at "
+                                                              "chest height (wrists at or below the collarbone), palms in/"
+                                                              "forward, the path bowing forward, never up: a huge number; "
+                                                              "L hand stays below the mic (if it can't join, the R spreads "
+                                                              "out to her right at chest height, never toward the face)"}),
                 ("beat", "R", ("N01", "paying"), {"size": "small", "target": "camera"}),
             ],
             "lean": [(("N01", "over"), 7), (("N01", "members"), 4)],
@@ -80,11 +84,14 @@ HER = {
                      ("nod", ("N02", "starts.", 1, 0.3), {})],
             "gestures": [
                 ("press", "R", ("N02", "play,"), {"size": "small", "target": "camera",
-                                                  "note": "index finger presses an imaginary play button toward the "
-                                                          "lens, collarbone height so it enters the CU"}),
+                                                  "note": "index finger presses an imaginary play button FORWARD "
+                                                          "toward the lens, entering the CU from below at collarbone "
+                                                          "height; never up beside the face, never a palm-out wave"}),
                 ("release", "both", ("N02", "starts.", 1, 0.3), {"size": "medium", "target": "front",
-                                                                "note": "fingers spring open outward, 'ta-da', "
-                                                                        "shoulders lift"}),
+                                                                "height": "upper_chest",
+                                                                "note": "fingers spring open outward and slightly "
+                                                                        "DOWN, 'ta-da', shoulders lift; never up "
+                                                                        "beside the face"}),
             ],
             "lean": [(("N02", "Hit"), 6), (("N02", "starts."), 3)],
         },
@@ -399,7 +406,10 @@ HIM = {
                      ("nod", ("W06", "them."), {})],
             "gestures": [("raise_finger", "R", ("W06", "One"), {"size": "small", "target": "up"}),
                          ("size", "both", ("W06", "million"), {"start": ("W06", "two"), "size": "big",
-                                                               "target": "front"})],
+                                                               "target": "front",
+                                                               "note": "spread OUT at chest height (wrists at or below "
+                                                                       "the collarbone), bowing forward, never up "
+                                                                       "toward the face"})],
             "lean": [(("W06", "two"), 6)],
         },
         "W07": {
@@ -731,6 +741,9 @@ HEIGHT = {"CAM_MCU": {"small": "sternum", "medium": "upper_chest", "big": "colla
 # there too ("height": the N06/N12 panel opens, the N15 beat, his W10/W11 counts). checks() reports the share.
 # The orchestrator's ruling (a), 08 Nov: key beats top out at the upper chest/collarbone (the wrist <= ~22 cm over the
 # sternum point; a chin apex needed 70-78 deg of upper-arm lift against the 60 deg line), nothing at the chin.
+# The orchestrator's verdict on her verify (netflix_r7H): no hand or finger above the chin or within ~10 cm of the
+# face/hair in any cut camera (no sheet line calls for a face gesture); the 'million' size spreads and the N02
+# release sit at the upper chest, and the N02 press pushes forward from below.
 HIGH = ("upper_chest", "collarbone", "chin")
 # hands_in_frame_frac (>= 1 hand fully in frame, of the speaking frames), per camera: agent-09's gate row
 IN_FRAME = {"CAM_MCU": 0.6, "CAM_MCU_L": 0.6, "CAM_CU": 0.3, "CAM_WIDE": 1.0}

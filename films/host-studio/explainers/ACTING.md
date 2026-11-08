@@ -40,7 +40,7 @@ Arc: hook = **curiosity**, body = **confident clarity**, payoff = **satisfied de
 
 - **curious, conspiratorial warmth: 'you'll like this'**, intensity 0.75 (hook: curiosity); base smile 0.25, brows 0.1
 - **Face:** brow flash on *Netflix* 0.75 s (f18); brow one R on *over* 1.77 s (f43) (the conspiratorial one brow); tilt R 6° on *over* 1.77 s (f43); nod on *million* 2.69 s (f65); smile 0.5 (lopsided R, closed) on *million* 2.69 s (f65); smile 0.85 on *members.* 3.47 s (f83) (full Duchenne (payoff 1/5): cheeks up, eyes squint)
-- **Gestures:** open palm [R, small 0.3, to camera] stroke on *Netflix* 0.75 s (f18), apex at the sternum, prep from 0.45: palm up and slightly out, chest height, presenting; size [both, big 0.85, to front] HELD 0.6 s stroke on *million* 2.69 s (f65), apex at the collarbone, prep from 1.92 (from *three*): hands start 15 cm apart in front of her sternum on 'three', spread to shoulder width on 'million': a huge number; L hand stays below the mic; beat [R, small 0.3, to camera] stroke on *paying* 3.10 s (f74), apex at the sternum, prep from 2.79
+- **Gestures:** open palm [R, small 0.3, to camera] stroke on *Netflix* 0.75 s (f18), apex at the sternum, prep from 0.45: palm up and slightly out, chest height, presenting; size [both, big 0.85, to front] HELD 0.6 s stroke on *million* 2.69 s (f65), apex at the upper chest, prep from 1.92 (from *three*): hands start 15 cm apart in front of her sternum on 'three', spread OUT to shoulder width on 'million' at chest height (wrists at or below the collarbone), palms in/forward, the path bowing forward, never up: a huge number; L hand stays below the mic (if it can't join, the R spreads out to her right at chest height, never toward the face); beat [R, small 0.3, to camera] stroke on *paying* 3.10 s (f74), apex at the sternum, prep from 2.79
 - **Lean:** 7° on *over* 1.77 s, 4° on *members.* 3.47 s
 
 ### N02  4.25-5.75 s  ·  CAM_CU
@@ -49,7 +49,7 @@ Arc: hook = **curiosity**, body = **confident clarity**, payoff = **satisfied de
 
 - **delight, easy confidence: the magic moment**, intensity 0.8 (hook: curiosity); base smile 0.4, brows 0.1
 - **Face:** brow flash on *Hit* 4.25 s (f102); smile 0.9 on *starts.* 5.47 s (f131) (Duchenne, squint); nod on *starts.* 5.47 s (f131)
-- **Gestures:** press [R, small 0.3, to camera] stroke on *play,* 4.54 s (f109), apex at the collarbone, prep from 4.24: index finger presses an imaginary play button toward the lens, collarbone height so it enters the CU; release [both, medium 0.55, to front] stroke on *starts.* 5.47 s (f131), apex at the collarbone, prep from 5.17: fingers spring open outward, 'ta-da', shoulders lift
+- **Gestures:** press [R, small 0.3, to camera] stroke on *play,* 4.54 s (f109), apex at the collarbone, prep from 4.24: index finger presses an imaginary play button FORWARD toward the lens, entering the CU from below at collarbone height; never up beside the face, never a palm-out wave; release [both, medium 0.55, to front] stroke on *starts.* 5.47 s (f131), apex at the upper chest, prep from 5.17: fingers spring open outward and slightly DOWN, 'ta-da', shoulders lift; never up beside the face
 - **Lean:** 6° on *Hit* 4.25 s, 3° on *starts.* 5.35 s
 
 ### N03  6.04-7.81 s  ·  None
@@ -250,7 +250,7 @@ Arc: hook = **curiosity**, body = **confident clarity**, payoff = **satisfied de
 
 - **impressed: a big number**, intensity 0.75 (body: confident clarity); base smile 0.3, brows 0.1
 - **Face:** brow flash on *two* 16.37 s (f393); smile 0.55 (open lips) on *million* 16.55 s (f397); nod on *them.* 17.02 s (f408)
-- **Gestures:** raise finger [R, small 0.3, to up] stroke on *One* 15.33 s (f368), apex at the sternum, prep from 15.03; size [both, big 0.85, to front] stroke on *million* 16.55 s (f397), apex at the sternum, prep from 16.22 (from *two*)
+- **Gestures:** raise finger [R, small 0.3, to up] stroke on *One* 15.33 s (f368), apex at the sternum, prep from 15.03; size [both, big 0.85, to front] stroke on *million* 16.55 s (f397), apex at the sternum, prep from 16.22 (from *two*): spread OUT at chest height (wrists at or below the collarbone), bowing forward, never up toward the face
 - **Lean:** 6° on *two* 16.37 s
 
 ### W07  17.96-19.86 s  ·  CAM_WIDE

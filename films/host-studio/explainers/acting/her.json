@@ -179,9 +179,9 @@
      "amp": 0.85,
      "held": true,
      "target": "front",
-     "apex_height": "collarbone",
+     "apex_height": "upper_chest",
      "start_word": "three",
-     "note": "hands start 15 cm apart in front of her sternum on 'three', spread to shoulder width on 'million': a huge number; L hand stays below the mic",
+     "note": "hands start 15 cm apart in front of her sternum on 'three', spread OUT to shoulder width on 'million' at chest height (wrists at or below the collarbone), palms in/forward, the path bowing forward, never up: a huge number; L hand stays below the mic (if it can't join, the R spreads out to her right at chest height, never toward the face)",
      "word_i": 5
     },
     {
@@ -308,7 +308,7 @@
       "amp": 0.85,
       "held": true,
       "target": "front",
-      "apex_height": "collarbone"
+      "apex_height": "upper_chest"
      },
      {
       "type": "beat",
@@ -411,7 +411,7 @@
      "held": false,
      "target": "camera",
      "apex_height": "collarbone",
-     "note": "index finger presses an imaginary play button toward the lens, collarbone height so it enters the CU",
+     "note": "index finger presses an imaginary play button FORWARD toward the lens, entering the CU from below at collarbone height; never up beside the face, never a palm-out wave",
      "word_i": 9
     },
     {
@@ -427,8 +427,8 @@
      "amp": 0.55,
      "held": false,
      "target": "front",
-     "apex_height": "collarbone",
-     "note": "fingers spring open outward, 'ta-da', shoulders lift",
+     "apex_height": "upper_chest",
+     "note": "fingers spring open outward and slightly DOWN, 'ta-da', shoulders lift; never up beside the face",
      "word_i": 13
     }
    ],
@@ -511,7 +511,7 @@
       "amp": 0.55,
       "held": false,
       "target": "front",
-      "apex_height": "collarbone"
+      "apex_height": "upper_chest"
      }
     ],
     "hands_in_frame_min": 0.3,
