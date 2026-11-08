@@ -97,14 +97,24 @@ def hands_fracs(rows: dict) -> dict:
 
 
 # --- resting hands vs the chest (round 7: 'both hands hover at the TOP OF HER CHEST ... like claws'; the orchestrator) --
-def torso_cloud(points, torso, limbs, *, torso_r: float = 30.0, limb_r: float = 9.0) -> list:
-    """The torso surface points: within torso_r of the spine (spine_03 -> neck_01) and not within limb_r of any limb
-    segment in `limbs` (upper arms, forearms, hands: [(a, b), ...]), so the arms and hands never count as chest."""
+def _t_raw(p, a, b) -> float:
+    ab = [b[i] - a[i] for i in range(3)]
+    L2 = sum(c * c for c in ab) or 1e-9
+    return sum((p[i] - a[i]) * ab[i] for i in range(3)) / L2
+
+
+def torso_cloud(points, torso, limbs, *, torso_r: float = 30.0, limb_r: float = 9.0, fingers=(), finger_r: float = 3.5)\
+        -> list:
+    """The torso surface points: within torso_r of the spine segment (spine_01 -> neck_01) AND projecting onto it
+    (unclamped t in [0, 1]: the lap and thighs below the pelvis never count), and not within limb_r of any limb
+    segment (upper arms, forearms) nor within finger_r of any FINGER segment (hand -> each fingertip: the other hand's
+    fingers are not chest; agent-06 found the first version measuring hand-to-hand on her 'hands loosely together'
+    rest)."""
     out = []
     for p in points:
-        if seg(p, *torso)[1] > torso_r:
+        if not 0.0 <= _t_raw(p, *torso) <= 1.0 or seg(p, *torso)[1] > torso_r:
             continue
-        if any(seg(p, *ls)[1] <= limb_r for ls in limbs):
+        if any(seg(p, *ls)[1] <= limb_r for ls in limbs) or any(seg(p, *fs)[1] <= finger_r for fs in fingers):
             continue
         out.append(p)
     return out
