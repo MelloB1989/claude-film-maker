@@ -62,10 +62,11 @@ SET = S.Set(seat_top=45.0, seat_front=24.5, desk_top=71.0, desk_near=12.0, desk_
             cams={"CAM_MCU": [167.5, 78.0, 121.3], "CAM_CU": [132.7, 38.7, 121.0], "CAM_WIDE": [277.0, 89.7, 125.3],
                   "CAM_MCU_L": [168.0, 77.87, 121.1]})  # (her PANEL shots: the body check and the mic rule test the cut camera)
 # her cameras' full rigs (box B, 08 Nov ~02:00 IST, read-only): the framing check projects her hands into each shot
-#   (CAM_MCU pitch -2.55 -> -3.05: the orchestrator, 09 Nov, for the palm-down rest; agent-06 sets the level)
+#   (CAM_MCU pitch -2.55 -> -3.55, CAM_MCU_L -2.43 -> -2.93: the orchestrator, 09 Nov, for the palm-down rest (the
+#   build samples 0.61 / 0.633; -3.05 read 0.593); agent-06 sets the level)
 SET.rigs = {
-    "CAM_MCU": {"loc": [167.83, 77.66, 121.31], "yaw": -154.14, "pitch": -3.05, "focal": 60.0, "sensor": [36.0, 20.25]},
-    "CAM_MCU_L": {"loc": [168.0, 77.87, 121.1], "yaw": -145.22, "pitch": -2.43, "focal": 60.0, "sensor": [36.0, 20.25]},
+    "CAM_MCU": {"loc": [167.83, 77.66, 121.31], "yaw": -154.14, "pitch": -3.55, "focal": 60.0, "sensor": [36.0, 20.25]},
+    "CAM_MCU_L": {"loc": [168.0, 77.87, 121.1], "yaw": -145.22, "pitch": -2.93, "focal": 60.0, "sensor": [36.0, 20.25]},
     "CAM_CU": {"loc": [133.16, 38.44, 121.13], "yaw": -163.21, "pitch": -2.03, "focal": 85.0, "sensor": [36.0, 20.25]},
     "CAM_WIDE": {"loc": [277.31, 89.53, 125.43], "yaw": -158.08, "pitch": -5.49, "focal": 35.0, "sensor": [36.0, 20.25]},
 }
@@ -864,7 +865,11 @@ def bake(who: str, source: str, target: str, anim: str, out: str, bones, head_co
 # (box B bodycheck, 07 Nov 23:1x; hips/knees 0). Her spine bake read 0 cm, so hers keeps the reel's set. His bake 2
 # also takes ROTATIONS only: the face's neck offsets are another mesh's; with them his bake 3 killed the editor at
 # frames 240-479 every time.
-H2B_BONES = {"her": ["spine_04", "spine_05", "neck_01", "neck_02", "head"], "him": ["neck_01", "neck_02", "head"]}
+# Hers now the same (the orchestrator, 09 Nov; agent-04 / agent-08): her face comes from the FULL-face pass, whose
+# spine_04/05 lifted her placed upper body +2.6 cm (the resting hands hung at the desk edge); rotations only, like his.
+# agent-04's head turn, nods and tilts ride neck/head only.
+H2B_BONES = {"her": ["neck_01", "neck_02", "head"], "him": ["neck_01", "neck_02", "head"]}
+H2B_ROT_ONLY = {"her": True, "him": True}
 
 
 TRACKCHECK = r"""
@@ -1020,7 +1025,7 @@ def cmd_sync(who: str, from_bake: int = 1, restart_level: str = "", bake_chunk: 
             ok(c.op("seq.set_anim", path=path, component="Face", anim=follow, label=lab))
             ok(c.op("seq.set_anim", path=path, component="Body", anim=seat, label=lab))
         print("sync 2/3: head_to_body", file=sys.stderr, flush=True)
-        b = bake(who, "Face", "Body", seat, body, H2B_BONES[who], stage="b2", rot_only=(who == "him"))
+        b = bake(who, "Face", "Body", seat, body, H2B_BONES[who], stage="b2", rot_only=H2B_ROT_ONLY[who])
     if restart_level and from_bake < 3:
         print("sync: fresh editor before bake 3", file=sys.stderr, flush=True)
         fresh_editor(who, restart_level)

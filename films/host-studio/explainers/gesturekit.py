@@ -859,30 +859,41 @@ class Performer(S.Seater):
         rest keeps its pole)."""
         return self._swivel_pick(s, sh, wrist, l1, l2, pole, W, ws)
 
-    ELBOW_TAU = 0.05  # s each of the two cascaded lags on the elbow's direction (agent-13 / agent-08, 09 Nov: the
-    #   swivel's 5 deg choice flipped between candidates as a stroke released, the elbow jumping 7 cm in a frame at
-    #   217 cm/s while the wrist landed, a finger snap; two 0.05 s lags settle a jump over ~0.25 s, min-jerk-like)
+    ELBOW_FREE_CM = 0.5  # cm per frame the elbow may move beyond the wrist's own travel, followed exactly
+    ELBOW_W = 19.0  # rad/s the critically damped return of an absorbed jump (95 % in ~0.25 s, min-jerk-like)
+    # (agent-13 / agent-08, 09 Nov: the swivel's 5 deg choice flipped between candidates as a stroke released, the elbow
+    #   jumping 7 cm in a frame at 217 cm/s while the wrist landed, a finger snap; a plain lag on the elbow made it
+    #   trail the wrist at every stroke's arrival, snaps too: only the jump is absorbed, the rest followed)
 
     def _elbow_settle(self, s, sh, wrist, l1, l2, e, w):
-        """The elbow's direction from the shoulder (actor frame), smoothed in time by two cascaded first-order lags,
-        then solved on the arm's circle again (the wrist exact). A frame out of order or a gap resets it. Called once
-        per arm per frame, from pose (the planner and the hooks call swivel for other goals)."""
+        """The elbow as solved plus an offset that absorbs its jumps: a frame's travel beyond the wrist's own +
+        ELBOW_FREE_CM goes into the offset (the output stays continuous), and the offset returns to zero as a
+        critically damped spring (ELBOW_W); then solved on the arm's circle again (the wrist exact). A frame out of
+        order or a gap resets it. Called once per arm per frame, from pose (the planner and the hooks call swivel for
+        other goals)."""
         t = getattr(self, "_t", None)
         if t is None:
             return e, w
-        d = sub(e, sh)  # (component space: the actor frame is fixed per performer)
         st_ = getattr(self, "_ef", {}).get(s)
         if st_ is None or t < st_[0] or t - st_[0] > 2.5 / 30.0:
-            d1 = d2 = d
+            g, gv = [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]
         else:
-            dt = t - st_[0]
-            a = 1.0 - math.exp(-dt / self.ELBOW_TAU) if dt > 0 else 0.0
-            d1 = add(st_[1], mul(sub(d, st_[1]), a))
-            d2 = add(st_[2], mul(sub(d1, st_[2]), a))
-        self._ef = {**getattr(self, "_ef", {}), s: (t, d1, d2)}
-        if d2 is d:
+            t0, e0, w0, g, gv = st_
+            dt = t - t0
+            if dt > 0:
+                de = sub(e, e0)
+                free = norm(sub(w, w0)) + self.ELBOW_FREE_CM * dt * 30.0
+                n = norm(de)
+                if n > free:  # the excess absorbed (the output keeps its place, the spring takes it home)
+                    g = sub(g, mul(de, (n - free) / n))
+                om = self.ELBOW_W
+                acc = sub(mul(g, -om * om), mul(gv, 2.0 * om))
+                gv = add(gv, mul(acc, dt))
+                g = add(g, mul(gv, dt))
+        self._ef = {**getattr(self, "_ef", {}), s: (t, e, w, g, gv)}
+        if norm(g) < 1e-6:
             return e, w
-        return S.two_bone(sh, wrist, l1, l2, d2)
+        return S.two_bone(sh, wrist, l1, l2, sub(add(e, g), sh))
 
     def _swivel_pick(self, s, sh, wrist, l1, l2, pole, W, ws):
         elbow, wr = S.two_bone(sh, wrist, l1, l2, pole)
@@ -1455,7 +1466,56 @@ class Performer(S.Seater):
             k = cross(fingers, mul(palm, -1.0))
             if norm(k) > 1e-6:
                 fingers = qrot(axis_angle(k, hp.ext * ws), fingers)
+        across = self._palm_off_camera(s, fingers, across, d0, a0, side)
         return qmul(S.frame_to_frame(d0, a0, fingers, across), sk.q("hand_" + s))
+
+    PALM_OFF_FWD = 95.0  # deg the palm's normal keeps off straight forward when the fingers point up (agent-13's
+    #   move.palm_to_camera_frames: within 60 deg with the fingers up is the 'halt'; the orchestrator, 09 Nov: an
+    #   offering / placing palm faces up and in, never the camera): 95 turns it to face her midline (in), a touch back
+    PALM_UP_RAMP = (0.15, 0.4)  # the fingers' up component over which the rule fades in (continuous: no snap)
+
+    def _palm_off_camera(self, s, fingers, across, d0, a0, side):
+        """The hand turned about its fingers (supination, toward her midline) the least that keeps the palm's normal
+        PALM_OFF_FWD off forward, faded in by how far the fingers point up; a 'press' (palm out on purpose) exempt."""
+        f, r, u = self.fr
+        k_up = smooth((dot(fingers, u) - self.PALM_UP_RAMP[0]) / (self.PALM_UP_RAMP[1] - self.PALM_UP_RAMP[0]))
+        t = getattr(self, "_t", None)
+        if k_up <= 0 or t is None:
+            return across
+        press = sum(e.weight(t) for e in self.plan.events
+                    if (e.hand == s or e.hand == "both") and "press" in (e.kind + " " + str(getattr(e, "detail", ""))))
+        k_up *= max(0.0, 1.0 - min(1.0, press)) * smooth((self._wg.get(s, 0.0) - 0.4) / 0.5)  # at the strokes (the
+        #   landings keep the hand's own contact turn: a pinky went into the desk)
+        if k_up <= 0:
+            return across
+        sk = self.sk
+        n_ref = unit(cross(sub(sk.p("middle_01_" + s), sk.p("hand_" + s)), sub(sk.p("index_01_" + s), sk.p("pinky_01_" + s))))
+        if dot(sub(sk.p("middle_03_" + s), sk.p("middle_01_" + s)), n_ref) < 0:
+            n_ref = mul(n_ref, -1.0)
+        sgn = 1.0 if dot(cross(d0, a0), n_ref) > 0 else -1.0
+
+        def palm_of(ac):
+            return mul(unit(cross(fingers, ac)), sgn)
+
+        def off(phi):
+            return math.degrees(math.acos(max(-1.0, min(1.0, dot(palm_of(qrot(axis_angle(fingers, phi), across)), f)))))
+
+        if off(0.0) >= self.PALM_OFF_FWD:
+            return across
+        sg = -1.0 if s == "r" else 1.0  # always the supination sense (toward her midline): a sign taken from the palm
+        #   flipped frame to frame near its zero, the hand flapping (410 cm/s fingertips, 21.5 s)
+        lo, hi = 0.0, 150.0  # deg (axis_angle takes degrees)
+        if off(sg * hi) < self.PALM_OFF_FWD:
+            phi = hi
+        else:
+            for _ in range(14):
+                mid = 0.5 * (lo + hi)
+                if off(sg * mid) >= self.PALM_OFF_FWD:
+                    hi = mid
+                else:
+                    lo = mid
+            phi = hi
+        return qrot(axis_angle(fingers, sg * phi * k_up), across)
 
     def _finger_pose(self, s, hp: HandPose, W):
         """Each finger to its shape's ABSOLUTE anatomical angles (handshape.finger_angles: MCP-first synergy, DIP ~2/3
