@@ -73,6 +73,12 @@ eye on CAM_MCU f0-100 (box C):
   are kept for the key beats (agent-11 lowers some if more than ~1/3 are high). The rest-elevation line stays 30 deg.
   agent-13 updates the rows.
 
+**Her verify netflix_r7H (b4325b5b), the orchestrator's verdict, 08 Nov:** a big improvement. The WIDE counting reads
+natural and the face is alive. Two gesture fixes come before the finals: the MCU f58-70 'MILLION' spread goes to head
+height beside her face, and the CU 'Hit play' is a palm out beside her face. A NEW row (both presenters), hand_near_face
+== 0: no hand above the chin or within ~10 cm of the face in the cut camera. agent-01 fixes it in one sha, and only
+her 3 verify shots re-render.
+
 **Parity (the orchestrator, 08 Nov):** agent-13's shoulder-relative parity (r7/parity.py --shoulder) is THE parity
 gate. It runs on the RENDERED dump (seat + life), with a 1.0 cm line, and supersedes the seat-only check and the 1.2
 sanity row. The naturalness rows are scored on the 30 fps TRACK; the parity proves the editor plays it, and the editor-dump
