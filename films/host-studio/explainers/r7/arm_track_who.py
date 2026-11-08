@@ -64,7 +64,8 @@ def main() -> None:
                        "gesture_w": {s: round(perf.gesture_w(s, t), 3) for s in "lr"},
                        "p": {b: [round(x, 4) for x in perf.actor(F[b][0])] for b in BONES if b in F}})
     ev = [{"hand": e.hand, "kind": e.kind, "prep": e.prep, "stroke": e.stroke, "hold": e.hold,
-           "line": getattr(e, "line", "")} for e in plan.events]
+           "line": getattr(e, "line", ""), "detail": getattr(e, "detail", ""), "retract": e.retract}
+          for e in plan.events]  # (detail: the gate's 'size: pinch' and 'press' exemptions read it)
     out = Path(a.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps({"who": w, "fps": fps, "frame": "actor: x fwd, y the actor's right, z up, cm",
