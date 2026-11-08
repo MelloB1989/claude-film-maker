@@ -32,6 +32,7 @@ import math
 import random
 from dataclasses import dataclass, replace
 
+import handshape as HS  # noqa: E402
 import seatkit as S
 from seatkit import add, axis_angle, cross, dot, mul, norm, qinv, qmul, qrot, sub, unit
 
@@ -85,7 +86,7 @@ PARTIAL_S = 1.1     # a gap shorter than this falls only halfway to the rest
 LAG_S = {"pinky": 0.030, "ring": 0.045, "thumb": 0.050, "middle": 0.062, "index": 0.080}  # fingers behind the wrist
 SPREAD_SIGN = {"index": -1.0, "middle": 0.0, "ring": 0.6, "pinky": 1.2, "thumb": -0.8}
 SHAPE_SPREAD = {"rest": 2.0, "relaxed": 3.0, "open": 9.0, "point": 2.0, "count1": 2.0, "count2": 6.0, "count3": 7.0,
-                "pinch": 1.0, "soft_fist": 0.0}
+                "pinch": 1.0, "soft_fist": 0.0, "list": 5.0, "raise": 2.0}
 SIM_FAIL = 0.95
 MIC_L = (14.0, 8.0)  # the left hand (mic side) on a gesture: out <= 14 cm, up <= 8 cm from the sternum point
 #   (r7F: 9 / -2 with the mic at her chest; with it at her mouth and the rest low, that box held her left hand still)
@@ -127,12 +128,13 @@ class Noise:
 
 
 def shape_dict(shape) -> dict:
-    """A shape name or dict -> {finger: curl deg, '_spread': deg}."""
+    """A shape name or dict -> {finger: closure %, '_opp': thumb opposition %, '_spread': deg} (handshape: absolute
+    anatomical targets; a missing finger is relaxed)."""
     if isinstance(shape, dict):
-        d = dict(shape)
+        d = HS.full(shape)
         d.setdefault("_spread", 3.0)
         return d
-    d = {f: float(GK.SHAPES.get(shape, {}).get(f, 0.0)) for f in GK.FINGERS}
+    d = HS.full(shape)
     d["_spread"] = SHAPE_SPREAD.get(shape, 3.0)
     return d
 
@@ -146,6 +148,7 @@ def lerp_pose(a: GK.HandPose, b: GK.HandPose, u_pos: float, u_rot: float, u_f: d
     sa, sb = shape_dict(a.shape), shape_dict(b.shape)
     sh = {f: sa[f] + (sb[f] - sa[f]) * u_f.get(f, u_rot) for f in GK.FINGERS}
     sh["_spread"] = sa["_spread"] + (sb["_spread"] - sa["_spread"]) * u_f.get("index", u_rot)
+    sh["_opp"] = sa["_opp"] + (sb["_opp"] - sa["_opp"]) * u_f.get("thumb", u_rot)  # the thumb swings with its flexion
     return GK.HandPose(off, a.pron + (b.pron - a.pron) * u_rot, a.ext + (b.ext - a.ext) * u_rot, sh)
 
 
@@ -186,7 +189,7 @@ class Var:
         rest = getattr(GK, "POSE_ORIGIN", GK.HIGH_REST).off  # the amp's origin, not the (r7F, lower) rest
         off = tuple(rest[i] + (p.off[i] - rest[i]) * self.amp + (self.dz if i == 2 else 0.0) for i in range(3))
         sh = shape_dict(p.shape)
-        sh = {f: sh[f] + self.fingers.get(f, 0.0) for f in GK.FINGERS} | {"_spread": max(0.0, sh["_spread"] + self.spread)}
+        sh = {f: sh[f] + self.fingers.get(f, 0.0) for f in GK.FINGERS} | {"_spread": max(0.0, sh["_spread"] + self.spread), "_opp": sh["_opp"]}
         return GK.HandPose(off, p.pron + self.d_pron, p.ext + self.d_ext, sh)
 
 
@@ -446,7 +449,7 @@ class HandTrack:
         acc = self.accent(t)
         off = tuple(off[i] + acc[i] for i in range(3))
         sh = shape_dict(hp.shape)
-        sh = {f: sh[f] + fing[f] for f in GK.FINGERS} | {"_spread": sh["_spread"]} | \
+        sh = {f: sh[f] + fing[f] for f in GK.FINGERS} | {"_spread": sh["_spread"], "_opp": sh["_opp"]} | \
             {k: v for k, v in fing.items() if k.startswith("_pip_")}
         return GK.HandPose(tuple(hp.off[i] + off[i] for i in range(3)), hp.pron + dp, hp.ext + de, sh), w
 
@@ -648,7 +651,8 @@ def finger_post(perf, s: str, hp, W) -> None:
         joints = [j for j in info["joints"] if "metacarpal" not in j and j in W]
         if not joints:
             continue
-        r = axis_angle(n, spread * SPREAD_SIGN[f])
+        k = HS.spread_k(float(hp.shape.get(f, 0.0))) if f != "thumb" else 1.0  # closing fingers converge
+        r = axis_angle(n, spread * SPREAD_SIGN[f] * k)
         piv = W[joints[0]][0]
         for j in joints:
             W[j] = [add(piv, qrot(r, sub(W[j][0], piv))), S.qnorm(qmul(r, W[j][1]))]

@@ -18,6 +18,7 @@ import math
 from pathlib import Path
 from dataclasses import dataclass, field, replace
 
+import handshape as HS  # noqa: E402
 import seatkit as S
 from seatkit import add, sub, mul, dot, cross, norm, unit, ortho, qmul, qinv, qrot, qnorm, axis_angle, qslerp, smooth
 
@@ -40,18 +41,11 @@ try:
 except Exception:
     STYLE_HOOK = None
 
-# finger shapes: degrees of curl ADDED to the base pose's relaxed curl, per finger (joints 01/02/03 take 0.8/1/0.8)
-SHAPES = {
-    "relaxed": {},
-    "open": {"index": -18, "middle": -18, "ring": -16, "pinky": -14, "thumb": -10},
-    "point": {"index": -22, "middle": 60, "ring": 65, "pinky": 65, "thumb": 25},
-    "count1": {"index": -22, "middle": 62, "ring": 66, "pinky": 66, "thumb": 35},
-    "count2": {"index": -22, "middle": -22, "ring": 66, "pinky": 66, "thumb": 35},
-    "count3": {"index": -22, "middle": -22, "ring": -20, "pinky": 66, "thumb": 35},
-    "pinch": {"index": 35, "middle": 10, "ring": 15, "pinky": 20, "thumb": 20},
-    "soft_fist": {"index": 25, "middle": 28, "ring": 30, "pinky": 30, "thumb": 10},
-    "rest": {"index": -8, "middle": -6, "ring": -4, "pinky": -2, "thumb": -6},  # gently curved, not hanging (r7F)
-}
+# finger shapes (R7 hands, agent-08): named whole-hand poses as ABSOLUTE anatomical targets, see handshape.py: per
+# finger a closure % (0 straight with its natural curve .. 100 a fist) through one MCP-first flexion synergy (DIP ~2/3
+# PIP), "thumb" its flexion %, "_opp" its opposition %. Before (until R7 hands) they were curl degrees ADDED to the
+# rig's reference curl with the PIP/DIP clamped at -5: a counted index ended MCP 12-19 / PIP 19 / DIP 21, the claw.
+SHAPES = HS.SHAPES
 
 
 @dataclass
@@ -102,7 +96,7 @@ def gesture_pose(g: dict, hand: str, count_n: int) -> HandPose:
             return HandPose((36.0, 8.0, 0.0), pron=-60.0, ext=12.0, shape="open")
         return HandPose((26.0, 24.0, 10.0), pron=-20.0, ext=15.0, shape="open")  # her right, up
     if detail in ("raise_finger",):
-        return HandPose((18.0, 27.0, 4.0), pron=80.0, ext=12.0, shape="point")  # out to her right: clear of the mic
+        return HandPose((18.0, 27.0, 4.0), pron=80.0, ext=12.0, shape="raise")  # out to her right: clear of the mic
     if detail in ("press",):
         return HandPose((28.0, 10.0, -3.0), pron=5.0, ext=0.0, shape="relaxed")
     if detail in ("pinch",):
@@ -384,30 +378,41 @@ class Performer(S.Seater):
                 prev = (e.stroke + e.hold, p)
         return out
 
-    # the finger chains and their palm side (from the base pose's own relaxed curl)
+    # the finger chains, their hinges and the rig's own reference angles (handshape: targets are absolute)
     def _fingers(self) -> dict:
         sk = self.sk
         out = {}
+        P = {b: sk.p(b) for b in sk.world}
+        Q = {b: sk.q(b) for b in sk.world}
         for s in "lr":
-            # the palm's normal (reference pose), toward the palm: the side the reference middle finger curls to
-            hd = unit(sub(sk.p(f"middle_01_{s}"), sk.p(f"hand_{s}")))
-            n = unit(cross(hd, sub(sk.p(f"index_01_{s}"), sk.p(f"pinky_01_{s}"))))
-            if dot(sub(sk.p(f"middle_03_{s}"), sk.p(f"middle_01_{s}")), n) < 0:
-                n = mul(n, -1.0)
+            n = HS.palm_normal(P, s)  # toward the palm: the side the fingers curl to
+            ref = HS.hand_angles(P, Q, s)
+            sign = 1.0 if s == "l" else -1.0
             for f in FINGERS:
                 joints = [j for j in (f"{f}_metacarpal_{s}", f"{f}_01_{s}", f"{f}_02_{s}", f"{f}_03_{s}")
                           if j in sk.local]
                 if len(joints) < 3:
                     continue
+                if f == "thumb":
+                    d1 = HS.bone_dir(sk.q(f"thumb_01_{s}"), sign)
+                    d2 = HS.bone_dir(sk.q(f"thumb_02_{s}"), sign)
+                    hd = unit(sub(sk.p(f"middle_01_{s}"), sk.p(f"hand_{s}")))
+                    across = unit(sub(sk.p(f"pinky_01_{s}"), sk.p(f"index_01_{s}")))
+                    tipv = sub(sk.p(f"thumb_03_{s}"), sk.p(f"thumb_01_{s}"))
+
+                    def toward(axis, goal):  # the axis's sign that turns the thumb toward goal
+                        return axis if dot(sub(qrot(axis_angle(axis, 5.0), tipv), tipv), goal) > 0 else mul(axis, -1.0)
+
+                    # the flexion hinge: perpendicular to the thumb, turning its tip toward the palm and the fingers
+                    goal = unit(add(mul(n, 0.8), mul(across, 0.6)))
+                    hinge = toward(unit(cross(d2, ortho(goal, d2))), goal)
+                    out[(s, f)] = {"joints": joints, "axis": hinge, "front": toward(hd, n),
+                                   "across": toward(n, across), "ref": ref.get("thumb", (0.0, 0.0))}
+                    continue
                 tip, base = sk.p(joints[-1]), sk.p(joints[1] if "metacarpal" in joints[0] else joints[0])
                 d = unit(sub(tip, base))
-                # r7F: each joint bends about the finger's own hinge, d x n, so + curl moves it toward the palm. It
-                # was cross(d, ortho(middle chord, d)): nearly parallel vectors, so one curl flexed some joints, bent
-                # others backward (-66 deg) and barely moved the rest (the orchestrator's 'claws')
-                ax = unit(cross(d, n))
-                if f == "thumb":  # the thumb lies on its side: d x n opened it; flipped it folds in over the palm
-                    ax = mul(ax, -1.0)
-                out[(s, f)] = {"joints": joints, "axis": ax}
+                # each joint bends about the finger's own hinge, d x n, so + flexion moves it toward the palm
+                out[(s, f)] = {"joints": joints, "axis": unit(cross(d, n)), "ref": ref.get(f, (0.0, 0.0, 0.0))}
         return out
 
     def gesture_w(self, s: str, t: float) -> float:
@@ -461,7 +466,7 @@ class Performer(S.Seater):
             tot = sum(x for x, _ in parts) or 1.0
             hp = blend_poses([(1.0 - we, base)] + [(w / tot * we, p) for w, p in parts])
             if extra:
-                sh = dict(hp.shape) if isinstance(hp.shape, dict) else dict(SHAPES.get(hp.shape, {}))
+                sh = HS.full(hp.shape)
                 hp = replace(hp, shape={k: sh.get(k, 0.0) + extra.get(k, 0.0) for k in FINGERS})
         off = hp.off
         acc = self.accent(s, t)
@@ -502,7 +507,7 @@ class Performer(S.Seater):
         rest_hp = HandPose((0.0, 0.0, 0.0), pron=self.sy.pronation, ext=self.ext_base.get(s, 10.0), shape="relaxed")
         hp = blend_poses([(ws, hp), (1.0 - ws, rest_hp)])
         if ws < 1.0 and STYLE_HOOK is not None and hasattr(STYLE_HOOK, "rest_life"):
-            sh = dict(hp.shape) if isinstance(hp.shape, dict) else dict(SHAPES.get(hp.shape, {}))
+            sh = HS.full(hp.shape)
             hp = replace(hp, shape=sh | {k: sh.get(k, 0.0) + d_fing.get(k, 0.0) * (1.0 - ws) for k in set(FINGERS) | set(d_fing)})
         return self.comp(tgt), hp, pole, ws, big
 
@@ -1058,16 +1063,27 @@ class Performer(S.Seater):
         return qmul(S.frame_to_frame(d0, a0, fingers, across), sk.q("hand_" + s))
 
     def _finger_pose(self, s, hp: HandPose, W):
+        """Each finger to its shape's ABSOLUTE anatomical angles (handshape.finger_angles: MCP-first synergy, DIP ~2/3
+        PIP), each joint turned by target - the rig's reference angle about the finger's hinge; the thumb by its CMC
+        opposition (in front of the palm, across toward the pinky), then MCP and IP flexion."""
         sk = self.sk
-        shape = SHAPES.get(hp.shape, {}) if isinstance(hp.shape, str) else hp.shape
+        shape = HS.full(hp.shape)
         dh = qmul(W["hand_" + s][1], qinv(sk.q("hand_" + s)))
         for f in FINGERS:
             info = self._finger_info.get((s, f))
             if not info:
                 continue
-            curl = float(shape.get(f, 0.0)) if isinstance(shape, dict) else 0.0
             joints = info["joints"]
             axis = qrot(dh, info["axis"])  # the hinge, in the hand's current frame
+            if f == "thumb":
+                front, across, mcp, ip = HS.thumb_angles(shape.get("thumb", 0.0), shape.get("_opp", 0.0))
+                pip_x = float(shape.get("_pip_thumb", 0.0))
+                cmc = qmul(axis_angle(qrot(dh, info["across"]), across), axis_angle(qrot(dh, info["front"]), front))
+                r_mcp, r_ip = info["ref"]
+                bends = {"01": None, "02": mcp - r_mcp + pip_x * 0.5, "03": ip - r_ip + pip_x}
+            else:
+                ang = HS.finger_angles(f, shape.get(f, 0.0), float(shape.get("_pip_" + f, 0.0)))
+                bends = {"01": ang[0] - info["ref"][0], "02": ang[1] - info["ref"][1], "03": ang[2] - info["ref"][2]}
             cum = [0.0, 0.0, 0.0, 1.0]
             parent = "hand_" + s
             for j in joints:
@@ -1075,19 +1091,13 @@ class Performer(S.Seater):
                     q = qmul(dh, sk.q(j))
                 else:
                     k = j.split("_")[1]
-                    share = {"01": 0.8, "02": 1.0, "03": 0.8}[k]
-                    pip = float(shape.get("_pip_" + f, 0.0)) if isinstance(shape, dict) and k != "01" else 0.0
-                    ang = curl * share + pip  # (+ the middle/end joints' own drift)
-                    if k != "01":
-                        ang = max(ang, PIP_MIN_DEG)  # a straight finger's drift never bends it backwards (agent-13's
-                        #   claw: his count's index at PIP -11)
-                    cum = qmul(axis_angle(axis, ang), cum)
+                    if bends[k] is None:  # the thumb's CMC: the whole thumb swings
+                        cum = qmul(cmc, cum)
+                    else:
+                        cum = qmul(axis_angle(qrot(cum, axis) if f == "thumb" else axis, bends[k]), cum)
                     q = qmul(cum, qmul(dh, sk.q(j)))
                 W[j] = [self._fk_t(j, parent, W) if parent in W else sk.p(j), q]
                 parent = j
-
-
-PIP_MIN_DEG = -5.0  # deg a finger's middle and end joints at most bent back
 
 
 def blend_poses(parts: list) -> HandPose:
@@ -1098,7 +1108,7 @@ def blend_poses(parts: list) -> HandPose:
     yaw = sum(w * getattr(p, "yaw", 0.0) for w, p in parts) / tw
     shapes = {}
     for w, p in parts:
-        sh = SHAPES.get(p.shape, {}) if isinstance(p.shape, str) else p.shape
+        sh = HS.full(p.shape)  # every finger (a missing one is relaxed, never straight) + "_opp", "_spread", "_pip_*"
         for k in FINGERS + tuple(x for x in sh if x.startswith("_")):  # "_spread" etc. (gesture_style) ride along
             shapes[k] = shapes.get(k, 0.0) + w * float(sh.get(k, 0.0)) / tw
     return HandPose(tuple(off), pron, ext, shapes, yaw)
@@ -1290,8 +1300,27 @@ def track_frame(perf, plan, F, i: int, t: float) -> dict:
     as frozen)."""
     return {"f": i, "t": round(t, 4), "speak_w": round(plan.speak_w(t), 3),
             "gesture_w": {s: round(perf.gesture_w(s, t), 3) for s in "lr"},
-            "p": {b: [round(x, 4) for x in perf.actor(F[b][0])] for b in TRACK_BONES if b in F},
+            "p": {b: [round(x, 4) for x in perf.actor(F[b][0])] for b in TRACK_BONES if b in F} | finger_tips(perf, F),
             "hand_q": {s: [round(x, 5) for x in F["hand_" + s][1]] for s in "lr"}}
+
+
+TIP_K = {"thumb": 0.9}  # the distal phalanx (no bone of its own) x the _03 bone's own length; 0.85 for the fingers
+
+
+def finger_tips(perf, F) -> dict:
+    """{'<finger>_tip_<s>': actor point}: each _03 bone's head + its axis x the distal phalanx's length (TIP_K x the
+    _03 bone's own length, from the rig), so the rows can measure the DIP (agent-13, R7 hands)."""
+    out = {}
+    for s in "lr":
+        sign = 1.0 if s == "l" else -1.0
+        for f in ("thumb", "index", "middle", "ring", "pinky"):
+            j = f"{f}_03_{s}"
+            if j not in F or j not in perf.sk.local:
+                continue
+            L = TIP_K.get(f, 0.85) * norm(perf.sk.local[j]["t"])
+            tip = add(F[j][0], mul(qrot(F[j][1], [sign, 0.0, 0.0]), L))
+            out[f"{f}_tip_{s}"] = [round(x, 4) for x in perf.actor(tip)]
+    return out
 
 
 def track_doc(plan, fps: int, frames: list) -> dict:
