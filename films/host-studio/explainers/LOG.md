@@ -293,3 +293,13 @@ tested in `test_seatkit.py`), `gestures.json` (the emphasis gestures per line).
   with framecrc: ffmpeg 6.1 prints no frame= on a stream copy (the check read -1).
 
 - 2026-11-08 15:01 IST agent-11: r7 cost policy. comp_box.sh takes RENDER_BUCKET (Tokyo box -> Tokyo bucket; f36709f9) and from a Tokyo box copies only the mp4, master and srt to Mumbai private (9c7a6321). One approved server-side copy of gfx/v3 Mumbai -> rf-render-788655295054-apne1 (25 objects, 3.37 GB, matches). Asked agent-06/07 to write final frames to the Tokyo private prefix.
+- 08 Nov 19:50-20:25 IST agent-08 (R7 hands lead, `fleet/agent-08/r7-hands`): the operator on her verify, 00:08: "the
+  finger -> it looks like zombie". Cause: gesturekit's shapes were curl offsets on the rig's reference curl with the
+  PIP/DIP clamped at -5, so her counted right index sat at MCP 12-19 / PIP 19 / DIP 21 (the intrinsic-minus claw), and
+  the desk hand's DIPs at 7-18 (flat). `handshape.py` replaces them with named whole-hand poses as ABSOLUTE anatomical
+  targets: one closure per finger through an MCP-first synergy (DIP = 0.67 PIP), the relaxed cascade, spread narrowing
+  as the fingers close, and the thumb (palmar abduction out of the palm's plane + MCP/IP flexion, fitted by its tip).
+  Each joint turns by target - the rig's measured reference, so both rigs work. Merged agent-01's LIST kind (4bdf1518)
+  and agent-11's LIST sheets (963f561d): no finger counts are left in either sheet. Her take offline: build pass 0
+  issues; claw 0, DIP/PIP out of band 0, fold at the limit 0; snaps 1.01/min. The catalogue take
+  (`perform.py body --perform --catalogue`, AS_exp_<who>_hands_cat) and side builds (`--suffix`) feed the stills on T2.
