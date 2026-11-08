@@ -137,6 +137,7 @@ def main(argv=None):
                          "comparing: a breath layer that ROTATES the clavicles (a shrug) swings the whole arm, which "
                          "--shoulder (a shift) does not cancel")
     ap.add_argument("--json")
+    ap.add_argument("--gate", help="write the gate's numbers contract (numbers/<film>/parity.json)")
     a = ap.parse_args(argv)
     spans = [tuple(int(x) for x in s.split("-")) for s in a.span] or None
     rep = parity(json.loads(Path(a.editor).read_text()), json.loads(Path(a.offline).read_text()), spans,
@@ -148,6 +149,12 @@ def main(argv=None):
     print("worst frames:", ", ".join(f"f{w['f']} {w['bone']} {w['cm']}" for w in rep["worst"]))
     if a.json:
         Path(a.json).write_text(json.dumps({"rows": r, "report": rep}, indent=1))
+    if a.gate:
+        mode = "--shoulder" if a.shoulder else "--clavicle" if a.clavicle else "plain"
+        Path(a.gate).write_text(json.dumps({"gate": {k: {"value": v["value"] if v["value"] == v["value"] else None,
+                                                         "where": f"{Path(a.editor).name} vs {Path(a.offline).name}, "
+                                                                  f"{mode}, spans {' + '.join(a.span) or 'all'} by time"}},
+                                            "source": "r7/parity.py (agent-13)"}, indent=1) + "\n")
 
 
 if __name__ == "__main__":
