@@ -856,6 +856,34 @@ class Performer(S.Seater):
         whose upper arm clears the torso/breast model by CLEAR_WANT (and the mic, the boom, the desk, never in across
         the body nor back behind the shoulder), the lowest; none clearing: the clearest (while she speaks; the desk
         rest keeps its pole)."""
+        e_out, w_out = self._swivel_pick(s, sh, wrist, l1, l2, pole, W, ws)
+        return self._elbow_settle(s, sh, wrist, l1, l2, e_out, w_out)
+
+    ELBOW_TAU = 0.05  # s each of the two cascaded lags on the elbow's direction (agent-13 / agent-08, 09 Nov: the
+    #   swivel's 5 deg choice flipped between candidates as a stroke released, the elbow jumping 7 cm in a frame at
+    #   217 cm/s while the wrist landed, a finger snap; two 0.05 s lags settle a jump over ~0.25 s, min-jerk-like)
+
+    def _elbow_settle(self, s, sh, wrist, l1, l2, e, w):
+        """The elbow's direction from the shoulder (actor frame), smoothed in time by two cascaded first-order lags,
+        then solved on the arm's circle again (the wrist exact). A frame out of order or a gap resets it."""
+        t = getattr(self, "_t", None)
+        if t is None:
+            return e, w
+        d = sub(e, sh)  # (component space: the actor frame is fixed per performer)
+        st_ = getattr(self, "_ef", {}).get(s)
+        if st_ is None or t < st_[0] or t - st_[0] > 2.5 / 30.0:
+            d1 = d2 = d
+        else:
+            dt = t - st_[0]
+            a = 1.0 - math.exp(-dt / self.ELBOW_TAU) if dt > 0 else 0.0
+            d1 = add(st_[1], mul(sub(d, st_[1]), a))
+            d2 = add(st_[2], mul(sub(d1, st_[2]), a))
+        self._ef = {**getattr(self, "_ef", {}), s: (t, d1, d2)}
+        if d2 is d:
+            return e, w
+        return S.two_bone(sh, wrist, l1, l2, d2)
+
+    def _swivel_pick(self, s, sh, wrist, l1, l2, pole, W, ws):
         elbow, wr = S.two_bone(sh, wrist, l1, l2, pole)
         f0, f1 = self.SWIVEL_FADE
         if ws <= f0:
@@ -864,8 +892,8 @@ class Performer(S.Seater):
         k = smooth(min(1.0, (ws - f0) / (f1 - f0)))
         if k >= 1.0:
             return e_s, w_s
-        # faded in over the landing (agent-08: a hard switch at ws 0.5 dropped her elbow at 142-216 cm/s in the frame
-        # before the wrist landed, a snap): the elbow's direction blended, then solved on the arm's circle again
+        # faded in over the landing (no hard switch at ws 0.5): the elbow's direction blended, then solved on the
+        # arm's circle again
         pb = add(mul(sub(elbow, sh), 1.0 - k), mul(sub(e_s, sh), k))
         return S.two_bone(sh, wrist, l1, l2, pb)
 

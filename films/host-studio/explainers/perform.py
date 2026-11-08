@@ -62,8 +62,9 @@ SET = S.Set(seat_top=45.0, seat_front=24.5, desk_top=71.0, desk_near=12.0, desk_
             cams={"CAM_MCU": [167.5, 78.0, 121.3], "CAM_CU": [132.7, 38.7, 121.0], "CAM_WIDE": [277.0, 89.7, 125.3],
                   "CAM_MCU_L": [168.0, 77.87, 121.1]})  # (her PANEL shots: the body check and the mic rule test the cut camera)
 # her cameras' full rigs (box B, 08 Nov ~02:00 IST, read-only): the framing check projects her hands into each shot
+#   (CAM_MCU pitch -2.55 -> -3.05: the orchestrator, 09 Nov, for the palm-down rest; agent-06 sets the level)
 SET.rigs = {
-    "CAM_MCU": {"loc": [167.83, 77.66, 121.31], "yaw": -154.14, "pitch": -2.55, "focal": 60.0, "sensor": [36.0, 20.25]},
+    "CAM_MCU": {"loc": [167.83, 77.66, 121.31], "yaw": -154.14, "pitch": -3.05, "focal": 60.0, "sensor": [36.0, 20.25]},
     "CAM_MCU_L": {"loc": [168.0, 77.87, 121.1], "yaw": -145.22, "pitch": -2.43, "focal": 60.0, "sensor": [36.0, 20.25]},
     "CAM_CU": {"loc": [133.16, 38.44, 121.13], "yaw": -163.21, "pitch": -2.03, "focal": 85.0, "sensor": [36.0, 20.25]},
     "CAM_WIDE": {"loc": [277.31, 89.53, 125.43], "yaw": -158.08, "pitch": -5.49, "focal": 35.0, "sensor": [36.0, 20.25]},
