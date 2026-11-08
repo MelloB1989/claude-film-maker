@@ -232,7 +232,7 @@ Arc: hook = **curiosity**, body = **confident clarity**, payoff = **satisfied de
 
 - **clear, friendly walkthrough**, intensity 0.7 (body: confident clarity); base smile 0.3, brows 0.05
 - **Face:** brow flash on *Open* 7.83 s (f188); smile 0.45 (closed) on *phone* 9.10 s (f218); nod on *connection* 10.10 s (f242); tilt L 5° on *WhatsApp.* 10.91 s (f262) (toward the panel)
-- **Gestures:** press [R, small 0.3, to front] stroke on *app,* 8.31 s (f199), apex at the sternum, prep from 8.01: a thumb tap on an imaginary phone; raise finger [R, small 0.3, to up] stroke on *one* 9.72 s (f233), apex at the sternum, prep from 9.43: one finger: one; deictic [R, medium 0.55, to panel (his left)] HELD 0.7 s stroke on *connection* 10.10 s (f242), apex at the upper chest, prep from 9.80: draws the line from his chest toward the panel: cross-body, chest height, stops 15 cm left of the sternum under the mic head
+- **Gestures:** press [R, small 0.3, to front] stroke on *app,* 8.31 s (f199), apex at the sternum, prep from 8.01: a thumb tap on an imaginary phone; place [R, small 0.3, to front] stroke on *one* 9.72 s (f233), apex at the sternum, prep from 9.43: an open hand sets down 'one' in front of him at chest height (no finger count); deictic [R, medium 0.55, to panel (his left)] HELD 0.7 s stroke on *connection* 10.10 s (f242), apex at the upper chest, prep from 9.80: draws the line from his chest toward the panel: cross-body, chest height, stops 15 cm left of the sternum under the mic head
 - **Lean:** 6° on *your* 8.96 s
 
 ### W05  11.54-15.06 s  ·  off camera (graphic `erlang`): continuity only
@@ -250,7 +250,7 @@ Arc: hook = **curiosity**, body = **confident clarity**, payoff = **satisfied de
 
 - **impressed: a big number**, intensity 0.75 (body: confident clarity); base smile 0.3, brows 0.1
 - **Face:** brow flash on *two* 16.37 s (f393); smile 0.55 (open lips) on *million* 16.55 s (f397); nod on *them.* 17.02 s (f408)
-- **Gestures:** raise finger [R, small 0.3, to up] stroke on *One* 15.33 s (f368), apex at the sternum, prep from 15.03; size [both, big 0.85, to front] stroke on *million* 16.55 s (f397), apex at the sternum, prep from 16.22 (from *two*): spread OUT at chest height (wrists at or below the collarbone), bowing forward, never up toward the face
+- **Gestures:** place [R, small 0.3, to front] stroke on *One* 15.33 s (f368), apex at the sternum, prep from 15.03: an open hand sets down 'one server' (no finger count); size [both, big 0.85, to front] stroke on *million* 16.55 s (f397), apex at the sternum, prep from 16.22 (from *two*): spread OUT at chest height (wrists at or below the collarbone), bowing forward, never up toward the face
 - **Lean:** 6° on *two* 16.37 s
 
 ### W07  17.96-19.86 s  ·  CAM_WIDE
@@ -342,7 +342,7 @@ Arc: hook = **curiosity**, body = **confident clarity**, payoff = **satisfied de
 
 - **satisfied, the three ideas land**, intensity 0.8 (payoff: satisfied delight); base smile 0.35, brows 0.05
 - **Face:** brow flash on *Tiny* 47.08 s (f1130); nod on *processes.* 47.55 s (f1141); brow flash on *Messages* 48.63 s (f1167); shake on *don't* 49.29 s (f1183); smile 0.5 (open lips) on *linger.* 49.57 s (f1190); brow flash on *Keys* 50.33 s (f1208); smile 0.85 on *hands.* 51.58 s (f1238) (full Duchenne (payoff 4/5)); nod on *hands.* 51.58 s (f1238)
-- **Gestures:** count [R, small 0.3, to his right, chest height] stroke on *Tiny* 47.08 s (f1130), apex at the sternum, prep from 46.78: index (1); count [R, medium 0.55, to his right, chest height] stroke on *Messages* 48.63 s (f1167), apex at the upper chest, prep from 48.33: + middle (2); count [R, medium 0.55, to his right, chest height] HELD 0.5 s stroke on *Keys* 50.33 s (f1208), apex at the upper chest, prep from 50.03: + ring (3); open palm [both, medium 0.55, to front] HELD 0.6 s stroke on *hands.* 51.58 s (f1238), apex at the upper chest, prep from 51.28: both palms up, showing his hands: literal
+- **Gestures:** list [R, small 0.3, to front, his midline] stroke on *Tiny* 47.08 s (f1130), apex at the sternum, prep from 46.78: open hand, palm angled up/in, PLACES item 1 of 3 on a line in front of him at chest height (at his midline); the forearm angled toward camera, wrist below the collarbone, a small drift, no finger counting; list [R, medium 0.55, to front, a hand-width to his right] stroke on *Messages* 48.63 s (f1167), apex at the sternum, prep from 48.33: open hand, palm angled up/in, PLACES item 2 of 3 on a line in front of him at chest height (a hand-width to his right); the forearm angled toward camera, wrist below the collarbone, a small drift, no finger counting; list [R, medium 0.55, to front, two hand-widths to his right] HELD 0.5 s stroke on *Keys* 50.33 s (f1208), apex at the sternum, prep from 50.03: open hand, palm angled up/in, PLACES item 3 of 3 on a line in front of him at chest height (two hand-widths to his right); the forearm angled toward camera, wrist below the collarbone, a small drift, no finger counting; open palm [both, medium 0.55, to front] HELD 0.6 s stroke on *hands.* 51.58 s (f1238), apex at the upper chest, prep from 51.28: both palms up, showing his hands: literal
 - **Lean:** 4° on *Tiny* 47.08 s, 7° on *Keys* 50.33 s
 
 ### W17  52.29-54.30 s  ·  CAM_CU

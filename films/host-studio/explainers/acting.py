@@ -383,7 +383,9 @@ HIM = {
             "gestures": [
                 ("press", "R", ("W04", "app,"), {"size": "small", "target": "front", "note": "a thumb tap on an "
                                                                                            "imaginary phone"}),
-                ("raise_finger", "R", ("W04", "one"), {"size": "small", "target": "up", "note": "one finger: one"}),
+                ("place", "R", ("W04", "one"), {"size": "small", "target": "front", "height": "sternum",
+                                                "note": "an open hand sets down 'one' in front of him at chest "
+                                                        "height (no finger count)"}),
                 ("deictic", "R", ("W04", "connection", 1, 0.4), {"size": "medium", "target": "panel (his left)",
                                                                  "hold": 0.7,
                                                                  "note": "draws the line from his chest toward the "
@@ -409,7 +411,8 @@ HIM = {
             "face": [("brow_flash", ("W06", "two"), {}),
                      ("smile", ("W06", "million"), {"amount": 0.55, "hold": 0.4, "shape": "open lips"}),
                      ("nod", ("W06", "them."), {})],
-            "gestures": [("raise_finger", "R", ("W06", "One"), {"size": "small", "target": "up"}),
+            "gestures": [("place", "R", ("W06", "One"), {"size": "small", "target": "front", "height": "sternum",
+                                                         "note": "an open hand sets down 'one server' (no finger count)"}),
                          ("size", "both", ("W06", "million"), {"start": ("W06", "two"), "size": "big",
                                                                "target": "front",
                                                                "note": "spread OUT at chest height (wrists at or below "
@@ -557,12 +560,14 @@ HIM = {
                      ("smile", ("W16", "hands."), {"amount": 0.85, "hold": 0.5, "note": "full Duchenne (payoff 4/5)"}),
                      ("nod", ("W16", "hands."), {})],
             "gestures": [
-                ("count", "R", ("W16", "Tiny"), {"size": "small", "target": "his right, chest height",
-                                                 "note": "index (1)"}),
-                ("count", "R", ("W16", "Messages"), {"size": "medium", "target": "his right, chest height",
-                                                     "note": "+ middle (2)"}),
-                ("count", "R", ("W16", "Keys"), {"size": "medium", "target": "his right, chest height",
-                                                 "hold": 0.5, "note": "+ ring (3)"}),
+                ("list", "R", ("W16", "Tiny"), {"size": "small", "target": "front, his midline", "height": "sternum",
+                                                "item": 1, "of": 3, "note": "open hand, palm angled up/in, PLACES item 1 of 3 on a line in front of him at chest height (at his midline); the forearm angled toward camera, wrist below the collarbone, a small drift, no finger counting"}),
+                ("list", "R", ("W16", "Messages"), {"size": "medium", "target": "front, a hand-width to his right",
+                                                    "height": "sternum", "item": 2, "of": 3,
+                                                    "note": "open hand, palm angled up/in, PLACES item 2 of 3 on a line in front of him at chest height (a hand-width to his right); the forearm angled toward camera, wrist below the collarbone, a small drift, no finger counting"}),
+                ("list", "R", ("W16", "Keys"), {"size": "medium", "target": "front, two hand-widths to his right",
+                                                "height": "sternum", "item": 3, "of": 3, "hold": 0.5,
+                                                "note": "open hand, palm angled up/in, PLACES item 3 of 3 on a line in front of him at chest height (two hand-widths to his right); the forearm angled toward camera, wrist below the collarbone, a small drift, no finger counting"}),
                 ("open_palm", "both", ("W16", "hands."), {"size": "medium", "target": "front", "hold": 0.6,
                                                           "note": "both palms up, showing his hands: literal"}),
             ],
@@ -754,7 +759,8 @@ HEIGHT = {"CAM_MCU": {"small": "sternum", "medium": "upper_chest", "big": "colla
 # The orchestrator's verdict on her verify (netflix_r7H): no hand or finger above the chin or within ~10 cm of the
 # face/hair in any cut camera (no sheet line calls for a face gesture); the 'million' size spreads and the N02
 # release sit at the upper chest, and the N02 press pushes forward from below.
-# R7 hands (agent-08's brief, item 3): no finger counting where a list will do. Her N13 and his W10/W11 LIST: an open
+# R7 hands (agent-08's brief, item 3; the orchestrator: no finger counting anywhere). Her N13, his W10/W11 and W16 LIST
+# (his 'one' beats on W04/W06 place an open hand instead of a raised finger): an open
 # hand placing each item along a line in front at chest height, held <= 0.6 s; no hold at the shoulder with the
 # forearm vertical.
 HIGH = ("upper_chest", "collarbone", "chin")
