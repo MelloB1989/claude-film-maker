@@ -786,6 +786,27 @@ class Performer(S.Seater):
                     break
                 else:
                     log.append({"t": t, "hand": e.hand, "side": s, "unresolved": True})
+        return self._two_hand(log, st_pt)
+
+    RAY_MAX_CM = 14.0  # the most a scaled goal comes toward the one camera cut in
+    FRAME_SLACK = 0.02  # of the picture's height: how much lower a scaled goal's wrist may sit in a cut-in camera
+    FRAME_V_MAX = 0.8  # ... or anywhere down to here (room under the wrist for the hand, the drift and the accent)
+
+    def picture_v(self, off, s: str, st_pt, t0: float, t1: float) -> list:
+        """Per camera cut in over [t0, t1) (with a rig): how low in its picture (v, 0 top, 1 bottom) a wrist goal sits;
+        None when behind it."""
+        rigs = getattr(self.set, "rigs", None) or {}
+        sg = 1.0 if s == "r" else -1.0
+        w = [st_pt[0] + off[0] - 1.0, st_pt[1] + sg * off[1], st_pt[2] + off[2] - 0.8]
+        out = []
+        for a, b, cm in (self.plan.on_cam or []):
+            if a < t1 and b > t0 and cm in rigs:
+                uv = S.project(rigs[cm], w)
+                out.append(None if uv is None else uv[1])
+        return out
+
+    def _two_hand(self, log: list, st_pt) -> list:
+        other = "l" if self.mic_side == "r" else "r"
         for e in self.plan.events:  # a two-hand stroke whose mic-side goal came in: the other hand travels less too,
             #   so the left's share stays >= TWO_HAND_MIN (agent-13's two_hand row; his left came in 10-12 cm)
             mf = getattr(e, "mic_from", {}).get(self.mic_side)
@@ -801,6 +822,43 @@ class Performer(S.Seater):
             #   two-hand balance kept
             p = e.pose_r if other == "r" else e.pose_l
             q = replace(p, off=tuple(rest[i] + k * (p.off[i] - rest[i]) for i in range(3)))
+            span = (e.prep, e.stroke + e.hold)  # (the orchestrator, 08 Nov: his CU 53% -> 9% when this pulled his right
+            #   down toward the desk rest) the scaled goal sits no lower in any cut-in camera's picture than the drawn
+            #   one (or FRAME_V_MAX): it keeps its travel in and forward and gives back only the height it needs (bisection on z)
+            v0 = self.picture_v(p.off, other, st_pt, *span)
+            st_ = self.set
+
+            def low(o):
+                return any(a is not None and b is not None and a <= 1.0 and b > max(a + self.FRAME_SLACK, self.FRAME_V_MAX)
+                           for a, b in zip(v0, self.picture_v(o, other, st_pt, *span)))
+            if low(q.off):
+                cand = [p.off]
+                lo, hi = 0.0, 1.0  # the scaled goal, its height given back
+                for _ in range(12):
+                    mid = 0.5 * (lo + hi)
+                    if low((q.off[0], q.off[1], q.off[2] + mid * (p.off[2] - q.off[2]))):
+                        lo = mid
+                    else:
+                        hi = mid
+                cand.append((q.off[0], q.off[1], q.off[2] + hi * (p.off[2] - q.off[2])))
+                cams = [cm for a, b, cm in (self.plan.on_cam or []) if a < span[1] and b > span[0]
+                        and cm in (getattr(st_, "rigs", None) or {})]
+                if len(cams) == 1:  # one camera: travel less ALONG ITS LINE OF SIGHT (toward it), the hand's place in
+                    #   the picture kept exactly
+                    sg = 1.0 if other == "r" else -1.0
+                    w = [st_pt[0] + p.off[0] - 1.0, st_pt[1] + sg * p.off[1], st_pt[2] + p.off[2] - 0.8]
+                    d = unit(sub(st_.rigs[cams[0]]["loc"], w))
+                    d = (d[0], sg * d[1], d[2])  # (the goal's frame: y mirrored on the left)
+                    goal, best = k * math.dist(p.off, rest), p.off
+                    for i in range(1, int(self.RAY_MAX_CM * 2) + 1):
+                        o = tuple(p.off[j] + 0.5 * i * d[j] for j in range(3))
+                        if math.dist(o, rest) >= math.dist(best, rest) or math.dist(best, rest) <= goal:
+                            break
+                        best = o
+                    cand.append(best)
+                ok = [o for o in cand if not low(o)] or [p.off]
+                q = replace(p, off=min(ok, key=lambda o: math.dist(o, rest)))
+            k = math.dist(q.off, rest) / max(1e-6, math.dist(p.off, rest))
             if other == "r":
                 e.pose_r = q
             else:
