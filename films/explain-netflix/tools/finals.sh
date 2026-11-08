@@ -5,7 +5,8 @@
 #                   (the films explain-netflix-black / -grey), straight alpha by alpha.py, encoded with ffmpeg
 # Every render.ts call takes the host's render lock (an atomic mkdir: macOS has no flock) and releases it after, so
 # other agents' renders interleave; alpha.py and the encodes run outside it.
-# Env: PY (a python3 with numpy + PIL, default python3), LOCK (default ~/fleet-render/.render.lock), SAMPLES (8).
+# Env: PY (a python3 with numpy + PIL, default python3), LOCK (default ~/fleet-render/.render.lock), SAMPLES (8),
+#      RENDER_FLAGS (extra render.ts flags, e.g. --allow-software on a host without a GPU).
 set -euo pipefail
 mkdir -p "$1"; OUT=$(cd "$1" && pwd); shift
 REPO=$(cd "$(dirname "$0")/../../.." && pwd); APP=$REPO/app
@@ -19,14 +20,14 @@ frames_of() { case $1 in prefill_panel) echo 344 162;; buffer_panel) echo 926 98
 cd "$APP"
 for id in "${want[@]}"; do
   if [[ " ${FULL[*]} " == *" $id "* ]]; then
-    locked bun scripts/render.ts video --film explain-netflix --fresh --only "$id" --prores --noaudio --samples "$SAMPLES" --out "$OUT/${id}_full.mov" 2>&1 | grep -E "^wrote|rror" || true
+    locked bun scripts/render.ts video --film explain-netflix --fresh --only "$id" --prores --noaudio --samples "$SAMPLES" ${RENDER_FLAGS:-} --out "$OUT/${id}_full.mov" 2>&1 | grep -E "^wrote|rror" || true
     [ -s "$OUT/${id}_full.mov" ] || { echo "finals: $id failed"; exit 1; }
   else
     read -r F0 N <<<"$(frames_of "$id")"
     TMP=$REPO/out/explain-netflix/matte/$id; rm -rf "$TMP"; mkdir -p "$TMP"
     times=$(python3 -c "import sys; f0,n=map(int,sys.argv[1:]); print(','.join(f'{k/24:.6f}' for k in range(f0,f0+n)))" "$F0" "$N")
     for m in black grey; do
-      locked bun scripts/render.ts stills --film explain-netflix-$m --fresh --only "$id" --t "$times" --out "$TMP/$m" > "$TMP/render_$m.log" 2>&1 || { echo "finals: $id $m failed ($TMP)"; exit 1; }
+      locked bun scripts/render.ts stills --film explain-netflix-$m --fresh --only "$id" ${RENDER_FLAGS:-} --t "$times" --out "$TMP/$m" > "$TMP/render_$m.log" 2>&1 || { echo "finals: $id $m failed ($TMP)"; exit 1; }
     done
     "$PY" "$REPO/films/explain-netflix/tools/alpha.py" "$TMP/black" "$TMP/grey" "$TMP/rgba"
     [ "$(ls "$TMP/rgba" | wc -l | tr -d ' ')" -eq "$N" ] || { echo "finals: $id expected $N frames"; exit 1; }
