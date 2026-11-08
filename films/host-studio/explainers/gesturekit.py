@@ -699,6 +699,9 @@ class Performer(S.Seater):
     MIC_ACCENT = ((0.0, 0.0), (3.2, -1.5))  # (fwd, up) cm: the goal, and the style accent's push after the apex
     TWO_HAND_MIN = 0.6  # the other hand's travel kept at least this share when it follows a mic-moved goal in
     TWO_HAND_MOVE_CM = 8.0  # a mic move this big or more (his 10-12 cm; her 3-7 cm keep their balance as drawn)
+    MIC_X_MIN = 18.0  # cm ahead of the sternum point: a mic move goes no further back than this (agent-13, 08 Nov: his
+    #   left came back 5.5 cm onto his belly, 1.3 cm off it at t7.1-7.3; agent-09's rest line is 8; his desk rest at
+    #   x 27 reads 19-25 cm), so below it the move is down and in/out only
     MIC_DIRS = ((-0.5, -0.5, -0.7), (-0.5, 0.5, -0.7), (0.0, 0.7, -0.7))  # (back, in(-)/out(+), down) per cm step
 
     def cut_cams(self, t0: float, t1: float) -> list:
@@ -756,7 +759,8 @@ class Performer(S.Seater):
                 for d in range(1, 15):
                     if best is not None and d >= best[0]:
                         break
-                    off = (p.off[0] + dv[0] * d, max(2.0, p.off[1] + dv[1] * d), p.off[2] + dv[2] * d)
+                    off = (max(p.off[0] + dv[0] * d, min(p.off[0], self.MIC_X_MIN)), max(2.0, p.off[1] + dv[1] * d),
+                           p.off[2] + dv[2] * d)
                     if not hidden(off, s, cams):
                         best = (d, replace(p, off=off))
                         break
@@ -782,8 +786,9 @@ class Performer(S.Seater):
                     else:
                         e.pose_l = moved
                     e.mic_moved = getattr(e, "mic_moved", frozenset()) | {s}  # (the style layer keeps its bow)
-                    e.mic_from = {**getattr(e, "mic_from", {}), s: (p, d * math.sqrt(0.25 + 0.25 + 0.49))}
-                    log.append({"t": t, "hand": e.hand, "side": s, "moved_cm": round(d * math.sqrt(0.25 + 0.25 + 0.49), 1)})
+                    mv = math.dist(p.off, moved.off)  # (the back component may be clipped at MIC_X_MIN)
+                    e.mic_from = {**getattr(e, "mic_from", {}), s: (p, mv)}
+                    log.append({"t": t, "hand": e.hand, "side": s, "moved_cm": round(mv, 1)})
                 elif s == self.mic_side:
                     if e.hand == "both":
                         e.hand = other

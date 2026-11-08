@@ -107,8 +107,8 @@ LIFE = {"state": "talk", "breath_deg": 1.35, "clavicle_deg": 1.0, "shift_cm": 0.
 # his, scaled to his body (the orchestrator, 08 Nov: hers on him read 5.27 mm of chest rise, double hers at 2.7, and
 # his parity --shoulder on seat + life 2.08 against seat only 0.12): breath to ~3 mm, linear in breath_deg
 # (1.35 x 3.0 / 5.27 = 0.77); the clavicle lower than in proportion (0.57) since his parity error starts at the
-# clavicles (0.71 cm there, 1.3-1.55 at the hands); weight shift <= 0.2 cm
-LIFE_OF = {"her": LIFE, "him": {**LIFE, "breath_deg": 0.77, "clavicle_deg": 0.3, "shift_cm": 0.2}}
+# clavicles (0.71 cm there, 1.3-1.55 at the hands; 0.3 gave 1.087, linear: 0.15); weight shift <= 0.2 cm
+LIFE_OF = {"her": LIFE, "him": {**LIFE, "breath_deg": 0.77, "clavicle_deg": 0.15, "shift_cm": 0.2}}
 
 
 def ok(res: dict):
