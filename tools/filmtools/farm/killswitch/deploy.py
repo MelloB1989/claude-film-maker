@@ -23,7 +23,7 @@ import statistics
 import sys
 import time
 import zipfile
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from .. import provision
@@ -244,7 +244,7 @@ def dry_run_region(aws, conf, log):
 
 
 def cpu_points(aws, iid: str, hours: float, period: int = 300) -> list[dict]:
-    end = datetime.now(timezone.utc)
+    end = datetime.now(UTC)
     pts, start = [], end - timedelta(hours=hours)
     while start < end:  # 1440 points per call at most
         stop = min(end, start + timedelta(seconds=period * 1400))
@@ -255,7 +255,7 @@ def cpu_points(aws, iid: str, hours: float, period: int = 300) -> list[dict]:
         pts += r.get("Datapoints", [])
         start = stop
     for p in pts:
-        p["t"] = datetime.fromisoformat(p["Timestamp"].replace("Z", "+00:00")).timestamp()
+        p["t"] = datetime.fromisoformat(p["Timestamp"]).timestamp()
     return sorted(pts, key=lambda p: p["t"])
 
 
@@ -306,7 +306,7 @@ def calibrate_region(aws, conf, ids, args, log):
     th, n, per = conf["threshold"], conf["periods"], 300
     for iid in ids:
         pts = cpu_points(aws, iid, args.hours)
-        fmt = lambda t: datetime.fromtimestamp(t, timezone.utc).strftime("%m-%d %H:%M")  # noqa: E731
+        fmt = lambda t: datetime.fromtimestamp(t, UTC).strftime("%m-%d %H:%M")
         if not pts:
             continue  # not in this region
         log(f"== {conf['region']} {iid}: {len(pts)} five-minute points over {args.hours:g} h")
@@ -436,7 +436,7 @@ def cmd_undeploy(ctx, args, log):
         log("dry-run: nothing is deleted")
         real, say = ctx.aws, log
         ctx.aws = lambda r: would(real(r), say)
-        log = lambda s: None if s.startswith("deleted") else say(s)  # noqa: E731  (nothing was)
+        log = lambda s: None if s.startswith("deleted") else say(s)
     for r in ctx.regions:
         log(f"== {r}")
         undeploy_region(ctx.aws(r), args, log)

@@ -19,7 +19,7 @@ import json
 import os
 import re
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 PREFIX = "killswitch-idle-"
 GPU_FAMILY = re.compile(r"^(g|gr|p)\d")
@@ -60,9 +60,9 @@ def ttl_hours(inst: dict, default: float) -> float:
 def uptime_h(inst: dict, now: float) -> float:
     lt = inst["LaunchTime"]  # the last start, not the first launch: a stopped-and-started box starts a new clock
     if isinstance(lt, str):
-        lt = datetime.fromisoformat(lt.replace("Z", "+00:00"))
+        lt = datetime.fromisoformat(lt)  # 3.11+ reads the trailing Z
     if lt.tzinfo is None:
-        lt = lt.replace(tzinfo=timezone.utc)
+        lt = lt.replace(tzinfo=UTC)
     return (now - lt.timestamp()) / 3600
 
 
@@ -148,7 +148,7 @@ def apply(acts: list[dict], ec2, cw, conf: dict, log) -> list[dict]:
             elif a["do"] == "stop":
                 ec2.stop_instances(InstanceIds=[a["instance"]])  # never terminate_instances
             rec["ok"] = True
-        except Exception as e:  # one box's failure (e.g. a one-time spot that cannot stop) must not stop the rest
+        except Exception as e:  # noqa: BLE001  one box failing (a one-time spot cannot stop) must not stop the rest
             rec["ok"], rec["error"] = False, f"{type(e).__name__}: {e}"[:500]
         log(rec)
         done.append(rec)

@@ -2,21 +2,21 @@
 and the calibration maths. Nothing here touches AWS."""
 from __future__ import annotations
 
+import io
 import json
 import zipfile
-import io
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
 from filmtools.farm.killswitch import deploy, reaper
 
-NOW = datetime(2026, 11, 8, 12, 0, tzinfo=timezone.utc).timestamp()
+NOW = datetime(2026, 11, 8, 12, 0, tzinfo=UTC).timestamp()
 CONF = reaper.settings({"AWS_REGION": "ap-south-1"})
 
 
 def inst(iid, itype="g6e.4xlarge", state="running", up_h=1.0, **tags):
-    lt = datetime.fromtimestamp(NOW - up_h * 3600, timezone.utc)
+    lt = datetime.fromtimestamp(NOW - up_h * 3600, UTC)
     return {"InstanceId": iid, "InstanceType": itype, "State": {"Name": state}, "LaunchTime": lt,
             "Tags": [{"Key": k, "Value": v} for k, v in tags.items()]}
 
@@ -152,7 +152,7 @@ def test_dry_run_changes_nothing():
 
 def test_launch_time_as_cli_string():
     i = inst("i-1")
-    i["LaunchTime"] = datetime.fromtimestamp(NOW - 7200, timezone.utc).isoformat().replace("+00:00", "Z")
+    i["LaunchTime"] = datetime.fromtimestamp(NOW - 7200, UTC).isoformat().replace("+00:00", "Z")
     assert reaper.uptime_h(i, NOW) == pytest.approx(2.0)
 
 
