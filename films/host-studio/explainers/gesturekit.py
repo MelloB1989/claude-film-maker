@@ -410,6 +410,10 @@ class Torso:
     breast_down: float = 9.0
     breast_out: float = 7.0
     arm_r: float = 4.2
+    side_pad: float = 0.0  # cm on the half-width (a, a_waist): a presenter's build and outfit over her model (him: the
+    #   box's mesh measure had his upper arms 6.6-7.9 cm inside his outfit's flank with this model at +0.5)
+    gate: float | None = None  # cm: when set, the upper arm's side line at EVERY checked frame, both arms, seated, in
+    #   pauses and in gestures (the orchestrator, 09 Nov, for him: an arm into the outfit is a GATE, not info)
 
 
 def clearance(A: dict, F: dict, s: str, tor: Torso, parts: bool = False):
@@ -434,6 +438,7 @@ def clearance(A: dict, F: dict, s: str, tor: Torso, parts: bool = False):
             th = math.atan2(x, y)
             k_ = max(0.0, min(1.0, (h - tor.waist_h[0]) / (tor.waist_h[1] - tor.waist_h[0])))
             ta, tb = tor.a_waist + (tor.a - tor.a_waist) * k_, tor.b_waist + (tor.b - tor.b_waist) * k_
+            ta += tor.side_pad
             r_e = ta * tb / math.sqrt((tb * math.cos(th)) ** 2 + (ta * math.sin(th)) ** 2)
             side_best = min(side_best, rr - r_e - tor.arm_r)
         for side in (1.0, -1.0):
@@ -745,6 +750,37 @@ class Performer(S.Seater):
     SWIVEL_LOW = True  # r7F (agent-13): of the elbow positions that clear, the LOWEST (it hung); else the first one
     #                    out from the pole, which swung it up and out (the upper arm 78 deg off hanging at apexes)
 
+    REST_OUT_MAX = 14.0  # cm the desk rest's elbow goes out at most past the style's, for the torso's side line
+
+    def elbow_rest(self, s, W) -> tuple:
+        """seatkit's desk rest; with a gated torso (him), the elbows go out (1 cm steps) until the upper arm clears the
+        torso+outfit model's side by SIDE_WANT + 0.5, the forearms still on the desk."""
+        tor = getattr(self, "tor", None)
+        if tor is None or tor.gate is None or "spine_03" not in W or "spine_05" not in W:
+            return super().elbow_rest(s, W)
+        sy0 = self.sy
+        A = {b: self.actor(W[b][0]) for b in ("spine_03", "spine_05")}
+        sha = self.actor(self._fk_t("upperarm_" + s, "clavicle_" + s, W))
+        want = max(tor.gate, self.SIDE_WANT or 0.0) + 0.5
+        out = None
+        try:
+            for k in range(int(self.REST_OUT_MAX) + 1):
+                self.sy = replace(sy0, elbow_out=sy0.elbow_out + k,
+                                  elbow_out_l=None if sy0.elbow_out_l is None else sy0.elbow_out_l + k)
+                o = super().elbow_rest(s, W)
+                if out is not None and not o[2]:  # the elbow off the desk (it hangs, out and up): the last that
+                    k -= 1  # reached; the gate reports what is left (no chicken wings)
+                    break
+                out = o
+                _, c_side, _ = clearance({**A, "upperarm_" + s: sha, "lowerarm_" + s: out[0]}, None, s, tor,
+                                         parts=True)
+                if c_side >= want:
+                    break
+        finally:
+            self.sy = sy0
+        self.rest_out = {**getattr(self, "rest_out", {}), s: k}
+        return out
+
     def swivel(self, s, sh, wrist, l1, l2, pole, W, ws):
         """Two-bone IK, then the elbow about the shoulder-wrist axis: of the positions round the circle (5 deg steps)
         whose upper arm clears the torso/breast model by CLEAR_WANT (and the mic, the boom, the desk, never in across
@@ -787,6 +823,10 @@ class Performer(S.Seater):
                         if z_edge < st_.desk_top + self.FOREARM_R:
                             continue
             A2 = {**A, "upperarm_" + s: sha, "lowerarm_" + s: ea}
+            ua = sub(ea, sha)  # abduction: the upper arm's lean out to her side, in her frontal plane
+            abd = math.degrees(math.atan2(abs(ua[1]), max(1e-6, -ua[2]))) if ua[2] < 0 else 90.0
+            if self.tor.gate is not None and abd > self.ABD_MAX and k != 0:  # a gated torso (him): never past the
+                continue  # abduction line to clear it, no chicken wings; the gate reports what is left
             c, c_side, c_bust = clearance(A2, None, s, self.tor, parts=True)
             if self.SIDE_WANT is not None:  # the bust by CLEAR_WANT (at the desk rest REST_BUST_WANT), her side only
                 #                             by SIDE_WANT
@@ -798,8 +838,6 @@ class Performer(S.Seater):
             if c >= self.CLEAR_WANT:
                 if not self.SWIVEL_LOW:
                     return e, w2
-                ua = sub(ea, sha)  # abduction: the upper arm's lean out to her side, in her frontal plane
-                abd = math.degrees(math.atan2(abs(ua[1]), max(1e-6, -ua[2]))) if ua[2] < 0 else 90.0
                 key = (abd > self.ABD_MAX, ea[2])  # within the abduction line first, then the lowest
                 if low is None or key < low[0]:
                     low = (key, e, w2)
@@ -1481,7 +1519,7 @@ def metrics(perf: Performer, t0: float, t1: float, fps: float = 30.0) -> dict:
 def build(data: dict, st, sy, sheet: dict, cues: dict, tilts: list, length_s: float, fps: int = 30,
           check_every: int = 6, timing: list | None = None, on_cam: list | None = None,
           frame_want: dict | None = None, track_out: str | None = None, close_alive: bool = False,
-          mic_cams: list | None = None, catalogue: bool = False) -> tuple:
+          mic_cams: list | None = None, catalogue: bool = False, torso: dict | None = None) -> tuple:
     """seatkit.build for the performance: the seated pose with the plan driving the upper body, as tracks (constant
     for the bones that never move, per key for spine, neck, head, clavicles, arms, hands and fingers). Returns (doc
     for perform.py's WRITE, summary with the checks and the body rows' numbers)."""
@@ -1489,7 +1527,7 @@ def build(data: dict, st, sy, sheet: dict, cues: dict, tilts: list, length_s: fl
     plan = catalogue_plan() if catalogue else plan_from_sheet(
         sheet, cues, tilts, timing=timing, on_cam=on_cam, close_alive=length_s if close_alive else None, mic_cams=mic_cams)
     se, tuned = S.autotune(sk, st, sy)
-    perf = Performer(sk, st, se.sy, plan)
+    perf = Performer(sk, st, se.sy, plan, torso=Torso(**torso) if torso else None)
     n = int(round(length_s * fps)) + 1
     first = perf.pose(0.0)
     const = {b: data["local"][b] for b in data["tracks"] if b in data["local"]}
@@ -1498,6 +1536,7 @@ def build(data: dict, st, sy, sheet: dict, cues: dict, tilts: list, length_s: fl
     keyed = {b: [] for b in moving}
     issues, clear = [], {"l": 1e9, "r": 1e9}
     side_c, bust_c = {"l": 1e9, "r": 1e9}, {"l": 1e9, "r": 1e9}
+    gate_side = {"l": (1e9, None), "r": (1e9, None)}  # (cm, t) the worst side clearance at any checked frame
     rest_bust = {"l": 1e9, "r": 1e9}
     framing = {}
     rest_clear = 1e9
@@ -1524,6 +1563,12 @@ def build(data: dict, st, sy, sheet: dict, cues: dict, tilts: list, length_s: fl
                 if x["code"] == "mic.hides_hand" and live != "*" and not any(f" {cm} " in x["message"] for cm in live):
                     continue  # a mic overlap counts only in the camera that is cut in (and only when she is on it)
                 issues.append({**x, "t": round(t, 2)})
+            if perf.tor.gate is not None:  # his outfit line: every checked frame, both arms
+                A = {b: perf.actor(v[0]) for b, v in F.items()}
+                for s in "lr":
+                    _, c_side, _ = clearance(A, F, s, perf.tor, parts=True)
+                    if c_side < gate_side[s][0]:
+                        gate_side[s] = (c_side, round(t, 2))
             if ws > 0.5:
                 A = {b: perf.actor(v[0]) for b, v in F.items()}
                 for s in "lr":
@@ -1579,6 +1624,12 @@ def build(data: dict, st, sy, sheet: dict, cues: dict, tilts: list, length_s: fl
     else:  # the bust by 3, her side only not into it
         ok_clear = min(bust_c.values()) >= 3.0 and min(side_c.values()) >= 0.0
         worst = min(min(bust_c.values()), min(side_c.values()) + 3.0)
+    if perf.tor.gate is not None:
+        rows["upperarm_side_gate_cm"] = {s: [round(v, 1), t_] for s, (v, t_) in gate_side.items()}
+        for s, (v, t_) in gate_side.items():
+            if v < perf.tor.gate:
+                issues.append({"code": "body.arm_outfit", "message": f"{s} upper arm {v:.1f} cm off the torso+outfit "
+                               f"model's side at {t_} s (line {perf.tor.gate})", "value": round(v, 1), "t": t_})
     if not ok_clear:
         issues.append({"code": "body.arm_torso", "message": f"upper arm within {worst:.1f} cm of the "
                        "torso/breast model (line 3)", "value": worst})
