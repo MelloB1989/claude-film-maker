@@ -185,3 +185,30 @@ def test_far_point_behind_a_curved_patch_is_not_inside():
     chain2 = [(5, 5, 10.0), (5, 5, 11.0)]                                         # spine on the other side
     worst, neg, _ = gm.clearance(grid, [(0, (5.0, 5.0, -2.0))], chain=chain2)
     assert worst[0] > 0 and neg == 0
+
+
+def test_front_deg_is_square_to_a_leaning_spine():
+    chain = [(0, 0, 0), (0, 0, 10), (3, 0, 20)]           # X forward, spine leaning forward up top
+    fwd = (1, 0, 0)
+    assert abs(gm.front_deg((10, 0, 5), chain, fwd)) < 1e-6
+    assert abs(gm.front_deg((0, 10, 5), chain, fwd) - 90) < 1e-6
+    assert abs(gm.front_deg((-10, 0, 5), chain, fwd) - 180) < 1e-6
+    assert abs(gm.front_deg((5, 5, 5), chain, fwd) - 45) < 1e-6
+    assert gm.front_deg((5, 0, 25), chain, fwd) < 1e-6      # past the top: still in front of the leaning segment
+
+
+def test_zones_split_bust_from_side():
+    """ee99f626: an arm 1 cm off her side is fine (side >= 0.5); the bust zone is what the 3 cm line is for."""
+    P, T = sphere((0, 0, 0), 10.0, 24)
+    keep = set(range(len(P)))
+    chain = [(0, 0, -20.0), (0, 0, 20.0)]
+    ents = gm.torso_tris(P, T, keep, "Body")
+    fr, sd = gm.split_front(ents, ents, chain, (1, 0, 0), 60.0)
+    assert fr and sd and len(fr) + len(sd) == len(ents)
+    arm = [(0, (0, 11.0, 0))]                              # beside her, 1 cm off the side
+    side_w, _, _ = gm.clearance(gm.TriGrid(sd, 2.0), arm, chain=chain)
+    front_w, _, _ = gm.clearance(gm.TriGrid(fr, 2.0), arm, chain=chain)
+    assert abs(side_w[0] - 1.0) < 0.2 and front_w[0] > 3.0
+    arm = [(0, (8.0, 0, 0))]                               # into the bust
+    front_w, neg, _ = gm.clearance(gm.TriGrid(fr, 2.0), arm, chain=chain)
+    assert front_w[0] < 0 and neg == 1

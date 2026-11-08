@@ -13,6 +13,11 @@
          Torso = nearest segment on the spine chain or a clavicle, farther than AXILLA_CM from that shoulder joint.
          The Top's sleeves are left out the same way. Distance = to the nearest torso TRIANGLE; the sign from the
          triangle's normal (her skin's own; the Top's turned away from the spine chain: it is a closed shell).
+         Zones (orchestrator, round 7 ee99f626: the rule is for the arm swallowed by the BUST, not a relaxed arm by
+         the ribcage): each torso triangle is front or side by where it sits on the ref pose, within FRONT_DEG (60)
+         of her forward round the spine or not. upperarm_bust_clear_cm (front, >= 3) and upperarm_side_clear_cm
+         (side, >= 0.5: no penetration, light contact reads natural), each with its own ref-pose self-check;
+         upperarm_torso_clear_cm stays as the min of both.
   waist  garment.waist_fit_cm: her bottoms' waistband against what is under it, in 24 sectors (15 deg) round the
          axis pelvis -> spine_03, 0 deg = HER forward (up x her left, from her thighs; checked by her knees), + towards
          her left. Per sector, in 1 cm cells down the
@@ -208,6 +213,36 @@ def torso_tris(P, T, keep, tag, chain=None):
 
 def chain_dist(p, chain):
     return min(seg_t(p, a, b)[0] for a, b in zip(chain, chain[1:]))
+
+
+def front_deg(p, chain, fwd):
+    """How far round from her front p is (0 = straight ahead, 180 = her back): the angle between fwd and p's offset
+    from the nearest spine segment, both taken square to that segment (a lean or a stoop does not move the zones)."""
+    best = None
+    for a, b in zip(chain, chain[1:]):
+        d, t = seg_t(p, a, b)
+        if best is None or d < best[0]:
+            best = (d, a, b, t)
+    _, a, b, t = best
+    u = norm(sub(b, a))
+    w = sub(p, (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t))
+    w = sub(w, tuple(x * dot(w, u) for x in u))
+    f = sub(fwd, tuple(x * dot(fwd, u) for x in u))
+    nw, nf = math.sqrt(dot(w, w)), math.sqrt(dot(f, f))
+    if nw < 1e-9 or nf < 1e-9:
+        return 0.0
+    return math.degrees(math.acos(max(-1.0, min(1.0, dot(w, f) / (nw * nf)))))
+
+
+def split_front(entries, rest_entries, chain, fwd, front=60.0):
+    """Split posed torso triangles into (front, side) by where the SAME triangle sits on the ref pose (rest_entries
+    line up with entries one for one): front = within FRONT_DEG of her forward (the bust and the front of the Top,
+    what the camera sees the arm against), side = the rest (the side of the ribcage, the back)."""
+    fr, sd = [], []
+    for e, r in zip(entries, rest_entries):
+        m = tuple((r[0][k] + r[1][k] + r[2][k]) / 3 for k in range(3))
+        (fr if front_deg(m, chain, fwd) <= front else sd).append(e)
+    return fr, sd
 
 
 def clearance(grid, arm_pts, max_d=20.0, align=0.5, chain=None):
@@ -489,6 +524,30 @@ def _editor(G: dict):
             out["parts"][n] = {"verts": len(Pp), "tris": len(Tp), "rest_vs_body_cm": round(mis, 2),
                                "upperarm_verts": {sd: sum(1 for x in labels[n].values() if x[0] == f"upperarm_{sd}")
                                                   for sd in ("l", "r")}}
+        # her forward on the ref pose, for the bust/front vs side zones (the same up x (left - right) as facing(),
+        # flipped the same way as the posed one)
+        rb0, rc0 = rest_bones["Body"][0], rest_chain["Body"]
+        rest_fwd = norm(cross(norm(sub(rc0[3], rc0[0])), sub(rb0["clavicle_l"][0], rb0["clavicle_r"][0])))
+        if out["facing_flipped_by_knees"]:
+            rest_fwd = tuple(-x for x in rest_fwd)
+        front = float(G.get("FRONT_DEG", 60.0))
+        cy = Cyl(chain[0], chain[3], facing("clavicle_l", "clavicle_r")[0],
+                 sub(loc(body, "clavicle_l"), loc(body, "clavicle_r")))  # her left, a direction
+        cell, max_d = float(G.get("CELL", 2.0)), float(G.get("MAX_D", 20.0))
+
+        def zone_rec(ents, rents, arm, ua, la):
+            P = posed["Body"][0]
+            w, neg, lt3 = clearance(TriGrid(ents, cell), [(i, P[i]) for i in arm], max_d, chain=chain)
+            rw, rneg, _ = clearance(TriGrid(rents, cell), [(i, rest["Body"][0][i]) for i in arm], max_d,
+                                    chain=rest_chain["Body"])
+            z = {"tris": len(ents), "verts_lt0": neg, "verts_lt3": lt3, "rest_clear_cm": rw and round(rw[0], 2),
+                 "rest_verts_lt0": rneg}
+            if w:
+                tq, _, thq = cy(w[2])
+                z.update({"clear_cm": round(w[0], 2), "arm_t": round(seg_t(P[w[1]], ua, la)[1], 2),
+                          "torso_part": w[3][0], "align": w[4], "torso_t_cm": round(tq, 1), "torso_deg": round(thq)})
+            return z
+
         for sd in ("r", "l"):
             sh = rest_bones["Body"][1][sd]
             r_med = arm_radius(labels["Body"], sd)
@@ -496,14 +555,22 @@ def _editor(G: dict):
             arm, _ = arm_sets(labels["Body"], rest["Body"][0], sh, sd, float(G.get("ARM_T0", 0.3)),
                               float(G.get("AXILLA_CM", 7.0)), arm_r)
             entries, rest_entries = [], []
+            zone = {"front": ([], []), "side": ([], [])}   # (posed, ref-pose for the self-check)
             skipped = []
             for n, _ in parts:
                 _, torso = arm_sets(labels[n], rest[n][0], rest_bones[n][1][sd], sd, 1.1,
                                     float(G.get("AXILLA_CM", 7.0)), arm_r)
-                entries += torso_tris(posed[n][0], posed[n][1], set(torso), n, chain if n != "Body" else None)
+                pe = torso_tris(posed[n][0], posed[n][1], set(torso), n, chain if n != "Body" else None)
+                rq = torso_tris(rest[n][0], rest[n][1], set(torso), n, rest_chain[n] if n != "Body" else None)
+                entries += pe
+                pf, ps = split_front(pe, rq, rc0, rest_fwd, front)
+                rf, rs = split_front(rq, rq, rc0, rest_fwd, front)
+                zone["front"][0].extend(pf)
+                zone["side"][0].extend(ps)
                 if out["parts"][n]["rest_vs_body_cm"] <= 1.0:  # the rest check needs one pose for both
-                    rest_entries += torso_tris(rest[n][0], rest[n][1], set(torso), n,
-                                               rest_chain[n] if n != "Body" else None)
+                    rest_entries += rq
+                    zone["front"][1].extend(rf)
+                    zone["side"][1].extend(rs)
                 else:
                     skipped.append(n)
             grid = TriGrid(entries, float(G.get("CELL", 2.0)))
@@ -524,17 +591,21 @@ def _editor(G: dict):
                 tn, tt, td = labels[rw[3][0]].get(rw[3][1], ("?", 0.0, 0.0))
                 rec["rest_worst"] = {"arm": [ln, round(lt, 2), round(ld, 2)], "torso": [rw[3][0], tn, round(tt, 2),
                                      round(td, 2)], "align": rw[4], "dist": round(abs(rw[0]), 2)}
+            rec["zones"] = {z: zone_rec(pe, re, arm, ua, la) for z, (pe, re) in zone.items()}
             if worst:
                 s, i, q, tag, al = worst
                 tag = tag[0]
-                cy = Cyl(chain[0], chain[3], facing("clavicle_l", "clavicle_r")[0],
-                         sub(loc(body, "clavicle_l"), loc(body, "clavicle_r")))  # her left, a direction
                 tq, _, thq = cy(q)
                 rec.update({"clear_cm": round(s, 2), "arm_t": round(seg_t(P[i], ua, la)[1], 2), "torso_part": tag, "align": al,
                             "torso_t_cm": round(tq, 1), "torso_deg": round(thq)})
             out["sides"][sd] = rec
         cl = [r["clear_cm"] for r in out["sides"].values() if "clear_cm" in r]
         out["upperarm_torso_clear_cm"] = min(cl) if cl else None
+        # the orchestrator's split (round 7, ee99f626): >= 3 cm off the bust/front, >= 0.5 cm (no penetration) at the side
+        for z, key in (("front", "upperarm_bust_clear_cm"), ("side", "upperarm_side_clear_cm")):
+            zl = [r["zones"][z]["clear_cm"] for r in out["sides"].values() if "clear_cm" in r["zones"][z]]
+            out[key] = min(zl) if zl else None
+        out["front_deg"] = front
         return out
 
     if stage == "waist":
@@ -638,6 +709,12 @@ def main(argv=None) -> int:
         last = res["frame_head"]
         per[f] = res
         if a.cmd == "arms":
+            print(f"f{f}: bust/front {res['upperarm_bust_clear_cm']} (>= 3), side {res['upperarm_side_clear_cm']} (>= 0.5) | "
+                  + " | ".join(f"{sd} {z}: {zr.get('clear_cm')} cm (arm_t {zr.get('arm_t')}, {zr.get('torso_part')} at t "
+                               f"{zr.get('torso_t_cm')} cm, {zr.get('torso_deg')} deg; <0 {zr['verts_lt0']}, <3 "
+                               f"{zr['verts_lt3']}; rest {zr.get('rest_clear_cm')}/{zr.get('rest_verts_lt0')}; "
+                               f"{zr['tris']} tris)"
+                               for sd, r in res["sides"].items() for z, zr in r["zones"].items()), flush=True)
             print(f"f{f}: clear {res['upperarm_torso_clear_cm']} (facing vs actor {res['facing_vs_actor_deg']} deg) | "
                   + " | ".join(
                 f"{sd}: {r.get('clear_cm')} cm (arm_t {r.get('arm_t')}, {r.get('torso_part')} at t {r.get('torso_t_cm')}"
@@ -655,11 +732,12 @@ def main(argv=None) -> int:
                       [[s["deg"], s["edge_t"], s["tuck"], s["gap_max"], s["poke_max"], s["top_over_max"]]
                        for s in res["sectors"] if s]), flush=True)
     (out / f"{a.cmd}.json").write_text(json.dumps(per))
-    keys = ["upperarm_torso_clear_cm"] if a.cmd == "arms" else ["waist_fit_cm", "waist_poke_cm"]
+    keys = (["upperarm_bust_clear_cm", "upperarm_side_clear_cm", "upperarm_torso_clear_cm"] if a.cmd == "arms"
+            else ["waist_fit_cm", "waist_poke_cm"])
     for key in keys:
         vals = {f: r[key] for f, r in per.items() if r.get(key) is not None}
         if vals:
-            fw = (min if key == "upperarm_torso_clear_cm" else max)(vals, key=vals.get)
+            fw = (min if key.startswith("upperarm_") else max)(vals, key=vals.get)
             print(json.dumps({"measure": key, "worst_frame": fw, "worst": vals[fw], "frames": len(per),
                               "file": str(out / f"{a.cmd}.json")}))
     return 0
