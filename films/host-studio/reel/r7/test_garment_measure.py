@@ -287,6 +287,8 @@ def test_skin_poke_through_the_band():
     Pi, Ti = tube(14.5, -20.0, 0.0)
     P = Po + Pi
     T = To + [(a + len(Po), b + len(Po), c + len(Po)) for a, b, c in Ti]
+    P = P + [(15.2, 0.0, -3.0), (15.2, 0.0, -3.0), (15.3, 0.0, -3.0)]   # a collapsed triangle (T2: zero division)
+    T = T + [(len(P) - 3, len(P) - 2, len(P) - 1)]
     cy = gm.Cyl((0.0, 0.0, -30.0), (0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0))
     edge = [30.0] * gm.NS                                # cylindrical t of the trousers' top edge (z 0)
     skin = [(k, (14.0 * math.cos(a), 14.0 * math.sin(a), z)) for k, (a, z) in

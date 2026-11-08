@@ -416,6 +416,8 @@ def surface_poke(trou_P, trou_T, skin, cy, edge, poke_cm=10.0, rim_cm=0.5, align
     for a, b, c in trou_T:
         pa, pb, pc = trou_P[a], trou_P[b], trou_P[c]
         n = tri_normal(pa, pb, pc)
+        if n == (0.0, 0.0, 0.0):  # a collapsed triangle (her trousers have some: T2's first run, a zero division)
+            continue
         m = ((pa[0] + pb[0] + pc[0]) / 3, (pa[1] + pb[1] + pc[1]) / 3, (pa[2] + pb[2] + pc[2]) / 3)
         q = sub(m, cy.o)
         t = dot(q, cy.u)
