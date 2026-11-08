@@ -1476,10 +1476,10 @@
    "unit": "frames @30",
    "what": "frames inside the spans AND on screen (the EDL cut cameras) where any of each hand's joint heads (wrist; thumb/index/middle/ring/pinky _02 and _03) is ABOVE THE CHIN LINE (z > head_z - 5.0 cm, CHIN_BELOW_HEAD to be measured on each mesh by agent-02) OR within 10 cm of the face/hair shell (|P - (head + (7 fwd, 0, 4 up))| < 21 cm), in 3D in the actor frame",
    "where": "the spans x on-screen frames, both presenters; the 30 fps track",
-   "how": "r7/naturalness.py (agent-13, af2f6749: per-presenter chin line CHIN_BELOW = {him: 6.1 (agent-02's menton probe), her: 5.0 until measured}; pass --who him / --who her, the box's kit track carries no 'who') -> numbers/<film>/naturalness.json",
+   "how": "r7/naturalness.py (agent-13 e0098c21; chin line per presenter from agent-02's mesh probe: her 5.25 cm, him 6.1 cm under the head joint; pass --who her|him, the box's kit track has no 'who') -> numbers/<film>/naturalness.json",
    "must_fail": [
-    89,
-    "her b4325b5b (the r7H verify): 89 frames in the verify windows (whole take 253), covering MCU f58-70 (7.1 cm over the chin) and the CU f100-135 (9.2 over, 12.5 cm from the face centre); 52ab5ea2 202. Caveat: the chin line is a joint-head estimate (+-3 cm) until agent-02 measures it"
+    90,
+    "her b4325b5b (the r7H verify): 90 frames in the verify windows (whole take 254), incl. the MCU t2.60-2.93 'MILLION' and the CU t4.37-5.83 'Hit play'; 52ab5ea2 60 / 207. Chin lines measured (agent-02)"
    ]
   },
   "garment.waist_skin_poke_cm": {
