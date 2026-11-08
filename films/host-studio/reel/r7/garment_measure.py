@@ -36,6 +36,10 @@ Run where film-ue runs (the box driver); per frame it scrubs F+1 then F (as qa.c
         --seq <SEQ> --frames 1290-1400:5 --out /srv/ue/reel/r7/garment/arms_v2b
     ... waist --seq <SEQ> --frames 1290-1400:5,<more> --out /srv/ue/reel/r7/garment/waist_v2b
     ... cleanup     (removes the temp ref-pose actors if a run was cut off)
+    arms --engine fast [--tree /srv/ue/r7tree]: the editor writes the posed meshes (the ref pose once) to a box-local
+        /tmp dir and runs garment_fast.py in the box's tree with uv (numpy; same numbers: test_garment_fast.py); only
+        the numbers come back to the driver, wherever it runs; the files are removed at the end (cleanup). Each
+        reading records its seconds.
 --frames: comma list of F or A-B or A-B:STEP. Pure helpers are tested off the box (test_garment_measure.py).
 """
 import json
@@ -43,6 +47,7 @@ import math
 
 NS = 24
 REST = "FMQA_R7Rest"
+DUMP_ROOT = "/tmp/fmqa_r7_arms_"   # the fast path's box-local mesh files (presenter geometry: box only)
 SPINE = ["pelvis", "spine_01", "spine_02", "spine_03", "spine_04", "spine_05", "neck_01"]
 
 
@@ -453,6 +458,146 @@ def to_seq_frames(frames, src_fps, seq_fps):
     return out
 
 
+class PyEngine:
+    """The arm measure's geometry in plain Python (the editor has no numpy). garment_fast.NpEngine: the same calls
+    with numpy/scipy, for the driver on the box (the numbers agree: test_garment_fast.py)."""
+
+    def __init__(self, cell=2.0):
+        self.cell = cell
+
+    def label_rest(self, P, segs, used):
+        return label_rest(P, segs, used)
+
+    def tris(self, P, T, keep, tag, chain):
+        return torso_tris(P, T, set(keep), tag, chain)
+
+    def cat(self, sets):
+        return [e for ts in sets for e in ts]
+
+    def take(self, ts, flags, want):
+        return [e for e, f in zip(ts, flags) if f == want]
+
+    def n(self, ts):
+        return len(ts)
+
+    def flags(self, ts, chain, fwd, front):
+        return front_flags(ts, chain, fwd, front)
+
+    def clear(self, ts, idx, P, max_d, chain):
+        return clearance(TriGrid(ts, self.cell), [(i, P[i]) for i in idx], max_d, chain=chain)
+
+    def zclear(self, full, zof, zones, idx, P, max_d, chain):
+        return zone_clearance(TriGrid(full, self.cell), zof, {z: TriGrid(t, self.cell) for z, t in zones.items()},
+                              [(i, P[i]) for i in idx], max_d, chain=chain)
+
+
+def arms_compute(D, G, E, cache=None):
+    """body.upperarm_*_clear_cm for one frame from the posed + ref-pose meshes (D: what the editor read; E: PyEngine
+    or garment_fast.NpEngine). cache: kept between the frames of one run (labels, the arm/torso split, the zones and
+    the ref-pose self-check do not change from frame to frame)."""
+    cache = {} if cache is None else cache
+    parts, posed, rest = D["parts"], D["posed"], D["rest"]
+    rest_bones, rest_chain, chain, B = D["rest_bones"], D["rest_chain"], D["chain"], D["bones"]
+    out = {"frame_head": D["head"], "parts": {}, "sides": {}, "rest_cached": D.get("rest_cached", []),
+           **D["facing_diag"]}
+    labels = {}
+    for n in parts:
+        (Pp, Tp), (Pr, Tr) = posed[n], rest[n]
+        if len(Pp) != len(Pr) or len(Tp) != len(Tr):
+            raise RuntimeError(f"{n}: posed {len(Pp)} verts/{len(Tp)} tris vs ref pose {len(Pr)}/{len(Tr)}: the "
+                               "render copies do not line up")
+        key = ("labels", n, D["assets"][n], len(Pp), len(Tp))
+        if key not in cache:
+            cache[key] = E.label_rest(Pr, rest_bones[n][0], sorted({int(i) for t in Tp for i in t}))
+        labels[n] = cache[key]
+        # its ref pose vs the Body's: the shared joints' largest offset (0 = one pose, the rest check is valid)
+        mis = max(math.dist(a, b) for k in rest_bones["Body"][0] for a, b in
+                  zip(rest_bones["Body"][0][k], rest_bones[n][0][k]))
+        out["parts"][n] = {"verts": len(Pp), "tris": len(Tp), "rest_vs_body_cm": round(mis, 2),
+                           "upperarm_verts": {sd: sum(1 for x in labels[n].values() if x[0] == f"upperarm_{sd}")
+                                              for sd in ("l", "r")}}
+    # her forward on the ref pose, for the bust/front vs side zones (the same up x (left - right) as facing(),
+    # flipped the same way as the posed one)
+    rb0, rc0 = rest_bones["Body"][0], rest_chain["Body"]
+    rest_fwd = norm(cross(norm(sub(rc0[3], rc0[0])), sub(rb0["clavicle_l"][0], rb0["clavicle_r"][0])))
+    if out["facing_flipped_by_knees"]:
+        rest_fwd = tuple(-x for x in rest_fwd)
+    front = float(G.get("FRONT_DEG", 60.0))
+    cy = Cyl(chain[0], chain[3], D["facing_f"], sub(B["clavicle_l"], B["clavicle_r"]))  # her left, a direction
+    max_d, ax = float(G.get("MAX_D", 20.0)), float(G.get("AXILLA_CM", 7.0))
+    P = posed["Body"][0]
+    knobs = tuple(G.get(k) for k in ("ARM_R", "ARM_R_X", "ARM_T0", "AXILLA_CM", "FRONT_DEG", "MAX_D"))
+
+    def rec_of(w, ua, la):
+        tq, _, thq = cy(w[2])
+        return {"clear_cm": round(w[0], 2), "arm_t": round(seg_t(P[w[1]], ua, la)[1], 2), "torso_part": w[3][0],
+                "align": w[4], "torso_t_cm": round(tq, 1), "torso_deg": round(thq)}
+
+    for sd in ("r", "l"):
+        skey = ("side", sd, tuple((n, D["assets"][n], len(posed[n][0])) for n in parts), knobs)
+        if skey not in cache:
+            sh = rest_bones["Body"][1][sd]
+            r_med = arm_radius(labels["Body"], sd)
+            arm_r = float(G["ARM_R"]) if G.get("ARM_R") else (r_med * float(G.get("ARM_R_X", 1.3)) if r_med else None)
+            arm, _ = arm_sets(labels["Body"], rest["Body"][0], sh, sd, float(G.get("ARM_T0", 0.3)), ax, arm_r)
+            torso, flags, skipped, rest_sets, rzone = {}, {}, [], [], {"front": [], "side": []}
+            for n in parts:
+                torso[n] = arm_sets(labels[n], rest[n][0], rest_bones[n][1][sd], sd, 1.1, ax, arm_r)[1]
+                rq = E.tris(rest[n][0], rest[n][1], torso[n], n, rest_chain[n] if n != "Body" else None)
+                flags[n] = E.flags(rq, rc0, rest_fwd, front)
+                if out["parts"][n]["rest_vs_body_cm"] <= 1.0:  # the rest check needs one pose for both
+                    rest_sets.append(rq)
+                    rzone["front"].append(E.take(rq, flags[n], True))
+                    rzone["side"].append(E.take(rq, flags[n], False))
+                else:
+                    skipped.append(n)
+            # self-check: the same sets on the ref pose (arms out, clear of the torso) must read > 0, else the
+            # arm/torso split is wrong and the posed number means nothing
+            RP = rest["Body"][0]
+            rw, rneg, _ = E.clear(E.cat(rest_sets), arm, RP, max_d, rest_chain["Body"])
+            rf, rs = E.cat(rzone["front"]), E.cat(rzone["side"])
+            rz = E.zclear(E.cat([rf, rs]), ["front"] * E.n(rf) + ["side"] * E.n(rs), {"front": rf, "side": rs},
+                          arm, RP, max_d, rest_chain["Body"])
+            cache[skey] = (arm, r_med, arm_r, torso, flags, skipped, (rw, rneg), rz)
+        arm, r_med, arm_r, torso, flags, skipped, (rw, rneg), rz = cache[skey]
+        pe = {n: E.tris(posed[n][0], posed[n][1], torso[n], n, chain if n != "Body" else None) for n in parts}
+        entries = E.cat([pe[n] for n in parts])
+        worst, neg, lt3 = E.clear(entries, arm, P, max_d, chain)
+        pf = E.cat([E.take(pe[n], flags[n], True) for n in parts])
+        ps = E.cat([E.take(pe[n], flags[n], False) for n in parts])
+        zr = E.zclear(E.cat([pf, ps]), ["front"] * E.n(pf) + ["side"] * E.n(ps), {"front": pf, "side": ps},
+                      arm, P, max_d, chain)
+        ua, la = B[f"upperarm_{sd}"], B[f"lowerarm_{sd}"]
+        rec = {"arm_verts": len(arm), "torso_tris": E.n(entries), "verts_lt0": neg, "verts_lt3": lt3,
+               "arm_r_med": r_med and round(r_med, 2), "arm_r": arm_r and round(arm_r, 2),
+               "rest_clear_cm": rw and round(rw[0], 2), "rest_verts_lt0": rneg,
+               "rest_part": rw and rw[3][0], "rest_check_skips": skipped}
+        if rw and rw[0] < 0:  # why the self-check failed: the arm point and the torso face, by their ref labels
+            ln, lt, ld = labels["Body"][rw[1]]
+            tn, tt, td = labels[rw[3][0]].get(rw[3][1], ("?", 0.0, 0.0))
+            rec["rest_worst"] = {"arm": [ln, round(lt, 2), round(ld, 2)], "torso": [rw[3][0], tn, round(tt, 2),
+                                 round(td, 2)], "align": rw[4], "dist": round(abs(rw[0]), 2)}
+        rec["zones"] = {}
+        for z, pz in (("front", pf), ("side", ps)):
+            (w, zneg, zlt3), (zrw, zrneg, _) = zr[z], rz[z]
+            r = {"tris": E.n(pz), "verts_lt0": zneg, "verts_lt3": zlt3, "rest_clear_cm": zrw and round(zrw[0], 2),
+                 "rest_verts_lt0": zrneg}
+            if w:
+                r.update(rec_of(w, ua, la))
+            rec["zones"][z] = r
+        if worst:
+            rec.update(rec_of(worst, ua, la))
+        out["sides"][sd] = rec
+    cl = [r["clear_cm"] for r in out["sides"].values() if "clear_cm" in r]
+    out["upperarm_torso_clear_cm"] = min(cl) if cl else None
+    # the orchestrator's split (round 7, ee99f626): >= 3 cm off the bust/front, >= 0.5 cm (no penetration) at the side
+    for z, key in (("front", "upperarm_bust_clear_cm"), ("side", "upperarm_side_clear_cm")):
+        zl = [r["zones"][z]["clear_cm"] for r in out["sides"].values() if "clear_cm" in r["zones"][z]]
+        out[key] = min(zl) if zl else None
+    out["front_deg"] = front
+    return out
+
+
 # ---------------------------------------------------------------------------------------- editor
 def _editor(G: dict):
     import unreal
@@ -511,7 +656,12 @@ def _editor(G: dict):
         v = c.get_socket_location(bone)
         return (v.x, v.y, v.z)
 
-    def cleanup():
+    def cleanup(dumps=False):
+        if dumps:  # the fast path's box-local mesh files: only at the end of a run (`cleanup` stage)
+            import glob as _gl
+            import shutil as _sh
+            for d in _gl.glob(DUMP_ROOT + "*"):
+                _sh.rmtree(d, ignore_errors=True)
         n = 0
         for a in list(EAS.get_all_level_actors()):
             if a.get_actor_label().startswith(REST):
@@ -521,7 +671,7 @@ def _editor(G: dict):
 
     stage = G.get("STAGE")
     if stage == "cleanup":
-        return {"removed": cleanup()}
+        return {"removed": cleanup(dumps=True)}
     host = actor(label)
     cs = {c.get_name(): c for c in host.get_components_by_class(unreal.SkeletalMeshComponent)}
     body = cs["Body"]
@@ -572,125 +722,54 @@ def _editor(G: dict):
                 rest[n] = mesh_of(rc)
                 rest_bones[n] = segs_of(rc), {sd: loc(rc, f"upperarm_{sd}") for sd in ("l", "r")}
                 rest_chain[n] = [loc(rc, b) for b in SPINE]
+                cache[keys[n]] = (rest[n], rest_bones[n], rest_chain[n])
         finally:
             cleanup()
-        chain = [loc(body, b) for b in SPINE]
-        out = {"frame_head": [round(x, 2) for x in head], "parts": {}, "sides": {},
-               "rest_cached": sorted(n for n in keys if n not in rest_fresh),
-               **facing("clavicle_l", "clavicle_r")[1]}
-        labels = {}
-        for n, _ in parts:
-            (Pp, Tp), (Pr, Tr) = posed[n], rest[n]
-            if len(Pp) != len(Pr) or len(Tp) != len(Tr):
-                raise RuntimeError(f"{n}: posed {len(Pp)} verts/{len(Tp)} tris vs ref pose {len(Pr)}/{len(Tr)}: the "
-                                   "render copies do not line up")
-            used = sorted({i for t in Tp for i in t})
-            hit = cache.get(keys[n])
-            if hit is not None and len(hit) > 3:
-                labels[n] = hit[3]
-            else:
-                labels[n] = label_rest(Pr, rest_bones[n][0], used)
-                cache[keys[n]] = (rest[n], rest_bones[n], rest_chain[n], labels[n])
-            # its ref pose vs the Body's: the shared joints' largest offset (0 = one pose, the rest check is valid)
-            mis = max(math.dist(a, b) for k in rest_bones["Body"][0] for a, b in
-                      zip(rest_bones["Body"][0][k], rest_bones[n][0][k]))
-            out["parts"][n] = {"verts": len(Pp), "tris": len(Tp), "rest_vs_body_cm": round(mis, 2),
-                               "upperarm_verts": {sd: sum(1 for x in labels[n].values() if x[0] == f"upperarm_{sd}")
-                                                  for sd in ("l", "r")}}
-        # her forward on the ref pose, for the bust/front vs side zones (the same up x (left - right) as facing(),
-        # flipped the same way as the posed one)
-        rb0, rc0 = rest_bones["Body"][0], rest_chain["Body"]
-        rest_fwd = norm(cross(norm(sub(rc0[3], rc0[0])), sub(rb0["clavicle_l"][0], rb0["clavicle_r"][0])))
-        if out["facing_flipped_by_knees"]:
-            rest_fwd = tuple(-x for x in rest_fwd)
-        front = float(G.get("FRONT_DEG", 60.0))
-        cy = Cyl(chain[0], chain[3], facing("clavicle_l", "clavicle_r")[0],
-                 sub(loc(body, "clavicle_l"), loc(body, "clavicle_r")))  # her left, a direction
-        cell, max_d = float(G.get("CELL", 2.0)), float(G.get("MAX_D", 20.0))
+        D = {"parts": [n for n, _ in parts], "posed": posed, "rest": rest, "rest_bones": rest_bones,
+             "rest_chain": rest_chain, "chain": [loc(body, b) for b in SPINE],
+             "assets": {n: c.get_skeletal_mesh_asset().get_path_name() for n, c in parts},
+             "bones": {b: loc(body, b) for b in ("clavicle_l", "clavicle_r", "upperarm_l", "upperarm_r",
+                                                  "lowerarm_l", "lowerarm_r")},
+             "head": [round(x, 2) for x in head], "rest_cached": sorted(n for n in keys if n not in rest_fresh)}
+        D["facing_f"], D["facing_diag"] = facing("clavicle_l", "clavicle_r")
+        if G.get("ENGINE") == "fast":
+            # the fast path (round 7, the orchestrator: ~1 min a frame on one core while the box idles): the meshes go
+            # to a box-local dir and numpy computes in a process ON THE BOX (garment_fast.py in the box's tree, its
+            # tools env); only the numbers come back. Presenter geometry never leaves the box; `cleanup` removes it
+            import array as _ar
+            import os as _os
+            import subprocess as _sp
+            dd = f"{DUMP_ROOT}{G.get('RUN') or 'norun'}"
+            _os.makedirs(dd, exist_ok=True)
 
-        def zone_recs(zone, arm, ua, la):
-            """Both zones, the inside test on the whole torso (zone_clearance), posed and ref pose."""
-            P = posed["Body"][0]
-            res = {}
-            for which, pts, ch in ((0, [(i, P[i]) for i in arm], chain),
-                                   (1, [(i, rest["Body"][0][i]) for i in arm], rest_chain["Body"])):
-                ents = zone["front"][which] + zone["side"][which]
-                zof = ["front"] * len(zone["front"][which]) + ["side"] * len(zone["side"][which])
-                res[which] = zone_clearance(TriGrid(ents, cell), zof,
-                                            {z: TriGrid(zone[z][which], cell) for z in ("front", "side")},
-                                            pts, max_d, chain=ch)
-            out_z = {}
-            for z in ("front", "side"):
-                (w, neg, lt3), (rw, rneg, _) = res[0][z], res[1][z]
-                r = {"tris": len(zone[z][0]), "verts_lt0": neg, "verts_lt3": lt3,
-                     "rest_clear_cm": rw and round(rw[0], 2), "rest_verts_lt0": rneg}
-                if w:
-                    tq, _, thq = cy(w[2])
-                    r.update({"clear_cm": round(w[0], 2), "arm_t": round(seg_t(P[w[1]], ua, la)[1], 2),
-                              "torso_part": w[3][0], "align": w[4], "torso_t_cm": round(tq, 1),
-                              "torso_deg": round(thq)})
-                out_z[z] = r
-            return out_z
+            def put(name, rows, code):
+                with open(_os.path.join(dd, name), "wb") as fh:
+                    _ar.array(code, [x for r in rows for x in r]).tofile(fh)
 
-        for sd in ("r", "l"):
-            sh = rest_bones["Body"][1][sd]
-            r_med = arm_radius(labels["Body"], sd)
-            arm_r = float(G["ARM_R"]) if G.get("ARM_R") else (r_med * float(G.get("ARM_R_X", 1.3)) if r_med else None)
-            arm, _ = arm_sets(labels["Body"], rest["Body"][0], sh, sd, float(G.get("ARM_T0", 0.3)),
-                              float(G.get("AXILLA_CM", 7.0)), arm_r)
-            entries, rest_entries = [], []
-            zone = {"front": ([], []), "side": ([], [])}   # (posed, ref-pose for the self-check)
-            skipped = []
-            for n, _ in parts:
-                _, torso = arm_sets(labels[n], rest[n][0], rest_bones[n][1][sd], sd, 1.1,
-                                    float(G.get("AXILLA_CM", 7.0)), arm_r)
-                pe = torso_tris(posed[n][0], posed[n][1], set(torso), n, chain if n != "Body" else None)
-                rq = torso_tris(rest[n][0], rest[n][1], set(torso), n, rest_chain[n] if n != "Body" else None)
-                entries += pe
-                pf, ps = split_front(pe, rq, rc0, rest_fwd, front)
-                rf, rs = split_front(rq, rq, rc0, rest_fwd, front)
-                zone["front"][0].extend(pf)
-                zone["side"][0].extend(ps)
-                if out["parts"][n]["rest_vs_body_cm"] <= 1.0:  # the rest check needs one pose for both
-                    rest_entries += rq
-                    zone["front"][1].extend(rf)
-                    zone["side"][1].extend(rs)
-                else:
-                    skipped.append(n)
-            grid = TriGrid(entries, float(G.get("CELL", 2.0)))
-            P = posed["Body"][0]
-            worst, neg, lt3 = clearance(grid, [(i, P[i]) for i in arm], float(G.get("MAX_D", 20.0)), chain=chain)
-            # self-check: the same sets on the ref pose (arms out, clear of the torso) must read > 0, else the
-            # arm/torso split is wrong and the posed number means nothing
-            rw, rneg, _ = clearance(TriGrid(rest_entries, float(G.get("CELL", 2.0))),
-                                    [(i, rest["Body"][0][i]) for i in arm], float(G.get("MAX_D", 20.0)),
-                                    chain=rest_chain["Body"])
-            ua, la = loc(body, f"upperarm_{sd}"), loc(body, f"lowerarm_{sd}")
-            rec = {"arm_verts": len(arm), "torso_tris": len(entries), "verts_lt0": neg, "verts_lt3": lt3,
-                   "arm_r_med": r_med and round(r_med, 2), "arm_r": arm_r and round(arm_r, 2),
-                   "rest_clear_cm": rw and round(rw[0], 2), "rest_verts_lt0": rneg,
-                   "rest_part": rw and rw[3][0], "rest_check_skips": skipped}
-            if rw and rw[0] < 0:  # why the self-check failed: the arm point and the torso face, by their ref labels
-                ln, lt, ld = labels["Body"][rw[1]]
-                tn, tt, td = labels[rw[3][0]].get(rw[3][1], ("?", 0.0, 0.0))
-                rec["rest_worst"] = {"arm": [ln, round(lt, 2), round(ld, 2)], "torso": [rw[3][0], tn, round(tt, 2),
-                                     round(td, 2)], "align": rw[4], "dist": round(abs(rw[0]), 2)}
-            rec["zones"] = zone_recs(zone, arm, ua, la)
-            if worst:
-                s, i, q, tag, al = worst
-                tag = tag[0]
-                tq, _, thq = cy(q)
-                rec.update({"clear_cm": round(s, 2), "arm_t": round(seg_t(P[i], ua, la)[1], 2), "torso_part": tag, "align": al,
-                            "torso_t_cm": round(tq, 1), "torso_deg": round(thq)})
-            out["sides"][sd] = rec
-        cl = [r["clear_cm"] for r in out["sides"].values() if "clear_cm" in r]
-        out["upperarm_torso_clear_cm"] = min(cl) if cl else None
-        # the orchestrator's split (round 7, ee99f626): >= 3 cm off the bust/front, >= 0.5 cm (no penetration) at the side
-        for z, key in (("front", "upperarm_bust_clear_cm"), ("side", "upperarm_side_clear_cm")):
-            zl = [r["zones"][z]["clear_cm"] for r in out["sides"].values() if "clear_cm" in r["zones"][z]]
-            out[key] = min(zl) if zl else None
-        out["front_deg"] = front
-        return out
+            meta = {k: D[k] for k in ("parts", "chain", "assets", "bones", "head", "facing_f", "facing_diag",
+                                      "rest_bones", "rest_chain")}
+            meta["counts"] = {n: [len(posed[n][0]), len(posed[n][1])] for n in D["parts"]}
+            meta["rest_cached"] = D["rest_cached"]
+            if not cache.get(("dumped", dd)):
+                for n in D["parts"]:
+                    put(f"rest_{n}.f64", rest[n][0], "d")
+                    put(f"tris_{n}.i32", posed[n][1], "i")
+                cache[("dumped", dd)] = True
+            for n in D["parts"]:
+                put(f"posed_{n}.f64", posed[n][0], "d")
+            with open(_os.path.join(dd, "meta.json"), "w") as fh:
+                json.dump(meta, fh)
+            tree = G.get("TREE", "/srv/ue/r7tree")
+            uv = G.get("UV") or next((x for x in (_os.path.expanduser("~/.local/bin/uv"), "/usr/local/bin/uv",
+                                                  "/usr/bin/uv") if _os.path.exists(x)), "uv")
+            cmd = [uv, "run", "--project", f"{tree}/tools", "python", f"{tree}/films/host-studio/reel/r7/garment_fast.py",
+                   dd, json.dumps({k: v for k, v in G.items() if k not in ("STAGE",)})]
+            r = _sp.run(cmd, capture_output=True, text=True, timeout=600)
+            lines = [x for x in r.stdout.splitlines() if x.startswith("RESULT ")]
+            if r.returncode != 0 or not lines:
+                raise RuntimeError(f"garment_fast on the box failed ({r.returncode}): {r.stderr[-1500:]}")
+            return json.loads(lines[-1][7:])
+        return arms_compute(D, G, PyEngine(float(G.get("CELL", 2.0))), cache)
 
     if stage == "waist":
         trou, top = cs[G.get("TROUSERS", "Trousers")], cs.get(G.get("TOP", "Top"))
@@ -753,6 +832,7 @@ def main(argv=None) -> int:
     import argparse
     import os
     import sys
+    import time
     from pathlib import Path
     ap = argparse.ArgumentParser()
     ap.add_argument("--box", required=True, help="workstation profile (FILM_UE_BOX); 'conf' = the conf dir's default")
@@ -767,6 +847,12 @@ def main(argv=None) -> int:
                        help="the clock --frames were taken on (arm_track: 30); default the sequence's own")
         m.add_argument("--out", required=True)
         m.add_argument("--set", action="append", default=[], help="KEY=VALUE knob (ARM_T0, AXILLA_CM, BAND_CM, ...)")
+        if name == "arms":
+            m.add_argument("--engine", choices=("editor", "fast"), default="editor",
+                           help="editor: all in the editor's Python (~1 min/frame); fast: the editor writes the meshes "
+                                "to a box-local dir and runs garment_fast.py ON THE BOX with numpy (only numbers return)")
+            m.add_argument("--tree", default=None, help="the repo checkout ON THE BOX for --engine fast "
+                                                         "(default /srv/ue/r7tree); its tools env needs numpy+scipy")
     sub_.add_parser("cleanup")
     a = ap.parse_args(argv)
     if a.box != "conf":
@@ -780,6 +866,10 @@ def main(argv=None) -> int:
     for kv in a.set:
         k, _, v = kv.partition("=")
         g[k] = v
+    if a.cmd == "arms" and a.engine == "fast":
+        g["ENGINE"] = "fast"
+        if a.tree:
+            g["TREE"] = a.tree
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     per, last = {}, None
@@ -794,7 +884,9 @@ def main(argv=None) -> int:
             r = client.op("seq.scrub", path=a.seq, frame=ff)
             if not r.get("ok"):
                 raise SystemExit(f"seq.scrub {ff}: {r}")
+        t0 = time.time()
         res = _exec(client, a.cmd, **g)
+        res["seconds"] = round(time.time() - t0, 2)
         if a.cmd == "arms" and not per:
             print("parts:", json.dumps(res["parts"]), flush=True)
         if last is not None and res["frame_head"] == last:
@@ -826,6 +918,8 @@ def main(argv=None) -> int:
                   "[deg, edge_t, tuck, gap_max, poke_max, top_over]: " + json.dumps(
                       [[s["deg"], s["edge_t"], s["tuck"], s["gap_max"], s["poke_max"], s["top_over_max"]]
                        for s in res["sectors"] if s]), flush=True)
+    if a.cmd == "arms" and a.engine == "fast":
+        _exec(client, "cleanup", **g)  # the box-local mesh files and any temp actors
     (out / f"{a.cmd}.json").write_text(json.dumps(per))
     keys = (["upperarm_bust_clear_cm", "upperarm_side_clear_cm", "upperarm_torso_clear_cm"] if a.cmd == "arms"
             else ["waist_fit_cm", "waist_poke_cm"])
