@@ -50,7 +50,7 @@ COART_S = 0.45      # a gap shorter than this flows straight into the next gestu
 PARTIAL_S = 1.1     # a gap shorter than this falls only halfway to the rest
 LAG_S = {"pinky": 0.030, "ring": 0.045, "thumb": 0.050, "middle": 0.062, "index": 0.080}  # fingers behind the wrist
 SPREAD_SIGN = {"index": -1.0, "middle": 0.0, "ring": 0.6, "pinky": 1.2, "thumb": -0.8}
-SHAPE_SPREAD = {"relaxed": 3.0, "open": 9.0, "point": 2.0, "count1": 2.0, "count2": 6.0, "count3": 7.0,
+SHAPE_SPREAD = {"rest": 2.0, "relaxed": 3.0, "open": 9.0, "point": 2.0, "count1": 2.0, "count2": 6.0, "count3": 7.0,
                 "pinch": 1.0, "soft_fist": 0.0}
 SIM_FAIL = 0.95
 MIC_L = (9.0, -2.0)  # the left hand (mic side) on a gesture: out <= 9 cm, up <= -2 cm from the sternum point
@@ -142,7 +142,7 @@ class Var:
                    retract=r.uniform(0.32, 0.5), skew=r.uniform(1.2, 1.45), lag=r.uniform(0.8, 1.25))
 
     def apply(self, p: GK.HandPose) -> GK.HandPose:
-        rest = GK.HIGH_REST.off
+        rest = getattr(GK, "POSE_ORIGIN", GK.HIGH_REST).off  # the amp's origin, not the (r7F, lower) rest
         off = tuple(rest[i] + (p.off[i] - rest[i]) * self.amp + (self.dz if i == 2 else 0.0) for i in range(3))
         sh = shape_dict(p.shape)
         sh = {f: sh[f] + self.fingers.get(f, 0.0) for f in GK.FINGERS} | {"_spread": max(0.0, sh["_spread"] + self.spread)}
