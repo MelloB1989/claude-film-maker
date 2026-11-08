@@ -1481,6 +1481,22 @@
     89,
     "her b4325b5b (the r7H verify): 89 frames in the verify windows (whole take 253), covering MCU f58-70 (7.1 cm over the chin) and the CU f100-135 (9.2 over, 12.5 cm from the face centre); 52ab5ea2 202. Caveat: the chin line is a joint-head estimate (+-3 cm) until agent-02 measures it"
    ]
+  },
+  "garment.waist_skin_poke_cm": {
+   "area": "garment",
+   "track": "agent-02",
+   "op": "<=",
+   "line": 0.0,
+   "unit": "cm",
+   "what": "the worst SKIN vertex out through the trousers, per vertex, ALL ROUND the waist (and _front_cm reported), per frame: stricter than waist_poke_cm (the band's front-half radius)",
+   "where": "every frame with the presenter ON SCREEN (edl/<film>.json presenter + panel shots, speaking or not), as the clip rows: off-screen frames (graphics shots) don't count",
+   "how": "agent-02's garment_measure 579f2e95 (garment.waist_skin_poke_cm) -> numbers/<film>/garment.json",
+   "must_fail": [
+    null,
+    "her current body's WIDE frame agent-05 saw (pending, agent-02)"
+   ],
+   "guard": true,
+   "why": "the orchestrator (R7_body): seated frames must read 0: no skin through the trousers anywhere"
   }
  },
  "not_attempted": {
