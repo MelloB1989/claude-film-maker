@@ -65,8 +65,9 @@ ratio); the orchestrator checks the framing by eye on his TEST.
 from spine_04 up by ~2.6 cm (-0.55 x) with the pelvis fixed; the arms rode on it and her hands floated 2.6 cm above the
 desk in the render. parity --shoulder passed (0.407) because it cancels a torso shift by design. Two rows close the hole:
 qa.editor_torso_parity_cm <= 1.0 (spine_05 + clavicles, plain, rendered dump vs track) and
-move.rest_contact_rendered_frames == 0 (rest contact on the rendered dump). The fix is in the place stage (agent-04 /
-perform place), not the hand solve.
+move.rest_contact_rendered_frames == 0 (rest contact on the rendered dump). The fix is agent-01's (agent-04's diagnosis):
+perform.py sync's head_to_body bake, H2B_BONES['her'] = [spine_04, spine_05, neck_01, neck_02, head] on r7-body 66785bbe;
+hers becomes [neck_01, neck_02, head], rotations only (his was already cut to neck/head, 9c6823c0, for a 3.6 cm lift).
 
 ## Verdicts
 
