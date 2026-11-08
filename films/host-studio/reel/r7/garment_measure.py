@@ -17,7 +17,9 @@
          the ribcage): each torso triangle is front or side by where it sits on the ref pose, within FRONT_DEG (60)
          of her forward round the spine or not. upperarm_bust_clear_cm (front, >= 3) and upperarm_side_clear_cm
          (side, >= 0.5: no penetration, light contact reads natural), each with its own ref-pose self-check;
-         upperarm_torso_clear_cm stays as the min of both.
+         upperarm_torso_clear_cm stays as the min of both. INSIDE is decided on the whole torso, never on a zone
+         alone (zone_clearance: a zone is an open patch, and a point beside her side read -9.5 cm 'behind' the
+         front patch's far edge on T2's rest frames while the whole torso read +1.5).
   waist  garment.waist_fit_cm: her bottoms' waistband against what is under it, in 24 sectors (15 deg) round the
          axis pelvis -> spine_03, 0 deg = HER forward (up x her left, from her thighs; checked by her knees), + towards
          her left. Per sector, in 1 cm cells down the
@@ -234,14 +236,18 @@ def front_deg(p, chain, fwd):
     return math.degrees(math.acos(max(-1.0, min(1.0, dot(w, f) / (nw * nf)))))
 
 
+def front_flags(rest_entries, chain, fwd, front=60.0):
+    """Per triangle: True = front zone, by where it sits on the ref pose (within FRONT_DEG of her forward round the
+    spine: the bust and the front of the Top, what the camera sees the arm against); False = side (ribcage, back)."""
+    return [front_deg(tuple((r[0][k] + r[1][k] + r[2][k]) / 3 for k in range(3)), chain, fwd) <= front
+            for r in rest_entries]
+
+
 def split_front(entries, rest_entries, chain, fwd, front=60.0):
-    """Split posed torso triangles into (front, side) by where the SAME triangle sits on the ref pose (rest_entries
-    line up with entries one for one): front = within FRONT_DEG of her forward (the bust and the front of the Top,
-    what the camera sees the arm against), side = the rest (the side of the ribcage, the back)."""
+    """(front, side) triangle lists; rest_entries line up with entries one for one."""
     fr, sd = [], []
-    for e, r in zip(entries, rest_entries):
-        m = tuple((r[0][k] + r[1][k] + r[2][k]) / 3 for k in range(3))
-        (fr if front_deg(m, chain, fwd) <= front else sd).append(e)
+    for e, f in zip(entries, front_flags(rest_entries, chain, fwd, front)):
+        (fr if f else sd).append(e)
     return fr, sd
 
 
@@ -265,6 +271,40 @@ def clearance(grid, arm_pts, max_d=20.0, align=0.5, chain=None):
         if worst is None or s < worst[0]:
             worst = (s, i, q, grid.tris[k][4], round(al, 2))
     return worst, neg, lt3
+
+
+def zone_clearance(full, zone_of, grids, arm_pts, max_d=20.0, align=0.5, chain=None):
+    """Per-zone signed clearance with the INSIDE test on the whole torso (full; zone_of[k] = the zone of full's
+    triangle k). A zone alone is an open patch: a point beside her SIDE lay 'behind' the far edge of the front patch
+    and read ~-9.5 cm in the front zone while the whole torso read +1.5 (T2 rest, 8a45d961). So: a point inside the
+    whole torso counts negative in the zone of its nearest triangle only; every other reading is the plain distance
+    to that zone. {zone: (worst, count < 0, count < 3 cm)}, worst as clearance()."""
+    out = {z: [None, 0, 0] for z in grids}
+    for i, p in arm_pts:
+        hit = full.nearest(p, max_d)
+        inside_z = None
+        if hit is not None:
+            d, q, k = hit
+            al = dot(norm(sub(p, q)), full.tris[k][3]) if d > 1e-6 else 1.0
+            if al <= -align and (chain is None or chain_dist(p, chain) < chain_dist(q, chain)):
+                inside_z = zone_of[k]
+                rec = (-d, i, q, full.tris[k][4], round(al, 2))
+        for z, g in grids.items():
+            if z == inside_z:
+                r = rec
+            else:
+                h = g.nearest(p, max_d)
+                if h is None:
+                    continue
+                dz, qz, kz = h
+                alz = dot(norm(sub(p, qz)), g.tris[kz][3]) if dz > 1e-6 else 1.0
+                r = (dz, i, qz, g.tris[kz][4], round(alz, 2))
+            o = out[z]
+            o[1] += r[0] < 0
+            o[2] += r[0] < 3.0
+            if o[0] is None or r[0] < o[0][0]:
+                o[0] = r
+    return {z: tuple(v) for z, v in out.items()}
 
 
 class Cyl:
@@ -568,18 +608,29 @@ def _editor(G: dict):
                  sub(loc(body, "clavicle_l"), loc(body, "clavicle_r")))  # her left, a direction
         cell, max_d = float(G.get("CELL", 2.0)), float(G.get("MAX_D", 20.0))
 
-        def zone_rec(ents, rents, arm, ua, la):
+        def zone_recs(zone, arm, ua, la):
+            """Both zones, the inside test on the whole torso (zone_clearance), posed and ref pose."""
             P = posed["Body"][0]
-            w, neg, lt3 = clearance(TriGrid(ents, cell), [(i, P[i]) for i in arm], max_d, chain=chain)
-            rw, rneg, _ = clearance(TriGrid(rents, cell), [(i, rest["Body"][0][i]) for i in arm], max_d,
-                                    chain=rest_chain["Body"])
-            z = {"tris": len(ents), "verts_lt0": neg, "verts_lt3": lt3, "rest_clear_cm": rw and round(rw[0], 2),
-                 "rest_verts_lt0": rneg}
-            if w:
-                tq, _, thq = cy(w[2])
-                z.update({"clear_cm": round(w[0], 2), "arm_t": round(seg_t(P[w[1]], ua, la)[1], 2),
-                          "torso_part": w[3][0], "align": w[4], "torso_t_cm": round(tq, 1), "torso_deg": round(thq)})
-            return z
+            res = {}
+            for which, pts, ch in ((0, [(i, P[i]) for i in arm], chain),
+                                   (1, [(i, rest["Body"][0][i]) for i in arm], rest_chain["Body"])):
+                ents = zone["front"][which] + zone["side"][which]
+                zof = ["front"] * len(zone["front"][which]) + ["side"] * len(zone["side"][which])
+                res[which] = zone_clearance(TriGrid(ents, cell), zof,
+                                            {z: TriGrid(zone[z][which], cell) for z in ("front", "side")},
+                                            pts, max_d, chain=ch)
+            out_z = {}
+            for z in ("front", "side"):
+                (w, neg, lt3), (rw, rneg, _) = res[0][z], res[1][z]
+                r = {"tris": len(zone[z][0]), "verts_lt0": neg, "verts_lt3": lt3,
+                     "rest_clear_cm": rw and round(rw[0], 2), "rest_verts_lt0": rneg}
+                if w:
+                    tq, _, thq = cy(w[2])
+                    r.update({"clear_cm": round(w[0], 2), "arm_t": round(seg_t(P[w[1]], ua, la)[1], 2),
+                              "torso_part": w[3][0], "align": w[4], "torso_t_cm": round(tq, 1),
+                              "torso_deg": round(thq)})
+                out_z[z] = r
+            return out_z
 
         for sd in ("r", "l"):
             sh = rest_bones["Body"][1][sd]
@@ -624,7 +675,7 @@ def _editor(G: dict):
                 tn, tt, td = labels[rw[3][0]].get(rw[3][1], ("?", 0.0, 0.0))
                 rec["rest_worst"] = {"arm": [ln, round(lt, 2), round(ld, 2)], "torso": [rw[3][0], tn, round(tt, 2),
                                      round(td, 2)], "align": rw[4], "dist": round(abs(rw[0]), 2)}
-            rec["zones"] = {z: zone_rec(pe, re, arm, ua, la) for z, (pe, re) in zone.items()}
+            rec["zones"] = zone_recs(zone, arm, ua, la)
             if worst:
                 s, i, q, tag, al = worst
                 tag = tag[0]
