@@ -1,5 +1,6 @@
 """agent-01's r7/arm_track.py for either presenter (agent-13): the arm/hand/finger track per frame, offline, from
-gesturekit on a body read. His skeleton never leaves the box, so on the box:
+gesturekit on a body read, joints at 0.1 mm (0.01 cm reads a live drift as frozen). His skeleton never leaves the box,
+so on box T, after his body step (agent-01's r7-body head):
 
     cp <agent-13 tree>/films/host-studio/explainers/r7/{arm_track_who,naturalness}.py <r7-body tree>/films/host-studio/explainers/r7/
     cd <r7-body tree>/films/host-studio/explainers
@@ -57,7 +58,7 @@ def main() -> None:
         F = perf.fk({**const, **perf.pose(t)})
         frames.append({"f": i, "t": round(t, 4), "speak_w": round(plan.speak_w(t), 3),
                        "gesture_w": {s: round(perf.gesture_w(s, t), 3) for s in "lr"},
-                       "p": {b: [round(x, 2) for x in perf.actor(F[b][0])] for b in BONES if b in F}})
+                       "p": {b: [round(x, 4) for x in perf.actor(F[b][0])] for b in BONES if b in F}})
     ev = [{"hand": e.hand, "kind": e.kind, "prep": e.prep, "stroke": e.stroke, "hold": e.hold,
            "line": getattr(e, "line", "")} for e in plan.events]
     out = Path(a.out)
