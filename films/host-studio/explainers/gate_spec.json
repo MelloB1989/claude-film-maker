@@ -1059,7 +1059,11 @@
     null,
     "INVALID first runs (agent-06: r7F 0.48, the new body 0.38): the measure's chest cloud held the OTHER hand's fingers and the lap, so it read hand-to-hand on the 'hands together' rest (agent-09's bug, fixed b1d46e42); both bodies being re-measured"
    ],
-   "why": "the orchestrator, 08 Nov: the presenter-at-desk rest = forearms resting on the desk, hands loosely together ~30-35 cm in front of the torso and >= 8 cm clear of the belly/torso surface; hands on the body are the 'stuck to the body' look the operator rejected"
+   "why": "the orchestrator, 08 Nov: the presenter-at-desk rest = forearms resting on the desk, hands loosely together ~30-35 cm in front of the torso and >= 8 cm clear of the belly/torso surface; hands on the body are the 'stuck to the body' look the operator rejected",
+   "r4": [
+    null,
+    "her DESK REST (agent-01 5c1cf0e1, box T2, fixed op b1d46e42): worst 9.01 cm (r f24, l f1139), PASS at 8; most rest frames 16-17 cm, the closest ones the gesture-adjacent frames (~9). Thin margin (1.13x)"
+   ]
   },
   "move.fingers_frozen_frac": {
    "area": "performance",
