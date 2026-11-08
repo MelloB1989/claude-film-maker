@@ -55,4 +55,11 @@ for k, v in (rows.items() if isinstance(rows, dict) else []):
         print(f"  {k}: {v['value']}" + (f"  ERROR {v['error']}" if v.get("error") else ""))
 EOF
 aws s3 cp --recursive --sse aws:kms --only-show-errors --exclude 'comp_*' "$OUT/" "$B/private/renders/r6/review/explain/"
+# a Tokyo box: frames and review files stay in Tokyo; only the deliverables (mp4, ProRes master, srt) go to Mumbai too
+case $B in *-apne1/*)
+    for f in "$MP4" "$OUT/${NAME}_master.mov" "$OUT/$NAME.srt"; do
+        [ -f "$f" ] && aws s3 cp --sse aws:kms --only-show-errors --region ap-south-1 "$f" \
+            "s3://rf-render-788655295054-aps1/ue-linux/private/renders/r6/review/explain/$(basename "$f")"
+    done ;;
+esac
 ls -la "$OUT" | grep -v comp_
