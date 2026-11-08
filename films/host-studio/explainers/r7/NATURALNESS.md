@@ -43,7 +43,7 @@ hand counts.
 | move.two_hand_amp_ratio | >= 0.5 | on two-hand strokes the lesser hand travels at least half as far as the greater |
 | move.hold_min_speed | >= 0.3 cm/s | the orchestrator (08 Nov): p10 of the wrist speed while speaking outside every movement (holds and rests), worse hand. A live hold drifts 0.5-1 cm/s with breath and micro-motion; a frozen hand reads as placed |
 | move.mirror_corr_p50 | <= 0.95 | GUARD (never failed yet): two-hand velocity is not a mirror copy |
-| move.fingers_frozen_frac | <= 0.15 | GUARD (never failed yet): fingers are not dead still for >= 0.5 s while speaking |
+| move.fingers_frozen_frac | <= 0.15 | fingers are not dead still for >= 0.5 s while speaking. A GUARD until 08 Nov: the dumps rounded joints to 0.01 cm, ~6 deg/s of jitter on 3 cm finger bones, which hid it. At 0.1 mm every body fails (404db805 0.57, 52ab5ea2 0.60) |
 
 The hand-to-body distance is NOT a row here. Without the mesh, a joint-head measure cannot tell "on the stomach" from
 "in front of it": `body.near_frac` read 0 on every body. agent-09's mesh row `qa.hand_torso_clearance` owns it.

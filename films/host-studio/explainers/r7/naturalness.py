@@ -9,6 +9,7 @@ sources are in NATURALNESS.md. Pure python (no numpy), so it runs on the boxes f
     python3 r7/naturalness.py A.json B.json ...                       # side by side
 
 Joint heads only: '_03' is the distal (DIP) joint, not the fingertip. 'Speaking' = speak_w > 0.5.
+The dump must carry positions at 0.1 mm (round 4): at 0.01 cm the rounding alone reads as ~6 deg/s of finger motion.
 """
 from __future__ import annotations
 
@@ -510,7 +511,8 @@ ROWS = {
                              "GUARD: two-hand strokes, median correlation of the left wrist velocity with the right's "
                              "mirrored (1.0 = a mirror copy)"),
     "move.fingers_frozen_frac": (lambda r: _worst(r, ("fingers", "frozen_frac"), max), "<=", 0.15, "fraction",
-                                 "GUARD: speaking time inside >= 0.5 s runs with the fingers under 2 deg/s, worse hand"),
+                                 "speaking time inside >= 0.5 s runs with the fingers under 2 deg/s, worse hand (a guard until 08 Nov: "
+                                 "0.01 cm rounding in the dumps added ~6 deg/s of jitter and hid it; dumps at 0.1 mm)"),
 }
 
 
