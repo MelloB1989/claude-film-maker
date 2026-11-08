@@ -1064,11 +1064,11 @@
    "line": 15.0,
    "unit": "deg",
    "what": "median forearm elevation (elbow->wrist above horizontal) at the right hand's stroke apexes: horizontal = 'typing in the air'",
-   "where": "her speaking frames (speak_w > 0.5); worse hand where both apply",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply",
    "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement 22baa9a5; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json",
    "must_fail": [
-    -2.919,
-    "agent-01's earlier R7 body 404db805 reads -2.919 on the TEST spans (agent-13); "
+    -2.8,
+    "agent-01's earlier R7 body 404db805, WHOLE take (agent-13 cf513b41): -2.8; agent-01's ee99f626 reads 44.9 ok"
    ],
    "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md"
   },
@@ -1079,11 +1079,11 @@
    "line": 30.0,
    "unit": "deg",
    "what": "median upper-arm elevation while that hand is at rest (gesture_w < 0.1), worse hand: resting elbows hang",
-   "where": "her speaking frames (speak_w > 0.5); worse hand where both apply",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply",
    "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement 22baa9a5; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json",
    "must_fail": [
-    73.118,
-    "the r7F TEST body 52ab5ea2 reads 73.118 on the TEST spans (agent-13); agent-01's earlier R7 body 404db805 58.167"
+    73.1,
+    "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): 73.1; agent-01's ee99f626 reads 26.6 ok"
    ],
    "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md"
   },
@@ -1091,14 +1091,14 @@
    "area": "performance",
    "track": "agent-13 (movement director) / agent-01, agent-10 (body)",
    "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement 22baa9a5; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json",
-   "where": "her speaking frames (speak_w > 0.5); worse hand where both apply",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply",
    "op": "<=",
    "line": 45.0,
    "unit": "deg",
    "what": "median upper-arm elevation off hanging (shoulder->elbow vs straight down) at the right hand's stroke apexes below upper_chest",
    "must_fail": [
-    75.013,
-    "the r7F TEST body 52ab5ea2 on the TEST spans (agent-13 cf513b41): 75.013"
+    74.5,
+    "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): 74.5; agent-01's ee99f626 reads 51.4 F"
    ],
    "why": "the orchestrator's ruling (B), 08 Nov: 60 deg only for apexes at/above the upper chest, 45 below, and the lift mostly flexion (abduction <= 35)"
   },
@@ -1109,11 +1109,11 @@
    "line": 30.0,
    "unit": "ms",
    "what": "median onset of the hand's rotation after the upper arm's, per movement (right hand): proximal leads, distal follows",
-   "where": "her speaking frames (speak_w > 0.5); worse hand where both apply",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply",
    "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement 22baa9a5; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json",
    "must_fail": [
-    -39.297,
-    "the r7F TEST body 52ab5ea2 reads -39.297 on the TEST spans (agent-13); agent-01's earlier R7 body 404db805 -22.232"
+    -25.4,
+    "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): -25.4; agent-01's ee99f626 reads -4.7 F"
    ],
    "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md"
   },
@@ -1140,11 +1140,11 @@
    "line": 0.3,
    "unit": "fraction",
    "what": "wrist movements (>= 8 cm) whose path strays < 3 % of its chord: straight lines",
-   "where": "her speaking frames (speak_w > 0.5); worse hand where both apply",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply",
    "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement 22baa9a5; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json",
    "must_fail": [
-    0.667,
-    "the r7F TEST body 52ab5ea2 reads 0.667 on the TEST spans (agent-13); "
+    0.609,
+    "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): 0.609; agent-01's ee99f626 reads 0.0 ok"
    ],
    "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md"
   },
@@ -1155,11 +1155,11 @@
    "line": 0.02,
    "unit": "fraction",
    "what": "speaking frames with a claw hand (a finger bent back at a middle joint), worse hand",
-   "where": "her speaking frames (speak_w > 0.5); worse hand where both apply",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply",
    "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement 22baa9a5; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json",
    "must_fail": [
-    0.059,
-    "the r7F TEST body 52ab5ea2 reads 0.059 on the TEST spans (agent-13); agent-01's earlier R7 body 404db805 0.059"
+    0.099,
+    "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): 0.099; agent-01's ee99f626 reads 0 ok"
    ],
    "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md"
   },
@@ -1170,11 +1170,11 @@
    "line": 0,
    "unit": "count",
    "what": "stroke apexes whose hand is a claw, a pinch outside a 'pinch' gesture, or flat",
-   "where": "her speaking frames (speak_w > 0.5); worse hand where both apply",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply",
    "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement 22baa9a5; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json",
    "must_fail": [
-    2,
-    "the r7F TEST body 52ab5ea2 reads 2 on the TEST spans (agent-13); agent-01's earlier R7 body 404db805 2"
+    9,
+    "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): 9; agent-01's ee99f626 reads 0 ok"
    ],
    "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md"
   },
@@ -1185,11 +1185,11 @@
    "line": 0.5,
    "unit": "ratio",
    "what": "two-hand strokes: median wrist travel of the lesser hand over the greater's (a two-hand gesture with one hand parked reads as one hand and a prop)",
-   "where": "her speaking frames (speak_w > 0.5); worse hand where both apply",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply",
    "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement 22baa9a5; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json",
    "must_fail": [
-    0.43,
-    "agent-01's earlier R7 body 404db805 reads 0.43 on the TEST spans (agent-13); "
+    0.429,
+    "agent-01's earlier R7 body 404db805, WHOLE take (agent-13 cf513b41): 0.429; agent-01's ee99f626 reads 0.374 F"
    ],
    "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md"
   },
@@ -1200,11 +1200,11 @@
    "line": 0.6,
    "unit": "fraction",
    "what": "wrist movements with a peak/mean speed of 1.6-2.3 (minimum jerk 1.875), worse hand",
-   "where": "her speaking frames (speak_w > 0.5); worse hand where both apply",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply",
    "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement 22baa9a5; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json",
    "must_fail": [
-    0.143,
-    "the r7F TEST body 52ab5ea2 reads 0.143 on the TEST spans (agent-13); agent-01's earlier R7 body 404db805 0.571"
+    0.391,
+    "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): 0.391; agent-01's ee99f626 reads 0.646 ok"
    ],
    "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md"
   },
@@ -1215,11 +1215,11 @@
    "line": 25.0,
    "unit": "deg",
    "what": "p90 over speaking frames of |wrist flexion/extension| (3rd metacarpal vs the forearm), worse hand",
-   "where": "her speaking frames (speak_w > 0.5); worse hand where both apply",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply",
    "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement 22baa9a5; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json",
    "must_fail": [
-    38.755,
-    "the r7F TEST body 52ab5ea2 reads 38.755 on the TEST spans (agent-13); "
+    38.9,
+    "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): 38.9; agent-01's ee99f626 reads 23.1 ok"
    ],
    "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md"
   },
@@ -1230,11 +1230,11 @@
    "line": 15.0,
    "unit": "deg",
    "what": "p95 over speaking frames of radial deviation, worse hand",
-   "where": "her speaking frames (speak_w > 0.5); worse hand where both apply",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply",
    "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement 22baa9a5; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json",
    "must_fail": [
-    28.4,
-    "the r7F TEST body 52ab5ea2 reads 28.4 on the TEST spans (agent-13); agent-01's earlier R7 body 404db805 31.499"
+    23.7,
+    "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): 23.7; agent-01's ee99f626 reads 34.3 F"
    ],
    "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md"
   },
@@ -1245,11 +1245,11 @@
    "line": 25.0,
    "unit": "deg",
    "what": "p95 over speaking frames of ulnar deviation, worse hand",
-   "where": "her speaking frames (speak_w > 0.5); worse hand where both apply",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply",
    "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement 22baa9a5; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json",
    "must_fail": [
-    39.649,
-    "the r7F TEST body 52ab5ea2 reads 39.649 on the TEST spans (agent-13); agent-01's earlier R7 body 404db805 31.115"
+    39.2,
+    "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): 39.2; agent-01's ee99f626 reads 24.8 ok"
    ],
    "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md"
   },
@@ -1289,14 +1289,14 @@
    "area": "performance",
    "track": "agent-13 (movement director) / agent-01, agent-10 (body)",
    "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement 22baa9a5; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json",
-   "where": "her speaking frames (speak_w > 0.5); worse hand where both apply",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply",
    "op": "<=",
    "line": 60.0,
    "unit": "deg",
    "what": "the same at apexes at/above upper_chest (wrist >= 16 cm over the sternum point; the orchestrator's 60 deg, 08 Nov)",
    "must_fail": [
-    93.843,
-    "the r7F TEST body 52ab5ea2 on the TEST spans (agent-13 cf513b41): 93.843"
+    84.7,
+    "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): 84.7; agent-01's ee99f626 reads 59.8 ok"
    ],
    "why": "the orchestrator's ruling (B), 08 Nov: 60 deg only for apexes at/above the upper chest, 45 below, and the lift mostly flexion (abduction <= 35)",
    "na_ok": true,
@@ -1306,14 +1306,14 @@
    "area": "performance",
    "track": "agent-13 (movement director) / agent-01, agent-10 (body)",
    "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement 22baa9a5; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json",
-   "where": "her speaking frames (speak_w > 0.5); worse hand where both apply",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply",
    "op": "<=",
    "line": 35.0,
    "unit": "deg",
    "what": "median upper-arm abduction (out of the sagittal plane) at stroke apexes, worse hand: the elevation must be mostly flexion, toward the camera",
    "must_fail": [
-    42.023,
-    "the r7F TEST body 52ab5ea2 on the TEST spans (agent-13 cf513b41): 42.023"
+    42.7,
+    "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): 42.7; agent-01's ee99f626 reads 32.0 ok"
    ],
    "why": "the orchestrator's ruling (B), 08 Nov: 60 deg only for apexes at/above the upper chest, 45 below, and the lift mostly flexion (abduction <= 35)"
   }
