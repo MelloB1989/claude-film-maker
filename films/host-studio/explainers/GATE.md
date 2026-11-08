@@ -131,6 +131,13 @@ claw 0, rest_contact 0, flexext 22.5 / 20.4, lag 37.7 / 44.1 (line 30). Build 0 
 orchestrator): A composites now; B is built and fully gated on T2, and its finals render to netflix_finals_B only on 0
 FAIL; the orchestrator picks A or B by eye.
 
+**His first T job, 5ea6ab94 on his REAL skeleton (agent-06, 02:52): NO-GO, 3 FAIL, T stopped before any body.**
+lag_hand_ms -32.6 whole / -14.2 TEST (the proxy read +35.1: the hand turn leads the arm on his skeleton);
+finger_snap 4.27 / 0.0 (it blocks his finals, not the TEST); rest_contact_bad 9 / 5 (his REST_HEEL is still her 2.9
+default: agent-02 measures his). His track carries no fingertips, so finger_claw / dip_pip / thumb_stiff are n/a
+(na_ok). agent-01 adds tips to arm_track_who.py. Everything else passes (stroke 34.9, rest_abduction 1.95, radial 0.95,
+palm 0, near_face 0, spread 3.94).
+
 ## Verdicts
 
 ### Netflix v2b: REJECTED BY THE OPERATOR (07 Nov, about 23:45 IST). The SIGN below is SUPERSEDED.
