@@ -6,7 +6,7 @@ to one of her instance components does not survive that (or the render's PIE cop
 - Top, Trousers, Overshirt: each gets the same animation sections as Presenter's Body (copied from SEQ_Reel's Body
   track, every row: idle -> performance -> idle and the life layer), so each plays her body's pose with or without a
   leader. With the leader set, the leader still wins: nothing changes where it holds.
-- HerWatch, HerEarL, HerEarR: an attach track (whole sequence) onto Presenter's Body/Face bone, and a transform
+- (r7: no watch; its old binding is removed) HerWatch, HerEarL, HerEarR: an attach track (whole sequence) onto Presenter's Body/Face bone, and a transform
   track holding the offset each has from that bone now (the watch: from its seat rule, as dress_her.py seats it).
   So run dress_her.py first: it seats them and checks them.
 
@@ -23,6 +23,10 @@ SEQ = "/Game/Reel/SEQ_Reel"
 GARMENTS = ("Top", "Trousers", "Overshirt")
 RIDERS = {"HerWatch": ("Body", "lowerarm_twist_01_l"), "HerEarL": ("Face", "FACIAL_L_Ear4"),
           "HerEarR": ("Face", "FACIAL_R_Ear4")}
+# r7: her watch is dropped (dress_her.WATCH): no rider track for it, and its old binding goes (drop_watch_binding.py)
+WATCH = False
+if not WATCH:
+    RIDERS.pop("HerWatch")
 KR = unreal.AttachmentRule.KEEP_RELATIVE
 WATCH_UP_ARM = 3.6  # dress_her.py's seat: the watch this far up the forearm from hand_l, band across the wrist
 
@@ -42,6 +46,14 @@ for g in GARMENTS:
     E.binding(seq, "Presenter", g, create=True)
     Q._write(seq, [Q._track("anim", "Presenter", g, sections=body["sections"])])
     out["garments"][g] = len(body["sections"])
+
+# --- r7: no watch: its binding (attach + transform tracks) out of the sequence, so nothing points at a gone actor
+if not WATCH:
+    for b in list(seq.get_bindings()):
+        if str(b.get_display_name()).startswith("HerWatch"):
+            b.remove()
+            out.setdefault("watch_bindings_removed", 0)
+            out["watch_bindings_removed"] += 1
 
 # --- riders: attached to her bone in the sequence, at the offset they have now
 pres = E.binding(seq, "Presenter", "", create=True)
