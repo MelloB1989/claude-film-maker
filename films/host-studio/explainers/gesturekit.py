@@ -686,6 +686,11 @@ class Performer(S.Seater):
             l1, l2 = self.A[s]
             wrist, hp, pole, ws, _ = self.hand_targets(s, t, W)
             k_rest = max(1.0 - ws, 1.0 - self.gesture_w(s, t))  # at the pause rest or the speaking (desk) rest
+            if t < self.OPEN_HEEL_S:  # the opening lift: the heel held fully down until the gesture is under way (his
+                #   box T, 3c2adc79: at 0.6 s, gesture_w 0.09, 9 % of the lift was through: tented on the pads)
+                g0, g1 = self.OPEN_HEEL_GW
+                x = min(1.0, max(0.0, (self.gesture_w(s, t) - g0) / (g1 - g0)))
+                k_rest = max(k_rest, 1.0 - x * x * (3.0 - 2.0 * x))
             if k_rest > 0.0:  # (R7 hands) the heel of the palm down on the desk, not a hand tented on its pads
                 a_w = self.actor(wrist)
                 z_want = self.set.desk_top + self.sy.forearm_clear - self.REST_WRIST_UNDER
@@ -1707,6 +1712,8 @@ class Performer(S.Seater):
     DESK_PULL_MAX = 6.0  # deg the contact pulls a resting hand DOWN onto the desk at most (its push out stays 16)
     DESK_LIVE = 0.15  # cm the pads' height breathes about DESK_TIP (0.21 Hz)
     DESK_TIP = 0.9  # cm a resting hand's lowest fingertip (its centre line) over the desk top: the pad on it
+    OPEN_HEEL_S = 1.0  # s: the take's opening rest, its heel held down through the first lift ...
+    OPEN_HEEL_GW = (0.12, 0.3)  # ... in full under the first gesture weight, handed back by the second (gate: < 0.1 = rest)
     REST_WRIST_UNDER = 0.2  # cm the resting wrist joint sits under the presenter's forearm_clear: the heel of the palm
     #   ON the desk (agent-02 on her mesh: heel down = the wrist joint 2.35 up; her forearm_clear 2.4 -> 2.2; his 2.8 ->
     #   2.6 until his mesh is measured). agent-13's tented line is the mesh's heel + 0.5 (2.9 for her)

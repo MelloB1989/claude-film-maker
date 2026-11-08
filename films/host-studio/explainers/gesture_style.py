@@ -594,7 +594,7 @@ def _tracks(perf) -> dict:
 
 def hand(perf, s: str, t: float) -> tuple:
     global _EASE
-    _EASE = perf.EASE_ROT * perf.ease_at(t) if perf.EASE_AT else 0.0
+    _EASE = perf.EASE_ROT * perf.ease_at(t) if getattr(perf, "EASE_AT", None) else 0.0  # (a bare Perf: none)
     hp, w = _tracks(perf)[s].at(t)
     big = 0.0
     for i, wi in w.items():
