@@ -263,3 +263,5 @@ tested in `test_seatkit.py`), `gestures.json` (the emphasis gestures per line).
   with framecrc: ffmpeg 6.1 prints no frame= on a stream copy (the check read -1).
 
 - 2026-11-08 15:01 IST agent-11: r7 cost policy. comp_box.sh takes RENDER_BUCKET (Tokyo box -> Tokyo bucket; f36709f9) and from a Tokyo box copies only the mp4, master and srt to Mumbai private (9c7a6321). One approved server-side copy of gfx/v3 Mumbai -> rf-render-788655295054-apne1 (25 objects, 3.37 GB, matches). Asked agent-06/07 to write final frames to the Tokyo private prefix.
+
+- 2026-11-08 23:04 IST agent-11: the operator's fallback for her hands prepared offline, NOT applied: FALLBACK_HER.md (8 shots chest-up: 01 02 04 06 07 10 13 14; shot 11 WIDE rest_only f1034-1168). R7 hands sheets: no finger counting (her N13, his W10/W11/W16 LIST; his W04/W06 place); raise_finger kept on her N03 and his W12 (catalogue passed).
