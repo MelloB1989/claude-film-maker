@@ -484,7 +484,7 @@ class Performer(S.Seater):
         hp = blend_poses([(ws, hp), (1.0 - ws, rest_hp)])
         if ws < 1.0 and STYLE_HOOK is not None and hasattr(STYLE_HOOK, "rest_life"):
             sh = dict(hp.shape) if isinstance(hp.shape, dict) else dict(SHAPES.get(hp.shape, {}))
-            hp = replace(hp, shape=sh | {k: sh.get(k, 0.0) + d_fing.get(k, 0.0) * (1.0 - ws) for k in FINGERS})
+            hp = replace(hp, shape=sh | {k: sh.get(k, 0.0) + d_fing.get(k, 0.0) * (1.0 - ws) for k in set(FINGERS) | set(d_fing)})
         return self.comp(tgt), hp, pole, ws, big
 
     def pose(self, t: float = 0.0, gestures=None) -> dict:
@@ -802,8 +802,10 @@ class Performer(S.Seater):
                 if "metacarpal" in j:
                     q = qmul(dh, sk.q(j))
                 else:
-                    share = {"01": 0.8, "02": 1.0, "03": 0.8}[j.split("_")[1]]
-                    cum = qmul(axis_angle(axis, curl * share), cum)
+                    k = j.split("_")[1]
+                    share = {"01": 0.8, "02": 1.0, "03": 0.8}[k]
+                    pip = float(shape.get("_pip_" + f, 0.0)) if isinstance(shape, dict) and k != "01" else 0.0
+                    cum = qmul(axis_angle(axis, curl * share + pip), cum)  # (+ the middle/end joints' own drift)
                     q = qmul(cum, qmul(dh, sk.q(j)))
                 W[j] = [self._fk_t(j, parent, W) if parent in W else sk.p(j), q]
                 parent = j
