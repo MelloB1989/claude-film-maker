@@ -124,7 +124,14 @@ POSE_ORIGIN = HandPose((22.0, 17.0, 13.0), pron=40.0, ext=10.0, shape="relaxed",
 # with her top): the presenter's rest. Hands loosely together in a soft steeple at the lower ribcage, well in front of
 # her (not touching her), palms facing, wrists straight, fingers gently curved; the gestures rise from it into the
 # frame. The fingers aim at the midline (YAW_BASE is faded out at the rest, see hand_targets).
-HIGH_REST = HandPose((27.0, 10.0, -5.5), pron=80.0, ext=0.0, shape="rest")  # the DESK REST (the orchestrator, 08 Nov:
+REST_PRON, REST_EXT = 0.0, 14.0  # R7 hands (the orchestrator's review: the resting hand hovered on its fingertips, the
+#   wrist cocked, the fingers splayed: a spider): the hand rests PALM DOWN on the desk, the wrist neutral, the fingers
+#   together and gently curled ('rest'), the contact through the palm and the finger pads, never the tips alone. On
+#   her rig (offline, both hands, t44.5 / t58.8): the wrist joint 3.5-3.7 cm over the desk top (seatkit's rest), the
+#   knuckle heads 4.0-4.2, all four fingertips 0.9 (the pads down), every finger joint >= 0.6; +14 extension lifts the
+#   palm's dome over the curled fingers (the thumb laid along the index, handshape 'rest')
+REST_Z = -8.3  # cm over the sternum point: the wrist ~3 cm over the desk top (was -5.5 on the little-finger edge)
+HIGH_REST = HandPose((27.0, 11.0, REST_Z), pron=REST_PRON, ext=REST_EXT, shape="rest")  # the DESK REST (08 Nov:
 #   at x 16 her hands sat 3-4 cm off her belly, 'stuck to the body'): the forearms on the desk across its near edge,
 #   the elbows just behind it (x ~8, ~22 out, z ~76, 37-39 deg: the supported-arm line is 40), the wrists ~29 cm
 #   forward, ~7 cm over the desk top (each hand rests on its little-finger edge, palms facing: lower, the ring and
@@ -602,7 +609,7 @@ class Performer(S.Seater):
             pole = add(mul(unit(pole), wg), mul(unit(pr_), 1.0 - wg))
         pole_rest = sub(self.comp(e0), self._fk_t("upperarm_" + s, "clavicle_" + s, W))
         pole = add(mul(unit(pole), ws), mul(unit(pole_rest), 1.0 - ws))
-        rest_hp = HandPose((0.0, 0.0, 0.0), pron=self.sy.pronation, ext=self.ext_base.get(s, 10.0) + REST_EXT_ADD, shape="rest")
+        rest_hp = HandPose((0.0, 0.0, 0.0), pron=REST_PRON, ext=REST_EXT, shape="rest")  # palm down (R7 hands)
         hp = blend_poses([(ws, hp), (1.0 - ws, rest_hp)])
         if ws < 1.0 and STYLE_HOOK is not None and hasattr(STYLE_HOOK, "rest_life"):
             sh = HS.full(hp.shape)
@@ -643,6 +650,12 @@ class Performer(S.Seater):
             sh = self._fk_t(ua, cl, W)
             l1, l2 = self.A[s]
             wrist, hp, pole, ws, _ = self.hand_targets(s, t, W)
+            k_rest = max(1.0 - ws, 1.0 - self.gesture_w(s, t))  # at the pause rest or the speaking (desk) rest
+            if k_rest > 0.0:  # (R7 hands) the heel of the palm down on the desk, not a hand tented on its pads
+                a_w = self.actor(wrist)
+                z_want = self.set.desk_top + self.REST_WRIST
+                if a_w[2] > z_want:
+                    wrist = add(wrist, mul(sub(self.comp([a_w[0], a_w[1], z_want]), wrist), k_rest))
             elbow, wrist = self.swivel(s, sh, wrist, l1, l2, pole, W, ws)
             back = ortho(sub(elbow, sh), unit(sub(wrist, sh)))
             W[ua] = [sh, self._aim(ua, la, sub(elbow, sh), back, front_rest=mul(f, -1.0))]
@@ -651,6 +664,8 @@ class Performer(S.Seater):
             self._finger_pose(s, hp, W)
             if STYLE_HOOK is not None and hasattr(STYLE_HOOK, "finger_post"):
                 STYLE_HOOK.finger_post(self, s, hp, W)  # e.g. the fingers' spread in the palm's plane
+            if k_rest > 0.0:
+                self._desk_contact(s, W, k_rest)
         # the breath (the orchestrator, 09 Nov: in the SEAT, so the arm rows and parity see what renders): the chest
         # (spine_05, the neck and head) rises along up; applied after the arms: the clavicles keep their place
         # (their translation gives the lift back), so the arms, the swivel's torso model and the desk rest are exactly
@@ -1274,7 +1289,8 @@ class Performer(S.Seater):
             joints = info["joints"]
             axis = qrot(dh, info["axis"])  # the hinge, in the hand's current frame
             if f == "thumb":
-                front, across, mcp, ip = HS.thumb_angles(shape.get("thumb", 0.0), shape.get("_opp", 0.0))
+                front, across, mcp, ip = HS.thumb_angles(shape.get("thumb", 0.0),
+                                                         max(shape.get("_opp", 0.0), HS.opp_floor(shape)))
                 pip_x = float(shape.get("_pip_thumb", 0.0))
                 cmc = qmul(axis_angle(qrot(dh, info["across"]), across), axis_angle(qrot(dh, info["front"]), front))
                 r_mcp, r_ip = info["ref"]
@@ -1296,6 +1312,79 @@ class Performer(S.Seater):
                 W[j] = [self._fk_t(j, parent, W) if parent in W else sk.p(j), Q[j]]
                 parent = j
 
+    DESK_TIP = 0.9  # cm a resting hand's lowest fingertip (its centre line) over the desk top: the pad on it
+    REST_WRIST = 3.2  # cm the resting wrist joint over the desk top at most: the heel of the palm on it (agent-13's
+    #   rest_contact 'tented' line is 3.5; seatkit's desk.wrist floor is forearm_clear - 0.3 = 2.5)
+    DESK_THUMB = 0.6  # cm the thumb's joints keep over the desk top (seatkit's desk.finger line is 0.4)
+    DESK_PITCH_MAX = 14.0  # deg the contact solve pitches the hand at most
+
+    def _desk_contact(self, s: str, W, k: float) -> None:
+        """(R7 hands) a resting hand ON the desk: pitched about the wrist so its lowest fingertip sits DESK_TIP over
+        the desk top (the pads down, never hovering on the tips nor in the desk), by k (1 at the rest). The fixed
+        rest extension met the desk only at one lean: at the take's start the tips sat 0.5-0.8 cm in it."""
+        if k <= 0.0:
+            return
+        sk, ha = self.sk, "hand_" + s
+        bones = [b for b in W if b.endswith("_" + s) and b.split("_")[0] in FINGERS]
+        piv = W[ha][0]
+        tips = []
+        for f in ("index", "middle", "ring", "pinky"):  # the fingertips as finger_tips (the rows') measures them
+            j = f"{f}_03_{s}"
+            if j in W and j in sk.local and norm(sk.local[j]["t"]) > 1e-6:
+                lt = sk.local[j]["t"]
+                tips.append(add(W[j][0], mul(qrot(W[j][1], unit(lt)), TIP_K.get(f, 0.75) * norm(lt))))
+        if not tips:
+            return
+        low = min(tips, key=lambda p: self.actor(p)[2])
+        err = self.actor(low)[2] - (self.set.desk_top + self.DESK_TIP)  # + : too high
+        # the thumb's joints keep DESK_THUMB over the desk too (a palm-down thumb lies low beside the index): the more
+        # pressing of the two sets the pitch
+        for j in (f"thumb_02_{s}", f"thumb_03_{s}"):
+            if j in W:
+                e_j = self.actor(W[j][0])[2] - (self.set.desk_top + self.DESK_THUMB)
+                if e_j < 0.0 and e_j < err:
+                    err, low = e_j, W[j][0]
+        arm = sub(low, piv)
+        across = cross(arm, [0.0, 0.0, 1.0])  # component space is z-up (seatkit checks it)
+        reach = math.hypot(arm[0], arm[1])  # a turn about a level axis lifts the tip by ~ this x the angle
+        if reach < 3.0:
+            return
+        ang = max(-self.DESK_PITCH_MAX, min(self.DESK_PITCH_MAX, math.degrees(math.asin(max(-1.0, min(1.0, err / reach))))))
+        ax = unit(across)
+        kk = 1.0 if err < 0.0 else k  # out of the desk in full, whatever the rest's weight; settled onto it by k
+        r = axis_angle(ax, ang * kk)
+        if self.actor(add(piv, qrot(r, arm)))[2] > self.actor(low)[2] and err > 0 or \
+                self.actor(add(piv, qrot(r, arm)))[2] < self.actor(low)[2] and err < 0:
+            r = axis_angle(ax, -ang * kk)  # (the axis's sign: the turn must take the tip toward the desk line)
+        for b in [ha] + bones:
+            W[b] = [add(piv, qrot(r, sub(W[b][0], piv))), qnorm(qmul(r, W[b][1]))]
+        self._thumb_off_desk(s, W)
+
+    def _thumb_off_desk(self, s: str, W) -> None:
+        """A thumb joint under DESK_THUMB rides up on the desk: the thumb turns up at its base (CMC) by just enough
+        (its lever from the wrist is too short for the hand's pitch to lift it)."""
+        j1 = f"thumb_01_{s}"
+        if j1 not in W:
+            return
+        js = [j for j in (f"thumb_02_{s}", f"thumb_03_{s}") if j in W]
+        line = self.set.desk_top + self.DESK_THUMB
+        worst = min(js, key=lambda j: self.actor(W[j][0])[2], default=None)
+        if worst is None or self.actor(W[worst][0])[2] >= line:
+            return
+        piv = W[j1][0]
+        arm = sub(W[worst][0], piv)
+        reach = math.hypot(arm[0], arm[1])
+        if reach < 1.0:
+            return
+        need = line - self.actor(W[worst][0])[2]
+        ang = math.degrees(math.asin(max(-1.0, min(1.0, need / reach)))) * 1.05
+        ax = unit(cross(arm, [0.0, 0.0, 1.0]))
+        r = axis_angle(ax, ang)
+        if self.actor(add(piv, qrot(r, arm)))[2] < self.actor(W[worst][0])[2]:
+            r = axis_angle(ax, -ang)
+        for b in [b for b in W if b.startswith("thumb_") and b.endswith("_" + s)]:
+            W[b] = [add(piv, qrot(r, sub(W[b][0], piv))), qnorm(qmul(r, W[b][1]))]
+
     def _finger_chain(self, joints, bends, axis, dh, cmc, thumb: bool) -> dict:
         """{joint: component rotation} down one finger: each joint turned by its bend about the hinge (the thumb's
         hinge carried by its CMC swing)."""
@@ -1311,10 +1400,6 @@ class Performer(S.Seater):
                 cum = qmul(axis_angle(qrot(cum, axis) if thumb else axis, bends[k]), cum)
             out[j] = qmul(cum, qmul(dh, sk.q(j)))
         return out
-
-
-REST_EXT_ADD = 4.0  # deg more wrist extension at the desk rest (R7 hands): the 'rest' shape's anatomical pinky (MCP
-#   ~45 vs the rig's 20) sat its DIP 0.2 cm lower on the little-finger edge, 0.1 under the desk line; +4 lifts it to 0.5 over
 
 
 def blend_poses(parts: list) -> HandPose:

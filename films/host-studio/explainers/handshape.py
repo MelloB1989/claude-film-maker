@@ -49,8 +49,11 @@ THUMB_IP = 62.0
 # 1.2-2.6 cm at opp 28-41, the fist's 1.2-1.9 cm at 25-34, the relaxed/rest thumb beside the index at 21-31; the open
 # palm's thumb swings out in plane (opp < 0: radial abduction).
 #   relaxed  the resting hand in the air: the cascade 22 < 28 < 34 < 40, the thumb loosely opposed beside the index
-#   rest     the hands at rest (together, or on the desk on the little-finger edge): a little more curl, the tips
-#            soft, the thumb lying along the index
+#   rest     the hand resting PALM DOWN on the desk (the orchestrator's targets: MCP 15-25 / PIP 20-35 / DIP 10-20):
+#            fingers together and gently curled, the pads on the desk, the thumb lying along the index. Fitted on her
+#            rig so all four fingertips touch (0.9 cm, the pads): MCP 22-29 / PIP 20-27 / DIP 13-18. A supported hand
+#            takes the desk's shape, not the air's cascade (the palm's arch puts ring and pinky lower, the middle is
+#            longest)
 #   open     an open palm: nearly straight, a natural slight curve, a small cascade, spread (gesture_style)
 #   list     the listing beat: an open hand, a touch cupped (palm up/in, placing an item on a line)
 #   point    the index straight with a slight curve; the others folded into the palm (PIP ~85, off the joint's limit:
@@ -62,7 +65,7 @@ THUMB_IP = 62.0
 #   soft_fist  a loose fist, the thumb across the middle phalanges
 SHAPES = {
     "relaxed": {"index": 22, "middle": 28, "ring": 34, "pinky": 40, "thumb": 60, "_opp": 10},
-    "rest": {"index": 24, "middle": 29, "ring": 33, "pinky": 38, "thumb": 60, "_opp": 10},
+    "rest": {"index": 15, "middle": 20, "ring": 14, "pinky": 11, "thumb": 12, "_opp": -10},
     "open": {"index": 3, "middle": 4, "ring": 6, "pinky": 9, "thumb": 5, "_opp": -45},
     "list": {"index": 8, "middle": 10, "ring": 13, "pinky": 17, "thumb": 8, "_opp": -20},
     "point": {"index": 3, "middle": 80, "ring": 84, "pinky": 86, "thumb": 90, "_opp": 0},
@@ -85,6 +88,14 @@ def full(shape) -> dict:
     return {k: float(v) for k, v in SHAPES.get(shape, base).items()}
 
 
+def opp_floor(shape: dict) -> float:
+    """The thumb's opposition % at least, from the fingers' mean closure: as the fingers curl the thumb comes around
+    with them (a hand-wide synergy), so no blend or transition ever has a curled hand with a flat thumb (agent-13's
+    thumb_flat). 0 up to a mean closure of 18 (open, list, the desk rest), rising 2.5 % per % of closure."""
+    mean_c = sum(float(shape.get(f, 0.0)) for f in FINGERS4) / 4.0
+    return max(0.0, min(40.0, 2.5 * (mean_c - 18.0)))
+
+
 def finger_angles(finger: str, closure_pct: float, pip_extra: float = 0.0) -> tuple:
     """(MCP, PIP, DIP) absolute flexion deg for a closure in %, + an independent PIP drift (the DIP follows it)."""
     m0, m1, p0, p1 = SYNERGY[finger]
@@ -102,7 +113,42 @@ def thumb_angles(flex_pct: float, opp_pct: float) -> tuple:
     """(CMC front swing, CMC across swing, MCP flex, IP flex) deg."""
     f = max(-0.1, min(1.1, flex_pct / 100.0))
     o = max(-1.0, min(1.1, opp_pct / 100.0))  # < 0: radial abduction (the open palm's thumb swings out, in plane)
-    return THUMB_FRONT_BASE + THUMB_OPP_FRONT * max(0.0, o), THUMB_OPP_ACROSS * o, THUMB_MCP * max(0.0, f), THUMB_IP * max(0.0, f)
+    base = THUMB_FRONT_BASE * max(0.0, min(1.0, 1.0 + o))  # a thumb laid out along the index (o < 0: the
+    #   rest's, the open palm's) drops the base, or a palm-down hand's thumb poked under it into the desk
+    return base + THUMB_OPP_FRONT * max(0.0, o), THUMB_OPP_ACROSS * o, THUMB_MCP * max(0.0, f), THUMB_IP * max(0.0, f)
+
+
+# Abduction (R7 hands, the orchestrator's review: 'the fingers SPREAD APART individually, a piano/spider look'; her rig's
+# own reference fans the left fingers -11 / +8 / +7 deg off the middle): ABSOLUTE targets too, deg off the middle
+# finger's proximal phalanx in the palm's plane, + toward the pinky. A relaxed hand's fingers lie nearly together
+# (adjacent <= ~3 deg, converging slightly); a shape's '_spread' (deg) opens the fan from there (x SPREAD_DIR), only an
+# open 'present' palm opens it visibly (adjacent ~5).
+ABD_TOGETHER = {"index": -2.0, "middle": 0.0, "ring": 2.0, "pinky": 4.5}
+SPREAD_DIR = {"index": -1.0, "middle": 0.0, "ring": 0.7, "pinky": 1.4}
+
+
+def abduction_target(finger: str, spread: float, closure_pct: float) -> float:
+    """deg off the middle finger (+ toward the pinky) for a shape's spread; closing fingers converge (spread_k)."""
+    return (ABD_TOGETHER[finger] + spread * SPREAD_DIR[finger]) * spread_k(closure_pct)
+
+
+def abduction(P: dict, Q: dict, s: str) -> dict:
+    """{finger: deg off the middle finger's proximal phalanx in the palm's plane, + toward the pinky} (the
+    finger_spread row's measure; adjacent abduction = the difference of neighbours)."""
+    sign = 1.0 if s == "l" else -1.0
+    hd = _unit(_sub(P[f"middle_01_{s}"], P[f"hand_{s}"]))
+    kn = _sub(P[f"pinky_01_{s}"], P[f"index_01_{s}"])
+    n = _unit(_cross(hd, kn))
+
+    def plane(v):
+        return _unit(_sub(v, [n[i] * _dot(v, n) for i in range(3)]))
+    m = plane(bone_dir(Q[f"middle_01_{s}"], sign))
+    side = plane(_sub(kn, [m[i] * _dot(kn, m) for i in range(3)]))  # in the plane, toward the pinky
+    out = {}
+    for f in FINGERS4:
+        v = plane(bone_dir(Q[f"{f}_01_{s}"], sign))
+        out[f] = math.degrees(math.atan2(_dot(v, side), _dot(v, m)))
+    return out
 
 
 def spread_k(closure_pct: float) -> float:
