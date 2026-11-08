@@ -64,14 +64,19 @@ def before_chunk(op, job, chunk):
 
 
 def shot_camera(s: dict) -> str:
-    return s.get("camera") or ""
+    """explainers/set.py's: agent-11's PANEL shots (her in the left half, a graphic panel on the right) use CAM_MCU_L;
+    graphics shots have none."""
+    cam = s.get("camera")
+    if not cam or s.get("kind") == "gfx":
+        return ""
+    return "CAM_MCU_L" if s.get("kind") == "panel" and cam == "CAM_MCU" else cam
 
 
 def render_plan(edl: dict, handles: int = 6) -> list:
     """Every presenter shot as [n, camera, first, end) with ±handles, clamped (explainers/set.py's)."""
     end = int(edl.get("frames") or max(s["f1"] for s in edl["shots"]))
     return [[s["n"], shot_camera(s), max(0, s["f0"] - handles), min(end, s["f1"] + handles)]
-            for s in edl["shots"] if shot_camera(s) and s.get("kind", "pres") == "pres"]
+            for s in edl["shots"] if shot_camera(s)]
 
 
 def jobs(who: str, film: str, edl: dict, preset: str, chunk: int = 96, preroll: int = 24, sync: list | None = None) -> list:
