@@ -108,7 +108,9 @@ LIFE = {"state": "talk", "breath_deg": 1.35, "clavicle_deg": 1.0, "shift_cm": 0.
 # his parity --shoulder on seat + life 2.08 against seat only 0.12): breath to ~3 mm, linear in breath_deg
 # (1.35 x 3.0 / 5.27 = 0.77); the clavicle lower than in proportion (0.57) since his parity error starts at the
 # clavicles (0.71 cm there, 1.3-1.55 at the hands; 0.3 gave 1.087, linear: 0.15); weight shift <= 0.2 cm
-LIFE_OF = {"her": LIFE, "him": {**LIFE, "breath_deg": 0.77, "clavicle_deg": 0.15, "shift_cm": 0.2}}
+# hers for the finals: vertical breath 1.62 mm at 1.35 (agent-06, T2, the z-only row; line 2-3.5): 1.35 x 2.5 / 1.62
+# = 2.08; her clavicle 1.0 -> 0.5 to keep her parity carry (--shoulder 0.919 at 1.0) under 1.0 as the breath grows
+LIFE_OF = {"her": {**LIFE, "breath_deg": 2.08, "clavicle_deg": 0.5}, "him": {**LIFE, "breath_deg": 0.77, "clavicle_deg": 0.15, "shift_cm": 0.2}}
 
 
 def ok(res: dict):
