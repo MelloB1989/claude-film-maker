@@ -122,6 +122,8 @@ rest_contact 0, palm_to_camera 0; breath 2.22 mm at 15.1/min; waist fit 0.02, po
 spread 3.98; hold_chest 6 is a report row). The 3 build issues are framing only: the orchestrator's exception (only
 the box judges framing; cam_sweep first on T). GO for T. HER: rows pass too (snap 0, radial 2.6, lag 46.3). Her finals
 stay on the box-gated 0fa53868 unless the orchestrator moves them (that would need a T2 re-gate).
+The orchestrator: her finals A stay on 0fa53868. Only an agent-08 polish candidate B, if it lands clean, may replace
+A, and only after a T2 re-gate. START T for him.
 
 ## Verdicts
 
