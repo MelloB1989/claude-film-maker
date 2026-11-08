@@ -269,3 +269,13 @@ tested in `test_seatkit.py`), `gestures.json` (the emphasis gestures per line).
 | night | agent-11 drove box B meanwhile: body --perform at 7976d7b6 (0 issues, clearance L 5.92 / R 5.30), face, head (on_lens 0.916), hands (MCU 1.0, CU 0.889, WIDE 1.0), TEST render netflix_r7F shots 1,2,11 done 04:10 IST, test_clip r7F 13.25 s for the orchestrator. Level saved |
 | 08:37 | Box B spot-stopped (service-initiated). Nothing unsaved |
 | 09:00 | agent-06 back. Rebuilt the kali driver (/tmp/fleet-agent-06-ue/r7: tree 102de420 = r7-body 7976d7b6 merged, fu, sether, conf film-ue.boxb.json). start-instances: InsufficientInstanceCapacity. Retrying the same instance every 10 min (no new spend). On-demand / other-AZ question is with the orchestrator |
+## Round 7 garment (agent-02, branch fleet/agent-02/r7-garment; measures in `reel/r7/garment_measure.py`)
+
+| IST (8 Nov) | What |
+|---|---|
+| 00:10-00:40 | `garment_measure.py` waist + arms. Fixes found on box B runs: the actor's forward is 90 deg off her facing (angles now from her skeleton); the arm/torso split needed the arm radius, an open-edge sign rule, a shoulder floor and a nearer-the-spine rule; a ref-pose self-check gates every arms run |
+| 00:40 | v2b waist: `waist_fit_cm` 1.04 at her LEFT side (90 deg), front 0.56, no poke. Orchestrator's eye (WIDE f1100 3x): the band flares out past the Top's side line on her left = the operator's "not fit" |
+| 01:00 | agent-05's R7W (seated refit): fit 0.0 but her belly pokes out through the front band, +0.32..0.59 cm on the R7 body (qa.clip Body>Trousers 2.6 % in the WIDE). agent-09 splits the row: `waist_fit_cm` <= 0.75 (must_fail v2b 1.04) + `waist_poke_cm` <= 0.1 (must_fail R7W +0.49), on-screen frames only |
+| 01:20 | R7W2 (agent-05, fitted over her UE-posed belly from `export_posed.py` at f1080/270/150/870): fit 0.28, poke -0.26 on f150/270/870/1080. Orchestrator: waist PASS by eye (WIDE f1100 3x). Her TEST renders in R7W2 with the cuts Top<Trousers 2.5, Body<Top 6, Body<Trousers 2.5 |
+| 01:20 | Arms (`upperarm_torso_clear_cm`): self-check passes (ref pose +5.19, 0 inside); agent-01's elbows-out R7 frames read +5.7..+8.7. Pending before it gates: the v2b reading (must_fail, her right arm at 00:44) |
+| 02:10 | Arms VALID: v2b (SEQ_Explain_Her_v2b, f1044-1104:3) -8.19 cm, both upper arms inside the Top/breast the whole 00:43.5-00:46 hold, self-check passing every frame; R7 elbows-out controls +5.7..+7.1. Gate: `upperarm_torso_clear_cm` >= 3 on screen, must_fail v2b. The sign is solid; the depth is approximate |
