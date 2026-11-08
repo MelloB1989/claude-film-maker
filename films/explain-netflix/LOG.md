@@ -47,6 +47,14 @@ fleet/agent-12/r7-gfx-core), to the shared style guide docs/STYLE_V3.md (both ex
   deliverables (full shots ProRes 422 HQ with 8-sample motion blur; panels and lower third ProRes 4444 via the
   black/grey matte pair and tools/alpha.py).
 - SFX hit list for agent-11's mix: data/sfx_v3.json (tools/sfx.py, from the EDL word frames; the 9-cue vocabulary).
+- 02:30-13:00 the Mac went off the network, so no GPU host. Finals moved to the build host's CPU: Chromium's SwiftShader
+  inside the fleet image under the host's heavy-job lock (RENDER_FLAGS=--allow-software, LOCK in the container), at
+  2-sample motion blur for full shots, 1 for the matte passes (~4.5 s per frame).
+- The orchestrator's TEST verdict: the lower third covered the presenter's gestures in the MCU opening, so it now sits
+  top-left, its lines wrapped and balanced so the plate ends at x 680 (her head box starts at ~704).
+- The caption-band gate (tools/gate.sh) failed on six v3 shots at first: oca's platform rim, the 240p rungs in ladder's
+  close-ups, abr's shelves mid-swing (plus slivers of unborn shelves), and three low labels (prefill, buffer, planes).
+  Cameras and labels were moved, and all eleven deliverables now pass.
 
 Facts on screen are unchanged from round 6 (facts_netflix.json): 300+ million members; Open Connect Appliances given
 free, inside the ISP's network; nightly off-peak fill by predicted popularity; per-title ladders (rung lengths
