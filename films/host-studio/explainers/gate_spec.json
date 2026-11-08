@@ -1693,13 +1693,13 @@
    "op": "==",
    "line": 0,
    "unit": "frames @30",
-   "what": "on-camera frames with a RESTING hand (gesture_w < 0.1) over the desk (wrist x >= desk_near) that HOVERS (its lowest fingertip, finger_tips' centre line, > 1.5 cm over the desk top) or rests TENTED on its pads (the wrist head > 3.5 cm over the top: the heel of the palm off the desk). The orchestrator: contact through the palm and fingers, never fingertip-only",
+   "what": "on-camera frames with a RESTING hand (gesture_w < 0.1) over the desk (wrist x >= desk_near) that HOVERS (its lowest fingertip, finger_tips' centre line, > 1.5 cm over the desk top) or rests TENTED on its pads (the wrist head > 2.9 cm over the top: the heel of the palm off the desk; agent-02 on her mesh: the wrist head sits 2.35 cm up heel-only, 1.85 heel + pads, + 0.5 tolerance). The orchestrator: contact through the palm and fingers, never fingertip-only",
    "how": "r7/naturalness.py --who <her|him> (agent-13, fleet/agent-13/r7-movement f8398eca+) on the 30 fps track WITH fingertips (gesturekit.track_frame 'tips', agent-01 b2d3bcc0+) -> numbers/<film>/naturalness.json",
    "must_fail": [
-    219,
-    "her b4325b5b 715 whole / 219 verify windows (337 of the 715 with a fingertip within 2.5 cm of the top: tips-only); 4fdd6af3 the same; 404db805 812"
+    223,
+    "her b4325b5b 715 / 219; agent-08 08d932a6 (wrist drawn to 3.2) 723 / 223 at the 2.9 line"
    ],
-   "note": "agent-08 proposed tips <= 1.5 OR wrist <= 5.0; agent-13 kept the heel at 3.5 (a wrist head 3.3-4.5 up leaves the heel ~1-2 cm off the desk, i.e. a tented hand); agent-02 to confirm the heel line on the mesh"
+   "note": "the heel line is agent-02's mesh measure (928407cb _Arms ref pose, both hands): 2.35 heel-only / 1.85 heel + pads -> 2.9 with 0.5 tolerance; agent-08's 3.2 cm rest leaves the heel ~1 cm off: FAIL; his line when box T runs"
   },
   "move.rest_abduction_deg": {
    "area": "performance",

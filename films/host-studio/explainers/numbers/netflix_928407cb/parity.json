@@ -1,0 +1,9 @@
+{
+ "gate": {
+  "qa.editor_offline_parity_cm": {
+   "value": 0.407,
+   "where": "PLACED body editor dump vs kit, --shoulder, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov (seat+life 0.306)"
+  }
+ },
+ "source": "r7/parity.py on the box"
+}
