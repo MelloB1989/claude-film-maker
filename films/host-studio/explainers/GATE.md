@@ -79,6 +79,13 @@ height beside her face, and the CU 'Hit play' is a palm out beside her face. A N
 == 0: no hand above the chin or within ~10 cm of the face in the cut camera. agent-01 fixes it in one sha, and only
 her 3 verify shots re-render.
 
+**Breath in the seat (the orchestrator, 08 Nov):** for both presenters the breath (a vertical chest lift on
+spine_05/clavicles, ~2-3.5 mm z at 10-20/min, coupled with speech pauses) moves into the BODY track (gesturekit). The
+life layer keeps only a small clavicle + weight shift. The scored track then contains the breath, so the naturalness rows
+and parity both see exactly what renders (agent-09's condition: the row run's track sha = the seat that renders). His 4
+camera rigs come from box T (set_him.json) for his CU/MCU strokes. One sha carries the face rule + seat breath + his
+rigs.
+
 **Parity (the orchestrator, 08 Nov):** agent-13's shoulder-relative parity (r7/parity.py --shoulder) is THE parity
 gate. It runs on the RENDERED dump (seat + life), with a 1.0 cm line, and supersedes the seat-only check and the 1.2
 sanity row. The naturalness rows are scored on the 30 fps TRACK; the parity proves the editor plays it, and the editor-dump
