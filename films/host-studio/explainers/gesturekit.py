@@ -78,6 +78,12 @@ LIST_STEP = 7.0  # cm between a list's items (a hand-width, palm across)
 HOLD_MAX_S = 0.6  # R7 hands (agent-08): a count / beat / list hold at most this (with its drift), never a pose held up
 
 
+LIST_MAX_Z = 6.0  # cm over the sternum point a list's places sit at most, whatever the sheet's apex_height (the
+#   orchestrator, r7I f~1110: N13's 'sternum' places (APEX_Z 14) sat near shoulder height, the wrist 92 cm and the
+#   fingertips 98-100 with her shoulder joints at 98; at 6 the wrist is at the sternum; at 4 agent-13's lag_hand_ms
+#   fell to 25 with the palm guard)
+
+
 def list_y(g: dict) -> float:
     return RIGHT_MIN_LAT + LIST_STEP * (max(1, int(g.get("item", 1))) - 1)
 
@@ -369,8 +375,8 @@ def plan_from_sheet(sheet: dict, cues: dict, tilts: list | None = None, base_lea
                 if g.get("type") == "beat" and g.get("detail") in ("beat", "", None):
                     z = min(z, BEAT_MAX_Z)  # beats can sit lower, still in frame (the orchestrator), off the mic
                 pr = replace(pr, off=(pr.off[0], pr.off[1], z))
-            if g.get("type") == "list":  # the line's places as drawn, whatever the amp
-                pr = replace(pr, off=(pr.off[0], list_y(g), pr.off[2]))
+            if g.get("type") == "list":  # the line's places as drawn, whatever the amp, at the sternum
+                pr = replace(pr, off=(pr.off[0], list_y(g), min(pr.off[2], LIST_MAX_Z)))
             pl = scaled(gesture_pose(g, "l", n_count), k) if g.get("hand") in ("both", "l") else None
             if pl is not None:  # the left (mic side) of a two-hand gesture: forward <= LEFT_TWO[0], out LEFT_TWO[1], up
                 #                 >= LEFT_TWO[2] over the sternum point. Tucked in and low (out 7, up -3.5) the arm went
@@ -1491,7 +1497,7 @@ class Performer(S.Seater):
     PALM_OFF_FWD = 95.0  # deg the palm's normal keeps off straight forward when the fingers point up (agent-13's
     #   move.palm_to_camera_frames: within 60 deg with the fingers up is the 'halt'; the orchestrator, 09 Nov: an
     #   offering / placing palm faces up and in, never the camera): 95 turns it to face her midline (in), a touch back
-    PALM_MAX = 80.0  # deg the guard supinates at most (the forearm's comfortable range past the pose's own)
+    PALM_MAX = 150.0  # deg the guard turns at most (80-100: the palm stayed on the lens at the deictics, 137 / 26 frames)
     PALM_UP_RAMP = (0.15, 0.4)  # the fingers' up component over which the rule fades in (continuous: no snap)
 
     def _palm_off_camera(self, s, fingers, across, d0, a0, side, fa):
@@ -1512,13 +1518,17 @@ class Performer(S.Seater):
         q = axis_angle(fa, ang)
         return qrot(q, fingers), qrot(q, across)
 
-    PALM_W = 12.0  # rad/s the guard's turn follows what each frame wants: a critically damped spring run forward and
+    PALM_W = 24.0  # rad/s the guard's turn follows what each frame wants: a critically damped spring run forward and
     #   back over the take (zero phase: it turns ahead of the arrival and eases out after the release, never stops
     #   dead). Per frame it turned the hand 45-87 deg in 3-4 frames as the wrist stopped and unwound as fast on the
     #   retract, the thumb's IP head >= 90 cm/s stopping dead (agent-13's / agent-08's finger_snap 7.32/min, 963942f4);
-    #   a causal spring lagged into the holds (palm_to_camera) or, faster, snapped
-    PALM_RATE = 1e9  # deg/s the guard's curve turns at most before the spring (a cone ahead of the want: 120-250 led the arm, lag_hand -58..-128 ms, snaps 4-5/min; off)
-    PALM_DELAY = 0.0  # s the curve runs behind the frame's want (the zero-phase turn led the upper arm: lag_hand_ms)
+    #   a causal spring lagged into the holds (palm_to_camera) or, faster, snapped. Tried and dropped (agent-13's rows):
+    #   a rate-capped cone ahead of the want (lag_hand -58..-128), a causal release or a longer release delay (snaps at
+    #   the landings, 3-7/min), the turn planned per stroke on minimum jerks (snaps 4.2 at the arrivals), either sense
+    #   the shorter way round (snaps 7-9)
+    PALM_DELAY = 0.055  # s the curve runs behind the frame's want (the zero-phase turn led the upper arm: lag_hand_ms;
+    #   on d1869ce7 + this, agent-13's rows: W 24 / 0.055 lag_hand 38, snaps 0, palm_to_camera 0, radial 2.7; 22 / 0.05
+    #   passes too; 20 / 0.045 lag 20; 22 / 0.06 a palm frame at 17.3)
     PALM_DT = 1.0 / 30.0  # s the guard's curve is sampled at (linear between; the pass costs one pose per sample)
 
     def _palm_at(self, s, t):
@@ -1560,11 +1570,6 @@ class Performer(S.Seater):
                 want[min(n - 1, max(0, int(round(tt / self.PALM_DT))))] = a
             sg = -1.0 if s == "r" else 1.0  # (one sense per side: supination)
             m = [max(0.0, sg * x) for x in want]
-            dm = self.PALM_RATE * self.PALM_DT  # the least turn >= every frame's want at <= PALM_RATE: it turns in
-            for i in range(1, n):  # ahead of a want that rises fast and unwinds slowly (a flickering want: one turn)
-                m[i] = max(m[i], m[i - 1] - dm)
-            for i in range(n - 2, -1, -1):
-                m[i] = max(m[i], m[i + 1] - dm)
             tab[s] = [sg * x for x in self._spring_pass(self._spring_pass(m)[::-1])[::-1]]
         self._pg_tab = tab
 
@@ -1583,7 +1588,7 @@ class Performer(S.Seater):
     #   palm-out counted on palm_to_camera), the spring's lag on top
 
     def _palm_want(self, s, fingers, across, d0, a0, t, fa):
-        """The signed guard angle (deg about the forearm) this frame wants, before the rate limit."""
+        """The signed guard angle (deg about the forearm) this frame wants, before palm_prime smooths it."""
         f, r, u = self.fr
         k_up = smooth((dot(fingers, u) - self.PALM_UP_RAMP[0]) / (self.PALM_UP_RAMP[1] - self.PALM_UP_RAMP[0]))
         if k_up <= 0:

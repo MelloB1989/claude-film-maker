@@ -33,6 +33,7 @@ import argparse
 import json
 import math
 import sys
+import os
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -510,7 +511,7 @@ def perform_params(who: str) -> dict:
 # r7I preview, the talking shots go chest-up (FALLBACK_CAMS, the hands below the frame edge) and in the WIDE her hands
 # rest on the desk, no gestures (gesturekit's rest_only: shoulders, torso, head, breath alive). agent-11's shot list
 # (fleet/agent-11/r7-acting FALLBACK_HER.md): shot 11 CAM_WIDE f1034-1168 at 24 fps = 43.083-48.667 s with handles.
-HANDS_FALLBACK = False
+HANDS_FALLBACK = os.environ.get("HANDS_FALLBACK") == "1"  # switched on for a run: HANDS_FALLBACK=1 python3 perform.py ...
 REST_ONLY_FALLBACK = {"her": [[43.083, 48.667]]}
 # her talking cameras chest-up (same names and positions, a longer lens tilted for it): the frame's bottom edge at the
 # chest 100 cm up, the head's top 7 % under the top edge (offline on her kit track, r7 body). Her gesture peaks reach
