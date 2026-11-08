@@ -117,6 +117,12 @@ mic_cams, so the box rows would have scored a different motion from the anim the
 rest_contact 0, palm_to_camera 0; breath 2.22 mm at 15.1/min; waist fit 0.02, poke -0.26; lips lag 0.68 f, track
 0.892, onset 77 ms; head gate rc 0. Next: the orchestrator's by-eye review of shots 1/2/11 and the left-wrist still.
 
+**5ea6ab94 offline (agent-04, 09 Nov):** HIM: his proxy (5ea6ab94's arm_track_who.py on her read), whole / TEST spans
+0-179 + 422-480: 0 FAIL (snap 0.0, lag 35.1, rest_abduction 18.4, rest_desk 32.6, collar 0, palm 0, shape_wrong 0,
+spread 3.98; hold_chest 6 is a report row). The 3 build issues are framing only: the orchestrator's exception (only
+the box judges framing; cam_sweep first on T). GO for T. HER: rows pass too (snap 0, radial 2.6, lag 46.3). Her finals
+stay on the box-gated 0fa53868 unless the orchestrator moves them (that would need a T2 re-gate).
+
 ## Verdicts
 
 ### Netflix v2b: REJECTED BY THE OPERATOR (07 Nov, about 23:45 IST). The SIGN below is SUPERSEDED.
