@@ -744,7 +744,7 @@
      "word_i": 22
     },
     {
-     "type": "raise_finger",
+     "type": "place",
      "hand": "R",
      "word": "one",
      "stroke_t": 9.725,
@@ -755,9 +755,9 @@
      "size": "small",
      "amp": 0.3,
      "held": false,
-     "target": "up",
+     "target": "front",
      "apex_height": "sternum",
-     "note": "one finger: one",
+     "note": "an open hand sets down 'one' in front of him at chest height (no finger count)",
      "word_i": 27
     },
     {
@@ -848,8 +848,8 @@
       "apex_height": "sternum"
      },
      {
-      "type": "beat",
-      "detail": "raise_finger",
+      "type": "size",
+      "detail": "place",
       "hand": "r",
       "word": "one",
       "word_i": 27,
@@ -859,7 +859,7 @@
       "size": "small",
       "amp": 0.3,
       "held": false,
-      "target": "up",
+      "target": "front",
       "apex_height": "sternum"
      },
      {
@@ -1164,7 +1164,7 @@
    ],
    "gestures": [
     {
-     "type": "raise_finger",
+     "type": "place",
      "hand": "R",
      "word": "One",
      "stroke_t": 15.333,
@@ -1175,8 +1175,9 @@
      "size": "small",
      "amp": 0.3,
      "held": false,
-     "target": "up",
+     "target": "front",
      "apex_height": "sternum",
+     "note": "an open hand sets down 'one server' (no finger count)",
      "word_i": 43
     },
     {
@@ -1194,6 +1195,7 @@
      "target": "front",
      "apex_height": "sternum",
      "start_word": "two",
+     "note": "spread OUT at chest height (wrists at or below the collarbone), bowing forward, never up toward the face",
      "word_i": 48
     }
    ],
@@ -1243,8 +1245,8 @@
     "camera": null,
     "gestures": [
      {
-      "type": "beat",
-      "detail": "raise_finger",
+      "type": "size",
+      "detail": "place",
       "hand": "r",
       "word": "One",
       "word_i": 43,
@@ -1254,7 +1256,7 @@
       "size": "small",
       "amp": 0.3,
       "held": false,
-      "target": "up",
+      "target": "front",
       "apex_height": "sternum"
      },
      {
@@ -1982,7 +1984,7 @@
      "word_i": 76
     },
     {
-     "type": "count",
+     "type": "list",
      "hand": "R",
      "word": "One:",
      "stroke_t": 26.945,
@@ -1993,9 +1995,11 @@
      "size": "medium",
      "amp": 0.55,
      "held": false,
-     "target": "his right, chest height",
+     "target": "front, his midline",
      "apex_height": "sternum",
-     "note": "index up (1), the hand back on his right",
+     "item": 1,
+     "of": 2,
+     "note": "open hand, palm angled up/in, PLACES item 1 of 2 on a line in front of him at chest height (back from the panel to his midline); the forearm angled toward camera, wrist below the collarbone, a small drift, no finger counting",
      "word_i": 77
     },
     {
@@ -2088,8 +2092,8 @@
       "apex_height": "upper_chest"
      },
      {
-      "type": "count",
-      "detail": "count",
+      "type": "list",
+      "detail": "list",
       "hand": "r",
       "word": "One:",
       "word_i": 77,
@@ -2099,8 +2103,10 @@
       "size": "medium",
       "amp": 0.55,
       "held": false,
-      "target": "his right, chest height",
-      "apex_height": "sternum"
+      "target": "front, his midline",
+      "apex_height": "sternum",
+      "item": 1,
+      "of": 2
      },
      {
       "type": "beat",
@@ -2184,7 +2190,7 @@
    ],
    "gestures": [
     {
-     "type": "count",
+     "type": "list",
      "hand": "R",
      "word": "Two:",
      "stroke_t": 28.583,
@@ -2195,9 +2201,11 @@
      "size": "medium",
      "amp": 0.55,
      "held": false,
-     "target": "his right, chest height",
+     "target": "front, a hand-width to his right",
      "apex_height": "sternum",
-     "note": "+ middle (2)",
+     "item": 2,
+     "of": 2,
+     "note": "open hand, palm angled up/in, PLACES item 2 of 2 on a line in front of him at chest height (a hand-width to his right); the forearm angled toward camera, wrist below the collarbone, a small drift, no finger counting",
      "word_i": 82
     },
     {
@@ -2214,7 +2222,7 @@
      "held": true,
      "target": "panel (his left)",
      "apex_height": "upper_chest",
-     "note": "the two fingers turn toward the panel's blue ticks",
+     "note": "the open hand turns toward the panel's blue ticks",
      "word_i": 87
     },
     {
@@ -2280,8 +2288,8 @@
     "camera": "CAM_MCU_L",
     "gestures": [
      {
-      "type": "count",
-      "detail": "count",
+      "type": "list",
+      "detail": "list",
       "hand": "r",
       "word": "Two:",
       "word_i": 82,
@@ -2291,8 +2299,10 @@
       "size": "medium",
       "amp": 0.55,
       "held": false,
-      "target": "his right, chest height",
-      "apex_height": "sternum"
+      "target": "front, a hand-width to his right",
+      "apex_height": "sternum",
+      "item": 2,
+      "of": 2
      },
      {
       "type": "deictic",
@@ -3241,7 +3251,7 @@
    ],
    "gestures": [
     {
-     "type": "count",
+     "type": "list",
      "hand": "R",
      "word": "Tiny",
      "stroke_t": 47.083,
@@ -3252,13 +3262,15 @@
      "size": "small",
      "amp": 0.3,
      "held": false,
-     "target": "his right, chest height",
+     "target": "front, his midline",
      "apex_height": "sternum",
-     "note": "index (1)",
+     "item": 1,
+     "of": 3,
+     "note": "open hand, palm angled up/in, PLACES item 1 of 3 on a line in front of him at chest height (at his midline); the forearm angled toward camera, wrist below the collarbone, a small drift, no finger counting",
      "word_i": 137
     },
     {
-     "type": "count",
+     "type": "list",
      "hand": "R",
      "word": "Messages",
      "stroke_t": 48.627,
@@ -3269,13 +3281,15 @@
      "size": "medium",
      "amp": 0.55,
      "held": false,
-     "target": "his right, chest height",
-     "apex_height": "upper_chest",
-     "note": "+ middle (2)",
+     "target": "front, a hand-width to his right",
+     "apex_height": "sternum",
+     "item": 2,
+     "of": 3,
+     "note": "open hand, palm angled up/in, PLACES item 2 of 3 on a line in front of him at chest height (a hand-width to his right); the forearm angled toward camera, wrist below the collarbone, a small drift, no finger counting",
      "word_i": 139
     },
     {
-     "type": "count",
+     "type": "list",
      "hand": "R",
      "word": "Keys",
      "stroke_t": 50.334,
@@ -3286,9 +3300,11 @@
      "size": "medium",
      "amp": 0.55,
      "held": true,
-     "target": "his right, chest height",
-     "apex_height": "upper_chest",
-     "note": "+ ring (3)",
+     "target": "front, two hand-widths to his right",
+     "apex_height": "sternum",
+     "item": 3,
+     "of": 3,
+     "note": "open hand, palm angled up/in, PLACES item 3 of 3 on a line in front of him at chest height (two hand-widths to his right); the forearm angled toward camera, wrist below the collarbone, a small drift, no finger counting",
      "word_i": 143
     },
     {
@@ -3393,8 +3409,8 @@
     "camera": "CAM_MCU",
     "gestures": [
      {
-      "type": "count",
-      "detail": "count",
+      "type": "list",
+      "detail": "list",
       "hand": "r",
       "word": "Tiny",
       "word_i": 137,
@@ -3404,12 +3420,14 @@
       "size": "small",
       "amp": 0.3,
       "held": false,
-      "target": "his right, chest height",
-      "apex_height": "sternum"
+      "target": "front, his midline",
+      "apex_height": "sternum",
+      "item": 1,
+      "of": 3
      },
      {
-      "type": "count",
-      "detail": "count",
+      "type": "list",
+      "detail": "list",
       "hand": "r",
       "word": "Messages",
       "word_i": 139,
@@ -3419,12 +3437,14 @@
       "size": "medium",
       "amp": 0.55,
       "held": false,
-      "target": "his right, chest height",
-      "apex_height": "upper_chest"
+      "target": "front, a hand-width to his right",
+      "apex_height": "sternum",
+      "item": 2,
+      "of": 3
      },
      {
-      "type": "count",
-      "detail": "count",
+      "type": "list",
+      "detail": "list",
       "hand": "r",
       "word": "Keys",
       "word_i": 143,
@@ -3434,8 +3454,10 @@
       "size": "medium",
       "amp": 0.55,
       "held": true,
-      "target": "his right, chest height",
-      "apex_height": "upper_chest"
+      "target": "front, two hand-widths to his right",
+      "apex_height": "sternum",
+      "item": 3,
+      "of": 3
      },
      {
       "type": "open",
@@ -3751,7 +3773,7 @@
    }
   },
   "same_gesture_twice": [],
-  "apex_high_share": 0.302,
+  "apex_high_share": 0.256,
   "on_cam_lines": [
    "W01",
    "W03",

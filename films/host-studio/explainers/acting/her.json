@@ -179,9 +179,9 @@
      "amp": 0.85,
      "held": true,
      "target": "front",
-     "apex_height": "collarbone",
+     "apex_height": "upper_chest",
      "start_word": "three",
-     "note": "hands start 15 cm apart in front of her sternum on 'three', spread to shoulder width on 'million': a huge number; L hand stays below the mic",
+     "note": "hands start 15 cm apart in front of her sternum on 'three', spread OUT to shoulder width on 'million' at chest height (wrists at or below the collarbone), palms in/forward, the path bowing forward, never up: a huge number; L hand stays below the mic (if it can't join, the R spreads out to her right at chest height, never toward the face)",
      "word_i": 5
     },
     {
@@ -308,7 +308,7 @@
       "amp": 0.85,
       "held": true,
       "target": "front",
-      "apex_height": "collarbone"
+      "apex_height": "upper_chest"
      },
      {
       "type": "beat",
@@ -411,7 +411,7 @@
      "held": false,
      "target": "camera",
      "apex_height": "collarbone",
-     "note": "index finger presses an imaginary play button toward the lens, collarbone height so it enters the CU",
+     "note": "index finger presses an imaginary play button FORWARD toward the lens, entering the CU from below at collarbone height; never up beside the face, never a palm-out wave",
      "word_i": 9
     },
     {
@@ -427,8 +427,8 @@
      "amp": 0.55,
      "held": false,
      "target": "front",
-     "apex_height": "collarbone",
-     "note": "fingers spring open outward, 'ta-da', shoulders lift",
+     "apex_height": "upper_chest",
+     "note": "fingers spring open outward and slightly DOWN, 'ta-da', shoulders lift; never up beside the face",
      "word_i": 13
     }
    ],
@@ -511,7 +511,7 @@
       "amp": 0.55,
       "held": false,
       "target": "front",
-      "apex_height": "collarbone"
+      "apex_height": "upper_chest"
      }
     ],
     "hands_in_frame_min": 0.3,
@@ -2705,7 +2705,7 @@
    ],
    "gestures": [
     {
-     "type": "count",
+     "type": "list",
      "hand": "R",
      "word": "login,",
      "stroke_t": 43.998,
@@ -2716,13 +2716,15 @@
      "size": "medium",
      "amp": 0.55,
      "held": false,
-     "target": "her right, chest height",
+     "target": "front, her midline",
      "apex_height": "sternum",
-     "note": "index up (1)",
+     "item": 1,
+     "of": 3,
+     "note": "open hand, palm angled up/in, PLACES item 1 of 3 on a line in front of her at chest height (at her midline); the forearm angled toward camera, wrist below the collarbone, a small drift, no finger counting",
      "word_i": 110
     },
     {
-     "type": "count",
+     "type": "list",
      "hand": "R",
      "word": "profile,",
      "stroke_t": 44.579,
@@ -2733,13 +2735,15 @@
      "size": "medium",
      "amp": 0.55,
      "held": false,
-     "target": "her right, chest height",
+     "target": "front, a hand-width to her right",
      "apex_height": "sternum",
-     "note": "+ middle (2)",
+     "item": 2,
+     "of": 3,
+     "note": "open hand, palm angled up/in, PLACES item 2 of 3 on a line in front of her at chest height (a hand-width to her right); the forearm angled toward camera, wrist below the collarbone, a small drift, no finger counting",
      "word_i": 111
     },
     {
-     "type": "count",
+     "type": "list",
      "hand": "R",
      "word": "recommendations:",
      "stroke_t": 45.851,
@@ -2750,9 +2754,11 @@
      "size": "medium",
      "amp": 0.55,
      "held": true,
-     "target": "her right, chest height",
+     "target": "front, two hand-widths to her right",
      "apex_height": "sternum",
-     "note": "+ ring (3)",
+     "item": 3,
+     "of": 3,
+     "note": "open hand, palm angled up/in, PLACES item 3 of 3 on a line in front of her at chest height (two hand-widths to her right, away from the mic); the forearm angled toward camera, wrist below the collarbone, a small drift, no finger counting",
      "word_i": 112
     },
     {
@@ -2809,7 +2815,7 @@
      "deg": 5
     }
    ],
-   "note": "THE 00:44 SHOT (WIDE): the rejected v2b sat here with hands clasped and upper arms pinned into the torso. Elbows 20+ cm off the torso the whole line; the count hand out to her right at chest height; the shoulders and torso turn a little with each count",
+   "note": "THE 00:44 SHOT (WIDE): the rejected v2b sat here with hands clasped and upper arms pinned into the torso. Elbows 20+ cm off the torso the whole line; the R hand LISTS (R7 hands, the operator's 'zombie' claw at 00:08): open, palm up/in, placing the three items left to right along a line in front of her at chest height, forearm angled toward camera, no hold over 0.6 s; the shoulders and torso turn a little with each placement",
    "face04": {
     "line": "N13",
     "emotion": "confident, brisk list, then a clean landing",
@@ -2868,8 +2874,8 @@
     "camera": "CAM_WIDE",
     "gestures": [
      {
-      "type": "count",
-      "detail": "count",
+      "type": "list",
+      "detail": "list",
       "hand": "r",
       "word": "login,",
       "word_i": 110,
@@ -2879,12 +2885,14 @@
       "size": "medium",
       "amp": 0.55,
       "held": false,
-      "target": "her right, chest height",
-      "apex_height": "sternum"
+      "target": "front, her midline",
+      "apex_height": "sternum",
+      "item": 1,
+      "of": 3
      },
      {
-      "type": "count",
-      "detail": "count",
+      "type": "list",
+      "detail": "list",
       "hand": "r",
       "word": "profile,",
       "word_i": 111,
@@ -2894,12 +2902,14 @@
       "size": "medium",
       "amp": 0.55,
       "held": false,
-      "target": "her right, chest height",
-      "apex_height": "sternum"
+      "target": "front, a hand-width to her right",
+      "apex_height": "sternum",
+      "item": 2,
+      "of": 3
      },
      {
-      "type": "count",
-      "detail": "count",
+      "type": "list",
+      "detail": "list",
       "hand": "r",
       "word": "recommendations:",
       "word_i": 112,
@@ -2909,8 +2919,10 @@
       "size": "medium",
       "amp": 0.55,
       "held": true,
-      "target": "her right, chest height",
-      "apex_height": "sternum"
+      "target": "front, two hand-widths to her right",
+      "apex_height": "sternum",
+      "item": 3,
+      "of": 3
      },
      {
       "type": "open",

@@ -32,6 +32,7 @@ import math
 import random
 from dataclasses import dataclass, replace
 
+import handshape as HS  # noqa: E402
 import seatkit as S
 from seatkit import add, axis_angle, cross, dot, mul, norm, qinv, qmul, qrot, sub, unit
 
@@ -61,6 +62,7 @@ LEFT_ARC = (0.08, 0.12)  # x the chord: the left hand's own arc (agent-13: its e
 LEFT_ARC_DIR = (-0.6, -0.2, 0.75)  # (fwd, out, up): its arc bows up and back toward her (the mic is forward and out)
 RIGHT_ARC_DIR = (-0.3, 0.45, 0.85)  # a mic-moved right stroke's bow: up, out and a little back
 RIGHT_ARC_MIN = 0.06  # x the chord: every right move's bow off the straight line at least (agent-13's line: 0.03)
+FING_END = 0.85    # x a move: the fingers' shape change ends here (R7 hands: they settle before the wrist stops)
 ROT_LAG_S = 0.08    # s the hand's turn and the fingers trail the wrist's path (proximal to distal)
 DRIFT_CM = 0.8      # cm the wrist's slow drift, each axis (orchestrator: real hands are never 0 cm/s in a hold)
 RIGHT_DRIFT_K = 1.3  # the right hand's drift x this (its rest life on the desk keeps DESK_DRIFT)
@@ -85,7 +87,7 @@ PARTIAL_S = 1.1     # a gap shorter than this falls only halfway to the rest
 LAG_S = {"pinky": 0.030, "ring": 0.045, "thumb": 0.050, "middle": 0.062, "index": 0.080}  # fingers behind the wrist
 SPREAD_SIGN = {"index": -1.0, "middle": 0.0, "ring": 0.6, "pinky": 1.2, "thumb": -0.8}
 SHAPE_SPREAD = {"rest": 2.0, "relaxed": 3.0, "open": 9.0, "point": 2.0, "count1": 2.0, "count2": 6.0, "count3": 7.0,
-                "pinch": 1.0, "soft_fist": 0.0}
+                "pinch": 1.0, "soft_fist": 0.0, "list": 5.0, "raise": 2.0}
 SIM_FAIL = 0.95
 MIC_L = (14.0, 8.0)  # the left hand (mic side) on a gesture: out <= 14 cm, up <= 8 cm from the sternum point
 #   (r7F: 9 / -2 with the mic at her chest; with it at her mouth and the rest low, that box held her left hand still)
@@ -127,12 +129,13 @@ class Noise:
 
 
 def shape_dict(shape) -> dict:
-    """A shape name or dict -> {finger: curl deg, '_spread': deg}."""
+    """A shape name or dict -> {finger: closure %, '_opp': thumb opposition %, '_spread': deg} (handshape: absolute
+    anatomical targets; a missing finger is relaxed)."""
     if isinstance(shape, dict):
-        d = dict(shape)
+        d = HS.full(shape)
         d.setdefault("_spread", 3.0)
         return d
-    d = {f: float(GK.SHAPES.get(shape, {}).get(f, 0.0)) for f in GK.FINGERS}
+    d = HS.full(shape)
     d["_spread"] = SHAPE_SPREAD.get(shape, 3.0)
     return d
 
@@ -146,6 +149,10 @@ def lerp_pose(a: GK.HandPose, b: GK.HandPose, u_pos: float, u_rot: float, u_f: d
     sa, sb = shape_dict(a.shape), shape_dict(b.shape)
     sh = {f: sa[f] + (sb[f] - sa[f]) * u_f.get(f, u_rot) for f in GK.FINGERS}
     sh["_spread"] = sa["_spread"] + (sb["_spread"] - sa["_spread"]) * u_f.get("index", u_rot)
+    # the thumb's opposition leads the fingers as it rises and trails them as it falls, so a curling hand never has a
+    # flat thumb for a frame (agent-13's thumb_flat: open -> pinch at t15.4, the fingers curled first)
+    uo = (max if sb["_opp"] > sa["_opp"] else min)(list(u_f.values()) or [u_rot])
+    sh["_opp"] = sa["_opp"] + (sb["_opp"] - sa["_opp"]) * uo
     return GK.HandPose(off, a.pron + (b.pron - a.pron) * u_rot, a.ext + (b.ext - a.ext) * u_rot, sh)
 
 
@@ -186,7 +193,7 @@ class Var:
         rest = getattr(GK, "POSE_ORIGIN", GK.HIGH_REST).off  # the amp's origin, not the (r7F, lower) rest
         off = tuple(rest[i] + (p.off[i] - rest[i]) * self.amp + (self.dz if i == 2 else 0.0) for i in range(3))
         sh = shape_dict(p.shape)
-        sh = {f: sh[f] + self.fingers.get(f, 0.0) for f in GK.FINGERS} | {"_spread": max(0.0, sh["_spread"] + self.spread)}
+        sh = {f: sh[f] + self.fingers.get(f, 0.0) for f in GK.FINGERS} | {"_spread": max(0.0, sh["_spread"] + self.spread), "_opp": sh["_opp"]}
         return GK.HandPose(off, p.pron + self.d_pron, p.ext + self.d_ext, sh)
 
 
@@ -424,7 +431,10 @@ class HandTrack:
         if ROT_LAG_S <= 0:
             return hp, w
         lag, _ = self._at(t - ROT_LAG_S)
-        return GK.HandPose(hp.off, lag.pron, lag.ext, lag.shape), w
+        # the fingers ride the wrist's own clock (R7 hands): lagged with the turn, the anatomical shape change (larger
+        # than the old offsets: the thumb swings out of opposition) piled onto the turn just as the wrist stopped dead,
+        # fingertips 120-145 cm/s (agent-13's finger_snap 3.14/min on 8ebecc97)
+        return GK.HandPose(hp.off, lag.pron, lag.ext, hp.shape), w
 
     def _at(self, t: float) -> tuple:
         rest = GK.HIGH_REST
@@ -446,7 +456,7 @@ class HandTrack:
         acc = self.accent(t)
         off = tuple(off[i] + acc[i] for i in range(3))
         sh = shape_dict(hp.shape)
-        sh = {f: sh[f] + fing[f] for f in GK.FINGERS} | {"_spread": sh["_spread"]} | \
+        sh = {f: sh[f] + fing[f] for f in GK.FINGERS} | {"_spread": sh["_spread"], "_opp": sh["_opp"]} | \
             {k: v for k, v in fing.items() if k.startswith("_pip_")}
         return GK.HandPose(tuple(hp.off[i] + off[i] for i in range(3)), hp.pron + dp, hp.ext + de, sh), w
 
@@ -489,10 +499,11 @@ class HandTrack:
         ENDS at the move's end, at rest (agent-13, the orchestrator: the delay used to carry the curl past the apex,
         and the hold then snapped it home in one frame, up to 146 cm/s at a fingertip; 12 snaps on 8a45d961)."""
         d = max(1e-3, s.t1 - s.t0)
+        end = FING_END * d  # (R7 hands) and settle a little before the wrist does, not with it
         out = {}
         for f in GK.FINGERS:
-            lf = min(LAG_S[f] * lag, 0.35 * d)
-            out[f] = mj(clip01((t - s.t0 - lf) / max(1e-3, d - lf)))
+            lf = min(LAG_S[f] * lag, 0.3 * end)
+            out[f] = mj(clip01((t - s.t0 - lf) / max(1e-3, end - lf)))
         return out
 
     def _from_of(self, hold: Seg) -> GK.HandPose:
@@ -648,7 +659,8 @@ def finger_post(perf, s: str, hp, W) -> None:
         joints = [j for j in info["joints"] if "metacarpal" not in j and j in W]
         if not joints:
             continue
-        r = axis_angle(n, spread * SPREAD_SIGN[f])
+        k = HS.spread_k(float(hp.shape.get(f, 0.0))) if f != "thumb" else 1.0  # closing fingers converge
+        r = axis_angle(n, spread * SPREAD_SIGN[f] * k)
         piv = W[joints[0]][0]
         for j in joints:
             W[j] = [add(piv, qrot(r, sub(W[j][0], piv))), S.qnorm(qmul(r, W[j][1]))]

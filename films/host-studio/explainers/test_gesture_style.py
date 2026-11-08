@@ -209,6 +209,18 @@ def test_a_point_outside_the_picture_is_not_behind_the_mic():
     assert not S.in_picture(rig, low) and S.behind_mic(c, low, st, hand_r=1e3, rig=rig) is None
 
 
+def test_list_places_items_along_a_line_and_holds_are_short():
+    """R7 hands: a list's items are placed a hand-width apart along a line at chest height; holds <= HOLD_MAX_S"""
+    ys = [GK.gesture_pose({"type": "list", "detail": "list", "item": i, "of": 3}, "r", 0).off[1] for i in (1, 2, 3)]
+    assert ys[0] >= GK.RIGHT_MIN_LAT and all(abs((b - a) - GK.LIST_STEP) < 1e-9 for a, b in zip(ys, ys[1:]))
+    sheet = {"lines": [{"id": "X1", "body01": {"line": "X1", "gestures": [
+        {"type": "list", "detail": "list", "hand": "r", "item": 2, "of": 3, "prep_t": 1.0, "stroke_t": 1.3,
+         "hold_s": 1.5, "apex_height": "sternum", "word_i": 0}]}}]}
+    plan = GK.plan_from_sheet(sheet, {"lines": [{"start": 0.5, "end": 3.0}]})
+    e = plan.events[0]
+    assert e.kind == "list" and e.hold <= GK.HOLD_MAX_S and abs(e.pose_r.off[1] - ys[1]) < 3.0  # (the style varies it)
+
+
 def test_build_on_her_skeleton_passes_with_the_hooks(tmp_path):
     """gesturekit.build with the hooks on her skeleton read, the first 6 s of her sheet (the hook N01-N02)."""
     import perform as P
