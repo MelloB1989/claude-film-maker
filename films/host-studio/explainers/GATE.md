@@ -182,6 +182,13 @@ TEST NO-GO in both sweep variants: lag_hand_ms 29.83 / 29.97 (the hand leads by 
 rest_contact_bad 1 (tips only, t 0.6 s). Whole-take snaps 5.34 (base) / 6.41 (finals only). T stopped; his read was
 deleted on the box. A TEST-only waiver is the orchestrator's to give, not the gate's.
 
+**His flank (the orchestrator by eye, 09 Nov ~05:2x):** his BEFORE stills (CAM_MCU f0/f84, WIDE f0/f84) show no
+arm-into-flank clipping, so the -8 cm side reading is a measure artefact (the A-pose sleeve/torso split, agent-02).
+agent-05's 4 cm push is HELD (the original outfit is re-dressed if it landed); agent-05 re-runs m1 with the weight
+split, and agent-02 changes the arms measure to a motion-based sleeve split. The gate accepts the new measure only with
+its must_fail kept (her v2b arm-into-bust still FAILS) and her r7J/B numbers consistent. A refit happens only if the
+true need is > 0.
+
 ## Verdicts
 
 ### Netflix v2b: REJECTED BY THE OPERATOR (07 Nov, about 23:45 IST). The SIGN below is SUPERSEDED.
