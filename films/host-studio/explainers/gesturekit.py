@@ -178,6 +178,8 @@ class Plan:
     gap_merge: float = 0.9  # pauses shorter than this keep the hands up (agent-10's timing can set it)
     on_cam: list = field(default_factory=list)  # [[t0, t1, camera label]] the shots she is in
     bridges: list = field(default_factory=list)  # [[t0, t1]] pauses that keep the hands up (agent-10's timing)
+    mic_cams: list = field(default_factory=list)  # [[t0, t1, camera]] shots filmed besides the edit's (his TEST render
+    #   films CAM_MCU over 0-7.46 s): the mic rule guards these too; the framing rows stay on on_cam
 
     def speak_w(self, t: float, pre: float = 0.5, post: float = 0.6, gap_merge: float | None = None) -> float:
         """1 while speaking (lines merged across gaps under gap_merge s), eased in/out."""
@@ -226,7 +228,8 @@ def scaled(p: HandPose, k: float) -> HandPose:
 
 
 def plan_from_sheet(sheet: dict, cues: dict, tilts: list | None = None, base_lean: float = 4.0,
-                    timing: list | None = None, on_cam: list | None = None, close_alive: float | None = None) -> Plan:
+                    timing: list | None = None, on_cam: list | None = None, close_alive: float | None = None,
+                    mic_cams: list | None = None) -> Plan:
     """agent-11's acting sheet (lines[].body01) + the cue sheet (speaking spans) -> Plan. `timing` (agent-10's
     prosody planner) overrides each gesture's prep/stroke/hold/retract/amp/energy by (line, word_i)."""
     events, lean = [], []
@@ -291,7 +294,7 @@ def plan_from_sheet(sheet: dict, cues: dict, tilts: list | None = None, base_lea
     if close_alive and speaking:  # the take's length: after the last line the hands stay at the speaking desk rest
         #   to the end, as the take opens alive (his forearms can't reach the desk rest: elbows off the edge, 55.4 s)
         bridges = list(bridges) + [[max(b_ for _, b_ in speaking), float(close_alive) + 1.0]]
-    return Plan(events, speaking, lean, tilts or [], base_lean, gap_merge, on_cam or [], bridges)
+    return Plan(events, speaking, lean, tilts or [], base_lean, gap_merge, on_cam or [], bridges, mic_cams or [])
 
 
 # --- torso model and the arm clearance ---------------------------------------------------------------------------
@@ -722,7 +725,8 @@ class Performer(S.Seater):
         """cut_cams with each camera's rig (None without one): [(position, rig)]."""
         st_ = self.set
         rigs = getattr(st_, "rigs", None) or {}
-        names = ([cm for a, b, cm in self.plan.on_cam if a < t1 and b > t0] if self.plan.on_cam else list(st_.cams))
+        names = ([cm for a, b, cm in list(self.plan.on_cam) + list(getattr(self.plan, "mic_cams", None) or [])
+                  if a < t1 and b > t0] if self.plan.on_cam else list(st_.cams))
         out = []
         for cm in dict.fromkeys(names):
             c = st_.cams.get(cm) or rigs.get(cm, {}).get("loc")
@@ -1160,12 +1164,14 @@ def metrics(perf: Performer, t0: float, t1: float, fps: float = 30.0) -> dict:
 
 def build(data: dict, st, sy, sheet: dict, cues: dict, tilts: list, length_s: float, fps: int = 30,
           check_every: int = 6, timing: list | None = None, on_cam: list | None = None,
-          frame_want: dict | None = None, track_out: str | None = None, close_alive: bool = False) -> tuple:
+          frame_want: dict | None = None, track_out: str | None = None, close_alive: bool = False,
+          mic_cams: list | None = None) -> tuple:
     """seatkit.build for the performance: the seated pose with the plan driving the upper body, as tracks (constant
     for the bones that never move, per key for spine, neck, head, clavicles, arms, hands and fingers). Returns (doc
     for perform.py's WRITE, summary with the checks and the body rows' numbers)."""
     sk = S.Skeleton.from_read(data)
-    plan = plan_from_sheet(sheet, cues, tilts, timing=timing, on_cam=on_cam, close_alive=length_s if close_alive else None)
+    plan = plan_from_sheet(sheet, cues, tilts, timing=timing, on_cam=on_cam, close_alive=length_s if close_alive else None,
+                           mic_cams=mic_cams)
     se, tuned = S.autotune(sk, st, sy)
     perf = Performer(sk, st, se.sy, plan)
     n = int(round(length_s * fps)) + 1
@@ -1195,11 +1201,11 @@ def build(data: dict, st, sy, sheet: dict, cues: dict, tilts: list, length_s: fl
             up = max(perf.gesture_w(x, t) for x in "lr")  # a hand still gesturing (his last release holds past
             #   the speech, 54.8 s): its arm is up, not resting on the desk
             skip = ("desk.elbow_off", "desk.elbow_hangs", "desk.forearm_unsupported") if ws > 0.1 or up > 0.1 else ()
-            live = next((cm for a, b, cm in plan.on_cam if a <= t < b), None) if plan.on_cam else "*"
+            live = [cm for a, b, cm in list(plan.on_cam) + list(plan.mic_cams) if a <= t < b] if plan.on_cam else "*"
             for x in c["issues"]:
                 if x["code"] in skip:
                     continue
-                if x["code"] == "mic.hides_hand" and live != "*" and (live is None or f" {live} " not in x["message"]):
+                if x["code"] == "mic.hides_hand" and live != "*" and not any(f" {cm} " in x["message"] for cm in live):
                     continue  # a mic overlap counts only in the camera that is cut in (and only when she is on it)
                 issues.append({**x, "t": round(t, 2)})
             if ws > 0.5:
