@@ -1491,6 +1491,7 @@ class Performer(S.Seater):
     PALM_OFF_FWD = 95.0  # deg the palm's normal keeps off straight forward when the fingers point up (agent-13's
     #   move.palm_to_camera_frames: within 60 deg with the fingers up is the 'halt'; the orchestrator, 09 Nov: an
     #   offering / placing palm faces up and in, never the camera): 95 turns it to face her midline (in), a touch back
+    PALM_MAX = 80.0  # deg the guard supinates at most (the forearm's comfortable range past the pose's own)
     PALM_UP_RAMP = (0.15, 0.4)  # the fingers' up component over which the rule fades in (continuous: no snap)
 
     def _palm_off_camera(self, s, fingers, across, d0, a0, side, fa):
@@ -1610,17 +1611,22 @@ class Performer(S.Seater):
             return 0.0
         sg = -1.0 if s == "r" else 1.0  # always the supination sense (toward her midline): a sign taken from the palm
         #   flipped frame to frame near its zero, the hand flapping (410 cm/s fingertips, 21.5 s)
-        lo, hi = 0.0, 150.0  # deg (axis_angle takes degrees)
-        if off(sg * hi) < self.PALM_OFF_FWD:
-            phi = hi
-        else:
-            for _ in range(14):
+        # the least turn within PALM_MAX that gets there; short of it, the turn (in PALM_MAX) that gets furthest: about a
+        #   forearm pointing near the lens no turn takes the palm off it, and a 150 deg ask unwound in 0.2 s (snaps)
+        cand = [i * 2.5 for i in range(int(self.PALM_MAX / 2.5) + 1)]
+        offs = [off(sg * c) for c in cand]
+        ok = [c for c, o in zip(cand, offs) if o >= self.PALM_OFF_FWD]
+        if ok:
+            lo, hi = max(0.0, ok[0] - 2.5), ok[0]
+            for _ in range(8):
                 mid = 0.5 * (lo + hi)
                 if off(sg * mid) >= self.PALM_OFF_FWD:
                     hi = mid
                 else:
                     lo = mid
             phi = hi
+        else:
+            phi = cand[max(range(len(cand)), key=lambda i: offs[i])]
         return sg * phi * k_up
 
     def _finger_pose(self, s, hp: HandPose, W):
