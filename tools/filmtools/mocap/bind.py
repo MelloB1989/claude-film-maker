@@ -64,7 +64,8 @@ def main(argv=None) -> None:
     if a.seq:
         if a.seq == PF.SEQ.get(a.who):
             raise SystemExit(f"{a.seq} is her sequence of record: bind to a scratch copy")
-        n = int(round(doc["length_s"] * doc["fps"]))
+        n = int(doc.get("n_keys") or round(doc["length_s"] * doc["fps"]) + 1)  # every key: frames 0..n-1 (agent-06:
+        #   [0, length*fps) left the last key, frame 240 of a 10 s take, past the section)
         secs = [{"anim": out, "start": 0, "end": n, "loop": False}]
         if a.life:
             secs.append({"anim": f"{PF.ANIM}/AS_exp_{a.who}_life", "start": 0, "end": n, "loop": False, "row": 2})
