@@ -27,7 +27,7 @@ OUT=/srv/ue/explain/$FILM/out_$TAG
 # r7: the finals come from the render farm (agent-07): shot<NN>_<CAM>/<frame>.png under PRES_S3, synced onto this box
 if [ -n "${PRES_S3:-}" ]; then
     PRES=/srv/ue/explain/$FILM/pres_${PRES_S3//\//_}
-    aws s3 sync --only-show-errors "$B/$PRES_S3/" "$PRES/"
+    aws s3 sync --only-show-errors --exclude "*.mp4" "$B/$PRES_S3/" "$PRES/"  # render.py's shot previews not needed
 fi
 UV="nice -n 10 $HOME/.local/bin/uv run --no-project --with pillow --with imageio-ffmpeg --with numpy"
 
