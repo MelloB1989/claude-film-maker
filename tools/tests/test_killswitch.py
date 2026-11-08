@@ -1,0 +1,231 @@
+"""The GPU kill switch: the reaper's decisions and calls (stand-in EC2 and CloudWatch clients), the IAM documents
+and the calibration maths. Nothing here touches AWS."""
+from __future__ import annotations
+
+import json
+import zipfile
+import io
+from datetime import datetime, timezone
+
+import pytest
+
+from filmtools.farm.killswitch import deploy, reaper
+
+NOW = datetime(2026, 11, 8, 12, 0, tzinfo=timezone.utc).timestamp()
+CONF = reaper.settings({"AWS_REGION": "ap-south-1"})
+
+
+def inst(iid, itype="g6e.4xlarge", state="running", up_h=1.0, **tags):
+    lt = datetime.fromtimestamp(NOW - up_h * 3600, timezone.utc)
+    return {"InstanceId": iid, "InstanceType": itype, "State": {"Name": state}, "LaunchTime": lt,
+            "Tags": [{"Key": k, "Value": v} for k, v in tags.items()]}
+
+
+class FakeEC2:
+    def __init__(self, instances, page=2, fail_stop=()):
+        self.instances, self.page, self.fail_stop, self.stopped = instances, page, set(fail_stop), []
+
+    def describe_instances(self, NextToken=None):
+        k = int(NextToken or 0)
+        chunk = self.instances[k:k + self.page]
+        r = {"Reservations": [{"Instances": chunk}]}
+        if k + self.page < len(self.instances):
+            r["NextToken"] = str(k + self.page)
+        return r
+
+    def stop_instances(self, InstanceIds):
+        if set(InstanceIds) & self.fail_stop:
+            raise RuntimeError("UnsupportedOperation: one-time spot")
+        self.stopped += InstanceIds
+
+    def terminate_instances(self, **kw):  # the reaper must never get here
+        raise AssertionError("terminate called")
+
+
+class FakeCW:
+    def __init__(self, names=()):
+        self.alarms = {n: {"AlarmName": n} for n in names}
+        self.puts = []
+
+    def describe_alarms(self, AlarmNamePrefix, AlarmTypes, NextToken=None):
+        names = sorted(n for n in self.alarms if n.startswith(AlarmNamePrefix))
+        k = int(NextToken or 0)
+        r = {"MetricAlarms": [self.alarms[n] for n in names[k:k + 1]]}
+        if k + 1 < len(names):
+            r["NextToken"] = str(k + 1)
+        return r
+
+    def put_metric_alarm(self, **spec):
+        self.puts.append(spec)
+        self.alarms[spec["AlarmName"]] = spec
+
+    def delete_alarms(self, AlarmNames):
+        for n in AlarmNames:
+            assert n.startswith("killswitch-")
+            self.alarms.pop(n)
+
+
+def go(ec2, cw, **conf):
+    logs = []
+    s = reaper.run(ec2, cw, dict(CONF, **conf), now=NOW, log=logs.append)
+    return s, logs
+
+
+@pytest.mark.parametrize("t,gpu", [("g6e.4xlarge", True), ("gr6.4xlarge", True), ("g4dn.xlarge", True),
+                                   ("g5g.xlarge", True), ("p5.48xlarge", True), ("p4d.24xlarge", True),
+                                   ("t3.micro", False), ("c7g.large", False), ("m5.xlarge", False),
+                                   ("inf2.xlarge", False), ("", False)])
+def test_gpu_families(t, gpu):
+    assert reaper.is_gpu(t) is gpu
+
+
+def test_alarm_spec_is_the_brief():
+    a = reaper.alarm_spec("i-0abc", CONF)
+    assert a["AlarmName"] == "killswitch-idle-i-0abc"
+    assert (a["Namespace"], a["MetricName"], a["Statistic"]) == ("AWS/EC2", "CPUUtilization", "Average")
+    assert a["Dimensions"] == [{"Name": "InstanceId", "Value": "i-0abc"}]
+    assert (a["Period"], a["EvaluationPeriods"], a["DatapointsToAlarm"]) == (300, 5, 5)
+    assert (a["Threshold"], a["ComparisonOperator"]) == (4.0, "LessThanThreshold")
+    assert a["TreatMissingData"] == "notBreaching"
+    assert a["AlarmActions"] == ["arn:aws:automate:ap-south-1:ec2:stop"]
+    assert not any("terminate" in x for x in a["AlarmActions"])
+
+
+def test_arms_running_gpus_only_across_pages():
+    ec2 = FakeEC2([inst("i-1"), inst("i-2", "t3.micro"), inst("i-3", "gr6.4xlarge"),
+                   inst("i-4", state="stopped"), inst("i-5", "p5.48xlarge", state="pending")])
+    cw = FakeCW()
+    s, logs = go(ec2, cw)
+    assert sorted(cw.alarms) == ["killswitch-idle-i-1", "killswitch-idle-i-3"]
+    assert ec2.stopped == []
+    assert s["actions"] == 2 and s["failed"] == 0 and s["gpu_running"] == 2
+    assert all(r["ok"] for r in logs[:-1]) and logs[-1]["summary"]
+
+
+def test_already_armed_is_left_alone():
+    cw = FakeCW(["killswitch-idle-i-1"])
+    cw.alarms["killswitch-idle-i-1"]["Period"] = 60  # a drill alarm: the reaper does not overwrite it
+    go(FakeEC2([inst("i-1")]), cw)
+    assert cw.puts == [] and cw.alarms["killswitch-idle-i-1"]["Period"] == 60
+
+
+def test_ttl_stops_with_tag_and_default():
+    ec2 = FakeEC2([inst("i-1", up_h=13), inst("i-2", up_h=11), inst("i-3", up_h=3, TTLHours="2"),
+                   inst("i-4", up_h=30, TTLHours="48"), inst("i-5", up_h=13, TTLHours="junk"),
+                   inst("i-6", "m5.xlarge", up_h=500)])
+    go(ec2, FakeCW([f"killswitch-idle-i-{k}" for k in range(1, 6)]))
+    assert sorted(ec2.stopped) == ["i-1", "i-3", "i-5"]
+
+
+def test_opt_out_skips_ttl_and_disarms():
+    ec2 = FakeEC2([inst("i-1", up_h=40, KillSwitch="off"), inst("i-2", up_h=1, KillSwitch="OFF"),
+                   inst("i-3", up_h=1, KillSwitch="on")])
+    cw = FakeCW(["killswitch-idle-i-1"])
+    go(ec2, cw)
+    assert ec2.stopped == []
+    assert sorted(cw.alarms) == ["killswitch-idle-i-3"]  # i-1 disarmed, i-2 never armed, i-3 armed
+
+
+def test_sweeps_alarms_of_terminated_or_missing_instances():
+    ec2 = FakeEC2([inst("i-1", state="terminated"), inst("i-2", state="stopped"), inst("i-3", "t3.micro")])
+    cw = FakeCW(["killswitch-idle-i-1", "killswitch-idle-i-2", "killswitch-idle-i-gone"])
+    _, logs = go(ec2, cw)
+    assert sorted(cw.alarms) == ["killswitch-idle-i-2"]  # a stopped box keeps its alarm
+    assert {r["why"] for r in logs if r.get("do") == "delete"} == {"instance terminated", "instance not found"}
+
+
+def test_one_failure_does_not_stop_the_rest():
+    ec2 = FakeEC2([inst("i-1", up_h=20), inst("i-2", up_h=20)], fail_stop={"i-1"})
+    s, logs = go(ec2, FakeCW())
+    assert ec2.stopped == ["i-2"] and s["failed"] == 1
+    bad = [r for r in logs if not r.get("ok", True)]
+    assert bad[0]["instance"] == "i-1" and "UnsupportedOperation" in bad[0]["error"]
+
+
+def test_dry_run_changes_nothing():
+    ec2 = FakeEC2([inst("i-1", up_h=20), inst("i-9", state="terminated")])
+    cw = FakeCW(["killswitch-idle-i-9"])
+    s, logs = go(ec2, cw, dry_run=True)
+    assert ec2.stopped == [] and cw.puts == [] and "killswitch-idle-i-9" in cw.alarms
+    assert {r["do"] for r in logs if "do" in r} == {"arm", "stop", "delete"} and s["dry_run"]
+
+
+def test_launch_time_as_cli_string():
+    i = inst("i-1")
+    i["LaunchTime"] = datetime.fromtimestamp(NOW - 7200, timezone.utc).isoformat().replace("+00:00", "Z")
+    assert reaper.uptime_h(i, NOW) == pytest.approx(2.0)
+
+
+def test_handler_reads_env(monkeypatch):
+    monkeypatch.setenv("KILLSWITCH_THRESHOLD", "3")
+    monkeypatch.setenv("KILLSWITCH_DEFAULT_TTL_H", "6")
+    c = reaper.settings()
+    assert c["threshold"] == 3 and c["default_ttl_h"] == 6 and c["periods"] == 5 and not c["dry_run"]
+
+
+# --- deploy ----------------------------------------------------------------------------------------------------------
+ACCT = "000000000000"
+
+
+def test_reaper_policy_cannot_terminate_or_touch_non_gpu():
+    p = deploy.reaper_policy(ACCT, "ap-south-1")
+    actions = [a for s in p["Statement"] for a in ([s["Action"]] if isinstance(s["Action"], str) else s["Action"])]
+    assert not any("Terminate" in a for a in actions)
+    assert set(actions) == {"ec2:DescribeInstances", "ec2:StopInstances", "cloudwatch:DescribeAlarms",
+                            "cloudwatch:PutMetricAlarm", "cloudwatch:DeleteAlarms", "logs:CreateLogStream",
+                            "logs:PutLogEvents"}
+    stop = next(s for s in p["Statement"] if s["Action"] == "ec2:StopInstances")
+    assert stop["Condition"] == {"StringLike": {"ec2:InstanceType": ["g*", "p*"]}}
+    w = next(s for s in p["Statement"] if "cloudwatch:PutMetricAlarm" in s["Action"])
+    assert w["Resource"].endswith(":alarm:killswitch-*")
+
+
+def test_schedule_and_function_docs():
+    s = deploy.schedule_doc(ACCT, "ap-south-1")
+    assert s["ScheduleExpression"] == "rate(10 minutes)" and s["Name"] == "killswitch-reaper-schedule"
+    assert s["Target"]["Arn"].endswith(":function:killswitch-reaper")
+    f = deploy.function_doc(ACCT, CONF)
+    assert (f["Runtime"], f["MemorySize"], f["Handler"]) == ("python3.12", 128, "reaper.handler")
+    assert f["Role"].endswith(":role/killswitch-reaper-role")
+
+
+def test_zip_is_the_reaper_alone_and_stable():
+    z = deploy.zip_bytes()
+    assert z == deploy.zip_bytes()
+    with zipfile.ZipFile(io.BytesIO(z)) as zf:
+        assert zf.namelist() == ["reaper.py"]
+        src = zf.read("reaper.py").decode()
+    assert "def handler" in src and "from ." not in src and "import filmtools" not in src
+
+
+def test_dry_run_client_refuses_writes():
+    calls = []
+    ro = deploy.ReadOnly(deploy.Cli(lambda *a: calls.append(a) or {}, "ec2"))
+    ro.describe_instances()
+    with pytest.raises(PermissionError):
+        ro.stop_instances(InstanceIds=["i-1"])
+    assert calls == [("ec2", "describe-instances")]
+
+
+def test_cli_shim_maps_kwargs():
+    calls = []
+    deploy.Cli(lambda *a: calls.append(a) or {}, "cloudwatch").describe_alarms(AlarmNamePrefix="killswitch-idle-")
+    assert calls[0][:3] == ("cloudwatch", "describe-alarms", "--cli-input-json")
+    assert json.loads(calls[0][3]) == {"AlarmNamePrefix": "killswitch-idle-"}
+
+
+def pts(avgs, start=NOW, step=300):
+    return [{"t": start + k * step, "Average": a} for k, a in enumerate(avgs)]
+
+
+def test_would_fire_needs_five_contiguous_points():
+    assert deploy.would_fire(pts([3.2] * 4 + [25] + [3.2] * 4), 4, 5, 300) == []
+    assert len(deploy.would_fire(pts([3.2] * 5), 4, 5, 300)) == 1
+    assert len(deploy.would_fire(pts([3.2] * 10), 4, 5, 300)) == 2
+    gap = pts([3.2] * 3) + pts([3.2] * 3, start=NOW + 3600)  # missing data in between: notBreaching
+    assert deploy.would_fire(gap, 4, 5, 300) == []
+
+
+def test_busy_runs_span_first_to_last_busy_point():
+    r = deploy.busy_runs(pts([3, 3, 30, 5, 28, 3, 3]), 15, 300)
+    assert [p["Average"] for p in r[0]] == [30, 5, 28]
