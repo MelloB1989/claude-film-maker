@@ -79,6 +79,11 @@ height beside her face, and the CU 'Hit play' is a palm out beside her face. A N
 == 0: no hand above the chin or within ~10 cm of the face in the cut camera. agent-01 fixes it in one sha, and only
 her 3 verify shots re-render.
 
+**The operator on her verify (08 Nov):** the face is SHIPPABLE. The hands at the WIDE counts (~t44.5, N13) look
+'zombie': a claw count hand held up at the shoulder with the forearm vertical, and a flat stiff desk hand. agent-08
+leads a hand-perfection task (anatomical shapes, a by-eye shape catalogue, listing instead of counting, new detectors);
+its rows join this gate. Her finals and his TEST are on HOLD until the new hand shapes pass.
+
 **Breath in the seat (the orchestrator, 08 Nov):** for both presenters the breath (a vertical chest lift on
 spine_05/clavicles, ~2-3.5 mm z at 10-20/min, coupled with speech pauses) moves into the BODY track (gesturekit). The
 life layer keeps only a small clavicle + weight shift. The scored track then contains the breath, so the naturalness rows
