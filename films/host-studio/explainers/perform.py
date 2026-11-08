@@ -104,6 +104,11 @@ LEAD_FRAMES = 2.5
 # almost no weight shift (the seat holds the pelvis), no torso follow (r5: it rode the blinks)
 LIFE = {"state": "talk", "breath_deg": 1.35, "clavicle_deg": 1.0, "shift_cm": 0.25, "follow": 0.0}
 # (box B, 07 Nov: breath_deg 0.9 / clavicle 0.8 gave 14.1 breaths/min at 1.6 mm sternum rise; agent-09's line is >= 2)
+# his, scaled to his body (the orchestrator, 08 Nov: hers on him read 5.27 mm of chest rise, double hers at 2.7, and
+# his parity --shoulder on seat + life 2.08 against seat only 0.12): breath to ~3 mm, linear in breath_deg
+# (1.35 x 3.0 / 5.27 = 0.77); the clavicle lower than in proportion (0.57) since his parity error starts at the
+# clavicles (0.71 cm there, 1.3-1.55 at the hands); weight shift <= 0.2 cm
+LIFE_OF = {"her": LIFE, "him": {**LIFE, "breath_deg": 0.77, "clavicle_deg": 0.3, "shift_cm": 0.2}}
 
 
 def ok(res: dict):
@@ -516,7 +521,7 @@ def cmd_calibrate_body(who: str) -> dict:
 
 def cmd_life(who: str) -> dict:
     r = ok(client().op("anim.body_life", out=f"{ANIM}/AS_exp_{who}_life", body_mesh=mesh_of(who, "Body"),
-                       length_s=round(length_s(who), 3), seed=SEED[who], timeout=600, **LIFE))
+                       length_s=round(length_s(who), 3), seed=SEED[who], timeout=600, **LIFE_OF[who]))
     keep(who, "life", r)
     return r
 
