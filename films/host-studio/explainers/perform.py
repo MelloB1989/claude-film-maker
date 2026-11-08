@@ -527,7 +527,7 @@ FALLBACK_CAMS = {"her": {"CAM_MCU": {"focal": 117.5, "pitch": -1.62}, "CAM_MCU_L
 # side out to his outfit; the gate, >= 0.5 at every checked frame, both arms, seated and in gestures)
 # a presenter's own gesturekit.Performer constants over the class's (hers): his picked from r7/him_sweep.py's table on
 #   his skeleton on box T (his rows can't be run off the box)
-TUNE_OF: dict = {"him": {"REST_WRIST_UNDER": 0.28, "EASE_AT": (11.9, (17.1, 0.3), 21.2, 34.95, 51.5, 55.4),
+TUNE_OF: dict = {"him": {"REST_WRIST_UNDER": 0.28, "EASE_AT": (11.9, (16.7, 0.3), (17.1, 0.3), 21.2, 34.95, 51.5, 55.4),
                          "EASE_LEAD": 0.1, "EASE_ROT": 1.0, "ROT_LAG_ADD": 0.02}}  # (T sweep on c32bc150: his
 #   rest tented on its pads at 0.6 s with 0.2, none at 0.5; but 0.5 put the wrist in the desk box (seatkit's desk.wrist:
 #   forearm_clear - 0.3), so 0.28)
