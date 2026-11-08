@@ -212,3 +212,12 @@ def test_zones_split_bust_from_side():
     arm = [(0, (8.0, 0, 0))]                               # into the bust
     front_w, neg, _ = gm.clearance(gm.TriGrid(fr, 2.0), arm, chain=chain)
     assert front_w[0] < 0 and neg == 1
+
+
+def test_frames_map_by_time():
+    """arm_track (30 fps) f185-205 is 6.17-6.83 s: the 24 fps sequence's f148-164, not f185-205."""
+    plan = gm.to_seq_frames([185, 205, 0, 30], 30, 24)
+    assert [g for g, _, _ in plan] == [148, 164, 0, 24]
+    assert plan[0][2] == round(185 / 30, 4)
+    assert [g for g, _, _ in gm.to_seq_frames([1044, 1104], 24, 24)] == [1044, 1104]
+    assert len(gm.to_seq_frames([0, 1, 2, 3, 4], 30, 24)) == 4   # two 30 fps frames share a 24 fps one

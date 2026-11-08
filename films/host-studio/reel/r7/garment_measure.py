@@ -399,6 +399,20 @@ def parse_frames(spec):
     return out
 
 
+def to_seq_frames(frames, src_fps, seq_fps):
+    """Source frames -> the sequence's own frames BY TIME (t = f / src_fps; the orchestrator's rule: never frame to
+    frame across clocks, arm_track is 30 fps, the sequence 24). [(seq_frame, src_frame, t_s)], first source frame wins
+    when two land on one sequence frame."""
+    out, seen = [], set()
+    for f in frames:
+        t = f / float(src_fps)
+        g = int(round(t * float(seq_fps)))
+        if g not in seen:
+            seen.add(g)
+            out.append((g, f, round(t, 4)))
+    return out
+
+
 # ---------------------------------------------------------------------------------------- editor
 def _editor(G: dict):
     import unreal
@@ -492,16 +506,29 @@ def _editor(G: dict):
         posed = {n: mesh_of(c) for n, c in parts}
         # each part is labelled on ITS OWN ref pose (v2b2: the Top labelled on the Body's ref bones read its sleeves
         # as torso, the arm inside its own sleeve at about -arm radius, and the self-check failed at -13.7)
-        rest, rest_bones, rest_chain = {}, {}, {}
+        rest, rest_bones, rest_chain, rest_fresh = {}, {}, {}, set()
+        # the ref pose and its labels depend only on the mesh asset: kept in the editor's interpreter between the
+        # frames of ONE driver run (RUN, new per CLI call: an asset refit between runs is never read stale; box D ran
+        # ~1 min a frame, much of it this). CACHE=0 rebuilds every frame
+        cache = getattr(unreal, "_fmqa_r7_rest", None)
+        if cache is None or cache.get("run") != G.get("RUN") or not G.get("RUN") or str(G.get("CACHE", "1")) == "0":
+            cache = {"run": G.get("RUN")}
+            setattr(unreal, "_fmqa_r7_rest", cache)
+        keys = {n: (n, c.get_skeletal_mesh_asset().get_path_name(), len(posed[n][0]), len(posed[n][1]))
+                for n, c in parts}
         cleanup()
         try:
             for n, c in parts:
+                if keys[n] in cache:
+                    rest[n], rest_bones[n], rest_chain[n] = cache[keys[n]][:3]
+                    continue
                 ra = EAS.spawn_actor_from_class(unreal.SkeletalMeshActor, unreal.Vector(0, 0, 0), unreal.Rotator(0, 0, 0))
                 ra.set_actor_label(f"{REST}_{n}")
                 rc = ra.get_editor_property("skeletal_mesh_component")
                 rc.set_skeletal_mesh_asset(c.get_skeletal_mesh_asset())
                 if math.dist(loc(rc, "neck_01"), loc(rc, "spine_05")) < 2.0:
                     raise RuntimeError("the temp ref-pose actor has no pose yet: run arms again")
+                rest_fresh.add(n)
                 rest[n] = mesh_of(rc)
                 rest_bones[n] = segs_of(rc), {sd: loc(rc, f"upperarm_{sd}") for sd in ("l", "r")}
                 rest_chain[n] = [loc(rc, b) for b in SPINE]
@@ -509,6 +536,7 @@ def _editor(G: dict):
             cleanup()
         chain = [loc(body, b) for b in SPINE]
         out = {"frame_head": [round(x, 2) for x in head], "parts": {}, "sides": {},
+               "rest_cached": sorted(n for n in keys if n not in rest_fresh),
                **facing("clavicle_l", "clavicle_r")[1]}
         labels = {}
         for n, _ in parts:
@@ -517,7 +545,12 @@ def _editor(G: dict):
                 raise RuntimeError(f"{n}: posed {len(Pp)} verts/{len(Tp)} tris vs ref pose {len(Pr)}/{len(Tr)}: the "
                                    "render copies do not line up")
             used = sorted({i for t in Tp for i in t})
-            labels[n] = label_rest(Pr, rest_bones[n][0], used)
+            hit = cache.get(keys[n])
+            if hit is not None and len(hit) > 3:
+                labels[n] = hit[3]
+            else:
+                labels[n] = label_rest(Pr, rest_bones[n][0], used)
+                cache[keys[n]] = (rest[n], rest_bones[n], rest_chain[n], labels[n])
             # its ref pose vs the Body's: the shared joints' largest offset (0 = one pose, the rest check is valid)
             mis = max(math.dist(a, b) for k in rest_bones["Body"][0] for a, b in
                       zip(rest_bones["Body"][0][k], rest_bones[n][0][k]))
@@ -677,7 +710,10 @@ def main(argv=None) -> int:
     for name in ("arms", "waist"):
         m = sub_.add_parser(name)
         m.add_argument("--seq", required=True)
-        m.add_argument("--frames", required=True, help="F, A-B or A-B:STEP, comma separated")
+        m.add_argument("--frames", required=True, help="F, A-B or A-B:STEP, comma separated, at --frames-fps")
+        m.add_argument("--seq-fps", type=float, default=24.0, help="the sequence's display rate (seq.scrub's frames)")
+        m.add_argument("--frames-fps", type=float, default=None,
+                       help="the clock --frames were taken on (arm_track: 30); default the sequence's own")
         m.add_argument("--out", required=True)
         m.add_argument("--set", action="append", default=[], help="KEY=VALUE knob (ARM_T0, AXILLA_CM, BAND_CM, ...)")
     sub_.add_parser("cleanup")
@@ -686,7 +722,7 @@ def main(argv=None) -> int:
         os.environ["FILM_UE_BOX"] = a.box
     sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "tools"))
     from filmtools.unreal import client
-    g = {"LABEL": a.label}
+    g = {"LABEL": a.label, "RUN": f"{os.getpid()}-{os.urandom(4).hex()}"}
     if a.cmd == "cleanup":
         print(json.dumps(_exec(client, "cleanup", **g)))
         return 0
@@ -696,7 +732,13 @@ def main(argv=None) -> int:
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     per, last = {}, None
-    for f in parse_frames(a.frames):
+    src_fps = a.frames_fps or a.seq_fps
+    plan = to_seq_frames(parse_frames(a.frames), src_fps, a.seq_fps)
+    if src_fps != a.seq_fps:
+        print(f"frames at {src_fps:g} fps -> sequence {a.seq_fps:g} fps by time: "
+              + ", ".join(f"{sf}->{g}" for g, sf, _ in plan), flush=True)
+    clock = {g: (sf, t) for g, sf, t in plan}
+    for f, _, _ in plan:
         for ff in (f + 1, f):
             r = client.op("seq.scrub", path=a.seq, frame=ff)
             if not r.get("ok"):
@@ -707,6 +749,8 @@ def main(argv=None) -> int:
         if last is not None and res["frame_head"] == last:
             print(f"WARN f{f}: head did not move since the last frame (pose not updated?)")
         last = res["frame_head"]
+        res["clock"] = {"seq_frame": f, "seq_fps": a.seq_fps, "src_frame": clock[f][0], "src_fps": src_fps,
+                        "t_s": clock[f][1]}
         per[f] = res
         if a.cmd == "arms":
             print(f"f{f}: bust/front {res['upperarm_bust_clear_cm']} (>= 3), side {res['upperarm_side_clear_cm']} (>= 0.5) | "
