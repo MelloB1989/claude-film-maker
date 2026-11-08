@@ -157,6 +157,11 @@ Must-fails still fail (58f6e0aa -22.8, ee99f626 -28.1). Her A 83.5 / 62.0, B 75.
 pc2/kali/git; every copy was deleted (agent-04's at ~21:45, unopened). His rows come only from agent-01's box-side
 r7/him_sweep.py on T (rows and times only).
 
+**Her B placed (T2, ff93e054, rows on 077d0c7c): GATE PASS, 0 FAIL.** parity 0.357 / shoulder 0.214 / torso 0.186;
+rows (dump + kit) 0 FAIL, lag 53.3 dump / 74.9 kit; rest 19.55; arms rest 3.67 / 1.27, gestures 4.01 / 1.40; hif MCU
+0.676, CU 0.392, WIDE 1.0; breath 2.22 mm at 15.1/min; waist 0.02 / -0.26; place + lips rc 0. Finals B render to
+netflix_finals_B with the head gate first; the orchestrator picks A or B by eye.
+
 ## Verdicts
 
 ### Netflix v2b: REJECTED BY THE OPERATOR (07 Nov, about 23:45 IST). The SIGN below is SUPERSEDED.
