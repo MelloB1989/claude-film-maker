@@ -689,56 +689,89 @@ class Performer(S.Seater):
     MIC_PTS = ((0.0, 0.0), (8.0, 0.0), (15.0, 0.0), (0.0, 9.0), (0.0, 16.0), (8.0, 9.0))  # cm (ahead, up) of the
     #   wrist goal: the hand's points tested, fingers forward or up (a size/open stroke holds them up: his fingertips)
 
+    MIC_DIRS = ((-0.5, -0.5, -0.7), (-0.5, 0.5, -0.7), (0.0, 0.7, -0.7))  # (back, in(-)/out(+), down) per cm step
+
+    def cut_cams(self, t0: float, t1: float) -> list:
+        """The cameras cut in over [t0, t1) (the plan's on_cam, from the edit: PANEL shots are CAM_MCU_L), as actor-frame
+        positions; no on_cam: every camera. A camera missing from the set's cams uses its rig's position."""
+        st_ = self.set
+        if not self.plan.on_cam:
+            return list(st_.cams.values())
+        out = []
+        for a, b, cm in self.plan.on_cam:
+            if a < t1 and b > t0:
+                c = st_.cams.get(cm) or (getattr(st_, "rigs", None) or {}).get(cm, {}).get("loc")
+                if c is not None and c not in out:
+                    out.append(c)
+        return out
+
     def _mic_plan(self, st_pt) -> list:
-        """The planner's mic rule (the orchestrator, 08 Nov, his left fingertips behind the mic from CAM_MCU/CU): every
-        mic-side goal is tested against the mic and boom from EVERY camera (seatkit.behind_mic) at the wrist and ahead of
-        it; a hidden one comes down, in and back to the first clear spot (<= 14 cm); none clear, the stroke goes to the
+        """The planner's mic rule (the orchestrator, 08 Nov): every goal of either hand is tested against the mic and
+        boom (seatkit.behind_mic) at the wrist and ahead of it, from the camera(s) CUT IN while the gesture plays (the
+        ruling: a camera not on screen does not count); a hidden one moves back and down (the mic-side hand also in,
+        first; else out) to the first clear spot (<= 14 steps); the mic-side hand with none clear hands the stroke to the
         other hand (a both-hands stroke becomes that hand's alone; the mic-side hand keeps its rest life)."""
         st_ = self.set
         if not (st_.cams and (st_.mic or st_.boom)):
             return []
-        cams = list(st_.cams.values())
-        sgm = 1.0 if self.mic_side == "r" else -1.0
         log = []
 
-        def hidden(off):
-            w = [st_pt[0] + off[0] - 1.0, st_pt[1] + sgm * off[1], st_pt[2] + off[2] - 0.8]  # (hand_targets' left shift)
+        def hidden(off, s, cams):
+            sg = 1.0 if s == "r" else -1.0
+            w = [st_pt[0] + off[0] - 1.0, st_pt[1] + sg * off[1], st_pt[2] + off[2] - 0.8]  # (hand_targets' left shift)
             for df, du in self.MIC_PTS:
-                p = [w[0] + df, w[1] - sgm * 0.25 * (df + du), w[2] + du]  # and a little in (the fingers aim in)
+                p = [w[0] + df, w[1] - sg * 0.25 * (df + du), w[2] + du]  # and a little in (the fingers aim in)
                 for c in cams:
                     if S.behind_mic(c, p, st_, hand_r=self.MIC_HAND_R) is not None:
                         return True
             return False
 
+        def clear(p, s, cams, dirs):
+            best = None
+            for k, dv in enumerate(dirs):
+                for d in range(1, 15):
+                    if best is not None and d >= best[0]:
+                        break
+                    off = (p.off[0] + dv[0] * d, max(2.0, p.off[1] + dv[1] * d), p.off[2] + dv[2] * d)
+                    if not hidden(off, s, cams):
+                        best = (d, replace(p, off=off))
+                        break
+            return best
+
+        other = "l" if self.mic_side == "r" else "r"
         for e in self.plan.events:
-            if e.hand not in (self.mic_side, "both"):
-                continue
-            p = (e.pose_r if self.mic_side == "r" else e.pose_l) or e.pose_r
-            if not hidden(p.off):
-                continue
-            moved = None
-            for d in range(1, 15):
-                off = (p.off[0] - 0.5 * d, max(2.0, p.off[1] - 0.5 * d), p.off[2] - 0.7 * d)
-                if not hidden(off):
-                    moved = replace(p, off=off)
-                    break
+            cams = self.cut_cams(e.prep, e.stroke + e.hold + e.retract)
+            if not cams:
+                continue  # off screen the whole time: nothing to hide
             t = round(e.stroke, 2)
-            if moved is not None:
-                if self.mic_side == "r":
-                    e.pose_r = moved
+            sides = [x for x in (self.mic_side, other) if e.hand in (x, "both")]
+            for s in sides:
+                p = (e.pose_l if s == "l" else e.pose_r) or e.pose_r
+                if not hidden(p.off, s, cams):
+                    continue
+                got = clear(p, s, cams, self.MIC_DIRS[:1]) if s == self.mic_side else None
+                got = got or clear(p, s, cams, self.MIC_DIRS)
+                if got is not None:
+                    d, moved = got
+                    if s == "r":
+                        e.pose_r = moved
+                    else:
+                        e.pose_l = moved
+                    log.append({"t": t, "hand": e.hand, "side": s, "moved_cm": round(d * math.sqrt(0.25 + 0.25 + 0.49), 1)})
+                elif s == self.mic_side:
+                    if e.hand == "both":
+                        e.hand = other
+                        log.append({"t": t, "hand": "both", "to": e.hand})
+                    else:
+                        e.hand = other
+                        if e.hand == "r":
+                            e.pose_r = p
+                        else:
+                            e.pose_l = p
+                        log.append({"t": t, "hand": self.mic_side, "to": e.hand})
+                    break
                 else:
-                    e.pose_l = moved
-                log.append({"t": t, "hand": e.hand, "moved_cm": round(d * math.sqrt(0.25 + 0.25 + 0.49), 1)})
-            elif e.hand == "both":
-                e.hand = "l" if self.mic_side == "r" else "r"
-                log.append({"t": t, "hand": "both", "to": e.hand})
-            else:
-                e.hand = "l" if self.mic_side == "r" else "r"
-                if e.hand == "r":
-                    e.pose_r = p
-                else:
-                    e.pose_l = p
-                log.append({"t": t, "hand": self.mic_side, "to": e.hand})
+                    log.append({"t": t, "hand": e.hand, "side": s, "unresolved": True})
         return log
 
     def _fit_poses(self, W) -> None:

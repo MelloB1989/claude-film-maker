@@ -161,6 +161,19 @@ def test_similarity_flags_copies_and_passes_variation():
     assert not rep2["pass"]
 
 
+def test_mic_rule_tests_only_the_cut_camera():
+    """the orchestrator, 08 Nov: a hand behind the mic in a camera that is not on screen does not count"""
+    import perform as P
+
+    class Pf:
+        set = P.set_of("her")
+        plan = GK.Plan([], [], [], on_cam=[[0.0, 2.0, "CAM_MCU"], [4.0, 6.0, "CAM_MCU_L"]])
+    cc = GK.Performer.cut_cams
+    assert cc(Pf, 0.5, 1.5) == [Pf.set.cams["CAM_MCU"]]
+    assert cc(Pf, 2.5, 3.5) == []  # a graphic is up: nothing to hide
+    assert cc(Pf, 1.5, 4.5) == [Pf.set.cams["CAM_MCU"], Pf.set.cams["CAM_MCU_L"]]  # a gesture over the cut: both
+
+
 def test_build_on_her_skeleton_passes_with_the_hooks(tmp_path):
     """gesturekit.build with the hooks on her skeleton read, the first 6 s of her sheet (the hook N01-N02)."""
     import perform as P
