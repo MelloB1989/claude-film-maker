@@ -450,6 +450,8 @@ def main(argv=None) -> None:
     elif x.cmd == "perf-parity":
         from . import qa_perf
         ed, of = (json.loads(Path(p).read_text()) for p in (x.editor, x.offline))
+        of = qa_perf.from_arm_track(of) if isinstance(of.get("frames"), list) and of["frames"] and isinstance(
+            of["frames"][0], dict) else of
         res = {"gate": {"body.editor_offline_parity_cm": qa_perf.parity(ed.get("result", ed), of.get("result", of))}}
     elif x.cmd == "perf-rest":
         from . import qa_perf
