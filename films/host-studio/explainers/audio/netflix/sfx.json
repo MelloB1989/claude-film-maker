@@ -1,0 +1,19 @@
+{
+ "film": "netflix",
+ "hits": "out/sfxv3/netflix.json",
+ "sha1": "e844204fdff0",
+ "placed": 93,
+ "skipped": [],
+ "picks": {
+  "whoosh_in": 1,
+  "swoosh_fast": 1,
+  "hit_sub": 1,
+  "pop": 1,
+  "tick": 1,
+  "data_stream": 2,
+  "riser": 1,
+  "glitch": 1,
+  "chime": 2
+ },
+ "ref_db": -20.0
+}

@@ -2,9 +2,9 @@
  "film": "whatsapp",
  "seconds": 56.3333,
  "samples": 2703998,
- "lufs": -14.05,
+ "lufs": -14.06,
  "true_peak_dbtp": -1.71,
- "master_gain_db": 1.19,
+ "master_gain_db": 1.25,
  "voice_lufs": -15.0,
  "music_lufs": -21.0,
  "duck_median_db_per_line": {
@@ -29,5 +29,24 @@
  "bed": {
   "take": "out/host-studio/explainers/music/whatsapp/seed1-af95f095d417.wav",
   "seed": 1
+ },
+ "sfx": {
+  "film": "whatsapp",
+  "hits": "out/sfxv3/whatsapp.json",
+  "sha1": "c871a00e34b7",
+  "placed": 75,
+  "skipped": [],
+  "picks": {
+   "whoosh_in": 1,
+   "swoosh_fast": 1,
+   "hit_sub": 1,
+   "pop": 1,
+   "tick": 1,
+   "data_stream": 2,
+   "riser": 1,
+   "glitch": 1,
+   "chime": 2
+  },
+  "ref_db": -20.0
  }
 }
