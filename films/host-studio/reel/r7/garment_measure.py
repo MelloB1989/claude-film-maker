@@ -30,6 +30,11 @@
          band (blousing), and the edge height above her natural waist (the narrowest girth of her skin).
          Gate keys (agent-09's split, front half): waist_fit_cm = worst gap or bare skin (<= 0.75; v2b 1.04);
          waist_poke_cm = worst poke (<= 0.1; R7W +0.46, seen as qa.clip Body>Trousers in the WIDE).
+         waist_skin_poke_cm (all round) / waist_skin_poke_front_cm (round 7, orchestrator: seated frames must read 0;
+         her skin through the band's lower edge in the WIDE, which a cell's max radius can hide): per skin vertex
+         from RIM_CM (0.5) below the edge down POKE_CM (10), only skin nearest a torso/hip/thigh bone, the signed
+         distance to the nearest trousers triangle (normal away from the axis; out only at alignment >= POKE_ALIGN
+         0.5). <= 0 = nothing out; the console names the worst vertex's deg and depth below the edge.
 
 Run where film-ue runs (the box driver); per frame it scrubs F+1 then F (as qa.clip):
     cd <tree>/tools && uv run python ../films/host-studio/reel/r7/garment_measure.py --box conf arms \\
@@ -397,6 +402,52 @@ def waist_sectors(trou, top, skin, band_cm=4.0, out_cm=2.5):
                     "poke_row": max(pokes)[1] if pokes else None, "poke_by": max(pokes)[2] if pokes else None,
                     "top_over_max": max((x for x in over if x is not None), default=None), "cells": len(gaps)})
     return out
+
+
+def surface_poke(trou_P, trou_T, skin, cy, edge, poke_cm=10.0, rim_cm=0.5, align=0.5, cell=2.0, max_d=6.0):
+    """Per skin vertex (round 7, her WIDE: skin through the band's lower edge, which a 15 deg x 1 cm cell's max radius
+    can hide): signed distance to the nearest trousers triangle, its normal turned away from the axis (cy), + = OUT
+    through the cloth. Only for skin from rim_cm below the trousers' edge (edge[sector], cylindrical t) down poke_cm,
+    and an out-reading counts only clearly in front of the face (alignment >= align; at a hole's edge, a fly or a
+    seam, the nearest point is on the edge and the reading is oblique). skin: [(i, p)], already only torso/hip/thigh
+    skin (hands on the lap sit outside the cloth by right). Returns {poke_cm (all round), poke_front_cm (|deg| <= 90),
+    verts_gt0, verts_gt01, verts, where} with where = the worst's vertex, deg, cm below the edge and alignment."""
+    tris = []
+    for a, b, c in trou_T:
+        pa, pb, pc = trou_P[a], trou_P[b], trou_P[c]
+        n = tri_normal(pa, pb, pc)
+        m = ((pa[0] + pb[0] + pc[0]) / 3, (pa[1] + pb[1] + pc[1]) / 3, (pa[2] + pb[2] + pc[2]) / 3)
+        q = sub(m, cy.o)
+        t = dot(q, cy.u)
+        if dot(n, (q[0] - cy.u[0] * t, q[1] - cy.u[1] * t, q[2] - cy.u[2] * t)) < 0:
+            n = (-n[0], -n[1], -n[2])
+        tris.append((pa, pb, pc, n, a))
+    grid = TriGrid(tris, cell)
+    worst, front, gt0, gt01, n_in = None, None, 0, 0, 0
+    for i, p in skin:
+        t, r, th = cy(p)
+        e = edge[sector(th)]
+        if e is None or t > e - rim_cm or t < e - poke_cm:
+            continue
+        hit = grid.nearest(p, max_d)
+        if hit is None:
+            continue
+        n_in += 1
+        d, q, k = hit
+        al = dot(norm(sub(p, q)), tris[k][3]) if d > 1e-6 else 0.0
+        s = d if al >= align else -d
+        gt0 += s > 0
+        gt01 += s > 0.1
+        rec = (s, i, round(th), round(e - t, 1), round(al, 2))
+        if worst is None or s > worst[0]:
+            worst = rec
+        if abs(th) <= 90.0 and (front is None or s > front[0]):
+            front = rec
+    if worst is None:
+        return {"poke_cm": None, "poke_front_cm": None, "verts_gt0": 0, "verts_gt01": 0, "verts": 0, "where": None}
+    return {"poke_cm": round(worst[0], 2), "poke_front_cm": front and round(front[0], 2), "verts_gt0": gt0,
+            "verts_gt01": gt01, "verts": n_in,
+            "where": {"vert": worst[1], "deg": worst[2], "below_edge_cm": worst[3], "align": worst[4]}}
 
 
 def natural_waist(skin, lo, hi):
@@ -837,9 +888,28 @@ def _editor(G: dict):
         top_t = max(s["edge_t"] for s in secs if s) if any(secs) else 0.0
         nw = natural_waist(skin, top_t - 15.0, top_t + 15.0)
         score, why, poke, pwhy = waist_score(secs, float(G.get("FRONT_DEG", 90.0)))
+        # per-vertex poke (surface_poke): her skin nearest a torso/hip/thigh bone (a hand on her lap is outside the
+        # cloth by right), against the posed trousers' own triangles
+        BP, BT = mesh_of(body)
+        segs = {f"spine:{a}": (loc(body, a), loc(body, b)) for a, b in zip(SPINE, SPINE[1:])}
+        for sd in ("l", "r"):
+            segs[f"thigh_{sd}"] = (loc(body, f"thigh_{sd}"), loc(body, f"calf_{sd}"))
+            for a, b in ((f"upperarm_{sd}", f"lowerarm_{sd}"), (f"lowerarm_{sd}", f"hand_{sd}"),
+                         (f"hand_{sd}", f"middle_01_{sd}"), (f"middle_01_{sd}", f"middle_03_{sd}"),
+                         (f"thumb_01_{sd}", f"thumb_03_{sd}")):
+                segs[f"arm:{a}"] = (loc(body, a), loc(body, b))
+        used = {i for t in BT for i in t}
+        lo_t = float(G.get("POKE_CM", 10.0))
+        near = [i for i in used if top_t - lo_t - 2.0 <= cy(BP[i])[0] <= top_t + 1.0]
+        lab = label_rest(BP, segs, near)
+        skin_v = [(i, BP[i]) for i in near if not lab[i][0].startswith("arm:")]
+        TP, TT = mesh_of(trou)
+        sp = surface_poke(TP, TT, skin_v, cy, [s and s["edge_t"] for s in secs], lo_t,
+                          float(G.get("RIM_CM", 0.5)), float(G.get("POKE_ALIGN", 0.5)), float(G.get("CELL", 2.0)))
         front = [s for s in secs if s and abs(s["deg"]) <= 90]
         res = {"frame_head": [round(x, 2) for x in head], "waist_fit_cm": score, "worst": why,
-               "waist_poke_cm": poke, "poke_where": pwhy, **fdiag,
+               "waist_poke_cm": poke, "poke_where": pwhy, "waist_skin_poke_cm": sp["poke_cm"],
+               "waist_skin_poke_front_cm": sp["poke_front_cm"], "skin_poke": sp, **fdiag,
                "trousers_mesh": trou.get_skeletal_mesh_asset().get_path_name(), "trousers_tris": tn,
                "top_tris": topn, "natural_waist_t": nw and round(nw[0], 1),
                "edge_above_natural_waist_cm": nw and round(sorted(s["edge_t"] for s in front)[len(front) // 2] - nw[0], 1)
@@ -956,8 +1026,11 @@ def main(argv=None) -> int:
                 f"{' WHY ' + json.dumps(r['rest_worst']) if r.get('rest_worst') else ''})"
                 for sd, r in res["sides"].items()), flush=True)
         else:
+            sp = res.get("skin_poke") or {}
             print(f"f{f}: waist_fit {res['waist_fit_cm']} cm ({res['worst']}), waist_poke {res['waist_poke_cm']} cm "
-                  f"({res['poke_where']}; facing vs actor "
+                  f"({res['poke_where']}); SKIN POKE {sp.get('poke_cm')} cm all round, {sp.get('poke_front_cm')} front "
+                  f"(>0 {sp.get('verts_gt0')}, >0.1 {sp.get('verts_gt01')} of {sp.get('verts')}; {sp.get('where')}) ("
+                  f"facing vs actor "
                   f"{res['facing_vs_actor_deg']} deg, knee flip {res['facing_flipped_by_knees']}); edge above waist "
                   f"{res['edge_above_natural_waist_cm']} cm, edge wave {res['edge_wave_front_cm']}; sectors "
                   "[deg, edge_t, tuck, gap_max, poke_max, top_over]: " + json.dumps(
@@ -967,7 +1040,7 @@ def main(argv=None) -> int:
         _exec(client, "cleanup", **g)  # the box-local mesh files and any temp actors
     (out / f"{a.cmd}.json").write_text(json.dumps(per))
     keys = (["upperarm_bust_clear_cm", "upperarm_side_clear_cm", "upperarm_torso_clear_cm"] if a.cmd == "arms"
-            else ["waist_fit_cm", "waist_poke_cm"])
+            else ["waist_fit_cm", "waist_poke_cm", "waist_skin_poke_cm", "waist_skin_poke_front_cm"])
     for key in keys:
         vals = {f: r[key] for f, r in per.items() if r.get(key) is not None}
         if vals:
