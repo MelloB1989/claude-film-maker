@@ -123,7 +123,7 @@ def test_left_hand_stays_inside_the_mic_line():
             hp, _ = G.hand(perf, "l", 1.0 + i * 0.02)
             import gesturekit as GK
             r = GK.HIGH_REST.off
-            assert hp.off[1] <= max(8.0, r[1]) + 0.6 and hp.off[2] <= max(-3.0, r[2]) + 0.6  # the high rest at most, plus micro
+            assert hp.off[1] <= max(G.MIC_L[0], r[1]) + 0.6 and hp.off[2] <= max(G.MIC_L[1], r[2]) + 0.6  # the high rest at most, plus micro
 
 
 def test_similarity_flags_copies_and_passes_variation():

@@ -32,6 +32,8 @@ PREP = (0.18, 0.30)  # s of preparation at full / no vocal energy (agent-09's ga
 AMP_MIN = 0.4  # the smallest stroke that still reads as a gesture (and passes 40 cm/s) on her rig
 BRIDGE_PREP = 0.4  # s: a pause followed this soon by a stroke's preparation does not rest (bridge)
 CHAIN = 0.6  # s: a gesture followed this soon by the next holds still until the next one's preparation
+CHAIN_CAM = {"CAM_MCU": 1.3}  # s, in her MCU shots (the orchestrator, r7F: her rest sits under that frame's bottom
+#   edge; agent-09: keep her hands up between strokes there so hands_in_frame stays clear of its 0.5 line)
 GAP_MERGE = 0.6  # s: pauses longer than this rest
 STILL_MAX = 1.2  # s of still hands while speaking that calls for a beat on a secondary stress
 BEAT_MIN_STRESS = 0.35
@@ -143,10 +145,12 @@ def _plan(film: str, seed: int = 72, bridge: list | None = None) -> dict:
                         "held": bool(g.get("held")), **x})
     out.sort(key=lambda e: e["stroke_t"])
     out = add_beats(out, pros, sheet, spans, rng)
-    chain(out)
+    cameras(out, film)
+    chain(out, spans)
     heights(out, film)
     for e in out:
         e["apex_f"] = int(round(e["stroke_t"] * fps))
+        e.pop("_cam", None)
     return {"_doc": "agent-10's prosody timing for gesturekit.plan_from_sheet(timing=...): per gesture (line, word_i) "
                     "prep_t / stroke_t (the apex, s on the VO clock; apex_f = the 24 fps frame) / hold_s / retract_s "
                     "/ amp / energy override the sheet's; entries with add: true are beats on secondary stresses "
@@ -160,6 +164,15 @@ def _plan(film: str, seed: int = 72, bridge: list | None = None) -> dict:
 # agent-11's scale for small strokes (sheet d2d3e565): sternum in MCU / MCU_L / off camera, collarbone in CU,
 # lower_chest in WIDE
 APEX_HEIGHT = {"CAM_CU": "collarbone", "CAM_WIDE": "lower_chest"}
+
+
+def cameras(ev, film):
+    """Each gesture's camera at its apex (edl/<film>.json, presenter and panel shots)."""
+    edl = json.loads((EXPL / "edl" / f"{film}.json").read_text())
+    for e in ev:
+        f = e["stroke_t"] * edl["fps"]
+        e["_cam"] = next((s.get("camera") for s in edl["shots"] if s["f0"] <= f < s["f1"] and s["kind"] == "pres"),
+                         None)
 
 
 def heights(ev, film):
@@ -176,7 +189,7 @@ def heights(ev, film):
         e["apex_height"] = APEX_HEIGHT.get(cam, "sternum")
 
 
-def chain(ev):
+def chain(ev, spans=None):
     """Every stroke starts from stillness (a real post-stroke hold; and agent-09's gate only counts a beat that rises
     from under 10 cm/s): a gesture followed within CHAIN s holds still until the next one's preparation starts, then
     hands over to it over that preparation; one followed later retracts and settles >= 0.12 s before the next
@@ -184,7 +197,11 @@ def chain(ev):
     places one inside another's hold: N04 'own' 0.5 s after the held 'builds')."""
     for a, b in zip(ev, ev[1:]):
         end = a["stroke_t"] + a["hold_s"]
-        if b["prep_t"] - end < CHAIN:
+        lim = CHAIN
+        if a.get("_cam") in CHAIN_CAM and a.get("_cam") == b.get("_cam") and spans is not None \
+                and span_of(a["stroke_t"], spans) == span_of(b["prep_t"], spans):
+            lim = CHAIN_CAM[a["_cam"]]  # same shot, same speech run: the hands stay up in the frame
+        if b["prep_t"] - end < lim:
             hold = max(0.25 if a["held"] else 0.06, b["prep_t"] - a["stroke_t"])
             if a["held"] and hold < a["hold_s"]:
                 a["hold_trimmed"] = True
