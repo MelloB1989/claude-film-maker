@@ -74,6 +74,14 @@ APEX_MAX_Z = 22.0  # cm over the sternum point: the wrist never higher (the orch
 SIZE_OUT = {"small": 0.0, "medium": 5.0, "big": 10.0}
 
 
+LIST_STEP = 7.0  # cm between a list's items (a hand-width, palm across)
+HOLD_MAX_S = 0.6  # R7 hands (agent-08): a count / beat / list hold at most this (with its drift), never a pose held up
+
+
+def list_y(g: dict) -> float:
+    return RIGHT_MIN_LAT + LIST_STEP * (max(1, int(g.get("item", 1))) - 1)
+
+
 def gesture_pose(g: dict, hand: str, count_n: int) -> HandPose:
     kind, detail, size = g.get("type", "beat"), g.get("detail", ""), g.get("size", "medium")
     so = SIZE_OUT.get(size, 5.0)
@@ -86,6 +94,10 @@ def gesture_pose(g: dict, hand: str, count_n: int) -> HandPose:
         if detail == "place":
             return HandPose((28.0, 12.0 + so * 0.5, -4.0), pron=10.0, ext=5.0, shape="open")  # palms down, set it down
         return HandPose((28.0, 12.0 + so, 0.0), pron=88.0, ext=10.0, shape="open")  # palms facing: the span
+    if kind == "list":  # R7 hands (agent-08 / agent-11): an open hand, palm up and in, PLACING each item on a line in
+        #   front at chest height, the forearm angled toward the camera; item n a hand-width further right (from the
+        #   right hand's working line, RIGHT_MIN_LAT, off the mic)
+        return HandPose((30.0, list_y(g), 0.0), pron=-30.0, ext=8.0, shape="open")
     if kind == "count":
         # to her right at chest height, out wide (from her right-front cameras a high count hand sat over the mic)
         return HandPose((20.0, 28.0, 0.0), pron=95.0, ext=12.0, shape=f"count{max(1, min(3, count_n))}")
@@ -309,6 +321,8 @@ def plan_from_sheet(sheet: dict, cues: dict, tilts: list | None = None, base_lea
                 if g.get("type") == "beat" and g.get("detail") in ("beat", "", None):
                     z = min(z, BEAT_MAX_Z)  # beats can sit lower, still in frame (the orchestrator), off the mic
                 pr = replace(pr, off=(pr.off[0], pr.off[1], z))
+            if g.get("type") == "list":  # the line's places as drawn, whatever the amp
+                pr = replace(pr, off=(pr.off[0], list_y(g), pr.off[2]))
             pl = scaled(gesture_pose(g, "l", n_count), k) if g.get("hand") in ("both", "l") else None
             if pl is not None:  # the left (mic side) of a two-hand gesture: forward <= LEFT_TWO[0], out LEFT_TWO[1], up
                 #                 >= LEFT_TWO[2] over the sternum point. Tucked in and low (out 7, up -3.5) the arm went
@@ -320,7 +334,10 @@ def plan_from_sheet(sheet: dict, cues: dict, tilts: list | None = None, base_lea
                 pl = replace(pl, off=tuple(HIGH_REST.off[i] + LEFT_SHARE * (pr.off[i] - HIGH_REST.off[i]) for i in range(3)))
             seed0 += 1
             prep = float(g["prep_t"])  # agent-10's prosody timing owns prep/stroke/hold/retract when present
-            ev = Event(g.get("hand", "r"), prep, float(g["stroke_t"]), float(g.get("hold_s", 0.25)),
+            hold = float(g.get("hold_s", 0.25))
+            if g.get("type") in ("count", "beat", "list"):
+                hold = min(hold, HOLD_MAX_S)
+            ev = Event(g.get("hand", "r"), prep, float(g["stroke_t"]), hold,
                        pr, pl, g.get("type", "beat"), g.get("word", ""), g.get("size") == "big",
                        energy=float(g.get("energy", amp)), seed=seed0, retract=float(g.get("retract_s", 0.35)),
                        detail=g.get("detail", ""), line=str(b.get("line", ln.get("id", ""))))
@@ -1288,15 +1305,19 @@ LEFT_SHARE = 0.58  # the left's move on a two-hand stroke, of the right's
 LEFT_TWO = (24.0, 9.0, -2.0)  # cm her left hand on a two-hand gesture (agent-10, see plan_from_sheet)
 LEFT_MAX_Z = 40.0  # cm over the sternum point for her left hand (no cap with the mic at her mouth)  # cm: her left hand stays at least 3 cm to her RIGHT of the sternum point while she speaks
 
-FRAME_WANT = {"CAM_MCU": 0.6, "CAM_MCU_L": 0.6, "CAM_CU": 0.3, "CAM_WIDE": 0.95}  # the orchestrator's lines
+FRAME_WANT = {"CAM_MCU": 0.6, "CAM_MCU_L": 0.6, "CAM_CU": 0.1, "CAM_WIDE": 0.95}  # the orchestrator's lines (CU 0.1,
+#   a hand at least partly in: the orchestrator, 09 Nov, the CU is about the face; the face rule stays absolute)
+FRAME_PARTIAL = ("CAM_CU",)
 
 
-def hands_in_frame(rig: dict, A: dict, margin: float = 0.01) -> bool:
-    """At least one hand fully in the picture: its wrist and the index/middle/pinky/thumb tips (agent-09's gate)."""
+def hands_in_frame(rig: dict, A: dict, margin: float = 0.01, partial: bool = False) -> bool:
+    """At least one hand fully in the picture: its wrist and the index/middle/pinky/thumb tips (agent-09's gate);
+    `partial`: any of them in (a hand entering from the bottom edge counts)."""
     for s in "lr":
         pts = [A.get(b) for b in ("hand_" + s, f"index_03_{s}", f"middle_03_{s}", f"pinky_03_{s}", f"thumb_03_{s}")]
         uv = [S.project(rig, p) for p in pts if p is not None]
-        if uv and all(x is not None and margin <= x[0] <= 1 - margin and margin <= x[1] <= 1 - margin for x in uv):
+        ins = [x is not None and margin <= x[0] <= 1 - margin and margin <= x[1] <= 1 - margin for x in uv]
+        if uv and (any(ins) if partial else all(ins)):
             return True
     return False
 
@@ -1402,7 +1423,7 @@ def build(data: dict, st, sy, sheet: dict, cues: dict, tilts: list, length_s: fl
                 if cam and st.rigs and cam in st.rigs:
                     fr = framing.setdefault(cam, [0, 0])
                     fr[1] += 1
-                    fr[0] += int(hands_in_frame(st.rigs[cam], A))
+                    fr[0] += int(hands_in_frame(st.rigs[cam], A, partial=cam in FRAME_PARTIAL))
     for b in moving:
         const.pop(b, None)
     sref = data.get("skel_t") or {}
