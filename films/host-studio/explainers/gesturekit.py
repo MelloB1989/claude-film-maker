@@ -573,7 +573,7 @@ class Performer(S.Seater):
             ws *= max([e.weight(t) for e in self.plan.events if e.hand in ("l", "both")] or [0.0])
         wg = self.gesture_w(s, t)
         self._wg[s] = wg  # hand_rot_p fades YAW_BASE in with it, ROT_LAG_S behind (the hand turns after the arm)
-        lag = getattr(STYLE_HOOK, "ROT_LAG_S", 0.0) if STYLE_HOOK is not None else 0.0
+        lag = getattr(STYLE_HOOK, "ROT_LAG_S", 0.0) + self.ROT_LAG_ADD if STYLE_HOOK is not None else 0.0
         self._wg_rot[s] = self.gesture_w(s, t - lag) if lag > 0 else wg
         self._ws[s] = ws
         if STYLE_HOOK is not None and hasattr(STYLE_HOOK, "hand"):
@@ -1556,12 +1556,14 @@ class Performer(S.Seater):
     EASE_RAMP = 0.15  # s the window fades in / out over
     EASE_LEAD = 0.0  # s (his proxy: 0.1 stopped turn worst 525 -> 272 deg/s, snaps 0; 0.2 overshoots, snaps 3.2)
     EASE_ROT = 0.0  # of ROT_LAG_S taken off in a window (1: the turn in step with the path)
+    ROT_LAG_ADD = 0.0  # s a performer's hand turn trails over gesture_style.ROT_LAG_S (lag_hand_ms on his TEST spans)
 
     def ease_at(self, t: float) -> float:
         """0..1: how far t is inside an EASE_AT window."""
         e = 0.0
-        for c in self.EASE_AT:
-            x = abs(t - c) - self.EASE_HALF
+        for c in self.EASE_AT:  # a time, or (time, half) for a window kept short of a span
+            c, half = (c, self.EASE_HALF) if isinstance(c, (int, float)) else c
+            x = abs(t - c) - half
             e = max(e, 1.0 if x <= 0 else smooth(1.0 - x / self.EASE_RAMP))
         return e
 
