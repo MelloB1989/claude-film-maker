@@ -1346,8 +1346,8 @@
    "where": "the speaking frames of the take (or every 2nd), both hands",
    "how": "python3 r7/parity.py EDITOR.json OFFLINE.json [--span A-B] --json (agent-13, fleet/agent-13/r7-movement d493fc42; agent-06's x/diag_res.py is the same definition) -> numbers/<film>/parity.json; the naturalness rows count only on the EDITOR dump and only after this passes. Cross-check tool: film-qa perf-parity (agent-09, one rigid fit)",
    "must_fail": [
-    44.0,
-    "box D's editor dump on her 1e88aca8 body with the stale AS_exp_her_life layer (built on r7F): hands 7-12 cm off, fingers up to ~44 cm (ring_03_r f1138; agent-06 / agent-13). Self-check 0.0; 52ab5ea2 vs 1e88aca8 reads 35.5"
+    44.135,
+    "box D's STALE editor dump (1e88aca8 seat + the old r7F life layer, f0-196 + f1040-1162; agent-06 with r7/parity.py d493fc42): 44.135 cm, worst ring_03_r f1138, p50 25.87, 320 frames x 32 bones (the dump stays off the repo: her data)"
    ],
    "why": "the orchestrator, 08 Nov: NO render until the naturalness rows PASS on the EDITOR DUMP itself; a stale layer must not slip through again (HIS chain on box T too)"
   },
@@ -1362,7 +1362,7 @@
    "what": "median upper-arm elevation while the hand rests with the FOREARM ON THE DESK (the orchestrator's desk rest), worse hand",
    "must_fail": [
     null,
-    "agent-13 to give the body that fails it (a desk rest with the elbows lifted)"
+    "none: an ALLOWANCE (supported elbows may sit higher than the hanging 30), not a defect catch; every body's desk frames read 36.5 (404db805, 52ab5ea2, 1e88aca8; agent-13). A GUARD: agent-13 promotes it if a desk-rest body reads over 40"
    ],
    "guard": true,
    "na_ok": true,
