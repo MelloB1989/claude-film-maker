@@ -149,6 +149,14 @@ he passes on the exact proxy. MCU_L 0.615 accepted.
 the box kit track (30 fps). The row is scored on the track (the 08 Nov 'track + parity' ruling): PASS. The dump row is
 INFO, and a ~40 ms median is one 24 fps frame (r7J's dump read 94 against a ~53 track).
 
+**lag_hand onset fix (agent-04, 09 Nov; agent-01's find), naturalness.py on fleet/agent-04/r7-movement 077d0c7c:**
+each series' onset is searched from its own low after a0 (a decaying tail from the previous arrival is not an onset).
+Must-fails still fail (58f6e0aa -22.8, ee99f626 -28.1). Her A 83.5 / 62.0, B 75.4 / 74.9 (whole / windows), and the
+24 fps read now agrees with the track (A 80.6, B 53.2), so B's dump 'fail' was the measure. The line stays >= 30.
+**His export withdrawn (the orchestrator, 09 Nov):** the operator's rule keeps Host_Op data, his rig included, off
+pc2/kali/git; every copy was deleted (agent-04's at ~21:45, unopened). His rows come only from agent-01's box-side
+r7/him_sweep.py on T (rows and times only).
+
 ## Verdicts
 
 ### Netflix v2b: REJECTED BY THE OPERATOR (07 Nov, about 23:45 IST). The SIGN below is SUPERSEDED.
