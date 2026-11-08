@@ -316,3 +316,14 @@ tested in `test_seatkit.py`), `gestures.json` (the emphasis gestures per line).
   (setplan projection from x ~704). comp_box.sh PRES_S3 pulls agent-07's farm finals. Box C (agent-06's, CPU only):
   WhatsApp dry composite g4: card measured at x 96-619, y 81-241 (f48 vs f4); 1352 f, lufs_err 0.1, TP -1.7, captions 1,
   onset 84 ms, facts 1, qc_ok 1.
+
+### Editor boxes, 8 Nov evening (agent-06, IST)
+
+| IST | What |
+|---|---|
+| 14:20 | Box D (Mumbai g4dn.4xlarge T4, spot) from box C's AMI: core install; T4 feasibility CAM_MCU f0-30 at the finals preset: 199 s, peak VRAM 9.9 GB of 15, no GPU errors. |
+| 14:30-15:00 | Her chain on 1e88aca8: gates first read the sequence before the new seat was bound (body writes only the seat; preview binds it); re-ordered. "Stale life layer" parity of 44-47 cm later traced to a CLOCK slip: editor dumps are 24 fps sequence frames, arm_track.json is 30 fps; parity now matches by time (agent-13 parity.py). |
+| 15:00 | Box D terminated (spot request cancelled). Her chain moved to Tokyo T2 (g6e.2xlarge spot, restored from the Tokyo bucket); his to Tokyo T. Kali cannot read box-written private/ objects: parity/rows/rest filters run on the boxes, numbers only come back. |
+| 15:30-18:30 | Body iterations ac3dc14a -> 906d80d3 -> 8a45d961 -> b4325b5b (her), up to 9eaf6a4b / ea9eadc0 / aba900fe (him): mic occlusion per cut camera, finger snaps eased, life scaled for him. Box T killed twice by the kill switch re-arm (stale idle points) and once by Tokyo capacity; T2 spot-interrupted 11:42-11:49 UTC mid face pass. |
+| 19:15 | Her T2 gates on b4325b5b: parity --shoulder 0.919 cm, all rows on the kit track (finger_snap 0), rest 16.36 cm, arms rest + gesture pass (agent-02 949cde7c), hands_in_frame MCU 0.797 / CU 0.529 / WIDE 1.0, head gate pass (on_lens 0.916). Breath z 1.62 mm (target 2-3.5) goes to the finals' life (d85ecdc6). |
+| 19:33 | Her verify render netflix_r7H shots 1, 2, 11 at the finals preset on T2 (7 min); Tokyo private review/explain/netflix_r7H/final/. T2 saved + API-stopped for the orchestrator's review. |
