@@ -48,6 +48,7 @@ SHAPES = {
     "count3": {"index": -22, "middle": -22, "ring": -20, "pinky": 66, "thumb": 35},
     "pinch": {"index": 35, "middle": 10, "ring": 15, "pinky": 20, "thumb": 20},
     "soft_fist": {"index": 25, "middle": 28, "ring": 30, "pinky": 30, "thumb": 10},
+    "rest": {"index": -8, "middle": -6, "ring": -4, "pinky": -2, "thumb": -6},  # gently curved, not hanging (r7F)
 }
 
 
@@ -106,9 +107,17 @@ def gesture_pose(g: dict, hand: str, count_n: int) -> HandPose:
     return HandPose((29.0, 12.0 + so * 0.4, -2.0), pron=35.0, ext=12.0, shape="relaxed")
 
 
-HIGH_REST = HandPose((22.0, 17.0, 13.0), pron=40.0, ext=10.0, shape="relaxed", yaw=20.0)  # r7b: hands together at the
-#   sternum (the MCU frame's bottom edge, agent-11 d2d3e565), on her RIGHT of centre: the mic hangs at chest-to-face
-#   height on her left, frame right (u 0.68, v 0.80 in CAM_MCU); hands at the midline sat over it
+# the origin the sheet's amp scales a gesture pose from (scaled, gesture_style's Var.apply): the r7b high rest, kept
+# so that moving the rest does not move the gestures
+POSE_ORIGIN = HandPose((22.0, 17.0, 13.0), pron=40.0, ext=10.0, shape="relaxed", yaw=20.0)
+# r7F (the orchestrator on her TEST: at the top of her chest, wrists limp, fingers like claws, it read as fidgeting
+# with her top): the presenter's rest. Hands loosely together in a soft steeple at the lower ribcage, well in front of
+# her (not touching her), palms facing, wrists straight, fingers gently curved; the gestures rise from it into the
+# frame. The fingers aim at the midline (YAW_BASE is faded out at the rest, see hand_targets).
+HIGH_REST = HandPose((24.0, 8.5, 2.5), pron=80.0, ext=0.0, shape="rest")
+REST_POLE = (-0.2, 0.9, -0.6)  # the elbows' direction at the rest (fwd, out, up)
+REST_YAW = 32.0  # deg out off the forearm at the rest (gesture_style's track carries no yaw): the forearms come in
+#                  from the elbows at ~60 deg, the fingers then point forward and in, the tips meeting at the midline
 
 
 @dataclass
@@ -195,7 +204,7 @@ class Plan:
 
 def scaled(p: HandPose, k: float) -> HandPose:
     """A gesture pose `k` times as far from the high rest (the sheet's amp: strokes vary in size)."""
-    off = tuple(HIGH_REST.off[i] + (p.off[i] - HIGH_REST.off[i]) * k for i in range(3))
+    off = tuple(POSE_ORIGIN.off[i] + (p.off[i] - POSE_ORIGIN.off[i]) * k for i in range(3))
     return replace(p, off=off)
 
 
@@ -313,6 +322,7 @@ class Performer(S.Seater):
 
     def __init__(self, sk, st, sy, plan: Plan, torso: Torso | None = None, mic_side: str = "l"):
         self._ready = False  # seatkit's own setup (wrist extension, desk rest) runs on seatkit's pose
+        self._wg = {}
         super().__init__(sk, st, replace(sy, lean=plan.base_lean))
         self.plan, self.tor, self.mic_side = plan, torso or Torso(), mic_side
         self._finger_info = self._fingers()
@@ -354,6 +364,13 @@ class Performer(S.Seater):
                 out[(s, f)] = {"joints": joints, "palm": ps}
         return out
 
+    def gesture_w(self, s: str, t: float) -> float:
+        """0 at the high rest .. 1 on a gesture of hand `s` (the style track's own weights when it draws the hand)."""
+        if STYLE_HOOK is not None and hasattr(STYLE_HOOK, "_tracks"):
+            w = STYLE_HOOK._tracks(self)[s].at(t)[1]
+            return min(1.0, max(w.values() or [0.0]))
+        return min(1.0, max([e.weight(t) for e in self.plan.events if e.hand in (s, "both")] or [0.0]))
+
     def hand_targets(self, s: str, t: float, W) -> tuple:
         """(wrist component point, HandPose blend, pole direction, speak weight, big-gesture weight)."""
         f, r, u = self.fr
@@ -365,6 +382,8 @@ class Performer(S.Seater):
             # her left forearm rests on the desk while she speaks and rises only for its own / two-hand gestures:
             # anywhere up near her chest it sat over the mic in the picture (it hangs at sternum height, frame right)
             ws *= max([e.weight(t) for e in self.plan.events if e.hand in ("l", "both")] or [0.0])
+        wg = self.gesture_w(s, t)
+        self._wg[s] = wg  # hand_rot_p fades YAW_BASE in with it
         if STYLE_HOOK is not None and hasattr(STYLE_HOOK, "hand"):
             hp, big = STYLE_HOOK.hand(self, s, t)  # the whole hand track (co-articulation, wrist lead, cascade)
         else:
@@ -400,7 +419,7 @@ class Performer(S.Seater):
         tgt = [st_pt[0] + off[0] + acc[0], st_pt[1] + sg * (off[1] + acc[1]), st_pt[2] + off[2] + acc[2]]
         if s == "l":  # the mic-side hand: 1 cm back, a little lower, and never further to her own left than
             #           LEFT_MAX_LAT of the sternum point (it works right of centre, off the mic), whatever drew its pose
-            tgt = [tgt[0] - 1.0, tgt[1], tgt[2] - 0.8]
+            tgt = [tgt[0] - 1.0 * wg, tgt[1], tgt[2] - 0.8 * wg]  # at the rest the two hands meet level
             lat = dot(sub(tgt, st_pt), [0.0, -1.0, 0.0])  # how far to her left of the sternum point
             if lat > LEFT_MAX_LAT:
                 tgt = [tgt[0], tgt[1] + (lat - LEFT_MAX_LAT), tgt[2]]
@@ -414,14 +433,18 @@ class Performer(S.Seater):
             #                       except a deictic to the panel, which crosses on purpose
             cross = any(e.kind == "deictic" and e.pose_r.off[1] < 12.0 and e.weight(t) > 0.2 for e in self.plan.events)
             lat = dot(sub(tgt, st_pt), [0.0, 1.0, 0.0])
-            if not cross and lat < RIGHT_MIN_LAT:
-                tgt = [tgt[0], tgt[1] + (RIGHT_MIN_LAT - lat) * ws, tgt[2]]
+            lat_min = RIGHT_MIN_LAT * wg  # a gesture's apex; the rest's hands meet at the midline, under the mic
+            if not cross and lat < lat_min:
+                tgt = [tgt[0], tgt[1] + (lat_min - lat) * ws, tgt[2]]
         tgt[2] += 4.0 * math.sin(math.pi * ws)  # an arc up off the desk and back, never through it
         if s == "l":  # and the mic-side hand's path bows in toward her midline, away from the mic in every camera
             tgt = add(tgt, mul(self.fr[1], 4.0 * math.sin(math.pi * ws)))
         # elbows out and a little down; the mic-side elbow lower still (its upward swing meets the mic)
         pole = (add(add(mul(f, -0.3), mul(r, 0.9)), mul(u, -0.35)) if s == "r"
                 else add(add(mul(f, -0.3), mul(r, -0.9)), mul(u, -0.5)))
+        if wg < 1.0:  # at the high rest the elbows hang: relaxed down and a little out, shoulders down (r7F)
+            pr_ = add(add(mul(f, REST_POLE[0]), mul(r, REST_POLE[1] * (1.0 if s == "r" else -1.0))), mul(u, REST_POLE[2]))
+            pole = add(mul(unit(pole), wg), mul(unit(pr_), 1.0 - wg))
         pole_rest = sub(self.comp(e0), self._fk_t("upperarm_" + s, "clavicle_" + s, W))
         pole = add(mul(unit(pole), ws), mul(unit(pole_rest), 1.0 - ws))
         rest_hp = HandPose((0.0, 0.0, 0.0), pron=self.sy.pronation, ext=self.ext_base.get(s, 10.0), shape="relaxed")
@@ -572,7 +595,8 @@ class Performer(S.Seater):
         a0 = sub(sk.p("pinky_01_" + s), sk.p("index_01_" + s))
         fa = unit(forearm)
         hz = ortho(fa, u) if abs(dot(fa, u)) < 0.98 else f
-        yw = math.radians(getattr(hp, "yaw", 0.0) + YAW_BASE.get(s, 0.0))
+        wg = self._wg.get(s, 1.0)
+        yw = math.radians(getattr(hp, "yaw", 0.0) + YAW_BASE.get(s, 0.0) * wg + REST_YAW * (1.0 - wg))
         hz = unit(add(mul(hz, math.cos(yw)), mul(ortho(side, hz), math.sin(yw))))
         pitch = math.asin(max(-1.0, min(1.0, dot(fa, u)))) + math.radians(hp.ext)
         fingers = unit(add(mul(hz, math.cos(pitch)), mul(u, math.sin(pitch))))
