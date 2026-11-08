@@ -1062,7 +1062,7 @@
    "why": "the orchestrator, 08 Nov: the presenter-at-desk rest = forearms resting on the desk, hands loosely together ~30-35 cm in front of the torso and >= 8 cm clear of the belly/torso surface; hands on the body are the 'stuck to the body' look the operator rejected",
    "r4": [
     null,
-    "her DESK REST (agent-01 5c1cf0e1, box T2, fixed op b1d46e42): worst 9.01 cm (r f24, l f1139), PASS at 8; most rest frames 16-17 cm, the closest ones the gesture-adjacent frames (~9). Thin margin (1.13x)"
+    "her body 8a45d961 on T2 (rendered seat + life; perf-rest --track by time; agent-06): worst 16.15 cm, PASS (2x the line); 5 true rest frames (f6-10, f200, f1046), the earlier 9.0 cm frames were stroke holds and are filtered out"
    ]
   },
   "move.fingers_frozen_frac": {
