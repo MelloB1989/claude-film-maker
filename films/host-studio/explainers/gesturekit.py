@@ -66,11 +66,13 @@ class HandPose:
 # r7b (the orchestrator on side A: the gestures were BELOW the MCU frame): the sheet's apex_height per gesture
 # (agent-11) as the wrist's height over the sternum point (shoulders - 14 cm, ~84 cm seated on her). MCU's bottom edge
 # is about her bust line (~85 cm): bust puts the fingertips just inside it
-APEX_Z = {"bust": 8.0, "lower_chest": 11.0, "sternum": 14.0, "upper_chest": 19.0, "collarbone": 25.0, "chin": 30.0}
+APEX_Z = {"bust": 8.0, "lower_chest": 11.0, "sternum": 14.0, "upper_chest": 19.0, "collarbone": 22.0, "chin": 30.0}
 # (agent-10's projection: the CU's bottom edge sits at ~102 cm on her gesture plane, so collarbone strokes need the
 #  wrist near 110 cm = the sternum point + ~25)
 
 BEAT_MAX_Z = 16.0  # cm over the sternum point: a beat's apex never higher (N15 'delivers' at upper chest met the mic)
+APEX_MAX_Z = 22.0  # cm over the sternum point: the wrist never higher (the orchestrator, 08 Nov: key beats cap at the
+#   collarbone, <= 60 deg of upper arm)
 
 # the poses a gesture moves to, per kind/detail and size; the right hand's (the left mirrors out)
 SIZE_OUT = {"small": 0.0, "medium": 5.0, "big": 10.0}
@@ -120,7 +122,7 @@ HIGH_REST = HandPose((25.0, 10.0, -4.0), pron=80.0, ext=0.0, shape="rest")  # th
 #   chest (swivel) only with the elbows up at 90-92 cm, a reach; at 25 / 10 out they hang at 83-86, the wrists 27 cm
 #   forward of her spine, the fingertips 3-5 cm over the desk (offline on her skeleton, 0 issues)
 REST_POLE = (-0.2, 0.9, -0.6)  # the elbows' direction at the rest (fwd, out, up)
-REST_YAW = 15.0  # deg out off the forearm at the rest (r7F naturalness: 32 bent the wrists back 31 deg; 15 keeps them
+REST_YAW = 8.0  # deg out off the forearm at the rest (r7F naturalness: 32 bent the wrists back 31 deg; 15 keeps them
 #                  near neutral, the fingertips still 3.8 cm apart) (gesture_style's track carries no yaw): the forearms come in
 #                  from the elbows at ~60 deg, the fingers then point forward and in, the tips meeting at the midline
 
@@ -249,7 +251,7 @@ def plan_from_sheet(sheet: dict, cues: dict, tilts: list | None = None, base_lea
             k = 0.55 + 0.8 * amp  # 0.3 -> 0.79, 0.55 -> 0.99, 0.85 -> 1.23 of the pose's distance from the high rest
             pr = scaled(gesture_pose(g, "r", n_count), k)
             if g.get("apex_height") in APEX_Z:  # the sheet's height wins: in the shot, not at the desk
-                z = APEX_Z[g["apex_height"]]
+                z = min(APEX_Z[g["apex_height"]], APEX_MAX_Z)  # key beats at most at the collarbone
                 if g.get("type") == "beat" and g.get("detail") in ("beat", "", None):
                     z = min(z, BEAT_MAX_Z)  # beats can sit lower, still in frame (the orchestrator), off the mic
                 pr = replace(pr, off=(pr.off[0], pr.off[1], z))
@@ -610,12 +612,20 @@ class Performer(S.Seater):
             if c >= self.CLEAR_WANT:
                 if not self.SWIVEL_LOW:
                     return e, w2
-                if low is None or ea[2] < low[0]:
-                    low = (ea[2], e, w2)
+                ua = sub(ea, sha)  # abduction: the upper arm's lean out to her side, in her frontal plane
+                abd = math.degrees(math.atan2(abs(ua[1]), max(1e-6, -ua[2]))) if ua[2] < 0 else 90.0
+                key = (abd > self.ABD_MAX, ea[2])  # within the abduction line first, then the lowest
+                if low is None or key < low[0]:
+                    low = (key, e, w2)
         if low is not None:
             return low[1], low[2]
         return (best[1], best[2]) if best else (elbow, wr)
 
+    ELEV_HIGH = 60.0  # deg for an apex at/above upper_chest (the orchestrator's ruling (B), 08 Nov)
+    HIGH_OVER_SHOULDER = 2.0  # cm: a wrist goal this far over the shoulder joint is a high apex (upper_chest = +5)
+    LOW_DOWN = 0.6  # cm down per cm in, for a low stroke (a high one only comes in)
+    REACH_MAX = 22.0  # cm the wrist goal comes in at most
+    ABD_MAX = 35.0  # deg the upper arm's abduction at most when a clearing elbow allows (the orchestrator's row)
     ELEV_REST, ELEV_STROKE = 30.0, 45.0  # deg the upper arm off hanging, at most (agent-13's lines, the orchestrator:
     #   the clearance by shoulder FLEXION, the elbow forward and down, not abducted out: chicken wings)
     LOWER_APEX = False  # lower a high apex too when pulling it in can't meet the cap (off: it emptied CAM_CU's frame,
@@ -626,43 +636,47 @@ class Performer(S.Seater):
         """deg the upper arm off hanging straight down (flexion and abduction together)."""
         return math.degrees(math.acos(max(-1.0, min(1.0, -dot(unit(sub(elbow, sh)), self.fr[2])))))
 
+    def cap_at(self, sh, goal, wg) -> tuple:
+        """(elevation cap deg, highness 0..1) for a wrist goal: 45 for a stroke up to 6 cm under the shoulder joint,
+        rising to 60 at 5 cm over it (upper_chest .. collarbone, the orchestrator's (B)), blended from ELEV_REST by
+        the gesture weight. Continuous, so the wrist never jumps where a stroke crosses the line."""
+        h = dot(sub(goal, sh), self.fr[2])
+        k = max(0.0, min(1.0, (h + 6.0) / 11.0))
+        return self.ELEV_REST + (self.ELEV_STROKE + (self.ELEV_HIGH - self.ELEV_STROKE) * k - self.ELEV_REST) * wg, k
+
     def reach(self, s, sh, wrist, l1, l2, pole, W, ws):
-        """swivel, then the elevation cap: while the lowest elbow that clears is still over the cap (ELEV_REST at the
-        rest .. ELEV_STROKE on a gesture), the wrist's goal comes in toward her and a little down, the forearm then
-        angling up from a hanging elbow (up to 14 tries, 28 cm)."""
+        """swivel, then the elevation cap: if the lowest elbow that clears is over the cap, the wrist's goal comes in
+        toward her (and, for a low stroke, a little down) by the least distance that meets it (bisection, so the
+        result moves smoothly with the goal), the forearm then angling up from a hanging elbow."""
         elbow, wr = self.swivel(s, sh, wrist, l1, l2, pole, W, ws)
         if ws < 0.5 or not self.SWIVEL_LOW:
             return elbow, wr
-        wg = self._wg.get(s, 1.0)
-        cap = self.ELEV_REST + (self.ELEV_STROKE - self.ELEV_REST) * wg
+        cap, k = self.cap_at(sh, wrist, self._wg.get(s, 1.0))
         if self.elevation(sh, elbow) <= cap:
             return elbow, wr
         u = self.fr[2]
         back = sub(sh, wrist)
         back = unit(sub(back, mul(u, dot(back, u))))
-        step = add(mul(back, self.REACH_STEP[0]), mul(u, -self.REACH_STEP[1]))
-        best = (self.elevation(sh, elbow), elbow, wr)
-        goal = wrist
-        for _ in range(14):
-            goal = add(goal, step)
-            if norm(sub(goal, sh)) < 0.55 * (l1 + l2):
-                break
-            e, w2 = self.swivel(s, sh, goal, l1, l2, pole, W, ws)
-            el = self.elevation(sh, e)
-            if el < best[0]:
-                best = (el, e, w2)
-            if el <= cap:
-                return e, w2
-        goal = wrist
-        for _ in range(16 if self.LOWER_APEX else 0):  # still over: a high apex (the forearm can't reach it from a hanging elbow): lower it too
-            goal = add(add(goal, mul(back, 1.0)), mul(u, -1.5))
-            e, w2 = self.swivel(s, sh, goal, l1, l2, pole, W, ws)
-            el = self.elevation(sh, e)
-            if el < best[0]:
-                best = (el, e, w2)
-            if el <= cap:
-                return e, w2
-        return best[1], best[2]
+        step = add(back, mul(u, -self.LOW_DOWN * (1.0 - k)))  # per cm in: down LOW_DOWN cm on a low stroke
+
+        def at(d):
+            g = add(wrist, mul(step, d))
+            e, w2 = self.swivel(s, sh, g, l1, l2, pole, W, ws)
+            return self.elevation(sh, e), e, w2
+
+        lo, hi = 0.0, self.REACH_MAX
+        top = at(hi)
+        if top[0] > cap:
+            return top[1], top[2]
+        res = top
+        for _ in range(8):
+            mid = (lo + hi) / 2.0
+            r = at(mid)
+            if r[0] <= cap:
+                hi, res = mid, r
+            else:
+                lo = mid
+        return res[1], res[2]
 
     def _world_from(self, locs: dict) -> dict:
         """seatkit's local result back to component transforms for the bones it set (FK over its own chain)."""
@@ -741,13 +755,13 @@ def blend_poses(parts: list) -> HandPose:
     return HandPose(tuple(off), pron, ext, shapes, yaw)
 
 
-YAW_BASE = {"r": 30.0, "l": 0.0}  # deg her right fingers always turn out a little: turned in, they reached the mic
+YAW_BASE = {"r": 10.0, "l": 0.0}  # deg her right fingers always turn out a little: turned in, they reached the mic
 #   (40 with the mic at her chest; 30 with it at her mouth: the wrist bent 37-45 deg; at 25 the mic hides the hand)
 RIGHT_MIN_LAT = 15.0  # cm her right hand stays to her right of the sternum point while she speaks
 LEFT_RESTS = False  # r7b: the left hand rested on the desk between its own gestures while the mic hung at her sternum;
 #                     with the mic moved up to her mouth (the orchestrator, 08 Nov) it gestures like the right
 LEFT_MAX_LAT = 16.0  # r7F: 9 with the mic at her chest (MIC_L)
-LEFT_SHARE = 0.55  # the left's move on a two-hand stroke, of the right's
+LEFT_SHARE = 0.45  # the left's move on a two-hand stroke, of the right's
 LEFT_TWO = (24.0, 9.0, -2.0)  # cm her left hand on a two-hand gesture (agent-10, see plan_from_sheet)
 LEFT_MAX_Z = 40.0  # cm over the sternum point for her left hand (no cap with the mic at her mouth)  # cm: her left hand stays at least 3 cm to her RIGHT of the sternum point while she speaks
 

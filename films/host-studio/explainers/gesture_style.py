@@ -50,6 +50,7 @@ V_MEAN = 70.0       # cm/s a stroke's mean wrist speed at most (min-jerk peaks ~
 LEFT_EXT_MIN = 20.0  # deg the left hand's wrist extension on a gesture at least (its fingers met the desk lower; 34
 #   held her left wrist cocked back ~31 deg the whole take, agent-10's audit)
 TWO_HAND_LAG_S = (0.04, 0.08)  # s the left trails the right on a two-hand stroke (same-frame peaks read robotic)
+ROT_LAG_S = 0.06    # s the hand's turn and the fingers trail the wrist's path (proximal to distal)
 HOLD_MIN_S = 0.1    # s a hold kept at least when the next move takes its time
 V_RETRACT = 55.0    # cm/s a retract home's mean speed at most (softer than the stroke)
 COART_S = 0.45      # a gap shorter than this flows straight into the next gesture
@@ -59,7 +60,7 @@ SPREAD_SIGN = {"index": -1.0, "middle": 0.0, "ring": 0.6, "pinky": 1.2, "thumb":
 SHAPE_SPREAD = {"rest": 2.0, "relaxed": 3.0, "open": 9.0, "point": 2.0, "count1": 2.0, "count2": 6.0, "count3": 7.0,
                 "pinch": 1.0, "soft_fist": 0.0}
 SIM_FAIL = 0.95
-MIC_L = (16.0, 12.0)  # the left hand (mic side) on a gesture: out <= 16 cm, up <= 12 cm from the sternum point
+MIC_L = (13.0, 6.0)  # the left hand (mic side) on a gesture: out <= 16 cm, up <= 12 cm from the sternum point
 #   (r7F: 9 / -2 with the mic at her chest; with it at her mouth and the rest low, that box held her left hand still)
 #   (agent-10: was 7 / -3.5, which put her left elbow up in front of her chest, inside the Top on box B)
 
@@ -150,8 +151,9 @@ class Var:
                    d_pron=max(-9.0, min(9.0, g(0, 4.5))), d_ext=max(-6.0, min(6.0, g(0, 3.0))),
                    dz=max(-2.0, min(2.0, g(0, 1.0))), spread=max(-3.0, min(4.0, g(0, 1.6))),
                    fingers={f: max(-6.0, min(6.0, g(0, 2.5))) for f in GK.FINGERS},
-                   overshoot=(0.05 + 0.07 * energy) * r.uniform(0.7, 1.3), settle=r.uniform(0.12, 0.2),
-                   retract=r.uniform(0.32, 0.5), skew=r.uniform(1.2, 1.45), lag=r.uniform(0.8, 1.25))
+                   overshoot=(0.02 + 0.03 * energy) * r.uniform(0.7, 1.3), settle=r.uniform(0.08, 0.12),
+                   retract=r.uniform(0.32, 0.5), skew=1.0, lag=r.uniform(0.8, 1.25))  # skew 1: one min-jerk
+#                  bell (agent-13: the skewed peak plus the settle read as a spike and a long tail)
 
     def apply(self, p: GK.HandPose) -> GK.HandPose:
         rest = getattr(GK, "POSE_ORIGIN", GK.HIGH_REST).off  # the amp's origin, not the (r7F, lower) rest
@@ -292,7 +294,15 @@ class HandTrack:
         return off, dp, de, fing
 
     def at(self, t: float) -> tuple:
-        """(HandPose with a per-finger shape dict, {event index: weight})."""
+        """(HandPose with a per-finger shape dict, {event index: weight}). The hand's turn and the fingers follow the
+        wrist's path ROT_LAG_S behind it (agent-13: proximal to distal, shoulder -> elbow -> wrist -> fingers)."""
+        hp, w = self._at(t)
+        if ROT_LAG_S <= 0:
+            return hp, w
+        lag, _ = self._at(t - ROT_LAG_S)
+        return GK.HandPose(hp.off, lag.pron, lag.ext, lag.shape), w
+
+    def _at(self, t: float) -> tuple:
         rest = GK.HIGH_REST
         seg = None
         for s in self.segs:
@@ -331,7 +341,7 @@ class HandTrack:
         lag = v.lag if v else 1.0
         if s.kind in ("stroke", "coart"):
             x = mj(u ** v.skew) * (1.0 + v.overshoot)  # arrives past the target; the hold settles it
-            u_rot = mj(clip01(u + 0.12))  # the wrist turns ahead of the hand
+            u_rot = mj(u)  # (r7F: it turned 0.12 ahead; now the whole turn trails the path, ROT_LAG_S)
             u_f = {f: mj(clip01((t - s.t0 - LAG_S[f] * lag) / d)) for f in GK.FINGERS}
             hp = lerp_pose(s.a, s.b, x, u_rot, u_f, v.bulge, u)
             w_in = s.w_from + (s.w_to - s.w_from) * mj(u)
