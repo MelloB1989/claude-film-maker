@@ -63,6 +63,13 @@ ROT_LAG_S = 0.06    # s the hand's turn and the fingers trail the wrist's path (
 DRIFT_CM = 0.8      # cm the wrist's slow drift, each axis (orchestrator: real hands are never 0 cm/s in a hold)
 DRIFT_HZ = 0.26     # its band (low: a drift, not a tremor)
 DESK_DRIFT = 0.5    # x it at the desk rest, along the desk only (fwd, out), and the fingers at half
+FING_MICRO = {"index": 5.0, "middle": 5.6, "ring": 6.6, "pinky": 7.2, "thumb": 4.4}  # deg each finger's drift (the
+#   noise sits mostly within half of it: ~2-4 deg)
+FING_HZ = 0.45      # its band
+PIP_K = 0.6         # x it on the middle and end joints, on their own phase
+PIP_HZ = 0.33
+SETTLE_DEG = 2.0    # deg the fingers curl a little and let go after a stroke
+SETTLE_S = 0.5
 HOLD_MIN_S = 0.1    # s a hold kept at least when the next move takes its time
 V_RETRACT = 55.0    # cm/s a retract home's mean speed at most (softer than the stroke)
 COART_S = 0.45      # a gap shorter than this flows straight into the next gesture
@@ -203,10 +210,12 @@ class HandTrack:
         sd = seed_of(film, side, "micro")
         self.n_off = [Noise(sd + k, DRIFT_HZ) for k in range(3)]
         self.n_rot = [Noise(sd + 10 + k, 0.45) for k in range(2)]
-        self.n_f = {f: Noise(sd + 20 + k, 0.5) for k, f in enumerate(GK.FINGERS)}
+        self.n_f = {f: Noise(sd + 20 + k, FING_HZ) for k, f in enumerate(GK.FINGERS)}
+        self.n_pip = {f: Noise(sd + 50 + k, PIP_HZ) for k, f in enumerate(GK.FINGERS)}
         self.n_f_common = Noise(sd + 40, 0.3)
         self.segs = self._build()
         self.accents = self._accents()
+        self.apexes = [q.t1 for q in self.segs if q.kind in ("stroke", "coart")]
 
     def var_of(self, i: int, e) -> Var:
         self.keys[i] = f"{getattr(e, 'line', '')}:{getattr(e, 'detail', '') or e.kind}:{e.word}"
@@ -336,8 +345,18 @@ class HandTrack:
             off = tuple(0.75 * (o - DRIFT_CM) for o in off)
         kr = 1.0 if self.side == "r" else 0.7  # the left's turn smaller (its fingertips sit by the mic)
         dp, de = 2.2 * kr * self.n_rot[0](t), 1.8 * kr * self.n_rot[1](t)
-        c = self.n_f_common(t)
-        fing = {f: 2.6 * (0.6 * self.n_f[f](t) + 0.4 * c) for f in GK.FINGERS}
+        # the fingers (r7F, agent-13: 2.6 deg on one curl read under 2 deg/s for >= 0.5 s in half her speaking time:
+        # posed): each finger's own drift (more on ring and pinky), its middle and end joints on their own, a share
+        # tied to the wrist's drift with the cascade's delay (pinky first), and a small curl-settle after each stroke
+        c = self.n_off[2]
+        fing = {}
+        for f in GK.FINGERS:
+            a = FING_MICRO[f]
+            d = 3.0 * LAG_S[f]
+            st = sum(SETTLE_DEG * math.sin(math.pi * clip01((t - ap - LAG_S[f]) / SETTLE_S)) for ap in self.apexes
+                     if 0.0 < t - ap - LAG_S[f] < SETTLE_S)
+            fing[f] = a * (0.6 * self.n_f[f](t) + 0.4 * c(t - d)) + st
+            fing["_pip_" + f] = PIP_K * a * self.n_pip[f](t)
         return off, dp, de, fing
 
     def at(self, t: float) -> tuple:
@@ -369,7 +388,8 @@ class HandTrack:
         acc = self.accent(t)
         off = tuple(off[i] + acc[i] for i in range(3))
         sh = shape_dict(hp.shape)
-        sh = {f: sh[f] + fing[f] for f in GK.FINGERS} | {"_spread": sh["_spread"]}
+        sh = {f: sh[f] + fing[f] for f in GK.FINGERS} | {"_spread": sh["_spread"]} | \
+            {k: v for k, v in fing.items() if k.startswith("_pip_")}
         return GK.HandPose(tuple(hp.off[i] + off[i] for i in range(3)), hp.pron + dp, hp.ext + de, sh), w
 
     def _eval(self, s: Seg, t: float) -> tuple:
@@ -510,7 +530,7 @@ def rest_life(perf, s: str, t: float) -> tuple:
     finger micro-motion at half, so the hands resting there are never frozen either."""
     tr = _tracks(perf)[s]
     off, _, _, fing = tr.micro(t, 0.0, False)
-    return (DESK_DRIFT * off[0], DESK_DRIFT * off[1], 0.0), {f: 0.5 * v for f, v in fing.items()}
+    return (DESK_DRIFT * off[0], DESK_DRIFT * off[1], 0.0), {f: 0.5 * v for f, v in fing.items()}  # (+ "_pip_")
 
 
 def weights(perf, t: float) -> dict:
