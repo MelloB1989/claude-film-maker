@@ -29,6 +29,8 @@ CHIN_BELOW = {"her": 5.25, "him": 6.1}  # agent-02 on the mesh (09 Nov): the sof
 CHIN_BELOW_HEAD = 5.0  # cm, the default until a presenter's mesh value lands: the chin under the head bone's head (the skull base); neck_01 sits ~10 under it, the
 #   shoulders ~19: the chin is ~11-13 cm above the suprasternal notch (seated adult, either presenter)
 FACE_C, FACE_R = (7.0, 0.0, 4.0), 11.0  # the face/hair shell: centre off the head joint (fwd, right, up), radius cm
+CHEST_KINDS = ("count", "list", "beat")  # agent-08: these hold at chest height
+CHEST_BELOW_COLLAR = 4.0  # cm: the chest line under the clavicle heads (agent-08, report only)
 SNAP_CM_S = 90.0  # fingertip speed relative to the wrist that, stopped dead within 2 frames, is a snap
 SEQ_FPS = 24.0  # the film's sequence / EDL rate: --span frames are on it (the dumps run at 30)
 MIN_REST = 15  # frames (0.5 s) a rest class needs before its elevation counts
@@ -548,7 +550,7 @@ class Take:
     def hold_height(self):
         """event holds (stroke .. stroke + hold) on camera with the wrist over the collarbone (the clavicle heads'
         mean height): agent-08's hold rule (R7 hands, 09 Nov), count/beat holds sit at chest height."""
-        out = {"frames": 0, "t": []}
+        out = {"frames": 0, "t": [], "chest_frames": 0, "chest_t": []}
         for e in self.ev:
             if e["kind"] == "rest":
                 continue
@@ -557,6 +559,12 @@ class Take:
                     continue
                 P = self.F[i]["p"]
                 cz = (P["clavicle_l"][2] + P["clavicle_r"][2]) / 2
+                if e["kind"] in CHEST_KINDS and any(P["hand_" + s][2] > cz - CHEST_BELOW_COLLAR
+                                                    for s in self.hands_of(e)):
+                    out["chest_frames"] += 1
+                    tt = round(self.F[i]["t"], 1)
+                    if tt not in out["chest_t"]:
+                        out["chest_t"].append(tt)
                 if any(P["hand_" + s][2] > cz for s in self.hands_of(e)):
                     out["frames"] += 1
                     tt = round(self.F[i]["t"], 1)
@@ -584,17 +592,29 @@ class Take:
         """per finger MCP / PIP / DIP from the joint heads plus a fingertip point ('<finger>_tip_<s>', when the track
         carries it): the intrinsic-minus claw (MCP < 20 with PIP > 15 and DIP >= PIP) and DIP/PIP outside 0.5-0.85
         while PIP >= 20 (agent-08: DIP ~ 0.67 PIP). n/a without tips."""
-        out = {"claw_frames": float("nan"), "ratio_bad_frac": float("nan"), "claw_t": []}
+        out = {"claw_frames": float("nan"), "ratio_bad_frac": float("nan"), "claw_t": [],
+               "claw_score_frames": float("nan"), "thumb_stiff_frames": float("nan")}
         if not any(k.endswith("_tip_r") for k in self.F[0]["p"]):
             return out
-        claw = rn = rb = 0
+        claw = rn = rb = cs = 0
+        stiff = {s: 0 for s in "lr"}
+        run = {s: 0 for s in "lr"}
+        need = int(round(0.5 / self.dt))
+        stiff_n = 0
         for i, f in enumerate(self.F):
             if not self._oncam(i) or not self.speak[i]:
                 continue
-            P, hit = f["p"], False
+            P, hit, cs_hit = f["p"], False, False
             for s in "lr":
                 _, lat, _ = hand_frame(P, s)
                 W = P["hand_" + s]
+                t1, t2, t3, tt_ = (P[f"thumb_0{k}_{s}"] for k in (1, 2, 3)) + (P[f"thumb_tip_{s}"],) \
+                    if f"thumb_tip_{s}" in P else (None,) * 4
+                if t1 is not None:  # thumb MCP + IP flexion < 5 for > 0.5 s: straight and stiff
+                    fl = ang(sub(t2, t1), sub(t3, t2)) + ang(sub(t3, t2), sub(tt_, t3))
+                    run[s] = run[s] + 1 if fl < 5.0 else 0
+                    stiff_n += run[s] == need
+                    stiff[s] += run[s] >= need
                 for fn in FINGERS:
                     j1, j2, j3, tp = \
                         (P[f"{fn}_01_{s}"], P[f"{fn}_02_{s}"], P[f"{fn}_03_{s}"], P[f"{fn}_tip_{s}"])
@@ -602,22 +622,52 @@ class Take:
                     m, pp, dd = bend(a, b, lat, s), bend(b, c, lat, s), bend(c, d, lat, s)
                     if m < 20.0 and pp > 15.0 and dd >= pp:
                         hit = True
+                    if pp + dd > 1.67 * (m + 8.0) + 25.0:  # handshape.claw_score's symmetric form (report)
+                        cs_hit = True
                     if pp >= 20.0:
                         rn += 1
                         rb += not (0.5 <= dd / pp <= 0.85)
+            cs += cs_hit
             if hit:
                 claw += 1
                 tt = round(f["t"], 1)
                 if tt not in out["claw_t"]:
                     out["claw_t"].append(tt)
         out["claw_frames"], out["ratio_bad_frac"] = claw, (rb / rn if rn else float("nan"))
+        out["claw_score_frames"], out["thumb_stiff_frames"] = cs, max(stiff.values())
+        return out
+
+    def thumb(self):
+        """thumb opposition (agent-08, R7 hands): opp_deg = the thumb's proximal phalanx (thumb_02 -> thumb_03) out of
+        the palm plane toward the palm (normal (middle_01 - hand) x (index_01 - pinky_01), signed toward middle_03).
+        Flat = opp_deg < 10 while the fingers' mean MCP > 30 (a curled hand with a flat thumb); on-camera speaking
+        frames, worse hand."""
+        out = {}
+        for s in "lr":
+            n = flat = 0
+            opp = []
+            for i, f in enumerate(self.F):
+                if not self._oncam(i) or not self.speak[i]:
+                    continue
+                P = f["p"]
+                nrm = unit(cross(sub(P["middle_01_" + s], P["hand_" + s]), sub(P["index_01_" + s], P["pinky_01_" + s])))
+                if dot(sub(P["middle_03_" + s], P["middle_01_" + s]), nrm) < 0:
+                    nrm = mul(nrm, -1.0)
+                ph = unit(sub(P["thumb_03_" + s], P["thumb_02_" + s]))
+                o = math.degrees(math.asin(max(-1.0, min(1.0, dot(ph, nrm)))))
+                opp.append(o)
+                mcp = sum(self.fa[s][i][0][k][0] for k in FINGERS) / 4
+                n += 1
+                flat += o < 10.0 and mcp > 30.0
+            out[s] = {"n": n, "opp_p50": med(opp), "flat_frames": flat}
         return out
 
     def report(self):
         return {"wrist": self.wrist(), "forearm": self.forearm(), "shape": self.shapes(), "body": self.body(),
                 "kin": self.kinematics(), "lag": self.lag(), "asym": self.asym(), "fingers": self.frozen(),
                 "torso": self.torso(), "travel": self.travel(), "holds": self.holds(), "snaps": self.snaps(), "face": self.near_face(),
-                "hold_high": self.hold_height(), "cascade": self.cascade(), "dip": self.dip()}
+                "hold_high": self.hold_height(), "cascade": self.cascade(), "dip": self.dip(),
+                "thumb": self.thumb()}
 
 
 # ---------- the gate rows ----------
@@ -698,6 +748,19 @@ ROWS = {
     "move.dip_pip_ratio_bad_frac": (lambda r: r["dip"]["ratio_bad_frac"], "<=", 0.10, "fraction",
                                     "finger-frames (PIP >= 20) whose DIP/PIP falls outside 0.5-0.85 (agent-08: DIP ~ "
                                     "0.67 PIP); needs fingertip points, else n/a"),
+    "move.thumb_flat_frames": (lambda r: _worst(r, ("thumb", "flat_frames"), max), "==", 0, "frames",
+                               "on-camera speaking frames with a flat thumb on a curled hand: the thumb's proximal "
+                               "phalanx < 10 deg out of the palm plane toward the palm while the fingers' mean MCP > "
+                               "30 (agent-08), worse hand"),
+    "move.thumb_stiff_frames": (lambda r: r["dip"]["thumb_stiff_frames"], "==", 0, "frames",
+                                "frames inside runs > 0.5 s with the thumb's MCP + IP flexion < 5 deg (straight, "
+                                "stiff; agent-08), worse hand; needs fingertip points, else n/a"),
+    "move.hold_chest_frames": (lambda r: r["hold_high"]["chest_frames"], "info", 0, "frames",
+                               "REPORT: count/list/beat hold frames with the wrist above the chest line (clavicle "
+                               "heads - 4 cm; agent-08)"),
+    "move.claw_score_frames": (lambda r: r["dip"]["claw_score_frames"], "info", 0, "frames",
+                               "REPORT: frames with a finger at PIP + DIP > 1.67 (MCP + 8) + 25 (handshape.claw_score's "
+                               "symmetric form; agent-08); needs fingertip points"),
     "move.mirror_corr_p50": (lambda r: r["asym"]["mirror_corr_p50"], "<=", 0.95, "corr",
                              "GUARD: two-hand strokes, median correlation of the left wrist velocity with the right's "
                              "mirrored (1.0 = a mirror copy)"),
@@ -711,7 +774,8 @@ def rows(rep):
     out = {}
     for k, (fn, op, line, unit_, what) in ROWS.items():
         v = fn(rep)
-        ok = {"<=": v <= line, ">=": v >= line, "==": v == line}[op] if v == v else None  # None: nothing to measure
+        ok = None if op == "info" or v != v else {"<=": v <= line, ">=": v >= line, "==": v == line}[op]
+        #   None: a report row, or nothing to measure
         out[k] = {"value": round(v, 3) if isinstance(v, float) else v, "op": op, "line": line, "unit": unit_,
                   "pass": ok if ok is None else bool(ok), "what": what}
     return out
@@ -766,7 +830,8 @@ def main(argv=None):
     print("row".ljust(w) + "line".ljust(10) + "".join(n[:16].ljust(18) for n in names))
     for k in ROWS:
         r0 = res[names[0]]["rows"][k]
-        cells = "".join((f"{res[n]['rows'][k]['value']}" + {True: " ok", False: " FAIL", None: " n/a"}[res[n]["rows"][k]["pass"]]).ljust(18)
+        cells = "".join((f"{res[n]['rows'][k]['value']}" + ({True: " ok", False: " FAIL", None: " n/a"}[res[n]["rows"][k]["pass"]]
+                                                             if r0["op"] != "info" else " info")).ljust(18)
                         for n in names)
         print(k.ljust(w) + f"{r0['op']}{r0['line']}".ljust(10) + cells)
     if a.full:
