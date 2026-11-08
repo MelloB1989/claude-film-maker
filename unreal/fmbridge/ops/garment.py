@@ -764,7 +764,7 @@ def hands_in_frame(*, label: str, sequence: str, frames: list, body: str = "Body
 
 @op("qa.hand_torso_clearance", mutates=False, idempotent=True, tags=["slow", "metahuman"])
 def hand_torso_clearance(*, label: str, sequence: str, frames: list, body: str = "Body", stride: int = 2,
-                         min_cm: float = 15.0):
+                         min_cm: float = 8.0):  # the orchestrator's desk-rest line (08 Nov)
     """Resting hands vs the chest (round 7: her high rest hovered at the top of her chest, 'fidgeting with her top').
     Per frame (the REST/bridge frames: film-qa perf-rest picks them from the hand samples): the torso surface (posed
     Body + upper garment points along spine_01 -> neck_01, the lap/thighs, arms, forearms and every finger excluded), and each hand's wrist + 5
