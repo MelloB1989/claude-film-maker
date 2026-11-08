@@ -31,6 +31,7 @@ CHIN_BELOW_HEAD = 5.0  # cm, the default until a presenter's mesh value lands: t
 FACE_C, FACE_R = (7.0, 0.0, 4.0), 11.0  # the face/hair shell: centre off the head joint (fwd, right, up), radius cm
 CHEST_KINDS = ("count", "list", "beat")  # agent-08: these hold at chest height
 CHEST_BELOW_COLLAR = 4.0  # cm: the chest line under the clavicle heads (agent-08, report only)
+FOLD_PIP = 95.0  # deg: a held fold at/over this is at the joint limit (agent-08, R7 hands)
 SNAP_CM_S = 90.0  # fingertip speed relative to the wrist that, stopped dead within 2 frames, is a snap
 SEQ_FPS = 24.0  # the film's sequence / EDL rate: --span frames are on it (the dumps run at 30)
 MIN_REST = 15  # frames (0.5 s) a rest class needs before its elevation counts
@@ -652,9 +653,7 @@ class Take:
                 if not self._oncam(i) or not self.speak[i]:
                     continue
                 P = f["p"]
-                nrm = unit(cross(sub(P["middle_01_" + s], P["hand_" + s]), sub(P["index_01_" + s], P["pinky_01_" + s])))
-                if dot(sub(P["middle_03_" + s], P["middle_01_" + s]), nrm) < 0:
-                    nrm = mul(nrm, -1.0)
+                nrm = hand_frame(P, s)[2]  # toward the palm from the knuckle line (a middle-finger sign flips past 90)
                 ph = unit(sub(P["thumb_03_" + s], P["thumb_02_" + s]))
                 o = math.degrees(math.asin(max(-1.0, min(1.0, dot(ph, nrm)))))
                 opp.append(o)
@@ -664,12 +663,26 @@ class Take:
             out[s] = {"n": n, "opp_p50": med(opp), "flat_frames": flat}
         return out
 
+    def fold_limit(self):
+        """a folded finger at its joint limit (agent-08: the catalogue keeps folds at PIP ~85): on-camera speaking frames
+        of a held shape (gesture_w > 0.9) with any finger's PIP >= FOLD_PIP."""
+        out = {"frames": 0, "t": []}
+        for i, f in enumerate(self.F):
+            if not self._oncam(i) or not self.speak[i]:
+                continue
+            if any(f["gesture_w"][s] > 0.9 and any(self.fa[s][i][0][k][1] >= FOLD_PIP for k in FINGERS) for s in "lr"):
+                out["frames"] += 1
+                tt = round(f["t"], 1)
+                if tt not in out["t"]:
+                    out["t"].append(tt)
+        return out
+
     def report(self):
         return {"wrist": self.wrist(), "forearm": self.forearm(), "shape": self.shapes(), "body": self.body(),
                 "kin": self.kinematics(), "lag": self.lag(), "asym": self.asym(), "fingers": self.frozen(),
                 "torso": self.torso(), "travel": self.travel(), "holds": self.holds(), "snaps": self.snaps(), "face": self.near_face(),
                 "hold_high": self.hold_height(), "cascade": self.cascade(), "dip": self.dip(),
-                "thumb": self.thumb()}
+                "thumb": self.thumb(), "fold": self.fold_limit()}
 
 
 # ---------- the gate rows ----------
@@ -750,6 +763,9 @@ ROWS = {
     "move.dip_pip_ratio_bad_frac": (lambda r: r["dip"]["ratio_bad_frac"], "<=", 0.10, "fraction",
                                     "finger-frames (PIP >= 20) whose DIP/PIP falls outside 0.5-0.85 (agent-08: DIP ~ "
                                     "0.67 PIP); needs fingertip points, else n/a"),
+    "move.fold_at_limit_frames": (lambda r: r["fold"]["frames"], "==", 0, "frames",
+                                  "on-camera speaking frames of a held shape (gesture_w > 0.9) with a finger folded at "
+                                  "PIP >= 95 (the joint limit; agent-08's catalogue folds at ~85)"),
     "move.thumb_flat_frames": (lambda r: _worst(r, ("thumb", "flat_frames"), max), "==", 0, "frames",
                                "on-camera speaking frames with a flat thumb on a curled hand: the thumb's proximal "
                                "phalanx < 10 deg out of the palm plane toward the palm while the fingers' mean MCP > "
