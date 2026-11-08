@@ -34,7 +34,7 @@ CHEST_BELOW_COLLAR = 4.0  # cm: the chest line under the clavicle heads (agent-0
 FOLD_PIP = 95.0  # deg: a held fold at/over this is at the joint limit (agent-08, R7 hands)
 SPREAD_OK = ("open", "deictic", "raise_finger", "count", "pinch")  # kinds/details that part the fingers on purpose
 REST_TIP_CM = 1.5  # cm: the lowest fingertip (finger_tips' centre line) over the desk top on a resting hand (agent-08)
-REST_HEEL = {"her": 2.9}  # per presenter, from agent-02's mesh (him pending: the default applies)
+REST_HEEL = {"her": 2.9, "him": 3.34}  # per presenter: agent-02 on the mesh, the wrist head heel-down + 0.5 (her 2.35, him 2.84)
 REST_HEEL_CM = 2.9  # cm: the wrist head over the desk top with the heel of the palm down (agent-02 on her mesh: 2.35 heel
 #   only, 1.85 heel + pads; + 0.5 tolerance) (the orchestrator: contact
 #   through the palm and fingers, never the tips only)
