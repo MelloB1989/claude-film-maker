@@ -36,6 +36,7 @@ SPREAD_OK = ("open", "deictic", "raise_finger", "count", "pinch")  # kinds/detai
 REST_TIP_CM = 1.5  # cm: the lowest fingertip (finger_tips' centre line) over the desk top on a resting hand (agent-08)
 REST_HEEL_CM = 3.5  # cm: the wrist head over the desk top with the heel of the palm down (the orchestrator: contact
 #   through the palm and fingers, never the tips only); agent-02 to confirm on the mesh
+SPREAD_MIN_INPLANE = 0.5  # a proximal phalanx > 60 deg out of the palm plane (a closed finger): no spread read
 SNAP_CM_S = 90.0  # fingertip speed relative to the wrist that, stopped dead within 2 frames, is a snap
 SEQ_FPS = 24.0  # the film's sequence / EDL rate: --span frames are on it (the dumps run at 30)
 MIN_REST = 15  # frames (0.5 s) a rest class needs before its elevation counts
@@ -697,8 +698,11 @@ class Take:
         n = hand_frame(P, s)[2]
         v = []
         for fn in FINGERS:
-            a = sub(P[f"{fn}_02_{s}"], P[f"{fn}_01_{s}"])
-            v.append(unit(sub(a, mul(n, dot(a, n)))))
+            a = unit(sub(P[f"{fn}_02_{s}"], P[f"{fn}_01_{s}"]))
+            ip = sub(a, mul(n, dot(a, n)))
+            if norm(ip) < SPREAD_MIN_INPLANE:  # a closed / fist finger lies along the palm normal: its projection
+                return None  # is degenerate (agent-12's mocap pilot: soft fists read ~100 deg), not a spread
+            v.append(unit(ip))
         return [ang(v[k], v[k + 1]) for k in range(3)]
 
     def spread(self):
@@ -715,8 +719,8 @@ class Take:
                     held[s].add(i)
         out = {}
         for s in "lr":
-            xs = [max(self._spread(f["p"], s)) for i, f in enumerate(self.F)
-                  if self._oncam(i) and (f["gesture_w"][s] < 0.1 or i in held[s])]
+            xs = [max(g) for g in (self._spread(f["p"], s) for i, f in enumerate(self.F)
+                                   if self._oncam(i) and (f["gesture_w"][s] < 0.1 or i in held[s])) if g]
             out[s] = {"n": len(xs), "p50": med(xs), "p90": pct(xs, 0.9)}
         return out
 
