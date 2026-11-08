@@ -34,8 +34,9 @@ CHEST_BELOW_COLLAR = 4.0  # cm: the chest line under the clavicle heads (agent-0
 FOLD_PIP = 95.0  # deg: a held fold at/over this is at the joint limit (agent-08, R7 hands)
 SPREAD_OK = ("open", "deictic", "raise_finger", "count", "pinch")  # kinds/details that part the fingers on purpose
 REST_TIP_CM = 1.5  # cm: the lowest fingertip (finger_tips' centre line) over the desk top on a resting hand (agent-08)
-REST_HEEL_CM = 3.5  # cm: the wrist head over the desk top with the heel of the palm down (the orchestrator: contact
-#   through the palm and fingers, never the tips only); agent-02 to confirm on the mesh
+REST_HEEL_CM = 2.9  # cm: the wrist head over the desk top with the heel of the palm down (agent-02 on her mesh: 2.35 heel
+#   only, 1.85 heel + pads; + 0.5 tolerance) (the orchestrator: contact
+#   through the palm and fingers, never the tips only)
 SPREAD_MIN_INPLANE = 0.5  # a proximal phalanx > 60 deg out of the palm plane (a closed finger): no spread read
 SNAP_CM_S = 90.0  # fingertip speed relative to the wrist that, stopped dead within 2 frames, is a snap
 SEQ_FPS = 24.0  # the film's sequence / EDL rate: --span frames are on it (the dumps run at 30)
@@ -851,7 +852,7 @@ ROWS = {
                                    "relaxed fingers stay nearly together (the orchestrator, 09 Nov)"),
     "move.rest_contact_bad_frames": (lambda r: r["rest_contact"]["frames"], "==", 0, "frames",
                                      "on-camera resting-hand frames over the desk that hover (lowest fingertip > 1.5 "
-                                     "cm over the top) or rest tented on the pads (wrist head > 3.5: the heel off the "
+                                     "cm over the top) or rest tented on the pads (wrist head > 2.9: the heel off the "
                                      "desk; the orchestrator, 09 Nov: never fingertip-only)"),
     "move.thumb_flat_frames": (lambda r: _worst(r, ("thumb", "flat_frames"), max), "==", 0, "frames",
                                "on-camera speaking frames with a flat thumb on a curled hand: the thumb's proximal "
