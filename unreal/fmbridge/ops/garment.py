@@ -745,7 +745,9 @@ def hands_in_frame(*, label: str, sequence: str, frames: list, body: str = "Body
                 px.append(_clip.project_px(info, (p.x, p.y, p.z), width_px, height_px))
             row[sd] = (_limbs.hand_in(px, width_px, height_px, margin=round(0.01 * width_px))
                        if len(px) == len(pts) else False)  # a 1 % margin (agent-10's framing.py)
+            row[sd + "_part"] = _limbs.hand_part(px, width_px, height_px)
         row["in"] = bool(row["l"] or row["r"])
+        row["part"] = bool(row["l_part"] or row["r_part"])
         rows[f] = row
         yield
     kinds = _limbs.hands_fracs(rows)

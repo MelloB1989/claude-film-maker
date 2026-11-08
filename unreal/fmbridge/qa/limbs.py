@@ -66,7 +66,8 @@ def clearance(arm_pts, torso_pts, torso, *, cell: float = 3.0, reach: float = 10
 
 
 # --- hands in the shot's frame (round 7: 'the gestures happen BELOW the MCU frame'; the orchestrator) --------------
-HAND_LINES = {"MCU": 0.6, "CU": 0.3, "WIDE": 0.95}  # >= 1 hand fully in frame, share of speaking frames, by camera kind
+HAND_LINES = {"MCU": 0.6, "CU": 0.1, "WIDE": 0.95}  # share of speaking frames, by camera kind
+PARTIAL_KINDS = ("CU",)  # the orchestrator (08 Nov): in a CU a hand counts when at least PARTLY visible
 
 
 def cam_kind(camera: str) -> str:
@@ -82,18 +83,23 @@ def hand_in(points_px: list, w: int, h: int, margin: int = 0) -> bool:
                                    for x, y, z in points_px)
 
 
+def hand_part(points_px: list, w: int, h: int) -> bool:
+    """A hand is at least PARTLY in frame when any of its points is inside the picture and in front of the lens."""
+    return any(z > 0 and 0 <= x < w and 0 <= y < h for x, y, z in points_px)
+
+
 def hands_fracs(rows: dict) -> dict:
-    """rows: {frame: {"camera": name, "in": bool (>= 1 hand fully in frame)}} -> {kind: {"frac", "n", "line",
-    "cameras"}} per camera kind."""
+    """rows: {frame: {"camera": name, "in": bool (>= 1 hand fully in frame), "part": bool (>= 1 hand partly)}} ->
+    {kind: {"frac", "n", "line", "cameras", "rule"}} per camera kind; a CU counts a partly visible hand."""
     out = {}
     for f, r in rows.items():
         k = cam_kind(r["camera"])
         o = out.setdefault(k, {"in": 0, "n": 0, "line": HAND_LINES[k], "cameras": set()})
         o["n"] += 1
-        o["in"] += int(bool(r["in"]))
+        o["in"] += int(bool(r.get("part", r["in"]) if k in PARTIAL_KINDS else r["in"]))
         o["cameras"].add(r["camera"])
-    return {k: {"frac": round(o["in"] / o["n"], 3), "n": o["n"], "line": o["line"], "cameras": sorted(o["cameras"])}
-            for k, o in out.items()}
+    return {k: {"frac": round(o["in"] / o["n"], 3), "n": o["n"], "line": o["line"], "cameras": sorted(o["cameras"]),
+                "rule": "partly visible" if k in PARTIAL_KINDS else "fully in frame"} for k, o in out.items()}
 
 
 # --- resting hands vs the chest (round 7: 'both hands hover at the TOP OF HER CHEST ... like claws'; the orchestrator) --
