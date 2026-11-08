@@ -1,5 +1,5 @@
 """R7 hands (agent-08): a quick whole-take finger-snap count on her offline performer, after agent-13's
-move.finger_snap (a fingertip >= 90 cm/s while the wrist has stopped dead: under 5 cm/s, having moved > 20 cm/s within
+move.finger_snap (a fingertip >= 90 cm/s while the wrist has stopped dead: under 10 cm/s, having moved > 20 cm/s within
 the 2 frames before). Prints the times per hand; agent-13's row is the number of record.
 
     kbuild python3 films/host-studio/explainers/r7/snap_count.py
@@ -42,7 +42,7 @@ for i in range(n):
             v = {k: S.norm(S.sub(cur[s][k], prev[s][k])) * 30.0 for k in cur[s]}
             hist[s].append(v["wrist"])
             tip = max(x for k, x in v.items() if k != "wrist")
-            if tip >= 90.0 and v["wrist"] < 5.0 and max(hist[s][-3:-1] or [0.0]) > 20.0:
+            if tip >= 90.0 and v["wrist"] < 10.0 and max(hist[s][-3:-1] or [0.0]) > 20.0:
                 if not snaps[s] or t - snaps[s][-1][0] > 0.2:
                     snaps[s].append((round(t, 2), round(tip)))
     prev = cur

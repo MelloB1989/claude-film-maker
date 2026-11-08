@@ -62,9 +62,11 @@ SET = S.Set(seat_top=45.0, seat_front=24.5, desk_top=71.0, desk_near=12.0, desk_
             cams={"CAM_MCU": [167.5, 78.0, 121.3], "CAM_CU": [132.7, 38.7, 121.0], "CAM_WIDE": [277.0, 89.7, 125.3],
                   "CAM_MCU_L": [168.0, 77.87, 121.1]})  # (her PANEL shots: the body check and the mic rule test the cut camera)
 # her cameras' full rigs (box B, 08 Nov ~02:00 IST, read-only): the framing check projects her hands into each shot
+#   (CAM_MCU pitch -2.55 -> -3.55, CAM_MCU_L -2.43 -> -2.93: the orchestrator, 09 Nov, for the palm-down rest (the
+#   build samples 0.61 / 0.633; -3.05 read 0.593); agent-06 sets the level)
 SET.rigs = {
-    "CAM_MCU": {"loc": [167.83, 77.66, 121.31], "yaw": -154.14, "pitch": -2.55, "focal": 60.0, "sensor": [36.0, 20.25]},
-    "CAM_MCU_L": {"loc": [168.0, 77.87, 121.1], "yaw": -145.22, "pitch": -2.43, "focal": 60.0, "sensor": [36.0, 20.25]},
+    "CAM_MCU": {"loc": [167.83, 77.66, 121.31], "yaw": -154.14, "pitch": -3.55, "focal": 60.0, "sensor": [36.0, 20.25]},
+    "CAM_MCU_L": {"loc": [168.0, 77.87, 121.1], "yaw": -145.22, "pitch": -2.93, "focal": 60.0, "sensor": [36.0, 20.25]},
     "CAM_CU": {"loc": [133.16, 38.44, 121.13], "yaw": -163.21, "pitch": -2.03, "focal": 85.0, "sensor": [36.0, 20.25]},
     "CAM_WIDE": {"loc": [277.31, 89.53, 125.43], "yaw": -158.08, "pitch": -5.49, "focal": 35.0, "sensor": [36.0, 20.25]},
 }
@@ -82,7 +84,9 @@ STYLE = {  # forearms resting on the desk (the orchestrator, r3 stills): elbows 
     "her": S.Style(lean=12.0, twist=0.0, hip_above_seat=11.0, knee_out=3.0, foot_out=6.0, pronation=75.0, shin_tilt=6.0,
                    elbow_out=-2.0, clavicle_fwd=-1.0, clavicle_drop=5.0, forearm_in=5.0,
                    elbow_r=4.6, wrist_r=3.7,  # bare forearms (V2, no overshirt): 1 cm of air read in the WIDE
-                   forearm_in_l=22.0),  # r7: her left resting wrist toward her midline, off the mic arm's base
+                   forearm_in_l=22.0,  # r7: her left resting wrist toward her midline, off the mic arm's base
+                   forearm_clear=2.4),  # R7 hands (agent-02 on her mesh: the heel of the palm on the desk = the wrist
+    #                                     joint 2.35 cm up): the palm-down rest's wrist sits at forearm_clear - 0.2
     # him: the same seat rules as hers (elbows tucked by his sides on the top, near-parallel forearms, bare forearms
     # in his tee); he is taller: at the 71 cm desk his elbows land under his shoulders, 4-7 cm short of the near edge
     # (box B, 07 Nov), so they rest just OFF the edge with the forearms lying across it (elbow_overhang)
@@ -425,12 +429,14 @@ def job():
                                 **({"track_out": P["perform"]["track_out"]} if P["perform"].get("track_out") else {}),
                                 **({"close_alive": True} if P["perform"].get("close_alive") else {}),
                                 **({"mic_cams": P["perform"]["mic_cams"]} if P["perform"].get("mic_cams") else {}),
-                                **({"catalogue": True} if P["perform"].get("catalogue") else {}),
-                                **({"torso": P["perform"]["torso"]} if P["perform"].get("torso") else {}))
+                                **({"torso": P["perform"]["torso"]} if P["perform"].get("torso") else {}),
+                                **({"catalogue": True} if P["perform"].get("catalogue") else {}))
     else:
         gs = [S.Gesture(**x) for x in P["gestures"]]
         doc, summary = S.build(data, S.Set(**P["set"]), S.Style(**P["style"]), gs, P["length_s"], P["fps"])
     yield
+    for w in summary.get("warnings") or []:  # (gesturekit: the arm-vs-outfit numbers until the refit lands)
+        print(f"WARNING {w['code']}: {w['message']}", file=sys.stderr)
     if P.get("probe") or (not summary["pass"] and not P["force"]):  # probe: read and solve only, nothing written
         return {"pass": summary["pass"], "summary": summary, "written": False}
     anim_new(path=P["out"], skeleton=data["mesh"], length_s=doc["length_s"], fps=doc["fps"], replace=True)
@@ -496,7 +502,7 @@ def perform_params(who: str) -> dict:
 # a presenter's torso model over gesturekit.Torso's (hers) and the outfit gate (the orchestrator, 09 Nov: his upper arms
 # 6.6-7.9 cm inside his outfit's flank on box T, with the model reading +0.5 there: side_pad 8.5 brings the model's
 # side out to his outfit; the gate, >= 0.5 at every checked frame, both arms, seated and in gestures)
-TORSO_OF = {"him": {"side_pad": 8.5, "gate": 0.5, "side_from": 9}}  # side_from 9: agent-02's worst at arm_t 0.46
+TORSO_OF = {"him": {"side_pad": 8.5, "gate": 0.5, "side_from": 9, "warn": True}}  # side_from 9: agent-02's worst at arm_t 0.46
 
 
 # shots filmed besides the edit's, which the mic rule and the body check guard too (gesturekit.Plan.mic_cams), e.g.
@@ -859,7 +865,11 @@ def bake(who: str, source: str, target: str, anim: str, out: str, bones, head_co
 # (box B bodycheck, 07 Nov 23:1x; hips/knees 0). Her spine bake read 0 cm, so hers keeps the reel's set. His bake 2
 # also takes ROTATIONS only: the face's neck offsets are another mesh's; with them his bake 3 killed the editor at
 # frames 240-479 every time.
-H2B_BONES = {"her": ["spine_04", "spine_05", "neck_01", "neck_02", "head"], "him": ["neck_01", "neck_02", "head"]}
+# Hers now the same (the orchestrator, 09 Nov; agent-04 / agent-08): her face comes from the FULL-face pass, whose
+# spine_04/05 lifted her placed upper body +2.6 cm (the resting hands hung at the desk edge); rotations only, like his.
+# agent-04's head turn, nods and tilts ride neck/head only.
+H2B_BONES = {"her": ["neck_01", "neck_02", "head"], "him": ["neck_01", "neck_02", "head"]}
+H2B_ROT_ONLY = {"her": True, "him": True}
 
 
 TRACKCHECK = r"""
@@ -1015,7 +1025,7 @@ def cmd_sync(who: str, from_bake: int = 1, restart_level: str = "", bake_chunk: 
             ok(c.op("seq.set_anim", path=path, component="Face", anim=follow, label=lab))
             ok(c.op("seq.set_anim", path=path, component="Body", anim=seat, label=lab))
         print("sync 2/3: head_to_body", file=sys.stderr, flush=True)
-        b = bake(who, "Face", "Body", seat, body, H2B_BONES[who], stage="b2", rot_only=(who == "him"))
+        b = bake(who, "Face", "Body", seat, body, H2B_BONES[who], stage="b2", rot_only=H2B_ROT_ONLY[who])
     if restart_level and from_bake < 3:
         print("sync: fresh editor before bake 3", file=sys.stderr, flush=True)
         fresh_editor(who, restart_level)

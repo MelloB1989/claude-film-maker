@@ -403,7 +403,9 @@ class HandTrack:
         off = tuple(DRIFT_CM * n(t) for n in self.n_off)
         if self.side == "l":  # never toward the mic (forward, out, up: it hangs at her mouth): it drifts back, in and
             #   down from its pose (its fingers went behind the mic in a two-hand hold)
-            off = tuple(0.75 * (o - DRIFT_CM) for o in off)
+            k_l = 0.75 + 0.35 * (1.0 - min(1.0, w))  # x1.1 at the desk rest (R7 hands: there its vertical drift is
+            #   held by the heel-down rest and its p10 fell to 0.28 cm/s in the verify windows; the mic is far above it)
+            off = tuple(k_l * (o - DRIFT_CM) for o in off)
         else:  # the right's holds a little livelier (agent-13: its hold p10 0.32-0.34 cm/s in the verify windows,
             #   0.27 on the editor's 24 fps dump; the line is 0.3)
             off = tuple(RIGHT_DRIFT_K * o for o in off)
