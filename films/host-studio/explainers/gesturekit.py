@@ -114,9 +114,11 @@ POSE_ORIGIN = HandPose((22.0, 17.0, 13.0), pron=40.0, ext=10.0, shape="relaxed",
 # with her top): the presenter's rest. Hands loosely together in a soft steeple at the lower ribcage, well in front of
 # her (not touching her), palms facing, wrists straight, fingers gently curved; the gestures rise from it into the
 # frame. The fingers aim at the midline (YAW_BASE is faded out at the rest, see hand_targets).
-HIGH_REST = HandPose((30.0, 8.5, -2.0), pron=80.0, ext=0.0, shape="rest")  # the orchestrator's ruling (08 Nov): lower
-#   and further forward than agent-10's (24, 8.5, 2.5), which put her wrists at her bust height 8 cm in front of it: on
-#   her the wrists at ~80 cm, ~30 cm forward of the spine, the fingers clear of the desk; under CAM_MCU's bottom edge
+HIGH_REST = HandPose((25.0, 10.0, -4.0), pron=80.0, ext=0.0, shape="rest")  # the orchestrator's ruling (08 Nov): lower
+#   than agent-10's (24, 8.5, 2.5), which put her wrists at her bust height 8 cm in front of it; wrists ~80 cm, under
+#   CAM_MCU's bottom edge. Not the ruled x 30: that far forward, with the hands together, the upper arms can clear her
+#   chest (swivel) only with the elbows up at 90-92 cm, a reach; at 25 / 10 out they hang at 83-86, the wrists 27 cm
+#   forward of her spine, the fingertips 3-5 cm over the desk (offline on her skeleton, 0 issues)
 REST_POLE = (-0.2, 0.9, -0.6)  # the elbows' direction at the rest (fwd, out, up)
 REST_YAW = 32.0  # deg out off the forearm at the rest (gesture_style's track carries no yaw): the forearms come in
 #                  from the elbows at ~60 deg, the fingers then point forward and in, the tips meeting at the midline
