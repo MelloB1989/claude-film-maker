@@ -492,16 +492,29 @@ def _editor(G: dict):
         posed = {n: mesh_of(c) for n, c in parts}
         # each part is labelled on ITS OWN ref pose (v2b2: the Top labelled on the Body's ref bones read its sleeves
         # as torso, the arm inside its own sleeve at about -arm radius, and the self-check failed at -13.7)
-        rest, rest_bones, rest_chain = {}, {}, {}
+        rest, rest_bones, rest_chain, rest_fresh = {}, {}, {}, set()
+        # the ref pose and its labels depend only on the mesh asset: kept in the editor's interpreter between the
+        # frames of ONE driver run (RUN, new per CLI call: an asset refit between runs is never read stale; box D ran
+        # ~1 min a frame, much of it this). CACHE=0 rebuilds every frame
+        cache = getattr(unreal, "_fmqa_r7_rest", None)
+        if cache is None or cache.get("run") != G.get("RUN") or not G.get("RUN") or str(G.get("CACHE", "1")) == "0":
+            cache = {"run": G.get("RUN")}
+            setattr(unreal, "_fmqa_r7_rest", cache)
+        keys = {n: (n, c.get_skeletal_mesh_asset().get_path_name(), len(posed[n][0]), len(posed[n][1]))
+                for n, c in parts}
         cleanup()
         try:
             for n, c in parts:
+                if keys[n] in cache:
+                    rest[n], rest_bones[n], rest_chain[n] = cache[keys[n]][:3]
+                    continue
                 ra = EAS.spawn_actor_from_class(unreal.SkeletalMeshActor, unreal.Vector(0, 0, 0), unreal.Rotator(0, 0, 0))
                 ra.set_actor_label(f"{REST}_{n}")
                 rc = ra.get_editor_property("skeletal_mesh_component")
                 rc.set_skeletal_mesh_asset(c.get_skeletal_mesh_asset())
                 if math.dist(loc(rc, "neck_01"), loc(rc, "spine_05")) < 2.0:
                     raise RuntimeError("the temp ref-pose actor has no pose yet: run arms again")
+                rest_fresh.add(n)
                 rest[n] = mesh_of(rc)
                 rest_bones[n] = segs_of(rc), {sd: loc(rc, f"upperarm_{sd}") for sd in ("l", "r")}
                 rest_chain[n] = [loc(rc, b) for b in SPINE]
@@ -509,6 +522,7 @@ def _editor(G: dict):
             cleanup()
         chain = [loc(body, b) for b in SPINE]
         out = {"frame_head": [round(x, 2) for x in head], "parts": {}, "sides": {},
+               "rest_cached": sorted(n for n in keys if n not in rest_fresh),
                **facing("clavicle_l", "clavicle_r")[1]}
         labels = {}
         for n, _ in parts:
@@ -517,7 +531,12 @@ def _editor(G: dict):
                 raise RuntimeError(f"{n}: posed {len(Pp)} verts/{len(Tp)} tris vs ref pose {len(Pr)}/{len(Tr)}: the "
                                    "render copies do not line up")
             used = sorted({i for t in Tp for i in t})
-            labels[n] = label_rest(Pr, rest_bones[n][0], used)
+            hit = cache.get(keys[n])
+            if hit is not None and len(hit) > 3:
+                labels[n] = hit[3]
+            else:
+                labels[n] = label_rest(Pr, rest_bones[n][0], used)
+                cache[keys[n]] = (rest[n], rest_bones[n], rest_chain[n], labels[n])
             # its ref pose vs the Body's: the shared joints' largest offset (0 = one pose, the rest check is valid)
             mis = max(math.dist(a, b) for k in rest_bones["Body"][0] for a, b in
                       zip(rest_bones["Body"][0][k], rest_bones[n][0][k]))
@@ -686,7 +705,7 @@ def main(argv=None) -> int:
         os.environ["FILM_UE_BOX"] = a.box
     sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "tools"))
     from filmtools.unreal import client
-    g = {"LABEL": a.label}
+    g = {"LABEL": a.label, "RUN": f"{os.getpid()}-{os.urandom(4).hex()}"}
     if a.cmd == "cleanup":
         print(json.dumps(_exec(client, "cleanup", **g)))
         return 0
