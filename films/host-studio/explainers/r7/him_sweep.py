@@ -59,12 +59,40 @@ def seg_lag(tk: "N.Take", s: str) -> list:
     return out
 
 
+def why(tk: "N.Take", s: str, t: float) -> str:
+    """at a snap (hand s, time t): per frame i-2..i+2 the worst DIP head's speed relative to the wrist (cm/s) split
+    into its curl part (in the hand's own frame) and the rest (the hand turning), with the hand's, the forearm's and
+    the upper arm's angular speeds (deg/s) and the wrist's speed (cm/s). Speeds only, no positions."""
+    i = min(range(len(tk.F)), key=lambda k: abs(tk.F[k]["t"] - t))
+    hf = [N.hand_frame(f["p"], s) for f in tk.F]
+    hand_w = [max(a, b) for a, b in zip(tk._angspeed([h[0] for h in hf]), tk._angspeed([h[2] for h in hf]))]
+    fore_w = tk._angspeed([N.sub(f["p"]["hand_" + s], f["p"]["lowerarm_" + s]) for f in tk.F])
+    up_w = tk._angspeed([N.sub(f["p"]["lowerarm_" + s], f["p"]["upperarm_" + s]) for f in tk.F])
+    tips = [f"{fn}_03_{s}" for fn in ("thumb",) + N.FINGERS]
+
+    def loc(k, b):  # the DIP head in the hand's own frame
+        r = N.sub(tk.F[k]["p"][b], tk.F[k]["p"]["hand_" + s])
+        return [N.dot(r, a) for a in hf[k]]
+
+    out = []
+    for k in range(max(1, i - 2), min(len(tk.F), i + 3)):
+        best = max(tips, key=lambda b: N.norm(N.sub(N.sub(tk.F[k]["p"][b], tk.F[k]["p"]["hand_" + s]),
+                                                     N.sub(tk.F[k - 1]["p"][b], tk.F[k - 1]["p"]["hand_" + s]))))
+        v = N.norm(N.sub(N.sub(tk.F[k]["p"][best], tk.F[k]["p"]["hand_" + s]),
+                         N.sub(tk.F[k - 1]["p"][best], tk.F[k - 1]["p"]["hand_" + s]))) / tk.dt
+        curl = N.norm(N.sub(loc(k, best), loc(k - 1, best))) / tk.dt
+        out.append(f"{tk.F[k]['t']:.2f} {best.split('_')[0]} v{v:.0f} curl{curl:.0f} hand{hand_w[k]:.0f} "
+                   f"fore{fore_w[k]:.0f} up{up_w[k]:.0f} wr{tk.v[s][k]:.0f}")
+    return f"{s}@{t}: " + "; ".join(out)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("variants", nargs="+")
     ap.add_argument("--who", choices=("her", "him"), required=True)
     ap.add_argument("--read", required=True)
     ap.add_argument("--spans", action="store_true", help="also the TEST spans (sequence frames 0-179, 422-480)")
+    ap.add_argument("--why", action="store_true", help="after each line, what moves the fingertip at each snap")
     a = ap.parse_args()
     for var in a.variants:
         old = apply(var)
@@ -88,6 +116,12 @@ def main() -> None:
                          f"rest_contact {rc['frames']} (tips_only {rc['tips_only']}) {rc['t']}",
                          f"palm_cam {rep['palm_cam']['t']}"]
         print(" | ".join(line), flush=True)
+        if a.why:
+            tk = N.Take(doc)
+            sn = tk.report()["snaps"]
+            for s in "lr":
+                for t in sn[s]["t"]:
+                    print("  why " + why(tk, s, t), flush=True)
         doc = None
 
 

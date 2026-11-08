@@ -573,7 +573,7 @@ class Performer(S.Seater):
             ws *= max([e.weight(t) for e in self.plan.events if e.hand in ("l", "both")] or [0.0])
         wg = self.gesture_w(s, t)
         self._wg[s] = wg  # hand_rot_p fades YAW_BASE in with it, ROT_LAG_S behind (the hand turns after the arm)
-        lag = getattr(STYLE_HOOK, "ROT_LAG_S", 0.0) if STYLE_HOOK is not None else 0.0
+        lag = getattr(STYLE_HOOK, "ROT_LAG_S", 0.0) + self.ROT_LAG_ADD if STYLE_HOOK is not None else 0.0
         self._wg_rot[s] = self.gesture_w(s, t - lag) if lag > 0 else wg
         self._ws[s] = ws
         if STYLE_HOOK is not None and hasattr(STYLE_HOOK, "hand"):
@@ -686,6 +686,11 @@ class Performer(S.Seater):
             l1, l2 = self.A[s]
             wrist, hp, pole, ws, _ = self.hand_targets(s, t, W)
             k_rest = max(1.0 - ws, 1.0 - self.gesture_w(s, t))  # at the pause rest or the speaking (desk) rest
+            if t < self.OPEN_HEEL_S:  # the opening lift: the heel held fully down until the gesture is under way (his
+                #   box T, 3c2adc79: at 0.6 s, gesture_w 0.09, 9 % of the lift was through: tented on the pads)
+                g0, g1 = self.OPEN_HEEL_GW
+                x = min(1.0, max(0.0, (self.gesture_w(s, t) - g0) / (g1 - g0)))
+                k_rest = max(k_rest, 1.0 - x * x * (3.0 - 2.0 * x))
             if k_rest > 0.0:  # (R7 hands) the heel of the palm down on the desk, not a hand tented on its pads
                 a_w = self.actor(wrist)
                 z_want = self.set.desk_top + self.sy.forearm_clear - self.REST_WRIST_UNDER
@@ -1523,7 +1528,7 @@ class Performer(S.Seater):
         if rec is not None:  # the priming pass: what each frame wants, unguarded
             rec[s].append((t, self._palm_want(s, fingers, across, d0, a0, t, fa)))
             return fingers, across
-        ang = self._palm_at(s, t - self.PALM_DELAY)
+        ang = self._palm_at(s, t - self.PALM_DELAY + self.EASE_LEAD * self.ease_at(t))
         if not ang:
             return fingers, across
         q = axis_angle(fa, ang)
@@ -1540,6 +1545,28 @@ class Performer(S.Seater):
     PALM_DELAY = 0.05  # s the curve runs behind the frame's want (the zero-phase turn led the upper arm: lag_hand_ms;
     #   on d1869ce7 + this, agent-13's rows: W 24 / 0.055 lag_hand 38, snaps 0, palm_to_camera 0, radial 2.7; 22 / 0.05
     #   passes too; 20 / 0.045 lag 20; 22 / 0.06 a palm frame at 17.3)
+    # arrivals eased by time (agent-08, his whole-take snaps at l 11.9, 34.7, 35.2, 51.5, r 21.2): at each the wrist
+    #   stops dead while the guard's zero-phase turn (centred on the arrival) peaks at 380-690 deg/s and the hand's own
+    #   turn, ROT_LAG_S behind the path, at 170-240; a slower spring only spreads the same turn round the stop (box T:
+    #   PALM_W 20 snaps 5.34, 28 4.27). Within EASE_HALF of a time in EASE_AT (ramped over EASE_RAMP) the guard's curve
+    #   runs EASE_LEAD s ahead and the hand's turn EASE_ROT of ROT_LAG_S less behind, both done by the stop; outside the
+    #   windows nothing changes (his TEST spans bit-identical). EASE_AT per presenter in perform.TUNE_OF; off at 0 / 0
+    EASE_AT: tuple = ()
+    EASE_HALF = 0.35  # s each side of a time
+    EASE_RAMP = 0.15  # s the window fades in / out over
+    EASE_LEAD = 0.0  # s (his proxy: 0.1 stopped turn worst 525 -> 272 deg/s, snaps 0; 0.2 overshoots, snaps 3.2)
+    EASE_ROT = 0.0  # of ROT_LAG_S taken off in a window (1: the turn in step with the path)
+    ROT_LAG_ADD = 0.0  # s a performer's hand turn trails over gesture_style.ROT_LAG_S (lag_hand_ms on his TEST spans)
+
+    def ease_at(self, t: float) -> float:
+        """0..1: how far t is inside an EASE_AT window."""
+        e = 0.0
+        for c in self.EASE_AT:  # a time, or (time, half) for a window kept short of a span
+            c, half = (c, self.EASE_HALF) if isinstance(c, (int, float)) else c
+            x = abs(t - c) - half
+            e = max(e, 1.0 if x <= 0 else smooth(1.0 - x / self.EASE_RAMP))
+        return e
+
     PALM_DT = 1.0 / 30.0  # s the guard's curve is sampled at (linear between; the pass costs one pose per sample)
 
     def _palm_at(self, s, t):
@@ -1687,6 +1714,8 @@ class Performer(S.Seater):
     DESK_PULL_MAX = 6.0  # deg the contact pulls a resting hand DOWN onto the desk at most (its push out stays 16)
     DESK_LIVE = 0.15  # cm the pads' height breathes about DESK_TIP (0.21 Hz)
     DESK_TIP = 0.9  # cm a resting hand's lowest fingertip (its centre line) over the desk top: the pad on it
+    OPEN_HEEL_S = 1.0  # s: the take's opening rest, its heel held down through the first lift ...
+    OPEN_HEEL_GW = (0.12, 0.3)  # ... in full under the first gesture weight, handed back by the second (gate: < 0.1 = rest)
     REST_WRIST_UNDER = 0.2  # cm the resting wrist joint sits under the presenter's forearm_clear: the heel of the palm
     #   ON the desk (agent-02 on her mesh: heel down = the wrist joint 2.35 up; her forearm_clear 2.4 -> 2.2; his 2.8 ->
     #   2.6 until his mesh is measured). agent-13's tented line is the mesh's heel + 0.5 (2.9 for her)
