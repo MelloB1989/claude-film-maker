@@ -25,7 +25,7 @@ HIGH_APEX_CM = 16.0  # wrist over the sternum point that counts as an upper_ches
 TORSO_DEPTH = 11.0
 STILL_CM_S = 2.5  # wrist speed under which a frame is still (a hold), not part of a movement
 MIN_MOVES = 5  # wrist movements a hand needs before its path/speed fractions count  # cm from the spine_05 joint to the front of the chest/stomach (seated adult, either presenter)
-CHIN_BELOW = {"him": 6.1}  # agent-02 on the mesh (09 Nov): the soft-tissue menton under the head bone's head, per presenter
+CHIN_BELOW = {"her": 5.25, "him": 6.1}  # agent-02 on the mesh (09 Nov): the soft-tissue menton under the head bone's head, per presenter
 CHIN_BELOW_HEAD = 5.0  # cm, the default until a presenter's mesh value lands: the chin under the head bone's head (the skull base); neck_01 sits ~10 under it, the
 #   shoulders ~19: the chin is ~11-13 cm above the suprasternal notch (seated adult, either presenter)
 FACE_C, FACE_R = (7.0, 0.0, 4.0), 11.0  # the face/hair shell: centre off the head joint (fwd, right, up), radius cm
