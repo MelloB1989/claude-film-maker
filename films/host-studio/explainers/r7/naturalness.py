@@ -540,10 +540,84 @@ class Take:
                     out["t"].append(tt)
         return out
 
+    def _oncam(self, i):
+        cams = self.d.get("on_cam") or []
+        t = self.F[i]["t"]
+        return self.inside[i] and (not cams or any(a <= t < b for a, b, *_ in cams))
+
+    def hold_height(self):
+        """event holds (stroke .. stroke + hold) on camera with the wrist over the collarbone (the clavicle heads'
+        mean height): agent-08's hold rule (R7 hands, 09 Nov), count/beat holds sit at chest height."""
+        out = {"frames": 0, "t": []}
+        for e in self.ev:
+            if e["kind"] == "rest":
+                continue
+            for i in range(self.idx(e["stroke"]), self.idx(e["stroke"] + e["hold"]) + 1):
+                if not self._oncam(i):
+                    continue
+                P = self.F[i]["p"]
+                cz = (P["clavicle_l"][2] + P["clavicle_r"][2]) / 2
+                if any(P["hand_" + s][2] > cz for s in self.hands_of(e)):
+                    out["frames"] += 1
+                    tt = round(self.F[i]["t"], 1)
+                    if tt not in out["t"]:
+                        out["t"].append(tt)
+        return out
+
+    def cascade(self):
+        """the relaxed cascade (agent-08's shape rows): on-camera frames where the hand is not in a gesture
+        (gesture_w < 0.1) and its total flexion (MCP + PIP) does not rise index -> pinky (5 deg slack per step)."""
+        out = {}
+        for s in "lr":
+            n = bad = 0
+            for i, f in enumerate(self.F):
+                if not self._oncam(i) or f["gesture_w"][s] >= 0.1:
+                    continue
+                fa = self.fa[s][i][0]
+                tot = [fa[k][0] + fa[k][1] for k in FINGERS]
+                n += 1
+                bad += any(tot[k + 1] < tot[k] - 5.0 for k in range(3))
+            out[s] = {"n": n, "broken_frac": bad / n if n else float("nan")}
+        return out
+
+    def dip(self):
+        """per finger MCP / PIP / DIP from the joint heads plus a fingertip point ('<finger>_tip_<s>', when the track
+        carries it): the intrinsic-minus claw (MCP < 20 with PIP > 15 and DIP >= PIP) and DIP/PIP outside 0.5-0.85
+        while PIP >= 20 (agent-08: DIP ~ 0.67 PIP). n/a without tips."""
+        out = {"claw_frames": float("nan"), "ratio_bad_frac": float("nan"), "claw_t": []}
+        if not any(k.endswith("_tip_r") for k in self.F[0]["p"]):
+            return out
+        claw = rn = rb = 0
+        for i, f in enumerate(self.F):
+            if not self._oncam(i) or not self.speak[i]:
+                continue
+            P, hit = f["p"], False
+            for s in "lr":
+                _, lat, _ = hand_frame(P, s)
+                W = P["hand_" + s]
+                for fn in FINGERS:
+                    j1, j2, j3, tp = \
+                        (P[f"{fn}_01_{s}"], P[f"{fn}_02_{s}"], P[f"{fn}_03_{s}"], P[f"{fn}_tip_{s}"])
+                    a, b, c, d = sub(j1, W), sub(j2, j1), sub(j3, j2), sub(tp, j3)
+                    m, pp, dd = bend(a, b, lat, s), bend(b, c, lat, s), bend(c, d, lat, s)
+                    if m < 20.0 and pp > 15.0 and dd >= pp:
+                        hit = True
+                    if pp >= 20.0:
+                        rn += 1
+                        rb += not (0.5 <= dd / pp <= 0.85)
+            if hit:
+                claw += 1
+                tt = round(f["t"], 1)
+                if tt not in out["claw_t"]:
+                    out["claw_t"].append(tt)
+        out["claw_frames"], out["ratio_bad_frac"] = claw, (rb / rn if rn else float("nan"))
+        return out
+
     def report(self):
         return {"wrist": self.wrist(), "forearm": self.forearm(), "shape": self.shapes(), "body": self.body(),
                 "kin": self.kinematics(), "lag": self.lag(), "asym": self.asym(), "fingers": self.frozen(),
-                "torso": self.torso(), "travel": self.travel(), "holds": self.holds(), "snaps": self.snaps(), "face": self.near_face()}
+                "torso": self.torso(), "travel": self.travel(), "holds": self.holds(), "snaps": self.snaps(), "face": self.near_face(),
+                "hold_high": self.hold_height(), "cascade": self.cascade(), "dip": self.dip()}
 
 
 # ---------- the gate rows ----------
@@ -612,6 +686,18 @@ ROWS = {
                                    "on-camera frames with any wrist/finger joint above the chin line (head joint - 5 cm) "
                                    "or within 10 cm of the face/hair shell (the orchestrator, 09 Nov: no face gestures "
                                    "on either presenter's sheet)"),
+    "move.hold_over_collar_frames": (lambda r: r["hold_high"]["frames"], "==", 0, "frames",
+                                     "on-camera stroke-hold frames with the wrist over the collarbone (the clavicle "
+                                     "heads): holds sit at chest height (agent-08, R7 hands)"),
+    "move.cascade_broken_frac": (lambda r: _worst(r, ("cascade", "broken_frac"), max), "<=", 0.10, "fraction",
+                                 "on-camera resting frames whose MCP+PIP flexion does not rise index -> pinky (the "
+                                 "relaxed cascade), worse hand"),
+    "move.finger_claw_frames": (lambda r: r["dip"]["claw_frames"], "==", 0, "frames",
+                                "on-camera speaking frames with a finger in the intrinsic-minus claw: MCP < 20 with "
+                                "PIP > 15 and DIP >= PIP (agent-08); needs fingertip points in the track, else n/a"),
+    "move.dip_pip_ratio_bad_frac": (lambda r: r["dip"]["ratio_bad_frac"], "<=", 0.10, "fraction",
+                                    "finger-frames (PIP >= 20) whose DIP/PIP falls outside 0.5-0.85 (agent-08: DIP ~ "
+                                    "0.67 PIP); needs fingertip points, else n/a"),
     "move.mirror_corr_p50": (lambda r: r["asym"]["mirror_corr_p50"], "<=", 0.95, "corr",
                              "GUARD: two-hand strokes, median correlation of the left wrist velocity with the right's "
                              "mirrored (1.0 = a mirror copy)"),
