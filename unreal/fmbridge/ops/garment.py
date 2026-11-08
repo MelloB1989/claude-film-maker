@@ -767,7 +767,7 @@ def hand_torso_clearance(*, label: str, sequence: str, frames: list, body: str =
                          min_cm: float = 15.0):
     """Resting hands vs the chest (round 7: her high rest hovered at the top of her chest, 'fidgeting with her top').
     Per frame (the REST/bridge frames: film-qa perf-rest picks them from the hand samples): the torso surface (posed
-    Body + upper garment points near the spine, every arm/forearm/hand point excluded), and each hand's wrist + 5
+    Body + upper garment points along spine_01 -> neck_01, the lap/thighs, arms, forearms and every finger excluded), and each hand's wrist + 5
     fingertips + 5 knuckles; the min distance (fmbridge.qa.limbs.nearest). The gate: >= min_cm on every rest frame.
 
     Returns: {"pass", "issues", "metrics": {"worst_cm", "at", "frames": {f: {"l", "r", "min"}}}}.
@@ -788,12 +788,15 @@ def hand_torso_clearance(*, label: str, sequence: str, frames: list, body: str =
         for c in [comp] + upper:
             pts += [(v.x, v.y, v.z) for v in list(_verts(_posed(c)))[::max(1, int(stride))]]
         yield
-        P = {b: comp.get_socket_location(b) for b in ("spine_03", "neck_01", "upperarm_l", "lowerarm_l", "hand_l",
-                                                      "upperarm_r", "lowerarm_r", "hand_r")}
+        names = ["spine_01", "neck_01"] + [f"{b}_{s}" for s in "lr" for b in ("upperarm", "lowerarm", "hand")] + \
+                [f"{fg}_03_{s}" for s in "lr" for fg in ("index", "middle", "ring", "pinky", "thumb")]
+        P = {b: comp.get_socket_location(b) for b in names}
         P = {b: (v.x, v.y, v.z) for b, v in P.items()}
         limbs_ = [(P[f"upperarm_{s}"], P[f"lowerarm_{s}"]) for s in "lr"] + \
                  [(P[f"lowerarm_{s}"], P[f"hand_{s}"]) for s in "lr"]
-        cloud = _limbs.torso_cloud(pts, (P["spine_03"], P["neck_01"]), limbs_)
+        fingers_ = [(P[f"hand_{s}"], P[f"{fg}_03_{s}"]) for s in "lr" for fg in ("index", "middle", "ring", "pinky",
+                                                                                 "thumb")]
+        cloud = _limbs.torso_cloud(pts, (P["spine_01"], P["neck_01"]), limbs_, fingers=fingers_)
         row = {}
         for sd, bones in pts_of.items():
             hp = [(v.x, v.y, v.z) for v in (comp.get_socket_location(b) for b in bones)]

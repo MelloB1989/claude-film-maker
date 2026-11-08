@@ -170,3 +170,15 @@ def test_rest_frames_and_hand_to_chest():
     near = L.nearest([[17, 0, 128]], cloud)["cm"]  # hands 3 cm off the chest: the rejected high rest
     far = L.nearest([[38, 0, 118]], cloud)["cm"]   # hands ~24 cm in front: the new rest
     assert near < 5 and far > 15
+
+
+def test_torso_cloud_drops_the_other_hands_fingers_and_the_lap():
+    L = _limbs()
+    torso = ([0, 0, 100], [0, 0, 150])
+    chest = cylinder(*torso, 14)
+    lap = [[x, y, 92.0] for x in range(5, 40, 3) for y in range(-15, 16, 5)]  # thighs below the spine segment
+    other_fingers = [[38.0, 2.0, 118.0], [40.0, 3.0, 118.0]]  # the left hand's fingers beside the right hand
+    fingers = [([30.0, 3.0, 118.0], [42.0, 3.0, 118.0])]  # hand -> fingertip segment of the left hand
+    cloud = L.torso_cloud(chest + lap + other_fingers, torso, [], fingers=fingers)
+    assert all(p[2] >= 100 for p in cloud)  # no lap point
+    assert L.nearest([[38.0, -2.0, 118.0]], cloud)["cm"] > 15  # the right hand ~24 cm off the chest, not 4 cm off a finger
