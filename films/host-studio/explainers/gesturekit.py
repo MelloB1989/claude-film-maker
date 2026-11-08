@@ -1551,6 +1551,7 @@ def finger_tips(perf, F) -> dict:
 
 def track_doc(plan, fps: int, frames: list) -> dict:
     ev = [{"hand": e.hand, "kind": e.kind, "prep": e.prep, "stroke": e.stroke, "hold": e.hold,
-           "line": getattr(e, "line", "")} for e in plan.events]
+           "line": getattr(e, "line", ""), "detail": getattr(e, "detail", "")} for e in plan.events]  # detail:
+    #   agent-13's shape_wrong_strokes classes by kind OR detail ('size: pinch' is a pinch)
     return {"fps": fps, "frame": "actor: x fwd, y the presenter's right, z up, cm", "on_cam": plan.on_cam,
             "events": ev, "frames": frames}
