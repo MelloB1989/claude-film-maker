@@ -75,6 +75,12 @@ verify windows) are part of the same pre-check: a movement/hand row that fails o
 the box. 963942f4 cost a boot cycle on two issues known offline (her pinky_03_l into the desk at landings; his MCU
 hands_in_frame 0.574).
 
+**Her r7I verify (09 Nov, agent-06; 963942f4 + agent-08 02505b92, 0 offline build issues):** placed gates: parity
+--shoulder 0.309, --torso 0.186 (the lift is gone: placed = seat), claw 0, palm_to_camera 0, rest_contact 0, spread 3.2:
+PASS. finger_snap 9.0/min FAIL (rendered by the orchestrator's call). Offline (agent-13): wrist_radial_p95 19.7 in
+the windows FAIL as well (the left wrist bends radially for the supination). Both open on agent-08's e1c07794 (snap
+9.41 whole / 9.0 windows, radial 18.6 / 19.7).
+
 ## Verdicts
 
 ### Netflix v2b: REJECTED BY THE OPERATOR (07 Nov, about 23:45 IST). The SIGN below is SUPERSEDED.
