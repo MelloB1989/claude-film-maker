@@ -386,3 +386,11 @@ EXPL_ARMS=0 gives the slim originals (with the new hides) for comparisons only.
   HerWatch actor in her level and its check fails while one is there (no visibility key to undo). Studio/reel tools
   that still list HerWatch (studio.py makes it, reel/cast_gate.py checks it) are unchanged: re-dressing a reel level
   with this dress_her removes the watch there too.
+
+2026-11-09 04:45 IST | agent-06 | Night of 08-09 Nov, box driver (T2 her, T him).
+- Her r7J (agent-01 0fa53868): 0 FAIL. Parity 0.364 / 0.247 / 0.186, arms 3.72/1.28 and 3.97/1.32. Watch dropped first (agent-05 r7-nowatch; set.py dress, HerWatch actors [] checked, then save).
+- Her finals A (netflix_r7A) and B (agent-08 ff93e054, netflix_finals_B): 9 shots, 923 frames at --preset final, about 1.4 s/frame. render.py's post() hit an ffmpeg stderr decode error after every shot rendered; encoded and synced by hand (post_manual.sh). B gates: 0 FAIL, parity 0.357 / 0.214 / 0.186.
+- Orchestrator picked B; agent-11 composited it on T2 (netflix_r6_r7B), approved by eye and delivered. A's composite kept as the backup. Her head screen boxes (render px) were sent to agent-04 for the lower-third / panel geometry check. T2 saved + API-stopped.
+- Him (box T, branch fleet/agent-06/r7-him e3f0bc15 = e7903a6e + agent-01 9dc4db55 + aad624a9): him_sweep on the box (8 Performer variants, rows only). REST_WRIST_UNDER=0.5 picked: TEST spans 0-179 + 422-480 pass every row, rest_contact 0; whole-take finger_snap 6.4/min still open for his finals. Confirmed with arm_track_who + naturalness on the box.
+- His body build on aad624a9 then failed its own check (nothing written): desk.wrist (both wrists z 73.3 against the desk top 71.0 at t 0-0.4, the lowered opening rest) and floor.ball (+1.26 cm). Not framing-only (agent-04), so T saved + API-stopped. Next T run: agent-01's fix, body build first, then rows / LAYERS / flank / re-gate / head stages / 13 s TEST.
+- His body reads stay on box T and are deleted after each run; only rows leave it.
