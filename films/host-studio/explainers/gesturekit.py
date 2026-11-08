@@ -226,7 +226,7 @@ def scaled(p: HandPose, k: float) -> HandPose:
 
 
 def plan_from_sheet(sheet: dict, cues: dict, tilts: list | None = None, base_lean: float = 4.0,
-                    timing: list | None = None, on_cam: list | None = None) -> Plan:
+                    timing: list | None = None, on_cam: list | None = None, close_alive: float | None = None) -> Plan:
     """agent-11's acting sheet (lines[].body01) + the cue sheet (speaking spans) -> Plan. `timing` (agent-10's
     prosody planner) overrides each gesture's prep/stroke/hold/retract/amp/energy by (line, word_i)."""
     events, lean = [], []
@@ -288,6 +288,9 @@ def plan_from_sheet(sheet: dict, cues: dict, tilts: list | None = None, base_lea
         for k in b.get("lean", []):
             lean.append((float(k["t"]), float(k["deg"])))
     speaking = [(float(c["start"]), float(c["end"])) for c in cues["lines"]]
+    if close_alive and speaking:  # the take's length: after the last line the hands stay at the speaking desk rest
+        #   to the end, as the take opens alive (his forearms can't reach the desk rest: elbows off the edge, 55.4 s)
+        bridges = list(bridges) + [[max(b_ for _, b_ in speaking), float(close_alive) + 1.0]]
     return Plan(events, speaking, lean, tilts or [], base_lean, gap_merge, on_cam or [], bridges)
 
 
@@ -1041,12 +1044,12 @@ def metrics(perf: Performer, t0: float, t1: float, fps: float = 30.0) -> dict:
 
 def build(data: dict, st, sy, sheet: dict, cues: dict, tilts: list, length_s: float, fps: int = 30,
           check_every: int = 6, timing: list | None = None, on_cam: list | None = None,
-          frame_want: dict | None = None, track_out: str | None = None) -> tuple:
+          frame_want: dict | None = None, track_out: str | None = None, close_alive: bool = False) -> tuple:
     """seatkit.build for the performance: the seated pose with the plan driving the upper body, as tracks (constant
     for the bones that never move, per key for spine, neck, head, clavicles, arms, hands and fingers). Returns (doc
     for perform.py's WRITE, summary with the checks and the body rows' numbers)."""
     sk = S.Skeleton.from_read(data)
-    plan = plan_from_sheet(sheet, cues, tilts, timing=timing, on_cam=on_cam)
+    plan = plan_from_sheet(sheet, cues, tilts, timing=timing, on_cam=on_cam, close_alive=length_s if close_alive else None)
     se, tuned = S.autotune(sk, st, sy)
     perf = Performer(sk, st, se.sy, plan)
     n = int(round(length_s * fps)) + 1
