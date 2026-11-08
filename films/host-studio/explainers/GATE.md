@@ -194,6 +194,9 @@ and the every-vertex 14 cm at the shoulder joint. The orchestrator's eye on f0 /
 original outfit stays. Until agent-02's motion-based sleeve split is validated (it must read ~0 on these frames and FAIL
 on a known clip), body.upperarm_side_clear_cm and body.upperarm_bust_clear_cm are INFO for HIM, and the gate for his
 arms is the orchestrator's by-eye review of his TEST and finals (MCU / MCU_L / WIDE). Hers are unchanged (gating).
+agent-02's measure is SLEEVES=2 (20b833dd, opt-in; her default path and numbers are unchanged). His arms_9fe8fee0
+(-7.87 side) is DROPPED as a must_fail: not a real clip (LAYERS: the arm lay on a gap in the torso set). SLEEVES=2 gates
+him only once it reads ~0 on his clean frames AND fails her v2b clip under SLEEVES=2 itself.
 
 ## Verdicts
 
