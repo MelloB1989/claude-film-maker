@@ -10,11 +10,12 @@ five payoffs; mid-line smiles 0.4-0.6, varied in shape and asymmetry. Confident,
 amplitude varies (`amp` 0-1: small 0.3, medium 0.55, big 0.85), and the HELD strokes keep the shape after the stroke
 for `hold_s` before retracting: deliberate, confident.
 
-**Gesture space (side A review, agent-10's framing check):** the apex of every stroke sits chest-to-chin in front of
+**Gesture space (side A review, agent-10's framing check):** the apex of every stroke sits chest-to-collarbone in front of
 the torso, never at desk height. `CAM_MCU`'s bottom edge is at her sternum (z 85 on her gesture plane): small beats
 peak at the sternum (the hand at the edge), medium at the upper chest, big at the collarbone, so the hands sit in the
-frame's lower third. `CAM_CU`'s bottom edge is above her shoulders (z 102): small strokes at the collarbone, the key
-ones at the chin. Each gesture carries its `apex_height`; each on-camera line its `hands_in_frame_min` (at least
+frame's lower third. `CAM_CU`'s bottom edge is above her shoulders (z 102): its strokes at the collarbone, never the
+chin (the orchestrator's ruling (a): the wrist <= ~22 cm over the sternum point). At most ~1/3 of the strokes sit at or
+above the upper chest (`apex_high_share`): off-camera strokes stay at the sternum. Each gesture carries its `apex_height`; each on-camera line its `hands_in_frame_min` (at least
 one hand fully in frame: MCU/MCU_L 0.6, CU 0.3, WIDE 1.0 of the speaking frames). The high rest is hands together at
 the sternum, at the MCU frame's edge.
 
@@ -48,7 +49,7 @@ Arc: hook = **curiosity**, body = **confident clarity**, payoff = **satisfied de
 
 - **delight, easy confidence: the magic moment**, intensity 0.8 (hook: curiosity); base smile 0.4, brows 0.1
 - **Face:** brow flash on *Hit* 4.25 s (f102); smile 0.9 on *starts.* 5.47 s (f131) (Duchenne, squint); nod on *starts.* 5.47 s (f131)
-- **Gestures:** press [R, small 0.3, to camera] stroke on *play,* 4.54 s (f109), apex at the collarbone, prep from 4.24: index finger presses an imaginary play button toward the lens, collarbone height so it enters the CU; release [both, medium 0.55, to front] stroke on *starts.* 5.47 s (f131), apex at the chin, prep from 5.17: fingers spring open outward, 'ta-da', shoulders lift
+- **Gestures:** press [R, small 0.3, to camera] stroke on *play,* 4.54 s (f109), apex at the collarbone, prep from 4.24: index finger presses an imaginary play button toward the lens, collarbone height so it enters the CU; release [both, medium 0.55, to front] stroke on *starts.* 5.47 s (f131), apex at the collarbone, prep from 5.17: fingers spring open outward, 'ta-da', shoulders lift
 - **Lean:** 6° on *Hit* 4.25 s, 3° on *starts.* 5.35 s
 
 ### N03  6.04-7.81 s  ·  None
@@ -101,9 +102,9 @@ Arc: hook = **curiosity**, body = **confident clarity**, payoff = **satisfied de
 > Each title is encoded at many sizes and bitrates.
 
 - **explaining, crisp clarity**, intensity 0.7 (body: confident clarity); base smile 0.2, brows 0.1
-- **Note:** CU: gestures held high (collarbone to chin) so the hands enter the bottom of the frame; the shoulders carry the rest
+- **Note:** CU: gestures held high (at the collarbone, never the chin) so the hands enter the bottom of the frame; the shoulders carry the rest
 - **Face:** glance on *Each* 23.54 s (f565) (agent-04's THINK beat; back on the lens by 'title'); nod on *encoded* 24.82 s (f596); brow flash on *many* 25.52 s (f612); smile 0.45 (lopsided L) on *bitrates.* 26.65 s (f640)
-- **Gestures:** size [both, small 0.3, to front] stroke on *many* 25.52 s (f612), apex at the collarbone, prep from 25.22: hands frame a small box on 'many'...; size [both, big 0.85, to front] HELD 0.5 s stroke on *sizes* 25.81 s (f619), apex at the chin, prep from 25.51: ...and widen to shoulder width on 'sizes'; ladder [R, medium 0.55, to up] stroke on *bitrates.* 26.65 s (f640), apex at the chin, prep from 26.35: flat palm steps up three rungs
+- **Gestures:** size [both, small 0.3, to front] stroke on *many* 25.52 s (f612), apex at the collarbone, prep from 25.22: hands frame a small box on 'many'...; size [both, big 0.85, to front] HELD 0.5 s stroke on *sizes* 25.81 s (f619), apex at the collarbone, prep from 25.51: ...and widen to shoulder width on 'sizes'; ladder [R, medium 0.55, to up] stroke on *bitrates.* 26.65 s (f640), apex at the collarbone, prep from 26.35: flat palm steps up three rungs
 - **Lean:** 5° on *many* 25.52 s
 
 ### N09  27.50-32.57 s  ·  off camera (graphic `ladder`): continuity only
@@ -166,7 +167,7 @@ Arc: hook = **curiosity**, body = **confident clarity**, payoff = **satisfied de
 
 - **satisfied clarity: the two halves click**, intensity 0.8 (payoff: satisfied delight); base smile 0.4, brows 0.05
 - **Face:** brow flash on *cloud* 53.81 s (f1291); nod on *decides.* 54.25 s (f1302); smile 0.45 (closed) on *box* 54.99 s (f1320); nod on *delivers.* 55.89 s (f1341); smile 0.6 (open lips, building to N16) on *delivers.* 55.89 s (f1341)
-- **Gestures:** high low [R, medium 0.55, to up, her right] HELD 0.5 s stroke on *cloud* 53.81 s (f1291), apex at the chin, prep from 53.51: open palm raised to chin height: up there; place [both, medium 0.55, to front] stroke on *box* 54.99 s (f1320), apex at the sternum, prep from 54.70: both hands come down to the sternum, the frame's edge: right here; beat [both, medium 0.55, to front] stroke on *delivers.* 55.89 s (f1341), apex at the sternum, prep from 55.59
+- **Gestures:** high low [R, medium 0.55, to up, her right] HELD 0.5 s stroke on *cloud* 53.81 s (f1291), apex at the collarbone, prep from 53.51: open palm raised to collarbone height: up there; place [both, medium 0.55, to front] stroke on *box* 54.99 s (f1320), apex at the sternum, prep from 54.70: both hands come down to the sternum, the frame's edge: right here; beat [both, medium 0.55, to front] stroke on *delivers.* 55.89 s (f1341), apex at the sternum, prep from 55.59
 - **Lean:** 4° on *cloud* 53.81 s, 7° on *box* 54.99 s
 
 ### N16  56.50-57.45 s  ·  CAM_CU
@@ -175,7 +176,7 @@ Arc: hook = **curiosity**, body = **confident clarity**, payoff = **satisfied de
 
 - **satisfied delight**, intensity 0.9 (payoff: satisfied delight); base smile 0.6, brows 0.05
 - **Face:** brow flash on *That's* 56.50 s (f1356); smile 0.9 on *just* 57.00 s (f1368) (the last full Duchenne, held into the cut); tilt R 5° on *plays.* 57.16 s (f1372); nod on *plays.* 57.16 s (f1372)
-- **Gestures:** release [both, medium 0.55, to front] HELD 1.0 s stroke on *plays.* 57.16 s (f1372), apex at the chin, prep from 56.86: palms up, a small outward 'ta-da', the shoulders lift; held to the cut
+- **Gestures:** release [both, medium 0.55, to front] HELD 1.0 s stroke on *plays.* 57.16 s (f1372), apex at the collarbone, prep from 56.86: palms up, a small outward 'ta-da', the shoulders lift; held to the cut
 - **Lean:** 6° on *That's* 56.50 s, 4° on *plays.* 57.16 s
 
 ### The plan against the R7 rows
@@ -350,7 +351,7 @@ Arc: hook = **curiosity**, body = **confident clarity**, payoff = **satisfied de
 
 - **satisfied delight, the bookend**, intensity 0.9 (payoff: satisfied delight); base smile 0.55, brows 0.05
 - **Face:** brow flash on *That's* 52.29 s (f1255); smile 0.9 on *billion* 53.27 s (f1278) (full Duchenne (payoff 5/5), held into the cut); tilt R 5° on *day.* 54.13 s (f1299); nod on *day.* 54.13 s (f1299)
-- **Gestures:** size [both, medium 0.55, to front] stroke on *billion* 53.27 s (f1278), apex at the chin, prep from 52.81 (from *hundred*): the hook's spread again, smaller (CU); release [both, small 0.3, to front] HELD 1.0 s stroke on *day.* 54.13 s (f1299), apex at the collarbone, prep from 53.83: palms open, held to the cut
+- **Gestures:** size [both, medium 0.55, to front] stroke on *billion* 53.27 s (f1278), apex at the collarbone, prep from 52.81 (from *hundred*): the hook's spread again, smaller (CU); release [both, small 0.3, to front] HELD 1.0 s stroke on *day.* 54.13 s (f1299), apex at the collarbone, prep from 53.83: palms open, held to the cut
 - **Lean:** 6° on *That's* 52.29 s
 
 ### The plan against the R7 rows
