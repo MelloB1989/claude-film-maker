@@ -52,9 +52,10 @@ def main() -> None:
     t0, t1 = (float(x) for x in a.span.split(":"))
     n = int(round(PF.length_s(who) * 30)) + 1
     cnt = {"frames": 0, "claw": 0, "claw_score": 0, "ratio_bad": 0, "ratio_n": 0, "fold_limit": 0, "cascade_broken": 0,
-           "rest_frames": 0}
+           "rest_frames": 0, "thumb_flat": 0}
     worst = {"claw_score": -1e9}
     sample = []
+    flat_t = []
     for i in range(0, n, a.every):
         t = i / 30.0
         F = perf.fk({**const, **perf.pose(t)})
@@ -76,6 +77,10 @@ def main() -> None:
                     cnt["ratio_bad"] += not (0.5 <= d / p <= 0.85)
                 cnt["fold_limit"] += p >= 95.0
             cnt["claw"] += hit
+            if sum(ang[s][f][0] for f in HS.FINGERS4) / 4.0 > 30.0 and HS.thumb_opposition(
+                    {b: v[0] for b, v in F.items()}, s) < 10.0:
+                cnt["thumb_flat"] += 1  # agent-13's thumb_flat
+                flat_t.append((round(t, 2), s))
             if perf.gesture_w(s, t) < 0.1:
                 cnt["rest_frames"] += 1
                 c = [ang[s][f][0] + ang[s][f][1] for f in HS.FINGERS4]
@@ -87,7 +92,7 @@ def main() -> None:
                                   "clear": {k: v for k, v in summ["rows"].items() if "clear" in k}},
            "counts": cnt, "dip_pip_ratio_bad_frac": round(cnt["ratio_bad"] / max(1, cnt["ratio_n"]), 3),
            "cascade_broken_frac": round(cnt["cascade_broken"] / max(1, cnt["rest_frames"]), 3),
-           "worst_claw_score": worst, "sample": sample}
+           "worst_claw_score": worst, "thumb_flat_t": flat_t[:20], "sample": sample}
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
     Path(a.out).write_text(json.dumps(out, indent=1))
     print(json.dumps({k: v for k, v in out.items() if k != "sample"}, indent=1))

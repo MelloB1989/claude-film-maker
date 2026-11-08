@@ -149,7 +149,10 @@ def lerp_pose(a: GK.HandPose, b: GK.HandPose, u_pos: float, u_rot: float, u_f: d
     sa, sb = shape_dict(a.shape), shape_dict(b.shape)
     sh = {f: sa[f] + (sb[f] - sa[f]) * u_f.get(f, u_rot) for f in GK.FINGERS}
     sh["_spread"] = sa["_spread"] + (sb["_spread"] - sa["_spread"]) * u_f.get("index", u_rot)
-    sh["_opp"] = sa["_opp"] + (sb["_opp"] - sa["_opp"]) * u_f.get("thumb", u_rot)  # the thumb swings with its flexion
+    # the thumb's opposition leads the fingers as it rises and trails them as it falls, so a curling hand never has a
+    # flat thumb for a frame (agent-13's thumb_flat: open -> pinch at t15.4, the fingers curled first)
+    uo = (max if sb["_opp"] > sa["_opp"] else min)(list(u_f.values()) or [u_rot])
+    sh["_opp"] = sa["_opp"] + (sb["_opp"] - sa["_opp"]) * uo
     return GK.HandPose(off, a.pron + (b.pron - a.pron) * u_rot, a.ext + (b.ext - a.ext) * u_rot, sh)
 
 

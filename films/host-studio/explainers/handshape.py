@@ -37,13 +37,15 @@ C_MIN, C_MAX = -0.06, 1.08  # closure limits (a little past straight on an open 
 # MCP and IP flexion (deg at 100 %)
 THUMB_OPP_FRONT = 40.0
 THUMB_OPP_ACROSS = 22.0
+THUMB_FRONT_BASE = 12.0  # deg of palmar abduction always: a living thumb never lies in the palm's plane (agent-13's
+#   thumb_flat: 6 right-hand frames on dd4cc957, the open palm's thumb at opp ~0 as the fingers curled out of it)
 THUMB_MCP = 50.0
 THUMB_IP = 62.0
 
 # The named whole-hand poses (closure %; thumb flexion %, opposition %). Authored from anatomy:
 # The thumb's (flexion, opposition) per shape are fitted on her rig by its tip, each with an opposition floor (the
 # proximal phalanx out of the palm's plane toward the palm: agent-13's thumb_flat, opp < 10 with the fingers curled):
-# the pinch's tip to the index tip 0.4-2.2 cm at opp 37-47 deg, the point/raise thumb on the folded middle phalanx
+# the pinch's tip to the index tip 0.4-1.8 cm at opp 35-45 deg, the point/raise thumb on the folded middle phalanx
 # 1.2-2.6 cm at opp 28-41, the fist's 1.2-1.9 cm at 25-34, the relaxed/rest thumb beside the index at 21-31; the open
 # palm's thumb swings out in plane (opp < 0: radial abduction).
 #   relaxed  the resting hand in the air: the cascade 22 < 28 < 34 < 40, the thumb loosely opposed beside the index
@@ -68,7 +70,7 @@ SHAPES = {
     "count1": {"index": 3, "middle": 80, "ring": 84, "pinky": 86, "thumb": 90, "_opp": 0},
     "count2": {"index": 3, "middle": 4, "ring": 84, "pinky": 86, "thumb": 100, "_opp": 10},
     "count3": {"index": 3, "middle": 4, "ring": 8, "pinky": 86, "thumb": 100, "_opp": 20},
-    "pinch": {"index": 46, "middle": 40, "ring": 46, "pinky": 52, "thumb": 10, "_opp": 100},
+    "pinch": {"index": 46, "middle": 40, "ring": 46, "pinky": 52, "thumb": 20, "_opp": 60},
     "soft_fist": {"index": 66, "middle": 72, "ring": 76, "pinky": 80, "thumb": 80, "_opp": 0},
 }
 KEYS = FINGERS4 + ("thumb", "_opp")
@@ -100,7 +102,7 @@ def thumb_angles(flex_pct: float, opp_pct: float) -> tuple:
     """(CMC front swing, CMC across swing, MCP flex, IP flex) deg."""
     f = max(-0.1, min(1.1, flex_pct / 100.0))
     o = max(-1.0, min(1.1, opp_pct / 100.0))  # < 0: radial abduction (the open palm's thumb swings out, in plane)
-    return THUMB_OPP_FRONT * max(0.0, o), THUMB_OPP_ACROSS * o, THUMB_MCP * max(0.0, f), THUMB_IP * max(0.0, f)
+    return THUMB_FRONT_BASE + THUMB_OPP_FRONT * max(0.0, o), THUMB_OPP_ACROSS * o, THUMB_MCP * max(0.0, f), THUMB_IP * max(0.0, f)
 
 
 def spread_k(closure_pct: float) -> float:
