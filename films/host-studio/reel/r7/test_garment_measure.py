@@ -221,3 +221,49 @@ def test_frames_map_by_time():
     assert plan[0][2] == round(185 / 30, 4)
     assert [g for g, _, _ in gm.to_seq_frames([1044, 1104], 24, 24)] == [1044, 1104]
     assert len(gm.to_seq_frames([0, 1, 2, 3, 4], 30, 24)) == 4   # two 30 fps frames share a 24 fps one
+
+
+def box_torso():
+    """A closed box torso, x -8..15 (the bust at +15), y -10..10, z -20..20, outward winding."""
+    R = [(-8, 15), (-10, 10), (-20, 20)]
+    P = [(x, y, z) for x in R[0] for y in R[1] for z in R[2]]
+    idx = {p: i for i, p in enumerate(P)}
+    T = []
+    for ax in range(3):
+        o = [a for a in range(3) if a != ax]
+        for side in (0, 1):
+            cs = []
+            for u in (0, 1):
+                for v in (0, 1):
+                    p = [0, 0, 0]
+                    p[ax], p[o[0]], p[o[1]] = R[ax][side], R[o[0]][u], R[o[1]][v]
+                    cs.append(idx[tuple(p)])
+            a, b, c, d = cs
+            for t in ((a, b, d), (a, d, c)):
+                n = gm.tri_normal(*(P[i] for i in t))
+                m = tuple(sum(P[i][k] for i in t) / 3 for k in range(3))
+                T.append(t if gm.dot(n, gm.sub(m, (3.5, 0, 0))) > 0 else (t[0], t[2], t[1]))
+    return P, T
+
+
+def test_zone_inside_comes_from_the_whole_torso():
+    """T2 rest (8a45d961): an arm vertex 1 cm off her SIDE read -9.5 cm in the front zone alone (behind the front
+    patch's far edge, nearer the spine than it) while the whole torso read +1.5."""
+    P, T = box_torso()
+    chain = [(0, 0, -20.0), (0, 0, 20.0)]
+    ents = gm.torso_tris(P, T, set(range(len(P))), "Body")
+    flags = gm.front_flags(ents, chain, (1, 0, 0), 30.0)
+    fr = [e for e, f in zip(ents, flags) if f]
+    sd = [e for e, f in zip(ents, flags) if not f]
+    zof = ["front" if f else "side" for f in flags]
+    arm = [(0, (5.0, 11.0, 0.0))]
+    assert gm.clearance(gm.TriGrid(fr, 2.0), arm, chain=chain)[0][0] < -9    # the old artefact
+    res = gm.zone_clearance(gm.TriGrid(ents, 2.0), zof, {"front": gm.TriGrid(fr, 2.0), "side": gm.TriGrid(sd, 2.0)},
+                            arm, chain=chain)
+    assert abs(res["side"][0][0] - 1.0) < 1e-6 and res["side"][1] == 0
+    assert res["front"][0][0] > 9 and res["front"][1] == 0
+    # a real hit: 2 cm into the bust counts in the front zone only
+    res = gm.zone_clearance(gm.TriGrid(ents, 2.0), zof, {"front": gm.TriGrid(fr, 2.0), "side": gm.TriGrid(sd, 2.0)},
+                            [(0, (13.0, 0.0, 0.0))], chain=chain)
+    assert abs(res["front"][0][0] + 2.0) < 1e-6 and res["front"][1] == 1
+    assert res["side"][0][0] > 0 and res["side"][1] == 0
