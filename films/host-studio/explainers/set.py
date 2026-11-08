@@ -387,9 +387,12 @@ for c in L.actor({ACTOR[who]!r}).get_components_by_class(unreal.SkeletalMeshComp
         c.set_hidden_in_game({variant == "none"!r})
         out["Overshirt_visible"] = {variant != "none"!r}
 result = out"""))
-    for comp, over, reach in hides:
-        r = op("body.hide_under", label=ACTOR[who], body=comp, garment=over, reach_cm=reach, apply=True)
-        print(f"{comp} under {over} (reach {reach}): hidden {r.get('hidden')} ({r.get('fraction')}) → {r.get('mesh')}")
+    for comp, over, reach, *extra in hides:
+        kw = extra[0] if extra else {}
+        r = op("body.hide_under", label=ACTOR[who], body=comp, garment=over, reach_cm=reach, apply=True, **kw)
+        print(f"{comp} under {over} (reach {reach}{', ' + json.dumps(kw) if kw else ''}): hidden {r.get('hidden')} "
+              f"({r.get('fraction')}), inside {r.get('covered_inside')}, islands {r.get('islands')}, filled "
+              f"{r.get('holes_filled')} → {r.get('mesh')}")
 
 
 def step_dress(who: str) -> None:

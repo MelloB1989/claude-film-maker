@@ -182,7 +182,13 @@ GARMENT_HIDES = {
     # r7 (agent-05, the waist refit _R7W): the INNER layer hides under the outer one. The Top's tuck goes under the
     # Trousers (it can never come out through the band) and her skin under both; the Trousers keep their whole band
     # (r6b's Trousers-under-Top cut ate its inner face: a hollow band standing 0.6-2 cm off her waist)
-    "her": [("Top", "Overshirt", 6.0), ("Top", "Trousers", 2.5), ("Body", "Top", 6.0), ("Body", "Trousers", 2.5)],
+    # r7 her waist 2 (agent-05, the operator 8 Nov ~19:50 "some clipping near her waist"; netflix_r7H WIDE f1034-1167:
+    # skin through the band's lower edge): R7W2 was fitted SEATED and carried back to bind, so in the reference pose
+    # (where body.hide_under measures) its band and hip sit INSIDE her skin: the outward ray never met them, those
+    # verts stayed, and rings=2 grew each miss into a hole. A 4th item = body.hide_under's extra args: inside_cm (a
+    # ray in along -normal also counts), fill_max (small uncovered islands inside the cover, the garment in reach)
+    "her": [("Top", "Overshirt", 6.0), ("Top", "Trousers", 2.5, {"inside_cm": 2.0}), ("Body", "Top", 6.0),
+            ("Body", "Trousers", 4.0, {"inside_cm": 3.0, "fill_max": 400})],
     "him": [],
 }
 GARMENT_SRC = {"her": {"Overshirt": "/Game/Host/Presenter_Overshirt/SKM_Presenter_Overshirt_RW",  # r6: agent-02's
@@ -194,6 +200,12 @@ GARMENT_SRC = {"her": {"Overshirt": "/Game/Host/Presenter_Overshirt/SKM_Presente
                        # R7W2: the band refit over her Unreal-posed belly (R7W's front poked 0.32-0.59 cm in UE)
                        "Trousers": "/Game/Host/Presenter_Outfit/SKM_Presenter_Trousers_R7W2",
                        "Body": "/Game/Host/Unpacked/Presenter/Body/SKM_Presenter_F_BodyMesh"}, "him": {}}
+# r7 arm girth (agent-05, the operator 8 Nov ~19:50: "her hand limbs are a little bit (not much) thin compared to her
+# body"): her_outfit_ue/arm_girth.py SCALE 0.10, the upper arm and forearm 10 % fuller round the bone axis (the
+# deltoid ramps in, the watch band and hands unmoved), the Top's sleeves moved by the same field. EXPL_ARMS=0: the
+# slim originals (before/after stills)
+if os.environ.get("EXPL_ARMS", "1") != "0":
+    GARMENT_SRC["her"].update({"Body": GARMENT_SRC["her"]["Body"] + "_Arms", "Top": GARMENT_SRC["her"]["Top"] + "_Arms"})
 
 # r6b (the orchestrator rejected RW: skin holes at both shoulders, a shredded collar): her overshirt is a choice made by
 # eye from stills. set.py reads $EXPL_OVERSHIRT: "orig" (the round-4 weights), "rw" (agent-02's
