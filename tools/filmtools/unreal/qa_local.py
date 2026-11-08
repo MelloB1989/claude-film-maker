@@ -362,6 +362,15 @@ def main(argv=None) -> None:
     pb.add_argument("--speaking", required=True)
     pb.add_argument("--desk-z", type=float, required=True, help="the desk top's world Z, cm")
     pb.add_argument("--out", default="")
+    pr = sub.add_parser("perf-rest", help="round 7: the rest/bridge frames (both hands still) from seq.sample samples")
+    pr.add_argument("samples")
+    pr.add_argument("--fps", type=float, default=24.0)
+    pr.add_argument("--every", type=int, default=2)
+    pr.add_argument("--track", default="", help="the box's kit/arm_track.json: drop frames where a hand is in a gesture")
+    pp = sub.add_parser("perf-parity", help="round 7: editor seq.sample vs the offline track (one rigid fit, worst cm)")
+    pp.add_argument("editor")
+    pp.add_argument("offline")
+    pp.add_argument("--out", default="")
     gp = sub.add_parser("gate")
     gp.add_argument("numbers", nargs="*")
     gp.add_argument("--spec", default="")
@@ -439,6 +448,17 @@ def main(argv=None) -> None:
         res = {"gate": qa_perf.face_rows(series, x.fps, qa_perf._spans(x.speaking)), "frames": len(series)}
         if x.series:
             Path(x.series).write_text(json.dumps(series))
+    elif x.cmd == "perf-parity":
+        from . import qa_perf
+        ed, of = (json.loads(Path(p).read_text()) for p in (x.editor, x.offline))
+        of = qa_perf.from_arm_track(of) if isinstance(of.get("frames"), list) and of["frames"] and isinstance(
+            of["frames"][0], dict) else of
+        res = {"gate": {"body.editor_offline_parity_cm": qa_perf.parity(ed.get("result", ed), of.get("result", of))}}
+    elif x.cmd == "perf-rest":
+        from . import qa_perf
+        d = json.loads(Path(x.samples).read_text())
+        tr = json.loads(Path(x.track).read_text()) if x.track else None
+        res = {"frames": qa_perf.rest_frames(d.get("result", d), x.fps, every=x.every, track=tr)}
     elif x.cmd == "perf-body":
         from . import qa_perf
         d = json.loads(Path(x.samples).read_text())
@@ -459,7 +479,7 @@ def main(argv=None) -> None:
         cam = cam.get("camera", cam)  # view.camera's whole result works too
         res = framing(cam, json.loads(Path(x.bones_json).read_text()), x.subject,
                       {"size": x.expect_size} if x.expect_size else None)
-    if getattr(x, "out", "") and x.cmd in ("hair", "gate", "perf-face", "perf-body"):
+    if getattr(x, "out", "") and x.cmd in ("hair", "gate", "perf-face", "perf-body", "perf-parity"):
         Path(x.out).parent.mkdir(parents=True, exist_ok=True)
         Path(x.out).write_text(json.dumps(res, indent=1, default=str))
     print(json.dumps(res, indent=1, default=str))

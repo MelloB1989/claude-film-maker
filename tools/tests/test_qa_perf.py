@@ -156,3 +156,73 @@ def test_a_hand_already_up_at_a_span_start_is_not_an_onset():
     still_up = samples(120, lambda i, h: [0.0, 10.0 if h == "r" else -10.0, 92.0 if h == "r" else 75.0])
     r = P.body_rows(still_up, FPS, [[0, 40], [60, 120]], 71.0)  # two spans, the right hand up and still
     assert r["body.gesture_onsets_per_s"]["value"] == 0
+
+
+def test_rest_frames_and_hand_to_chest():
+    s = samples(120, lambda i, h: [0.0, 10.0 if h == "r" else -10.0, 80.0 + (5.0 * (i // 3) if 30 <= i < 60 else
+                                                                               (50.0 if i >= 60 else 0.0))])
+    rf = P.rest_frames(s, FPS, every=1)
+    assert rf and all(f < 30 or f >= 66 for f in rf)  # the moving stretch is not rest
+    L = _limbs()
+    torso = ([0, 0, 100], [0, 0, 150])
+    body = cylinder(*torso, 14)  # the chest surface ~14 cm out from the spine
+    cloud = L.torso_cloud(body, torso, [])
+    near = L.nearest([[17, 0, 128]], cloud)["cm"]  # hands 3 cm off the chest: the rejected high rest
+    far = L.nearest([[38, 0, 118]], cloud)["cm"]   # hands ~24 cm in front: the new rest
+    assert near < 5 and far > 15
+
+
+def test_torso_cloud_drops_the_other_hands_fingers_and_the_lap():
+    L = _limbs()
+    torso = ([0, 0, 100], [0, 0, 150])
+    chest = cylinder(*torso, 14)
+    lap = [[x, y, 92.0] for x in range(5, 40, 3) for y in range(-15, 16, 5)]  # thighs below the spine segment
+    other_fingers = [[38.0, 2.0, 118.0], [40.0, 3.0, 118.0]]  # the left hand's fingers beside the right hand
+    fingers = [([30.0, 3.0, 118.0], [42.0, 3.0, 118.0])]  # hand -> fingertip segment of the left hand
+    cloud = L.torso_cloud(chest + lap + other_fingers, torso, [], fingers=fingers)
+    assert all(p[2] >= 100 for p in cloud)  # no lap point
+    assert L.nearest([[38.0, -2.0, 118.0]], cloud)["cm"] > 15  # the right hand ~24 cm off the chest, not 4 cm off a finger
+
+
+def test_parity_absorbs_a_rigid_frame_change_and_catches_a_stale_layer():
+    import math as m
+    fr = list(range(48))
+    def pos(i, b):
+        k = P.PARITY_BONES.index(b)
+        return [10 + k + 5 * m.sin(i / 6 + k), -20 + 3 * k, 90 + 4 * m.cos(i / 5 + k)]
+    off = {"frames": fr, "bones": {b: [pos(i, b) for i in fr] for b in P.PARITY_BONES}}
+    torso = {"spine_03": [0, 0, 110], "spine_05": [0, 0, 125], "neck_01": [1, 0, 140], "head": [2, 0, 155],
+             "clavicle_l": [3, -8, 140], "clavicle_r": [3, 8, 140]}  # a still torso with the clavicles out to the sides
+    for b, q in torso.items():
+        off["bones"][b] = [list(q) for _ in fr]
+    th = m.radians(-90)  # the editor in world coordinates: yawed -90 and moved
+    def world(p):
+        x, y, z = p
+        return [x * m.cos(th) - y * m.sin(th) + 300, x * m.sin(th) + y * m.cos(th) - 120, z + 5]
+    ed = {"frames": fr, "bones": {b: [world(p) for p in v] for b, v in off["bones"].items()}}
+    assert P.from_arm_track({"frames": [{"f": 3, "p": {"hand_r": [1, 2, 3]}}]})["bones"]["hand_r"] == [[1, 2, 3]]
+    assert P.parity(ed, off)["value"] < 0.01
+    stale = {"frames": fr, "bones": {b: [list(p) for p in v] for b, v in ed["bones"].items()}}
+    for i in range(20, 30):  # a stale layer moves the right hand 6 cm for 10 frames
+        stale["bones"]["hand_r"][i][2] += 6
+    r = P.parity(stale, off)
+    assert r["value"] > 4 and r["at"].startswith("hand_r@")
+
+
+def test_rest_frames_skip_gesture_holds_with_the_track():
+    s = samples(60, lambda i, h: [0.0, 10.0 if h == "r" else -10.0, 90.0])  # still the whole time
+    track = {"frames": [{"f": f, "gesture_w": {"l": 0.0, "r": 1.0 if 20 <= f < 40 else 0.0}} for f in range(60)]}
+    rf = P.rest_frames(s, FPS, every=1, track=track)
+    assert rf and not any(20 <= f < 40 for f in rf)
+
+
+def test_track_clock_30_vs_editor_24():
+    assert P.track_frame(24, 24.0, 30.0) == 30 and P.track_frame(1131, 24.0, 30.0) == 1414
+    doc = {"fps": 30, "frames": [{"f": f, "p": {"hand_r": [float(f), 0.0, 0.0]}} for f in range(0, 61)]}
+    s = P.from_arm_track(doc, 24.0)
+    i = s["frames"].index(24)
+    assert s["bones"]["hand_r"][i][0] == 30.0  # editor f24 = track f30
+    samples_ = samples(48, lambda i, h: [0.0, 0.0, 90.0])
+    track = {"fps": 30, "frames": [{"f": f, "gesture_w": {"l": 0, "r": 1.0 if 30 <= f < 50 else 0.0}} for f in range(60)]}
+    rf = P.rest_frames(samples_, 24.0, every=1, track=track)
+    assert not any(24 <= f < 40 for f in rf)  # track f30-49 = editor f24-39
