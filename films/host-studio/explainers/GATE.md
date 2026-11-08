@@ -61,6 +61,13 @@ the desk, the elbow not hanging); ONE combined sha for him and her. (3) His body
 0.6) is fixed in the FRAMING: CAM_MCU / CAM_MCU_L slightly wider and lower in set_him.json (~6-10 %, the same headroom
 ratio); the orchestrator checks the framing by eye on his TEST.
 
+**The place-stage lift (agent-06's find, 09 Nov):** on her 928407cb PLACED dump the face 'place' stage lifted everything
+from spine_04 up by ~2.6 cm (-0.55 x) with the pelvis fixed; the arms rode on it and her hands floated 2.6 cm above the
+desk in the render. parity --shoulder passed (0.407) because it cancels a torso shift by design. Two rows close the hole:
+qa.editor_torso_parity_cm <= 1.0 (spine_05 + clavicles, plain, rendered dump vs track) and
+move.rest_contact_rendered_frames == 0 (rest contact on the rendered dump). The fix is in the place stage (agent-04 /
+perform place), not the hand solve.
+
 ## Verdicts
 
 ### Netflix v2b: REJECTED BY THE OPERATOR (07 Nov, about 23:45 IST). The SIGN below is SUPERSEDED.

@@ -1716,6 +1716,37 @@
    ],
    "why": "the orchestrator, 09 Nov (his flank): an open seated posture allows the elbows a hand-width off the torso at rest, up to ~20-25 deg of abduction with the forearms ON the desk; beyond that (elbows flared/raised, forearms off the desk) is wings",
    "guard": true
+  },
+  "qa.editor_torso_parity_cm": {
+   "area": "performance",
+   "track": "agent-06 (box) / agent-13 / agent-09",
+   "op": "<=",
+   "line": 1.0,
+   "unit": "cm",
+   "what": "the max over frames (matched by TIME) of the distance of spine_05 and both clavicle heads between the RENDERED editor dump (the placed body: seat + life + face place) and the solved track, PLAIN in the actor frame: the body under the arms must be the body the rows scored",
+   "where": "the verify windows for a TEST/verify render; for the FINALS every frame with the presenter ON SCREEN (edl/<film>.json presenter + panel shots): an off-screen frame is never filmed and does not count (her t33.2 / f797 reads 1.7 cm at a rest, inside graphics shot 9; agent-13)",
+   "how": "python3 r7/parity.py <the placed editor dump> <kit/arm_track.json> --span <spans> --torso --gate numbers_<film>_torso.json (agent-13 7518e537+)",
+   "must_fail": [
+    2.6,
+    "her 928407cb PLACED on T2 (agent-06, 09 Nov): spine_05 +2.58 z (-0.55 x), hands +2.56..2.63, spine_03 0.00: the face 'place' stage lifted everything from spine_04 up while --shoulder parity read 0.407 (it cancels a torso shift by design); a synthetic 2.6 cm lift reads 2.6 here and 0.0 on --shoulder"
+   ],
+   "why": "agent-13, 09 Nov: --shoulder parity cancels a shift of the torso under the arms; this row closes that hole (her hands floated 2.6 cm above the desk in the render)"
+  },
+  "move.rest_contact_rendered_frames": {
+   "area": "performance",
+   "track": "agent-13 (measure) / agent-08 (hand shapes) / agent-01 (body)",
+   "where": "her speaking frames (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "why": "the orchestrator's review of the hand stills (09 Nov): 'piano/spider' spread fingers, and a resting hand hovering on its fingertips",
+   "op": "==",
+   "line": 0,
+   "unit": "frames @30",
+   "what": "move.rest_contact_bad_frames measured on the RENDERED (placed) editor dump instead of the track: the hands must touch the desk in what renders",
+   "how": "python3 r7/naturalness.py <the PLACED editor dump> --fps 24 --meta <kit/arm_track.json> --who <her|him> --span <spans> -> its move.rest_contact_bad_frames (agent-13 7518e537+)",
+   "must_fail": [
+    188,
+    "her 928407cb PLACED on T2: 188 (the place stage's +2.6 cm lift; the seat dump read 0 at the old line)"
+   ],
+   "note": "the heel line is agent-02's mesh measure (928407cb _Arms ref pose, both hands): 2.35 heel-only / 1.85 heel + pads -> 2.9 with 0.5 tolerance; agent-08's 3.2 cm rest leaves the heel ~1 cm off: FAIL; his line when box T runs"
   }
  },
  "not_attempted": {
