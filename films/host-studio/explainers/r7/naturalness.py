@@ -398,6 +398,14 @@ class Take:
                 return (i - 1 + (th - w[i - 1]) / max(1e-9, w[i] - w[i - 1])) * self.dt
         return None
 
+    @staticmethod
+    def _low(w, a, b):
+        """the first local low of w from a (walk while it still falls), at most b."""
+        k = a
+        while k < b and w[k + 1] < w[k]:
+            k += 1
+        return k
+
     def lag(self):
         """proximal-to-distal onset: upper arm -> forearm -> hand (absolute orientation) -> fingers, per movement."""
         r = {}
@@ -416,8 +424,10 @@ class Take:
             segs = self.segments(s)
             for a, b in segs:
                 a0 = max(0, a - 3)
-                o = [self._onset(w, a0, b) for w in (up, fo, hd)]
-                of = self._onset(fw, a0, b)
+                # each series' onset is searched from its OWN low after a0: a tail still decaying from the previous
+                # arrival is not an onset (agent-01, 09 Nov: 20 of his 21 'leading' hands were that tail)
+                o = [self._onset(w, self._low(w, a0, b), b) for w in (up, fo, hd)]
+                of = self._onset(fw, self._low(fw, a0, b), b)
                 if None in o:
                     continue
                 lags.append(1000 * (o[2] - o[0]))
