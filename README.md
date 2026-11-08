@@ -132,6 +132,8 @@ reviewed at a glance (`film-anime-review`): [docs/PIPELINE-ANIME.md](docs/PIPELI
 `--transition <from>-<to>`), `video` (H.264, or `--prores`; `--samples auto` for adaptive motion blur; `--scale 2` for
 4K) and `perf`. `tools/` `film-deliver` renders long films in resumable segments and encodes the named outputs.
 Hero shots can be rendered in Blender as plates the engine composites: [docs/PIPELINE-BLENDER.md](docs/PIPELINE-BLENDER.md).
+Long Blender or Unreal (MRQ) renders split over several GPU boxes on EC2 with `film-farm` (a queue in S3, spot-first,
+resilient to reclaims, every frame verified): [docs/FARM.md](docs/FARM.md).
 Photos for a film's assets, posters, thumbnails and social cuts are graded headless in named looks with ArtCraft's
 LightCraft + PhotoCraft (`python -m filmtools.artcraft.photo`), and the edit opens in FilmCraft / EffectCraft:
 [docs/ARTCRAFT.md](docs/ARTCRAFT.md).

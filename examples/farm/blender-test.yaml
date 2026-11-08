@@ -1,0 +1,15 @@
+# film-farm acceptance A: a small presenter-free Cycles scene on N boxes, against the same job on one box.
+#   film-farm submit F examples/farm/blender-test.yaml        (farm: 6 chunks)
+#   film-farm submit F examples/farm/blender-test-1box.yaml   (the same, one chunk = one box)
+#   film-farm compare F blender-test blender-test-1box
+id: blender-test
+engine: blender
+frames: [1, 97]
+privacy: public
+presenter: false
+chunk: 16
+output: {prefix: "s3://BUCKET/farm/tests/blender-test/frames/", ext: png, pad: 4, fps: 24}
+blender:
+  version: "5.2.2"
+  device: OPTIX
+  build: "@examples/farm/blender_scene.py"
