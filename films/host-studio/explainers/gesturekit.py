@@ -2004,7 +2004,7 @@ def build(data: dict, st, sy, sheet: dict, cues: dict, tilts: list, length_s: fl
           check_every: int = 6, timing: list | None = None, on_cam: list | None = None,
           frame_want: dict | None = None, track_out: str | None = None, close_alive: bool = False,
           mic_cams: list | None = None, torso: dict | None = None, catalogue: bool = False,
-          rest_only: list | None = None) -> tuple:
+          rest_only: list | None = None, tune: dict | None = None) -> tuple:
     """seatkit.build for the performance: the seated pose with the plan driving the upper body, as tracks (constant
     for the bones that never move, per key for spine, neck, head, clavicles, arms, hands and fingers). Returns (doc
     for perform.py's WRITE, summary with the checks and the body rows' numbers)."""
@@ -2014,6 +2014,8 @@ def build(data: dict, st, sy, sheet: dict, cues: dict, tilts: list, length_s: fl
         rest_only=rest_only)
     se, tuned = S.autotune(sk, st, sy)
     perf = Performer(sk, st, se.sy, plan, torso=Torso(**torso) if torso else None)
+    for k, v in (tune or {}).items():  # a presenter's own Performer constants (perform.TUNE_OF: his from his box sweep)
+        setattr(perf, k, v)
     n = int(round(length_s * fps)) + 1
     first = perf.pose(0.0)
     const = {b: data["local"][b] for b in data["tracks"] if b in data["local"]}

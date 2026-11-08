@@ -432,6 +432,7 @@ def job():
                                 **({"mic_cams": P["perform"]["mic_cams"]} if P["perform"].get("mic_cams") else {}),
                                 **({"torso": P["perform"]["torso"]} if P["perform"].get("torso") else {}),
                                 **({"rest_only": P["perform"]["rest_only"]} if P["perform"].get("rest_only") else {}),
+                                **({"tune": P["perform"]["tune"]} if P["perform"].get("tune") else {}),
                                 **({"catalogue": True} if P["perform"].get("catalogue") else {}))
     else:
         gs = [S.Gesture(**x) for x in P["gestures"]]
@@ -503,7 +504,7 @@ def perform_params(who: str) -> dict:
             "frame_want": {**(FRAME_WANT_WHO.get(who) or {}),  # (the fallback's chest-up cams: hands out by design)
                            **({c: 0.0 for c in FALLBACK_CAMS.get(who, {})} if HANDS_FALLBACK else {})} or None,
             "close_alive": who == "him",  # his last 2 s (behind the closing graphic) stay at the speaking rest
-            "mic_cams": MIC_CAMS.get(who, []), "torso": TORSO_OF.get(who),
+            "mic_cams": MIC_CAMS.get(who, []), "torso": TORSO_OF.get(who), "tune": TUNE_OF.get(who) or None,
             "rest_only": REST_ONLY_FALLBACK.get(who, []) if HANDS_FALLBACK else []}
 
 
@@ -524,6 +525,10 @@ FALLBACK_CAMS = {"her": {"CAM_MCU": {"focal": 117.5, "pitch": -1.62}, "CAM_MCU_L
 # a presenter's torso model over gesturekit.Torso's (hers) and the outfit gate (the orchestrator, 09 Nov: his upper arms
 # 6.6-7.9 cm inside his outfit's flank on box T, with the model reading +0.5 there: side_pad 8.5 brings the model's
 # side out to his outfit; the gate, >= 0.5 at every checked frame, both arms, seated and in gestures)
+# a presenter's own gesturekit.Performer constants over the class's (hers): his picked from r7/him_sweep.py's table on
+#   his skeleton on box T (his rows can't be run off the box)
+TUNE_OF: dict = {"him": {"REST_WRIST_UNDER": 0.5}}  # (T sweep on c32bc150: his rest tented on the pads at 0.6 s with
+#   0.2; at 0.5 rest_contact 0 and his TEST spans pass every row; its whole-take snaps 6.4 are open for his finals)
 TORSO_OF = {"him": {"side_pad": 8.5, "gate": 0.5, "side_from": 9, "warn": True, "breast_r": 4.5, "breast_out": 4.0}}
 # side_from 9: agent-02's worst at arm_t 0.46. breast_r / breast_out: his chest, not her bust spheres (7.5 / 7.0): with
 #   hers his 3 cm front line lifted the elbows to 91 cm in his strokes (wings; his proxy: humerus_elev_high 77.6, 28

@@ -39,6 +39,8 @@ def track_of(w: str, src: Path, every: int = 1) -> dict:
     st = PF.set_of(w)
     se, _ = S.autotune(sk, st, sy)
     perf = G.Performer(sk, st, se.sy, plan, torso=G.Torso(**p["torso"]) if p.get("torso") else None)
+    for k, v in (p.get("tune") or {}).items():  # as gesturekit.build: perform.TUNE_OF
+        setattr(perf, k, v)
     const = {b: d["local"][b] for b in d["tracks"] if b in d["local"]}
     fps, n = 30, int(round(PF.length_s(w) * 30)) + 1
     # G.track_frame as her arm_track.py: the joint heads, hand_q and the FINGERTIPS (agent-04: without them his
