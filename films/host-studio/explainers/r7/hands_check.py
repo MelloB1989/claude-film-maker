@@ -63,10 +63,11 @@ def main() -> None:
         ang = frame_angles(perf, F)
         cnt["frames"] += 1
         tipz = G.finger_tips(perf, F)
-        low_tip = min(v[2] for v in tipz.values()) - perf.set.desk_top if tipz else 99.0
+        low_name, low_v = min(tipz.items(), key=lambda kv: kv[1][2]) if tipz else ("", [0, 0, 99.0])
+        low_tip = low_v[2] - perf.set.desk_top
         if low_tip < 0.3:  # the orchestrator: every fingertip >= 0.3 over the desk top, landings included
             cnt["tip_under_0.3"] += 1
-            tip_t.append((round(t, 2), round(low_tip, 2)))
+            tip_t.append((round(t, 2), low_name, round(low_tip, 2), round(perf.gesture_w(low_name[-1], t), 2)))
         for s in "lr":
             hit = False
             for f in HS.FINGERS4:
