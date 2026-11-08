@@ -200,3 +200,4 @@ tested in `test_seatkit.py`), `gestures.json` (the emphasis gestures per line).
 | 18:05 | agent-07 moved the desk in (near edge x 38) and mirrored the boom to the -Y edge (scale -1 at yaw -90): no re-pose needed. Armrest 63.0 vs apron underside 63.4 noted |
 | 18:30 | A full re-run died at once: `cd && rm && nohup … &` on one line ran the whole chain in a subshell that SSM killed with the command → relaunch with `setsid nohup` on its own line |
 | 18:45 | Orchestrator (via agent-07): her feet never seen, WIDE's empty right → SM_WalnutDesk_Panel, SM_FloorLamp (practical, SOCKET_Bulb), SM_FloorSnakePlant; all 7 FBX re-import at size; uploaded with all textures |
+| 2026-11-08 20:28 IST | agent-13 | r7 GATE OWNER (agent-09 rate-limited): branch fleet/agent-13/r7-gate off 178a28bf; agent-08 hand rows added (claw, DIP/PIP, fold_at_limit, cascade, thumb_flat/stiff, hold_over_collar; report hold_chest, claw_score); parity text time-matched; n/a-able move rows |
