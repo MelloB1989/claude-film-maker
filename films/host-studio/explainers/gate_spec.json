@@ -1008,6 +1008,22 @@
    ],
    "guard": true,
    "why": "agent-06's r6 guard, per chunk"
+  },
+  "shot.farm_state_parity": {
+   "area": "shot",
+   "track": "agent-07 (farm) / agent-06 (box D)",
+   "op": "==",
+   "line": 1,
+   "unit": "bool",
+   "guard": true,
+   "what": "every farm chunk rendered EXACTLY the scene state the orchestrator passed on box D (the ue.sync manifest id / AMI box D pushed after the verify PASS == what each worker pulled)",
+   "where": "every chunk of every farm job",
+   "how": "farm_rows.py: expected_state at the top of farm_<film>.json + 'state' in each chunk's hook dict",
+   "must_fail": [
+    0,
+    "a worker on a stale sync (farm_rows test)"
+   ],
+   "why": "the operator: render in parallel 'once scene is ready with everything'; a worker on an older state would render the rejected rest pose or garments"
   }
  },
  "not_attempted": {
