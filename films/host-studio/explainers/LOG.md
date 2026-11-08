@@ -241,3 +241,9 @@ tested in `test_seatkit.py`), `gestures.json` (the emphasis gestures per line).
   head on_lens 0.916, mesh arms over every two-hand gesture (80 frames) L min 5.92 / R min 5.30 cm (f66: -7.05 ->
   +6.30). TEST render netflix_r7F (shots 1, 2, 11) 04:04-04:10; `test_clip.sh` on the box composites the film with
   placeholders and cuts the TEST spans: netflix_r7F_TEST.mp4 (13.25 s) + stills, private review, to the orchestrator.
+- 2026-11-08 ~05:55 IST, agent-11: agent-13's WhatsApp v3 polish pass (12 files, soft caption band, no full-frame
+  flashes on the panels) re-synced to gfx/v3/explain-whatsapp. Dry composite g3b: 1352 f, lufs err 0.1, TP -1.7,
+  text_match 1, onset 84 ms, facts 1, qc_ok 1 (same as g3a).
+- 2026-11-08 09:05 IST, agent-11: box B spot-stopped at 08:37 IST (03:07 UTC) with no capacity, idle since r7F, so
+  nothing was lost. kali rebooted and wiped the interim driver trees under /tmp. agent-06 is back and drives box B
+  again; handed over with the r7F state, re-lead before every render, and numbers_test not yet run.
