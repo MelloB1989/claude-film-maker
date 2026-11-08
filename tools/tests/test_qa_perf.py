@@ -191,8 +191,10 @@ def test_parity_absorbs_a_rigid_frame_change_and_catches_a_stale_layer():
         k = P.PARITY_BONES.index(b)
         return [10 + k + 5 * m.sin(i / 6 + k), -20 + 3 * k, 90 + 4 * m.cos(i / 5 + k)]
     off = {"frames": fr, "bones": {b: [pos(i, b) for i in fr] for b in P.PARITY_BONES}}
-    for k, b in enumerate(P.FIT_BONES):  # a still torso/head to fit on
-        off["bones"][b] = [[0.0 + k, 0.0, 120.0 + 10 * k] for _ in fr]
+    torso = {"spine_03": [0, 0, 110], "spine_05": [0, 0, 125], "neck_01": [1, 0, 140], "head": [2, 0, 155],
+             "clavicle_l": [3, -8, 140], "clavicle_r": [3, 8, 140]}  # a still torso with the clavicles out to the sides
+    for b, q in torso.items():
+        off["bones"][b] = [list(q) for _ in fr]
     th = m.radians(-90)  # the editor in world coordinates: yawed -90 and moved
     def world(p):
         x, y, z = p

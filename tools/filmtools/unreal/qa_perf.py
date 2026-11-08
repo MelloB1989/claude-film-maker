@@ -241,7 +241,8 @@ PARITY_BONES = ("hand_l", "hand_r", "lowerarm_l", "lowerarm_r", "middle_03_l", "
                 "index_03_r", "thumb_03_l", "thumb_03_r")
 
 
-FIT_BONES = ("spine_05", "neck_01", "head", "spine_03")
+FIT_BONES = ("spine_03", "spine_05", "neck_01", "head", "clavicle_l", "clavicle_r")  # the spine alone is a near-line:
+# the clavicles pin the rotation about it
 
 
 def from_arm_track(doc: dict) -> dict:
@@ -274,7 +275,9 @@ def parity(editor: dict, offline: dict, bones=PARITY_BONES, fit=FIT_BONES) -> di
             tag.append(f"{b}@{f}")
     A, B = np.asarray(A, float), np.asarray(B, float)
     fn = [b for b in fit if b in editor["bones"] and b in offline["bones"]]
-    if fn:  # the rigid fit on the torso/head only
+    if len([b for b in fn if b.startswith("clavicle")]) < 2:
+        fn = []  # a fit on the near-collinear spine alone leaves the yaw free: fall back to all measured bones
+    if fn:  # the rigid fit on the torso/head + clavicles only
         FA = np.asarray([editor["bones"][b][fe[f]][:3] for f in common for b in fn], float)
         FB = np.asarray([offline["bones"][b][fo[f]][:3] for f in common for b in fn], float)
     else:
