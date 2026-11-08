@@ -30,7 +30,10 @@ TTL_TAG = "TTLHours"
 def settings(env=None) -> dict:
     env = os.environ if env is None else env
     return {"region": env.get("AWS_REGION") or env.get("AWS_DEFAULT_REGION") or "ap-south-1",
-            "threshold": float(env.get("KILLSWITCH_THRESHOLD", "4")),
+            "threshold": float(env.get("KILLSWITCH_THRESHOLD", "4")),  # flat %, when idle_vcpu is 0 or vCPUs unknown
+            # idle measured in vCPUs: CPUUtilization is a share of ALL the box's vCPUs, so an idle editor (~0.5 vCPU)
+            # reads 3 % on 16 vCPU but 6 % on 8. The threshold per box is idle_vcpu / vCPUs x 100.
+            "idle_vcpu": float(env.get("KILLSWITCH_IDLE_VCPU", "0")),
             "period_s": int(env.get("KILLSWITCH_PERIOD_S", "300")),
             "periods": int(env.get("KILLSWITCH_PERIODS", "5")),
             "default_ttl_h": float(env.get("KILLSWITCH_DEFAULT_TTL_H", "12")),
@@ -66,16 +69,34 @@ def uptime_h(inst: dict, now: float) -> float:
     return (now - lt.timestamp()) / 3600
 
 
-def alarm_spec(instance_id: str, conf: dict) -> dict:
+def vcpus(inst: dict) -> int:
+    c = inst.get("CpuOptions") or {}
+    return int(c.get("CoreCount", 0)) * int(c.get("ThreadsPerCore", 1))
+
+
+def threshold_for(inst: dict, conf: dict) -> float:
+    n = vcpus(inst)
+    if conf.get("idle_vcpu", 0) > 0 and n:
+        return round(min(50.0, conf["idle_vcpu"] / n * 100), 2)
+    return conf["threshold"]
+
+
+DRILL = "kill switch DRILL"  # an alarm whose description starts so is left as it is (deploy.py drill-alarm)
+CHECKED = ("Namespace", "MetricName", "Statistic", "Period", "EvaluationPeriods", "DatapointsToAlarm", "Threshold",
+           "ComparisonOperator", "TreatMissingData", "AlarmActions")
+
+
+def alarm_spec(instance_id: str, conf: dict, threshold: float | None = None, drill: bool = False) -> dict:
     """The PutMetricAlarm arguments for one instance."""
     n, period = conf["periods"], conf["period_s"]
+    th = conf["threshold"] if threshold is None else threshold
     return {"AlarmName": PREFIX + instance_id,
-            "AlarmDescription": f"kill switch: stop {instance_id} after {n} x {period // 60} min with average CPU "
-                                f"under {conf['threshold']:g} % (made by killswitch-reaper)",
+            "AlarmDescription": f"{DRILL if drill else 'kill switch'}: stop {instance_id} after {n} x "
+                                f"{period // 60} min with average CPU under {th:g} % (made by killswitch-reaper)",
             "Namespace": "AWS/EC2", "MetricName": "CPUUtilization",
             "Dimensions": [{"Name": "InstanceId", "Value": instance_id}],
             "Statistic": "Average", "Period": period, "EvaluationPeriods": n, "DatapointsToAlarm": n,
-            "Threshold": conf["threshold"], "ComparisonOperator": "LessThanThreshold",
+            "Threshold": th, "ComparisonOperator": "LessThanThreshold",
             "TreatMissingData": "notBreaching",
             "ActionsEnabled": True,
             "AlarmActions": [f"arn:aws:automate:{conf['region']}:ec2:stop"]}
@@ -103,11 +124,26 @@ def killswitch_alarms(cw) -> list[dict]:
             return out
 
 
+def stale(alarm: dict, want: dict) -> list[str]:
+    """The fields where an existing alarm differs from what it should be (none for a drill alarm)."""
+    if (alarm.get("AlarmDescription") or "").startswith(DRILL):
+        return []
+    out = []
+    for k in CHECKED:
+        a, w = alarm.get(k), want[k]
+        if isinstance(w, float):
+            if a is None or abs(float(a) - w) > 0.005:
+                out.append(k)
+        elif a != w:
+            out.append(k)
+    return out
+
+
 def plan(instances: list[dict], alarms: list[dict], conf: dict, now: float) -> list[dict]:
-    """What to do, as actions: {"do": arm|disarm|stop|delete, "instance": id, "why": ...}. Pure, so it is tested."""
+    """What to do, as actions: {"do": arm|rearm|disarm|stop|delete, "instance": id, "why": ...}. Pure, so tested."""
     acts = []
     by_id = {i["InstanceId"]: i for i in instances}
-    armed = {a["AlarmName"][len(PREFIX):] for a in alarms}
+    armed = {a["AlarmName"][len(PREFIX):]: a for a in alarms}
     for inst in instances:
         iid, itype, state = inst["InstanceId"], inst.get("InstanceType", ""), inst["State"]["Name"]
         if not is_gpu(itype):
@@ -118,10 +154,17 @@ def plan(instances: list[dict], alarms: list[dict], conf: dict, now: float) -> l
                 acts.append({"do": "disarm", "instance": iid, "name": name, "type": itype,
                              "why": f"tag {OPT_OUT_TAG}=off"})
             continue
+        th = threshold_for(inst, conf)
+        if iid in armed and state != "terminated":
+            diff = stale(armed[iid], alarm_spec(iid, conf, th))
+            if diff:
+                acts.append({"do": "rearm", "instance": iid, "name": name, "type": itype, "threshold": th,
+                             "why": f"alarm differs in {', '.join(diff)} (now CPU < {th:g} %)"})
         if state != "running":
             continue
         if iid not in armed:
-            acts.append({"do": "arm", "instance": iid, "name": name, "type": itype, "why": "running GPU, no alarm"})
+            acts.append({"do": "arm", "instance": iid, "name": name, "type": itype, "threshold": th,
+                         "why": f"running GPU, no alarm (CPU < {th:g} % = {vcpus(inst) or '?'} vCPU box)"})
         up, ttl = uptime_h(inst, now), ttl_hours(inst, conf["default_ttl_h"])
         if up > ttl:
             acts.append({"do": "stop", "instance": iid, "name": name, "type": itype,
@@ -141,8 +184,8 @@ def apply(acts: list[dict], ec2, cw, conf: dict, log) -> list[dict]:
         try:
             if conf["dry_run"]:
                 pass
-            elif a["do"] == "arm":
-                cw.put_metric_alarm(**alarm_spec(a["instance"], conf))
+            elif a["do"] in ("arm", "rearm"):
+                cw.put_metric_alarm(**alarm_spec(a["instance"], conf, a.get("threshold")))
             elif a["do"] in ("disarm", "delete"):
                 cw.delete_alarms(AlarmNames=[PREFIX + a["instance"]])
             elif a["do"] == "stop":

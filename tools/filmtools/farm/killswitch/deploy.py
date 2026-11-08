@@ -36,6 +36,7 @@ SCHEDULE = "killswitch-reaper-schedule"
 SCHEDULE_ROLE = "killswitch-reaper-schedule-role"  # EventBridge Scheduler needs a role of its own to invoke
 SCHEDULE_POLICY = "killswitch-reaper-invoke"
 RATE = "rate(10 minutes)"
+IDLE_VCPU = 0.8  # an idle UE editor costs ~0.5 vCPU on any box; box B's lowest busy 5 min was 1.06 vCPU
 REGIONS = ("ap-south-1", "ap-northeast-1")  # Mumbai and Tokyo: every region the operator runs GPU boxes in
 LOG_GROUP = f"/aws/lambda/{FUNCTION}"
 LOG_RETENTION_DAYS = 30
@@ -46,7 +47,8 @@ SRC = Path(reaper.__file__)
 
 # --- the documents ---------------------------------------------------------------------------------------------------
 def env_vars(conf: dict) -> dict:
-    return {"KILLSWITCH_THRESHOLD": f"{conf['threshold']:g}", "KILLSWITCH_PERIOD_S": str(conf["period_s"]),
+    return {"KILLSWITCH_THRESHOLD": f"{conf['threshold']:g}", "KILLSWITCH_IDLE_VCPU": f"{conf['idle_vcpu']:g}",
+            "KILLSWITCH_PERIOD_S": str(conf["period_s"]),
             "KILLSWITCH_PERIODS": str(conf["periods"]), "KILLSWITCH_DEFAULT_TTL_H": f"{conf['default_ttl_h']:g}"}
 
 
@@ -179,8 +181,9 @@ def drop_role(aws, name: str, log):
 class Ctx:
     """The regions a command covers, an AWS CLI per region, and the reaper's settings per region."""
 
-    def __init__(self, regions: list[str], profile: str, cli=provision.aws_cli):
+    def __init__(self, regions: list[str], profile: str, cli=provision.aws_cli, idle_vcpu: float = IDLE_VCPU):
         self.regions, self.profile, self.cli, self._aws, self._acct = regions, profile, cli, {}, None
+        self.idle_vcpu = idle_vcpu
 
     def aws(self, region: str):
         if region not in self._aws:
@@ -188,7 +191,7 @@ class Ctx:
         return self._aws[region]
 
     def conf(self, region: str) -> dict:
-        return reaper.settings({"AWS_REGION": region})
+        return reaper.settings({"AWS_REGION": region, "KILLSWITCH_IDLE_VCPU": str(self.idle_vcpu)})
 
     def account(self) -> str:
         self._acct = self._acct or account_of(self.aws(self.regions[0]))
@@ -200,8 +203,13 @@ def cmd_show(ctx, args, log):
     regions, acct = ctx.regions, ctx.account()
     redact = (lambda d: json.loads(json.dumps(d).replace(acct, "<account>"))) if not args.with_account else (lambda d: d)
     docs = {"regions (each gets its own function, schedule, log group and alarms)": regions,
-            "alarm (per GPU instance, in the instance's region; PutMetricAlarm)":
-                reaper.alarm_spec("i-EXAMPLE", ctx.conf(regions[0])),
+            f"threshold per box: IDLE_VCPU {ctx.idle_vcpu:g} / vCPUs x 100 (CPU % is a share of all vCPUs)":
+                {f"{k} vCPU": reaper.threshold_for({"CpuOptions": {"CoreCount": k // 2, "ThreadsPerCore": 2}},
+                                                   ctx.conf(regions[0])) for k in (4, 8, 16, 32, 48, 64, 192)},
+            "alarm (per GPU instance, in the instance's region; PutMetricAlarm), e.g. an 8-vCPU box":
+                reaper.alarm_spec("i-EXAMPLE", ctx.conf(regions[0]),
+                                  reaper.threshold_for({"CpuOptions": {"CoreCount": 4, "ThreadsPerCore": 2}},
+                                                       ctx.conf(regions[0]))),
             f"{ROLE} trust (global, shared by every region)": lambda_trust(),
             f"{ROLE} inline policy {POLICY}": reaper_policy(acct, regions),
             f"{SCHEDULE_ROLE} trust (global)": scheduler_trust(acct),
@@ -232,7 +240,10 @@ def dry_run_region(aws, conf, log):
             continue
         t = reaper.tags_of(i)
         up = f"up {reaper.uptime_h(i, now):.1f} h" if i["State"]["Name"] == "running" else ""
+        al = next((a for a in alarms if a["AlarmName"] == reaper.PREFIX + i["InstanceId"]), None)
         log(f"  {i['InstanceId']}  {i['InstanceType']:<13} {i['State']['Name']:<10} {t.get('Name', ''):<28} "
+            f"{reaper.vcpus(i) or '?'} vCPU, CPU < {reaper.threshold_for(i, conf):g} %"
+            f"{f' (alarm has {al['Threshold']:g} %)' if al and 'Threshold' in al else ''}  "
             f"TTL {reaper.ttl_hours(i, conf['default_ttl_h']):g} h  {up}"
             f"{'  KillSwitch=' + t[reaper.OPT_OUT_TAG] if reaper.OPT_OUT_TAG in t else ''}"
             f"{'  [armed]' if any(a['AlarmName'] == reaper.PREFIX + i['InstanceId'] for a in alarms) else ''}")
@@ -292,6 +303,28 @@ def busy_runs(pts: list[dict], busy: float, period: int) -> list[list[dict]]:
     return out
 
 
+def floor_25(pts: list[dict], n: int, period: int) -> float | None:
+    """The highest threshold that would NOT have fired over `pts`: the lowest, over every n consecutive contiguous
+    datapoints, of their highest average. The alarm fires when all n are under the threshold, i.e. when the
+    threshold is above that window's highest point. None if there are never n contiguous points."""
+    best = None
+    for k in range(len(pts) - n + 1):
+        w = pts[k:k + n]
+        if w[-1]["t"] - w[0]["t"] > period * (n - 1) * 1.5:
+            continue  # a gap: missing data is notBreaching
+        m = max(p["Average"] for p in w)
+        best = m if best is None else min(best, m)
+    return best
+
+
+def parse_window(text: str) -> tuple[float, float, str]:
+    """'2026-11-08T12:00/2026-11-08T14:30[=label]' (UTC) -> (start, end, label)."""
+    span, _, label = text.partition("=")
+    a, b = span.split("/")
+    ts = [datetime.fromisoformat(x).replace(tzinfo=UTC).timestamp() for x in (a, b)]
+    return ts[0], ts[1], label or span
+
+
 def cmd_calibrate(ctx, args, log):
     if not (args.instance or args.name):
         sys.exit("calibrate: give --instance or --name")
@@ -302,45 +335,62 @@ def cmd_calibrate(ctx, args, log):
         calibrate_region(aws, ctx.conf(r), ids, args, log)
 
 
+def vcpus_of(aws, iid: str, given: int) -> int:
+    if given:
+        return given
+    try:
+        r = aws("ec2", "describe-instances", "--instance-ids", iid)
+        return reaper.vcpus(r["Reservations"][0]["Instances"][0])
+    except (provision.AwsError, IndexError, KeyError):
+        return 0
+
+
 def calibrate_region(aws, conf, ids, args, log):
-    th, n, per = conf["threshold"], conf["periods"], 300
+    n, per = conf["periods"], 300
+    fmt = lambda t: datetime.fromtimestamp(t, UTC).strftime("%m-%d %H:%M")
+    windows = [parse_window(w) for w in args.work or []]
     for iid in ids:
         pts = cpu_points(aws, iid, args.hours)
-        fmt = lambda t: datetime.fromtimestamp(t, UTC).strftime("%m-%d %H:%M")
         if not pts:
             continue  # not in this region
-        log(f"== {conf['region']} {iid}: {len(pts)} five-minute points over {args.hours:g} h")
+        nv = vcpus_of(aws, iid, args.vcpus)
+        def v(pct, nv=nv):
+            return pct * nv / 100 if nv else float("nan")
+        log(f"== {conf['region']} {iid}: {nv or '?'} vCPU, {len(pts)} five-minute points over {args.hours:g} h "
+            f"(vCPU = % x {nv or '?'} / 100)")
         avgs = [p["Average"] for p in pts]
         q = statistics.quantiles(avgs, n=20) if len(avgs) > 1 else avgs * 19
-        log(f"   CPU average: min {min(avgs):.2f}  p5 {q[0]:.2f}  median {statistics.median(avgs):.2f}  "
-            f"p95 {q[-1]:.2f}  max {max(avgs):.2f}")
-        log("   hourly (UTC)       points  min    avg    max   (5-min averages)")
+        log(f"   CPU average %: min {min(avgs):.2f}  p5 {q[0]:.2f}  median {statistics.median(avgs):.2f}  "
+            f"p95 {q[-1]:.2f}  max {max(avgs):.2f}   (vCPU: min {v(min(avgs)):.2f}  median "
+            f"{v(statistics.median(avgs)):.2f})")
+        log("   hourly (UTC)       points   min %   avg %   max %   min vCPU  avg vCPU")
         hours: dict[str, list[float]] = {}
         for p in pts:
             hours.setdefault(fmt(p["t"])[:-3] + ":00", []).append(p["Average"])
-        for h, v in hours.items():
-            log(f"   {h}   {len(v):>3}  {min(v):6.2f} {statistics.mean(v):6.2f} {max(v):6.2f}")
-        for r in busy_runs(pts, args.busy, per):
-            if len(r) < 3:
-                continue
-            low = min(p["Average"] for p in r)
-            longest = max((len(x) for x in _below(r, th)), default=0)
-            log(f"   busy window {fmt(r[0]['t'])} .. {fmt(r[-1]['t'])} UTC ({len(r) * 5} min): min 5-min avg "
-                f"{low:.2f} %, longest run under {th:g} %: {longest * 5} min")
-        fired = would_fire(pts, th, n, per)
-        log(f"   the alarm ({n} x 5 min under {th:g} %) would have stopped it {len(fired)} time(s)"
-            + (": " + ", ".join(fmt(t) + " UTC" for t in fired) if fired else ""))
-
-
-def _below(run: list[dict], th: float) -> list[list[dict]]:
-    out, cur = [], []
-    for p in run:
-        if p["Average"] < th:
-            cur.append(p)
-        elif cur:
-            out.append(cur)
-            cur = []
-    return out + ([cur] if cur else [])
+        for h, xs in hours.items():
+            log(f"   {h}   {len(xs):>3}  {min(xs):7.2f} {statistics.mean(xs):7.2f} {max(xs):7.2f}   "
+                f"{v(min(xs)):7.2f}  {v(statistics.mean(xs)):7.2f}")
+        spans = [(a, b, lab) for a, b, lab in windows] or [
+            (r[0]["t"], r[-1]["t"], f"busy (auto: >= {args.busy:g} %)") for r in busy_runs(pts, args.busy, per)
+            if len(r) >= 3]
+        log(f"   work windows (the alarm must stay quiet in each): highest safe threshold = the lowest {n}x5-min "
+            "stretch's peak")
+        for a, b, lab in spans:
+            wp = [p for p in pts if a <= p["t"] <= b]
+            f = floor_25(wp, n, per)
+            low = min((p["Average"] for p in wp), default=float("nan"))
+            log(f"   {fmt(a)} .. {fmt(b)}  {lab}: {len(wp)} pts, lowest 5-min {low:.2f} % ({v(low):.2f} vCPU); "
+                + (f"safe up to {f:.2f} % = {v(f):.2f} vCPU" if f is not None else f"under {n} contiguous points"))
+        cands = args.idle_vcpus or [0.6, 0.7, 0.8, 0.9, 1.0, 1.2]
+        log(f"   IDLE_VCPU sweep ({n} x 5 min under it; fires inside work windows must be 0):")
+        for c in cands:
+            th = (c / nv * 100) if nv else float("nan")
+            fired = would_fire(pts, th, n, per)
+            bad = [t for t in fired if any(a <= t <= b for a, b, _ in spans)]
+            log(f"     {c:>4} vCPU = {th:6.2f} %:  fires {len(fired):>3}, of them in work windows {len(bad)}"
+                + (" <- would stop a job at " + ", ".join(fmt(t) for t in bad[:5]) if bad else ""))
+        th = conf["threshold"]
+        log(f"   today's flat {th:g} % would have fired {len(would_fire(pts, th, n, per))} time(s)")
 
 
 def cmd_deploy(ctx, args, log):
@@ -415,7 +465,10 @@ def cmd_drill_alarm(ctx, args, log):
     if len(ctx.regions) != 1:
         sys.exit("drill-alarm: name the instance's region (--regions <one>)")
     aws, c = ctx.aws(ctx.regions[0]), dict(ctx.conf(ctx.regions[0]), period_s=args.period)
-    spec = reaper.alarm_spec(args.instance, c)
+    th = reaper.threshold_for(aws("ec2", "describe-instances", "--instance-ids", args.instance)
+                              ["Reservations"][0]["Instances"][0], c)
+    spec = reaper.alarm_spec(args.instance, c, th, drill=True)  # the reaper leaves a drill alarm as it is
+    c["threshold"] = th
     aws("cloudwatch", "put-metric-alarm", "--cli-input-json", json.dumps(spec))
     log(f"alarm {spec['AlarmName']}: {c['periods']} x {args.period} s under {c['threshold']:g} %"
         + ("  (1-min periods need detailed monitoring: aws ec2 monitor-instances)" if args.period < 300 else ""))
@@ -466,6 +519,8 @@ def main(argv=None):
                     help=f"comma-separated (default {','.join(REGIONS)}); deploy and undeploy want them all, since "
                          "the shared role's policy lists exactly these")
     ap.add_argument("--profile", default="nani")
+    ap.add_argument("--idle-vcpu", type=float, default=IDLE_VCPU,
+                    help=f"the idle line in vCPUs (default {IDLE_VCPU:g}); 0 = the flat KILLSWITCH_THRESHOLD %%")
     sub = ap.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("show")
     s.add_argument("--with-account", action="store_true", help="print the account id instead of <account>")
@@ -475,6 +530,10 @@ def main(argv=None):
     s.add_argument("--name", help="a Name tag pattern, e.g. 'ue-box-b*'")
     s.add_argument("--hours", type=float, default=48)
     s.add_argument("--busy", type=float, default=15, help="a 5-min average at or above this is work (default 15 %%)")
+    s.add_argument("--work", action="append", help="a known job window, UTC: 2026-11-08T12:00/2026-11-08T14:30=render"
+                   " (repeat; without any, windows with a point >= --busy are used)")
+    s.add_argument("--vcpus", type=int, default=0, help="the box's vCPUs, if it is gone (read from EC2 otherwise)")
+    s.add_argument("--idle-vcpus", type=float, nargs="+", help="IDLE_VCPU values to try (default 0.6 .. 1.2)")
     sub.add_parser("deploy")
     s = sub.add_parser("invoke")
     s.add_argument("--out", default="/tmp/killswitch-invoke.json")
@@ -486,7 +545,7 @@ def main(argv=None):
     s.add_argument("--purge-logs", action="store_true")
     s.add_argument("--dry-run", action="store_true", help="list what it would delete; delete nothing")
     args = ap.parse_args(argv)
-    ctx = Ctx([r.strip() for r in args.regions.split(",") if r.strip()], args.profile)
+    ctx = Ctx([r.strip() for r in args.regions.split(",") if r.strip()], args.profile, idle_vcpu=args.idle_vcpu)
     {"show": cmd_show, "dry-run": cmd_dry_run, "calibrate": cmd_calibrate, "deploy": cmd_deploy,
      "invoke": cmd_invoke, "drill-alarm": cmd_drill_alarm, "undeploy": cmd_undeploy}[args.cmd](
         ctx, args, lambda s: print(s, flush=True))

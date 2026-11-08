@@ -223,8 +223,8 @@ again (the role's policy lists exactly these regions).
 
 | Piece | What it does |
 |---|---|
-| `killswitch-idle-<instance-id>` (one CloudWatch alarm per GPU box) | `AWS/EC2 CPUUtilization` Average **< 4 %** for **5 consecutive 5-min periods** (25 min) → `arn:aws:automate:<region>:ec2:stop`. Missing data is *not breaching*, so a stopped box stays quiet. An idle editor sits near 3 %; solves and renders run 20-30 %+. |
-| `killswitch-reaper` (Lambda, Python 3.12, 128 MB), every 10 min from `killswitch-reaper-schedule` (EventBridge Scheduler) | (a) arms the alarm on every running GPU box that has none; (b) stops a running GPU box whose uptime (since its last start) is over its `TTLHours` tag, **12 h** without one; (c) deletes killswitch alarms whose instance is terminated or gone; (d) logs every action as a JSON line in `/aws/lambda/killswitch-reaper` (30 days). |
+| `killswitch-idle-<instance-id>` (one CloudWatch alarm per GPU box) | `AWS/EC2 CPUUtilization` Average under **0.8 vCPU** for **5 consecutive 5-min periods** (25 min) → `arn:aws:automate:<region>:ec2:stop`. CPU % is a share of *all* the box's vCPUs, so the line is set per box: `IDLE_VCPU / vCPUs x 100` (**20 %** on 4 vCPU, **10 %** on 8, **5 %** on 16, 2.5 % on 32). An idle UE editor costs ~0.5 vCPU on any box (3.2 % of 16, 6 % of 8); the lowest 5 min of box B's renders was 1.06 vCPU. Missing data is *not breaching*, so a stopped box stays quiet. |
+| `killswitch-reaper` (Lambda, Python 3.12, 128 MB), every 10 min from `killswitch-reaper-schedule` (EventBridge Scheduler) | (a) arms the alarm on every running GPU box that has none, and re-arms one whose numbers are stale (a changed `IDLE_VCPU`; a drill alarm is left alone); (b) stops a running GPU box whose uptime (since its last start) is over its `TTLHours` tag, **12 h** without one; (c) deletes killswitch alarms whose instance is terminated or gone; (d) logs every action as a JSON line in `/aws/lambda/killswitch-reaper` (30 days). |
 | `killswitch-reaper-role` | `ec2:DescribeInstances`; `ec2:StopInstances` only where `ec2:InstanceType` is `g*`/`p*`; `cloudwatch:PutMetricAlarm`/`DeleteAlarms` only on `alarm:killswitch-*` (`DescribeAlarms`, a read, on `*`); its own log stream. No terminate. |
 | `killswitch-reaper-schedule-role` | lets the schedule invoke the function, nothing else. |
 
@@ -251,7 +251,8 @@ python -m filmtools.farm.killswitch.deploy undeploy --keep-alarms --purge-logs
 ```
 
 `undeploy` leaves the service-linked role `AWSServiceRoleForCloudWatchEvents` (every alarm's EC2 action runs as it)
-and, unless `--purge-logs`, the log group. The reaper does not rewrite an alarm that exists, so after changing the
-threshold, `undeploy --keep-alarms` is wrong: delete the alarms (plain `undeploy`, then `deploy`) and the reaper
-re-arms them with the new numbers within 10 min. The Lambda is `tools/filmtools/farm/killswitch/reaper.py`, alone
+and, unless `--purge-logs`, the log group. To change the line, `deploy --idle-vcpu <v>` (0 = the flat
+`KILLSWITCH_THRESHOLD` %): the reaper re-arms every alarm with the new numbers within 10 min. `calibrate --work
+<start>/<end>=<label>` checks a value first: for each known job window it prints the highest line that would have
+stayed quiet, and sweeps `IDLE_VCPU` values, counting the stops that would have hit a job. The Lambda is `tools/filmtools/farm/killswitch/reaper.py`, alone
 (standard library and the runtime's boto3); its tests are `tools/tests/test_killswitch.py`.

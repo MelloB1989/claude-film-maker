@@ -15,9 +15,10 @@ NOW = datetime(2026, 11, 8, 12, 0, tzinfo=UTC).timestamp()
 CONF = reaper.settings({"AWS_REGION": "ap-south-1"})
 
 
-def inst(iid, itype="g6e.4xlarge", state="running", up_h=1.0, **tags):
+def inst(iid, itype="g6e.4xlarge", state="running", up_h=1.0, vcpu=16, **tags):
     lt = datetime.fromtimestamp(NOW - up_h * 3600, UTC)
     return {"InstanceId": iid, "InstanceType": itype, "State": {"Name": state}, "LaunchTime": lt,
+            "CpuOptions": {"CoreCount": vcpu // 2, "ThreadsPerCore": 2},
             "Tags": [{"Key": k, "Value": v} for k, v in tags.items()]}
 
 
@@ -104,7 +105,7 @@ def test_arms_running_gpus_only_across_pages():
 
 def test_already_armed_is_left_alone():
     cw = FakeCW(["killswitch-idle-i-1"])
-    cw.alarms["killswitch-idle-i-1"]["Period"] = 60  # a drill alarm: the reaper does not overwrite it
+    cw.alarms["killswitch-idle-i-1"].update(Period=60, AlarmDescription=reaper.DRILL + ": ...")  # left alone
     go(FakeEC2([inst("i-1")]), cw)
     assert cw.puts == [] and cw.alarms["killswitch-idle-i-1"]["Period"] == 60
 
@@ -292,3 +293,61 @@ def test_undeploy_dry_run_writes_nothing():
     would = [o for o in out if "WOULD" in o]
     assert sum("delete-schedule" in o for o in would) == 2 and sum("delete-function" in o for o in would) == 2
     assert any("iam delete-role --role-name killswitch-reaper-role" in o for o in would)
+
+
+VCONF = dict(CONF, idle_vcpu=0.8)
+
+
+@pytest.mark.parametrize("vcpu,th", [(4, 20.0), (8, 10.0), (16, 5.0), (192, 0.42), (0, 4.0)])
+def test_threshold_scales_with_vcpus(vcpu, th):
+    i = inst("i-1", vcpu=vcpu)
+    if not vcpu:
+        del i["CpuOptions"]
+    assert reaper.threshold_for(i, VCONF) == th
+    assert reaper.threshold_for(i, CONF) == 4.0  # idle_vcpu 0: the flat line
+
+
+def test_idle_editor_reads_the_same_in_vcpus():
+    # box B idle 3.2 % of 16 vCPU and box T idle 6 % of 8 vCPU are both ~0.5 vCPU: both now under their lines
+    assert 3.2 < reaper.threshold_for(inst("b", vcpu=16), VCONF) and 6.0 < reaper.threshold_for(inst("t", vcpu=8),
+                                                                                                VCONF)
+
+
+def test_rearms_a_stale_alarm_and_leaves_a_current_one():
+    ec2 = FakeEC2([inst("i-1", vcpu=8), inst("i-2", vcpu=16), inst("i-3", vcpu=8, state="stopped")])
+    cw = FakeCW()
+    cw.alarms["killswitch-idle-i-1"] = reaper.alarm_spec("i-1", CONF)  # the old flat 4 %
+    cw.alarms["killswitch-idle-i-2"] = reaper.alarm_spec("i-2", VCONF, 5.0)  # already right
+    cw.alarms["killswitch-idle-i-3"] = reaper.alarm_spec("i-3", CONF)  # stopped: re-armed too, before it starts
+    s, logs = go(ec2, cw, idle_vcpu=0.8)
+    assert [(p["AlarmName"], p["Threshold"]) for p in cw.puts] == [("killswitch-idle-i-1", 10.0),
+                                                                    ("killswitch-idle-i-3", 10.0)]
+    assert {r["do"] for r in logs if "do" in r} == {"rearm"} and s["failed"] == 0
+    s, _ = go(ec2, cw, idle_vcpu=0.8)
+    assert s["actions"] == 0  # settled
+
+
+def test_floor_25_is_the_highest_threshold_that_stays_quiet():
+    p = pts([30, 9, 7, 8, 6, 9, 30])
+    f = deploy.floor_25(p, 5, 300)
+    assert f == 9  # windows [30,9,7,8,6]=30, [9,7,8,6,9]=9, [7,8,6,9,30]=30
+    assert deploy.would_fire(p, f, 5, 300) == [] and len(deploy.would_fire(p, f + 0.01, 5, 300)) == 1
+    assert deploy.floor_25(pts([3, 3, 3]), 5, 300) is None
+
+
+def test_calibrate_sweep_flags_a_job_it_would_stop():
+    start = NOW - 3600 * 3
+    avgs = [3.0] * 10 + [20, 9, 8, 9, 9, 8, 25] + [3.0] * 10  # idle (0.24 vCPU on 8), a job dipping to 0.64, idle
+    dps = [{"Timestamp": datetime.fromtimestamp(start + k * 300, UTC).isoformat(), "Average": a}
+           for k, a in enumerate(avgs)]
+    aws = lambda *a: {"Datapoints": dps} if a[1] == "get-metric-statistics" else {}
+    args = type("A", (), {"hours": 3, "work": [
+        datetime.fromtimestamp(start + 10 * 300, UTC).strftime("%Y-%m-%dT%H:%M") + "/"
+        + datetime.fromtimestamp(start + 16 * 300, UTC).strftime("%Y-%m-%dT%H:%M") + "=solve"],
+        "vcpus": 8, "idle_vcpus": [0.6, 0.8], "busy": 15})()
+    out = []
+    deploy.calibrate_region(aws, dict(VCONF), ["i-1"], args, out.append)
+    text = "\n".join(out)
+    assert "safe up to 9.00 % = 0.72 vCPU" in text
+    assert "0.6 vCPU =   7.50 %:  fires   4, of them in work windows 0" in text
+    assert "0.8 vCPU =  10.00 %:" in text and "would stop a job" in text
