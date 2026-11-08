@@ -25,6 +25,8 @@ HIGH_APEX_CM = 16.0  # wrist over the sternum point that counts as an upper_ches
 TORSO_DEPTH = 11.0
 STILL_CM_S = 2.5  # wrist speed under which a frame is still (a hold), not part of a movement
 MIN_MOVES = 5  # wrist movements a hand needs before its path/speed fractions count  # cm from the spine_05 joint to the front of the chest/stomach (seated adult, either presenter)
+DESK_TOP, DESK_NEAR = 71.0, 12.0  # set_her.json / set_him.json (same desk): its top z and near edge x, actor frame, cm
+DESK_REST_Z = 8.0  # a joint head within this of the desk top rests on it (the arm's radius + the sleeve, ~3-5 cm)
 
 
 # ---------- vectors ----------
@@ -208,11 +210,21 @@ class Take:
                     "humerus_lo_p50": med(out[s]["lo"]), "humerus_hi_p50": med(out[s]["hi"]),
                     "humerus_lo_p90": pct(out[s]["lo"], 0.9), "humerus_hi_p90": pct(out[s]["hi"], 0.9),
                     "high_frac": len(out[s]["hi"]) / max(1, len(out[s]["hi"]) + len(out[s]["lo"]))}
-        for s in "lr":  # the resting / between-gesture upper arm
-            hum = [math.degrees(math.acos(max(-1, min(1, -(f["p"]["lowerarm_" + s][2] - f["p"]["upperarm_" + s][2]) /
-                                                     norm(sub(f["p"]["lowerarm_" + s], f["p"]["upperarm_" + s]))))))
-                   for i, f in enumerate(self.F) if self.inside[i] and f["gesture_w"][s] < 0.1]
-            r[s]["humerus_rest_p50"] = med(hum)
+        for s in "lr":  # the resting / between-gesture upper arm: hanging, or the forearm supported on the desk
+            hang, desk = [], []
+            for i, f in enumerate(self.F):
+                if not (self.inside[i] and f["gesture_w"][s] < 0.1):
+                    continue
+                E, W = f["p"]["lowerarm_" + s], f["p"]["hand_" + s]
+                u = sub(E, f["p"]["upperarm_" + s])
+                hum = math.degrees(math.acos(max(-1, min(1, -u[2] / norm(u)))))
+                # supported (the orchestrator, 08 Nov: forearms on the desk): the wrist over the desk and the forearm
+                # down on it
+                on = W[0] >= DESK_NEAR + 5.0 and W[2] <= DESK_TOP + DESK_REST_Z and min(E[2], W[2]) <= DESK_TOP + 6.0
+                (desk if on else hang).append(hum)
+            r[s]["humerus_rest_p50"] = med(hang)
+            r[s]["humerus_rest_desk_p50"] = med(desk)
+            r[s]["rest_desk_frac"] = len(desk) / max(1, len(desk) + len(hang))
         return r
 
     def shapes(self):
@@ -478,8 +490,12 @@ ROWS = {
                                     "median upper-arm abduction (out of the sagittal plane) at stroke apexes, worse "
                                     "hand: the elevation must be mostly flexion, toward the camera"),
     "move.humerus_elev_rest_deg": (lambda r: _worst(r, ("forearm", "humerus_rest_p50"), max), "<=", 30.0, "deg",
-                                   "median upper-arm elevation while that hand is at rest (gesture_w < 0.1), worse "
-                                   "hand: resting elbows hang"),
+                                   "median upper-arm elevation while that hand rests (gesture_w < 0.1) with the "
+                                   "forearm NOT on the desk, worse hand: unsupported resting elbows hang"),
+    "move.humerus_elev_rest_desk_deg": (lambda r: _worst(r, ("forearm", "humerus_rest_desk_p50"), max), "<=", 40.0,
+                                        "deg", "the same with the forearm supported on the desk (the orchestrator's "
+                                        "desk rest, 08 Nov; RULA scores a supported arm a band lower): the elbows at "
+                                        "the near edge need ~30-35 deg"),
     "move.forearm_elev_deg": (lambda r: r["forearm"]["r"]["elev_p50"], ">=", 15.0, "deg",
                               "median forearm elevation (elbow->wrist above horizontal) at the right hand's stroke "
                               "apexes: horizontal = 'typing in the air'"),
