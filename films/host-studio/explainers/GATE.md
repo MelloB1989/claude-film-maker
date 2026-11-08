@@ -107,7 +107,7 @@ switched on.
 0.574 where the proxy read 0.255). The proxy rows fail on their own: finger_snap 9.6 (7.5 with the palm guard off: his
 gated rest/swivel, not the palm turn), lag_hand 12.7, shape_wrong 4, hold_over_collar 28, palm_to_camera 8,
 rest_abduction 25.05, rest_desk 42.6, humerus_elev_high 77.6. T stays stopped. **Tool fix:** r7/arm_track_who.py is
-taken from agent-01's head (0ea0b4f8+). agent-13's copy built his performer without his gated torso, close_alive and
+taken from agent-01's head (c62de4a1+). agent-13's copy built his performer without his gated torso, close_alive and
 mic_cams, so the box rows would have scored a different motion from the anim the build writes. Hers is unaffected.
 
 ## Verdicts
