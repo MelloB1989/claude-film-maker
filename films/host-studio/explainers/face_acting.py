@@ -117,6 +117,9 @@ def solve_mood(who: str, lid: str) -> tuple:
     return SOLVE_MOOD.get(who, {}).get(lid, SOLVE_DEFAULT)
 
 
+# perform.py SPEECH_GAIN (his rig gives little mouth travel, r4): perf.face's speech_gain multiplies the mouth curves
+# (rig.MOUTH: mouth*, jaw*, ...) of the finished face, ours included, so a smile's mouth weights are divided by it
+MOUTH_GAIN = {"him": 1.7}
 MID_SMILE = (0.4, 0.6)
 BASE_SMILE = (0.2, 0.4)
 DEFAULT_AMOUNT = {"brow": 0.85, "question": 0.9, "curious": 0.85, "smile": 0.55, "soft": 0.5, "warm": 0.5,
@@ -311,6 +314,11 @@ def plan(who: str, only: set | None = None) -> dict:
             else:
                 notes.append(f"{lid}: pause {nxt - t1:.2f} s too short for an open smile")
     ev = fill(cu, ev, rng, only)
+    g = MOUTH_GAIN.get(who, 1.0)
+    if g != 1.0:  # perform.py's speech_gain scales every mouth curve after the layer: keep the smiles' mouth share
+        for e in ev:
+            e["preset"] = {n: ((w[0] / g, w[1]) if n.startswith(("mouth", "jaw")) else w)
+                           for n, w in e["preset"].items()}
     # no blink while a tilt eases in or out (r6: a blink on a tilt's release read as a nod)
     avoid = []
     for t in tilts:
@@ -431,7 +439,7 @@ def check(who: str, only: set | None = None) -> dict:
     env = AU.Envelope.from_wav(str(wav))
     r = FACE.build(0.0, cu["length_s"], base={}, layers=("expressions", "brows"), expressions=p["expressions"],
                    emphasis=env.emphasis(), speech=env.at, mouth_mix=p["mouth_mix"], brow_chance=p["brow_chance"],
-                   seed=SEED[who])
+                   seed=SEED[who], speech_gain=[(0.0, cu["length_s"], MOUTH_GAIN[who])] if who in MOUTH_GAIN else [])
     out = {"abs": rows(r["curves"], cu, only), "rel20": rows(r["curves"], cu, only, relative=True)}
     out["pass"] = all((v >= x if op == ">=" else v <= x) for m in ("abs", "rel20")
                       for k, (op, x) in LINES.items() for v in [out[m][k]])
