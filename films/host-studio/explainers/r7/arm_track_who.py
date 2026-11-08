@@ -6,7 +6,7 @@ so on box T, after his body step (agent-01's r7-body head):
     cd <r7-body tree>/films/host-studio/explainers
     python3 r7/arm_track_who.py --who him --read <his body_read.json> --out /tmp/him_arm_track.json
     python3 r7/naturalness.py /tmp/him_arm_track.json --json him_rows.json
-    python3 r7/naturalness.py /tmp/him_arm_track.json --span 0-179 --span 422-480 --json him_rows_test.json
+    python3 r7/naturalness.py /tmp/him_arm_track.json --span 0-179 --span 422-480 --json him_rows_test.json   # SEQUENCE frames, 24 fps
 
 Only the numbers (joint positions, no mesh, no face) go into the rows; the dump itself stays on the box.
 """
