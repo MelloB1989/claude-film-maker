@@ -25,6 +25,10 @@ HIGH_APEX_CM = 16.0  # wrist over the sternum point that counts as an upper_ches
 TORSO_DEPTH = 11.0
 STILL_CM_S = 2.5  # wrist speed under which a frame is still (a hold), not part of a movement
 MIN_MOVES = 5  # wrist movements a hand needs before its path/speed fractions count  # cm from the spine_05 joint to the front of the chest/stomach (seated adult, either presenter)
+SEQ_FPS = 24.0  # the film's sequence / EDL rate: --span frames are on it (the dumps run at 30)
+MIN_REST = 15  # frames (0.5 s) a rest class needs before its elevation counts
+DESK_TOP, DESK_NEAR = 71.0, 12.0  # set_her.json / set_him.json (same desk): its top z and near edge x, actor frame, cm
+DESK_REST_Z = 12.0  # the wrist head of a hand resting on the desk sits at most this over its top (on the hand's edge 8-10)
 
 
 # ---------- vectors ----------
@@ -122,19 +126,24 @@ def shape_class(fa, pinch):
 
 # ---------- the take ----------
 class Take:
-    def __init__(self, d: dict, spans: list | None = None):
+    def __init__(self, d: dict, spans: list | None = None, seq_fps: float = SEQ_FPS):
         self.d = d
         self.fps = float(d.get("fps", 30))
         self.F = d["frames"]
-        self.dt = (self.F[1]["t"] - self.F[0]["t"]) if len(self.F) > 1 else 1 / self.fps
+        for f in self.F:  # an editor dump may carry only frame numbers, at its own rate
+            f.setdefault("t", f["f"] / self.fps)
+        self.dt = 1 / self.fps
+        self.F = self._grid(self.F)
         self.ev = d.get("events", [])
         self.speak = [f["speak_w"] > SPEAK for f in self.F]
-        if spans:  # only these frame ranges count (a shot): speaking frames, events by apex, movements by start
-            self.inside = [any(a <= f["f"] <= b for a, b in spans) for f in self.F]
+        if spans:  # only these SEQUENCE frame ranges count (a shot): speaking frames, events by apex, movements by start
+            #   the spans are the film's frames (24 fps, the EDL), not the dump's: matched by time
+            self.inside = [not f.get("_pad") and any(a / seq_fps - 1e-6 <= f["t"] < (b + 1) / seq_fps - 1e-6
+                                                         for a, b in spans) for f in self.F]
             self.speak = [x and y for x, y in zip(self.speak, self.inside)]
             self.ev = [e for e in self.ev if self.inside[self.apex(e)]]
         else:
-            self.inside = [True] * len(self.F)
+            self.inside = [not f.get("_pad") for f in self.F]
         self.wa = {s: [wrist_angles(f["p"], s) for f in self.F] for s in "lr"}
         self.fa = {s: [finger_angles(f["p"], s) for f in self.F] for s in "lr"}
         self.wr = {s: [f["p"]["hand_" + s] for f in self.F] for s in "lr"}
@@ -157,6 +166,23 @@ class Take:
     def apex(self, e):
         """mid-hold frame of an event."""
         return self.idx(e["stroke"] + 0.5 * min(e["hold"], 0.4))
+
+    def _grid(self, F):
+        """frames on a regular grid from t=0 (times map to indices as t/dt): an editor dump holds only its spans, so
+        each gap is filled with the frame before it, held still and marked _pad (outside every span)."""
+        k = [int(round(f["t"] * self.fps)) for f in F]
+        if k == list(range(len(F))):
+            return F
+        out, j = [], 0
+        for i in range(k[-1] + 1):
+            while j + 1 < len(F) and k[j + 1] <= i:
+                j += 1
+            if k[j] == i:
+                out.append(F[j])
+            else:
+                src = F[j] if k[j] < i else F[0]
+                out.append({**src, "f": i, "t": i * self.dt, "_pad": True, "speak_w": 0.0})
+        return out
 
     # --- rows ---
     def wrist(self):
@@ -208,11 +234,26 @@ class Take:
                     "humerus_lo_p50": med(out[s]["lo"]), "humerus_hi_p50": med(out[s]["hi"]),
                     "humerus_lo_p90": pct(out[s]["lo"], 0.9), "humerus_hi_p90": pct(out[s]["hi"], 0.9),
                     "high_frac": len(out[s]["hi"]) / max(1, len(out[s]["hi"]) + len(out[s]["lo"]))}
-        for s in "lr":  # the resting / between-gesture upper arm
-            hum = [math.degrees(math.acos(max(-1, min(1, -(f["p"]["lowerarm_" + s][2] - f["p"]["upperarm_" + s][2]) /
-                                                     norm(sub(f["p"]["lowerarm_" + s], f["p"]["upperarm_" + s]))))))
-                   for i, f in enumerate(self.F) if self.inside[i] and f["gesture_w"][s] < 0.1]
-            r[s]["humerus_rest_p50"] = med(hum)
+        for s in "lr":  # the resting / between-gesture upper arm: hanging, or the forearm supported on the desk
+            hang, desk = [], []
+            for i, f in enumerate(self.F):
+                if not (self.inside[i] and f["gesture_w"][s] < 0.1):
+                    continue
+                E, W = f["p"]["lowerarm_" + s], f["p"]["hand_" + s]
+                u = sub(E, f["p"]["upperarm_" + s])
+                hum = math.degrees(math.acos(max(-1, min(1, -u[2] / norm(u)))))
+                # supported (the orchestrator, 08 Nov: forearms on the desk): the wrist over the desk and the forearm
+                # down on it
+                #   across the near edge (the wrist >= 10 cm past it, the elbow within 11 cm of it: her belly rest on
+                #   1e88aca8, elbow x -0.7 / wrist 18.6, hangs) and down on it (a hand on its little-finger edge puts
+                #   the wrist head 8-10 cm over the top)
+                on = (W[0] >= DESK_NEAR + 10.0 and E[0] >= DESK_NEAR - 11.0 and W[2] <= DESK_TOP + DESK_REST_Z
+                      and min(E[2], W[2]) <= DESK_TOP + 7.0)
+                (desk if on else hang).append(hum)
+            r[s]["humerus_rest_p50"] = med(hang) if len(hang) >= MIN_REST else float("nan")  # a few frames in passing
+            r[s]["humerus_rest_desk_p50"] = med(desk) if len(desk) >= MIN_REST else float("nan")  # is not a rest
+            r[s]["rest_hang_n"], r[s]["rest_desk_n"] = len(hang), len(desk)
+            r[s]["rest_desk_frac"] = len(desk) / max(1, len(desk) + len(hang))
         return r
 
     def shapes(self):
@@ -478,8 +519,12 @@ ROWS = {
                                     "median upper-arm abduction (out of the sagittal plane) at stroke apexes, worse "
                                     "hand: the elevation must be mostly flexion, toward the camera"),
     "move.humerus_elev_rest_deg": (lambda r: _worst(r, ("forearm", "humerus_rest_p50"), max), "<=", 30.0, "deg",
-                                   "median upper-arm elevation while that hand is at rest (gesture_w < 0.1), worse "
-                                   "hand: resting elbows hang"),
+                                   "median upper-arm elevation while that hand rests (gesture_w < 0.1) with the "
+                                   "forearm NOT on the desk, worse hand: unsupported resting elbows hang"),
+    "move.humerus_elev_rest_desk_deg": (lambda r: _worst(r, ("forearm", "humerus_rest_desk_p50"), max), "<=", 40.0,
+                                        "deg", "the same with the forearm supported on the desk (the orchestrator's "
+                                        "desk rest, 08 Nov; RULA scores a supported arm a band lower): the elbows at "
+                                        "the near edge need ~30-35 deg"),
     "move.forearm_elev_deg": (lambda r: r["forearm"]["r"]["elev_p50"], ">=", 15.0, "deg",
                               "median forearm elevation (elbow->wrist above horizontal) at the right hand's stroke "
                               "apexes: horizontal = 'typing in the air'"),
@@ -526,17 +571,43 @@ def rows(rep):
     return out
 
 
+def with_meta(d, m):
+    """an editor dump (joints only, its own fps, default 24) gets the solved track's per-frame weights and its events,
+    mapped by TIME (never frame to frame: the editor runs at the sequence's 24 fps, the track at 30)."""
+    fe, fm = float(d.setdefault("fps", SEQ_FPS)), float(m.get("fps", 30))
+    M = {int(f["f"]): f for f in m["frames"]}
+    for f in d["frames"]:
+        t = f.setdefault("t", f["f"] / fe)
+        g = M.get(int(round(t * fm)))
+        if g is None:
+            raise SystemExit(f"--meta has no frame at t={t:.3f}")
+        f.setdefault("speak_w", g["speak_w"])
+        f.setdefault("gesture_w", g["gesture_w"])
+    d.setdefault("events", m.get("events", []))
+    d.setdefault("on_cam", m.get("on_cam", []))
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("tracks", nargs="+")
     ap.add_argument("--json")
-    ap.add_argument("--span", action="append", default=[], help="frames A-B (repeatable): only these count")
+    ap.add_argument("--span", action="append", default=[],
+                    help="SEQUENCE frames A-B at --seq-fps (the EDL's, repeatable): only these count")
+    ap.add_argument("--seq-fps", type=float, default=SEQ_FPS)
+    ap.add_argument("--fps", type=float, help="the dump's own rate when it carries none (an editor dump: 24)")
+    ap.add_argument("--meta", help="a solved track (arm_track.json, 30 fps) to take speak_w / gesture_w / events / "
+                                   "on_cam from, BY TIME, for an editor dump that carries only joint positions")
     ap.add_argument("--full", action="store_true", help="print the full report, not only the rows")
     a = ap.parse_args(argv)
     res = {}
     for p in a.tracks:
         spans = [tuple(int(x) for x in sp.split("-")) for sp in a.span]
-        rep = Take(json.loads(Path(p).read_text()), spans or None).report()
+        d = json.loads(Path(p).read_text())
+        if a.fps:
+            d["fps"] = a.fps
+        if a.meta:
+            with_meta(d, json.loads(Path(a.meta).read_text()))
+        rep = Take(d, spans or None, a.seq_fps).report()
         res[Path(p).stem] = {"rows": rows(rep), "report": rep}
     names = list(res)
     w = max(len(k) for k in ROWS) + 2
