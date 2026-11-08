@@ -1312,11 +1312,14 @@ class Performer(S.Seater):
                 W[j] = [self._fk_t(j, parent, W) if parent in W else sk.p(j), Q[j]]
                 parent = j
 
+    DESK_LIVE = 0.15  # cm the pads' height breathes about DESK_TIP (0.21 Hz)
     DESK_TIP = 0.9  # cm a resting hand's lowest fingertip (its centre line) over the desk top: the pad on it
     REST_WRIST = 3.2  # cm the resting wrist joint over the desk top at most: the heel of the palm on it (agent-13's
     #   rest_contact 'tented' line is 3.5; seatkit's desk.wrist floor is forearm_clear - 0.3 = 2.5)
     DESK_THUMB = 0.6  # cm the thumb's joints keep over the desk top (seatkit's desk.finger line is 0.4)
     DESK_PITCH_MAX = 14.0  # deg the contact solve pitches the hand at most
+    REST_HAND_PITCH, REST_PITCH_BAND = 10.0, 8.0  # deg: the resting palm's long axis over the desk (hers sits 4-13)
+    #   and the band the safety level leaves alone
 
     def _desk_contact(self, s: str, W, k: float) -> None:
         """(R7 hands) a resting hand ON the desk: pitched about the wrist so its lowest fingertip sits DESK_TIP over
@@ -1327,6 +1330,25 @@ class Performer(S.Seater):
         sk, ha = self.sk, "hand_" + s
         bones = [b for b in W if b.endswith("_" + s) and b.split("_")[0] in FINGERS]
         piv = W[ha][0]
+        # a SAFETY level against the desk (the orchestrator's ruling: this hand is levelled to the desk, whatever the
+        # arm): only the palm's pitch beyond +-REST_PITCH_BAND of REST_HAND_PITCH is taken back, by k. Her rests sit
+        # inside the band (untouched: a full-weight level made her landings snap); his steep forearm at t=0 (elbow
+        # 98.9 on agent-01's 66785bbe) pointed the palm-down hand 8-11 cm into the desk
+        mk = f"middle_01_{s}"
+        if mk in W:
+            dvec = sub(W[mk][0], piv)
+            horiz = math.hypot(dvec[0], dvec[1])
+            if horiz > 1e-3:
+                dev = math.degrees(math.atan2(dvec[2], horiz)) - self.REST_HAND_PITCH
+                over = math.copysign(max(0.0, abs(dev) - self.REST_PITCH_BAND), dev)
+                if over:
+                    ax0 = unit(cross(dvec, [0.0, 0.0, 1.0]))
+                    r0 = axis_angle(ax0, -over * k)
+                    if qrot(r0, dvec)[2] * 1.0 - dvec[2] > 0.0 and over > 0.0 or \
+                            qrot(r0, dvec)[2] - dvec[2] < 0.0 and over < 0.0:
+                        r0 = axis_angle(ax0, over * k)  # (the sign: the turn must take the pitch back toward the band)
+                    for b in [ha] + bones:
+                        W[b] = [add(piv, qrot(r0, sub(W[b][0], piv))), qnorm(qmul(r0, W[b][1]))]
         tips = []
         for f in ("index", "middle", "ring", "pinky"):  # the fingertips as finger_tips (the rows') measures them
             j = f"{f}_03_{s}"
@@ -1336,14 +1358,11 @@ class Performer(S.Seater):
         if not tips:
             return
         low = min(tips, key=lambda p: self.actor(p)[2])
-        err = self.actor(low)[2] - (self.set.desk_top + self.DESK_TIP)  # + : too high
-        # the thumb's joints keep DESK_THUMB over the desk too (a palm-down thumb lies low beside the index): the more
-        # pressing of the two sets the pitch
-        for j in (f"thumb_02_{s}", f"thumb_03_{s}"):
-            if j in W:
-                e_j = self.actor(W[j][0])[2] - (self.set.desk_top + self.DESK_THUMB)
-                if e_j < 0.0 and e_j < err:
-                    err, low = e_j, W[j][0]
+        # the pads' height breathes a little (a resting hand rolls on them, never frozen: agent-13's hold_min_speed)
+        t_ = getattr(self, "_t", 0.0)
+        live = self.DESK_LIVE * math.sin(2.0 * math.pi * 0.21 * t_ + (0.0 if s == "l" else 2.1))
+        err = self.actor(low)[2] - (self.set.desk_top + self.DESK_TIP + live)  # + : too high
+        # (the thumb keeps off the desk by its own ride-up below: in this pitch it lifted the pads off, 1.6-1.8 cm)
         arm = sub(low, piv)
         across = cross(arm, [0.0, 0.0, 1.0])  # component space is z-up (seatkit checks it)
         reach = math.hypot(arm[0], arm[1])  # a turn about a level axis lifts the tip by ~ this x the angle
@@ -1351,7 +1370,9 @@ class Performer(S.Seater):
             return
         ang = max(-self.DESK_PITCH_MAX, min(self.DESK_PITCH_MAX, math.degrees(math.asin(max(-1.0, min(1.0, err / reach))))))
         ax = unit(across)
-        kk = 1.0 if err < 0.0 else k  # out of the desk in full, whatever the rest's weight; settled onto it by k
+        # settled onto the desk by the rest's weight, out of it in full, blended over the last 0.5 cm (a switch at the
+        # surface flicked the landing fingers: agent-13's finger_snap, L t3.4)
+        kk = k + (1.0 - k) * max(0.0, min(1.0, -err / 0.5))
         r = axis_angle(ax, ang * kk)
         if self.actor(add(piv, qrot(r, arm)))[2] > self.actor(low)[2] and err > 0 or \
                 self.actor(add(piv, qrot(r, arm)))[2] < self.actor(low)[2] and err < 0:
