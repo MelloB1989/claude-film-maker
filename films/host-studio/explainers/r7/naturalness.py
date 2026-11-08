@@ -140,6 +140,8 @@ class Take:
         self.F = d["frames"]
         for f in self.F:  # an editor dump may carry only frame numbers, at its own rate
             f.setdefault("t", f["f"] / self.fps)
+            if f.get("tips"):  # gesturekit.track_frame's fingertips (b2d3bcc0+) ride next to the joint heads
+                f["p"] = {**f["p"], **f["tips"]}
         self.dt = 1 / self.fps
         self.F = self._grid(self.F)
         self.ev = d.get("events", [])
@@ -608,7 +610,7 @@ class Take:
             for s in "lr":
                 _, lat, _ = hand_frame(P, s)
                 W = P["hand_" + s]
-                t1, t2, t3, tt_ = (P[f"thumb_0{k}_{s}"] for k in (1, 2, 3)) + (P[f"thumb_tip_{s}"],) \
+                t1, t2, t3, tt_ = (P[f"thumb_01_{s}"], P[f"thumb_02_{s}"], P[f"thumb_03_{s}"], P[f"thumb_tip_{s}"]) \
                     if f"thumb_tip_{s}" in P else (None,) * 4
                 if t1 is not None:  # thumb MCP + IP flexion < 5 for > 0.5 s: straight and stiff
                     fl = ang(sub(t2, t1), sub(t3, t2)) + ang(sub(t3, t2), sub(tt_, t3))
