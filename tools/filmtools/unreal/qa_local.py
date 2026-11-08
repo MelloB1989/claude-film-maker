@@ -362,6 +362,10 @@ def main(argv=None) -> None:
     pb.add_argument("--speaking", required=True)
     pb.add_argument("--desk-z", type=float, required=True, help="the desk top's world Z, cm")
     pb.add_argument("--out", default="")
+    pr = sub.add_parser("perf-rest", help="round 7: the rest/bridge frames (both hands still) from seq.sample samples")
+    pr.add_argument("samples")
+    pr.add_argument("--fps", type=float, default=24.0)
+    pr.add_argument("--every", type=int, default=2)
     gp = sub.add_parser("gate")
     gp.add_argument("numbers", nargs="*")
     gp.add_argument("--spec", default="")
@@ -439,6 +443,10 @@ def main(argv=None) -> None:
         res = {"gate": qa_perf.face_rows(series, x.fps, qa_perf._spans(x.speaking)), "frames": len(series)}
         if x.series:
             Path(x.series).write_text(json.dumps(series))
+    elif x.cmd == "perf-rest":
+        from . import qa_perf
+        d = json.loads(Path(x.samples).read_text())
+        res = {"frames": qa_perf.rest_frames(d.get("result", d), x.fps, every=x.every)}
     elif x.cmd == "perf-body":
         from . import qa_perf
         d = json.loads(Path(x.samples).read_text())
