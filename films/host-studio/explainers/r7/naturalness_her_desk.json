@@ -1,8 +1,8 @@
 {
- "fine_906d80d3": {
+ "fine_8a45d961": {
   "rows": {
    "move.humerus_elev_stroke_deg": {
-    "value": 41.277,
+    "value": 41.182,
     "op": "<=",
     "line": 45.0,
     "unit": "deg",
@@ -10,7 +10,7 @@
     "what": "median upper-arm elevation off hanging (shoulder->elbow vs straight down) at the right hand's stroke apexes below upper_chest"
    },
    "move.humerus_elev_high_deg": {
-    "value": 57.875,
+    "value": 57.69,
     "op": "<=",
     "line": 60.0,
     "unit": "deg",
@@ -18,7 +18,7 @@
     "what": "the same at apexes at/above upper_chest (wrist >= 16 cm over the sternum point; the orchestrator's 60 deg, 08 Nov)"
    },
    "move.upperarm_abduction_deg": {
-    "value": 30.59,
+    "value": 30.544,
     "op": "<=",
     "line": 35.0,
     "unit": "deg",
@@ -34,7 +34,7 @@
     "what": "median upper-arm elevation while that hand rests (gesture_w < 0.1) with the forearm NOT on the desk, worse hand: unsupported resting elbows hang"
    },
    "move.humerus_elev_rest_desk_deg": {
-    "value": 37.127,
+    "value": 37.084,
     "op": "<=",
     "line": 40.0,
     "unit": "deg",
@@ -42,7 +42,7 @@
     "what": "the same with the forearm supported on the desk (the orchestrator's desk rest, 08 Nov; RULA scores a supported arm a band lower): the elbows at the near edge need ~30-35 deg"
    },
    "move.forearm_elev_deg": {
-    "value": 38.357,
+    "value": 38.512,
     "op": ">=",
     "line": 15.0,
     "unit": "deg",
@@ -50,7 +50,7 @@
     "what": "median forearm elevation (elbow->wrist above horizontal) at the right hand's stroke apexes: horizontal = 'typing in the air'"
    },
    "move.wrist_flexext_p90_deg": {
-    "value": 21.542,
+    "value": 21.568,
     "op": "<=",
     "line": 25.0,
     "unit": "deg",
@@ -58,7 +58,7 @@
     "what": "p90 over speaking frames of |wrist flexion/extension| (3rd metacarpal vs the forearm), worse hand"
    },
    "move.wrist_ulnar_p95_deg": {
-    "value": 13.396,
+    "value": 13.461,
     "op": "<=",
     "line": 25.0,
     "unit": "deg",
@@ -66,7 +66,7 @@
     "what": "p95 over speaking frames of ulnar deviation, worse hand"
    },
    "move.wrist_radial_p95_deg": {
-    "value": 3.384,
+    "value": 3.288,
     "op": "<=",
     "line": 15.0,
     "unit": "deg",
@@ -90,7 +90,7 @@
     "what": "speaking frames with a claw hand (a finger bent back at a middle joint), worse hand"
    },
    "move.path_straight_frac": {
-    "value": 0.208,
+    "value": 0.145,
     "op": "<=",
     "line": 0.3,
     "unit": "fraction",
@@ -98,7 +98,7 @@
     "what": "wrist movements (>= 8 cm) whose path strays < 3 % of its chord: straight lines"
    },
    "move.vel_bell_frac": {
-    "value": 0.717,
+    "value": 0.909,
     "op": ">=",
     "line": 0.6,
     "unit": "fraction",
@@ -106,7 +106,7 @@
     "what": "wrist movements with a peak/mean speed of 1.6-2.3 (minimum jerk 1.875), worse hand"
    },
    "move.lag_hand_ms": {
-    "value": 48.589,
+    "value": 52.72,
     "op": ">=",
     "line": 30.0,
     "unit": "ms",
@@ -114,7 +114,7 @@
     "what": "median onset of the hand's rotation after the upper arm's, per movement (right hand): proximal leads, distal follows"
    },
    "move.two_hand_amp_ratio": {
-    "value": 0.622,
+    "value": 0.619,
     "op": ">=",
     "line": 0.5,
     "unit": "ratio",
@@ -122,7 +122,7 @@
     "what": "two-hand strokes: median wrist travel of the lesser hand over the greater's (a two-hand gesture with one hand parked reads as one hand and a prop)"
    },
    "move.hold_min_speed": {
-    "value": 0.452,
+    "value": 0.477,
     "op": ">=",
     "line": 0.3,
     "unit": "cm/s",
@@ -130,7 +130,7 @@
     "what": "p10 of the wrist speed while speaking outside every movement (holds, rests), worse hand: a live hold drifts (the orchestrator, 08 Nov); 0 = frozen"
    },
    "move.mirror_corr_p50": {
-    "value": 0.373,
+    "value": 0.394,
     "op": "<=",
     "line": 0.95,
     "unit": "corr",
@@ -149,22 +149,22 @@
   "report": {
    "wrist": {
     "l": {
-     "flexext_abs_p90": 19.57100848240193,
-     "flexext_p50": -8.074689485343875,
+     "flexext_abs_p90": 19.522082367371546,
+     "flexext_p50": -8.07726411449737,
      "flex_max": 2.3073983146652437,
      "ext_max": 38.47663050866841,
-     "ulnar_p95": 3.893890643179904,
-     "radial_p95": 0.9796976616091707,
+     "ulnar_p95": 3.900065343611083,
+     "radial_p95": 1.0648406293009243,
      "dev_p50": -1.4246461897767861
     },
     "r": {
-     "flexext_abs_p90": 21.54167276108824,
-     "flexext_p50": -10.382653733389946,
-     "flex_max": 18.172211025750773,
-     "ext_max": 32.49368322126419,
-     "ulnar_p95": 13.395558665780191,
-     "radial_p95": 3.384255915203974,
-     "dev_p50": -3.9523566854415013
+     "flexext_abs_p90": 21.568101380368326,
+     "flexext_p50": -10.545152546937183,
+     "flex_max": 18.07732088810249,
+     "ext_max": 30.55761460577746,
+     "ulnar_p95": 13.461406573020525,
+     "radial_p95": 3.288222301941489,
+     "dev_p50": -4.133534020157928
     }
    },
    "forearm": {
@@ -175,7 +175,7 @@
      "flat_frac": 0.0,
      "elbow_inside_p50": 69.24965081201472,
      "abd_p50": 28.91421316883875,
-     "forearm_in_p50": 38.59369426110561,
+     "forearm_in_p50": 38.593618857981205,
      "humerus_elev_p50": 32.106811921420366,
      "humerus_elev_p90": 37.40817559656255,
      "elbow_drop_p50": 23.252399999999994,
@@ -188,35 +188,35 @@
      "humerus_hi_p90": NaN,
      "high_frac": 0.0,
      "humerus_rest_p50": NaN,
-     "humerus_rest_desk_p50": 37.126982332387435,
+     "humerus_rest_desk_p50": 37.08369593553799,
      "rest_hang_n": 0,
-     "rest_desk_n": 1393,
+     "rest_desk_n": 1391,
      "rest_desk_frac": 1.0
     },
     "r": {
      "n": 50,
-     "elev_p50": 38.35656669062899,
-     "elev_p25": 34.616826136019064,
+     "elev_p50": 38.51235331701733,
+     "elev_p25": 34.44634698954918,
      "flat_frac": 0.02,
-     "elbow_inside_p50": 67.82379602238935,
-     "abd_p50": 34.18980442623487,
-     "forearm_in_p50": 33.92863716794765,
-     "humerus_elev_p50": 41.539391422794836,
-     "humerus_elev_p90": 58.25090514507592,
-     "elbow_drop_p50": 20.548299999999998,
-     "flexion_p50": 29.92842209641779,
-     "abduction_p50": 30.590254350246877,
-     "abduction_p90": 33.48144384498657,
-     "humerus_lo_p50": 41.276937963502505,
-     "humerus_hi_p50": 57.87463448486158,
-     "humerus_lo_p90": 43.187975833758145,
-     "humerus_hi_p90": 59.21491246356835,
+     "elbow_inside_p50": 67.64659440486753,
+     "abd_p50": 34.28956483330386,
+     "forearm_in_p50": 33.57485498596192,
+     "humerus_elev_p50": 41.59327866951895,
+     "humerus_elev_p90": 58.036693798747464,
+     "elbow_drop_p50": 20.531150000000004,
+     "flexion_p50": 30.175140772588882,
+     "abduction_p50": 30.543811227638862,
+     "abduction_p90": 33.56474113484798,
+     "humerus_lo_p50": 41.18167046909807,
+     "humerus_hi_p50": 57.68965225599872,
+     "humerus_lo_p90": 43.23313166437147,
+     "humerus_hi_p90": 59.37412492625995,
      "high_frac": 0.24,
      "humerus_rest_p50": NaN,
-     "humerus_rest_desk_p50": 36.60770279290456,
+     "humerus_rest_desk_p50": 36.626236535761755,
      "rest_hang_n": 3,
-     "rest_desk_n": 356,
-     "rest_desk_frac": 0.9916434540389972
+     "rest_desk_n": 345,
+     "rest_desk_frac": 0.9913793103448276
     }
    },
    "shape": {
@@ -235,7 +235,7 @@
     },
     "cascade_frac": {
      "l": 1.0,
-     "r": 0.9815303430079155
+     "r": 0.981029810298103
     },
     "wrong": []
    },
@@ -246,51 +246,51 @@
      "stroke_fwd_p10": 10.21167
     },
     "r": {
-     "near_frac": 0.012783265543288786,
-     "stroke_fwd_p50": 13.5647,
-     "stroke_fwd_p10": 9.74215
+     "near_frac": 0.005810575246949448,
+     "stroke_fwd_p50": 13.5295,
+     "stroke_fwd_p10": 9.660110000000001
     }
    },
    "kin": {
     "l": {
      "n": 22,
-     "curv_p50": 0.09216402842143033,
+     "curv_p50": 0.0928414798661048,
      "straight_frac": 0.0,
-     "peak_mean_p50": 1.9190645048292936,
-     "bell_frac": 0.8636363636363636,
-     "v_peak_p50": 58.558865677975064,
-     "v_peak_max": 69.81880356501391
+     "peak_mean_p50": 1.899929647033073,
+     "bell_frac": 0.9545454545454546,
+     "v_peak_p50": 56.772155615217756,
+     "v_peak_max": 69.81131706428404
     },
     "r": {
-     "n": 53,
-     "curv_p50": 0.07136888874439326,
-     "straight_frac": 0.20754716981132076,
-     "peak_mean_p50": 2.0690746535387183,
-     "bell_frac": 0.7169811320754716,
-     "v_peak_p50": 98.5572167905527,
-     "v_peak_max": 171.7548488354841
+     "n": 55,
+     "curv_p50": 0.07518301074715486,
+     "straight_frac": 0.14545454545454545,
+     "peak_mean_p50": 1.9933960752215787,
+     "bell_frac": 0.9090909090909091,
+     "v_peak_p50": 75.63859581754527,
+     "v_peak_max": 171.76426225280395
     }
    },
    "lag": {
     "l": {
      "n": 22,
-     "hand_minus_upper_ms_p50": 44.960843496955505,
-     "fingers_minus_upper_ms_p50": 80.17822319524458,
-     "ordered_frac": 0.2727272727272727
+     "hand_minus_upper_ms_p50": 54.864939327323725,
+     "fingers_minus_upper_ms_p50": 77.86630502947611,
+     "ordered_frac": 0.36363636363636365
     },
     "r": {
-     "n": 53,
-     "hand_minus_upper_ms_p50": 48.589323255406214,
+     "n": 55,
+     "hand_minus_upper_ms_p50": 52.720274937293254,
      "fingers_minus_upper_ms_p50": 0.0,
-     "ordered_frac": 0.4716981132075472
+     "ordered_frac": 0.45454545454545453
     }
    },
    "asym": {
     "n": 14,
-    "mirror_corr_p50": 0.3734760777442977,
-    "mirror_corr_max": 0.8091415390798131,
-    "onset_diff_ms_p50": 32.2930080866346,
-    "amp_ratio_p50": 0.6217185549143912
+    "mirror_corr_p50": 0.39360327873426393,
+    "mirror_corr_max": 0.7584678763774575,
+    "onset_diff_ms_p50": 52.903753471382764,
+    "amp_ratio_p50": 0.6186337696235623
    },
    "fingers": {
     "l": {
@@ -299,36 +299,36 @@
     },
     "r": {
      "frozen_frac": 0.0,
-     "frozen_max_s": 0.26666666666666666
+     "frozen_max_s": 0.2
     }
    },
    "torso": {
     "spine_05": {
-     "corr_with_r_wrist": 0.22915350609263752,
-     "mean_cm_s": 0.45055858111738273
+     "corr_with_r_wrist": 0.24641682479929788,
+     "mean_cm_s": 0.46736618769041155
     },
     "head": {
-     "corr_with_r_wrist": 0.2112210486787587,
-     "mean_cm_s": 0.8450644506140529
+     "corr_with_r_wrist": 0.2367144935692422,
+     "mean_cm_s": 0.8771129981370259
     }
    },
    "travel": {
-    "l": 6.062416591614835,
-    "r": 18.69935135178176,
-    "l_over_r": 0.324204646330536
+    "l": 6.065529302609849,
+    "r": 18.771884635834116,
+    "l_over_r": 0.32311775936611126
    },
    "holds": {
     "l": {
-     "n": 1446,
-     "p10": 0.48034638138942387,
-     "p50": 0.9338550118949416,
-     "frozen_frac": 0.0006915629322268327
+     "n": 1458,
+     "p10": 0.4774905210612772,
+     "p50": 0.9038101408866531,
+     "frozen_frac": 0.0013717421124828531
     },
     "r": {
-     "n": 1071,
-     "p10": 0.45180886445483415,
-     "p50": 1.0488861949706432,
-     "frozen_frac": 0.0009337068160597573
+     "n": 1026,
+     "p10": 0.5856390668953897,
+     "p50": 1.327000331447342,
+     "frozen_frac": 0.0
     }
    }
   }
