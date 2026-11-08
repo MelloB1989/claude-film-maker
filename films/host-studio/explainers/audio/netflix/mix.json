@@ -3,7 +3,7 @@
  "seconds": 59.4583,
  "samples": 2853998,
  "lufs": -14.03,
- "true_peak_dbtp": -1.68,
+ "true_peak_dbtp": -1.66,
  "master_gain_db": 1.22,
  "voice_lufs": -15.0,
  "music_lufs": -21.0,
@@ -28,5 +28,24 @@
  "bed": {
   "take": "out/host-studio/explainers/music/netflix/seed1-e92e50f0ac9a.wav",
   "seed": 1
+ },
+ "sfx": {
+  "film": "netflix",
+  "hits": "out/sfxv3/netflix.json",
+  "sha1": "e844204fdff0",
+  "placed": 93,
+  "skipped": [],
+  "picks": {
+   "whoosh_in": 1,
+   "swoosh_fast": 1,
+   "hit_sub": 1,
+   "pop": 1,
+   "tick": 1,
+   "data_stream": 2,
+   "riser": 1,
+   "glitch": 1,
+   "chime": 2
+  },
+  "ref_db": -20.0
  }
 }

@@ -1,0 +1,19 @@
+{
+ "film": "whatsapp",
+ "hits": "out/sfxv3/whatsapp.json",
+ "sha1": "c871a00e34b7",
+ "placed": 75,
+ "skipped": [],
+ "picks": {
+  "whoosh_in": 1,
+  "swoosh_fast": 1,
+  "hit_sub": 1,
+  "pop": 1,
+  "tick": 1,
+  "data_stream": 2,
+  "riser": 1,
+  "glitch": 1,
+  "chime": 2
+ },
+ "ref_db": -20.0
+}

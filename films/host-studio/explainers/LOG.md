@@ -283,3 +283,23 @@ tested in `test_seatkit.py`), `gestures.json` (the emphasis gestures per line).
   (setplan projection from x ~704). comp_box.sh PRES_S3 pulls agent-07's farm finals. Box C (agent-06's, CPU only):
   WhatsApp dry composite g4: card measured at x 96-619, y 81-241 (f48 vs f4); 1352 f, lufs_err 0.1, TP -1.7, captions 1,
   onset 84 ms, facts 1, qc_ok 1.
+- 08 Nov 13:20 IST (agent-11): acting sheets per the orchestrator's elbow rulings: at most ~1/3 of strokes at/above the upper
+  chest (off-camera strokes at the sternum, 5 non-key visible ones pinned; her 0.326, him 0.302; 7154f0db) and nothing at
+  the chin (CU strokes and N15 'cloud' at the collarbone; 5a2c042e; agent-01 sets APEX_Z collarbone 22). v3 mixes with the
+  graphics' SFX lists (agent-12 93 hits, agent-13 75): -14.03/-1.66 and -14.06/-1.71 (e936898c). agent-12's final Netflix
+  v3 graphics (8-sample, 809e29eb) synced to gfx/v3/explain-netflix (12 objects). No box (spot only, none up), so the
+  graphics-only Netflix dry composite ran on the build host in a container: 1427 f, lufs_err 0.0, TP -1.7, format_ok 1,
+  captions 1, onset 84 ms, facts 1, qc_ok 1; lower third top-left as planned. composite.py now counts the picture's frames
+  with framecrc: ffmpeg 6.1 prints no frame= on a stream copy (the check read -1).
+
+- 2026-11-08 15:01 IST agent-11: r7 cost policy. comp_box.sh takes RENDER_BUCKET (Tokyo box -> Tokyo bucket; f36709f9) and from a Tokyo box copies only the mp4, master and srt to Mumbai private (9c7a6321). One approved server-side copy of gfx/v3 Mumbai -> rf-render-788655295054-apne1 (25 objects, 3.37 GB, matches). Asked agent-06/07 to write final frames to the Tokyo private prefix.
+- 08 Nov 19:50-20:25 IST agent-08 (R7 hands lead, `fleet/agent-08/r7-hands`): the operator on her verify, 00:08: "the
+  finger -> it looks like zombie". Cause: gesturekit's shapes were curl offsets on the rig's reference curl with the
+  PIP/DIP clamped at -5, so her counted right index sat at MCP 12-19 / PIP 19 / DIP 21 (the intrinsic-minus claw), and
+  the desk hand's DIPs at 7-18 (flat). `handshape.py` replaces them with named whole-hand poses as ABSOLUTE anatomical
+  targets: one closure per finger through an MCP-first synergy (DIP = 0.67 PIP), the relaxed cascade, spread narrowing
+  as the fingers close, and the thumb (palmar abduction out of the palm's plane + MCP/IP flexion, fitted by its tip).
+  Each joint turns by target - the rig's measured reference, so both rigs work. Merged agent-01's LIST kind (4bdf1518)
+  and agent-11's LIST sheets (963f561d): no finger counts are left in either sheet. Her take offline: build pass 0
+  issues; claw 0, DIP/PIP out of band 0, fold at the limit 0; snaps 1.01/min. The catalogue take
+  (`perform.py body --perform --catalogue`, AS_exp_<who>_hands_cat) and side builds (`--suffix`) feed the stills on T2.
