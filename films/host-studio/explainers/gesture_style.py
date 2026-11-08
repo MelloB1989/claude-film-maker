@@ -30,7 +30,7 @@ from __future__ import annotations
 import hashlib
 import math
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import seatkit as S
 from seatkit import add, axis_angle, cross, dot, mul, norm, qinv, qmul, qrot, sub, unit
@@ -59,7 +59,9 @@ OVERSHOOT_K = 0.0   # x the drawn overshoot (r7F, agent-13: the settle back from
 #   tail of every stroke, so peak/mean read 2.4-3.9 instead of one bell's 1.875; off, right bells 0.64 -> 0.84)
 LEFT_ARC = (0.08, 0.12)  # x the chord: the left hand's own arc (agent-13: its echoes were dead-straight 10 cm lines)
 LEFT_ARC_DIR = (-0.6, -0.2, 0.75)  # (fwd, out, up): its arc bows up and back toward her (the mic is forward and out)
-ROT_LAG_S = 0.06    # s the hand's turn and the fingers trail the wrist's path (proximal to distal)
+RIGHT_ARC_DIR = (-0.3, 0.45, 0.85)  # a mic-moved right stroke's bow: up, out and a little back
+RIGHT_ARC_MIN = 0.06  # x the chord: every right move's bow off the straight line at least (agent-13's line: 0.03)
+ROT_LAG_S = 0.08    # s the hand's turn and the fingers trail the wrist's path (proximal to distal)
 DRIFT_CM = 0.8      # cm the wrist's slow drift, each axis (orchestrator: real hands are never 0 cm/s in a hold)
 RIGHT_DRIFT_K = 1.3  # the right hand's drift x this (its rest life on the desk keeps DESK_DRIFT)
 DRIFT_HZ = 0.26     # its band (low: a drift, not a tremor)
@@ -71,6 +73,9 @@ PIP_K = 0.6         # x it on the middle and end joints, on their own phase
 PIP_HZ = 0.33
 SETTLE_DEG = 2.0    # deg the fingers curl a little and let go after a stroke
 SETTLE_S = 0.5
+REST_TURN_K = 0.7  # x the turn time on a stroke up from the rest (its turn rides a longer rise; full: it began
+#   before the measured window, the left's share of a two-hand stroke fell to 0.40)
+MOVE_ABSORB_S = 0.2  # s: a move with less room than this is absorbed into the hold before it
 HOLD_MIN_S = 0.1    # s a hold kept at least when the next move takes its time
 V_RETRACT = 55.0    # cm/s a retract home's mean speed at most (softer than the stroke)
 COART_S = 0.45      # a gap shorter than this flows straight into the next gesture
@@ -201,6 +206,18 @@ class Seg:
     w_to: float = 1.0
 
 
+ROT_MEAN = 160.0  # deg/s a move's mean hand turn at most: one min-jerk peaks at 1.9x the mean, so a fingertip ~18 cm
+#   out moves <= ~110 cm/s relative to the hand (agent-13's finger_snap: >= 90 cm/s that stops within 2 frames; her
+#   hands turned 85-120 deg home to the desk in 0.25-0.35 s, up to 146 cm/s)
+
+
+def turn_s(a: GK.HandPose, b: GK.HandPose) -> float:
+    """s the hand needs to turn from pose a to b (pronation, extension, the largest finger curl) at ROT_MEAN."""
+    sa, sb = shape_dict(a.shape), shape_dict(b.shape)
+    curl = max(abs(sb[f] - sa[f]) for f in GK.FINGERS)
+    return max(abs(b.pron - a.pron) + 0.5 * abs(b.ext - a.ext), 0.8 * curl) / ROT_MEAN
+
+
 class HandTrack:
     """The wrist + hand + fingers of one hand over the take, from the plan's events: segments from the rest through
     every gesture (co-articulated where the gaps are short) and home."""
@@ -239,13 +256,27 @@ class HandTrack:
             start = max(e.prep, t)
             # a long move starts earlier (r7F: from the lowered rest a count rose 29 cm in 0.18 s, 4 m/s at the wrist,
             # a snap): its mean speed at most V_MEAN, the stroke still landing on its word
-            need = apex - max(MOVE_MIN_S, dist(cur, target) / V_MEAN)  # and never a snap under MOVE_MIN_S
+            turn = turn_s(cur, target) * (1.0 if cur_w > 0 else REST_TURN_K)  # (from the rest the turn rides the rise; a coart from
+            #   one gesture to the next, or a half-way rest, is where the hand turns fast and stops)
+            need = apex - max(MOVE_MIN_S, dist(cur, target) / V_MEAN, turn)  # never a snap under MOVE_MIN_S, nor a
+            #   hand turn faster than ROT_MEAN
             start = max(t, min(start, need))
             if start > need and segs and segs[-1].kind == "hold" and segs[-1].t1 == t:  # no room after the last
                 #   hold: the hold gives some of its time back (down to HOLD_MIN_S), the move starts sooner
                 h = segs[-1]
                 start = max(h.t0 + HOLD_MIN_S, need)
                 h.t1 = start
+            if turn > 0 and apex - start < turn and cur_w > 0:  # no room for the whole turn: it turns less (the hand
+                #   co-articulates; his 90 deg in 0.31 s between two strokes snapped)
+                kt = max(0.0, (apex - start) / turn)
+                target = replace(target, pron=cur.pron + (target.pron - cur.pron) * kt,
+                                 ext=cur.ext + (target.ext - cur.ext) * kt)
+            if apex - start < MOVE_ABSORB_S and segs and segs[-1].kind == "hold" and segs[-1].t1 == start:
+                # no room for a move of its own (two strokes 0.28 s apart: a 0.13 s flick, a finger snap): the hand
+                #   holds the gesture it is in through this one's beat (the style accent still marks the stroke)
+                segs[-1].t1 = apex + max(0.12, e.hold)
+                t = segs[-1].t1
+                continue
             if apex - start < 0.12:  # no room: a quick move, never backwards in time
                 start = apex - 0.12
             if segs and start > t:
@@ -262,11 +293,11 @@ class HandTrack:
                 continue  # flows into the next gesture from the hold
             if gap < PARTIAL_S:  # half way home, then the next prep starts from there
                 mid = lerp_pose(target, rest, 0.5, 0.5, {})
-                t1 = hold_end + min(v.retract, gap)
+                t1 = hold_end + min(max(v.retract, turn_s(target, mid)), gap)
                 segs.append(Seg(hold_end, t1, target, mid, "retract", v, ev=i, w_from=1.0, w_to=0.5))
                 cur, cur_w, t = mid, 0.5, t1
                 continue
-            t1 = hold_end + min(max(v.retract, dist(target, rest) / V_RETRACT), gap)
+            t1 = hold_end + min(max(v.retract, dist(target, rest) / V_RETRACT, turn_s(target, rest)), gap)
             segs.append(Seg(hold_end, t1, target, rest, "retract", v, ev=i, w_from=1.0, w_to=0.0))
             cur, cur_w, cur_ev, t = rest, 0.0, -1, t1
         return segs
@@ -324,13 +355,34 @@ class HandTrack:
     def arc(self, s: Seg, v: Var) -> tuple:
         """The path's mid-way offset: the draw's, or on the LEFT its own arc, LEFT_ARC of the chord bowed up and back
         (perpendicular to the chord; never the right's arc mirrored)."""
-        if self.side != "l":
-            return v.bulge if s.kind != "retract" else tuple(-0.5 * c for c in v.bulge)
+        bowed = self.side == "r" and s.kind in ("stroke", "coart") and \
+            "r" in getattr(dict(self.events).get(s.ev), "mic_moved", ())
         ch = [s.b.off[i] - s.a.off[i] for i in range(3)]
         c = math.sqrt(sum(x * x for x in ch))
+        if self.side != "l" and not bowed:
+            arc = v.bulge if s.kind != "retract" else tuple(-0.5 * x for x in v.bulge)
+            if c < 1.0:
+                return arc
+            # its random draw may lie along the chord (his straight 30 cm strokes, path_straight 0.36): at least
+            #   RIGHT_ARC_MIN of the chord off it, along the draw's own off-chord part (else up and out)
+            k = sum(arc[i] * ch[i] for i in range(3)) / (c * c)
+            p = [arc[i] - k * ch[i] for i in range(3)]
+            n = math.sqrt(sum(x * x for x in p))
+            want = RIGHT_ARC_MIN * c
+            if n >= want:
+                return arc
+            if n < 0.1:
+                d = RIGHT_ARC_DIR if s.kind != "retract" else tuple(-x for x in RIGHT_ARC_DIR)
+                kd = sum(d[i] * ch[i] for i in range(3)) / (c * c)
+                p = [d[i] - kd * ch[i] for i in range(3)]
+                n = math.sqrt(sum(x * x for x in p)) or 1.0
+            return tuple(arc[i] + p[i] / n * (want - math.sqrt(sum(
+                (arc[j] - k * ch[j]) ** 2 for j in range(3)))) for i in range(3))
         if c < 1.0:
             return (0.0, 0.0, 0.0)
-        d = LEFT_ARC_DIR
+        # the left's own arc; and a right goal the mic rule moved keeps a bow (its random draw could lie along the
+        #   new chord: agent-13, his path_straight 0.385 with the mic-moved strokes): up and out, off the chord
+        d = LEFT_ARC_DIR if self.side == "l" else RIGHT_ARC_DIR
         k = sum(d[i] * ch[i] for i in range(3)) / (c * c)
         p = [d[i] - k * ch[i] for i in range(3)]
         n = math.sqrt(sum(x * x for x in p)) or 1.0
@@ -415,7 +467,7 @@ class HandTrack:
         if s.kind in ("stroke", "coart"):
             x = mj(u ** v.skew) * (1.0 + v.overshoot)  # arrives past the target; the hold settles it
             u_rot = mj(u)  # (r7F: it turned 0.12 ahead; now the whole turn trails the path, ROT_LAG_S)
-            u_f = {f: mj(clip01((t - s.t0 - LAG_S[f] * lag) / d)) for f in GK.FINGERS}
+            u_f = self._u_fingers(s, t, lag)
             hp = lerp_pose(s.a, s.b, x, u_rot, u_f, self.arc(s, v), mj(u))  # the arc by the path's
             #   progress (sin(pi u) in time set the speed off 0 at the start)
             w_in = s.w_from + (s.w_to - s.w_from) * mj(u)
@@ -425,10 +477,23 @@ class HandTrack:
             return hp, w, False
         # retract: soft (no overshoot, no skew), the wrist follows the hand, a smaller arc
         x = mj(u)
-        u_rot = mj(clip01(u - 0.12))
-        u_f = {f: mj(clip01((t - s.t0 - LAG_S[f] * lag) / d)) for f in GK.FINGERS}
+        u_rot = mj(clip01((u - 0.12) / 0.88))  # (was mj(u - 0.12): the turn was still at ~1/3 of its peak speed when
+        #   the retract ended and stopped dead: the hand-home snaps, 85 deg of pronation on the left)
+        u_f = self._u_fingers(s, t, lag)
         hp = lerp_pose(s.a, s.b, x, u_rot, u_f, self.arc(s, v), x)
         return hp, {s.ev: s.w_from + (s.w_to - s.w_from) * x}, False
+
+    @staticmethod
+    def _u_fingers(s: Seg, t: float, lag: float) -> dict:
+        """each finger's progress through a move: one min-jerk that starts its cascade delay late (pinky first) and
+        ENDS at the move's end, at rest (agent-13, the orchestrator: the delay used to carry the curl past the apex,
+        and the hold then snapped it home in one frame, up to 146 cm/s at a fingertip; 12 snaps on 8a45d961)."""
+        d = max(1e-3, s.t1 - s.t0)
+        out = {}
+        for f in GK.FINGERS:
+            lf = min(LAG_S[f] * lag, 0.35 * d)
+            out[f] = mj(clip01((t - s.t0 - lf) / max(1e-3, d - lf)))
+        return out
 
     def _from_of(self, hold: Seg) -> GK.HandPose:
         for s in self.segs:
