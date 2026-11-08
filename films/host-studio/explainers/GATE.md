@@ -94,6 +94,14 @@ off. agent-06 applies it at the start of the next T2 session, before her chain. 
 to drop. The evidence is a still in the keys (WIDE f1080, 2x crop of the left wrist), and the orchestrator checks it by
 eye. Him: unchanged; the orchestrator checks his wrist on his TEST, and the same rule applies if it clips.
 
+**Her offline GO, 0fa53868 (agent-04, 09 Nov):** agent-08 d1869ce7 + agent-01's palm-off turn as an eased forearm
+twist (zero-phase critically damped spring, 24 rad/s, + 55 ms). agent-04 re-ran it on kbuild (naturalness.py at
+r7-movement HEAD; whole take / verify windows seq 0-196 + 1040-1162): 0 FAIL. finger_snap 0.0 / 0.0 (was 8.4 / 9.0),
+wrist_radial_p95 2.7 / 3.0 (was 18.7 / 19.7), palm_to_camera 0, lag 49.6 / 53.0 ms; n/a by na_ok: humerus_elev_high /
+rest, cascade. Build 0 issues (agent-01). The orchestrator: GO for T2. **Fallback (the orchestrator):**
+move.lag_hand_ms keeps gating under HANDS_FALLBACK (it reads 24.95 there); agent-01 fixes it only if the fallback is
+switched on.
+
 ## Verdicts
 
 ### Netflix v2b: REJECTED BY THE OPERATOR (07 Nov, about 23:45 IST). The SIGN below is SUPERSEDED.
