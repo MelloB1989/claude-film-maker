@@ -233,6 +233,12 @@ reaper then skips its TTL and deletes its idle alarm on its next run (within 10 
 still fire, so for a job that starts idle, tag first and wait for the reaper (or run `invoke`). Remove the tag and
 the alarm comes back on the next run. To give a box longer than 12 h without opting out, tag `TTLHours=<h>`.
 
+**Long S3 pulls look idle.** A pull or unpack from S3 (box setup, a restore) runs at about 0.5 vCPU, the same as an
+idle editor, and the line is 0.8 vCPU. One that runs **over 25 minutes** with nothing else busy is stopped like an idle
+box. Before a long pull, tag the box `KillSwitch=off` and wait for the reaper to drop its alarm (or run `invoke`);
+remove the tag when the pull ends. Renders, shader compiles and solves sit well above the line (box B's renders
+never went under 1.06 vCPU for 5 minutes).
+
 **Not covered.** A *one-time* spot instance cannot be stopped (only terminated); the alarm and the reaper both fail
 on it, and the reaper logs the error. The farm's spot workers are persistent requests, which stop fine. A box that
 is busy for more than its TTL is stopped mid-job: that is what `TTLHours` / `KillSwitch=off` are for.
