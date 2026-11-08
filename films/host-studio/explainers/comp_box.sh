@@ -7,6 +7,7 @@
 #   comp_box.sh whatsapp v1 "" "48 240 600"
 #   PLACEHOLDER=1 comp_box.sh whatsapp p1 none     # graphics-only dry run (missing shots become labelled slugs)
 #   PRES_S3=private/renders/r7/farm/explain/netflix/final comp_box.sh netflix v3   # r7: the farm's finals, synced first
+#   RENDER_BUCKET=s3://rf-render-788655295054-apne1 PRES_S3=… comp_box.sh netflix v3   # on a Tokyo box (T, T2)
 #
 # SRC is this checkout's root (default: the tree this script sits in); TOOLS a tools/ with filmtools for qc_ok
 # (default: SRC/tools if present, else /srv/ue/r5tree/tools). Outputs: /srv/ue/explain/<film>/out_<tag>/.
@@ -15,8 +16,9 @@ FILM=$1; TAG=$2; PRES=${3:-}; STILLS=${4:-"48 240 600"}
 HERE=$(cd "$(dirname "$0")" && pwd)
 SRC=${SRC:-$(cd "$HERE/../../.." && pwd)}
 TOOLS=${TOOLS:-$([ -d "$SRC/tools/filmtools" ] && echo "$SRC/tools" || echo /srv/ue/r5tree/tools)}
-B=s3://rf-render-788655295054-aps1/ue-linux
-export AWS_REGION=${AWS_REGION:-ap-south-1}
+# r7 cost policy: same-region data only, so a Tokyo box reads the Tokyo bucket (RENDER_BUCKET=s3://rf-render-788655295054-apne1)
+B=${RENDER_BUCKET:-s3://rf-render-788655295054-aps1}/ue-linux
+case $B in *-apne1/*) export AWS_REGION=${AWS_REGION:-ap-northeast-1} ;; *) export AWS_REGION=${AWS_REGION:-ap-south-1} ;; esac
 EX=$SRC/films/host-studio/explainers
 GFXP=${GFXP:-gfx/v3/explain-$FILM}  # the v3 graphics (orchestrator); GFXP=gfx/explain-<film> for v2
 GFX=/srv/ue/explain/$FILM/gfx_${GFXP//\//_}
