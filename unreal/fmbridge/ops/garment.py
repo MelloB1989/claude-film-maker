@@ -708,6 +708,116 @@ def limb_clearance(*, label: str, sequence: str, frames: list | None = None, sho
     return _result(issues, {"worst_cm": worst, "at": at, "frames": out})
 
 
+HAND_POINTS = {s: (f"hand_{s}", f"index_03_{s}", f"middle_03_{s}", f"ring_03_{s}", f"pinky_03_{s}", f"thumb_03_{s}")
+               for s in ("l", "r")}  # the wrist + 5 fingertips (agent-10's offline framing.py uses the same)
+
+
+@op("qa.hands_in_frame", mutates=False, idempotent=True, tags=["camera", "metahuman"])
+def hands_in_frame(*, label: str, sequence: str, frames: list, body: str = "Body", width_px: int = 1920,
+                   height_px: int = 1080):
+    """Are her hands IN the shot's frame while she gestures? (round 7: in the MCU test the gestures happened below the
+    frame: elbows out, no hands = still stiff.) Per frame: the cut camera, the wrist + 5 fingertips of each hand (1 % margin)
+    projected through it (fmbridge.qa.clip.project_px); a frame counts when >= 1 hand is FULLY in frame. Per camera
+    kind (MCU incl. MCU_L, CU, WIDE) the share of the given frames, against fmbridge.qa.limbs.HAND_LINES.
+
+    Args: label, sequence; frames: the speaking frames (spans_<film>.json, every frame or every Nth).
+    Returns: {"pass", "issues", "metrics": {"kinds": {kind: {frac, n, line, cameras}}, "frames": {f: {camera, in, l, r}}}}.
+    Example: film-ue op qa.hands_in_frame label=Presenter sequence=/Game/Explainer/SEQ_Explain_Her 'frames=[0,6,12]'
+    """
+    a = find_actor(label)
+    comp = roles(a).get(body)
+    if comp is None:
+        raise OpError(f"{label} has no {body!r} component", code="not_found")
+    names = {str(b) for b in comp.get_all_socket_names()} if hasattr(comp, "get_all_socket_names") else None
+    rows, missing = {}, set()
+    for f in frames:
+        yield from _scrub(sequence, f, 4)
+        cam = cut_camera(sequence, f)
+        info = camera_info(cam, aspect=width_px / height_px)
+        row = {"camera": cam}
+        for sd, pts in HAND_POINTS.items():
+            px = []
+            for b in pts:
+                if names is not None and b not in names:
+                    missing.add(b)
+                    continue
+                p = comp.get_socket_location(b)
+                px.append(_clip.project_px(info, (p.x, p.y, p.z), width_px, height_px))
+            row[sd] = (_limbs.hand_in(px, width_px, height_px, margin=round(0.01 * width_px))
+                       if len(px) == len(pts) else False)  # a 1 % margin (agent-10's framing.py)
+        row["in"] = bool(row["l"] or row["r"])
+        rows[f] = row
+        yield
+    kinds = _limbs.hands_fracs(rows)
+    issues = []
+    if missing:
+        issues.append(issue("hands.bones", "fail", f"{label}: no bone(s) {sorted(missing)}", "pass the rig's names",
+                            subject=label))
+    for k, v in kinds.items():
+        if v["frac"] < v["line"]:
+            issues.append(issue("hands.out_of_frame", "fail", f"{label} {k}: >= 1 hand fully in frame in "
+                                f"{100 * v['frac']:.0f}% of {v['n']} frames (line {100 * v['line']:.0f}%)",
+                                "raise the gesture space to chest-collarbone height, in front of the torso (agent-01)",
+                                subject=label, value=v["frac"], expected=v["line"]))
+    return _result(issues, {"kinds": kinds, "frames": rows})
+
+
+@op("qa.hand_torso_clearance", mutates=False, idempotent=True, tags=["slow", "metahuman"])
+def hand_torso_clearance(*, label: str, sequence: str, frames: list, body: str = "Body", stride: int = 2,
+                         min_cm: float = 8.0):  # the orchestrator's desk-rest line (08 Nov)
+    """Resting hands vs the chest (round 7: her high rest hovered at the top of her chest, 'fidgeting with her top').
+    Per frame (the REST/bridge frames: film-qa perf-rest picks them from the hand samples): the torso surface (posed
+    Body + upper garment points along spine_01 -> neck_01, the lap/thighs, arms, forearms and every finger excluded), and each hand's wrist + 5
+    fingertips + 5 knuckles; the min distance (fmbridge.qa.limbs.nearest). The gate: >= min_cm on every rest frame.
+
+    Returns: {"pass", "issues", "metrics": {"worst_cm", "at", "frames": {f: {"l", "r", "min"}}}}.
+    Example: film-ue op qa.hand_torso_clearance label=Presenter sequence=/Game/Explainer/SEQ_Explain_Her 'frames=[8,90]'
+    """
+    a = find_actor(label)
+    parts = roles(a)
+    comp = parts.get(body)
+    if comp is None:
+        raise OpError(f"{label} has no {body!r} component", code="not_found")
+    upper = [parts[k] for k in ("tee", "Top", "Overshirt", "Shirt") if k in parts]
+    pts_of = {sd: [f"hand_{sd}"] + [f"{fg}_{j}_{sd}" for fg in ("index", "middle", "ring", "pinky", "thumb")
+                                    for j in ("01", "03")] for sd in ("l", "r")}
+    out, worst, at = {}, None, None
+    for f in frames:
+        yield from _scrub(sequence, f, 6)
+        pts = []
+        for c in [comp] + upper:
+            pts += [(v.x, v.y, v.z) for v in list(_verts(_posed(c)))[::max(1, int(stride))]]
+        yield
+        names = ["spine_01", "neck_01"] + [f"{b}_{s}" for s in "lr" for b in ("upperarm", "lowerarm", "hand")] + \
+                [f"{fg}_03_{s}" for s in "lr" for fg in ("index", "middle", "ring", "pinky", "thumb")]
+        P = {b: comp.get_socket_location(b) for b in names}
+        P = {b: (v.x, v.y, v.z) for b, v in P.items()}
+        limbs_ = [(P[f"upperarm_{s}"], P[f"lowerarm_{s}"]) for s in "lr"] + \
+                 [(P[f"lowerarm_{s}"], P[f"hand_{s}"]) for s in "lr"]
+        fingers_ = [(P[f"hand_{s}"], P[f"{fg}_03_{s}"]) for s in "lr" for fg in ("index", "middle", "ring", "pinky",
+                                                                                 "thumb")]
+        cloud = _limbs.torso_cloud(pts, (P["spine_01"], P["neck_01"]), limbs_, fingers=fingers_)
+        row = {}
+        for sd, bones in pts_of.items():
+            hp = [(v.x, v.y, v.z) for v in (comp.get_socket_location(b) for b in bones)]
+            row[sd] = _limbs.nearest(hp, cloud).get("cm")
+        vals = [v for v in row.values() if v is not None]
+        row["min"] = min(vals) if vals else None
+        if row["min"] is not None and (worst is None or row["min"] < worst):
+            worst, at = row["min"], f
+        out[f] = row
+        yield
+    issues = []
+    if worst is None:
+        issues.append(issue("rest.unmeasured", "fail", f"{label}: no rest frame measured", "check frames/bones",
+                            subject=label))
+    elif worst < min_cm:
+        issues.append(issue("rest.hands_on_chest", "fail", f"{label} f{at}: a resting hand {worst:.1f} cm from the "
+                            f"chest (limit {min_cm})", "rest the hands loosely together at the lower ribcage, 20-30 cm "
+                            "in front of the torso (agent-01/agent-10)", subject=label, value=worst, expected=min_cm))
+    return _result(issues, {"worst_cm": worst, "at": at, "frames": out})
+
+
 def _export(asset, path: str, morphs: bool = False) -> list:
     t = unreal.AssetExportTask()
     t.set_editor_property("object", asset)

@@ -2522,7 +2522,7 @@
    "verb": "hide_under",
    "module": "fmbridge.ops.garment",
    "file": "unreal/fmbridge/ops/garment.py",
-   "line": 812,
+   "line": 922,
    "summary": "Hide the body where a garment covers it (MetaHuman does this for its own garments; a garment of your own",
    "doc": "Hide the body where a garment covers it (MetaHuman does this for its own garments; a garment of your own\nneeds it too): a body vertex is covered when a ray out along its normal meets the garment within reach_cm, a\ntriangle is hidden when all its corners are, less `rings` triangles round the border (cloth that moves off the\nbody never opens a gap). Measured in the reference pose (the meshes' own vertices), so it holds for every frame.\n\nWith apply=False (default) it only counts. With apply=True the triangles are deleted on a COPY of the body mesh\n(dest, default <body mesh>_Under_<garment>), set on the component, and leader pose re-applied (mh.leader).\nNever on the Face: its rig (DNA, morph targets) does not survive a mesh copy; refit the garment round the face\ninstead (garment.fit's collider takes the face).\nReturns: {\"vertices\", \"covered_vertices\", \"triangles\", \"hidden\", \"fraction\", \"mesh\" (with apply)}.\nExample: film-ue op body.hide_under label=Ava garment=Top apply=true",
    "params": [
@@ -6510,7 +6510,7 @@
    "verb": "export",
    "module": "fmbridge.ops.garment",
    "file": "unreal/fmbridge/ops/garment.py",
-   "line": 729,
+   "line": 839,
    "summary": "Export what the Blender fit (film-ue garment fit) needs, as FBX in cm on the body skeleton, to out_dir on the",
    "doc": "Export what the Blender fit (film-ue garment fit) needs, as FBX in cm on the body skeleton, to out_dir on the\nbox: body.fbx (the body as worn: cut under its garments), face.fbx (its lower neck is in the collider: a\nMetaHuman's face mesh runs ~10 cm below neck_01, to the clavicles), ref_body.fbx (the UNCUT body: weights and\nease come from it), garment_<name>.fbx per garment, anim_<name>.fbx for every animation the sequences play on\nthe character (the fit's pose tests). Read-only on the project.\n\nArgs: label: the character. garments: component names (default every garment role but shoes). ref_body: the\nuncut body mesh (default: another body mesh in the body's folder, e.g. SKM_<Name>_BodyMesh from an earlier\nbuild; refused when none: say which). sequences: level sequences whose skeletal animation sections count (default\nnone); anims: extra AnimSequence paths.\nReturns: {\"out_dir\", \"files\": {name: [asset, ok, bytes]}, \"ref_body\", \"manifest\"} (manifest.json beside them).\nExample: film-ue op garment.export label=Host out_dir=/srv/ue/fit/host 'sequences=[\"/Game/Reel/SEQ_Reel\"]'",
    "params": [
@@ -6571,7 +6571,7 @@
    "verb": "hidden_face_maps",
    "module": "fmbridge.ops.garment",
    "file": "unreal/fmbridge/ops/garment.py",
-   "line": 929,
+   "line": 1039,
    "summary": "A MetaHuman wardrobe item's hidden face maps: what MetaHuman itself removes or SHRINKS of the head and body",
    "doc": "A MetaHuman wardrobe item's hidden face maps: what MetaHuman itself removes or SHRINKS of the head and body\nunder this garment at assembly (5.7+: UMetaHumanOutfitEditorPipeline and UMetaHumanSkeletalMeshEditorPipeline\nboth carry HeadHiddenFaceMapTexture and BodyHiddenFaceMapTexture; settings MaxCullValue 0.1, MinKeepValue 0.9,\nMaxShrinkDistance 0 by default, i.e. shrink OFF). Pixels <= max_cull are removed, between the two the skin is\nmoved in along -normal by up to max_shrink_distance (cm), >= min_keep untouched; the head map is sampled in the\nhead's UV space (the highest of R, G, B).\n\nArgs: item: the wardrobe item's asset path (mh.palette lists a character's; a WI_ asset).\nReturns: {\"item\", \"pipeline\", \"editor_pipeline\", \"head\": {texture, max_cull_value, min_keep_value,\nmax_shrink_distance}, \"body\": {...}}.\nExample: film-ue op garment.hidden_face_maps item=/MetaHumanCharacter/Optional/Clothing/DefaultGarment/WI_DefaultGarment",
    "params": [
@@ -15137,6 +15137,130 @@
    "tags": [
     "gpu",
     "slow"
+   ]
+  },
+  {
+   "name": "qa.hand_torso_clearance",
+   "area": "qa",
+   "verb": "hand_torso_clearance",
+   "module": "fmbridge.ops.garment",
+   "file": "unreal/fmbridge/ops/garment.py",
+   "line": 765,
+   "summary": "Resting hands vs the chest (round 7: her high rest hovered at the top of her chest, 'fidgeting with her top').",
+   "doc": "Resting hands vs the chest (round 7: her high rest hovered at the top of her chest, 'fidgeting with her top').\nPer frame (the REST/bridge frames: film-qa perf-rest picks them from the hand samples): the torso surface (posed\nBody + upper garment points along spine_01 -> neck_01, the lap/thighs, arms, forearms and every finger excluded), and each hand's wrist + 5\nfingertips + 5 knuckles; the min distance (fmbridge.qa.limbs.nearest). The gate: >= min_cm on every rest frame.\n\nReturns: {\"pass\", \"issues\", \"metrics\": {\"worst_cm\", \"at\", \"frames\": {f: {\"l\", \"r\", \"min\"}}}}.\nExample: film-ue op qa.hand_torso_clearance label=Presenter sequence=/Game/Explainer/SEQ_Explain_Her 'frames=[8,90]'",
+   "params": [
+    {
+     "name": "label",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "sequence",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "frames",
+     "kind": "keyword",
+     "type": "list",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "body",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "Body"
+    },
+    {
+     "name": "stride",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 2
+    },
+    {
+     "name": "min_cm",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 8.0
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "slow",
+    "metahuman"
+   ]
+  },
+  {
+   "name": "qa.hands_in_frame",
+   "area": "qa",
+   "verb": "hands_in_frame",
+   "module": "fmbridge.ops.garment",
+   "file": "unreal/fmbridge/ops/garment.py",
+   "line": 715,
+   "summary": "Are her hands IN the shot's frame while she gestures? (round 7: in the MCU test the gestures happened below the",
+   "doc": "Are her hands IN the shot's frame while she gestures? (round 7: in the MCU test the gestures happened below the\nframe: elbows out, no hands = still stiff.) Per frame: the cut camera, the wrist + 5 fingertips of each hand (1 % margin)\nprojected through it (fmbridge.qa.clip.project_px); a frame counts when >= 1 hand is FULLY in frame. Per camera\nkind (MCU incl. MCU_L, CU, WIDE) the share of the given frames, against fmbridge.qa.limbs.HAND_LINES.\n\nArgs: label, sequence; frames: the speaking frames (spans_<film>.json, every frame or every Nth).\nReturns: {\"pass\", \"issues\", \"metrics\": {\"kinds\": {kind: {frac, n, line, cameras}}, \"frames\": {f: {camera, in, l, r}}}}.\nExample: film-ue op qa.hands_in_frame label=Presenter sequence=/Game/Explainer/SEQ_Explain_Her 'frames=[0,6,12]'",
+   "params": [
+    {
+     "name": "label",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "sequence",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "frames",
+     "kind": "keyword",
+     "type": "list",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "body",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "Body"
+    },
+    {
+     "name": "width_px",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 1920
+    },
+    {
+     "name": "height_px",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 1080
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "camera",
+    "metahuman"
    ]
   },
   {

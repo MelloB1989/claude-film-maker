@@ -210,3 +210,63 @@ film-farm up F -n N --ami ami-...                           # workers with no sy
 ```
 
 An image costs its snapshots (~300 GB gp3 snapshot, ~$15/month) until it is deregistered and its snapshots deleted.
+
+## 8. Kill switch (every GPU box in the region, enforced by AWS itself)
+
+The farm's own idle and TTL checks run on the boxes and on whoever drives them. The kill switch does not: it lives
+entirely in AWS, so a box is stopped even when the laptop, the fleet or the box's own worker is gone. It covers
+**every** GPU instance (families `g*`, `gr*`, `p*`, whatever project launched it), and only those, in
+**ap-south-1 and ap-northeast-1** (Mumbai and Tokyo; `REGIONS` in `deploy.py`). It **stops**; it never terminates.
+The two roles are global and shared; each region has its own function, schedule and log group, so one region's
+reaper keeps running if the other's breaks. A new region means adding it to `REGIONS` and running `deploy` again
+(the role's policy lists exactly these regions).
+
+| Piece | What it does |
+|---|---|
+| `killswitch-reaper` (Lambda, Python 3.12, 128 MB), every 10 min from `killswitch-reaper-schedule` (EventBridge Scheduler) | (a) **idle**: stops a running GPU box whose newest 5 complete 5-min CPU averages, *all begun after its last start*, back to back, are each under **0.8 vCPU**; (b) **TTL**: stops a running GPU box whose uptime since its last start is over its `TTLHours` tag, **12 h** without one; (c) deletes any `killswitch-idle-*` alarm (the first design's); (d) logs every action as a JSON line in `/aws/lambda/killswitch-reaper` (30 days). |
+| `killswitch-reaper-role` | `ec2:DescribeInstances`; `ec2:StopInstances` only where `ec2:InstanceType` is `g*`/`p*`; `cloudwatch:GetMetricStatistics` and `DescribeAlarms` (reads, on `*`); `cloudwatch:DeleteAlarms` only on `alarm:killswitch-*`; its own log stream. No terminate, and it creates no alarm. |
+| `killswitch-reaper-schedule-role` | lets the schedule invoke the function, nothing else. |
+
+**The line.** CPU % is a share of *all* the box's vCPUs, so the line is set per box: `IDLE_VCPU / vCPUs x 100`
+(**20 %** on 4 vCPU, **10 %** on 8, **5 %** on 16, 2.5 % on 32). An idle UE editor costs ~0.5 vCPU on any box
+(3.2 % of 16, 6 % of 8); the lowest 5 min of box B's renders was 1.06 vCPU. An idle box is stopped 25-40 min into
+its idleness (25 min of data, up to 5 min of metric lag, up to 10 min to the next run). A freshly started box is
+never stopped for idleness in its first 25 min.
+
+**Why not a CloudWatch alarm with an `ec2:stop` action** (the first design, live for a few hours on 08 Nov): an alarm
+evaluates the most recent datapoints it can *find*, reaching back past a gap; `TreatMissingData` applies only when it
+finds too few. So a box restarted after an idle stretch was judged on its pre-stop points and stopped 2-3 min after
+its start, twice (box T). The reaper reads the metric itself and ignores every period that began before
+`LaunchTime` (the last start), and the tests replay that restart. The price: idle stops wait for the 10-minute
+schedule, and they depend on the Lambda running (its errors are in its log group).
+
+**Opting a box out.** Tag it `KillSwitch=off` (a deliberate long job; the orchestrator sets it explicitly): no idle
+stop and no TTL stop, from the reaper's next run. Remove the tag to opt back in. To give a box longer than 12 h
+without opting out, tag `TTLHours=<h>`.
+
+**Long S3 pulls look idle.** A pull or unpack from S3 (box setup, a restore) runs at about 0.5 vCPU, the same as an
+idle editor, and the line is 0.8 vCPU. One that runs **over 25 minutes** with nothing else busy is stopped like an idle
+box. Tag the box `KillSwitch=off` before a long pull and remove the tag when it ends. Renders, shader compiles and
+solves sit well above the line (box B's renders never went under 1.06 vCPU for 5 minutes).
+
+**Not covered.** A *one-time* spot instance cannot be stopped (only terminated); the reaper's stop fails and is
+logged. The farm's spot workers are persistent requests, which stop fine. A box that is busy for more than its TTL
+is stopped mid-job: that is what `TTLHours` / `KillSwitch=off` are for.
+
+From `tools/`, where the AWS CLI has the account (the account id is read at run time, never written down):
+
+```
+python -m filmtools.farm.killswitch.deploy show                  # the idle rule, IAM and schedule documents
+python -m filmtools.farm.killswitch.deploy dry-run               # each box's verdict and what the reaper would do
+python -m filmtools.farm.killswitch.deploy calibrate --instance i-0abc --hours 48 --work i-0abc@<start>/<end>=render
+python -m filmtools.farm.killswitch.deploy deploy                # create or update (idempotent)
+python -m filmtools.farm.killswitch.deploy invoke                # one run now, with its log
+python -m filmtools.farm.killswitch.deploy undeploy --dry-run    # what undeploy would delete
+python -m filmtools.farm.killswitch.deploy undeploy [--purge-logs]   # schedules, functions, roles, leftover alarms
+```
+
+To change the line, `deploy --idle-vcpu <v>` (0 = the flat `KILLSWITCH_THRESHOLD` %); it applies from the next run.
+`calibrate --work [i-...@]<start>/<end>=<label>` checks a value first: for each known job window it prints the highest
+line that would have stayed quiet, and sweeps `IDLE_VCPU` values, counting the stops that would have hit a job. The
+Lambda is `tools/filmtools/farm/killswitch/reaper.py`, alone (standard library and the runtime's boto3); its tests are
+`tools/tests/test_killswitch.py`.

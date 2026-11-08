@@ -34,6 +34,7 @@ SMILE_HOLD_F, BROW_MIN_S, BROW_MAX_S = 4, 0.12, 1.0
 HYST = 0.8  # an event ends below 80 % of its line
 REST_CMS, MOVE_CMS, ONSET_GAP_S = 10.0, 25.0, 0.25
 BEAT_CMS = 40.0
+REST_LATCH_S = 0.25  # a beat needs a rest within this long before it (agent-10: a min-jerk start ramps 10->40 cm/s over 2-4 frames)
 DESK_CLEAR_CM = 10.0  # her resting wrist bone sits ~6 cm over the desk top (v2b): 'up off the desk' is ~4 cm more
 
 
@@ -167,8 +168,9 @@ def body_rows(samples: dict, fps: float, spans: list, desk_z: float, hands=("han
 
     A hand is UP when its wrist bone is more than DESK_CLEAR_CM above the desk top (a forearm resting on the desk puts
     it ~6 cm up on her rig: v2b's resting wrists read 76.7-77.0 over a 71 cm top). A GESTURE onset is the hand going
-    UP (one per lift, its return to the desk is not another), plus each BEAT while it stays up: the speed rising from
-    under REST_CMS past BEAT_CMS while not moving down toward the desk, >= ONSET_GAP_S after the last onset."""
+    UP (one per lift, its return to the desk is not another), plus each BEAT while it stays up: past BEAT_CMS within
+    REST_LATCH_S of a rest (< REST_CMS), not moving down toward the desk, >= ONSET_GAP_S after the last onset of
+    EITHER hand (a two-hand gesture counts once)."""
     fr = samples["frames"]
     idx = [i for i, f in enumerate(fr) if _in(f, spans)]
     keys = ("body.gesture_onsets_per_s", "body.hands_above_desk_frac", "body.wrist_travel_cm_per_s")
@@ -178,12 +180,16 @@ def body_rows(samples: dict, fps: float, spans: list, desk_z: float, hands=("han
     onsets, above, travel, n = 0, 0, 0.0, 0
     last = {h: -1e9 for h in hands}
     up = {h: False for h in hands}
-    slow = {h: True for h in hands}
+    rest_at = {h: -1e9 for h in hands}  # the last frame each hand was at rest (< REST_CMS)
+    prev = None
     for i in idx:
         Z = {h: samples["bones"][h][i][2] for h in hands}
         if any(z > line for z in Z.values()):
             above += 1
-        cont = i > 0 and fr[i] == fr[i - 1] + 1
+        # continuous only within a speaking run: at a span's first frame the hand's up/down state is SEEDED, never an
+        # onset (agent-10: a hand already up at a span start counted as 'goes up', a phantom per window)
+        cont = prev == i - 1 and fr[i] == fr[i - 1] + 1
+        prev = i
         for h in hands:
             was_up, up[h] = up[h], Z[h] > line
             if not cont:
@@ -195,17 +201,118 @@ def body_rows(samples: dict, fps: float, spans: list, desk_z: float, hands=("han
             onset = False
             if up[h] and not was_up:
                 onset = True  # the hand goes up off the desk
-            elif up[h] and slow[h] and v > BEAT_CMS and b[2] - a[2] > -0.5 * v / fps:
-                onset = True  # a beat in the air (not the return toward the desk)
-            if onset and (fr[i] - last[h]) / fps >= ONSET_GAP_S:
+            elif (up[h] and (fr[i] - rest_at[h]) / fps <= REST_LATCH_S and v > BEAT_CMS
+                  and b[2] - a[2] > -0.5 * v / fps):
+                onset = True  # a beat in the air from a recent rest (not the return toward the desk)
+            # one ONSET_GAP across BOTH hands: a two-hand gesture counts once (agent-10)
+            if onset and (fr[i] - max(last.values())) / fps >= ONSET_GAP_S:
                 onsets += 1
                 last[h] = fr[i]
-            slow[h] = v < REST_CMS
+            if v < REST_CMS:
+                rest_at[h] = fr[i]
     secs = len(idx) / fps
     where = f"{len(idx)} speaking frames ({secs:.1f} s), desk top z {desk_z}, up = wrist > {line:.1f}"
     return {"body.gesture_onsets_per_s": {"value": round(onsets / secs, 3), "where": where},
             "body.hands_above_desk_frac": {"value": round(above / len(idx), 3), "where": where},
             "body.wrist_travel_cm_per_s": {"value": round(travel / max(1, n), 2), "where": where}}
+
+
+def rest_frames(samples: dict, fps: float, hands=("hand_l", "hand_r"), hold_s: float = 0.25, every: int = 2,
+                track: dict | None = None, gesture_max: float = 0.1) -> list:
+    """The REST/bridge frames: both hands under REST_CMS for at least hold_s (any frame of the sampled set, speaking
+    or not: the rest lives in the pauses). Every `every`-th such frame, for qa.hand_torso_clearance. With `track`
+    (the box's kit/arm_track.json: frames[].gesture_w {l, r}), a frame where either hand's gesture weight is >=
+    gesture_max is NOT rest: a stroke's post-stroke HOLD is also still (agent-01: f24-36 and f135-139 were holds)."""
+    fr = samples["frames"]
+    still = []
+    for i in range(1, len(fr)):
+        if fr[i] != fr[i - 1] + 1:
+            still.append(False)
+            continue
+        still.append(all(math.dist(samples["bones"][h][i - 1][:3], samples["bones"][h][i][:3]) * fps < REST_CMS
+                         for h in hands))
+    still = [False] + still
+    gest = {}
+    fps_t = float((track or {}).get("fps", fps))
+    if track:
+        for x in track.get("frames", []):
+            g = x.get("gesture_w") or {}
+            gest[int(x["f"])] = max(float(g.get("l", 0.0)), float(g.get("r", 0.0)))
+    need, out, run = int(round(hold_s * fps)), [], 0
+    for i, s in enumerate(still):
+        s = s and gest.get(track_frame(fr[i], fps, fps_t), 0.0) < gesture_max  # the track's own clock
+        run = run + 1 if s else 0
+        if run >= need and (run - need) % every == 0:
+            out.append(fr[i])
+    return out
+
+
+PARITY_BONES = ("hand_l", "hand_r", "lowerarm_l", "lowerarm_r", "middle_03_l", "middle_03_r", "index_03_l",
+                "index_03_r", "thumb_03_l", "thumb_03_r")
+
+
+FIT_BONES = ("spine_03", "spine_05", "neck_01", "head", "clavicle_l", "clavicle_r")  # the spine alone is a near-line:
+# the clavicles pin the rotation about it
+
+
+def track_frame(f_editor: int, fps_editor: float, fps_track: float) -> int:
+    """The track frame at an editor/sequence frame (the editor is 24 fps, agent-01's arm_track 30: agent-01)."""
+    return int(round(f_editor * fps_track / fps_editor))
+
+
+def from_arm_track(doc: dict, fps_editor: float = 24.0) -> dict:
+    """agent-01's arm_track (gesturekit.track_doc: {fps, frames: [{f, p: {bone: [x, y, z]}}]}) -> seq.sample form ON
+    THE EDITOR'S CLOCK: each editor frame takes the track frame round(f * fps_track / fps_editor) (the track is 30
+    fps, the sequence 24; pairing by number judged the wrong moments)."""
+    fps_t = float(doc.get("fps", fps_editor))
+    by = {int(x["f"]): x for x in doc["frames"]}
+    names = sorted({b for x in doc["frames"] for b in x["p"]})
+    last = max(by) if by else 0
+    eds = [e for e in range(int(last * fps_editor / fps_t) + 1) if track_frame(e, fps_editor, fps_t) in by]
+    return {"frames": eds, "bones": {b: [by[track_frame(e, fps_editor, fps_t)]["p"].get(b, [float("nan")] * 3)
+                                         for e in eds] for b in names}}
+
+
+def parity(editor: dict, offline: dict, bones=PARITY_BONES, fit=FIT_BONES) -> dict:
+    """editor_offline_parity_cm (round 7: a stale additive layer on the editor's sequence played a body the offline
+    rows never saw; agent-13). Both inputs in seq.sample form ({frames, bones: {name: [[x, y, z, ...], ...]}}), any
+    coordinate frame: ONE rigid transform (Kabsch, rotation + translation) is fitted over every common frame and bone,
+    so a constant offset or a different world/actor frame is absorbed; what is left is per-frame disagreement. The
+    fit uses the TORSO/HEAD bones only (`fit`, when both sides have them), and the hands are measured under it: a fit
+    on the hands would soak up part of a stale arm layer (agent-13). Returns
+    {"value": the worst residual (cm), "p95", "at": "<bone>@<frame>", "n"}."""
+    import numpy as np
+    fe = {f: i for i, f in enumerate(editor["frames"])}
+    fo = {f: i for i, f in enumerate(offline["frames"])}
+    common = sorted(set(fe) & set(fo))
+    names = [b for b in bones if b in editor["bones"] and b in offline["bones"]]
+    if len(common) < 2 or not names:
+        return {"value": None, "error": f"{len(common)} common frames, bones {names}"}
+    A, B, tag = [], [], []
+    for f in common:
+        for b in names:
+            A.append(editor["bones"][b][fe[f]][:3])
+            B.append(offline["bones"][b][fo[f]][:3])
+            tag.append(f"{b}@{f}")
+    A, B = np.asarray(A, float), np.asarray(B, float)
+    fn = [b for b in fit if b in editor["bones"] and b in offline["bones"]]
+    if len([b for b in fn if b.startswith("clavicle")]) < 2:
+        fn = []  # a fit on the near-collinear spine alone leaves the yaw free: fall back to all measured bones
+    if fn:  # the rigid fit on the torso/head + clavicles only
+        FA = np.asarray([editor["bones"][b][fe[f]][:3] for f in common for b in fn], float)
+        FB = np.asarray([offline["bones"][b][fo[f]][:3] for f in common for b in fn], float)
+    else:
+        FA, FB = A, B
+    ca, cb = FA.mean(0), FB.mean(0)
+    H = (FB - cb).T @ (FA - ca)
+    U, _, Vt = np.linalg.svd(H)
+    d = np.sign(np.linalg.det(Vt.T @ U.T))
+    R = Vt.T @ np.diag([1, 1, d]) @ U.T
+    res = np.linalg.norm((B - cb) @ R.T + ca - A, axis=1)
+    k = int(res.argmax())
+    return {"value": round(float(res[k]), 2), "p95": round(float(np.percentile(res, 95)), 2), "at": tag[k],
+            "n": len(res), "where": f"{len(common)} frames x {len(names)} bones, after one rigid fit on "
+            f"{'+'.join(fn) if fn else 'the measured bones (no torso bones on both sides)'}"}
 
 
 def _spans(path: str) -> list:
