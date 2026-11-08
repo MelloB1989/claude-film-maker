@@ -1452,7 +1452,8 @@
     8.4,
     "her body 8a45d961: 8.4/min whole take (13.5 in the verify windows); 404db805 25.5, 52ab5ea2 11.5 (agent-13)"
    ],
-   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips",
+   "note_rendered": "on a 24 fps dump the same snap reads lower (928407cb: kit 4.5/min, placed 0.0): the kit track (30 fps) row is the stricter and stays the gate; the placed row is the check that the render adds none"
   },
   "body.speech_sway_mm": {
    "area": "performance",
@@ -1550,7 +1551,8 @@
    ],
    "na_ok": true,
    "na_reason": "the track carries no fingertips (pre-b2d3bcc0)",
-   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips",
+   "note_rendered": "agent-08's finger_compare (09 Nov): the editor's fingers = the kit's within 0.1 deg (DIP too) at f1060-1075; the 00:08 'claw' read was the palm-to-camera pose + the place-stage lift, not the finger angles; claw 0 on the placed dump is real"
   },
   "move.dip_pip_ratio_bad_frac": {
    "area": "performance",
@@ -1759,8 +1761,8 @@
    "where": "the verify windows for a TEST/verify render; for the FINALS every frame with the presenter ON SCREEN (edl/<film>.json presenter + panel shots): an off-screen frame is never filmed and does not count (her t33.2 / f797 reads 1.7 cm at a rest, inside graphics shot 9; agent-13)",
    "how": "python3 r7/parity.py <the placed editor dump> <kit/arm_track.json> --span <spans> --torso --gate numbers_<film>_torso.json (agent-13 7518e537+)",
    "must_fail": [
-    2.6,
-    "her 928407cb PLACED on T2 (agent-06, 09 Nov): spine_05 +2.58 z (-0.55 x), hands +2.56..2.63, spine_03 0.00: the face 'place' stage lifted everything from spine_04 up while --shoulder parity read 0.407 (it cancels a torso shift by design); a synthetic 2.6 cm lift reads 2.6 here and 0.0 on --shoulder"
+    2.658,
+    "her 928407cb PLACED re-dump with tips (T2 her_placed_tips, agent-06 09 Nov): --torso 2.658 (p50 2.65) while --shoulder read 0.407; plain 2.847"
    ],
    "why": "agent-13, 09 Nov: --shoulder parity cancels a shift of the torso under the arms; this row closes that hole (her hands floated 2.6 cm above the desk in the render)"
   },
@@ -1776,7 +1778,7 @@
    "how": "python3 r7/naturalness.py <the PLACED editor dump> --fps 24 --meta <kit/arm_track.json> --who <her|him> --span <spans> -> its move.rest_contact_bad_frames (agent-13 7518e537+)",
    "must_fail": [
     188,
-    "her 928407cb PLACED on T2: 188 (the place stage's +2.6 cm lift; the seat dump read 0 at the old line)"
+    "her 928407cb PLACED re-dump with tips: 188 (kit 237 at the 2.9 heel line)"
    ],
    "note": "the heel line is agent-02's mesh measure (928407cb _Arms ref pose, both hands): 2.35 heel-only / 1.85 heel + pads -> 2.9 with 0.5 tolerance; agent-08's 3.2 cm rest leaves the heel ~1 cm off: FAIL; his line when box T runs",
    "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
@@ -1795,7 +1797,11 @@
     116,
     "her 928407cb: 336 whole / 116 verify windows (incl. the N13 list f1060-1075: palm normal +x 0.66-0.80); b4325b5b 319 / 97"
    ],
-   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips",
+   "must_fail_rendered": [
+    93,
+    "her 928407cb PLACED re-dump with tips: 93 frames in the verify windows (kit 116)"
+   ]
   }
  },
  "not_attempted": {

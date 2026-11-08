@@ -69,6 +69,18 @@ move.rest_contact_rendered_frames == 0 (rest contact on the rendered dump). The 
 perform.py sync's head_to_body bake, H2B_BONES['her'] = [spine_04, spine_05, neck_01, neck_02, head] on r7-body 66785bbe;
 hers becomes [neck_01, neck_02, head], rotations only (his was already cut to neck/head, 9c6823c0, for a 3.6 cm lift).
 
+**Cost rule (the orchestrator, 09 Nov):** NO box start for a sha whose OFFLINE `body --perform` build reports ANY issue,
+for BOTH presenters (agent-01/08 run it). agent-13's offline naturalness rows on the sha's arm_track (whole take + the
+verify windows) are part of the same pre-check: a movement/hand row that fails offline is fixed before a boot, not on
+the box. 963942f4 cost a boot cycle on two issues known offline (her pinky_03_l into the desk at landings; his MCU
+hands_in_frame 0.574).
+
+**Her r7I verify (09 Nov, agent-06; 963942f4 + agent-08 02505b92, 0 offline build issues):** placed gates: parity
+--shoulder 0.309, --torso 0.186 (the lift is gone: placed = seat), claw 0, palm_to_camera 0, rest_contact 0, spread 3.2:
+PASS. finger_snap 9.0/min FAIL (rendered by the orchestrator's call). Offline (agent-13): wrist_radial_p95 19.7 in
+the windows FAIL as well (the left wrist bends radially for the supination). Both open on agent-08's e1c07794 (snap
+9.41 whole / 9.0 windows, radial 18.6 / 19.7).
+
 ## Verdicts
 
 ### Netflix v2b: REJECTED BY THE OPERATOR (07 Nov, about 23:45 IST). The SIGN below is SUPERSEDED.
