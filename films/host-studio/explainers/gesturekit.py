@@ -662,7 +662,7 @@ class Performer(S.Seater):
             if k_rest > 0.0:  # (R7 hands) the heel of the palm down on the desk, not a hand tented on its pads
                 a_w = self.actor(wrist)
                 z_want = self.set.desk_top + self.REST_WRIST
-                if a_w[2] > z_want:
+                if a_w[2] > z_want:  # (by the rest's weight: in full earlier, it drove the landing fingers deeper)
                     wrist = add(wrist, mul(sub(self.comp([a_w[0], a_w[1], z_want]), wrist), k_rest))
             elbow, wrist = self.swivel(s, sh, wrist, l1, l2, pole, W, ws)
             back = ortho(sub(elbow, sh), unit(sub(wrist, sh)))
@@ -1467,10 +1467,11 @@ class Performer(S.Seater):
 
     DESK_LIVE = 0.15  # cm the pads' height breathes about DESK_TIP (0.21 Hz)
     DESK_TIP = 0.9  # cm a resting hand's lowest fingertip (its centre line) over the desk top: the pad on it
-    REST_WRIST = 3.2  # cm the resting wrist joint over the desk top at most: the heel of the palm on it (agent-13's
-    #   rest_contact 'tented' line is 3.5; seatkit's desk.wrist floor is forearm_clear - 0.3 = 2.5)
+    REST_WRIST = 3.1  # cm the resting wrist joint over the desk top at most: the heel of the palm on it (agent-13's
+    #   rest_contact 'tented' line is 3.5, which a lift-off at gesture weight 0.08 met at 3.51 from 3.2; seatkit's
+    #   desk.wrist floor is forearm_clear - 0.3 = 2.5)
     DESK_THUMB = 0.6  # cm the thumb's joints keep over the desk top (seatkit's desk.finger line is 0.4)
-    DESK_PITCH_MAX = 14.0  # deg the contact solve pitches the hand at most
+    DESK_PITCH_MAX = 16.0  # deg the contact solve pitches the hand at most (14 left a landing pinky DIP 0.1 under)
     REST_HAND_PITCH, REST_PITCH_BAND = 10.0, 8.0  # deg: the resting palm's long axis over the desk (hers sits 4-13)
     #   and the band the safety level leaves alone
 
@@ -1515,6 +1516,12 @@ class Performer(S.Seater):
         t_ = getattr(self, "_t", 0.0)
         live = self.DESK_LIVE * math.sin(2.0 * math.pi * 0.21 * t_ + (0.0 if s == "l" else 2.1))
         err = self.actor(low)[2] - (self.set.desk_top + self.DESK_TIP + live)  # + : too high
+        for f in ("index", "middle", "ring", "pinky"):  # a curled finger's DIP can sit lower than its tip (a landing,
+            j = f"{f}_03_{s}"                            #   t22.0: pinky_03 on the desk top with the tips at 0.9)
+            if j in W:
+                e_j = self.actor(W[j][0])[2] - (self.set.desk_top + self.DESK_THUMB)
+                if e_j < 0.0 and e_j < err:
+                    err, low = e_j, W[j][0]
         # (the thumb keeps off the desk by its own ride-up below: in this pitch it lifted the pads off, 1.6-1.8 cm)
         arm = sub(low, piv)
         across = cross(arm, [0.0, 0.0, 1.0])  # component space is z-up (seatkit checks it)
