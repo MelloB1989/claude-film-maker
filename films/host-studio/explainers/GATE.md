@@ -171,6 +171,12 @@ third's visible card (alpha > 32) ends at x 644 against the head's 685 (41 px; t
 the visible card. Panel cards start at x 963 / 965 against the head's 552 / 543. Stills f48 / f481 / f997 are with the
 orchestrator for the eye. A's composite is kept as the backup.
 
+**His aad624a9 on T (REST_WRIST_UNDER 0.5; his real skeleton, naturalness 077d0c7c; read and track deleted from the
+box):** TEST spans 0-179 + 422-480: every row passes (lag 33.2, a thin margin over 30; snaps 0.0; rest_contact 0 at
+3.34; claw 0, dip_pip 0.0, thumb_stiff 0: his track now carries fingertips; spread 3.44; radial 2.13), so his TEST is GO.
+Whole take: finger_snap 6.41/min FAIL (line 2; 4.27 on 5ea6ab94), every other row passes (lag 81.5), so his FINALS are NO-GO until
+agent-01's snap fix, which must leave the TEST spans' motion unchanged.
+
 ## Verdicts
 
 ### Netflix v2b: REJECTED BY THE OPERATOR (07 Nov, about 23:45 IST). The SIGN below is SUPERSEDED.
