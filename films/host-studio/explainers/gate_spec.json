@@ -1392,6 +1392,21 @@
    "na_ok": true,
    "na_reason": "no desk-rest frames",
    "why": "the orchestrator's desk rest (08 Nov): forearms on the desk, elbows relaxed; an upper arm lifted past 40 deg to reach the desk reads strained"
+  },
+  "move.finger_snap": {
+   "area": "performance",
+   "track": "agent-13 (measure) / agent-01 (body)",
+   "op": "==",
+   "line": 0,
+   "unit": "count",
+   "what": "finger shape changes that SNAP into a stroke shape (within ~1 frame) instead of easing min-jerk over >= 0.2-0.25 s to the apex; both hands, both presenters",
+   "where": "her speaking frames (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "how": "agent-13's naturalness.py finger_snap row (definition + exact threshold from agent-13) on the 30 fps track -> numbers/<film>/naturalness.json",
+   "must_fail": [
+    12,
+    "her body 8a45d961: 12 snaps (agent-13); 404db805 too. agent-13 to confirm the definition and both values"
+   ],
+   "why": "the orchestrator, 08 Nov: fingers snapping into shapes is exactly the 'robotic' tell the operator hates; both presenters"
   }
  },
  "not_attempted": {
