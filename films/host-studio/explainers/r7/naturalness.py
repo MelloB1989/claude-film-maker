@@ -25,6 +25,7 @@ HIGH_APEX_CM = 16.0  # wrist over the sternum point that counts as an upper_ches
 TORSO_DEPTH = 11.0
 STILL_CM_S = 2.5  # wrist speed under which a frame is still (a hold), not part of a movement
 MIN_MOVES = 5  # wrist movements a hand needs before its path/speed fractions count  # cm from the spine_05 joint to the front of the chest/stomach (seated adult, either presenter)
+SNAP_CM_S = 90.0  # fingertip speed relative to the wrist that, stopped dead within 2 frames, is a snap
 SEQ_FPS = 24.0  # the film's sequence / EDL rate: --span frames are on it (the dumps run at 30)
 MIN_REST = 15  # frames (0.5 s) a rest class needs before its elevation counts
 DESK_TOP, DESK_NEAR = 71.0, 12.0  # set_her.json / set_him.json (same desk): its top z and near edge x, actor frame, cm
@@ -488,10 +489,27 @@ class Take:
         out["l_over_r"] = out["l"] / max(1e-9, out["r"])
         return out
 
+    def snaps(self):
+        """finger shapes that SNAP in: a fingertip (the DIP head) moving >= SNAP_CM_S relative to its wrist that falls
+        to <= 25 % within 2 frames, while she speaks; instants (0.1 s apart) per speaking minute, worse hand."""
+        out = {}
+        for s in "lr":
+            tips = [f"{fn}_03_{s}" for fn in ("thumb",) + FINGERS]
+            hits = set()
+            for b in tips:
+                rel = [sub(f["p"][b], f["p"]["hand_" + s]) for f in self.F]
+                v = [0.0] + [norm(sub(rel[i], rel[i - 1])) / self.dt for i in range(1, len(rel))]
+                for i in range(1, len(v) - 2):
+                    if self.speak[i] and v[i] >= SNAP_CM_S and min(v[i + 1], v[i + 2]) <= 0.25 * v[i]:
+                        hits.add(round(self.F[i]["t"], 1))
+            mins = sum(self.speak) * self.dt / 60.0
+            out[s] = {"n": len(hits), "per_min": len(hits) / mins if mins > 0 else float("nan"), "t": sorted(hits)}
+        return out
+
     def report(self):
         return {"wrist": self.wrist(), "forearm": self.forearm(), "shape": self.shapes(), "body": self.body(),
                 "kin": self.kinematics(), "lag": self.lag(), "asym": self.asym(), "fingers": self.frozen(),
-                "torso": self.torso(), "travel": self.travel(), "holds": self.holds()}
+                "torso": self.torso(), "travel": self.travel(), "holds": self.holds(), "snaps": self.snaps()}
 
 
 # ---------- the gate rows ----------
@@ -552,6 +570,10 @@ ROWS = {
     "move.hold_min_speed": (lambda r: _worst(r, ("holds", "p10"), min), ">=", 0.3, "cm/s",
                             "p10 of the wrist speed while speaking outside every movement (holds, rests), worse hand: "
                             "a live hold drifts (the orchestrator, 08 Nov); 0 = frozen"),
+    "move.finger_snap_per_min": (lambda r: _worst(r, ("snaps", "per_min"), max), "<=", 2.0, "per min",
+                                 "finger shapes that snap in: a fingertip >= 90 cm/s relative to the wrist stopped "
+                                 "to <= 25 % within 2 frames, per speaking minute, worse hand (minimum jerk holds for "
+                                 "the fingers too; 'fingers snapping between fixed shapes' is a robotic tell)"),
     "move.mirror_corr_p50": (lambda r: r["asym"]["mirror_corr_p50"], "<=", 0.95, "corr",
                              "GUARD: two-hand strokes, median correlation of the left wrist velocity with the right's "
                              "mirrored (1.0 = a mirror copy)"),

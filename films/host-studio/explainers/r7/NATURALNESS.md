@@ -42,6 +42,7 @@ hand counts.
 | move.lag_hand_ms | >= 30 | the hand's rotation starts at least 30 ms (one frame) after the upper arm's (proximal to distal) |
 | move.two_hand_amp_ratio | >= 0.5 | on two-hand strokes the lesser hand travels at least half as far as the greater |
 | move.hold_min_speed | >= 0.3 cm/s | the orchestrator (08 Nov): p10 of the wrist speed while speaking outside every movement (holds and rests), worse hand. A live hold drifts 0.5-1 cm/s with breath and micro-motion; a frozen hand reads as placed |
+| move.finger_snap_per_min | <= 2 | finger shapes that snap in and stop dead: a fingertip (DIP head) >= 90 cm/s relative to the wrist falling to <= 25 % within 2 frames, per speaking minute, worse hand. Minimum jerk (Flash & Hogan) holds for the fingers too, and "fingers snapping between fixed shapes" is the classic robotic tell (Thomas & Johnston; Lasseter). Found 08 Nov behind his 2 cm parity residual: at a snap the editor's slerped rotations and the interpolated positions split by 1-2 cm. 404db805 25.5, 52ab5ea2 11.5, 8a45d961 8.4 /min |
 | move.mirror_corr_p50 | <= 0.95 | GUARD (never failed yet): two-hand velocity is not a mirror copy |
 | move.fingers_frozen_frac | <= 0.15 | fingers are not dead still for >= 0.5 s while speaking. A GUARD until 08 Nov: the dumps rounded joints to 0.01 cm, ~6 deg/s of jitter on 3 cm finger bones, which hid it. At 0.1 mm every body fails (404db805 0.57, 52ab5ea2 0.60) |
 
