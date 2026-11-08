@@ -75,7 +75,8 @@ eye on CAM_MCU f0-100 (box C):
 
 **Parity (the orchestrator, 08 Nov):** agent-13's shoulder-relative parity (r7/parity.py --shoulder) is THE parity
 gate. It runs on the RENDERED dump (seat + life), with a 1.0 cm line, and supersedes the seat-only check and the 1.2
-sanity row.
+sanity row. The naturalness rows are scored on the 30 fps TRACK; the parity proves the editor plays it, and the editor-dump
+rows are an INFO cross-check ('track + parity').
 
 **The clock (08 Nov):** the sequence, editor and composite are 24 fps; agent-01's arm_track is 30 fps. Every row maps
 frames by TIME (the orchestrator's rule). Matched frame-to-frame, the 'stale life layer' readings (44 / 47 cm) were a
