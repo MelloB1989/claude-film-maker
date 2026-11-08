@@ -59,7 +59,8 @@ SEED = {"him": 71, "her": 72}
 SET = S.Set(seat_top=45.0, seat_front=24.5, desk_top=71.0, desk_near=12.0, desk_far=67.0, desk_under=60.4,
             mic=[21.0, -14.0, 96.0], mic_radius=9.0,
             boom=[[64.6, -30.28, 71.0], [53.9, -26.0, 116.3], [29.2, -16.0, 100.4], [21.0, -14.0, 96.0]],
-            cams={"CAM_MCU": [167.5, 78.0, 121.3], "CAM_CU": [132.7, 38.7, 121.0], "CAM_WIDE": [277.0, 89.7, 125.3]})
+            cams={"CAM_MCU": [167.5, 78.0, 121.3], "CAM_CU": [132.7, 38.7, 121.0], "CAM_WIDE": [277.0, 89.7, 125.3],
+                  "CAM_MCU_L": [168.0, 77.87, 121.1]})  # (her PANEL shots: the body check and the mic rule test the cut camera)
 # her cameras' full rigs (box B, 08 Nov ~02:00 IST, read-only): the framing check projects her hands into each shot
 SET.rigs = {
     "CAM_MCU": {"loc": [167.83, 77.66, 121.31], "yaw": -154.14, "pitch": -2.55, "focal": 60.0, "sensor": [36.0, 20.25]},
