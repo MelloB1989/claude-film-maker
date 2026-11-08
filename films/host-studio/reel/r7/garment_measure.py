@@ -1121,6 +1121,10 @@ def main(argv=None) -> int:
             fw = (min if key.startswith("upperarm_") else max)(vals, key=vals.get)
             print(json.dumps({"measure": key, "worst_frame": fw, "worst": vals[fw], "frames": len(per),
                               "file": str(out / f"{a.cmd}.json")}))
+        elif key.startswith("waist_skin_poke"):  # None on every frame: no visible skin in the window (a pass)
+            print(json.dumps({"measure": key, "worst_frame": None, "worst": None, "frames": len(per),
+                              "note": "no visible skin under the band on any frame (nothing to poke): pass",
+                              "file": str(out / f"{a.cmd}.json")}))
     return 0
 
 
