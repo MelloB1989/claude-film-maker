@@ -118,11 +118,11 @@ POSE_ORIGIN = HandPose((22.0, 17.0, 13.0), pron=40.0, ext=10.0, shape="relaxed",
 # with her top): the presenter's rest. Hands loosely together in a soft steeple at the lower ribcage, well in front of
 # her (not touching her), palms facing, wrists straight, fingers gently curved; the gestures rise from it into the
 # frame. The fingers aim at the midline (YAW_BASE is faded out at the rest, see hand_targets).
-HIGH_REST = HandPose((27.0, 10.0, -5.5), pron=80.0, ext=12.0, shape="rest")  # the DESK REST (the orchestrator, 08 Nov:
+HIGH_REST = HandPose((27.0, 10.0, -5.5), pron=80.0, ext=0.0, shape="rest")  # the DESK REST (the orchestrator, 08 Nov:
 #   at x 16 her hands sat 3-4 cm off her belly, 'stuck to the body'): the forearms on the desk across its near edge,
 #   the elbows just behind it (x ~8, ~22 out, z ~76, 37-39 deg: the supported-arm line is 40), the wrists ~29 cm
 #   forward, ~7 cm over the desk top (each hand rests on its little-finger edge, palms facing: lower, the ring and
-#   pinky tips went into the desk), the hands loosely together 14-16 cm off the belly. Before:
+#   pinky tips went into the desk; wrists neutral, ext 0), the hands loosely together 14-16 cm off the belly. Before:
 # HIGH_REST (16, 10, -4)  # r7F rows: x 25 -> 17.5, the fit that
 #   lets the elbows hang at <= 30 deg (Performer._fit_poses reports it as rest_fit)  # the orchestrator's ruling (08 Nov): lower
 #   than agent-10's (24, 8.5, 2.5), which put her wrists at her bust height 8 cm in front of it; wrists ~80 cm, under
@@ -349,6 +349,8 @@ class Performer(S.Seater):
     def __init__(self, sk, st, sy, plan: Plan, torso: Torso | None = None, mic_side: str = "l"):
         self._ready = False  # seatkit's own setup (wrist extension, desk rest) runs on seatkit's pose
         self._wg = {}
+        self._wg_rot = {}
+        self._fa_hist = {}
         self._ws = {}
         super().__init__(sk, st, replace(sy, lean=plan.base_lean))
         self.plan, self.tor, self.mic_side = plan, torso or Torso(), mic_side
@@ -419,7 +421,9 @@ class Performer(S.Seater):
             # anywhere up near her chest it sat over the mic in the picture (it hangs at sternum height, frame right)
             ws *= max([e.weight(t) for e in self.plan.events if e.hand in ("l", "both")] or [0.0])
         wg = self.gesture_w(s, t)
-        self._wg[s] = wg  # hand_rot_p fades YAW_BASE in with it
+        self._wg[s] = wg  # hand_rot_p fades YAW_BASE in with it, ROT_LAG_S behind (the hand turns after the arm)
+        lag = getattr(STYLE_HOOK, "ROT_LAG_S", 0.0) if STYLE_HOOK is not None else 0.0
+        self._wg_rot[s] = self.gesture_w(s, t - lag) if lag > 0 else wg
         self._ws[s] = ws
         if STYLE_HOOK is not None and hasattr(STYLE_HOOK, "hand"):
             hp, big = STYLE_HOOK.hand(self, s, t)  # the whole hand track (co-articulation, wrist lead, cascade)
@@ -497,6 +501,7 @@ class Performer(S.Seater):
     def pose(self, t: float = 0.0, gestures=None) -> dict:
         if not self._ready:
             return super().pose(t, gestures or [])
+        self._t = t  # (the hand's trail keeps a short history per frame)
         sk, sy = self.sk, self.sy
         f, r, u = self.fr
         lean = self.plan.lean_at(t)
@@ -679,6 +684,63 @@ class Performer(S.Seater):
         k = max(0.0, min(1.0, (h - 3.0) / 2.0))  # below upper_chest (shoulder + 5) 45, at it 60
         return self.ELEV_REST + (self.ELEV_STROKE + (self.ELEV_HIGH - self.ELEV_STROKE) * k - self.ELEV_REST) * wg, k
 
+    MIC_HAND_R = 7.0  # cm: a fingertip point this close to the mic or boom in any camera's picture is hidden (the check
+    #                   says 5; the margin covers the style track's arc, drift and micro-motion)
+    MIC_PTS = ((0.0, 0.0), (8.0, 0.0), (15.0, 0.0), (0.0, 9.0), (0.0, 16.0), (8.0, 9.0))  # cm (ahead, up) of the
+    #   wrist goal: the hand's points tested, fingers forward or up (a size/open stroke holds them up: his fingertips)
+
+    def _mic_plan(self, st_pt) -> list:
+        """The planner's mic rule (the orchestrator, 08 Nov, his left fingertips behind the mic from CAM_MCU/CU): every
+        mic-side goal is tested against the mic and boom from EVERY camera (seatkit.behind_mic) at the wrist and ahead of
+        it; a hidden one comes down, in and back to the first clear spot (<= 14 cm); none clear, the stroke goes to the
+        other hand (a both-hands stroke becomes that hand's alone; the mic-side hand keeps its rest life)."""
+        st_ = self.set
+        if not (st_.cams and (st_.mic or st_.boom)):
+            return []
+        cams = list(st_.cams.values())
+        sgm = 1.0 if self.mic_side == "r" else -1.0
+        log = []
+
+        def hidden(off):
+            w = [st_pt[0] + off[0] - 1.0, st_pt[1] + sgm * off[1], st_pt[2] + off[2] - 0.8]  # (hand_targets' left shift)
+            for df, du in self.MIC_PTS:
+                p = [w[0] + df, w[1] - sgm * 0.25 * (df + du), w[2] + du]  # and a little in (the fingers aim in)
+                for c in cams:
+                    if S.behind_mic(c, p, st_, hand_r=self.MIC_HAND_R) is not None:
+                        return True
+            return False
+
+        for e in self.plan.events:
+            if e.hand not in (self.mic_side, "both"):
+                continue
+            p = (e.pose_r if self.mic_side == "r" else e.pose_l) or e.pose_r
+            if not hidden(p.off):
+                continue
+            moved = None
+            for d in range(1, 15):
+                off = (p.off[0] - 0.5 * d, max(2.0, p.off[1] - 0.5 * d), p.off[2] - 0.7 * d)
+                if not hidden(off):
+                    moved = replace(p, off=off)
+                    break
+            t = round(e.stroke, 2)
+            if moved is not None:
+                if self.mic_side == "r":
+                    e.pose_r = moved
+                else:
+                    e.pose_l = moved
+                log.append({"t": t, "hand": e.hand, "moved_cm": round(d * math.sqrt(0.25 + 0.25 + 0.49), 1)})
+            elif e.hand == "both":
+                e.hand = "l" if self.mic_side == "r" else "r"
+                log.append({"t": t, "hand": "both", "to": e.hand})
+            else:
+                e.hand = "l" if self.mic_side == "r" else "r"
+                if e.hand == "r":
+                    e.pose_r = p
+                else:
+                    e.pose_l = p
+                log.append({"t": t, "hand": self.mic_side, "to": e.hand})
+        return log
+
     def _fit_poses(self, W) -> None:
         """Each event's wrist goal (and the high rest, reported) moved in toward her, a low stroke also a little down,
         by the least distance (bisection) at which the lowest clearing elbow meets its elevation line (cap_at). On the
@@ -761,6 +823,7 @@ class Performer(S.Seater):
                 e.pose_r = fit(e.pose_r, "r")
             if e.pose_l is not None and e.hand in ("l", "both"):
                 e.pose_l = fit(e.pose_l, "l")
+        self.mic_log = self._mic_plan(st_pt)  # after the fit: the goals as they will be played
         self.rest_fit = {s: fit(HIGH_REST, s, rest=True).off for s in "lr"}
         self._gs_tracks = None  # the style track was drawn (torso() asks for its weights) from the unfitted goals
 
@@ -783,6 +846,28 @@ class Performer(S.Seater):
             W[b] = [add(pt, qrot(pq, loc["t"])), qnorm(qmul(pq, loc["q"]))]
         return W
 
+    HAND_TRAIL_S = 0.10  # s: the hand's line trails the forearm's (agent-13: with the desk rest's small wrist turn into
+    HAND_TRAIL_K = 0.8   # a gesture, the hand's orientation started with the upper arm, lag 25 ms on a 30 line)
+
+    def _trail(self, s: str, fa):
+        """The forearm direction the hand continues: HAND_TRAIL_K of the way back to where it pointed HAND_TRAIL_S ago
+        (frames come in order in build(); out of order, the history restarts)."""
+        t = getattr(self, "_t", None)
+        if t is None or self.HAND_TRAIL_K <= 0:
+            return fa
+        h = self._fa_hist.setdefault(s, [])
+        if h and t <= h[-1][0]:
+            h.clear()
+        h.append((t, fa))
+        while len(h) > 2 and h[1][0] <= t - self.HAND_TRAIL_S:
+            h.pop(0)
+        old = h[0][1]
+        if h[0][0] < t - self.HAND_TRAIL_S and len(h) > 1:  # interpolate to t - HAND_TRAIL_S
+            (t0, a), (t1, b) = h[0], h[1]
+            x = (t - self.HAND_TRAIL_S - t0) / max(1e-9, t1 - t0)
+            old = unit(add(mul(a, 1.0 - x), mul(b, x)))
+        return unit(add(mul(fa, 1.0 - self.HAND_TRAIL_K), mul(old, self.HAND_TRAIL_K)))
+
     def hand_rot_p(self, s, hp: HandPose, forearm):
         """seatkit's hand frame from a HandPose (pronation, extension), fingers continuing the forearm."""
         sk = self.sk
@@ -790,9 +875,10 @@ class Performer(S.Seater):
         side = r if s == "r" else mul(r, -1.0)
         d0 = sub(sk.p("middle_01_" + s), sk.p("hand_" + s))
         a0 = sub(sk.p("pinky_01_" + s), sk.p("index_01_" + s))
-        fa = unit(forearm)
+        fa = self._trail(s, unit(forearm))
         hz = ortho(fa, u) if abs(dot(fa, u)) < 0.98 else f
-        wg = self._wg.get(s, 1.0)
+        wg = self._wg_rot.get(s, self._wg.get(s, 1.0))  # (agent-13: on the yaw unlagged, the hand's turn began with or
+        #   before the upper arm's in 22 of 53 moves: lag 25 ms on a 30 line)
         yw = math.radians(getattr(hp, "yaw", 0.0) + YAW_BASE.get(s, 0.0) * wg + REST_YAW * (1.0 - wg))
         hz = unit(add(mul(hz, math.cos(yw)), mul(ortho(side, hz), math.sin(yw))))
         ws = self._ws.get(s, 1.0)  # speaking: a true extension; at the desk rest the old pitch (its pose was tuned on it)
@@ -1013,6 +1099,7 @@ def build(data: dict, st, sy, sheet: dict, cues: dict, tilts: list, length_s: fl
     if not ok_clear:
         issues.append({"code": "body.arm_torso", "message": f"upper arm within {worst:.1f} cm of the "
                        "torso/breast model (line 3)", "value": worst})
+    rows["mic_plan"] = getattr(perf, "mic_log", [])  # the planner's mic rule: goals moved / strokes handed over
     summary = {"pass": not issues, "issues": issues[:30], "n_issues": len(issues), "tuned": tuned, "rows": rows,
                "events": len(plan.events), "moving_bones": len(moving),
                "hooks": {"style": bool(STYLE_HOOK), "timing": bool(timing)}, "frame": {"fwd": perf.F["fwd"],
