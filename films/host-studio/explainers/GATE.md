@@ -138,6 +138,13 @@ default: agent-02 measures his). His track carries no fingertips, so finger_claw
 (na_ok). agent-01 adds tips to arm_track_who.py. Everything else passes (stroke 34.9, rest_abduction 1.95, radial 0.95,
 palm 0, near_face 0, spread 3.94).
 
+**His exact proxy (the orchestrator, 09 Nov):** the proxy on her skeleton mis-predicts him, so no more iterating
+through box boots. agent-06 exports his BODY skeleton numbers only (bone names, parents, ref-pose locals and lengths,
+and his seat/desk/mic placements; no mesh, face, textures or renders) and moves them ONLY by fleetctl cp to agent-01
+and agent-04: never committed, never in the public repo, deleted when the round ends. agent-04 runs his rows from
+/work (not the shared code, which every agent sees). agent-01 adds fingertips to arm_track_who.py. ONE box run once
+he passes on the exact proxy. MCU_L 0.615 accepted.
+
 ## Verdicts
 
 ### Netflix v2b: REJECTED BY THE OPERATOR (07 Nov, about 23:45 IST). The SIGN below is SUPERSEDED.
