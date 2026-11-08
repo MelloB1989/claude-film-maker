@@ -52,6 +52,15 @@ rest/relaxed abduction to ~20-25 deg (elbows a hand-width off the torso, forearm
 CAM_MCU / WIDE / CU; an inner layer or fold first if LAYERS shows one). His FRONT zone is the same as hers: >= 3 cm at
 every frame (gate).
 
+**His blocked build (the orchestrator, 09 Nov):** (1) in his BODY build, body.arm_outfit / arm_torso are WARN (printed
+with the numbers) until agent-05's flank refit lands, so the chain writes a body for agent-02/05 to measure and refit
+against; the FINAL gate keeps body.upperarm_side_clear_cm >= 0.5 and body.upperarm_bust_clear_cm >= 3 HARD (progress
+-7.9 -> -1.2 cm). (2) One owner per part at the rest: agent-08's contact solve owns the resting HAND (palm down, heel ~3
+cm over the desk, fingers never below the top) and runs LAST; agent-01's rest arm IK targets that wrist pose (forearm on
+the desk, the elbow not hanging); ONE combined sha for him and her. (3) His body.hands_in_frame_mcu_frac 0.447 (line
+0.6) is fixed in the FRAMING: CAM_MCU / CAM_MCU_L slightly wider and lower in set_him.json (~6-10 %, the same headroom
+ratio); the orchestrator checks the framing by eye on his TEST.
+
 ## Verdicts
 
 ### Netflix v2b: REJECTED BY THE OPERATOR (07 Nov, about 23:45 IST). The SIGN below is SUPERSEDED.
