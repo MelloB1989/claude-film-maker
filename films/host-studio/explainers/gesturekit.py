@@ -114,7 +114,9 @@ POSE_ORIGIN = HandPose((22.0, 17.0, 13.0), pron=40.0, ext=10.0, shape="relaxed",
 # with her top): the presenter's rest. Hands loosely together in a soft steeple at the lower ribcage, well in front of
 # her (not touching her), palms facing, wrists straight, fingers gently curved; the gestures rise from it into the
 # frame. The fingers aim at the midline (YAW_BASE is faded out at the rest, see hand_targets).
-HIGH_REST = HandPose((24.0, 8.5, 2.5), pron=80.0, ext=0.0, shape="rest")
+HIGH_REST = HandPose((30.0, 8.5, -2.0), pron=80.0, ext=0.0, shape="rest")  # the orchestrator's ruling (08 Nov): lower
+#   and further forward than agent-10's (24, 8.5, 2.5), which put her wrists at her bust height 8 cm in front of it: on
+#   her the wrists at ~80 cm, ~30 cm forward of the spine, the fingers clear of the desk; under CAM_MCU's bottom edge
 REST_POLE = (-0.2, 0.9, -0.6)  # the elbows' direction at the rest (fwd, out, up)
 REST_YAW = 32.0  # deg out off the forearm at the rest (gesture_style's track carries no yaw): the forearms come in
 #                  from the elbows at ~60 deg, the fingers then point forward and in, the tips meeting at the midline
@@ -705,7 +707,8 @@ def metrics(perf: Performer, t0: float, t1: float, fps: float = 30.0) -> dict:
 
 
 def build(data: dict, st, sy, sheet: dict, cues: dict, tilts: list, length_s: float, fps: int = 30,
-          check_every: int = 6, timing: list | None = None, on_cam: list | None = None) -> tuple:
+          check_every: int = 6, timing: list | None = None, on_cam: list | None = None,
+          frame_want: dict | None = None) -> tuple:
     """seatkit.build for the performance: the seated pose with the plan driving the upper body, as tracks (constant
     for the bones that never move, per key for spine, neck, head, clavicles, arms, hands and fingers). Returns (doc
     for perform.py's WRITE, summary with the checks and the body rows' numbers)."""
@@ -772,7 +775,7 @@ def build(data: dict, st, sy, sheet: dict, cues: dict, tilts: list, length_s: fl
     rows = {"upperarm_torso_clear_cm": {s: round(v, 1) for s, v in clear.items()},
             "left_resting_arm_clear_cm": round(rest_clear, 1) if rest_clear < 1e8 else None,
             "hands_in_frame_frac": {c: round(a / b, 3) for c, (a, b) in framing.items() if b}}
-    for c, want in FRAME_WANT.items():
+    for c, want in {**FRAME_WANT, **(frame_want or {})}.items():  # frame_want: a presenter's own lines
         got = rows["hands_in_frame_frac"].get(c)
         if got is not None and got < want:
             issues.append({"code": "body.hands_out_of_frame", "message": f"hands in frame in {got:.0%} of {c}'s "

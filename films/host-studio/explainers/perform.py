@@ -404,7 +404,8 @@ def job():
         importlib.reload(GK)
         doc, summary = GK.build(data, S.Set(**P["set"]), S.Style(**P["style"]), P["perform"]["sheet"],
                                 P["perform"]["cues"], P["perform"]["tilts"], P["length_s"], P["fps"],
-                                timing=P["perform"].get("timing"), on_cam=P["perform"].get("on_cam"))
+                                timing=P["perform"].get("timing"), on_cam=P["perform"].get("on_cam"),
+                                frame_want=P["perform"].get("frame_want"))
     else:
         gs = [S.Gesture(**x) for x in P["gestures"]]
         doc, summary = S.build(data, S.Set(**P["set"]), S.Style(**P["style"]), gs, P["length_s"], P["fps"])
@@ -457,6 +458,10 @@ PERFORM_STYLE = {"elbow_overhang": 14.0, "elbow_out": 13.0}  # r7b: elbows rest 
 #   while she speaks; tucked, its upper arm met her torso; the tuck was r6's overshirt fix, and V2 has no overshirt)  # r7: the desk rest in pauses has the forearms across the edge (upright)
 
 
+FRAME_WANT = {"her": {"CAM_MCU": 0.5}}  # hands_in_frame lines per presenter over gesturekit's (the orchestrator, 08 Nov:
+#   for her CAM_MCU 0.5, a natural rest under the frame's bottom edge beats visible hands in the pauses)
+
+
 def perform_params(who: str) -> dict:
     """The acting sheet (acting/<who>.json, agent-11), the cue sheet and agent-04's tilts (acting/tilts_<who>.json)
     for gesturekit.build."""
@@ -466,7 +471,7 @@ def perform_params(who: str) -> dict:
         tilts = tilts.get("tilts", [])
     timing = json.loads((a / f"timing_{who}.json").read_text()) if (a / f"timing_{who}.json").exists() else None
     return {"sheet": json.loads((a / f"{who}.json").read_text()), "cues": cues(who), "tilts": tilts, "timing": timing,
-            "on_cam": cue_sheet(who)["on_cam"]}
+            "on_cam": cue_sheet(who)["on_cam"], "frame_want": FRAME_WANT.get(who, {})}
 
 
 def cmd_body(who: str, force: bool = False, perform: bool = False) -> dict:
