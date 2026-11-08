@@ -1303,10 +1303,14 @@
     -8.18,
     "netflix v2b PER ZONE (agent-02, garment_measure bf7d938c, T2, SEQ_Explain_Her_v2b, f1056 = 00:44): bust -8.18 (right front, 181 verts inside; left front -7.96, 211); self-checks clean"
    ],
-   "why": "the orchestrator's ruling (A), 08 Nov: the 3 cm rule is for the operator's complaint (the arm swallowed by the BUST), not for a relaxed arm off the side of the ribcage",
+   "why": "the orchestrator's ruling (A), 08 Nov: the 3 cm rule is for the operator's complaint (the arm swallowed by the BUST), not for a relaxed arm off the side of the ribcage ; the orchestrator, 09 Nov: a GATE for HIM likewise (>= 3 vs his outfit's front), seated and in gestures",
    "r4": [
     null,
     "her b4325b5b (agent-02, garment_measure 949cde7c, T2): rest 3.74 @f489, gesture 4.13 @f1040, 0 verts inside: PASS"
+   ],
+   "must_fail_whatsapp": [
+    1.61,
+    "his aba900fe + 7b03480f: bust 1.61 @f54 (< 3)"
    ]
   },
   "body.upperarm_side_clear_cm": {
@@ -1323,10 +1327,14 @@
     -8.08,
     "netflix v2b PER ZONE (the same run): side -8.08 (left side, 27 verts inside; right side -7.89, 8)"
    ],
-   "why": "the orchestrator's ruling (A): vs the side of the torso, no penetration (>= 0.5 cm)",
+   "why": "the orchestrator's ruling (A): vs the side of the torso, no penetration (>= 0.5 cm) ; the orchestrator, 09 Nov: a GATE for HIM too (his upper arm 6.6-7.9 cm inside his outfit's flank is the same class of fault as her arm in the body), seated and in gestures, vs his outfit's SURFACE (agent-02 confirms it is not an inner fold)",
    "r4": [
     null,
     "her b4325b5b: rest 1.51 @f721, gesture 1.59 @f1068, 0 verts inside: PASS"
+   ],
+   "must_fail_whatsapp": [
+    -7.87,
+    "his aba900fe + 7b03480f (box T, agent-02 fast engine, SLEEVES=1, TOP=SkeletalMesh): side -7.87 @f84; bust 1.61 @f54"
    ]
   },
   "move.humerus_elev_high_deg": {

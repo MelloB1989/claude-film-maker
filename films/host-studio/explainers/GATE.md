@@ -36,6 +36,16 @@ The orchestrator ruled on 07 Nov, about 23:10 IST.
 - **WIDE shot 11:** stays as rendered, because the band cannot be seen at WIDE scale. If it is ever re-rendered, check
   her shadow on the chair and desk.
 
+**Gate owner (09 Nov):** agent-09 is rate-limited to Tue 11:30; agent-13 runs the gate on `fleet/agent-13/r7-gate`
+(off agent-09's 178a28bf). agent-08's hand rows join it: finger_claw, dip_pip_ratio_bad, fold_at_limit, cascade_broken,
+thumb_flat, thumb_stiff (guard), hold_over_collar; hold_chest and claw_score are report rows.
+
+**His arms (the orchestrator, 09 Nov):** body.upperarm_side_clear_cm >= 0.5 and body.upperarm_bust_clear_cm >= 3 GATE
+him too (they were never INFO in the spec; this records the ruling): his upper arm 6.6-7.9 cm inside his outfit's flank
+is the fault the operator rejected on her. Seated and in gestures, against his outfit's SURFACE (agent-02 confirms it
+is not an inner fold). agent-01 opens his rest/relaxed arms (elbows slightly out, forearms on the desk, no chicken
+wings). His aba900fe + 7b03480f reads side -7.87 @f84 / bust 1.61 @f54: FAIL.
+
 ## Verdicts
 
 ### Netflix v2b: REJECTED BY THE OPERATOR (07 Nov, about 23:45 IST). The SIGN below is SUPERSEDED.
