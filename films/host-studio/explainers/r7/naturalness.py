@@ -25,7 +25,8 @@ HIGH_APEX_CM = 16.0  # wrist over the sternum point that counts as an upper_ches
 TORSO_DEPTH = 11.0
 STILL_CM_S = 2.5  # wrist speed under which a frame is still (a hold), not part of a movement
 MIN_MOVES = 5  # wrist movements a hand needs before its path/speed fractions count  # cm from the spine_05 joint to the front of the chest/stomach (seated adult, either presenter)
-CHIN_BELOW_HEAD = 5.0  # cm: the chin under the head bone's head (the skull base); neck_01 sits ~10 under it, the
+CHIN_BELOW = {"him": 6.1}  # agent-02 on the mesh (09 Nov): the soft-tissue menton under the head bone's head, per presenter
+CHIN_BELOW_HEAD = 5.0  # cm, the default until a presenter's mesh value lands: the chin under the head bone's head (the skull base); neck_01 sits ~10 under it, the
 #   shoulders ~19: the chin is ~11-13 cm above the suprasternal notch (seated adult, either presenter)
 FACE_C, FACE_R = (7.0, 0.0, 4.0), 11.0  # the face/hair shell: centre off the head joint (fwd, right, up), radius cm
 SNAP_CM_S = 90.0  # fingertip speed relative to the wrist that, stopped dead within 2 frames, is a snap
@@ -132,6 +133,7 @@ def shape_class(fa, pinch):
 class Take:
     def __init__(self, d: dict, spans: list | None = None, seq_fps: float = SEQ_FPS):
         self.d = d
+        self.chin_below = float(d.get("chin_below") or CHIN_BELOW.get(d.get("who", ""), CHIN_BELOW_HEAD))
         self.fps = float(d.get("fps", 30))
         self.F = d["frames"]
         for f in self.F:  # an editor dump may carry only frame numbers, at its own rate
@@ -521,7 +523,7 @@ class Take:
                 continue
             out["on_cam_frames"] += 1
             H = f["p"]["head"]
-            chin = H[2] - CHIN_BELOW_HEAD
+            chin = H[2] - self.chin_below
             c = add(H, list(FACE_C))
             hit = False
             for s in "lr":
@@ -652,6 +654,8 @@ def main(argv=None):
     ap.add_argument("--span", action="append", default=[],
                     help="SEQUENCE frames A-B at --seq-fps (the EDL's, repeatable): only these count")
     ap.add_argument("--seq-fps", type=float, default=SEQ_FPS)
+    ap.add_argument("--who", choices=("her", "him"), help="the presenter, when the track does not say (the chin line)")
+    ap.add_argument("--chin-below", type=float, help="cm the chin sits under the head joint (overrides --who)")
     ap.add_argument("--fps", type=float, help="the dump's own rate when it carries none (an editor dump: 24)")
     ap.add_argument("--meta", help="a solved track (arm_track.json, 30 fps) to take speak_w / gesture_w / events / "
                                    "on_cam from, BY TIME, for an editor dump that carries only joint positions")
@@ -663,6 +667,10 @@ def main(argv=None):
         d = json.loads(Path(p).read_text())
         if a.fps:
             d["fps"] = a.fps
+        if a.who:
+            d["who"] = a.who
+        if a.chin_below:
+            d["chin_below"] = a.chin_below
         if a.meta:
             with_meta(d, json.loads(Path(a.meta).read_text()))
         rep = Take(d, spans or None, a.seq_fps).report()
