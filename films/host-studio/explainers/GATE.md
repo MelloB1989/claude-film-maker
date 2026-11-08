@@ -63,6 +63,16 @@ eye on CAM_MCU f0-100 (box C):
    rest becomes hands loosely together at the lower ribcage, 20-30 cm in front of the torso, with neutral wrists.
 2. **The lower third covers the gesture zone** in the MCU opening. It moves top-left, or shortens.
 
+**Rulings on agent-01's elbow geometry (the orchestrator, 08 Nov):**
+
+- **(A) Arm clearance is split.** The upper arm must be >= 3 cm from the BUST / front of the Top (the operator's
+  complaint). Against the SIDE of the torso it needs no penetration (>= 0.5 cm; light contact reads natural). The old
+  whole-torso row becomes INFO.
+- **(B) Stroke elevation.** The line is 60 deg ONLY for apexes at or above the upper chest, and 45 deg for the rest. A
+  new row, upperarm_abduction_deg <= 35 at strokes, keeps the lift mostly FLEXION (forward), not abduction. High apexes
+  are kept for the key beats (agent-11 lowers some if more than ~1/3 are high). The rest-elevation line stays 30 deg.
+  agent-13 updates the rows.
+
 **Round 7 rulings (the orchestrator, 07 Nov):**
 
 | ruling | what it changes |

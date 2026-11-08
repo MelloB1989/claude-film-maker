@@ -745,7 +745,7 @@
    "info_for": "TEST",
    "r4": [
     null,
-    "VALIDATED 07 Nov (agent-02's measure with controls); INFO for the R7 TEST by the orchestrator's earlier ruling, a GATE for the full re-render (and for the TEST too if the orchestrator says so now that it is validated)"
+    "SUPERSEDED by the bust/side split (the orchestrator's ruling (A), 08 Nov); kept as INFO: the whole-torso reading"
    ],
    "info": true
   },
@@ -1252,6 +1252,38 @@
     "the r7F TEST body 52ab5ea2 reads 39.649 on the TEST spans (agent-13); agent-01's earlier R7 body 404db805 31.115"
    ],
    "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md"
+  },
+  "body.upperarm_bust_clear_cm": {
+   "area": "performance",
+   "track": "round 7 (agent-09 measure; agent-04 face, agent-01 body, agent-02 garment)",
+   "unit": "cm",
+   "how": "agent-02's films/host-studio/reel/r7/garment_measure.py (fleet/agent-02/r7-garment c42b3aac): per frame, min over both sides of the SIGNED distance from the upper-arm skin (Body verts nearest upperarm_<s> at the ref pose, from 30 % shoulder->elbow) to the nearest torso triangle (torso skin + the Top's torso part, sleeves excluded), sign from the triangle normal, < 0 = inside -> numbers/<film>/garment.json. Cross-check (INFO): agent-09's qa.limb_clearance (bone-segment split, radial sign)",
+   "guard": true,
+   "op": ">=",
+   "line": 3.0,
+   "what": "min over on-screen frames, both sides, of the upper arm's SIGNED distance to the BUST / front of the Top (agent-02's mesh measure, the bust/front zone): the arm swallowed by the breast from the camera's view",
+   "where": "min over on-screen frames (edl presenter + panel shots), both sides",
+   "must_fail": [
+    -8.19,
+    "netflix v2b (arms_v2b3): both upper arms inside the Top/breast through 00:43.5-00:46, the operator's complaint (re-read per zone when agent-02's split lands)"
+   ],
+   "why": "the orchestrator's ruling (A), 08 Nov: the 3 cm rule is for the operator's complaint (the arm swallowed by the BUST), not for a relaxed arm off the side of the ribcage"
+  },
+  "body.upperarm_side_clear_cm": {
+   "area": "performance",
+   "track": "round 7 (agent-09 measure; agent-04 face, agent-01 body, agent-02 garment)",
+   "op": ">=",
+   "line": 0.5,
+   "unit": "cm",
+   "guard": true,
+   "how": "agent-02's films/host-studio/reel/r7/garment_measure.py (fleet/agent-02/r7-garment c42b3aac): per frame, min over both sides of the SIGNED distance from the upper-arm skin (Body verts nearest upperarm_<s> at the ref pose, from 30 % shoulder->elbow) to the nearest torso triangle (torso skin + the Top's torso part, sleeves excluded), sign from the triangle normal, < 0 = inside -> numbers/<film>/garment.json. Cross-check (INFO): agent-09's qa.limb_clearance (bone-segment split, radial sign)",
+   "what": "min over on-screen frames, both sides, of the upper arm's SIGNED distance to the SIDE of the torso (agent-02's side zone): no penetration; light contact reads natural",
+   "where": "min over on-screen frames, both sides",
+   "must_fail": [
+    null,
+    "an arm into the ribcage side (agent-02 to show one); v2b's per-zone reading pending the split"
+   ],
+   "why": "the orchestrator's ruling (A): vs the side of the torso, no penetration (>= 0.5 cm)"
   }
  },
  "not_attempted": {
