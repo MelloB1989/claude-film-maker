@@ -214,3 +214,15 @@ def test_rest_frames_skip_gesture_holds_with_the_track():
     track = {"frames": [{"f": f, "gesture_w": {"l": 0.0, "r": 1.0 if 20 <= f < 40 else 0.0}} for f in range(60)]}
     rf = P.rest_frames(s, FPS, every=1, track=track)
     assert rf and not any(20 <= f < 40 for f in rf)
+
+
+def test_track_clock_30_vs_editor_24():
+    assert P.track_frame(24, 24.0, 30.0) == 30 and P.track_frame(1131, 24.0, 30.0) == 1414
+    doc = {"fps": 30, "frames": [{"f": f, "p": {"hand_r": [float(f), 0.0, 0.0]}} for f in range(0, 61)]}
+    s = P.from_arm_track(doc, 24.0)
+    i = s["frames"].index(24)
+    assert s["bones"]["hand_r"][i][0] == 30.0  # editor f24 = track f30
+    samples_ = samples(48, lambda i, h: [0.0, 0.0, 90.0])
+    track = {"fps": 30, "frames": [{"f": f, "gesture_w": {"l": 0, "r": 1.0 if 30 <= f < 50 else 0.0}} for f in range(60)]}
+    rf = P.rest_frames(samples_, 24.0, every=1, track=track)
+    assert not any(24 <= f < 40 for f in rf)  # track f30-49 = editor f24-39

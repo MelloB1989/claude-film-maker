@@ -233,13 +233,14 @@ def rest_frames(samples: dict, fps: float, hands=("hand_l", "hand_r"), hold_s: f
                          for h in hands))
     still = [False] + still
     gest = {}
+    fps_t = float((track or {}).get("fps", fps))
     if track:
         for x in track.get("frames", []):
             g = x.get("gesture_w") or {}
             gest[int(x["f"])] = max(float(g.get("l", 0.0)), float(g.get("r", 0.0)))
     need, out, run = int(round(hold_s * fps)), [], 0
     for i, s in enumerate(still):
-        s = s and gest.get(fr[i], 0.0) < gesture_max
+        s = s and gest.get(track_frame(fr[i], fps, fps_t), 0.0) < gesture_max  # the track's own clock
         run = run + 1 if s else 0
         if run >= need and (run - need) % every == 0:
             out.append(fr[i])
@@ -254,11 +255,22 @@ FIT_BONES = ("spine_03", "spine_05", "neck_01", "head", "clavicle_l", "clavicle_
 # the clavicles pin the rotation about it
 
 
-def from_arm_track(doc: dict) -> dict:
-    """agent-01's arm_track (gesturekit.track_doc: {frames: [{f, p: {bone: [x, y, z]}}]}) -> seq.sample form."""
-    fr = doc["frames"]
-    names = sorted({b for x in fr for b in x["p"]})
-    return {"frames": [int(x["f"]) for x in fr], "bones": {b: [x["p"].get(b, [float("nan")] * 3) for x in fr] for b in names}}
+def track_frame(f_editor: int, fps_editor: float, fps_track: float) -> int:
+    """The track frame at an editor/sequence frame (the editor is 24 fps, agent-01's arm_track 30: agent-01)."""
+    return int(round(f_editor * fps_track / fps_editor))
+
+
+def from_arm_track(doc: dict, fps_editor: float = 24.0) -> dict:
+    """agent-01's arm_track (gesturekit.track_doc: {fps, frames: [{f, p: {bone: [x, y, z]}}]}) -> seq.sample form ON
+    THE EDITOR'S CLOCK: each editor frame takes the track frame round(f * fps_track / fps_editor) (the track is 30
+    fps, the sequence 24; pairing by number judged the wrong moments)."""
+    fps_t = float(doc.get("fps", fps_editor))
+    by = {int(x["f"]): x for x in doc["frames"]}
+    names = sorted({b for x in doc["frames"] for b in x["p"]})
+    last = max(by) if by else 0
+    eds = [e for e in range(int(last * fps_editor / fps_t) + 1) if track_frame(e, fps_editor, fps_t) in by]
+    return {"frames": eds, "bones": {b: [by[track_frame(e, fps_editor, fps_t)]["p"].get(b, [float("nan")] * 3)
+                                         for e in eds] for b in names}}
 
 
 def parity(editor: dict, offline: dict, bones=PARITY_BONES, fit=FIT_BONES) -> dict:
