@@ -1318,7 +1318,9 @@ class Performer(S.Seater):
     #   ON the desk (agent-02 on her mesh: heel down = the wrist joint 2.35 up; her forearm_clear 2.4 -> 2.2; his 2.8 ->
     #   2.6 until his mesh is measured). agent-13's tented line is the mesh's heel + 0.5 (2.9 for her)
     DESK_THUMB = 0.6  # cm the thumb's joints keep over the desk top (seatkit's desk.finger line is 0.4)
-    DESK_PITCH_MAX = 16.0  # deg the contact solve pitches the hand at most (14 left a landing pinky DIP 0.1 under)
+    DESK_PITCH_MAX = 16.0  # deg the contact solve pitches the hand at most. A trade-off at the LANDINGS (the elbow drops
+    #   onto the desk at 140-220 cm/s): 30 keeps every finger out of the desk but snaps 5.2 /min; 16 snaps 3.1 with a
+    #   landing pinky DIP 0.6-0.7 cm under for a frame. The landing itself must ease (agent-01's rest IK)
     REST_HAND_PITCH, REST_PITCH_BAND = 10.0, 8.0  # deg: the resting palm's long axis over the desk (hers sits 4-13)
     #   and the band the safety level leaves alone
 

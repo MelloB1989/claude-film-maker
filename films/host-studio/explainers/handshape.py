@@ -30,6 +30,7 @@ FINGERS4 = ("index", "middle", "ring", "pinky")
 SYNERGY = {"index": (4.0, 82.0, 6.0, 100.0), "middle": (4.0, 86.0, 6.0, 104.0),
            "ring": (5.0, 88.0, 7.0, 104.0), "pinky": (6.0, 90.0, 8.0, 100.0)}
 MCP_LEAD = 1.6  # the MCP's front-loading (1 = linear with the PIP)
+PIP_LAG = 1.4   # the PIP's back-loading (PIP = P0 + (Pmax - P0) * c^PIP_LAG)
 DIP_K = 0.67    # DIP / PIP
 C_MIN, C_MAX = -0.06, 1.08  # closure limits (a little past straight on an open palm; a tight fist)
 
@@ -65,7 +66,7 @@ THUMB_IP = 62.0
 #   soft_fist  a loose fist, the thumb across the middle phalanges
 SHAPES = {
     "relaxed": {"index": 22, "middle": 28, "ring": 34, "pinky": 40, "thumb": 60, "_opp": 10},
-    "rest": {"index": 10, "middle": 12, "ring": 10, "pinky": 8, "thumb": 12, "_opp": -10},
+    "rest": {"index": 18, "middle": 20, "ring": 17, "pinky": 13, "thumb": 12, "_opp": -10},
     "open": {"index": 3, "middle": 4, "ring": 6, "pinky": 9, "thumb": 5, "_opp": -45},
     "list": {"index": 8, "middle": 10, "ring": 13, "pinky": 17, "thumb": 8, "_opp": -20},
     "point": {"index": 3, "middle": 80, "ring": 84, "pinky": 86, "thumb": 90, "_opp": 0},
@@ -105,7 +106,10 @@ def finger_angles(finger: str, closure_pct: float, pip_extra: float = 0.0) -> tu
         mcp = m0 + (m1 - m0) * lead
     else:  # past straight (an open palm's drift): the knuckle gives, the end joints barely
         mcp = m0 + 60.0 * c
-    pip = max(0.0, p0 + (p1 - p0) * c + pip_extra)
+    cp = c ** PIP_LAG if c > 0.0 else c  # the middle joint trails at low closure: an open or relaxed hand bends at the
+    #   knuckles with the fingers nearly straight (the operator's reference); linear, a list hand's PIP+DIP (8-11 +
+    #   6-7 at MCP 13-22) curled like the MCP and, palm to camera with the knuckles foreshortened, read as a claw
+    pip = max(0.0, p0 + (p1 - p0) * cp + pip_extra)
     return mcp, pip, DIP_K * pip
 
 
