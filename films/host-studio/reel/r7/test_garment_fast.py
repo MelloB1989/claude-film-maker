@@ -199,6 +199,56 @@ def test_engines_agree_rest_pose_and_cache():
     assert flat(x) == flat(y)
 
 
+def make_D_sleeved(pose, as_np):
+    """His case: the garment (torso shell + a LOOSE sleeve, r 7.5 round each upper arm) on a ref pose of its own
+    (T-pose arms, rest_vs_body > 1 cm), posed with the arm."""
+    rD = make_D(pose, as_np)
+    sh = {"l": (0.0, -15.0, 55.0), "r": (0.0, 15.0, 55.0)}
+    tpose_el = {"l": (0.0, -40.0, 55.0), "r": (0.0, 40.0, 55.0)}
+    rest_el = {"l": (0.0, -31.0, 36.0), "r": (0.0, 31.0, 36.0)}
+    tP, tT = sphere((0, 0, 40), 12.6, 20)
+    tT = [(a, c, b) for a, b, c in tT]
+    rP, pP, T = list(tP), list(tP), list(tT)
+    for sd in ("r", "l"):
+        a = np.asarray(sh[sd]) + 0.35 * (np.subtract(tpose_el[sd], sh[sd]))
+        cP, cT = cylinder(tuple(a), tpose_el[sd], 7.5, rings=10)
+        off = len(rP)
+        rP += cP
+        el = pose.get(sd, rest_el[sd])
+        v0, v1 = np.subtract(tpose_el[sd], sh[sd]), np.subtract(el, sh[sd])
+        ax = np.cross(v0, v1)
+        Rm = rot(tuple(ax), math.atan2(np.linalg.norm(ax), v0 @ v1)) if np.linalg.norm(ax) > 1e-9 else np.eye(3)
+        pP += [tuple(np.asarray(sh[sd]) + Rm @ (np.asarray(p) - sh[sd])) for p in cP]
+        T += [(x + off, y + off, z + off) for x, y, z in cT]
+    segs = dict(rD["rest_bones"]["Body"][0])
+    for sd in ("l", "r"):
+        segs[f"upperarm_{sd}"] = (sh[sd], tpose_el[sd])
+        segs[f"lowerarm_{sd}"] = (tpose_el[sd], tuple(np.asarray(tpose_el[sd]) + np.subtract(tpose_el[sd], sh[sd])))
+    conv = (lambda P: np.asarray(P, float)) if as_np else (lambda P: P)
+    convT = (lambda T: np.asarray(T, np.int64)) if as_np else (lambda T: T)
+    rD["posed"]["Top"] = (conv(pP), convT(T))
+    rD["rest"]["Top"] = (conv(rP), convT(T))
+    rD["rest_bones"]["Top"] = (segs, {sd: sh[sd] for sd in ("l", "r")})
+    return rD
+
+
+def test_own_pose_garment_gets_a_mapped_self_check_and_sleeves():
+    """His Host_Op_Outfits run: rest None (the garment skipped), sides -5 cm on 130-210 verts = his own sleeve."""
+    pose = {"l": (2.0, -17.5, 30.0), "r": (2.0, 17.5, 30.0)}
+    for as_np, E in ((False, gm.PyEngine()), (True, gf.NpEngine())):
+        a = gm.arms_compute(make_D_sleeved(pose, as_np), {}, E)
+        assert a["sides"]["l"]["rest_check_mapped"] == ["Top"]
+        assert a["sides"]["l"]["rest_clear_cm"] < 0          # the mapped self-check now SEES the sleeve-as-torso
+        b = gm.arms_compute(make_D_sleeved(pose, as_np), {"SLEEVES": "1"}, E)
+        for sd in ("l", "r"):
+            assert b["sides"][sd]["rest_clear_cm"] > 0 and b["sides"][sd]["rest_verts_lt0"] == 0
+            assert b["sides"][sd]["zones"]["side"]["verts_lt0"] == 0
+            assert b["sides"][sd]["zones"]["side"]["clear_cm"] > 0
+    pa = flat(gm.arms_compute(make_D_sleeved(pose, False), {"SLEEVES": "1"}, gm.PyEngine()))
+    pb = flat(gm.arms_compute(make_D_sleeved(pose, True), {"SLEEVES": "1"}, gf.NpEngine()))
+    assert pa == pb, {k: (pa.get(k), pb.get(k)) for k in set(pa) | set(pb) if pa.get(k) != pb.get(k)}
+
+
 def test_box_process_matches():
     """The editor's --engine fast hand-off: the files + meta.json as the editor writes them, garment_fast.py run as a
     process (as on the box), its RESULT = PyEngine's numbers."""

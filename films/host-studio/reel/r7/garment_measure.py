@@ -174,18 +174,21 @@ def is_torso_seg(n):
     return n.startswith("spine:") or n.startswith("clavicle_")
 
 
-def arm_sets(lab, rest_P, shoulder, side, arm_t0=0.3, axilla_cm=7.0, arm_r=None, margin=1.5, torso_t0=0.45):
+def arm_sets(lab, rest_P, shoulder, side, arm_t0=0.3, axilla_cm=7.0, arm_r=None, margin=1.5, torso_t0=0.45,
+             sleeves=False):
     """(arm vertex ids, torso vertex ids) for one side from the ref-pose labels. Arm: nearest segment upperarm_<s>,
     t >= arm_t0 and within arm_r of the bone (v2b run 1: without the radius, her side's skin under the A-pose arm was
     'arm' and sat inside the Top: -10.4 cm everywhere). Torso: nearest a spine/clavicle segment, or nearest that upper
     arm but farther than arm_r + margin from it AND past torso_t0 down the bone (her side under the arm; v2b r7w: with
     no t floor the deltoid/armpit at t 0.25, 5.1 cm off the bone, was 'torso' next to arm points at t 0.3, and the
-    self-check read -4.4); either way > axilla_cm from the shoulder."""
+    self-check read -4.4); either way > axilla_cm from the shoulder. sleeves (a garment with sleeves, his tee): no
+    vertex nearest an upper arm is torso (his loose sleeve, > arm_r + margin off the bone, read as torso round his own
+    arm: about -5 cm on 130-210 verts in every frame)."""
     arm, torso = [], []
     for i, (n, t, d) in lab.items():
         if n == f"upperarm_{side}" and t >= arm_t0 and (arm_r is None or d <= arm_r):
             arm.append(i)
-        elif (is_torso_seg(n) or (arm_r is not None and n == f"upperarm_{side}" and d > arm_r + margin
+        elif (is_torso_seg(n) or (not sleeves and arm_r is not None and n == f"upperarm_{side}" and d > arm_r + margin
                                   and t >= torso_t0)) and \
                 math.dist(rest_P[i], shoulder) > axilla_cm:
             torso.append(i)
@@ -491,6 +494,31 @@ class PyEngine:
                               [(i, P[i]) for i in idx], max_d, chain=chain)
 
 
+def rigid_map(p, a0, b0, a1, b1):
+    """p moved with the segment a0 -> b0 onto a1 -> b1 (the smallest rotation about a0, then a0 -> a1): the Body's
+    ref-pose arm put into a garment's own ref pose, for that garment's self-check."""
+    u0, u1 = norm(sub(b0, a0)), norm(sub(b1, a1))
+    v = sub(p, a0)
+    k = cross(u0, u1)
+    s_, c = math.sqrt(dot(k, k)), dot(u0, u1)
+    if s_ > 1e-9:
+        k = (k[0] / s_, k[1] / s_, k[2] / s_)
+        kv, kd = cross(k, v), dot(k, v)
+        v = tuple(v[i] * c + kv[i] * s_ + k[i] * kd * (1 - c) for i in range(3))
+    elif c < 0:
+        v = (-v[0], -v[1], -v[2])
+    return (a1[0] + v[0], a1[1] + v[1], a1[2] + v[2])
+
+
+def _min_check(results):
+    """Several self-checks of one kind -> one: the lowest reading, the inside counts summed."""
+    rs = [r for r in results if r[0] is not None]
+    if not rs:
+        return (None, 0, 0)
+    w = min(rs, key=lambda r: r[0][0])[0]
+    return (w, sum(r[1] for r in rs), sum(r[2] for r in rs))
+
+
 def arms_compute(D, G, E, cache=None):
     """body.upperarm_*_clear_cm for one frame from the posed + ref-pose meshes (D: what the editor read; E: PyEngine
     or garment_fast.NpEngine). cache: kept between the frames of one run (labels, the arm/torso split, the zones and
@@ -526,7 +554,7 @@ def arms_compute(D, G, E, cache=None):
     cy = Cyl(chain[0], chain[3], D["facing_f"], sub(B["clavicle_l"], B["clavicle_r"]))  # her left, a direction
     max_d, ax = float(G.get("MAX_D", 20.0)), float(G.get("AXILLA_CM", 7.0))
     P = posed["Body"][0]
-    knobs = tuple(G.get(k) for k in ("ARM_R", "ARM_R_X", "ARM_T0", "AXILLA_CM", "FRONT_DEG", "MAX_D"))
+    knobs = tuple(G.get(k) for k in ("ARM_R", "ARM_R_X", "ARM_T0", "AXILLA_CM", "FRONT_DEG", "MAX_D", "SLEEVES"))
 
     def rec_of(w, ua, la):
         tq, _, thq = cy(w[2])
@@ -540,12 +568,14 @@ def arms_compute(D, G, E, cache=None):
             r_med = arm_radius(labels["Body"], sd)
             arm_r = float(G["ARM_R"]) if G.get("ARM_R") else (r_med * float(G.get("ARM_R_X", 1.3)) if r_med else None)
             arm, _ = arm_sets(labels["Body"], rest["Body"][0], sh, sd, float(G.get("ARM_T0", 0.3)), ax, arm_r)
-            torso, flags, skipped, rest_sets, rzone = {}, {}, [], [], {"front": [], "side": []}
+            torso, flags, skipped, rest_sets, rzone, rq_of = {}, {}, [], [], {"front": [], "side": []}, {}
+            sleeves = str(G.get("SLEEVES", "0")) == "1"
             for n in parts:
-                torso[n] = arm_sets(labels[n], rest[n][0], rest_bones[n][1][sd], sd, 1.1, ax, arm_r)[1]
-                rq = E.tris(rest[n][0], rest[n][1], torso[n], n, rest_chain[n] if n != "Body" else None)
+                torso[n] = arm_sets(labels[n], rest[n][0], rest_bones[n][1][sd], sd, 1.1, ax, arm_r,
+                                    sleeves=sleeves and n != "Body")[1]
+                rq = rq_of[n] = E.tris(rest[n][0], rest[n][1], torso[n], n, rest_chain[n] if n != "Body" else None)
                 flags[n] = E.flags(rq, rc0, rest_fwd, front)
-                if out["parts"][n]["rest_vs_body_cm"] <= 1.0:  # the rest check needs one pose for both
+                if out["parts"][n]["rest_vs_body_cm"] <= 1.0:  # one ref pose for both: one combined check
                     rest_sets.append(rq)
                     rzone["front"].append(E.take(rq, flags[n], True))
                     rzone["side"].append(E.take(rq, flags[n], False))
@@ -554,10 +584,24 @@ def arms_compute(D, G, E, cache=None):
             # self-check: the same sets on the ref pose (arms out, clear of the torso) must read > 0, else the
             # arm/torso split is wrong and the posed number means nothing
             RP = rest["Body"][0]
-            rw, rneg, _ = E.clear(E.cat(rest_sets), arm, RP, max_d, rest_chain["Body"])
+            checks = [E.clear(E.cat(rest_sets), arm, RP, max_d, rest_chain["Body"])]
             rf, rs = E.cat(rzone["front"]), E.cat(rzone["side"])
-            rz = E.zclear(E.cat([rf, rs]), ["front"] * E.n(rf) + ["side"] * E.n(rs), {"front": rf, "side": rs},
-                          arm, RP, max_d, rest_chain["Body"])
+            zchecks = [E.zclear(E.cat([rf, rs]), ["front"] * E.n(rf) + ["side"] * E.n(rs), {"front": rf, "side": rs},
+                                arm, RP, max_d, rest_chain["Body"])]
+            # a garment on a ref pose of its own (his outfit, Epic's default: rest_vs_body > 1 cm, no check before):
+            # its own check, with the Body's arm moved onto that garment's upper-arm bone
+            a0, b0 = rest_bones["Body"][0][f"upperarm_{sd}"]
+            for n in skipped:
+                a1, b1 = rest_bones[n][0][f"upperarm_{sd}"]
+                RPm = [tuple(float(x) for x in p) for p in RP]
+                for i in arm:
+                    RPm[i] = rigid_map(RPm[i], a0, b0, a1, b1)
+                checks.append(E.clear(rq_of[n], arm, RPm, max_d, rest_chain[n]))
+                nf, ns = E.take(rq_of[n], flags[n], True), E.take(rq_of[n], flags[n], False)
+                zchecks.append(E.zclear(E.cat([nf, ns]), ["front"] * E.n(nf) + ["side"] * E.n(ns),
+                                        {"front": nf, "side": ns}, arm, RPm, max_d, rest_chain[n]))
+            rw, rneg, _ = _min_check(checks)
+            rz = {z: _min_check([zc[z] for zc in zchecks]) for z in ("front", "side")}
             cache[skey] = (arm, r_med, arm_r, torso, flags, skipped, (rw, rneg), rz)
         arm, r_med, arm_r, torso, flags, skipped, (rw, rneg), rz = cache[skey]
         pe = {n: E.tris(posed[n][0], posed[n][1], torso[n], n, chain if n != "Body" else None) for n in parts}
@@ -571,7 +615,8 @@ def arms_compute(D, G, E, cache=None):
         rec = {"arm_verts": len(arm), "torso_tris": E.n(entries), "verts_lt0": neg, "verts_lt3": lt3,
                "arm_r_med": r_med and round(r_med, 2), "arm_r": arm_r and round(arm_r, 2),
                "rest_clear_cm": rw and round(rw[0], 2), "rest_verts_lt0": rneg,
-               "rest_part": rw and rw[3][0], "rest_check_skips": skipped}
+               "rest_part": rw and rw[3][0], "rest_check_skips": [], "rest_check_mapped": skipped,
+               "sleeves": str(G.get("SLEEVES", "0")) == "1"}
         if rw and rw[0] < 0:  # why the self-check failed: the arm point and the torso face, by their ref labels
             ln, lt, ld = labels["Body"][rw[1]]
             tn, tt, td = labels[rw[3][0]].get(rw[3][1], ("?", 0.0, 0.0))
@@ -907,7 +952,7 @@ def main(argv=None) -> int:
                 f"{sd}: {r.get('clear_cm')} cm (arm_t {r.get('arm_t')}, {r.get('torso_part')} at t {r.get('torso_t_cm')}"
                 f" cm, {r.get('torso_deg')} deg; <0 {r['verts_lt0']}, <3 {r['verts_lt3']} of {r['arm_verts']}; arm_r "
                 f"{r.get('arm_r')}; rest {r.get('rest_clear_cm')}/{r.get('rest_verts_lt0')} {r.get('rest_part')}"
-                f"{' skips ' + ','.join(r['rest_check_skips']) if r.get('rest_check_skips') else ''}"
+                f"{' mapped ' + ','.join(r['rest_check_mapped']) if r.get('rest_check_mapped') else ''}"
                 f"{' WHY ' + json.dumps(r['rest_worst']) if r.get('rest_worst') else ''})"
                 for sd, r in res["sides"].items()), flush=True)
         else:
