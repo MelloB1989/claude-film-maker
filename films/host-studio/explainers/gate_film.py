@@ -38,6 +38,8 @@ def scoped(spec: dict, film: str) -> dict:
     sp = json.loads(json.dumps(spec))
     sp["items"] = {k: v for k, v in sp.get("items", {}).items() if film in v.get("films", [film])}
     for k, v in sp["items"].items():
+        if film in (v.get("line_by_film") or {}):
+            v["line"] = v["line_by_film"][film]
         if film in v.get("info_films", []):
             v["info"] = True
             v["r4"] = [None, v.get("info_reason", "not applicable to this film")]

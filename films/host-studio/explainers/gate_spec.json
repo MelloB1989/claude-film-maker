@@ -891,7 +891,11 @@
     "netflix v2b 0.0 (n 39) and TEST side A 0.0 (box B qa.hands_in_frame, core 3a782e71, TEST frames; fleet/agent-06/r7-boxb 276be4a0 hands_A/hands_v2b.json)"
    ],
    "guard": true,
-   "why": "the orchestrator: the viewer sees elbows out and no hands = still stiff; the gesture space is chest-to-collarbone in front of the torso"
+   "why": "the orchestrator: the viewer sees elbows out and no hands = still stiff; the gesture space is chest-to-collarbone in front of the torso",
+   "line_by_film": {
+    "netflix": 0.5
+   },
+   "line_by_film_reason": "the orchestrator's ruling (08 Nov), her explainer: her rest pose goes LOWER (wrists ~80 cm, ~30 cm forward of the spine, clear of the bust and the desk), so in CAM_MCU the rest may sit at the frame's bottom edge; a natural rest beats visible hands in the pauses, and the gestures still rise into the frame. His film keeps 0.6"
   },
   "body.hands_in_frame_cu_frac": {
    "area": "performance",
@@ -1024,5 +1028,5 @@
   "shot.grain_sigma_close": "shot.grain_sigma",
   "shot.grain_sigma_wide": "shot.grain_wide_sigma"
  },
- "_films": "items with 'films' apply only to those films (gate_film.py --film filters them); 'aliases' maps a producer's key to the spec's id; 'info_films' makes an item INFO for those films with 'info_reason'"
+ "_films": "items with 'films' apply only to those films (gate_film.py --film filters them); 'aliases' maps a producer's key to the spec's id; 'info_films' makes an item INFO for those films with 'info_reason'; 'line_by_film' sets an item's line per film"
 }
