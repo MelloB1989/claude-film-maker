@@ -1559,6 +1559,8 @@ class Performer(S.Seater):
     REST_WRIST_UNDER = 0.2  # cm the resting wrist joint sits under the presenter's forearm_clear: the heel of the palm
     #   ON the desk (agent-02 on her mesh: heel down = the wrist joint 2.35 up; her forearm_clear 2.4 -> 2.2; his 2.8 ->
     #   2.6 until his mesh is measured). agent-13's tented line is the mesh's heel + 0.5 (2.9 for her)
+    DESK_TIP_MIN = 0.5  # cm every fingertip (the thumb's too) at least over the desk top, every frame (the orchestrator:
+    #   >= 0.3, the pads touching through the skin, never the bone under the surface)
     DESK_THUMB = 0.6  # cm the thumb's joints keep over the desk top (seatkit's desk.finger line is 0.4)
     DESK_PITCH_MAX = 16.0  # deg the contact solve pitches the hand at most. A trade-off at the LANDINGS (the elbow drops
     #   onto the desk at 140-220 cm/s): 30 keeps every finger out of the desk but snaps 5.2 /min; 16 snaps 3.1 with a
@@ -1630,7 +1632,38 @@ class Performer(S.Seater):
             r = axis_angle(ax, -ang * kk)  # (the axis's sign: the turn must take the tip toward the desk line)
         for b in [ha] + bones:
             W[b] = [add(piv, qrot(r, sub(W[b][0], piv))), qnorm(qmul(r, W[b][1]))]
+        self._fingers_off_desk(s, W)
         self._thumb_off_desk(s, W)
+
+    def _fingers_off_desk(self, s: str, W) -> None:
+        """A finger whose DIP joint or tip dips under the desk line lifts at its knuckle by just enough (a landing:
+        the hand's pitch is capped, and pitching it further bends the wrist past the flex/ext line; the finger alone
+        gives, the way a real finger meets the desk)."""
+        sk = self.sk
+        for f in ("index", "middle", "ring", "pinky"):
+            j1, j3 = f"{f}_01_{s}", f"{f}_03_{s}"
+            if j1 not in W or j3 not in W or j3 not in sk.local:
+                continue
+            lt = sk.local[j3]["t"]
+            for _ in range(2):
+                tip = add(W[j3][0], mul(qrot(W[j3][1], unit(lt)), TIP_K.get(f, 0.75) * norm(lt)))
+                pts = [(W[j3][0], self.set.desk_top + self.DESK_THUMB), (tip, self.set.desk_top + self.DESK_TIP_MIN)]
+                worst, line = min(pts, key=lambda pl: self.actor(pl[0])[2] - pl[1])
+                need = line - self.actor(worst)[2]
+                if need <= 0.0:
+                    break
+                piv = W[j1][0]
+                arm = sub(worst, piv)
+                reach = math.hypot(arm[0], arm[1])
+                if reach < 1.0:
+                    break
+                ang = math.degrees(math.asin(max(-1.0, min(1.0, need / reach)))) * 1.05
+                ax = unit(cross(arm, [0.0, 0.0, 1.0]))
+                r = axis_angle(ax, ang)
+                if self.actor(add(piv, qrot(r, arm)))[2] < self.actor(worst)[2]:
+                    r = axis_angle(ax, -ang)
+                for b in [x for x in W if x.startswith(f + "_") and x.endswith("_" + s) and "metacarpal" not in x]:
+                    W[b] = [add(piv, qrot(r, sub(W[b][0], piv))), qnorm(qmul(r, W[b][1]))]
 
     def _thumb_off_desk(self, s: str, W) -> None:
         """A thumb joint under DESK_THUMB rides up on the desk: the thumb turns up at its base (CMC) by just enough
@@ -1640,20 +1673,29 @@ class Performer(S.Seater):
             return
         js = [j for j in (f"thumb_02_{s}", f"thumb_03_{s}") if j in W]
         line = self.set.desk_top + self.DESK_THUMB
-        for _ in range(3):  # each pass lifts the lowest joint; a joint near the base needs the next pass
-            worst = min(js, key=lambda j: self.actor(W[j][0])[2], default=None)
-            if worst is None or self.actor(W[worst][0])[2] >= line - 0.02:
+        j3 = f"thumb_03_{s}"
+        lt = self.sk.local[j3]["t"] if j3 in W and j3 in self.sk.local else None
+
+        def points():  # the thumb's joints and its tip (the orchestrator: every fingertip >= 0.3 over the desk top)
+            pts = [(W[j][0], line) for j in js]
+            if lt is not None and norm(lt) > 1e-6:
+                pts.append((add(W[j3][0], mul(qrot(W[j3][1], unit(lt)), TIP_K.get("thumb", 0.9) * norm(lt))),
+                            self.set.desk_top + self.DESK_TIP_MIN))
+            return pts
+        for _ in range(3):  # each pass lifts the lowest point; a joint near the base needs the next pass
+            wp, wl = min(points(), key=lambda pl: self.actor(pl[0])[2] - pl[1], default=(None, 0.0))
+            if wp is None or self.actor(wp)[2] >= wl - 0.02:
                 return
             piv = W[j1][0]
-            arm = sub(W[worst][0], piv)
+            arm = sub(wp, piv)
             reach = math.hypot(arm[0], arm[1])
             if reach < 1.0:
                 return
-            need = line - self.actor(W[worst][0])[2]
+            need = wl - self.actor(wp)[2]
             ang = math.degrees(math.asin(max(-1.0, min(1.0, need / reach)))) * 1.05
             ax = unit(cross(arm, [0.0, 0.0, 1.0]))
             r = axis_angle(ax, ang)
-            if self.actor(add(piv, qrot(r, arm)))[2] < self.actor(W[worst][0])[2]:
+            if self.actor(add(piv, qrot(r, arm)))[2] < self.actor(wp)[2]:
                 r = axis_angle(ax, -ang)
             for b in [b for b in W if b.startswith("thumb_") and b.endswith("_" + s)]:
                 W[b] = [add(piv, qrot(r, sub(W[b][0], piv))), qnorm(qmul(r, W[b][1]))]
