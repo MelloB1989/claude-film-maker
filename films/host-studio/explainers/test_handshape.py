@@ -46,7 +46,7 @@ def test_a_straight_finger_keeps_its_natural_curve():
         assert 3.0 <= m <= 8.0 and 5.0 <= p <= 9.0 and d > 3.0
 
 
-@pytest.mark.parametrize("name", ["relaxed", "rest", "open", "list", "soft_fist", "pinch"])
+@pytest.mark.parametrize("name", ["relaxed", "open", "list", "soft_fist", "pinch"])
 def test_relaxed_cascade_index_least_pinky_most(name):
     sh = HS.full(name)
     order = [sh[f] for f in ("middle", "ring", "pinky")]
@@ -108,7 +108,7 @@ def test_the_pinch_pads_meet(rig, s):
     assert d < 3.0, d
 
 
-OPP_FLOOR = {"relaxed": 15, "rest": 15, "point": 25, "raise": 25, "count1": 25, "count2": 25, "count3": 25,
+OPP_FLOOR = {"relaxed": 15, "point": 25, "raise": 25, "count1": 25, "count2": 25, "count3": 25,
              "pinch": 30, "soft_fist": 20}
 
 
@@ -117,3 +117,22 @@ OPP_FLOOR = {"relaxed": 15, "rest": 15, "point": 25, "raise": 25, "count1": 25, 
 def test_the_thumb_is_opposed_not_flat_in_the_palm(rig, name, s):
     W = posed(rig, s, name)
     assert HS.thumb_opposition({b: v[0] for b, v in W.items()}, s) >= OPP_FLOOR[name]
+
+
+def test_the_desk_rest_is_gently_curled_in_the_orchestrators_ranges():
+    for f in HS.FINGERS4:  # MCP 15-25 / PIP 20-35 / DIP 10-20 (the orchestrator), a little latitude on the middle
+        m, p, d = angles("rest", f)
+        assert 15.0 <= m <= 30.0 and 15.0 <= p <= 35.0 and 10.0 <= d <= 20.0, (f, m, p, d)
+
+
+@pytest.mark.parametrize("name", ["relaxed", "rest", "list"])
+@pytest.mark.parametrize("s", ["l", "r"])
+def test_fingers_lie_nearly_together(rig, name, s):
+    """the orchestrator: no 'piano/spider' fan; agent-13's finger_spread: adjacent abduction <= 5 deg."""
+    G, sk, perf = rig
+    import gesture_style as GS
+    W = posed(rig, s, name)
+    GS.finger_post(perf, s, G.HandPose((0, 0, 0), 0, 0, GS.shape_dict(name)), W)
+    ab = HS.abduction({b: v[0] for b, v in W.items()}, {b: v[1] for b, v in W.items()}, s)
+    adj = [ab["middle"] - ab["index"], ab["ring"] - ab["middle"], ab["pinky"] - ab["ring"]]
+    assert max(abs(x) for x in adj) <= 5.0, adj

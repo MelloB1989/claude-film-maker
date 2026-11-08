@@ -85,9 +85,8 @@ MOVE_MIN_S = 0.3  # s: a stroke's move at least (agent-13: 0.13-0.25 s strokes p
 #   at 2.4-3.6x their mean speed, vel_bell 8/15 at 24 fps; the apex stays on its word, the hold before gives the time)
 PARTIAL_S = 1.1     # a gap shorter than this falls only halfway to the rest
 LAG_S = {"pinky": 0.030, "ring": 0.045, "thumb": 0.050, "middle": 0.062, "index": 0.080}  # fingers behind the wrist
-SPREAD_SIGN = {"index": -1.0, "middle": 0.0, "ring": 0.6, "pinky": 1.2, "thumb": -0.8}
-SHAPE_SPREAD = {"rest": 2.0, "relaxed": 3.0, "open": 9.0, "point": 2.0, "count1": 2.0, "count2": 6.0, "count3": 7.0,
-                "pinch": 1.0, "soft_fist": 0.0, "list": 5.0, "raise": 2.0}
+SHAPE_SPREAD = {"rest": 0.0, "relaxed": 0.0, "open": 3.0, "point": 0.0, "count1": 0.0, "count2": 3.0, "count3": 3.0,
+                "pinch": 0.0, "soft_fist": 0.0, "list": 1.0, "raise": 0.0}  # deg opening handshape's together fan
 SIM_FAIL = 0.95
 MIC_L = (14.0, 8.0)  # the left hand (mic side) on a gesture: out <= 14 cm, up <= 8 cm from the sternum point
 #   (r7F: 9 / -2 with the mic at her chest; with it at her mouth and the rest low, that box held her left hand still)
@@ -183,7 +182,7 @@ class Var:
                    bulge=(g(0, 1.0), r.uniform(-0.5, 2.2), r.uniform(-0.6, 2.0)),
                    dt=max(-0.04, min(0.04, g(0, 0.02))),
                    d_pron=max(-9.0, min(9.0, g(0, 4.5))), d_ext=max(-6.0, min(6.0, g(0, 3.0))),
-                   dz=max(-2.0, min(2.0, g(0, 1.0))), spread=max(-3.0, min(4.0, g(0, 1.6))),
+                   dz=max(-2.0, min(2.0, g(0, 1.0))), spread=max(-1.0, min(1.5, g(0, 0.6))),
                    fingers={f: max(-6.0, min(6.0, g(0, 2.5))) for f in GK.FINGERS},
                    overshoot=OVERSHOOT_K * (0.02 + 0.03 * energy) * r.uniform(0.7, 1.3), settle=r.uniform(0.08, 0.12),
                    retract=r.uniform(0.32, 0.5), skew=1.0, lag=r.uniform(0.8, 1.25))  # skew 1: one min-jerk
@@ -624,43 +623,50 @@ def weights(perf, t: float) -> dict:
 
 
 def _spread_axes(perf) -> dict:
-    """Per hand: the palm's normal (rest), its sign set so +spread moves the index away from the pinky."""
+    """Per hand (reference pose): the palm's normal signed so + turns a finger toward the pinky, and each finger's own
+    reference abduction off the middle finger (handshape.abduction: her left rig fans -11 / +8 / +7 deg)."""
     ax = getattr(perf, "_gs_spread", None)
     if ax is not None:
         return ax
     sk, ax = perf.sk, {}
+    P = {b: sk.p(b) for b in sk.world}
+    Q = {b: sk.q(b) for b in sk.world}
     for s in "lr":
-        need = (f"index_01_{s}", f"index_03_{s}", f"pinky_01_{s}", f"middle_01_{s}", f"middle_03_{s}")
+        need = (f"index_01_{s}", f"pinky_01_{s}", f"middle_01_{s}", f"ring_01_{s}", f"hand_{s}")
         if not all(b in sk.local for b in need):
             continue
-        across = sub(sk.p(f"pinky_01_{s}"), sk.p(f"index_01_{s}"))
-        along = unit(sub(sk.p(f"middle_03_{s}"), sk.p(f"middle_01_{s}")))
-        n = unit(cross(along, across))
-        d_index = sub(sk.p(f"index_03_{s}"), sk.p(f"index_01_{s}"))
-        if dot(sub(qrot(axis_angle(n, 5.0), d_index), d_index), across) > 0:  # +5 deg went toward the pinky
+        kn = sub(sk.p(f"pinky_01_{s}"), sk.p(f"index_01_{s}"))
+        n = unit(cross(unit(sub(sk.p(f"middle_01_{s}"), sk.p(f"hand_{s}"))), kn))
+        d = sub(sk.p(f"middle_02_{s}"), sk.p(f"middle_01_{s}"))
+        if dot(sub(qrot(axis_angle(n, 5.0), d), d), kn) < 0:  # +5 deg must go toward the pinky
             n = mul(n, -1.0)
-        ax[s] = n
+        ax[s] = {"n": n, "ref": HS.abduction(P, Q, s)}
     perf._gs_spread = ax
     return ax
 
 
 def finger_post(perf, s: str, hp, W) -> None:
-    """Each finger turned about its first joint in the palm's plane by its share of the spread."""
-    n0 = _spread_axes(perf).get(s)
-    spread = float(hp.shape.get("_spread", 0.0)) if isinstance(hp.shape, dict) else 0.0
-    if n0 is None or abs(spread) < 1e-3:
+    """Each finger turned about its first joint in the palm's plane to its ABSOLUTE abduction (handshape: nearly
+    together at a relaxed hand, the shape's spread opening the fan, closing fingers converging), from the rig's own
+    reference fan (R7 hands: relative spread on her left rig's wide fan read as a spider hand)."""
+    info_s = _spread_axes(perf).get(s)
+    if info_s is None:
         return
+    sh = hp.shape if isinstance(hp.shape, dict) else shape_dict(hp.shape)
+    spread = float(sh.get("_spread", 0.0))
     sk = perf.sk
-    n = qrot(qmul(W["hand_" + s][1], qinv(sk.q("hand_" + s))), n0)
-    for f in GK.FINGERS:
+    n = qrot(qmul(W["hand_" + s][1], qinv(sk.q("hand_" + s))), info_s["n"])
+    for f in ("index", "ring", "pinky"):
         info = perf._finger_info.get((s, f))
-        if not info or not SPREAD_SIGN[f]:
+        if not info:
             continue
         joints = [j for j in info["joints"] if "metacarpal" not in j and j in W]
         if not joints:
             continue
-        k = HS.spread_k(float(hp.shape.get(f, 0.0))) if f != "thumb" else 1.0  # closing fingers converge
-        r = axis_angle(n, spread * SPREAD_SIGN[f] * k)
+        turn = HS.abduction_target(f, spread, float(sh.get(f, 0.0))) - info_s["ref"].get(f, 0.0)
+        if abs(turn) < 1e-3:
+            continue
+        r = axis_angle(n, turn)
         piv = W[joints[0]][0]
         for j in joints:
             W[j] = [add(piv, qrot(r, sub(W[j][0], piv))), S.qnorm(qmul(r, W[j][1]))]
