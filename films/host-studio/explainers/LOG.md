@@ -379,3 +379,5 @@ Her setup of record (any box, from r7-girth or a tree with it merged):
    list is the hip crease only (T2: [120, 80, 79, 4, 4, 1, 1]). Leaders pass, then save (assets + level).
 4. Gates on it: agent-02 waist_skin_poke_cm <= 0 (WIDE), arms rest + gesture (bust >= 3, side >= 0.5).
 EXPL_ARMS=0 gives the slim originals (with the new hides) for comparisons only.
+
+2026-11-08 23:32 IST | agent-06 | r7I (the operator's look at her hands). Her offline body --perform on 963942f4 + agent-08 02505b92 (r7-boxb d5a05e8f) reported 0 issues, so T2 ran: cams -> body (pass, the offline rows) -> life -> place (check placed pass). Placed gates (dump with fingertips): parity 0.446 / --shoulder 0.309 / --torso 0.186 (placed = seat). claw 0, palm_to_camera 0, rest_contact 0, spread 3.2. finger_snap 9.0/min FAIL (known; rendered by the orchestrator's call). Rendered shots 1/2/11 at --preset final, 293 frames in 365 s (1.25 s/frame incl. warmup), private. Her solve.json re-derived from the existing face anims and box WAVs with no re-solve; 18 face assets' curve + uasset hashes identical before/after; lips numbers measured. T2 saved and stopped.
