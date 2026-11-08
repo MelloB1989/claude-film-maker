@@ -231,7 +231,7 @@
    "line": 0,
    "unit": "px",
    "what": "worst frame's mouth pixels the studio mic covers (qa.clip mouth: a 2 cm disc round the lip bones, the mic nearer than the face)",
-   "where": "every presenter camera (CAM_MCU / CAM_CU / CAM_MCU_L / CAM_WIDE), every shot; round 7: the mic moves UP to chin/mouth height, 12-18 cm in front and 10-15 cm to the presenter's left (the orchestrator), so this row now bites",
+   "where": "the camera ACTUALLY CUT at each frame per the film's EDL (edl/<film>.json: CAM_MCU / CAM_CU / CAM_MCU_L / CAM_WIDE at their spans); a hit in a camera not on screen at that frame is ignored (the orchestrator's ruling, 08 Nov). qa.clip reads the sequence's camera-cut track per frame (cut_camera), so the sequence's cut track must equal the EDL's when it runs (the driver checks it, or passes each EDL shot's frames)",
    "how": "film-ue op qa.clip ... 'props={\"Mic\":\"<mic>\"}' 'mouth={\"blocker\":\"Mic\"}' (core 0ce1c3ae) -> metrics.worst.mouth.blocked_px",
    "why": "the brief: the mic never covers the mouth in any camera"
   },
@@ -936,7 +936,7 @@
    "line": 0,
    "unit": "px",
    "what": "pixels of the FACE (3 cm discs round both eyes, the lips and the jaw) that the studio mic covers, from the shot's camera: the mic must not overlap the face box and the lips stay fully visible",
-   "where": "every presenter camera (MCU, CU, MCU_L, WIDE), n 8 per shot + the widest head turns",
+   "where": "the camera ACTUALLY CUT at each frame per the film's EDL (edl/<film>.json: CAM_MCU / CAM_CU / CAM_MCU_L / CAM_WIDE at their spans); a hit in a camera not on screen at that frame is ignored (the orchestrator's ruling, 08 Nov). qa.clip reads the sequence's camera-cut track per frame (cut_camera), so the sequence's cut track must equal the EDL's when it runs (the driver checks it, or passes each EDL shot's frames)",
    "how": "film-ue op qa.clip label=<presenter> sequence=<SEQ> 'props={\"Mic\":\"<mic>\"}' 'pairs=[]' 'mouth={\"blocker\":\"Mic\",\"radius_cm\":3.0,\"bones\":[\"FACIAL_L_Eye\",\"FACIAL_R_Eye\",\"FACIAL_C_LipUpper\",\"FACIAL_C_LipLower\",\"FACIAL_C_Jaw\"]}' -> metrics.worst.mouth.blocked_px (a missing bone errors: pass the rig's names)",
    "must_fail": [
     null,
@@ -975,7 +975,12 @@
     "a missing / duplicated frame, a flagged seam, or a chunk without leaders (farm_rows tests)"
    ],
    "guard": true,
-   "why": "the finals now render on N farm workers in chunks: none may be lost or doubled"
+   "why": "the finals now render on N farm workers in chunks: none may be lost or doubled",
+   "info": true,
+   "r4": [
+    null,
+    "INFO under the orchestrator's COST POLICY (08 Nov): the finals render ON boxes T (his) and T2 (hers), not on farm workers, so there are no farm jobs, chunks or seams to judge; garment.leaders_ok and shot.streaming_settled come from the box's render.py box.json per job again. If the farm is used after all (the orchestrator's exception for an idle box), these rows go back to hard"
+   ]
   },
   "shot.chunk_seams_ok": {
    "area": "shot",
@@ -991,7 +996,12 @@
     "a missing / duplicated frame, a flagged seam, or a chunk without leaders (farm_rows tests)"
    ],
    "guard": true,
-   "why": "the karma S17+S18 lesson (a new render job pops the hair) on the farm's chunk seams"
+   "why": "the karma S17+S18 lesson (a new render job pops the hair) on the farm's chunk seams",
+   "info": true,
+   "r4": [
+    null,
+    "INFO under the orchestrator's COST POLICY (08 Nov): the finals render ON boxes T (his) and T2 (hers), not on farm workers, so there are no farm jobs, chunks or seams to judge; garment.leaders_ok and shot.streaming_settled come from the box's render.py box.json per job again. If the farm is used after all (the orchestrator's exception for an idle box), these rows go back to hard"
+   ]
   },
   "set.strays_ok": {
    "area": "shot",
@@ -1007,7 +1017,12 @@
     "a missing / duplicated frame, a flagged seam, or a chunk without leaders (farm_rows tests)"
    ],
    "guard": true,
-   "why": "agent-06's r6 guard, per chunk"
+   "why": "agent-06's r6 guard, per chunk",
+   "info": true,
+   "r4": [
+    null,
+    "INFO under the orchestrator's COST POLICY (08 Nov): the finals render ON boxes T (his) and T2 (hers), not on farm workers, so there are no farm jobs, chunks or seams to judge; garment.leaders_ok and shot.streaming_settled come from the box's render.py box.json per job again. If the farm is used after all (the orchestrator's exception for an idle box), these rows go back to hard"
+   ]
   },
   "shot.farm_state_parity": {
    "area": "shot",
@@ -1023,23 +1038,32 @@
     0,
     "a worker on a stale sync (farm_rows test)"
    ],
-   "why": "the operator: render in parallel 'once scene is ready with everything'; a worker on an older state would render the rejected rest pose or garments"
+   "why": "the operator: render in parallel 'once scene is ready with everything'; a worker on an older state would render the rejected rest pose or garments",
+   "info": true,
+   "r4": [
+    null,
+    "INFO under the orchestrator's COST POLICY (08 Nov): the finals render ON boxes T (his) and T2 (hers), not on farm workers, so there are no farm jobs, chunks or seams to judge; garment.leaders_ok and shot.streaming_settled come from the box's render.py box.json per job again. If the farm is used after all (the orchestrator's exception for an idle box), these rows go back to hard"
+   ]
   },
   "body.rest_hand_torso_cm": {
    "area": "performance",
    "track": "agent-01 / agent-10 (body), agent-09 (measure)",
    "op": ">=",
-   "line": 15.0,
+   "line": 8.0,
    "unit": "cm",
    "guard": true,
-   "what": "on the REST/bridge frames (both hands still >= 0.25 s), the min distance from either hand (wrist + knuckles + fingertips) to the chest surface (posed Body + Top near the spine, the arms and hands excluded)",
+   "what": "on the REST/bridge frames (both hands still >= 0.25 s), the min distance from either hand (wrist + knuckles + fingertips) to ANY torso surface (posed Body + Top along spine_01 -> neck_01: chest, bust, belly; the lap, arms and every finger excluded)",
    "where": "every rest frame (film-qa perf-rest on seq.sample hand samples, every 2nd)",
-   "how": "film-qa perf-rest samples.json -> frames; film-ue op qa.hand_torso_clearance label=<presenter> sequence=<SEQ> 'frames=[...]' (core fleet/agent-09/r7-perf-gate) -> metrics.worst_cm -> numbers/<film>/rest.json",
+   "how": "film-qa perf-rest samples.json -> frames; film-ue op qa.hand_torso_clearance label=<presenter> sequence=<SEQ> 'frames=[...]' (core fleet/agent-09/r7-perf-gate b1d46e42+) -> metrics.worst_cm -> numbers/<film>/rest.json",
    "must_fail": [
     null,
-    "her r7F TEST (hands hovering at the top of her chest, 'fidgeting with her top', the orchestrator 08 Nov): measure it on box D; the new rest (wrists ~80 cm, ~25-30 cm forward) must pass. Line 15 PROVISIONAL until both are measured"
+    "NOT re-measured on the fixed op: box D (with the r7F and 1e88aca8 bodies) is terminated under the cost policy, and a body swap on T2 only for this would cost box time. Evidence it catches the defect: the orchestrator's 3-4 cm reading of the 1e88aca8 rest against her belly (08 Nov), and the op's tests (hands 3 cm off the chest read < 5; the other hand's fingers and the lap no longer count). The first runs (0.48 / 0.38) were the measure's hand-to-hand bug"
    ],
-   "why": "the orchestrator, 08 Nov: a natural presenter rest is hands loosely together at the lower ribcage, 20-30 cm in front of the torso, not touching the body"
+   "why": "the orchestrator, 08 Nov: the presenter-at-desk rest = forearms resting on the desk, hands loosely together ~30-35 cm in front of the torso and >= 8 cm clear of the belly/torso surface; hands on the body are the 'stuck to the body' look the operator rejected",
+   "r4": [
+    null,
+    "her body 8a45d961 on T2 (rendered seat + life; perf-rest --track by time; agent-06): worst 16.15 cm, PASS (2x the line); 5 true rest frames (f6-10, f200, f1046), the earlier 9.0 cm frames were stroke holds and are filtered out"
+   ]
   },
   "move.fingers_frozen_frac": {
    "area": "performance",
@@ -1048,8 +1072,8 @@
    "line": 0.15,
    "unit": "fraction",
    "what": "GUARD: speaking time inside >= 0.5 s runs with the fingers under 2 deg/s, worse hand",
-   "where": "her speaking frames (speak_w > 0.5); worse hand where both apply",
-   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement 9f258309; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
+   "where": "her speaking frames (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement b8dfbfdf; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
    "must_fail": [
     0.601,
     "the r7F TEST body 52ab5ea2, whole take, measured from 0.1 mm joint dumps (agent-13 9f258309): 0.601 (404db805 0.567). The earlier 0.01 cm rounding added ~6 deg/s of jitter on 3 cm finger bones, so the row passed on noise; agent-01's efe01206 reads 0.521 (left): FAIL"
@@ -1063,8 +1087,8 @@
    "line": 15.0,
    "unit": "deg",
    "what": "median forearm elevation (elbow->wrist above horizontal) at the right hand's stroke apexes: horizontal = 'typing in the air'",
-   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply",
-   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement 9f258309; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement b8dfbfdf; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
    "must_fail": [
     -2.8,
     "agent-01's earlier R7 body 404db805, WHOLE take (agent-13 cf513b41): -2.8; agent-01's ee99f626 reads 44.9 ok"
@@ -1077,9 +1101,9 @@
    "op": "<=",
    "line": 30.0,
    "unit": "deg",
-   "what": "median upper-arm elevation while that hand is at rest (gesture_w < 0.1), worse hand: resting elbows hang",
-   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply",
-   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement 9f258309; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
+   "what": "median upper-arm elevation while that hand is at rest (gesture_w < 0.1), worse hand: resting elbows hang (HANGING rests only since agent-13 993233e5; a forearm on the desk is move.humerus_elev_rest_desk_deg)",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement b8dfbfdf; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
    "must_fail": [
     73.1,
     "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): 73.1; agent-01's ee99f626 reads 26.6 ok"
@@ -1089,8 +1113,8 @@
   "move.humerus_elev_stroke_deg": {
    "area": "performance",
    "track": "agent-13 (movement director) / agent-01, agent-10 (body)",
-   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement 9f258309; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
-   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply",
+   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement b8dfbfdf; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
    "op": "<=",
    "line": 45.0,
    "unit": "deg",
@@ -1108,8 +1132,8 @@
    "line": 30.0,
    "unit": "ms",
    "what": "median onset of the hand's rotation after the upper arm's, per movement (right hand): proximal leads, distal follows",
-   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply",
-   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement 9f258309; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement b8dfbfdf; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
    "must_fail": [
     -25.4,
     "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): -25.4; agent-01's ee99f626 reads -4.7 F"
@@ -1123,8 +1147,8 @@
    "line": 0.95,
    "unit": "corr",
    "what": "GUARD: two-hand strokes, median correlation of the left wrist velocity with the right's mirrored (1.0 = a mirror copy)",
-   "where": "her speaking frames (speak_w > 0.5); worse hand where both apply",
-   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement 9f258309; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
+   "where": "her speaking frames (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement b8dfbfdf; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
    "must_fail": [
     null,
     "a GUARD: no body has failed it yet (agent-13)"
@@ -1139,8 +1163,8 @@
    "line": 0.3,
    "unit": "fraction",
    "what": "wrist movements (>= 8 cm) whose path strays < 3 % of its chord: straight lines",
-   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply",
-   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement 9f258309; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement b8dfbfdf; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
    "must_fail": [
     0.609,
     "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): 0.609; agent-01's ee99f626 reads 0.0 ok"
@@ -1156,8 +1180,8 @@
    "line": 0.02,
    "unit": "fraction",
    "what": "speaking frames with a claw hand (a finger bent back at a middle joint), worse hand",
-   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply",
-   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement 9f258309; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement b8dfbfdf; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
    "must_fail": [
     0.099,
     "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): 0.099; agent-01's ee99f626 reads 0 ok"
@@ -1171,8 +1195,8 @@
    "line": 0,
    "unit": "count",
    "what": "stroke apexes whose hand is a claw, a pinch outside a 'pinch' gesture, or flat",
-   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply",
-   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement 9f258309; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement b8dfbfdf; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
    "must_fail": [
     9,
     "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): 9; agent-01's ee99f626 reads 0 ok"
@@ -1186,8 +1210,8 @@
    "line": 0.5,
    "unit": "ratio",
    "what": "two-hand strokes: median wrist travel of the lesser hand over the greater's (a two-hand gesture with one hand parked reads as one hand and a prop)",
-   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply",
-   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement 9f258309; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement b8dfbfdf; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
    "must_fail": [
     0.429,
     "agent-01's earlier R7 body 404db805, WHOLE take (agent-13 cf513b41): 0.429; agent-01's ee99f626 reads 0.374 F"
@@ -1201,8 +1225,8 @@
    "line": 0.6,
    "unit": "fraction",
    "what": "wrist movements with a peak/mean speed of 1.6-2.3 (minimum jerk 1.875), worse hand",
-   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply",
-   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement 9f258309; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement b8dfbfdf; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
    "must_fail": [
     0.533,
     "the r7F TEST body 52ab5ea2, WHOLE take, after agent-13's measure fix 7e1bb40c (movement segments drop still frames < 2.5 cm/s at both ends: a dead-still hold had inflated peak/mean): 0.533, still under 0.60 (was 0.391 before the fix)"
@@ -1218,8 +1242,8 @@
    "line": 25.0,
    "unit": "deg",
    "what": "p90 over speaking frames of |wrist flexion/extension| (3rd metacarpal vs the forearm), worse hand",
-   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply",
-   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement 9f258309; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement b8dfbfdf; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
    "must_fail": [
     38.9,
     "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): 38.9; agent-01's ee99f626 reads 23.1 ok"
@@ -1233,8 +1257,8 @@
    "line": 15.0,
    "unit": "deg",
    "what": "p95 over speaking frames of radial deviation, worse hand",
-   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply",
-   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement 9f258309; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement b8dfbfdf; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
    "must_fail": [
     23.7,
     "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): 23.7; agent-01's ee99f626 reads 34.3 F"
@@ -1248,8 +1272,8 @@
    "line": 25.0,
    "unit": "deg",
    "what": "p95 over speaking frames of ulnar deviation, worse hand",
-   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply",
-   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement 9f258309; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement b8dfbfdf; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
    "must_fail": [
     39.2,
     "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): 39.2; agent-01's ee99f626 reads 24.8 ok"
@@ -1291,8 +1315,8 @@
   "move.humerus_elev_high_deg": {
    "area": "performance",
    "track": "agent-13 (movement director) / agent-01, agent-10 (body)",
-   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement 9f258309; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
-   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply",
+   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement b8dfbfdf; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
    "op": "<=",
    "line": 60.0,
    "unit": "deg",
@@ -1308,8 +1332,8 @@
   "move.upperarm_abduction_deg": {
    "area": "performance",
    "track": "agent-13 (movement director) / agent-01, agent-10 (body)",
-   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement 9f258309; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
-   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply",
+   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement b8dfbfdf; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
    "op": "<=",
    "line": 35.0,
    "unit": "deg",
@@ -1327,13 +1351,47 @@
    "line": 0.3,
    "unit": "cm/s",
    "what": "p10 of the wrist speed while speaking OUTSIDE every movement (the holds), worse hand: a hold must keep a little life, never a frozen hand",
-   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply",
-   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement 9f258309; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement b8dfbfdf; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
    "must_fail": [
     0.221,
     "the r7F TEST body 52ab5ea2, whole take, from 0.1 mm dumps (agent-13 9f258309): 0.221 (0.212 at 0.01 cm)"
    ],
    "why": "the orchestrator, 08 Nov: no dead-still hands while she talks (a robotic tell)"
+  },
+  "qa.editor_offline_parity_cm": {
+   "area": "performance",
+   "track": "agent-06 (box) / agent-13 / agent-09",
+   "op": "<=",
+   "line": 1.0,
+   "unit": "cm",
+   "guard": true,
+   "what": "the max over frames (matched by number) of the largest wrist/finger joint distance (32 joint heads) between the EDITOR dump of the sequence and the solved offline track of the same body (hers: r7/arm_track.py; his: the box's kit/arm_track.json from body --perform), in the track's actor frame",
+   "where": "the speaking frames of the take (or every 2nd), both hands",
+   "how": "python3 r7/parity.py <the editor dump of what RENDERS: seat + life> <kit/arm_track.json> --span 0-196 --span 1040-1162 --shoulder (agent-13: each hand's joints measured from that side's shoulder, the upperarm head, so breathing on the spine/clavicles cancels and a different arm does not; matched by TIME) -> numbers/<film>/parity.json",
+   "must_fail": [
+    8.1,
+    "a DIFFERENT body sha with --shoulder: 8d17a4ed vs 906d80d3 reads 8.1 cm (agent-13); a synthetic 0.6 cm breath on the chain reads 0.0 with --shoulder (0.6 without). By design --shoulder does NOT judge the shoulders/torso themselves (the breath/torso/head life the orchestrator kept)"
+   ],
+   "why": "the orchestrator, 08 Nov: NO render until the naturalness rows PASS on the EDITOR DUMP itself; a stale layer must not slip through again (HIS chain on box T too)"
+  },
+  "move.humerus_elev_rest_desk_deg": {
+   "area": "performance",
+   "track": "agent-13 (movement director) / agent-01, agent-10 (body)",
+   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement b8dfbfdf; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "op": "<=",
+   "line": 40.0,
+   "unit": "deg",
+   "what": "median upper-arm elevation while the hand rests with the FOREARM ON THE DESK (the orchestrator's desk rest), worse hand",
+   "must_fail": [
+    null,
+    "none: an ALLOWANCE (supported elbows may sit higher than the hanging 30), not a defect catch; every body's desk frames read 36.5 (404db805, 52ab5ea2, 1e88aca8; agent-13). A GUARD: agent-13 promotes it if a desk-rest body reads over 40"
+   ],
+   "guard": true,
+   "na_ok": true,
+   "na_reason": "no desk-rest frames",
+   "why": "the orchestrator's desk rest (08 Nov): forearms on the desk, elbows relaxed; an upper arm lifted past 40 deg to reach the desk reads strained"
   }
  },
  "not_attempted": {
@@ -1352,7 +1410,9 @@
  },
  "aliases": {
   "shot.grain_sigma_close": "shot.grain_sigma",
-  "shot.grain_sigma_wide": "shot.grain_wide_sigma"
+  "shot.grain_sigma_wide": "shot.grain_wide_sigma",
+  "body.editor_offline_parity_cm": "qa.editor_offline_parity_cm"
  },
- "_films": "items with 'films' apply only to those films (gate_film.py --film filters them); 'aliases' maps a producer's key to the spec's id; 'info_films' makes an item INFO for those films with 'info_reason'; 'line_by_film' sets an item's line per film; 'na_ok' lets a row read n/a (null/NaN from its producer) as INFO with 'na_reason' instead of failing as not measured"
+ "_films": "items with 'films' apply only to those films (gate_film.py --film filters them); 'aliases' maps a producer's key to the spec's id; 'info_films' makes an item INFO for those films with 'info_reason'; 'line_by_film' sets an item's line per film; 'na_ok' lets a row read n/a (null/NaN from its producer) as INFO with 'na_reason' instead of failing as not measured",
+ "_clock": "every row maps frames by TIME (t = frame / fps of that source): the sequence/editor/composite are 24 fps, agent-01's arm_track is 30 fps (the orchestrator's rule, 08 Nov)"
 }
