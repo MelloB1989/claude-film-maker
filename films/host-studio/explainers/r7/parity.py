@@ -52,7 +52,24 @@ def _rel(P, b):
     return None if sh is None or P.get(b) is None else [x - y for x, y in zip(P[b], sh)]
 
 
-def parity(ed, off, spans=None, ed_fps=24.0, off_fps=30.0, seq_fps=24.0, rel=False):
+def _swing(a, b):
+    """the shortest rotation taking direction a onto b, as a function on vectors (Rodrigues)."""
+    na, nb = math.sqrt(sum(x * x for x in a)), math.sqrt(sum(x * x for x in b))
+    u, v = [x / na for x in a], [x / nb for x in b]
+    k = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]]
+    s, c = math.sqrt(sum(x * x for x in k)), sum(x * y for x, y in zip(u, v))
+    if s < 1e-9:
+        return lambda x: list(x)
+    k = [x / s for x in k]
+
+    def rot(x):
+        kx = [k[1] * x[2] - k[2] * x[1], k[2] * x[0] - k[0] * x[2], k[0] * x[1] - k[1] * x[0]]
+        kd = sum(p * q for p, q in zip(k, x))
+        return [x[i] * c + kx[i] * s + k[i] * kd * (1 - c) for i in range(3)]
+    return rot
+
+
+def parity(ed, off, spans=None, ed_fps=24.0, off_fps=30.0, seq_fps=24.0, rel=False, clav=False):
     """editor frames at their own rate (the sequence's, 24) vs the offline track (30), matched by TIME; spans are
     sequence frames at seq_fps."""
     (A, ed_fps), (B, off_fps) = frames(ed, ed_fps), frames(off, off_fps)
@@ -68,6 +85,15 @@ def parity(ed, off, spans=None, ed_fps=24.0, off_fps=30.0, seq_fps=24.0, rel=Fal
             if rel and q is not None and e is not None:
                 sq, se = at(B, off_fps, f / ed_fps, "upperarm_" + b[-1]), A[f].get("upperarm_" + b[-1])
                 q, e = (None, None) if sq is None or se is None else ([x - y for x, y in zip(q, sq)], _rel(A[f], b))
+            if clav and q is not None and e is not None:
+                sd = b[-1]
+                ck, ce = at(B, off_fps, f / ed_fps, "clavicle_" + sd), A[f].get("clavicle_" + sd)
+                uk, ue = at(B, off_fps, f / ed_fps, "upperarm_" + sd), A[f].get("upperarm_" + sd)
+                if None in (ck, ce, uk, ue):
+                    q, e = None, None
+                else:  # the track's arm carried through the editor's clavicle swing, about the clavicle head
+                    R = _swing([x - y for x, y in zip(uk, ck)], [x - y for x, y in zip(ue, ce)])
+                    q = [x + y for x, y in zip(ce, R([x - y for x, y in zip(q, ck)]))]
             if e is not None and q is not None:
                 d = math.dist(e, q)
                 per_bone[b] = max(per_bone.get(b, 0.0), d)
@@ -106,11 +132,15 @@ def main(argv=None):
     ap.add_argument("--shoulder", action="store_true",
                     help="measure the hands from their shoulder (upperarm head): a breath layer on the spine/clavicles "
                          "(the orchestrator kept life, 08 Nov) carries the arm without changing it")
+    ap.add_argument("--clavicle", action="store_true",
+                    help="carry the track's arm through the editor's clavicle swing (about the clavicle head) before "
+                         "comparing: a breath layer that ROTATES the clavicles (a shrug) swings the whole arm, which "
+                         "--shoulder (a shift) does not cancel")
     ap.add_argument("--json")
     a = ap.parse_args(argv)
     spans = [tuple(int(x) for x in s.split("-")) for s in a.span] or None
     rep = parity(json.loads(Path(a.editor).read_text()), json.loads(Path(a.offline).read_text()), spans,
-                 a.editor_fps, a.offline_fps, a.seq_fps, a.shoulder)
+                 a.editor_fps, a.offline_fps, a.seq_fps, a.shoulder, a.clavicle)
     r = row(rep)
     k, v = next(iter(r.items()))
     print(f"{k}  {v['value']} cm (<= {LINE_CM})  {'ok' if v['pass'] else 'n/a' if v['pass'] is None else 'FAIL'}  "
