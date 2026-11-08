@@ -63,6 +63,7 @@ LEFT_ARC_DIR = (-0.6, -0.2, 0.75)  # (fwd, out, up): its arc bows up and back to
 RIGHT_ARC_DIR = (-0.3, 0.45, 0.85)  # a mic-moved right stroke's bow: up, out and a little back
 RIGHT_ARC_MIN = 0.06  # x the chord: every right move's bow off the straight line at least (agent-13's line: 0.03)
 FING_END = 1.0    # x a move: the fingers' shape change ends here (R7 hands: they settle before the wrist stops)
+_EASE = 0.0  # of ROT_LAG_S off at the frame hand() is posing (gesturekit.Performer.EASE_ROT in an EASE_AT window)
 ROT_LAG_S = 0.08    # s the hand's turn and the fingers trail the wrist's path (proximal to distal)
 DRIFT_CM = 0.8      # cm the wrist's slow drift, each axis (orchestrator: real hands are never 0 cm/s in a hold)
 RIGHT_DRIFT_K = 1.3  # the right hand's drift x this (its rest life on the desk keeps DESK_DRIFT)
@@ -431,7 +432,7 @@ class HandTrack:
         hp, w = self._at(t)
         if ROT_LAG_S <= 0:
             return hp, w
-        lag, _ = self._at(t - ROT_LAG_S)
+        lag, _ = self._at(t - ROT_LAG_S * (1.0 - _EASE))  # (less in the performer's eased arrivals: EASE_ROT)
         # the fingers ride the wrist's own clock (R7 hands): lagged with the turn, the anatomical shape change (larger
         # than the old offsets: the thumb swings out of opposition) piled onto the turn just as the wrist stopped dead,
         # fingertips 120-145 cm/s (agent-13's finger_snap 3.14/min on 8ebecc97)
@@ -592,6 +593,8 @@ def _tracks(perf) -> dict:
 
 
 def hand(perf, s: str, t: float) -> tuple:
+    global _EASE
+    _EASE = perf.EASE_ROT * perf.ease_at(t) if perf.EASE_AT else 0.0
     hp, w = _tracks(perf)[s].at(t)
     big = 0.0
     for i, wi in w.items():
