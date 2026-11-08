@@ -473,3 +473,119 @@ def test_blender_command_and_setup():
                           {"ext": "png", "pad": 4})
     assert "OPTIX" in py and "sc.cycles.samples = 64" in py and "/t/out/####" in py
     compile(py, "setup", "exec")
+
+
+# --- the ue engine's hook, the deep check, compare ------------------------------------------------------------------
+class FakeBridge:
+    """The box's bridge: ops answer from `answers`; render.job writes the frames of its spec and finishes."""
+
+    def __init__(self, answers=None):
+        self.answers, self.calls, self.jobs = answers or {}, [], {}
+
+    def healthy(self):
+        return True
+
+    def run(self, name, args, ctx, timeout=0):
+        self.calls.append((name, args))
+        return self.answers.get(name, {})
+
+    def submit(self, name, args):
+        self.calls.append((name, args))
+        sp = args["spec"]
+        for f in range(*sp["frames"]):
+            open(os.path.join(sp["out_dir"], f"{f:04d}.png"), "wb").write(b"x%d" % f)
+        self.jobs["j"] = {"done": True, "ok": True, "result": {"status": "ok"}}
+        return "j"
+
+    def job(self, jid):
+        return self.jobs[jid]
+
+    def cancel(self, jid):
+        pass
+
+
+class Ctx:
+    def __init__(self, br):
+        self.state, self.lines = {"bridge": br, "started": True}, []
+
+    def log(self, m):
+        self.lines.append(m)
+
+    def stopping(self):
+        return False
+
+    def sh(self, cmd, timeout=0, check=True):
+        return 0
+
+
+HOOK = '''
+def before_chunk(op, job, chunk):
+    r = op("guard.check", camera=job["ue"]["hook_args"]["camera"])
+    return {"ok": r.get("pass", False), "why": "" if r.get("pass") else "face dark", "luma": r.get("luma")}
+'''
+
+
+def ue_job(**ue):
+    return model.validate(job(ue={"spec": {"sequence": "/Game/S"}, "fresh_editor": False, "hook": HOOK,
+                                  "hook_args": {"camera": "CAM_CU"}, **ue}))
+
+
+def test_ue_hook_guards_every_chunk(tmp_path):
+    from filmtools.farm.engines import ue
+    j = ue_job(before=[["mh.leader", {"label": "P"}]])
+    chunk = {"id": "c0001", "start": 50, "end": 60}
+    todo = {"render_from": 40, "start": 50, "end": 60, "frames": list(range(50, 60)), "preroll": 10}
+    br = FakeBridge({"guard.check": {"pass": True, "luma": 120}})
+    ctx = Ctx(br)
+    got = [f for f, _ in ue.render(j, chunk, todo, str(tmp_path / "c"), ctx)]
+    assert got == list(range(40, 60))  # pre-roll comes back too; the worker drops it
+    names = [c[0] for c in br.calls]
+    assert names == ["mh.leader", "guard.check", "render.job"]  # before, then the hook, then the render
+    assert br.calls[1][1] == {"camera": "CAM_CU"} and ctx.state["hook"]["luma"] == 120
+    dark = FakeBridge({"guard.check": {"pass": False}})
+    with pytest.raises(engines.RenderError, match="face dark"):
+        list(ue.render(j, chunk, todo, str(tmp_path / "d"), Ctx(dark)))
+    assert "render.job" not in [c[0] for c in dark.calls]  # a refused chunk never renders
+
+
+def test_worker_records_the_hook_in_done(tmp_path, monkeypatch):
+    s, q, root = make_q(frames=[0, 10], chunk=10, preroll=0)
+
+    class Hooked(FakeEngine):
+        def render(self, job, chunk, todo, scratch, ctx):
+            ctx.state["hook"] = {"ok": True, "leaders_ok": 1}
+            yield from super().render(job, chunk, todo, scratch, ctx)
+    monkeypatch.setattr(engines, "get", lambda name: Hooked())
+    w = run_worker(q, "w0", tmp_path)
+    assert w.run_chunk(*w.claim())
+    done, _ = s.get_json(f"{root}c/c0000/done.json")
+    assert done["hook"] == {"ok": True, "leaders_ok": 1}
+
+
+def test_deep_check_catches_a_changed_frame(tmp_path, fake_engine):
+    s, q, root = make_q(frames=[0, 10], chunk=5, preroll=0)
+    w = run_worker(q, "w0", tmp_path)
+    while (got := w.claim()):
+        w.run_chunk(*got)
+    j = q.job(root)
+    man = verify.manifest(q, root)
+    assert verify.deep(s, j, man, str(tmp_path / "a"))["ok"]
+    s.put("farm/out/j1/0004.png", b"frame 9")  # same size, other content
+    bad = verify.deep(s, j, man, str(tmp_path / "b"))
+    assert not bad["ok"] and bad["bad"] == [4]
+
+
+def test_compare_identical_by_hash_without_downloading(tmp_path, fake_engine):
+    s = MemStore(B)
+    q = Queue(s, "f1", clock=Clock())
+    ra = q.submit(job(id="a", frames=[0, 20], chunk=5, preroll=0,
+                      output={"prefix": f"s3://{B}/farm/out/a/"}))["root"]
+    rb = q.submit(job(id="b", frames=[0, 20], chunk=20, preroll=0,
+                      output={"prefix": f"s3://{B}/farm/out/b/"}))["root"]
+    w = run_worker(q, "w0", tmp_path)
+    while (got := w.claim()):
+        w.run_chunk(*got)
+    calls = []
+    rep = verify.compare(q, ra, rb, str(tmp_path / "cmp"), run=lambda *a, **k: calls.append(a))
+    assert rep["identical"] == 20 and rep["measured"] == 0 and not calls
+    assert rep["boundaries"] == [5, 10, 15] and rep["missing"] == []

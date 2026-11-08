@@ -144,3 +144,69 @@ box:  worker ─ claim ─► c/<chunk>/lease.json   created If-None-Match: *   
   word. The bill is per second from `running`.
 - **Persistent spot.** A spot box stopped by a reclaim restarts by itself when capacity returns, and its worker service
   starts again (cloud-init does not run twice; the settings stay in /etc/film-farm).
+
+## 7. Runbook: bringing the workers up to a box's state (`ue.sync`)
+
+Workers start from an AMI. Work done on a box since that image (box B's round-7 assets, a newer performance) reaches
+them only through S3. The box's driver does this **when the box is idle** (no render, nobody driving), never during
+a render. Two ways: A is minutes and no downtime; B is a new image (a reboot), worth it when the farm will be used
+again and again.
+
+### A. Push the project and the DDC deltas to private S3 (the driver, on the box's film-ue profile)
+
+```bash
+B=boxb                                                      # the box's film-ue profile
+film-ue --box $B op render.status                           # nothing rendering
+film-ue --box $B op editor.describe                         # unsaved packages: none (else save them first)
+film-ue profile show $B | grep -E 'project_s3|ddc_s3|face_data'
+#   project_s3 = s3://<bucket>/ue-linux/private/project/HostStudio  (the private prefix: face data may go there)
+#   ddc_s3     = s3://<bucket>/ue-linux/private/ddc/5.8.4
+
+# 1. keep what is there now (the box role can read private/; an admin cannot), so a bad push can be undone
+film-ue --box $B sh 'aws s3 sync --only-show-errors s3://<bucket>/ue-linux/private/project/HostStudio \
+    s3://<bucket>/ue-linux/private/project_snapshot_$(date -u +%Y%m%d-%H%M)/ --sse aws:kms'
+
+# 2. the project (Saved/, Intermediate/, DerivedDataCache/ and Binaries/ excluded; SSE-KMS)
+film-ue --box $B sync project up --dry-run                 # read the script: destination private/, the excludes
+film-ue --box $B sync project up --delete                  # --delete: S3 mirrors the box (renamed/removed assets go)
+
+# 3. the compiled shaders, with the editor stopped (zen holds its files open while it runs)
+film-ue --box $B editor stop
+film-ue --box $B sync ddc save
+film-ue --box $B editor restart --wait
+film-ue --box $B sync status                                # sizes of project / DDC in S3
+```
+
+Sizes on 2026-11-07: project ~8.4 GB (4.5 k files), DDC ~41 GB (zen-data, engine-ddc, project-ddc). The push sends
+only what changed. Tell the farm's user the time of the push: a job made before it renders the old state.
+
+Then every UE farm job names the deltas. A worker syncs them once per job with its editor stopped, before its first
+chunk:
+
+```yaml
+ue:
+  sync:
+    - {s3: "s3://BUCKET/ue-linux/private/project/HostStudio", local: /srv/ue/projects/HostStudio}
+    - {s3: "s3://BUCKET/ue-linux/private/ddc/5.8.4/project-ddc", local: /srv/ue/projects/HostStudio/DerivedDataCache}
+```
+
+(`films/host-studio/farm/explainer.py --sync S3=LOCAL` adds them.) The project files from the image are older than the
+objects, so the first sync on a box downloads most of the 8.4 GB again: about 1-2 min in-region. `zen-data` is left
+out on purpose: zenserver may still hold it after the editor stops, and the image's own warm zen covers all but
+the new assets, whose shaders compile in the first chunk's `wait_compile`.
+
+### B. Bake a new image from the box (a reboot; the operator's or the orchestrator's call)
+
+`film-ue box image` works only on boxes `film-ue box up` made. Box B was not made that way, so it is done by hand,
+with the editor stopped so that the disk is consistent and the Epic sign-in has been saved to S3:
+
+```bash
+film-ue --box $B editor stop
+aws ec2 create-image --instance-id <box id> --name ue-host-r7-<yyyymmdd-hhmm> \
+    --description "UE box image for film-farm (private face data inside - box role only)" \
+    --tag-specifications 'ResourceType=image,Tags=[{Key=Project,Value=ue-linux-poc}]'   # reboots the box once
+aws ec2 wait image-available --image-ids ami-...
+film-farm up F -n N --ami ami-...                           # workers with no sync at all
+```
+
+An image costs its snapshots (~300 GB gp3 snapshot, ~$15/month) until it is deregistered and its snapshots deleted.
