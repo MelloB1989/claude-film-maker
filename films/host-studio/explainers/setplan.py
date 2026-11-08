@@ -200,6 +200,18 @@ GARMENT_SRC = {"her": {"Overshirt": "/Game/Host/Presenter_Overshirt/SKM_Presente
                        # R7W2: the band refit over her Unreal-posed belly (R7W's front poked 0.32-0.59 cm in UE)
                        "Trousers": "/Game/Host/Presenter_Outfit/SKM_Presenter_Trousers_R7W2",
                        "Body": "/Game/Host/Unpacked/Presenter/Body/SKM_Presenter_F_BodyMesh"}, "him": {}}
+# r7 his flank (agent-05, orchestrator ruling A): reel/r7/him_flank.py slims his outfit's flank under the relaxed
+# upper arm (the remainder after agent-01's wider elbows, capped ~4 cm) on a COPY; the body hides only under that
+# region (hide_under `within`, inside_cm: the slimmed flank sits inside his skin in the bind pose). The push's numbers
+# land in him_flank.json beside this file: {"garment": comp, "dest": asset, "body": his uncut body asset, "within":
+# [[x, y, z, r], ...], "inside_cm": .., "reach_cm": ..}. EXPL_FLANK=0: his original outfit, no hide (before stills).
+_FLANK = Path(__file__).with_name("him_flank.json")
+if _FLANK.exists() and os.environ.get("EXPL_FLANK", "1") != "0":
+    _f = json.loads(_FLANK.read_text())
+    GARMENT_SRC["him"].update({_f["garment"]: _f["dest"], "Body": _f["body"]})
+    GARMENT_HIDES["him"].append(("Body", _f["garment"], float(_f.get("reach_cm", 2.0)),
+                                 {"inside_cm": float(_f.get("inside_cm", 5.0)), "within": _f["within"]}))
+
 # r7 arm girth (agent-05, the operator 8 Nov ~19:50: "her hand limbs are a little bit (not much) thin compared to her
 # body"): her_outfit_ue/arm_girth.py SCALE 0.10, the upper arm and forearm 10 % fuller round the bone axis (the
 # deltoid ramps in, the watch band and hands unmoved), the Top's sleeves moved by the same field. EXPL_ARMS=0: the
