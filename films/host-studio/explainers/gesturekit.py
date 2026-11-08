@@ -116,7 +116,8 @@ POSE_ORIGIN = HandPose((22.0, 17.0, 13.0), pron=40.0, ext=10.0, shape="relaxed",
 # with her top): the presenter's rest. Hands loosely together in a soft steeple at the lower ribcage, well in front of
 # her (not touching her), palms facing, wrists straight, fingers gently curved; the gestures rise from it into the
 # frame. The fingers aim at the midline (YAW_BASE is faded out at the rest, see hand_targets).
-HIGH_REST = HandPose((25.0, 10.0, -4.0), pron=80.0, ext=0.0, shape="rest")  # the orchestrator's ruling (08 Nov): lower
+HIGH_REST = HandPose((16.0, 10.0, -4.0), pron=80.0, ext=0.0, shape="rest")  # r7F rows: x 25 -> 17.5, the fit that
+#   lets the elbows hang at <= 30 deg (Performer._fit_poses reports it as rest_fit)  # the orchestrator's ruling (08 Nov): lower
 #   than agent-10's (24, 8.5, 2.5), which put her wrists at her bust height 8 cm in front of it; wrists ~80 cm, under
 #   CAM_MCU's bottom edge. Not the ruled x 30: that far forward, with the hands together, the upper arms can clear her
 #   chest (swivel) only with the elbows up at 90-92 cm, a reach; at 25 / 10 out they hang at 83-86, the wrists 27 cm
@@ -499,6 +500,7 @@ class Performer(S.Seater):
                 ang = -roll * share if self._rhs else roll * share
                 W[b] = [W[b][0], qmul(axis_angle(f, ang), W[b][1])]
             W["head"] = [self._fk_t("head", "neck_02", W), W["head"][1]]
+        self._fit_poses(W)  # once: each gesture's goal fitted to the elevation lines
         # arms by the plan
         for s, (cl, ua, la, ha) in S.ARMS.items():
             sg = 1.0 if s == "r" else -1.0
@@ -509,7 +511,7 @@ class Performer(S.Seater):
             sh = self._fk_t(ua, cl, W)
             l1, l2 = self.A[s]
             wrist, hp, pole, ws, _ = self.hand_targets(s, t, W)
-            elbow, wrist = self.reach(s, sh, wrist, l1, l2, pole, W, ws)
+            elbow, wrist = self.swivel(s, sh, wrist, l1, l2, pole, W, ws)
             back = ortho(sub(elbow, sh), unit(sub(wrist, sh)))
             W[ua] = [sh, self._aim(ua, la, sub(elbow, sh), back, front_rest=mul(f, -1.0))]
             W[la] = [self._fk_t(la, ua, W), self._aim(la, ha, sub(wrist, elbow), back, front_rest=mul(f, -1.0))]
@@ -623,8 +625,9 @@ class Performer(S.Seater):
 
     ELEV_HIGH = 60.0  # deg for an apex at/above upper_chest (the orchestrator's ruling (B), 08 Nov)
     HIGH_OVER_SHOULDER = 2.0  # cm: a wrist goal this far over the shoulder joint is a high apex (upper_chest = +5)
-    LOW_DOWN = 0.6  # cm down per cm in, for a low stroke (a high one only comes in)
-    REACH_MAX = 22.0  # cm the wrist goal comes in at most
+    LOW_DOWN = 0.6  # cm down per cm in, for a low stroke
+    HIGH_DOWN = 0.0  # and for a high one (it comes in only: lowered, the CU lost the key beats, 0.14)
+    REACH_MAX = 24.0  # cm a goal comes in at most
     ABD_MAX = 35.0  # deg the upper arm's abduction at most when a clearing elbow allows (the orchestrator's row)
     ELEV_REST, ELEV_STROKE = 30.0, 45.0  # deg the upper arm off hanging, at most (agent-13's lines, the orchestrator:
     #   the clearance by shoulder FLEXION, the elbow forward and down, not abducted out: chicken wings)
@@ -637,46 +640,85 @@ class Performer(S.Seater):
         return math.degrees(math.acos(max(-1.0, min(1.0, -dot(unit(sub(elbow, sh)), self.fr[2])))))
 
     def cap_at(self, sh, goal, wg) -> tuple:
-        """(elevation cap deg, highness 0..1) for a wrist goal: 45 for a stroke up to 6 cm under the shoulder joint,
-        rising to 60 at 5 cm over it (upper_chest .. collarbone, the orchestrator's (B)), blended from ELEV_REST by
+        """(elevation cap deg, highness 0..1) for a wrist goal: 45 for a stroke under upper_chest, 60 at upper_chest ..
+        collarbone (shoulder + 3 .. + 5 cm ramp; the orchestrator's (B), agent-13's classes), blended from ELEV_REST by
         the gesture weight. Continuous, so the wrist never jumps where a stroke crosses the line."""
         h = dot(sub(goal, sh), self.fr[2])
-        k = max(0.0, min(1.0, (h + 6.0) / 11.0))
+        k = max(0.0, min(1.0, (h - 3.0) / 2.0))  # below upper_chest (shoulder + 5) 45, at it 60
         return self.ELEV_REST + (self.ELEV_STROKE + (self.ELEV_HIGH - self.ELEV_STROKE) * k - self.ELEV_REST) * wg, k
 
-    def reach(self, s, sh, wrist, l1, l2, pole, W, ws):
-        """swivel, then the elevation cap: if the lowest elbow that clears is over the cap, the wrist's goal comes in
-        toward her (and, for a low stroke, a little down) by the least distance that meets it (bisection, so the
-        result moves smoothly with the goal), the forearm then angling up from a hanging elbow."""
-        elbow, wr = self.swivel(s, sh, wrist, l1, l2, pole, W, ws)
-        if ws < 0.5 or not self.SWIVEL_LOW:
-            return elbow, wr
-        cap, k = self.cap_at(sh, wrist, self._wg.get(s, 1.0))
-        if self.elevation(sh, elbow) <= cap:
-            return elbow, wr
-        u = self.fr[2]
-        back = sub(sh, wrist)
-        back = unit(sub(back, mul(u, dot(back, u))))
-        step = add(back, mul(u, -self.LOW_DOWN * (1.0 - k)))  # per cm in: down LOW_DOWN cm on a low stroke
+    def _fit_poses(self, W) -> None:
+        """Each event's wrist goal (and the high rest, reported) moved in toward her, a low stroke also a little down,
+        by the least distance (bisection) at which the lowest clearing elbow meets its elevation line (cap_at). On the
+        GOALS, not per frame: per frame the pull jumped where the line could not be met (800 cm/s); the track then
+        glides between fitted goals."""
+        if getattr(self.plan, "_fitted", False) or not self.SWIVEL_LOW:
+            return
+        self.plan._fitted = True
+        f, r, u = self.fr
+        A_l, A_r = (self.actor(self._fk_t("upperarm_" + x, "clavicle_" + x, W)) for x in "lr")
+        st_pt = [(A_l[0] + A_r[0]) / 2 + 8.0, (A_l[1] + A_r[1]) / 2, (A_l[2] + A_r[2]) / 2 - 14.0]
+        self.fit_log = []
 
-        def at(d):
-            g = add(wrist, mul(step, d))
-            e, w2 = self.swivel(s, sh, g, l1, l2, pole, W, ws)
-            return self.elevation(sh, e), e, w2
+        def fit(hp: HandPose, s: str, rest: bool = False) -> HandPose:
+            sg = 1.0 if s == "r" else -1.0
+            sh = self._fk_t("upperarm_" + s, "clavicle_" + s, W)
+            l1, l2 = self.A[s]
+            pole = (add(add(mul(f, -0.3), mul(r, 0.9)), mul(u, -0.35)) if s == "r"
+                    else add(add(mul(f, -0.3), mul(r, -0.9)), mul(u, -0.5)))
 
-        lo, hi = 0.0, self.REACH_MAX
-        top = at(hi)
-        if top[0] > cap:
-            return top[1], top[2]
-        res = top
-        for _ in range(8):
-            mid = (lo + hi) / 2.0
-            r = at(mid)
-            if r[0] <= cap:
-                hi, res = mid, r
+            def goal(off):
+                return self.comp([st_pt[0] + off[0], st_pt[1] + sg * off[1], st_pt[2] + off[2]])
+
+            def elev(off):
+                e, _ = self.swivel(s, sh, goal(off), l1, l2, pole, W, 1.0)
+                return self.elevation(sh, e)
+
+            if not rest and hp.off[2] > APEX_MAX_Z:  # the variation's amp took it past the collarbone line
+                hp = replace(hp, off=(hp.off[0], hp.off[1], APEX_MAX_Z))
+            cap, k = self.cap_at(sh, goal(hp.off), 0.0 if rest else 1.0)
+            e0 = elev(hp.off)
+            if e0 <= cap:
+                return hp
+            down = 0.0 if rest else self.LOW_DOWN * (1.0 - k) + self.HIGH_DOWN * k
+
+            def moved(d):
+                return (hp.off[0] - d, hp.off[1], hp.off[2] - down * d)
+
+            # scan in (elevation is not monotonic: too close, the clearance swings the elbow back up), take the least
+            # pull that meets the line, else the lowest elevation; then refine between the last two samples
+            best_d, best_e, prev = 0.0, e0, 0.0
+            d, hi = 1.5, None
+            while d <= self.REACH_MAX + 1e-6:
+                ed = elev(moved(d))
+                if ed <= cap:
+                    hi = d
+                    break
+                if ed < best_e:
+                    best_d, best_e = d, ed
+                prev, d = d, d + 1.5
+            if hi is not None:
+                lo = prev
+                for _ in range(5):
+                    mid = (lo + hi) / 2.0
+                    if elev(moved(mid)) <= cap:
+                        hi = mid
+                    else:
+                        lo = mid
             else:
-                lo = mid
-        return res[1], res[2]
+                hi = best_d
+            out = replace(hp, off=moved(hi))
+            self.fit_log.append({"s": s, "cap": round(cap, 1), "from": round(e0, 1), "to": round(elev(out.off), 1),
+                                 "in_cm": round(hi, 1), "off": [round(x, 1) for x in out.off]})
+            return out
+
+        for e in self.plan.events:
+            if e.hand in ("r", "both"):
+                e.pose_r = fit(e.pose_r, "r")
+            if e.pose_l is not None and e.hand in ("l", "both"):
+                e.pose_l = fit(e.pose_l, "l")
+        self.rest_fit = {s: fit(HIGH_REST, s, rest=True).off for s in "lr"}
+        self._gs_tracks = None  # the style track was drawn (torso() asks for its weights) from the unfitted goals
 
     def _world_from(self, locs: dict) -> dict:
         """seatkit's local result back to component transforms for the bones it set (FK over its own chain)."""

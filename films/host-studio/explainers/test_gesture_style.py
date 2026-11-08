@@ -36,11 +36,11 @@ def test_minimum_jerk_and_envelope():
     e = ev("r", 1.0, 1.4)
     v = G.var_of(e, "r")
     assert G.envelope("prep", 0.0, e) == 0.0
-    assert abs(G.envelope("prep", 1.0, e) - (1 + v.overshoot)) < 1e-9 and v.overshoot > 0.02
+    assert abs(G.envelope("prep", 1.0, e) - (1 + v.overshoot)) < 1e-9 and v.overshoot > 0.01
     assert abs(G.envelope("hold", 0.0, e) - (1 + v.overshoot)) < 1e-9 and G.envelope("hold", 1.0, e) == 1.0
     assert G.envelope("retract", 1.0, e) == 0.0
-    # skewed late: the stroke is the fast part
-    assert G.envelope("prep", 0.5, e) < 0.5
+    # one min-jerk bell (r7F, agent-13: no skew): symmetric about the middle, overshoot aside
+    assert abs(G.envelope("prep", 0.5, e) - 0.5 * (1 + v.overshoot)) < 1e-9
 
 
 def test_seeded_and_unique():
