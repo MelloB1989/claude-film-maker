@@ -1303,7 +1303,7 @@
     -8.18,
     "netflix v2b PER ZONE (agent-02, garment_measure bf7d938c, T2, SEQ_Explain_Her_v2b, f1056 = 00:44): bust -8.18 (right front, 181 verts inside; left front -7.96, 211); self-checks clean"
    ],
-   "why": "the orchestrator's ruling (A), 08 Nov: the 3 cm rule is for the operator's complaint (the arm swallowed by the BUST), not for a relaxed arm off the side of the ribcage ; the orchestrator, 09 Nov: a GATE for HIM likewise (>= 3 vs his outfit's front), seated and in gestures",
+   "why": "the orchestrator's ruling (A), 08 Nov: the 3 cm rule is for the operator's complaint (the arm swallowed by the BUST), not for a relaxed arm off the side of the ribcage ; the orchestrator, 09 Nov: a GATE for HIM likewise (>= 3 vs his outfit's front), seated and in gestures ; the orchestrator, 09 Nov: his FRONT zone is the SAME as hers, >= 3 cm at every frame (gate)",
    "r4": [
     null,
     "her b4325b5b (agent-02, garment_measure 949cde7c, T2): rest 3.74 @f489, gesture 4.13 @f1040, 0 verts inside: PASS"
@@ -1328,7 +1328,7 @@
     -8.08,
     "netflix v2b PER ZONE (the same run): side -8.08 (left side, 27 verts inside; right side -7.89, 8)"
    ],
-   "why": "the orchestrator's ruling (A): vs the side of the torso, no penetration (>= 0.5 cm) ; the orchestrator, 09 Nov: a GATE for HIM too (his upper arm 6.6-7.9 cm inside his outfit's flank is the same class of fault as her arm in the body), seated and in gestures, vs his outfit's SURFACE (agent-02 confirms it is not an inner fold)",
+   "why": "the orchestrator's ruling (A): vs the side of the torso, no penetration (>= 0.5 cm) ; the orchestrator, 09 Nov: a GATE for HIM too (his upper arm 6.6-7.9 cm inside his outfit's flank is the same class of fault as her arm in the body), seated and in gestures, vs his outfit's SURFACE (agent-02 confirms it is not an inner fold) ; the orchestrator, 09 Nov: SPLIT his 8 cm: agent-01 opens his rest abduction to ~20-25 deg (forearms on the desk; move.rest_abduction_deg <= 25 bounds it), agent-05 slims the flank by the remainder (<= ~4 cm, blended, no dent from CAM_MCU/WIDE/CU; an inner layer/fold first if LAYERS shows one)",
    "r4": [
     null,
     "her b4325b5b: rest 1.51 @f721, gesture 1.59 @f1068, 0 verts inside: PASS"
@@ -1700,6 +1700,22 @@
     "her b4325b5b 715 whole / 219 verify windows (337 of the 715 with a fingertip within 2.5 cm of the top: tips-only); 4fdd6af3 the same; 404db805 812"
    ],
    "note": "agent-08 proposed tips <= 1.5 OR wrist <= 5.0; agent-13 kept the heel at 3.5 (a wrist head 3.3-4.5 up leaves the heel ~1-2 cm off the desk, i.e. a tented hand); agent-02 to confirm the heel line on the mesh"
+  },
+  "move.rest_abduction_deg": {
+   "area": "performance",
+   "track": "agent-13 (movement director) / agent-01, agent-10 (body)",
+   "how": "r7/naturalness.py (ffe06429+) on the 30 fps track -> numbers/<film>/naturalness.json",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "op": "<=",
+   "line": 25.0,
+   "unit": "deg",
+   "what": "median upper-arm abduction (out of the sagittal plane) over the frames where that hand rests (gesture_w < 0.1), worse hand",
+   "must_fail": [
+    37.1,
+    "404db805 37.1 (L) / 52ab5ea2 52.1 (R): the old elbows-out rests; her 928407cb 21.6 passes"
+   ],
+   "why": "the orchestrator, 09 Nov (his flank): an open seated posture allows the elbows a hand-width off the torso at rest, up to ~20-25 deg of abduction with the forearms ON the desk; beyond that (elbows flared/raised, forearms off the desk) is wings",
+   "guard": true
   }
  },
  "not_attempted": {

@@ -46,6 +46,12 @@ is the fault the operator rejected on her. Seated and in gestures, against his o
 is not an inner fold). agent-01 opens his rest/relaxed arms (elbows slightly out, forearms on the desk, no chicken
 wings). His aba900fe + 7b03480f reads side -7.87 @f84 / bust 1.61 @f54: FAIL.
 
+**His flank split (the orchestrator, 09 Nov):** the ~8 cm is split, not cut into one shell: agent-01 opens his
+rest/relaxed abduction to ~20-25 deg (elbows a hand-width off the torso, forearms ON the desk; move.rest_abduction_deg
+<= 25 is the guard against wings), and agent-05 slims the flank by the remainder (<= ~4 cm, blended, no dent from
+CAM_MCU / WIDE / CU; an inner layer or fold first if LAYERS shows one). His FRONT zone is the same as hers: >= 3 cm at
+every frame (gate).
+
 ## Verdicts
 
 ### Netflix v2b: REJECTED BY THE OPERATOR (07 Nov, about 23:45 IST). The SIGN below is SUPERSEDED.
