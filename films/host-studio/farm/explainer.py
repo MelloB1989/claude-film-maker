@@ -23,7 +23,7 @@ EXPLAINERS = HERE.parent / "explainers"
 LEVELS = {"her": "/Game/Explainer/ExplainerSet", "him": "/Game/Explainer/ExplainerSet_Him"}
 SEQ = {"her": "/Game/Explainer/SEQ_Explain_Her", "him": "/Game/Explainer/SEQ_Explain_Him"}
 ACTOR = {"her": "Presenter", "him": "Host"}
-OUT = "s3://BUCKET/ue-linux/private/renders/r7/farm/explain"
+OUT = "s3://rf-render-788655295054-apne1/ue-linux/private/renders/r7/farm/explain"  # private Tokyo bucket (cost ruling)
 # explainers/render.py's (round 6b, box B's V2 finals)
 CVARS = {"r.SSS.Quality": 1, "r.SSS.HalfRes": 0, "r.HairStrands.LODMode": 0, "r.HairStrands.AutoLOD.Bias": 1.0,
          "r.HairStrands.UseCardsInsteadOfStrands": 0, "r.HairStrands.SkyLighting": 0,
