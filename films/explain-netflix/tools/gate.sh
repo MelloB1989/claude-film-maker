@@ -2,7 +2,7 @@
 # gate.sh <out.json> : the caption-band gate (gfx.caption_band_clear) of the v3 graphics: every 3rd frame of every shot
 # rendered over black (explain-netflix-black: a matte pass, the graphic alone), checked by bandcheck.py (900 px for full
 # shots, 918 for the panels and the lower third). Each render takes the host's render lock (finals.sh's rule).
-# Env: PY (python3 with numpy + PIL), LOCK.
+# Env: PY (python3 with numpy + PIL), LOCK, RENDER_FLAGS (finals.sh's).
 set -euo pipefail
 OUTJ=$1
 REPO=$(cd "$(dirname "$0")/../../.." && pwd); APP=$REPO/app
@@ -16,7 +16,7 @@ cd "$APP"
 IFS='|'; for row in $SHOTS; do
   IFS=' ' read -r id f0 n <<<"$row"
   times=$(python3 -c "import sys; f0,n=map(int,sys.argv[1:]); print(','.join(f'{k/24:.6f}' for k in range(f0,f0+n,3)))" "$f0" "$n")
-  locked bun scripts/render.ts stills --film explain-netflix-black --fresh --only "$id" --t "$times" --out "$TMP/$id" > "$TMP/$id.log" 2>&1 || { echo "gate: $id render failed"; exit 1; }
+  locked bun scripts/render.ts stills --film explain-netflix-black --fresh --only "$id" ${RENDER_FLAGS:-} --t "$times" --out "$TMP/$id" > "$TMP/$id.log" 2>&1 || { echo "gate: $id render failed"; exit 1; }
   lim=900; [[ $id == *_panel || $id == lowerthird ]] && lim=918
   args+=("$id=$TMP/$id@$lim")
 done; IFS=$' \t\n'
