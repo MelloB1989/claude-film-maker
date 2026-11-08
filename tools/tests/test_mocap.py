@@ -32,6 +32,13 @@ def test_prep_make_cmd():
     assert "fps=60,format=yuv420p" in c and "-an" in c and c[c.index("-crf") + 1] == "18" and c[-1] == "out.mp4"
 
 
+def test_prep_keeps_a_whole_rate_and_upscales_on_ask():
+    assert prep.whole_fps(_info(avg_frame_rate="24/1")) == 24
+    assert prep.whole_fps(_info(avg_frame_rate="30000/1001")) == 30
+    c = prep.make_cmd("in.mp4", "out.mp4", fps=24, height=1080)
+    assert "fps=24,scale=-2:1080:flags=lanczos,format=yuv420p" in c
+
+
 def _take(n=60, fps=24.0, wiggle=True):
     """A seated take: the head at 120 cm, the hands at desk height + 20 swinging, fingers curling on a sine."""
     bones = {b: [] for b in rows.ROWS_BONES}

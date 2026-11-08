@@ -148,7 +148,9 @@ These are in `tools/filmtools/mocap/` (all **ours, untested** against the plugin
 Blueprint page and our audio solve in `unreal/fmbridge/ops/speech.py`):
 
 - **`prep.py`:** turns a phone or generated take into the clip the ingest wants:
-  - constant 60 fps (phones record VFR, and the 29.97/30 mismatch is a known ingest failure);
+  - a constant whole frame rate, the source's own (phones record VFR, and the 29.97/30 mismatch is a known ingest
+    failure; a 24 fps CFR source stays at 24);
+  - `--height 1080` for an upscale A/B;
   - H.264 at CRF 18, 8-bit yuv420p, rotation baked in, no audio, an optional trim;
   - `check` lists what the metadata breaks.
 - **`win_setup.ps1`:** checks the box (engine, GPU and driver, RAM, cores, the plugins' .uplugin files). With
@@ -201,6 +203,15 @@ the case we care about:
 - **If the solve fails or the arms are wrong,** the fallback is a take that follows the guidelines: the performer
   seated on a desk-height chair with **no desk** in front of them, the whole body in frame. Our layers put the desk
   back. §8's recording guide is written for that case.
+
+**The pilot clip as received** (Kling 4.0, AI-generated, no real person; kept outside this repo):
+
+- **Format:** 10.0 s, 1280x720, 24 fps CFR, H.264, with audio.
+- **Framing:** locked-off, a plain grey wall, an open-front light-wood desk, framed head to mid-thigh.
+- **Hands:** about 60-80 px at 720p, with some motion blur on the fast moves. She wears a watch on her left wrist.
+- **Contrast:** a white tee on a light-grey wall, which the guidelines advise against.
+- **prep:** kept 24 fps (re-timing to 60 would only duplicate frames) and dropped the audio. It made a 1080p lanczos
+  upscale as an A/B: more pixels, no more detail.
 
 **Finger honesty for the AI clip:** generated video often morphs fingers from frame to frame. If `fingers.*`
 jitter is high or the contact sheet shows impossible poses, check the source frames first: the solve may be faithful

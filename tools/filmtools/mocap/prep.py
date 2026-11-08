@@ -1,10 +1,11 @@
 """A phone take -> the clip the markerless solve wants (docs/MOCAP_PILOT.md, Epic's Video Capture Guidelines):
-constant frame rate (phones record VFR; 29.97 vs 30 mismatches fail the ingest), 60 fps, H.264 CRF 18, 1080p or
-4K kept as shot, rotation baked in, no audio (the voice goes to our own face/VO pipeline from the original file), a
+constant frame rate (phones record VFR; 29.97 vs 30 mismatches fail the ingest) at the source's whole rate (a
+24/30/60 fps CFR source keeps it: re-timing 24 to 60 only duplicates frames), H.264 CRF 18, the resolution as shot
+unless --height asks for an upscale (an A/B for small performers: it adds pixels, not detail), rotation baked in, no audio (the voice goes to our own face/VO pipeline from the original file), a
 unique name per take, an optional trim.
 
     uv run python -m filmtools.mocap.prep check take.mov
-    uv run python -m filmtools.mocap.prep make take.mov out/host_t01.mp4 [--start 3.2] [--dur 20] [--fps 60]
+    uv run python -m filmtools.mocap.prep make take.mov out/host_t01.mp4 [--start 3.2] [--dur 20] [--fps N] [--height 1080]
 
 `check` prints what the guidelines would flag (not the framing: that is by eye, on the private copy only; an
 operator take shows their face and never leaves private storage).
@@ -63,7 +64,14 @@ def issues(info: dict) -> list:
     return out
 
 
-def make_cmd(src: str, dst: str, start: float | None = None, dur: float | None = None, fps: int = WANT_FPS) -> list:
+def whole_fps(info: dict) -> int:
+    """The rate `make` writes when none is asked: the source's average rounded to a whole rate (29.97 -> 30)."""
+    a = Fraction(video_stream(info).get("avg_frame_rate", "0/1"))
+    return int(round(float(a))) if a else WANT_FPS
+
+
+def make_cmd(src: str, dst: str, start: float | None = None, dur: float | None = None, fps: int = WANT_FPS,
+             height: int | None = None) -> list:
     cmd = ["ffmpeg", "-y", "-v", "error"]
     if start is not None:
         cmd += ["-ss", f"{start:.3f}"]
@@ -72,7 +80,8 @@ def make_cmd(src: str, dst: str, start: float | None = None, dur: float | None =
         cmd += ["-t", f"{dur:.3f}"]
     # autorotate is ffmpeg's default (the flag is baked in); fps= re-times to a constant whole rate;
     # the HDR -> SDR question is left to the phone (record SDR, see the recording guide)
-    cmd += ["-vf", f"fps={fps},format=yuv420p", "-an", "-c:v", "libx264", "-preset", "slow", "-crf", "18",
+    vf = f"fps={fps}" + (f",scale=-2:{height}:flags=lanczos" if height else "") + ",format=yuv420p"
+    cmd += ["-vf", vf, "-an", "-c:v", "libx264", "-preset", "slow", "-crf", "18",
             "-g", str(fps), "-movflags", "+faststart", "-metadata:s:v", "rotate=0", dst]
     return cmd
 
@@ -87,13 +96,15 @@ def main(argv=None) -> None:
     m.add_argument("dst")
     m.add_argument("--start", type=float)
     m.add_argument("--dur", type=float)
-    m.add_argument("--fps", type=int, default=WANT_FPS)
+    m.add_argument("--fps", type=int, help="default: the source's rate, rounded to a whole rate")
+    m.add_argument("--height", type=int, help="upscale to this height (lanczos)")
     a = ap.parse_args(argv)
     if a.cmd == "check":
         found = issues(probe(a.src))
         print("\n".join(found) if found else "ok: nothing in the metadata against the guidelines")
         return
-    subprocess.run(make_cmd(a.src, a.dst, a.start, a.dur, a.fps), check=True)
+    fps = a.fps or whole_fps(probe(a.src))
+    subprocess.run(make_cmd(a.src, a.dst, a.start, a.dur, fps, a.height), check=True)
     left = issues(probe(a.dst))
     print(a.dst, "ok" if not left else left)
 
