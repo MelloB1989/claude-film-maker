@@ -10,6 +10,11 @@ Confidence tags: **confirmed** (Epic's docs or the Fab listing), **reported** (f
 
 ## 0. Status and verdict
 
+**PARKED (08 Nov, the orchestrator):** the operator prefers a Linux route, and the Windows sign-in is deferred. A
+MediaPipe (Apache-2.0) pilot on a Linux CPU box is running on the same Kling clip, and its results decide the
+route. Nothing was launched for this pilot, and $0 was spent. Everything below stays ready: when the Epic route is
+resumed, start at item 4.
+
 **Prepared, not yet solved.** The research, the automation and the Linux-side rows are done and tested offline. The
 solve waits on the items below; two are settled:
 
