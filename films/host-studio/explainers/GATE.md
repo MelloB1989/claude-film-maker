@@ -145,6 +145,10 @@ and agent-04: never committed, never in the public repo, deleted when the round 
 /work (not the shared code, which every agent sees). agent-01 adds fingertips to arm_track_who.py. ONE box run once
 he passes on the exact proxy. MCU_L 0.615 accepted.
 
+**B's lag on the editor dump (agent-04, 09 Nov):** lag_hand_ms 23.6 on B's seat editor dump (24 fps) against 44.1 on
+the box kit track (30 fps). The row is scored on the track (the 08 Nov 'track + parity' ruling): PASS. The dump row is
+INFO, and a ~40 ms median is one 24 fps frame (r7J's dump read 94 against a ~53 track).
+
 ## Verdicts
 
 ### Netflix v2b: REJECTED BY THE OPERATOR (07 Nov, about 23:45 IST). The SIGN below is SUPERSEDED.
