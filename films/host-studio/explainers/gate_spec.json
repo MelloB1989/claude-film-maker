@@ -1024,6 +1024,22 @@
     "a worker on a stale sync (farm_rows test)"
    ],
    "why": "the operator: render in parallel 'once scene is ready with everything'; a worker on an older state would render the rejected rest pose or garments"
+  },
+  "body.rest_hand_torso_cm": {
+   "area": "performance",
+   "track": "agent-01 / agent-10 (body), agent-09 (measure)",
+   "op": ">=",
+   "line": 15.0,
+   "unit": "cm",
+   "guard": true,
+   "what": "on the REST/bridge frames (both hands still >= 0.25 s), the min distance from either hand (wrist + knuckles + fingertips) to the chest surface (posed Body + Top near the spine, the arms and hands excluded)",
+   "where": "every rest frame (film-qa perf-rest on seq.sample hand samples, every 2nd)",
+   "how": "film-qa perf-rest samples.json -> frames; film-ue op qa.hand_torso_clearance label=<presenter> sequence=<SEQ> 'frames=[...]' (core fleet/agent-09/r7-perf-gate) -> metrics.worst_cm -> numbers/<film>/rest.json",
+   "must_fail": [
+    null,
+    "her r7F TEST (hands hovering at the top of her chest, 'fidgeting with her top', the orchestrator 08 Nov): measure it on box D; the new rest (wrists ~80 cm, ~25-30 cm forward) must pass. Line 15 PROVISIONAL until both are measured"
+   ],
+   "why": "the orchestrator, 08 Nov: a natural presenter rest is hands loosely together at the lower ribcage, 20-30 cm in front of the torso, not touching the body"
   }
  },
  "not_attempted": {
