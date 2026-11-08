@@ -1368,10 +1368,10 @@
    "guard": true,
    "what": "the max over frames (matched by number) of the largest wrist/finger joint distance (32 joint heads) between the EDITOR dump of the sequence and the solved offline track of the same body (hers: r7/arm_track.py; his: the box's kit/arm_track.json from body --perform), in the track's actor frame",
    "where": "the speaking frames of the take (or every 2nd), both hands",
-   "how": "python3 r7/parity.py EDITOR.json OFFLINE.json [--span A-B] --json (agent-13, fleet/agent-13/r7-movement 9bf05e09 (matches by TIME, interpolated; a 24 fps resample of the same body reads 0.0); agent-06's x/diag_res.py is the same definition) -> numbers/<film>/parity.json; the naturalness rows count only on the EDITOR dump and only after this passes. Cross-check tool: film-qa perf-parity (agent-09, one rigid fit)",
+   "how": "python3 r7/parity.py <the editor dump of what RENDERS: seat + life> <kit/arm_track.json> --span 0-196 --span 1040-1162 --shoulder (agent-13: each hand's joints measured from that side's shoulder, the upperarm head, so breathing on the spine/clavicles cancels and a different arm does not; matched by TIME) -> numbers/<film>/parity.json",
    "must_fail": [
-    1.24,
-    "an editor dump vs the offline track of a DIFFERENT body sha: 8d17a4ed vs ac3dc14a reads 1.24 cm (f67-74, left middle finger; agent-13 9bf05e09, time-matched); 1e88aca8 vs ac3dc14a far more. The earlier 44 cm 'stale life layer' (box D) and 47 cm (T2) were a CLOCK artefact (24 fps editor frames matched to the 30 fps track by number), VOID; time-matched the editor agrees with the track to ~0.35 cm"
+    8.1,
+    "a DIFFERENT body sha with --shoulder: 8d17a4ed vs 906d80d3 reads 8.1 cm (agent-13); a synthetic 0.6 cm breath on the chain reads 0.0 with --shoulder (0.6 without). By design --shoulder does NOT judge the shoulders/torso themselves (the breath/torso/head life the orchestrator kept)"
    ],
    "why": "the orchestrator, 08 Nov: NO render until the naturalness rows PASS on the EDITOR DUMP itself; a stale layer must not slip through again (HIS chain on box T too)"
   },
