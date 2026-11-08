@@ -366,6 +366,7 @@ def main(argv=None) -> None:
     pr.add_argument("samples")
     pr.add_argument("--fps", type=float, default=24.0)
     pr.add_argument("--every", type=int, default=2)
+    pr.add_argument("--track", default="", help="the box's kit/arm_track.json: drop frames where a hand is in a gesture")
     pp = sub.add_parser("perf-parity", help="round 7: editor seq.sample vs the offline track (one rigid fit, worst cm)")
     pp.add_argument("editor")
     pp.add_argument("offline")
@@ -456,7 +457,8 @@ def main(argv=None) -> None:
     elif x.cmd == "perf-rest":
         from . import qa_perf
         d = json.loads(Path(x.samples).read_text())
-        res = {"frames": qa_perf.rest_frames(d.get("result", d), x.fps, every=x.every)}
+        tr = json.loads(Path(x.track).read_text()) if x.track else None
+        res = {"frames": qa_perf.rest_frames(d.get("result", d), x.fps, every=x.every, track=tr)}
     elif x.cmd == "perf-body":
         from . import qa_perf
         d = json.loads(Path(x.samples).read_text())

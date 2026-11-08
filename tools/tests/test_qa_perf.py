@@ -207,3 +207,10 @@ def test_parity_absorbs_a_rigid_frame_change_and_catches_a_stale_layer():
         stale["bones"]["hand_r"][i][2] += 6
     r = P.parity(stale, off)
     assert r["value"] > 4 and r["at"].startswith("hand_r@")
+
+
+def test_rest_frames_skip_gesture_holds_with_the_track():
+    s = samples(60, lambda i, h: [0.0, 10.0 if h == "r" else -10.0, 90.0])  # still the whole time
+    track = {"frames": [{"f": f, "gesture_w": {"l": 0.0, "r": 1.0 if 20 <= f < 40 else 0.0}} for f in range(60)]}
+    rf = P.rest_frames(s, FPS, every=1, track=track)
+    assert rf and not any(20 <= f < 40 for f in rf)

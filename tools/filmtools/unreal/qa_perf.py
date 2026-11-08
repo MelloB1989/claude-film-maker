@@ -217,9 +217,12 @@ def body_rows(samples: dict, fps: float, spans: list, desk_z: float, hands=("han
             "body.wrist_travel_cm_per_s": {"value": round(travel / max(1, n), 2), "where": where}}
 
 
-def rest_frames(samples: dict, fps: float, hands=("hand_l", "hand_r"), hold_s: float = 0.25, every: int = 2) -> list:
+def rest_frames(samples: dict, fps: float, hands=("hand_l", "hand_r"), hold_s: float = 0.25, every: int = 2,
+                track: dict | None = None, gesture_max: float = 0.1) -> list:
     """The REST/bridge frames: both hands under REST_CMS for at least hold_s (any frame of the sampled set, speaking
-    or not: the rest lives in the pauses). Every `every`-th such frame, for qa.hand_torso_clearance."""
+    or not: the rest lives in the pauses). Every `every`-th such frame, for qa.hand_torso_clearance. With `track`
+    (the box's kit/arm_track.json: frames[].gesture_w {l, r}), a frame where either hand's gesture weight is >=
+    gesture_max is NOT rest: a stroke's post-stroke HOLD is also still (agent-01: f24-36 and f135-139 were holds)."""
     fr = samples["frames"]
     still = []
     for i in range(1, len(fr)):
@@ -229,8 +232,14 @@ def rest_frames(samples: dict, fps: float, hands=("hand_l", "hand_r"), hold_s: f
         still.append(all(math.dist(samples["bones"][h][i - 1][:3], samples["bones"][h][i][:3]) * fps < REST_CMS
                          for h in hands))
     still = [False] + still
+    gest = {}
+    if track:
+        for x in track.get("frames", []):
+            g = x.get("gesture_w") or {}
+            gest[int(x["f"])] = max(float(g.get("l", 0.0)), float(g.get("r", 0.0)))
     need, out, run = int(round(hold_s * fps)), [], 0
     for i, s in enumerate(still):
+        s = s and gest.get(fr[i], 0.0) < gesture_max
         run = run + 1 if s else 0
         if run >= need and (run - need) % every == 0:
             out.append(fr[i])
