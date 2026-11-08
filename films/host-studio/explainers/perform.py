@@ -1239,13 +1239,16 @@ def cmd_bodycheck(who: str, seq: str = "", every: int = 2, chunk: int = 120, spa
     if far:
         issues.append({"code": "body.not_as_solved", "message": f"{far} > 3 cm from seatkit's pose (breathing and the "
                        f"head turn move them by < 1 cm): a convention differs on this rig", "delta": vs})
-    br = breath([f / FPS for f in fr], sz)
+    # (the orchestrator, 08 Nov: the breath row is the VERTICAL sternum rise; the trace's main axis was the forward-back
+    #   speech sway, kept and reported as info)
+    br = breath([f / FPS for f in fr], [[0.0, 0.0, p[2]] for p in sz])
+    sway = breath([f / FPS for f in fr], sz)
     numbers = {"body.breath_cycles_per_min": br["per_min"], "body.breath_amp_mm": br["amp_mm"],
                "body.desk_through": sum(1 for x in issues if x["code"] == "desk.through"),
                "body.mic_touch": sum(1 for x in issues if x["code"].startswith("mic.")),
                "body.knee_desk": sum(1 for x in issues if x["code"] == "desk.knee")}
     res = {"numbers": numbers, "vs_seatkit_cm": vs, "hip_z_range": worst.get("hip_z"), "breath": br,
-           "issues": issues[:40], "n_issues": len(issues), "pass": not issues}
+           "sway_info": sway, "issues": issues[:40], "n_issues": len(issues), "pass": not issues}
     keep(who, "bodycheck", res)
     d = HERE / "numbers" / FILM[who]
     d.mkdir(parents=True, exist_ok=True)
