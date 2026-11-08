@@ -62,6 +62,7 @@ LEFT_ARC = (0.08, 0.12)  # x the chord: the left hand's own arc (agent-13: its e
 LEFT_ARC_DIR = (-0.6, -0.2, 0.75)  # (fwd, out, up): its arc bows up and back toward her (the mic is forward and out)
 RIGHT_ARC_DIR = (-0.3, 0.45, 0.85)  # a mic-moved right stroke's bow: up, out and a little back
 RIGHT_ARC_MIN = 0.06  # x the chord: every right move's bow off the straight line at least (agent-13's line: 0.03)
+FING_END = 0.85    # x a move: the fingers' shape change ends here (R7 hands: they settle before the wrist stops)
 ROT_LAG_S = 0.08    # s the hand's turn and the fingers trail the wrist's path (proximal to distal)
 DRIFT_CM = 0.8      # cm the wrist's slow drift, each axis (orchestrator: real hands are never 0 cm/s in a hold)
 RIGHT_DRIFT_K = 1.3  # the right hand's drift x this (its rest life on the desk keeps DESK_DRIFT)
@@ -427,7 +428,10 @@ class HandTrack:
         if ROT_LAG_S <= 0:
             return hp, w
         lag, _ = self._at(t - ROT_LAG_S)
-        return GK.HandPose(hp.off, lag.pron, lag.ext, lag.shape), w
+        # the fingers ride the wrist's own clock (R7 hands): lagged with the turn, the anatomical shape change (larger
+        # than the old offsets: the thumb swings out of opposition) piled onto the turn just as the wrist stopped dead,
+        # fingertips 120-145 cm/s (agent-13's finger_snap 3.14/min on 8ebecc97)
+        return GK.HandPose(hp.off, lag.pron, lag.ext, hp.shape), w
 
     def _at(self, t: float) -> tuple:
         rest = GK.HIGH_REST
@@ -492,10 +496,11 @@ class HandTrack:
         ENDS at the move's end, at rest (agent-13, the orchestrator: the delay used to carry the curl past the apex,
         and the hold then snapped it home in one frame, up to 146 cm/s at a fingertip; 12 snaps on 8a45d961)."""
         d = max(1e-3, s.t1 - s.t0)
+        end = FING_END * d  # (R7 hands) and settle a little before the wrist does, not with it
         out = {}
         for f in GK.FINGERS:
-            lf = min(LAG_S[f] * lag, 0.35 * d)
-            out[f] = mj(clip01((t - s.t0 - lf) / max(1e-3, d - lf)))
+            lf = min(LAG_S[f] * lag, 0.3 * end)
+            out[f] = mj(clip01((t - s.t0 - lf) / max(1e-3, end - lf)))
         return out
 
     def _from_of(self, hold: Seg) -> GK.HandPose:

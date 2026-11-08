@@ -41,9 +41,11 @@ THUMB_MCP = 50.0
 THUMB_IP = 62.0
 
 # The named whole-hand poses (closure %; thumb flexion %, opposition %). Authored from anatomy:
-# The thumb's (flexion, opposition) per shape are fitted on her rig by its tip (r7/handshape_fit numbers): the pinch's
-# tip to the index tip 1.4-2.3 cm (pad to pad), the point/count thumb on the folded middle (or ring/pinky) phalanx
-# 1.2-2.6 cm, the fist's on the middle phalanges 0.6-1.4 cm; the open palm's thumb swings out in plane (opp < 0).
+# The thumb's (flexion, opposition) per shape are fitted on her rig by its tip, each with an opposition floor (the
+# proximal phalanx out of the palm's plane toward the palm: agent-13's thumb_flat, opp < 10 with the fingers curled):
+# the pinch's tip to the index tip 0.4-2.2 cm at opp 37-47 deg, the point/raise thumb on the folded middle phalanx
+# 1.2-2.6 cm at opp 28-41, the fist's 1.2-1.9 cm at 25-34, the relaxed/rest thumb beside the index at 21-31; the open
+# palm's thumb swings out in plane (opp < 0: radial abduction).
 #   relaxed  the resting hand in the air: the cascade 22 < 28 < 34 < 40, the thumb loosely opposed beside the index
 #   rest     the hands at rest (together, or on the desk on the little-finger edge): a little more curl, the tips
 #            soft, the thumb lying along the index
@@ -57,17 +59,17 @@ THUMB_IP = 62.0
 #   pinch    a soft precision pinch: index and thumb pads toward each other, the others cascading behind
 #   soft_fist  a loose fist, the thumb across the middle phalanges
 SHAPES = {
-    "relaxed": {"index": 22, "middle": 28, "ring": 34, "pinky": 40, "thumb": 10, "_opp": 55},
-    "rest": {"index": 24, "middle": 29, "ring": 33, "pinky": 38, "thumb": 15, "_opp": 50},
+    "relaxed": {"index": 22, "middle": 28, "ring": 34, "pinky": 40, "thumb": 60, "_opp": 10},
+    "rest": {"index": 24, "middle": 29, "ring": 33, "pinky": 38, "thumb": 60, "_opp": 10},
     "open": {"index": 3, "middle": 4, "ring": 6, "pinky": 9, "thumb": 5, "_opp": -45},
     "list": {"index": 8, "middle": 10, "ring": 13, "pinky": 17, "thumb": 8, "_opp": -20},
-    "point": {"index": 3, "middle": 80, "ring": 84, "pinky": 86, "thumb": 80, "_opp": 20},
-    "raise": {"index": 4, "middle": 66, "ring": 76, "pinky": 84, "thumb": 70, "_opp": 20},
-    "count1": {"index": 3, "middle": 80, "ring": 84, "pinky": 86, "thumb": 80, "_opp": 20},
-    "count2": {"index": 3, "middle": 4, "ring": 84, "pinky": 86, "thumb": 100, "_opp": 50},
-    "count3": {"index": 3, "middle": 4, "ring": 8, "pinky": 86, "thumb": 100, "_opp": 90},
-    "pinch": {"index": 46, "middle": 40, "ring": 46, "pinky": 52, "thumb": 80, "_opp": -5},
-    "soft_fist": {"index": 66, "middle": 72, "ring": 76, "pinky": 80, "thumb": 65, "_opp": 25},
+    "point": {"index": 3, "middle": 80, "ring": 84, "pinky": 86, "thumb": 90, "_opp": 0},
+    "raise": {"index": 4, "middle": 66, "ring": 76, "pinky": 84, "thumb": 80, "_opp": 10},
+    "count1": {"index": 3, "middle": 80, "ring": 84, "pinky": 86, "thumb": 90, "_opp": 0},
+    "count2": {"index": 3, "middle": 4, "ring": 84, "pinky": 86, "thumb": 100, "_opp": 10},
+    "count3": {"index": 3, "middle": 4, "ring": 8, "pinky": 86, "thumb": 100, "_opp": 20},
+    "pinch": {"index": 46, "middle": 40, "ring": 46, "pinky": 52, "thumb": 10, "_opp": 100},
+    "soft_fist": {"index": 66, "middle": 72, "ring": 76, "pinky": 80, "thumb": 80, "_opp": 0},
 }
 KEYS = FINGERS4 + ("thumb", "_opp")
 
@@ -187,6 +189,20 @@ def hand_angles(P: dict, Q: dict, s: str) -> dict:
         d = [bone_dir(Q[j], sign) for j in js]
         out["thumb"] = tuple(math.degrees(math.acos(max(-1.0, min(1.0, _dot(d[i], d[i + 1]))))) for i in range(2))
     return out
+
+
+PALM_SIGN = {"l": -1.0, "r": 1.0}  # (middle_01 - hand) x (index_01 - pinky_01) x this points to the palm side
+
+
+def thumb_opposition(P: dict, s: str) -> float:
+    """deg the thumb's proximal phalanx (thumb_02 -> thumb_03) leaves the palm's plane toward the palm side (agent-13's
+    thumb_flat: < 10 with the fingers curled = a thumb lying flat in the palm's plane). Fold-proof: the palm's normal
+    from the hand's long axis and the knuckle line, its side by the rig's handedness."""
+    hd = _unit(_sub(P[f"middle_01_{s}"], P[f"hand_{s}"]))
+    n = _unit(_cross(hd, _sub(P[f"index_01_{s}"], P[f"pinky_01_{s}"])))
+    n = [PALM_SIGN[s] * x for x in n]
+    v = _unit(_sub(P[f"thumb_03_{s}"], P[f"thumb_02_{s}"]))
+    return math.degrees(math.asin(max(-1.0, min(1.0, _dot(v, n)))))
 
 
 def claw_score(mcp: float, pip: float, dip: float) -> float:

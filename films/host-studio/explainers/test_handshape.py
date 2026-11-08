@@ -106,3 +106,14 @@ def test_the_pinch_pads_meet(rig, s):
     tips = G.finger_tips(perf, F)
     d = S.norm(S.sub(tips[f"thumb_tip_{s}"], tips[f"index_tip_{s}"]))
     assert d < 3.0, d
+
+
+OPP_FLOOR = {"relaxed": 15, "rest": 15, "point": 25, "raise": 25, "count1": 25, "count2": 25, "count3": 25,
+             "pinch": 30, "soft_fist": 20}
+
+
+@pytest.mark.parametrize("name", list(OPP_FLOOR))
+@pytest.mark.parametrize("s", ["l", "r"])
+def test_the_thumb_is_opposed_not_flat_in_the_palm(rig, name, s):
+    W = posed(rig, s, name)
+    assert HS.thumb_opposition({b: v[0] for b, v in W.items()}, s) >= OPP_FLOOR[name]

@@ -280,6 +280,35 @@ def scaled(p: HandPose, k: float) -> HandPose:
     return replace(p, off=off)
 
 
+# R7 hands: the shape catalogue take (perform.py body --catalogue): her right hand shows each named shape, held at
+# chest height out to her right with the palm half toward the camera, one every CAT_STEP s; then both hands go to the
+# desk rest. The stills are taken at catalogue_stills()'s times (mid-hold), for the orchestrator's eye.
+CAT_SHAPES = ("relaxed", "open", "list", "point", "raise", "count1", "count2", "count3", "pinch", "soft_fist")
+CAT_STEP, CAT_HOLD = 2.0, 0.9
+CAT_REST_S = 3.5  # s at the desk rest after the last shape (the rest-on-desk still at its middle)
+
+
+def catalogue_stills() -> dict:
+    """{shape: t s} the catalogue take's still times (mid-hold), plus 'rest' (on the desk)."""
+    out = {n: round(k * CAT_STEP + 1.0 + 0.5 * CAT_HOLD, 3) for k, n in enumerate(CAT_SHAPES)}
+    out["rest"] = round(len(CAT_SHAPES) * CAT_STEP + 0.5 + 0.6 * CAT_REST_S, 3)
+    return out
+
+
+def catalogue_length_s() -> float:
+    return len(CAT_SHAPES) * CAT_STEP + 0.5 + CAT_REST_S
+
+
+def catalogue_plan(on_cam=None) -> Plan:
+    evs = []
+    for k, name in enumerate(CAT_SHAPES):
+        t = k * CAT_STEP + 1.0
+        evs.append(Event("r", t - 0.6, t, CAT_HOLD, HandPose((28.0, 22.0, 2.0), pron=55.0, ext=8.0, shape=name), None,
+                         "open", word=name, seed=k, retract=0.4, detail="catalogue", line="CAT"))
+    end = len(CAT_SHAPES) * CAT_STEP
+    return Plan(evs, [(0.2, end)], [(0.0, 4.0)], [], on_cam=list(on_cam or []), gap_merge=CAT_STEP)
+
+
 def plan_from_sheet(sheet: dict, cues: dict, tilts: list | None = None, base_lean: float = 4.0,
                     timing: list | None = None, on_cam: list | None = None, close_alive: float | None = None,
                     mic_cams: list | None = None) -> Plan:
@@ -472,7 +501,10 @@ class Performer(S.Seater):
                     # the flexion hinge: perpendicular to the thumb, turning its tip toward the palm and the fingers
                     goal = unit(add(mul(n, 0.8), mul(across, 0.6)))
                     hinge = toward(unit(cross(d2, ortho(goal, d2))), goal)
-                    out[(s, f)] = {"joints": joints, "axis": hinge, "front": toward(hd, n),
+                    # palmar abduction: about the axis across the thumb and the palm's normal, so the thumb lifts out of
+                    # the palm's plane (about the hand's long axis it barely moved: the thumb lies along it; agent-13's
+                    # thumb_flat on 8ebecc97, opp -2 deg)
+                    out[(s, f)] = {"joints": joints, "axis": hinge, "front": toward(unit(cross(tipv, n)), n),
                                    "across": toward(n, across), "ref": ref.get("thumb", (0.0, 0.0))}
                     continue
                 tip, base = sk.p(joints[-1]), sk.p(joints[1] if "metacarpal" in joints[0] else joints[0])
@@ -1364,13 +1396,13 @@ def metrics(perf: Performer, t0: float, t1: float, fps: float = 30.0) -> dict:
 def build(data: dict, st, sy, sheet: dict, cues: dict, tilts: list, length_s: float, fps: int = 30,
           check_every: int = 6, timing: list | None = None, on_cam: list | None = None,
           frame_want: dict | None = None, track_out: str | None = None, close_alive: bool = False,
-          mic_cams: list | None = None) -> tuple:
+          mic_cams: list | None = None, catalogue: bool = False) -> tuple:
     """seatkit.build for the performance: the seated pose with the plan driving the upper body, as tracks (constant
     for the bones that never move, per key for spine, neck, head, clavicles, arms, hands and fingers). Returns (doc
     for perform.py's WRITE, summary with the checks and the body rows' numbers)."""
     sk = S.Skeleton.from_read(data)
-    plan = plan_from_sheet(sheet, cues, tilts, timing=timing, on_cam=on_cam, close_alive=length_s if close_alive else None,
-                           mic_cams=mic_cams)
+    plan = catalogue_plan(on_cam) if catalogue else plan_from_sheet(
+        sheet, cues, tilts, timing=timing, on_cam=on_cam, close_alive=length_s if close_alive else None, mic_cams=mic_cams)
     se, tuned = S.autotune(sk, st, sy)
     perf = Performer(sk, st, se.sy, plan)
     n = int(round(length_s * fps)) + 1

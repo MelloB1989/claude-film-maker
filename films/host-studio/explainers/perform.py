@@ -424,7 +424,8 @@ def job():
                                 **({"frame_want": P["perform"]["frame_want"]} if P["perform"].get("frame_want") else {}),
                                 **({"track_out": P["perform"]["track_out"]} if P["perform"].get("track_out") else {}),
                                 **({"close_alive": True} if P["perform"].get("close_alive") else {}),
-                                **({"mic_cams": P["perform"]["mic_cams"]} if P["perform"].get("mic_cams") else {}))
+                                **({"mic_cams": P["perform"]["mic_cams"]} if P["perform"].get("mic_cams") else {}),
+                                **({"catalogue": True} if P["perform"].get("catalogue") else {}))
     else:
         gs = [S.Gesture(**x) for x in P["gestures"]]
         doc, summary = S.build(data, S.Set(**P["set"]), S.Style(**P["style"]), gs, P["length_s"], P["fps"])
@@ -502,7 +503,7 @@ MIC_CAMS: dict = {}
 FRAME_WANT_WHO = {"her": {"CAM_MCU": 0.5}}
 
 
-def cmd_body(who: str, force: bool = False, perform: bool = False) -> dict:
+def cmd_body(who: str, force: bool = False, perform: bool = False, catalogue: bool = False) -> dict:
     """The seated body, built ON THE BOX (seatkit pushed next to the WAVs): the skeleton read there, the pose solved
     and checked there, AS_exp_<who>_seat written; only the check's numbers come back."""
     kit = box(who, "kit")
@@ -516,9 +517,14 @@ def cmd_body(who: str, force: bool = False, perform: bool = False) -> dict:
         client().push(str(HERE / "handshape.py"), box(who, "kit", "handshape.py"))  # the hand shapes (R7 hands)
         bp["style"].update(PERFORM_STYLE)
         extra = {"perform": {**perform_params(who), "track_out": box(who, "kit", "arm_track.json")}}  # the arm track
+        if catalogue:  # R7 hands: the shape catalogue take, its own animation (the verify body is left alone)
+            import gesturekit as GK
+            extra["perform"].update(catalogue=True, track_out=box(who, "kit", "arm_track_hands_cat.json"))
+            bp["length_s"] = GK.catalogue_length_s()
         #   for agent-13's rows, written ON THE BOX (his skeleton never leaves it): run the rows there
     r = run(BODY, {"kit_dir": kit, "read": READ, "label": LABEL[who], "idle": IDLE, "world": WORLD_BONES,
-                   "out": f"{ANIM}/AS_exp_{who}_seat", "force": force, **bp, **extra}, 3600)
+                   "out": f"{ANIM}/AS_exp_{who}_" + ("hands_cat" if catalogue else "seat"), "force": force, **bp,
+                   **extra}, 3600)
     keep(who, "body_check", r["summary"])
     if not r.get("written"):
         raise SystemExit(f"the seated pose fails its own check (nothing written): {r['summary']['issues'][:5]} "
@@ -1411,7 +1417,7 @@ def step(name: str, who: str, a) -> dict:
     else:
         r = {"push": lambda: cmd_push(who), "solve": lambda: cmd_solve(who, a.only, a.face_mesh), "bias": lambda: cmd_bias(who),
              "compose": lambda: cmd_compose(who), "workseq": lambda: cmd_workseq(who, a.fresh),
-             "body": lambda: cmd_body(who, a.force, a.perform), "cams": lambda: cmd_cams(who), "life": lambda: cmd_life(who),
+             "body": lambda: cmd_body(who, a.force, a.perform, a.catalogue), "cams": lambda: cmd_cams(who), "life": lambda: cmd_life(who),
              "face": lambda: cmd_face(who), "sync": lambda: cmd_sync(who, a.from_bake, a.restart_level, a.bake_chunk), "gaze": lambda: cmd_gaze(who),
              "place": lambda: cmd_place(who, a.seq), "preview": lambda: cmd_preview(who, a.seq),
              "numbers": lambda: cmd_numbers(who, a.seq),
@@ -1443,6 +1449,8 @@ def main() -> None:
     ap.add_argument("--span", default="", help="bodycheck: a:b frame range")
     ap.add_argument("--face-mesh", default="", help="solve: the face SkeletalMesh to solve on (another level open)")
     ap.add_argument("--perform", action="store_true", help="body: r7, the performance from acting/<who>.json")
+    ap.add_argument("--catalogue", action="store_true", help="body --perform: R7 hands, the shape catalogue take "
+                    "(AS_exp_<who>_hands_cat; stills at gesturekit.catalogue_stills())")
     ap.add_argument("--bless", action="store_true", help="signs: record the live head-signs file as this presenter's")
     ap.add_argument("--from", dest="start", default="body")
     ap.add_argument("--to", dest="stop", default="numbers")
