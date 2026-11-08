@@ -189,6 +189,14 @@ def test_engines_agree_hanging_and_into_the_bust():
           f", l side {a['sides']['l']['zones']['side']['clear_cm']}")
 
 
+def test_layers_engines_agree():
+    a, b, diff, _ = compare({"l": (2.0, -17.5, 30.0), "r": (16.0, 4.0, 38.0)}, {"LAYERS": "1"})
+    assert not diff, diff
+    lr = a["sides"]["r"]["layers"]["front"]
+    assert lr["clear_cm"] < 0 and any(h[0] > 0 for h in lr["hits"]), lr   # inside: a surface out beyond the point
+    assert "layers" not in compare({"l": (2.0, -17.5, 30.0), "r": (16.0, 4.0, 38.0)})[0]["sides"]["r"]
+
+
 def test_engines_agree_rest_pose_and_cache():
     a, b, diff, _ = compare({})
     assert not diff, diff

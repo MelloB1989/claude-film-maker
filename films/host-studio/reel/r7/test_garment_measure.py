@@ -267,3 +267,56 @@ def test_zone_inside_comes_from_the_whole_torso():
                             [(0, (13.0, 0.0, 0.0))], chain=chain)
     assert abs(res["front"][0][0] + 2.0) < 1e-6 and res["front"][1] == 1
     assert res["side"][0][0] > 0 and res["side"][1] == 0
+
+
+def tube(r, t0, t1, n=48, rows=12, flip=False):
+    """Open cylinder round z (P, T), winding outward (or inward with flip)."""
+    P = [(r * math.cos(2 * math.pi * j / n), r * math.sin(2 * math.pi * j / n), t0 + (t1 - t0) * i / rows)
+         for i in range(rows + 1) for j in range(n)]
+    T = []
+    for i in range(rows):
+        for j in range(n):
+            a, b, c, d = i * n + j, i * n + (j + 1) % n, (i + 1) * n + (j + 1) % n, (i + 1) * n + j
+            T += [(a, c, b), (a, d, c)] if flip else [(a, b, c), (a, c, d)]
+    return P, T
+
+
+def test_skin_poke_through_the_band():
+    # trousers: outer face r 15 (wound inward, as an authored inner face might be) + inner face r 14.5, t -20..0
+    Po, To = tube(15.0, -20.0, 0.0, flip=True)
+    Pi, Ti = tube(14.5, -20.0, 0.0)
+    P = Po + Pi
+    T = To + [(a + len(Po), b + len(Po), c + len(Po)) for a, b, c in Ti]
+    P = P + [(15.2, 0.0, -3.0), (15.2, 0.0, -3.0), (15.3, 0.0, -3.0)]   # a collapsed triangle (T2: zero division)
+    T = T + [(len(P) - 3, len(P) - 2, len(P) - 1)]
+    cy = gm.Cyl((0.0, 0.0, -30.0), (0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0))
+    edge = [30.0] * gm.NS                                # cylindrical t of the trousers' top edge (z 0)
+    skin = [(k, (14.0 * math.cos(a), 14.0 * math.sin(a), z)) for k, (a, z) in
+            enumerate((a / 10.0, z) for a in range(0, 63, 3) for z in (-2.0, -5.0, -8.0))]
+    r = gm.surface_poke(P, T, skin, cy, edge)
+    assert r["poke_cm"] < 0 and r["verts_gt0"] == 0, r   # all covered: reads its stand-off (-0.5)
+    assert abs(r["poke_cm"] + 0.5) < 0.05, r            # (the 48-gon chord sits 0.03 in)
+    skin2 = skin + [(900, (15.4, 0.0, -3.0)),             # 0.4 cm out through the band, at her front, 3 cm down
+                    (901, (0.0, 14.8, -2.0)),             # inside the cloth's thickness: not out
+                    (902, (15.5, 0.0, 2.0)),              # above the edge (bare skin is the fit row's job)
+                    (903, (0.0, -15.6, -14.0))]           # below the window (POKE_CM 10)
+    r = gm.surface_poke(P, T, skin2, cy, edge)
+    assert abs(r["poke_cm"] - 0.4) < 1e-6 and r["verts_gt0"] == 1 and r["verts_gt01"] == 1, r
+    assert r["where"]["vert"] == 900 and r["where"]["deg"] == 0 and r["where"]["below_edge_cm"] == 3.0, r
+    assert abs(r["poke_front_cm"] - 0.4) < 1e-6
+
+
+def test_ray_layers_count_the_shells():
+    # spine along z at the origin; an outer shell r 15 and an inner layer r 12 (tubes); an arm point at r 13.5
+    Po, To = tube(15.0, -20.0, 20.0)
+    Pi, Ti = tube(12.0, -20.0, 20.0, flip=True)
+    chain = [(0.0, 0.0, -30.0), (0.0, 0.0, 30.0)]
+    meshes = [("Top", Po, To, None), ("Top", Pi, Ti, set(range(len(Pi))))]
+    r = gm.ray_layers((13.5, 0.0, 0.0), chain, meshes, {"Top": {0: ("spine_03", 0.5, 15.0)}})
+    assert r["spine_cm"] == 13.5
+    out = [h for h in r["hits"] if h[0] > 0]
+    inn = [h for h in r["hits"] if h[0] < 0]
+    assert len(out) == 1 and abs(out[0][0] - 1.5) < 0.05 and out[0][1] == 1, r   # the outer shell, facing out
+    assert len(inn) == 1 and abs(inn[0][0] + 1.5) < 0.05 and inn[0][1] == -1, r  # an inner layer under the arm
+    r = gm.ray_layers((13.4, 1.0, 1.0), chain, meshes)                             # off the corners: same answer
+    assert [h[1] for h in r["hits"]] == [-1, 1] and r["hits"][0][0] < 0 < r["hits"][1][0], r
