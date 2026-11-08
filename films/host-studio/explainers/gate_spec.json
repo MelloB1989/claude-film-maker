@@ -1467,20 +1467,20 @@
    ],
    "why": "breathing carries the arm a little; not more than 1.2 cm"
   },
-  "move.hand_near_face": {
+  "move.hand_near_face_frames": {
    "area": "performance",
    "track": "agent-13 (measure) / agent-01 (planner)",
+   "why": "the orchestrator's verdict on her verify (08 Nov): a hand by the face reads as touching her hair / a wave / 'stop'",
    "op": "==",
    "line": 0,
-   "unit": "count",
-   "what": "frames with any hand/finger above the chin or within ~10 cm of the face/hair, in the camera CUT at that frame (the EDL), unless the acting sheet explicitly calls a face gesture (none do); both presenters",
-   "where": "her speaking frames (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
-   "how": "agent-13's naturalness.py hand_near_face row (exact definition to follow) on the 30 fps track, per EDL cut camera",
+   "unit": "frames @30",
+   "what": "frames inside the spans AND on screen (the EDL cut cameras) where any of each hand's joint heads (wrist; thumb/index/middle/ring/pinky _02 and _03) is ABOVE THE CHIN LINE (z > head_z - 5.0 cm, CHIN_BELOW_HEAD to be measured on each mesh by agent-02) OR within 10 cm of the face/hair shell (|P - (head + (7 fwd, 0, 4 up))| < 21 cm), in 3D in the actor frame",
+   "where": "the spans x on-screen frames, both presenters; the 30 fps track",
+   "how": "r7/naturalness.py (agent-13, fleet/agent-13/r7-movement c26ced8f) -> numbers/<film>/naturalness.json",
    "must_fail": [
-    null,
-    "her verify netflix_r7H (b4325b5b): MCU f58-70 'three hundred MILLION' (the right hand up to head height beside her face) and the CU f~100-135 'Hit play' (palm out beside the face): agent-13 to give the value"
-   ],
-   "why": "the orchestrator's verdict on her verify (08 Nov): a hand by the face reads as touching her hair / a wave / 'stop'"
+    89,
+    "her b4325b5b (the r7H verify): 89 frames in the verify windows (whole take 253), covering MCU f58-70 (7.1 cm over the chin) and the CU f100-135 (9.2 over, 12.5 cm from the face centre); 52ab5ea2 202. Caveat: the chin line is a joint-head estimate (+-3 cm) until agent-02 measures it"
+   ]
   }
  },
  "not_attempted": {
