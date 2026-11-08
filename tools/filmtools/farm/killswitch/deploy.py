@@ -317,12 +317,13 @@ def floor_25(pts: list[dict], n: int, period: int) -> float | None:
     return best
 
 
-def parse_window(text: str) -> tuple[float, float, str]:
-    """'2026-11-08T12:00/2026-11-08T14:30[=label]' (UTC) -> (start, end, label)."""
+def parse_window(text: str) -> tuple[float, float, str, str]:
+    """'[i-0abc@]2026-11-08T12:00/2026-11-08T14:30[=label]' (UTC) -> (start, end, label, instance or '')."""
+    iid, _, text = text.rpartition("@")
     span, _, label = text.partition("=")
     a, b = span.split("/")
     ts = [datetime.fromisoformat(x).replace(tzinfo=UTC).timestamp() for x in (a, b)]
-    return ts[0], ts[1], label or span
+    return ts[0], ts[1], label or span, iid
 
 
 def cmd_calibrate(ctx, args, log):
@@ -370,7 +371,7 @@ def calibrate_region(aws, conf, ids, args, log):
         for h, xs in hours.items():
             log(f"   {h}   {len(xs):>3}  {min(xs):7.2f} {statistics.mean(xs):7.2f} {max(xs):7.2f}   "
                 f"{v(min(xs)):7.2f}  {v(statistics.mean(xs)):7.2f}")
-        spans = [(a, b, lab) for a, b, lab in windows] or [
+        spans = [(a, b, lab) for a, b, lab, only in windows if only in ("", iid)] or [
             (r[0]["t"], r[-1]["t"], f"busy (auto: >= {args.busy:g} %)") for r in busy_runs(pts, args.busy, per)
             if len(r) >= 3]
         log(f"   work windows (the alarm must stay quiet in each): highest safe threshold = the lowest {n}x5-min "
@@ -530,8 +531,8 @@ def main(argv=None):
     s.add_argument("--name", help="a Name tag pattern, e.g. 'ue-box-b*'")
     s.add_argument("--hours", type=float, default=48)
     s.add_argument("--busy", type=float, default=15, help="a 5-min average at or above this is work (default 15 %%)")
-    s.add_argument("--work", action="append", help="a known job window, UTC: 2026-11-08T12:00/2026-11-08T14:30=render"
-                   " (repeat; without any, windows with a point >= --busy are used)")
+    s.add_argument("--work", action="append", help="a known job window, UTC: [i-0abc@]2026-11-08T12:00/2026-11-08T14:30=render"
+                   " (repeat; with i-...@ it is that box's only; without any, windows with a point >= --busy)")
     s.add_argument("--vcpus", type=int, default=0, help="the box's vCPUs, if it is gone (read from EC2 otherwise)")
     s.add_argument("--idle-vcpus", type=float, nargs="+", help="IDLE_VCPU values to try (default 0.6 .. 1.2)")
     sub.add_parser("deploy")

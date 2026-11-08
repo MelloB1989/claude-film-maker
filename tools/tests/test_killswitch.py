@@ -351,3 +351,9 @@ def test_calibrate_sweep_flags_a_job_it_would_stop():
     assert "safe up to 9.00 % = 0.72 vCPU" in text
     assert "0.6 vCPU =   7.50 %:  fires   4, of them in work windows 0" in text
     assert "0.8 vCPU =  10.00 %:" in text and "would stop a job" in text
+
+
+def test_work_window_can_name_its_box():
+    a, b, lab, iid = deploy.parse_window("i-0abc@2026-11-08T12:00/2026-11-08T12:30=render")
+    assert (b - a, lab, iid) == (1800, "render", "i-0abc")
+    assert deploy.parse_window("2026-11-08T12:00/2026-11-08T12:30")[2:] == ("2026-11-08T12:00/2026-11-08T12:30", "")
