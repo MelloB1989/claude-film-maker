@@ -198,7 +198,9 @@ class Plan:
                 w = max(w, min(up, down))
         return w
 
-    def lean_at(self, t: float, ease: float = 0.45) -> float:
+    def lean_at(self, t: float, ease: float = 0.25) -> float:
+        # 0.25 s (was 0.45): the trunk's lean into a stroke led the hand by ~0.25 s, a slow pedestal under every
+        #   stroke's wrist speed (agent-13's vel_bell, peak/mean > 2.3); now it rides inside the hand's own move
         v = self.base_lean
         for tk, deg in sorted(self.lean):
             if t <= tk - ease:
@@ -689,6 +691,9 @@ class Performer(S.Seater):
     MIC_PTS = ((0.0, 0.0), (8.0, 0.0), (15.0, 0.0), (0.0, 9.0), (0.0, 16.0), (8.0, 9.0))  # cm (ahead, up) of the
     #   wrist goal: the hand's points tested, fingers forward or up (a size/open stroke holds them up: his fingertips)
 
+    MIC_IN = (0.25, 0.6)  # the fingers' inward aim per cm ahead (his cross-body deictic at 42.0 s aimed further in
+    #                       than 0.25: middle_03_r 3.2 cm from the line of sight in CAM_MCU_L)
+    MIC_ACCENT = ((0.0, 0.0), (3.2, -1.5))  # (fwd, up) cm: the goal, and the style accent's push after the apex
     MIC_DIRS = ((-0.5, -0.5, -0.7), (-0.5, 0.5, -0.7), (0.0, 0.7, -0.7))  # (back, in(-)/out(+), down) per cm step
 
     def cut_cams(self, t0: float, t1: float) -> list:
@@ -718,12 +723,14 @@ class Performer(S.Seater):
 
         def hidden(off, s, cams):
             sg = 1.0 if s == "r" else -1.0
-            w = [st_pt[0] + off[0] - 1.0, st_pt[1] + sg * off[1], st_pt[2] + off[2] - 0.8]  # (hand_targets' left shift)
-            for df, du in self.MIC_PTS:
-                p = [w[0] + df, w[1] - sg * 0.25 * (df + du), w[2] + du]  # and a little in (the fingers aim in)
-                for c in cams:
-                    if S.behind_mic(c, p, st_, hand_r=self.MIC_HAND_R) is not None:
-                        return True
+            for acc in self.MIC_ACCENT:  # the goal and where the style layer's accent pushes it after the apex
+                w = [st_pt[0] + off[0] + acc[0] - 1.0, st_pt[1] + sg * off[1], st_pt[2] + off[2] + acc[1] - 0.8]
+                for df, du in self.MIC_PTS:
+                    for k_in in self.MIC_IN:  # the fingers aim in, a little or (a cross-body point) a lot
+                        p = [w[0] + df, w[1] - sg * k_in * (df + du), w[2] + du]
+                        for c in cams:
+                            if S.behind_mic(c, p, st_, hand_r=self.MIC_HAND_R) is not None:
+                                return True
             return False
 
         def clear(p, s, cams, dirs):
@@ -1066,7 +1073,9 @@ def build(data: dict, st, sy, sheet: dict, cues: dict, tilts: list, length_s: fl
             F = perf.fk({**const, **loc})
             c = S.check(perf, F)
             ws = plan.speak_w(t)
-            skip = ("desk.elbow_off", "desk.elbow_hangs", "desk.forearm_unsupported") if ws > 0.1 else ()
+            up = max(perf.gesture_w(x, t) for x in "lr")  # a hand still gesturing (his last release holds past
+            #   the speech, 54.8 s): its arm is up, not resting on the desk
+            skip = ("desk.elbow_off", "desk.elbow_hangs", "desk.forearm_unsupported") if ws > 0.1 or up > 0.1 else ()
             live = next((cm for a, b, cm in plan.on_cam if a <= t < b), None) if plan.on_cam else "*"
             for x in c["issues"]:
                 if x["code"] in skip:

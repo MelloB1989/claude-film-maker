@@ -61,6 +61,7 @@ LEFT_ARC = (0.08, 0.12)  # x the chord: the left hand's own arc (agent-13: its e
 LEFT_ARC_DIR = (-0.6, -0.2, 0.75)  # (fwd, out, up): its arc bows up and back toward her (the mic is forward and out)
 ROT_LAG_S = 0.06    # s the hand's turn and the fingers trail the wrist's path (proximal to distal)
 DRIFT_CM = 0.8      # cm the wrist's slow drift, each axis (orchestrator: real hands are never 0 cm/s in a hold)
+RIGHT_DRIFT_K = 1.3  # the right hand's drift x this (its rest life on the desk keeps DESK_DRIFT)
 DRIFT_HZ = 0.26     # its band (low: a drift, not a tremor)
 DESK_DRIFT = 0.5    # x it at the desk rest, along the desk only (fwd, out), and the fingers at half
 FING_MICRO = {"index": 5.0, "middle": 5.6, "ring": 6.6, "pinky": 7.2, "thumb": 4.4}  # deg each finger's drift (the
@@ -73,6 +74,8 @@ SETTLE_S = 0.5
 HOLD_MIN_S = 0.1    # s a hold kept at least when the next move takes its time
 V_RETRACT = 55.0    # cm/s a retract home's mean speed at most (softer than the stroke)
 COART_S = 0.45      # a gap shorter than this flows straight into the next gesture
+MOVE_MIN_S = 0.3  # s: a stroke's move at least (agent-13: 0.13-0.25 s strokes peaked
+#   at 2.4-3.6x their mean speed, vel_bell 8/15 at 24 fps; the apex stays on its word, the hold before gives the time)
 PARTIAL_S = 1.1     # a gap shorter than this falls only halfway to the rest
 LAG_S = {"pinky": 0.030, "ring": 0.045, "thumb": 0.050, "middle": 0.062, "index": 0.080}  # fingers behind the wrist
 SPREAD_SIGN = {"index": -1.0, "middle": 0.0, "ring": 0.6, "pinky": 1.2, "thumb": -0.8}
@@ -236,8 +239,8 @@ class HandTrack:
             start = max(e.prep, t)
             # a long move starts earlier (r7F: from the lowered rest a count rose 29 cm in 0.18 s, 4 m/s at the wrist,
             # a snap): its mean speed at most V_MEAN, the stroke still landing on its word
-            start = max(t, min(start, apex - dist(cur, target) / V_MEAN))
-            need = apex - dist(cur, target) / V_MEAN
+            need = apex - max(MOVE_MIN_S, dist(cur, target) / V_MEAN)  # and never a snap under MOVE_MIN_S
+            start = max(t, min(start, need))
             if start > need and segs and segs[-1].kind == "hold" and segs[-1].t1 == t:  # no room after the last
                 #   hold: the hold gives some of its time back (down to HOLD_MIN_S), the move starts sooner
                 h = segs[-1]
@@ -343,6 +346,9 @@ class HandTrack:
         if self.side == "l":  # never toward the mic (forward, out, up: it hangs at her mouth): it drifts back, in and
             #   down from its pose (its fingers went behind the mic in a two-hand hold)
             off = tuple(0.75 * (o - DRIFT_CM) for o in off)
+        else:  # the right's holds a little livelier (agent-13: its hold p10 0.32-0.34 cm/s in the verify windows,
+            #   0.27 on the editor's 24 fps dump; the line is 0.3)
+            off = tuple(RIGHT_DRIFT_K * o for o in off)
         kr = 1.0 if self.side == "r" else 0.7  # the left's turn smaller (its fingertips sit by the mic)
         dp, de = 2.2 * kr * self.n_rot[0](t), 1.8 * kr * self.n_rot[1](t)
         # the fingers (r7F, agent-13: 2.6 deg on one curl read under 2 deg/s for >= 0.5 s in half her speaking time:
