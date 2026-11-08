@@ -181,6 +181,53 @@ class Plan:
     mic_cams: list = field(default_factory=list)  # [[t0, t1, camera]] shots filmed besides the edit's (his TEST render
     #   films CAM_MCU over 0-7.46 s): the mic rule guards these too; the framing rows stay on on_cam
 
+    BREATH_CM = 0.25  # the sternum's rise per breath (the orchestrator, 09 Nov: 2-3.5 mm vertical at 10-20 /min)
+    BREATH_IN_S = 1.1  # an inhale (quick, in the pause before a line); the exhale is the rest of the cycle
+    BREATH_GAP = (3.0, 6.0)  # s between breaths (20 .. 10 /min)
+
+    def breath_peaks(self) -> list:
+        """The inhales' peaks: one as each line starts (people breathe in the pause before they speak), unless the
+        last breath was under BREATH_GAP[0] ago; long lines and pauses filled at an even ~4.4 s."""
+        if getattr(self, "_breath_peaks", None) is not None:
+            return self._breath_peaks
+        lo, hi = self.BREATH_GAP
+        starts = sorted(a for a, _ in self.speaking)
+        end = max([b for _, b in self.speaking] or [0.0]) + 30.0
+        peaks = []
+        nxt = iter(starts + [end])
+        t_next = next(nxt)
+        t = min(starts[0] if starts else 2.0, 2.0)
+        peaks.append(t)
+        while t < end:
+            while t_next < t + lo:
+                t_next = next(nxt, end + hi)
+            if t_next <= t + hi:
+                t = t_next
+            else:
+                n = math.ceil((t_next - t) / 4.4)
+                t = t + (t_next - t) / max(1, n) if (t_next - t) / max(1, n) <= hi else t + 4.4
+            peaks.append(t)
+        self._breath_peaks = peaks
+        return peaks
+
+    def breath_at(self, t: float) -> float:
+        """cm of sternum rise at t: up through each inhale (BREATH_IN_S, minimum jerk) to its peak, down over the
+        exhale until the next inhale starts."""
+        pk = self.breath_peaks()
+        import bisect
+        i = bisect.bisect_right(pk, t)
+        if i < len(pk):  # inhaling toward pk[i]?
+            a = max(pk[i] - self.BREATH_IN_S, pk[i - 1] if i else -1e9)
+            if t >= a:
+                u = (t - a) / max(1e-6, pk[i] - a)
+                return self.BREATH_CM * (u * u * u * (10 - 15 * u + 6 * u * u))
+        if i == 0:
+            return 0.0
+        p0 = pk[i - 1]
+        a = (max(pk[i] - self.BREATH_IN_S, p0) if i < len(pk) else p0 + 4.4)
+        u = min(1.0, (t - p0) / max(1e-6, a - p0))
+        return self.BREATH_CM * (1.0 - u * u * u * (10 - 15 * u + 6 * u * u))
+
     def speak_w(self, t: float, pre: float = 0.5, post: float = 0.6, gap_merge: float | None = None) -> float:
         """1 while speaking (lines merged across gaps under gap_merge s), eased in/out."""
         gap_merge = self.gap_merge if gap_merge is None else gap_merge
@@ -510,6 +557,7 @@ class Performer(S.Seater):
         if not self._ready:
             return super().pose(t, gestures or [])
         self._t = t  # (the hand's trail keeps a short history per frame)
+        self._breath_v = None  # (seatkit's own pose goes through _locals too: no breath until the arms are done)
         sk, sy = self.sk, self.sy
         f, r, u = self.fr
         lean = self.plan.lean_at(t)
@@ -547,7 +595,34 @@ class Performer(S.Seater):
             self._finger_pose(s, hp, W)
             if STYLE_HOOK is not None and hasattr(STYLE_HOOK, "finger_post"):
                 STYLE_HOOK.finger_post(self, s, hp, W)  # e.g. the fingers' spread in the palm's plane
+        # the breath (the orchestrator, 09 Nov: in the SEAT, so the arm rows and parity see what renders): the chest
+        # (spine_05, the neck and head) rises along up; applied after the arms: the clavicles keep their place
+        # (their translation gives the lift back), so the arms, the swivel's torso model and the desk rest are exactly
+        # as without it (a lifted shoulder pulled the desk-rest hands 0.25 cm into the desk; the torso model's 5 deg
+        # steps flipped the elbows)
+        self._breath_v = mul(u, self.plan.breath_at(t)) if self.BREATH else None
+        if self._breath_v is not None:
+            for b in list(W):
+                q_ = b
+                while q_ and q_ != "spine_05" and not q_.startswith("clavicle_"):
+                    q_ = sk.parent.get(q_)
+                if q_ == "spine_05":  # (the clavicles and arms stay)
+                    W[b] = [add(W[b][0], self._breath_v), W[b][1]]
         return self._locals(W)
+
+    BREATH = True  # the seat's breath (Plan.breath_at); the life layer keeps only its clavicles and weight shift
+
+    def _locals(self, W) -> dict:
+        out = super()._locals(W)
+        v = getattr(self, "_breath_v", None)
+        if v is not None and "spine_05" in out:  # the breath's lift as spine_05's translation in its parent's frame
+            p = self.sk.parent["spine_05"]
+            pq = W[p][1] if p in W else self._world_q_of(p, W)
+            out["spine_05"]["t"] = add(list(self.sk.local["spine_05"]["t"]), qrot(qinv(pq), v))
+            for c in ("clavicle_l", "clavicle_r"):  # and given back under the shoulders
+                if c in out and self.sk.parent.get(c) == "spine_05":
+                    out[c]["t"] = sub(list(self.sk.local[c]["t"]), qrot(qinv(W["spine_05"][1]), v))
+        return out
 
     def torso(self, t: float) -> tuple:
         """(turn deg, {side: shoulder lift deg}) at t: the torso turns a little toward the gesturing hand (right
@@ -888,6 +963,20 @@ class Performer(S.Seater):
             log.append({"t": round(e.stroke, 2), "hand": "both", "side": other, "scaled": round(k, 2)})
         return log
 
+    CHIN_BELOW_HEAD = 5.0  # cm: the chin line under the head joint (agent-13's hand_near_face row)
+    FACE_C, FACE_R = (7.0, 0.0, 4.0), 11.0  # the face/hair shell off the head joint (fwd, right, up), radius cm (agent-13)
+    FACE_MARGIN = 3.0  # cm under the chin line / outside the shell + 10: the style layer's arc, drift and accents
+    THUMB_UP = 6.0  # cm: a thumb up over the wrist (palm-in strokes)
+
+    @property
+    def hand_len(self) -> dict:
+        """cm from the wrist to the middle finger's last joint, per side (the skeleton's own)."""
+        if not hasattr(self, "_hand_len"):
+            sk = self.sk
+            self._hand_len = {s: sk.length("hand_" + s, f"middle_03_{s}") if f"middle_03_{s}" in sk.world else 15.0
+                              for s in "lr"}
+        return self._hand_len
+
     def _fit_poses(self, W) -> None:
         """Each event's wrist goal (and the high rest, reported) moved in toward her, a low stroke also a little down,
         by the least distance (bisection) at which the lowest clearing elbow meets its elevation line (cap_at). On the
@@ -965,11 +1054,69 @@ class Performer(S.Seater):
                                  "in_cm": round(hi, 1), "off": [round(x, 1) for x in out.off]})
             return out
 
+        H = self.actor(W["head"][0])
+        face_c = add(H, list(self.FACE_C))
+        chin = H[2] - self.CHIN_BELOW_HEAD
+        self.face_log = []
+
+        def face_top(off, s, ext):
+            """The hand's highest joint (wrist, finger joints) and its nearest approach to the face shell's centre,
+            predicted at a wrist goal: the fingers run along the forearm (hand_rot_p turns them about the vertical,
+            which keeps their rise) and bend up by the wrist's extension."""
+            sg = 1.0 if s == "r" else -1.0
+            sh = self._fk_t("upperarm_" + s, "clavicle_" + s, W)
+            l1, l2 = self.A[s]
+            pole = (add(add(mul(f, -0.3), mul(r, 0.9)), mul(u, -0.35)) if s == "r"
+                    else add(add(mul(f, -0.3), mul(r, -0.9)), mul(u, -0.5)))
+            g = self.comp([st_pt[0] + off[0], st_pt[1] + sg * off[1], st_pt[2] + off[2]])
+            wg0 = self._wg.get(s)
+            self._wg[s] = 1.0
+            try:
+                el, _ = self.swivel(s, sh, g, l1, l2, pole, W, 1.0)
+            finally:
+                if wg0 is None:
+                    self._wg.pop(s, None)
+                else:
+                    self._wg[s] = wg0
+            w, e_ = self.actor(g), self.actor(el)
+            fa = unit(sub(w, e_))
+            a = math.asin(max(-1.0, min(1.0, fa[2]))) + math.radians(max(0.0, ext))
+            hz = unit([fa[0], fa[1], 0.0]) if abs(fa[2]) < 0.999 else [1.0, 0.0, 0.0]
+            d = [hz[0] * math.cos(a), hz[1] * math.cos(a), math.sin(a)]
+            L = self.hand_len[s]
+            pts = [add(w, mul(d, L * k)) for k in (0.0, 0.5, 1.0)] + [add(w, [0.0, 0.0, self.THUMB_UP])]
+            return max(p_[2] for p_ in pts), min(norm(sub(p_, face_c)) for p_ in pts)
+
+        def face_fit(hp: HandPose, s: str, e) -> HandPose:
+            """(the orchestrator, 09 Nov: no hand or finger above the chin, or within ~10 cm of the face or hair, in
+            any shot) a goal whose predicted highest joint is over the chin line (or in the face shell) comes down,
+            the least that clears it (bisection), never below the sternum point's height."""
+            def bad(off):
+                top, near = face_top(off, s, hp.ext)
+                return top > chin - self.FACE_MARGIN or near < self.FACE_R + 10.0 + self.FACE_MARGIN
+            if not bad(hp.off):
+                return hp
+            lo, hi = 0.0, max(0.0, hp.off[2])
+            if bad((hp.off[0], hp.off[1], hp.off[2] - hi)):
+                hi_ok = None
+            else:
+                hi_ok = hi
+                for _ in range(10):
+                    mid = 0.5 * (lo + hi_ok)
+                    if bad((hp.off[0], hp.off[1], hp.off[2] - mid)):
+                        lo = mid
+                    else:
+                        hi_ok = mid
+            dz = hi if hi_ok is None else hi_ok
+            out = replace(hp, off=(hp.off[0], hp.off[1], hp.off[2] - dz))
+            self.face_log.append({"t": round(e.stroke, 2), "s": s, "down_cm": round(dz, 1), "cleared": hi_ok is not None})
+            return out
+
         for e in self.plan.events:
             if e.hand in ("r", "both"):
-                e.pose_r = fit(e.pose_r, "r")
+                e.pose_r = face_fit(fit(e.pose_r, "r"), "r", e)
             if e.pose_l is not None and e.hand in ("l", "both"):
-                e.pose_l = fit(e.pose_l, "l")
+                e.pose_l = face_fit(fit(e.pose_l, "l"), "l", e)
         self.mic_log = self._mic_plan(st_pt)  # after the fit: the goals as they will be played
         self.rest_fit = {s: fit(HIGH_REST, s, rest=True).off for s in "lr"}
         self._gs_tracks = None  # the style track was drawn (torso() asks for its weights) from the unfitted goals
@@ -1267,6 +1414,7 @@ def build(data: dict, st, sy, sheet: dict, cues: dict, tilts: list, length_s: fl
         issues.append({"code": "body.arm_torso", "message": f"upper arm within {worst:.1f} cm of the "
                        "torso/breast model (line 3)", "value": worst})
     rows["mic_plan"] = getattr(perf, "mic_log", [])  # the planner's mic rule: goals moved / strokes handed over
+    rows["face_fit"] = getattr(perf, "face_log", [])  # goals brought down under the chin line (the orchestrator, 09 Nov)
     summary = {"pass": not issues, "issues": issues[:30], "n_issues": len(issues), "tuned": tuned, "rows": rows,
                "events": len(plan.events), "moving_bones": len(moving),
                "hooks": {"style": bool(STYLE_HOOK), "timing": bool(timing)}, "frame": {"fwd": perf.F["fwd"],
@@ -1291,7 +1439,30 @@ def track_frame(perf, plan, F, i: int, t: float) -> dict:
     return {"f": i, "t": round(t, 4), "speak_w": round(plan.speak_w(t), 3),
             "gesture_w": {s: round(perf.gesture_w(s, t), 3) for s in "lr"},
             "p": {b: [round(x, 4) for x in perf.actor(F[b][0])] for b in TRACK_BONES if b in F},
-            "hand_q": {s: [round(x, 5) for x in F["hand_" + s][1]] for s in "lr"}}
+            "hand_q": {s: [round(x, 5) for x in F["hand_" + s][1]] for s in "lr"},
+            "tips": finger_tips(perf, F)}
+
+
+TIP_K = {"thumb": 0.9, "index": 0.75, "middle": 0.75, "ring": 0.75, "pinky": 0.75}  # distal / middle phalanx length
+
+
+def finger_tips(perf, F) -> dict:
+    """agent-13 (R7 hands): each fingertip, actor frame: the _03 joint's head plus its bone axis (the _03 offset off
+    _02, as each bone carries its child along its own axis) times the distal phalanx (TIP_K x the middle one)."""
+    out = {}
+    sk = perf.sk
+    for s in "lr":
+        for fn, k in TIP_K.items():
+            b = f"{fn}_03_{s}"
+            if b not in F or b not in sk.local:
+                continue
+            lt = sk.local[b]["t"]
+            n = norm(lt)
+            if n < 1e-6:
+                continue
+            tip = add(F[b][0], mul(qrot(F[b][1], mul(lt, 1.0 / n)), k * n))
+            out[f"{fn}_tip_{s}"] = [round(x, 4) for x in perf.actor(tip)]
+    return out
 
 
 def track_doc(plan, fps: int, frames: list) -> dict:
