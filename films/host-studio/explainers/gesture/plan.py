@@ -125,6 +125,7 @@ def plan(film: str, seed: int = 72) -> dict:
 # peaks at ~100-200 cm/s. The preparation's length follows the distance (the apex stays on the syllable).
 PEAK = (150.0, 200.0)  # cm/s, the wrist's peak on a preparation at no / full vocal energy
 PREP_MAX = 0.6  # s
+LINE_REST = 0.1  # s into its line before a line-initial preparation (the style track starts ~0.05 s before prep_t)
 
 
 def _peaks(res: dict, film: str) -> dict:
@@ -170,7 +171,7 @@ def paced(res: dict, film: str, rounds: int = 4) -> dict:
             if g.get("_held_in") and not g.get("_free"):
                 changed = changed or pk > 1.3 * want
             if ln0 is not None and p0 >= ln0 - 0.03 and not g.get("_free"):
-                lo = max(lo, min(p0, ln0 + 0.05))  # a prep that started in its line starts from stillness in it
+                lo = max(lo, min(p0, ln0 + LINE_REST))  # a prep that started in its line starts from stillness in it
                 g["_held_in"] = True               # (agent-09's gate counts an onset from a rest in speaking frames)
             new = max(lo, g["stroke_t"] - min(PREP_MAX, dur * pk / want))
             if new < g["prep_t"] - 0.005:
