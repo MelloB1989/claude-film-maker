@@ -1384,7 +1384,7 @@
     8.1,
     "a DIFFERENT body sha with --shoulder: 8d17a4ed vs 906d80d3 reads 8.1 cm (agent-13); a synthetic 0.6 cm breath on the chain reads 0.0 with --shoulder (0.6 without). By design --shoulder does NOT judge the shoulders/torso themselves (the breath/torso/head life the orchestrator kept)"
    ],
-   "why": "the orchestrator, 08 Nov: NO render until the naturalness rows PASS on the EDITOR DUMP itself; a stale layer must not slip through again (HIS chain on box T too)"
+   "why": "the orchestrator's rulings (08 Nov): parity --shoulder <= 1.0 on the RENDERED dump (seat + life) is THE gate for both presenters (it judges what renders). FALLBACK, only if it still fails after the life tuning (his aba900fe: clavicle 0.15, expected ~0.6-0.7): seat-only PLAIN parity <= 1.0 AND life.arm_keys == 0 AND the life-only hand delta <= 1.2 cm, all three, recorded with the reason"
   },
   "move.humerus_elev_rest_desk_deg": {
    "area": "performance",
@@ -1434,6 +1434,38 @@
     "INFO by the orchestrator's ruling (08 Nov): natural (his ~5 mm at 12.8/min); kept, reported, not gated"
    ],
    "why": "separate from the breath (vertical)"
+  },
+  "life.arm_keys": {
+   "area": "performance",
+   "track": "agent-06",
+   "op": "==",
+   "line": 0,
+   "unit": "count",
+   "info": true,
+   "what": "bones of upperarm/lowerarm/hand/finger keyed by the life layer asset (it may carry the arm via the spine/clavicles, never change it)",
+   "where": "the life anim asset of the take",
+   "how": "agent-06 lists the life asset's keyed bones",
+   "r4": [
+    null,
+    "FALLBACK row only (the orchestrator's ruling): gates together with seat-only plain parity <= 1.0 and the life-only hand delta <= 1.2 cm, if --shoulder fails on the rendered dump"
+   ],
+   "why": "a breathing layer must not change the arm"
+  },
+  "life.hand_delta_cm": {
+   "area": "performance",
+   "track": "agent-06",
+   "op": "<=",
+   "line": 1.2,
+   "unit": "cm",
+   "info": true,
+   "what": "the largest hand/finger displacement the life layer adds (rendered dump minus seat-only dump), by time",
+   "where": "the parity spans",
+   "how": "r7/parity.py seat+life dump vs the seat-only dump",
+   "r4": [
+    null,
+    "FALLBACK row only, with life.arm_keys and seat-only parity (the orchestrator's ruling)"
+   ],
+   "why": "breathing carries the arm a little; not more than 1.2 cm"
   }
  },
  "not_attempted": {
