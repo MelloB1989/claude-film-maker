@@ -57,6 +57,7 @@ EOF
 aws s3 cp --recursive --sse aws:kms --only-show-errors --exclude 'comp_*' "$OUT/" "$B/private/renders/r6/review/explain/"
 # a Tokyo box: frames and review files stay in Tokyo; only the deliverables (mp4, ProRes master, srt) go to Mumbai too
 case $B in *-apne1/*)
+    [ -n "${PLACEHOLDER:-}" ] && echo "placeholder run: not a deliverable, nothing copied to Mumbai" || \
     for f in "$MP4" "$OUT/${NAME}_master.mov" "$OUT/$NAME.srt"; do
         [ -f "$f" ] && aws s3 cp --sse aws:kms --only-show-errors --region ap-south-1 "$f" \
             "s3://rf-render-788655295054-aps1/ue-linux/private/renders/r6/review/explain/$(basename "$f")"
