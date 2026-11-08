@@ -527,8 +527,8 @@ FALLBACK_CAMS = {"her": {"CAM_MCU": {"focal": 117.5, "pitch": -1.62}, "CAM_MCU_L
 # side out to his outfit; the gate, >= 0.5 at every checked frame, both arms, seated and in gestures)
 # a presenter's own gesturekit.Performer constants over the class's (hers): his picked from r7/him_sweep.py's table on
 #   his skeleton on box T (his rows can't be run off the box)
-TUNE_OF: dict = {"him": {"REST_WRIST_UNDER": 0.5}}  # (T sweep on c32bc150: his rest tented on the pads at 0.6 s with
-#   0.2; at 0.5 rest_contact 0 and his TEST spans pass every row; its whole-take snaps 6.4 are open for his finals)
+TUNE_OF: dict = {"him": {"REST_WRIST_UNDER": 0.28}}  # (T sweep on c32bc150: his rest tented on its pads at 0.6 s with
+#   0.2, none at 0.5; but 0.5 put the wrist in the desk box (seatkit's desk.wrist: forearm_clear - 0.3), so 0.28)
 TORSO_OF = {"him": {"side_pad": 8.5, "gate": 0.5, "side_from": 9, "warn": True, "breast_r": 4.5, "breast_out": 4.0}}
 # side_from 9: agent-02's worst at arm_t 0.46. breast_r / breast_out: his chest, not her bust spheres (7.5 / 7.0): with
 #   hers his 3 cm front line lifted the elbows to 91 cm in his strokes (wings; his proxy: humerus_elev_high 77.6, 28

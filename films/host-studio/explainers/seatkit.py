@@ -473,6 +473,21 @@ class Seater:
                 a1 = math.degrees(math.asin(max(-1.0, min(1.0, (drop + sy.heel_lift) / L))))
                 qf = qmul(axis_angle(r, a1 - a0), qf)
             W[fo] = [self._fk_t(fo, ca, W), qf]
+            if ba in sk.local:  # the ball ON the floor whatever put it off (his box body read: +1.26 cm with the foot
+                #   at its height): pitch the foot about its ankle, across the heel-to-ball line, by the angle that
+                #   lands the ball at its rest height (two Newton steps; under BALL_TOL nothing moves: hers sat at ~0)
+                want_z = sk.p(ba)[2] + sy.sole
+                for _ in range(2):
+                    hb_w = qrot(W[fo][1], sk.local[ba]["t"])
+                    err = W[fo][0][2] + hb_w[2] - want_z
+                    ax = cross(hb_w, u)
+                    if abs(err) < BALL_TOL or norm(ax) < 1e-6:
+                        break
+                    ax = unit(ax)
+                    dz = qrot(axis_angle(ax, 1.0), hb_w)[2] - hb_w[2]  # cm per deg about ax, its sign included
+                    if abs(dz) < 1e-6:
+                        break
+                    W[fo] = [W[fo][0], qnorm(qmul(axis_angle(ax, -err / dz), W[fo][1]))]
         # arms
         weights = {"l": [], "r": []}
         for g in gestures or []:
@@ -819,6 +834,7 @@ def gestures_from_cues(cues: list, fps: float = 30.0, start_s: float = 0.0) -> l
     return out
 
 
+BALL_TOL = 0.2  # cm: a ball this close to its rest height is left as the foot put it (Seater.pose's legs)
 TUNE = {"desk.elbow_off": ("lean", 1.0, 23.0), "seat.thigh_edge": ("hip_above_seat", 0.4, 12.5),
         "desk.knee": ("hip_above_seat", -0.4, 9.0)}
 
