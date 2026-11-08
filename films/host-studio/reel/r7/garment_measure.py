@@ -41,7 +41,9 @@ Run where film-ue runs (the box driver); per frame it scrubs F+1 then F (as qa.c
         --seq <SEQ> --frames 1290-1400:5 --out /srv/ue/reel/r7/garment/arms_v2b
     ... waist --seq <SEQ> --frames 1290-1400:5,<more> --out /srv/ue/reel/r7/garment/waist_v2b
     ... cleanup     (removes the temp ref-pose actors if a run was cut off)
-    arms --engine fast [--tree /srv/ue/r7tree]: the editor writes the posed meshes (the ref pose once) to a box-local
+    arms --set LAYERS=1: per side and zone, every torso surface on the line from the spine out through the worst arm
+        point (ray_layers: is an 'inside' reading under the outer cloth, or under an inner fold/layer?).
+  arms --engine fast [--tree /srv/ue/r7tree]: the editor writes the posed meshes (the ref pose once) to a box-local
         /tmp dir and runs garment_fast.py in the box's tree with uv (numpy; same numbers: test_garment_fast.py); only
         the numbers come back to the driver, wherever it runs; the files are removed at the end (cleanup). Each
         reading records its seconds.
@@ -547,6 +549,59 @@ class PyEngine:
                               [(i, P[i]) for i in idx], max_d, chain=chain)
 
 
+def ray_tri(o, d, a, b, c, eps=1e-9):
+    """Distance along the ray o + s d (d unit) to triangle abc (Moller-Trumbore), or None."""
+    e1, e2 = sub(b, a), sub(c, a)
+    h = cross(d, e2)
+    det = dot(e1, h)
+    if abs(det) < eps:
+        return None
+    f = 1.0 / det
+    s_ = sub(o, a)
+    u = f * dot(s_, h)
+    if u < 0.0 or u > 1.0:
+        return None
+    q = cross(s_, e1)
+    v = f * dot(d, q)
+    if v < 0.0 or u + v > 1.0:
+        return None
+    s = f * dot(e2, q)
+    return s if s > eps else None
+
+
+def ray_layers(p, chain, meshes, labels=None, reach=40.0):
+    """Every torso surface on the line from the spine out through arm point p (round 7, the orchestrator: does an
+    'inside' reading hit his outfit's OUTER surface or an inner fold/layer?). meshes: [(part, P, T, keep)] (the same
+    torso vertex sets the measure uses; keep None = T is already only those). Returns {spine_cm, hits: [[cm from p (+ = beyond p, outward), raw winding
+    facing (+1 = faces out along the ray), part, the hit triangle's first corner's ref label]]}: an arm point inside
+    one cloth shell reads one outward hit (two a few mm apart: a sheet with thickness); an inner layer between it and
+    the spine shows as hits < 0; loose cloth or folds outside it as more hits > 0."""
+    best = None
+    for a, b in zip(chain, chain[1:]):
+        dd, t = seg_t(p, a, b)
+        if best is None or dd < best[0]:
+            best = (dd, (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t))
+    o, d = best[1], norm(sub(p, best[1]))
+    hits = []
+    for part, P, T, keep in meshes:
+        for tri in T:
+            if keep is not None and not all(i in keep for i in tri):
+                continue
+            pa, pb, pc = P[tri[0]], P[tri[1]], P[tri[2]]
+            s = ray_tri(o, d, pa, pb, pc)
+            if s is None or s > best[0] + reach:
+                continue
+            face = 1 if dot(cross(sub(pb, pa), sub(pc, pa)), d) > 0 else -1
+            lab = labels.get(part, {}).get(tri[0]) if labels else None
+            hits.append([round(s - best[0], 2), face, part, lab and [lab[0], round(lab[1], 2), round(lab[2], 1)]])
+    hits.sort(key=lambda h: h[0])
+    uniq = []  # a line through a shared edge or corner hits every triangle there once: one surface
+    for h in hits:
+        if not uniq or abs(h[0] - uniq[-1][0]) > 0.01 or h[1:3] != uniq[-1][1:3]:
+            uniq.append(h)
+    return {"spine_cm": round(best[0], 2), "hits": uniq}
+
+
 def rigid_map(p, a0, b0, a1, b1):
     """p moved with the segment a0 -> b0 onto a1 -> b1 (the smallest rotation about a0, then a0 -> a1): the Body's
     ref-pose arm put into a garment's own ref pose, for that garment's self-check."""
@@ -685,6 +740,17 @@ def arms_compute(D, G, E, cache=None):
             rec["zones"][z] = r
         if worst:
             rec.update(rec_of(worst, ua, la))
+        if str(G.get("LAYERS", "0")) == "1":  # the surfaces on the line spine -> the worst arm point (ray_layers)
+            meshes = []
+            for n in parts:
+                keep = {int(i) for i in torso[n]}
+                meshes.append((n, [tuple(float(x) for x in p) for p in posed[n][0]],
+                               [tuple(int(i) for i in t) for t in posed[n][1] if all(int(i) in keep for i in t)], None))
+            rec["layers"] = {}
+            for z, w in (("whole", worst), ("front", zr["front"][0]), ("side", zr["side"][0])):
+                if w:
+                    rec["layers"][z] = {"vert": int(w[1]), "clear_cm": round(w[0], 2),
+                                        **ray_layers(tuple(float(x) for x in P[w[1]]), chain, meshes, labels)}
         out["sides"][sd] = rec
     cl = [r["clear_cm"] for r in out["sides"].values() if "clear_cm" in r]
     out["upperarm_torso_clear_cm"] = min(cl) if cl else None
@@ -1019,6 +1085,12 @@ def main(argv=None) -> int:
                                f"{zr['verts_lt3']}; rest {zr.get('rest_clear_cm')}/{zr.get('rest_verts_lt0')}; "
                                f"{zr['tris']} tris)"
                                for sd, r in res["sides"].items() for z, zr in r["zones"].items()), flush=True)
+            for sd, r in res["sides"].items():
+                for z, ly in (r.get("layers") or {}).items():
+                    # each surface on the line spine -> the worst arm point: cm from the point (+ out), facing, label
+                    print(f"f{f}: LAYERS {sd} {z} (clear {ly['clear_cm']}, point {ly['spine_cm']} cm off the spine): "
+                          + ", ".join(f"{h[0]:+} {'out' if h[1] > 0 else 'in'} {h[3][0] if h[3] else h[2]}"
+                                      for h in ly["hits"]), flush=True)
             print(f"f{f}: clear {res['upperarm_torso_clear_cm']} (facing vs actor {res['facing_vs_actor_deg']} deg) | "
                   + " | ".join(
                 f"{sd}: {r.get('clear_cm')} cm (arm_t {r.get('arm_t')}, {r.get('torso_part')} at t {r.get('torso_t_cm')}"

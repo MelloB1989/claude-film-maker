@@ -304,3 +304,19 @@ def test_skin_poke_through_the_band():
     assert abs(r["poke_cm"] - 0.4) < 1e-6 and r["verts_gt0"] == 1 and r["verts_gt01"] == 1, r
     assert r["where"]["vert"] == 900 and r["where"]["deg"] == 0 and r["where"]["below_edge_cm"] == 3.0, r
     assert abs(r["poke_front_cm"] - 0.4) < 1e-6
+
+
+def test_ray_layers_count_the_shells():
+    # spine along z at the origin; an outer shell r 15 and an inner layer r 12 (tubes); an arm point at r 13.5
+    Po, To = tube(15.0, -20.0, 20.0)
+    Pi, Ti = tube(12.0, -20.0, 20.0, flip=True)
+    chain = [(0.0, 0.0, -30.0), (0.0, 0.0, 30.0)]
+    meshes = [("Top", Po, To, None), ("Top", Pi, Ti, set(range(len(Pi))))]
+    r = gm.ray_layers((13.5, 0.0, 0.0), chain, meshes, {"Top": {0: ("spine_03", 0.5, 15.0)}})
+    assert r["spine_cm"] == 13.5
+    out = [h for h in r["hits"] if h[0] > 0]
+    inn = [h for h in r["hits"] if h[0] < 0]
+    assert len(out) == 1 and abs(out[0][0] - 1.5) < 0.05 and out[0][1] == 1, r   # the outer shell, facing out
+    assert len(inn) == 1 and abs(inn[0][0] + 1.5) < 0.05 and inn[0][1] == -1, r  # an inner layer under the arm
+    r = gm.ray_layers((13.4, 1.0, 1.0), chain, meshes)                             # off the corners: same answer
+    assert [h[1] for h in r["hits"]] == [-1, 1] and r["hits"][0][0] < 0 < r["hits"][1][0], r
