@@ -166,7 +166,7 @@ class Take:
         return out
 
     def forearm(self):
-        out = {s: {"elev": [], "elbow": [], "abd": [], "yaw": [], "hum": [], "drop": []} for s in "lr"}
+        out = {s: {"elev": [], "elbow": [], "abd": [], "yaw": [], "hum": [], "drop": [], "flexn": []} for s in "lr"}
         for e in self.ev:
             if e["kind"] == "rest":
                 continue
@@ -182,6 +182,7 @@ class Take:
                 out[s]["yaw"].append(math.degrees(math.atan2(-sg * f[1], f[0])))  # forearm heading: + toward midline
                 out[s]["hum"].append(math.degrees(math.acos(max(-1, min(1, -u[2] / norm(u))))))  # 0 = hanging
                 out[s]["drop"].append(P["upperarm_" + s][2] - P["lowerarm_" + s][2])
+                out[s]["flexn"].append(math.degrees(math.atan2(u[0], -u[2])))  # upper arm forward off vertical, sagittal
         r = {}
         for s in "lr":
             el = out[s]["elev"]
@@ -189,7 +190,8 @@ class Take:
                     "flat_frac": sum(1 for x in el if x < 10.0) / len(el) if el else float("nan"),
                     "elbow_inside_p50": med(out[s]["elbow"]), "abd_p50": med(out[s]["abd"]),
                     "forearm_in_p50": med(out[s]["yaw"]), "humerus_elev_p50": med(out[s]["hum"]),
-                    "humerus_elev_p90": pct(out[s]["hum"], 0.9), "elbow_drop_p50": med(out[s]["drop"])}
+                    "humerus_elev_p90": pct(out[s]["hum"], 0.9), "elbow_drop_p50": med(out[s]["drop"]),
+                    "flexion_p50": med(out[s]["flexn"])}
         for s in "lr":  # the resting / between-gesture upper arm
             hum = [math.degrees(math.acos(max(-1, min(1, -(f["p"]["lowerarm_" + s][2] - f["p"]["upperarm_" + s][2]) /
                                                      norm(sub(f["p"]["lowerarm_" + s], f["p"]["upperarm_" + s]))))))
