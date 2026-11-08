@@ -715,6 +715,18 @@ class Performer(S.Seater):
                     out.append(c)
         return out
 
+    def cut_rigs(self, t0: float, t1: float) -> list:
+        """cut_cams with each camera's rig (None without one): [(position, rig)]."""
+        st_ = self.set
+        rigs = getattr(st_, "rigs", None) or {}
+        names = ([cm for a, b, cm in self.plan.on_cam if a < t1 and b > t0] if self.plan.on_cam else list(st_.cams))
+        out = []
+        for cm in dict.fromkeys(names):
+            c = st_.cams.get(cm) or rigs.get(cm, {}).get("loc")
+            if c is not None and all(c != x for x, _ in out):
+                out.append((c, rigs.get(cm)))
+        return out
+
     def _mic_plan(self, st_pt) -> list:
         """The planner's mic rule (the orchestrator, 08 Nov): every goal of either hand is tested against the mic and
         boom (seatkit.behind_mic) at the wrist and ahead of it, from the camera(s) CUT IN while the gesture plays (the
@@ -733,8 +745,8 @@ class Performer(S.Seater):
                 for df, du in self.MIC_PTS:
                     for k_in in self.MIC_IN:  # the fingers aim in, a little or (a cross-body point) a lot
                         p = [w[0] + df, w[1] - sg * k_in * (df + du), w[2] + du]
-                        for c in cams:
-                            if S.behind_mic(c, p, st_, hand_r=self.MIC_HAND_R) is not None:
+                        for c, rig in cams:  # (a point outside the picture does not count: the orchestrator)
+                            if S.behind_mic(c, p, st_, hand_r=self.MIC_HAND_R, rig=rig) is not None:
                                 return True
             return False
 
@@ -752,7 +764,7 @@ class Performer(S.Seater):
 
         other = "l" if self.mic_side == "r" else "r"
         for e in self.plan.events:
-            cams = self.cut_cams(e.prep, e.stroke + e.hold + e.retract)
+            cams = self.cut_rigs(e.prep, e.stroke + e.hold + e.retract)
             if not cams:
                 continue  # off screen the whole time: nothing to hide
             t = round(e.stroke, 2)

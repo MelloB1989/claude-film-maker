@@ -709,7 +709,7 @@ def check(seater: Seater, posed: dict) -> dict:
                 if b not in A:
                     continue
                 for cam, c in st.cams.items():
-                    hit = behind_mic(c, A[b], st, hand_r=5.0)  # the orchestrator: the mic clear by >= 5 cm in the picture
+                    hit = behind_mic(c, A[b], st, hand_r=5.0, rig=(getattr(st, "rigs", None) or {}).get(cam))  # the orchestrator: the mic clear by >= 5 cm in the picture
                     need(hit is None, "mic.hides_hand", f"{b} is behind the mic from {cam} "
                          f"({hit:.1f} cm from the line of sight)" if hit is not None else "", hit)
     arms = {}
@@ -751,7 +751,15 @@ def project(rig: dict, p) -> tuple | None:
     return u, v
 
 
-def behind_mic(cam, p, st: "Set", hand_r: float = 6.0):
+def in_picture(rig: dict | None, p) -> bool:
+    """Is a point inside a camera's picture (no rig: counted as inside)."""
+    if not rig:
+        return True
+    uv = project(rig, p)
+    return uv is not None and 0.0 <= uv[0] <= 1.0 and 0.0 <= uv[1] <= 1.0
+
+
+def behind_mic(cam, p, st: "Set", hand_r: float = 6.0, rig: dict | None = None):
     """None, or how close (cm) a hand point and the mic come IN THE PICTURE of a camera at `cam`: the angle between
     the two lines of sight, as a distance at the nearer one's range, under (mic radius + hand_r). Either way round
     counts: the mic hiding the hand, or the hand over the mic (the orchestrator, v1/r6b: 'her left hand is on the mic
@@ -762,6 +770,8 @@ def behind_mic(cam, p, st: "Set", hand_r: float = 6.0):
         c = max(-1.0, min(1.0, dot(a, b) / (la * lb)))
         return math.sin(math.acos(c)) * min(la, lb) - r_q
 
+    if not in_picture(rig, p):
+        return None  # (the orchestrator, 08 Nov: a hand point outside the camera's picture is not behind the mic)
     worst = None
     pts = ([(st.mic, st.mic_radius)] if st.mic else [])
     if st.boom:
