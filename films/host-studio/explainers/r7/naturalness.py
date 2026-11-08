@@ -22,6 +22,7 @@ FINGERS = ("index", "middle", "ring", "pinky")
 SPEAK = 0.5
 HIGH_APEX_CM = 16.0  # wrist over the sternum point that counts as an upper_chest-or-higher apex (APEX_Z 19, -3 slack)
 TORSO_DEPTH = 11.0
+STILL_CM_S = 2.5  # wrist speed under which a frame is still (a hold), not part of a movement
 MIN_MOVES = 5  # wrist movements a hand needs before its path/speed fractions count  # cm from the spine_05 joint to the front of the chest/stomach (seated adult, either presenter)
 
 
@@ -271,7 +272,13 @@ class Take:
                 continue
             if max(v[a], v[b]) > 0.35 * pk:  # not a movement of its own (a wobble inside one)
                 continue
-            if self.inside[a]:
+            # trim still frames off both ends (< STILL_CM_S): a dead-still hold is not part of the movement, and
+            # with the overshoot off (agent-01 7652457b) the next speed minimum sat at the hold's far end
+            while a < b and v[a] < STILL_CM_S and v[a + 1] < STILL_CM_S:
+                a += 1
+            while b > a and v[b] < STILL_CM_S and v[b - 1] < STILL_CM_S:
+                b -= 1
+            if self.inside[a] and b - a >= 3:
                 segs.append((a, b))
         return segs
 
