@@ -125,6 +125,12 @@ stay on the box-gated 0fa53868 unless the orchestrator moves them (that would ne
 The orchestrator: her finals A stay on 0fa53868. Only an agent-08 polish candidate B, if it lands clean, may replace
 A, and only after a T2 re-gate. START T for him.
 
+**Her candidate B, ff93e054 (agent-08: 0fa53868 + 5ea6ab94 + a softer 'present' and a flatter rest), offline GO
+(agent-04, 09 Nov):** whole / windows 0 FAIL: snap 0.0, radial 2.39 / 1.94, spread 2.69 / 2.78, palm 0, near_face 0,
+claw 0, rest_contact 0, flexext 22.5 / 20.4, lag 37.7 / 44.1 (line 30). Build 0 issues (agent-08). Plan (the
+orchestrator): A composites now; B is built and fully gated on T2, and its finals render to netflix_finals_B only on 0
+FAIL; the orchestrator picks A or B by eye.
+
 ## Verdicts
 
 ### Netflix v2b: REJECTED BY THE OPERATOR (07 Nov, about 23:45 IST). The SIGN below is SUPERSEDED.
