@@ -275,7 +275,20 @@ def test_deploy_covers_both_regions_roles_once(monkeypatch):
 def test_undeploy_covers_both_regions(monkeypatch):
     f = FakeAws()
     ctx = deploy.Ctx(list(deploy.REGIONS), "nani", cli=f.cli)
-    args = type("A", (), {"keep_alarms": False, "purge_logs": True})()
+    args = type("A", (), {"keep_alarms": False, "purge_logs": True, "dry_run": False})()
     deploy.cmd_undeploy(ctx, args, lambda s: None)
     regions = {r for r, svc, op in f.calls if op == "describe-alarms"}
     assert regions == {"ap-south-1", "ap-northeast-1"}
+
+
+def test_undeploy_dry_run_writes_nothing():
+    f = FakeAws()
+    f.made |= {("global", "iam", deploy.ROLE), ("global", "iam", deploy.SCHEDULE_ROLE)}  # the roles exist
+    ctx = deploy.Ctx(list(deploy.REGIONS), "nani", cli=f.cli)
+    args = type("A", (), {"keep_alarms": False, "purge_logs": True, "dry_run": True})()
+    out = []
+    deploy.cmd_undeploy(ctx, args, out.append)
+    assert all(op.startswith(("get-", "list-", "describe-")) for _, _, op in f.calls)
+    would = [o for o in out if "WOULD" in o]
+    assert sum("delete-schedule" in o for o in would) == 2 and sum("delete-function" in o for o in would) == 2
+    assert any("iam delete-role --role-name killswitch-reaper-role" in o for o in would)

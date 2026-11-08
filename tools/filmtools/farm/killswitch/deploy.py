@@ -11,7 +11,7 @@ and its ec2:stop action live in the instance's region). From tools/:
     python -m filmtools.farm.killswitch.deploy deploy               # create or update everything (idempotent)
     python -m filmtools.farm.killswitch.deploy invoke               # run the deployed reaper once, print its log
     python -m filmtools.farm.killswitch.deploy --regions ap-south-1 drill-alarm i-0abc --period 60   # a drill box
-    python -m filmtools.farm.killswitch.deploy undeploy [--keep-alarms]
+    python -m filmtools.farm.killswitch.deploy undeploy [--keep-alarms] [--purge-logs] [--dry-run]
 """
 from __future__ import annotations
 
@@ -421,7 +421,22 @@ def cmd_drill_alarm(ctx, args, log):
         + ("  (1-min periods need detailed monitoring: aws ec2 monitor-instances)" if args.period < 300 else ""))
 
 
+def would(aws, log):
+    """The AWS CLI with every write replaced by a line saying what it would do; reads still run (undeploy --dry-run)."""
+    def call(*a, **kw):
+        if a[1].startswith(("get-", "list-", "describe-")):
+            return aws(*a, **kw)
+        log("  WOULD: aws " + " ".join(a))
+        return {}
+    return call
+
+
 def cmd_undeploy(ctx, args, log):
+    if args.dry_run:
+        log("dry-run: nothing is deleted")
+        real, say = ctx.aws, log
+        ctx.aws = lambda r: would(real(r), say)
+        log = lambda s: None if s.startswith("deleted") else say(s)  # noqa: E731  (nothing was)
     for r in ctx.regions:
         log(f"== {r}")
         undeploy_region(ctx.aws(r), args, log)
@@ -469,6 +484,7 @@ def main(argv=None):
     s = sub.add_parser("undeploy")
     s.add_argument("--keep-alarms", action="store_true")
     s.add_argument("--purge-logs", action="store_true")
+    s.add_argument("--dry-run", action="store_true", help="list what it would delete; delete nothing")
     args = ap.parse_args(argv)
     ctx = Ctx([r.strip() for r in args.regions.split(",") if r.strip()], args.profile)
     {"show": cmd_show, "dry-run": cmd_dry_run, "calibrate": cmd_calibrate, "deploy": cmd_deploy,
