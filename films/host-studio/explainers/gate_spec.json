@@ -1297,7 +1297,11 @@
     -8.19,
     "netflix v2b (arms_v2b3): both upper arms inside the Top/breast through 00:43.5-00:46, the operator's complaint (re-read per zone when agent-02's split lands)"
    ],
-   "why": "the orchestrator's ruling (A), 08 Nov: the 3 cm rule is for the operator's complaint (the arm swallowed by the BUST), not for a relaxed arm off the side of the ribcage"
+   "why": "the orchestrator's ruling (A), 08 Nov: the 3 cm rule is for the operator's complaint (the arm swallowed by the BUST), not for a relaxed arm off the side of the ribcage",
+   "r4": [
+    null,
+    "her b4325b5b (agent-02, garment_measure 949cde7c, T2): rest 3.74 @f489, gesture 4.13 @f1040, 0 verts inside: PASS"
+   ]
   },
   "body.upperarm_side_clear_cm": {
    "area": "performance",
@@ -1313,7 +1317,11 @@
     null,
     "an arm into the ribcage side (agent-02 to show one); v2b's per-zone reading pending the split"
    ],
-   "why": "the orchestrator's ruling (A): vs the side of the torso, no penetration (>= 0.5 cm)"
+   "why": "the orchestrator's ruling (A): vs the side of the torso, no penetration (>= 0.5 cm)",
+   "r4": [
+    null,
+    "her b4325b5b: rest 1.51 @f721, gesture 1.59 @f1068, 0 verts inside: PASS"
+   ]
   },
   "move.humerus_elev_high_deg": {
    "area": "performance",
