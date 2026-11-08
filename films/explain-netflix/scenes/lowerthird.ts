@@ -1,4 +1,4 @@
-// The series lower third (GFX.md): SYSTEM DESIGN IN 60 SECONDS in Geist 600 caps, tracked +8 %, over the topic line in
+// The series lower third (GFX.md; placed top-left since r7): SYSTEM DESIGN IN 60 SECONDS in Geist 600 caps, tracked +8 %, over the topic line in
 // Geist 400, on a soft plate, wiping in and out. An alpha overlay (tools/matte.sh: the explain-netflix-black and -grey passes).
 // params: tag, topic
 import { NfScene, rev, text, rgba, glowInk, clamp, ease, F, font, type Frame } from './lib';
@@ -11,7 +11,8 @@ export default class LowerThird extends NfScene {
     const kin = rev(t, 0.05, 0.5, ease.outQuart), kout = rev(t, len - 0.45, 0.4, ease.inQuad);
     const k = kin * (1 - kout);
     if (k <= 0) return;
-    const x = 120, y = 790;
+    // top-left, inside title safe (plate y 90-260): at the bottom it sat over the presenter's gestures in the MCU opening
+    const x = 120, y = 160;
     const tag = this.p('tag', 'SYSTEM DESIGN IN 60 SECONDS'), topic = this.p('topic', 'How Netflix streams to 300+ million members without buffering');
     c.font = font(F.ui(400), 40);
     const wTopic = c.measureText(topic).width;
