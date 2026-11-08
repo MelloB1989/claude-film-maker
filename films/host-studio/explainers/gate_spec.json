@@ -1284,7 +1284,7 @@
    "area": "performance",
    "track": "round 7 (agent-09 measure; agent-04 face, agent-01 body, agent-02 garment)",
    "unit": "cm",
-   "how": "agent-02's films/host-studio/reel/r7/garment_measure.py (fleet/agent-02/r7-garment c42b3aac): per frame, min over both sides of the SIGNED distance from the upper-arm skin (Body verts nearest upperarm_<s> at the ref pose, from 30 % shoulder->elbow) to the nearest torso triangle (torso skin + the Top's torso part, sleeves excluded), sign from the triangle normal, < 0 = inside -> numbers/<film>/garment.json. Cross-check (INFO): agent-09's qa.limb_clearance (bone-segment split, radial sign)",
+   "how": "agent-02's films/host-studio/reel/r7/garment_measure.py (fleet/agent-02/r7-garment c42b3aac): per frame, min over both sides of the SIGNED distance from the upper-arm skin (Body verts nearest upperarm_<s> at the ref pose, from 30 % shoulder->elbow) to the nearest torso triangle (torso skin + the Top's torso part, sleeves excluded), sign from the triangle normal, < 0 = inside -> numbers/<film>/garment.json. Cross-check (INFO): agent-09's qa.limb_clearance (bone-segment split, radial sign); garment_measure 949cde7c+ (agent-02): INSIDE is decided on the WHOLE torso (zone_clearance), the zone only picks which line applies (e7d74d40's split read a side vertex as deep inside the front: T2 rest -9.5 vs whole +1.51, a false fail)",
    "guard": true,
    "op": ">=",
    "line": 3.0,
@@ -1303,7 +1303,7 @@
    "line": 0.5,
    "unit": "cm",
    "guard": true,
-   "how": "agent-02's films/host-studio/reel/r7/garment_measure.py (fleet/agent-02/r7-garment c42b3aac): per frame, min over both sides of the SIGNED distance from the upper-arm skin (Body verts nearest upperarm_<s> at the ref pose, from 30 % shoulder->elbow) to the nearest torso triangle (torso skin + the Top's torso part, sleeves excluded), sign from the triangle normal, < 0 = inside -> numbers/<film>/garment.json. Cross-check (INFO): agent-09's qa.limb_clearance (bone-segment split, radial sign)",
+   "how": "agent-02's films/host-studio/reel/r7/garment_measure.py (fleet/agent-02/r7-garment c42b3aac): per frame, min over both sides of the SIGNED distance from the upper-arm skin (Body verts nearest upperarm_<s> at the ref pose, from 30 % shoulder->elbow) to the nearest torso triangle (torso skin + the Top's torso part, sleeves excluded), sign from the triangle normal, < 0 = inside -> numbers/<film>/garment.json. Cross-check (INFO): agent-09's qa.limb_clearance (bone-segment split, radial sign); garment_measure 949cde7c+ (agent-02): INSIDE is decided on the WHOLE torso (zone_clearance), the zone only picks which line applies (e7d74d40's split read a side vertex as deep inside the front: T2 rest -9.5 vs whole +1.51, a false fail)",
    "what": "min over on-screen frames, both sides, of the upper arm's SIGNED distance to the SIDE of the torso (agent-02's side zone): no penetration; light contact reads natural",
    "where": "min over on-screen frames, both sides",
    "must_fail": [
