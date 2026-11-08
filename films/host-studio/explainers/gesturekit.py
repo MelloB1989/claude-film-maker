@@ -714,7 +714,7 @@ class Performer(S.Seater):
                 self.sy = replace(sy0, elbow_out=sy0.elbow_out + k,
                                   elbow_out_l=None if sy0.elbow_out_l is None else sy0.elbow_out_l + k)
                 o = super().elbow_rest(s, W)
-                if out is not None and not o[2]:  # the elbow off the desk (it hangs, out and up): the last that
+                if out is not None and (not o[2] or self._abdo(sub(o[0], sha), s) > self.REST_ABD_MAX):  # the elbow off the desk (it hangs, out and up): the last that
                     k -= 1  # reached; the gate reports what is left (no chicken wings)
                     break
                 out = o
@@ -725,7 +725,70 @@ class Performer(S.Seater):
         finally:
             self.sy = sy0
         self.rest_out = {**getattr(self, "rest_out", {}), s: k}
-        return out
+        return self._open_rest(s, sha, A, out, want)
+
+    ABD_EXTRA = 25.0  # deg more upper-arm abduction a gated torso's relaxed arm may take (the orchestrator, 09 Nov:
+    #   'up to ~20-25 deg, elbows a hand-width off the torso, forearms still on the desk: a confident open posture,
+    #   not wings'; agent-02's budget: +25 deg gives ~5.4 cm at arm_t 0.46, the outfit slim takes the rest)
+
+    def _open_rest(self, s, sha, A, out, want):
+        """The desk rest opened: the upper arm turned out about the forward axis through the shoulder (1 deg steps,
+        up to ABD_EXTRA) until it clears the side by `want` and the front by CLEAR_WANT; the elbow rises behind the
+        edge, the forearm slopes down across it to the wrist on the desk (raised by what the slope lowers the
+        fingertips)."""
+        e0, w0, reached = out
+        sg = 1.0 if s == "r" else -1.0
+        tor, st, sy = self.tor, self.set, self.sy
+        l2 = norm(sub(w0, e0))
+        hz = [w0[0] - e0[0], w0[1] - e0[1]]
+        hn = math.hypot(*hz) or 1.0
+        hz = [hz[0] / hn, hz[1] / hn]
+        slope0 = math.asin(max(-1.0, min(1.0, (e0[2] - w0[2]) / max(1e-6, l2))))
+        hl = self.hand_len[s] + 2.0
+        ua0 = sub(e0, sha)
+        best = (e0, w0, reached)
+        for a in range(0, int(self.ABD_EXTRA) + 1):
+            ang = math.radians(a * sg)  # out: toward her side (+y right, -y left), about +x
+            c_, s_ = math.cos(ang), math.sin(ang)
+            ua = [ua0[0], ua0[1] * c_ - ua0[2] * s_, ua0[1] * s_ + ua0[2] * c_]
+            if a and (self._abdo(ua, s) > self.REST_ABD_MAX or self._hum(ua) > self.REST_ELEV_MAX):
+                break  # agent-13's rest lines: the gate reports what is left (the outfit slim's share)
+            e = add(sha, ua)
+            wz = st.desk_top + sy.wrist_r
+            for _ in range(2):  # the fingertips kept as high over the desk as at the plain rest
+                dz = max(0.0, e[2] - wz)
+                sl = math.asin(min(1.0, dz / max(1e-6, l2)))
+                wz = st.desk_top + sy.wrist_r + max(0.0, hl * (math.sin(sl) - math.sin(slope0)))
+            dz = max(0.0, e[2] - wz)
+            h = math.sqrt(max(1.0, l2 * l2 - dz * dz))
+            w = [e[0] + hz[0] * h, e[1] + hz[1] * h, wz]
+            best = (e, w, reached)
+            _, c_side, c_bust = clearance({**A, "upperarm_" + s: sha, "lowerarm_" + s: e}, None, s, tor, parts=True)
+            if c_side >= want and c_bust >= self.CLEAR_WANT:
+                break
+        self.rest_abd = {**getattr(self, "rest_abd", {}), s: a}
+        return best
+
+    def tor_at(self, s, wg=None):
+        """The torso model for this arm now: a gated torso's side_pad (his outfit flank) at the rest; in a gesture
+        (weight >= 0.5) the bare model (agent-02's mesh: every gesture frame clears his outfit with it at +0.5)."""
+        wg = self._wg.get(s, 1.0) if wg is None else wg
+        return self.tor if self.tor.gate is None or wg < 0.5 else replace(self.tor, side_pad=0.0)
+
+    TIP_DESK_CM = 4.0  # cm over the desk the forearm-line fingertip keeps in a gated swivel (the fingers curl below it)
+    REST_ABD_MAX = 24.0  # deg agent-13's move.rest_abduction_deg line 25 (out of the sagittal plane, median at rest)
+    REST_ELEV_MAX = 39.0  # deg and the desk rest's elevation line 40
+
+    @staticmethod
+    def _abdo(ua, s) -> float:
+        """deg the upper arm out of the sagittal plane, to its own side (agent-13's abduction)."""
+        sg = 1.0 if s == "r" else -1.0
+        return math.degrees(math.asin(max(-1.0, min(1.0, sg * ua[1] / max(1e-6, norm(ua))))))
+
+    @staticmethod
+    def _hum(ua) -> float:
+        """deg the upper arm off hanging straight down."""
+        return math.degrees(math.acos(max(-1.0, min(1.0, -ua[2] / max(1e-6, norm(ua))))))
 
     def swivel(self, s, sh, wrist, l1, l2, pole, W, ws):
         """Two-bone IK, then the elbow about the shoulder-wrist axis: of the positions round the circle (5 deg steps)
@@ -740,6 +803,12 @@ class Performer(S.Seater):
         side = self.fr[1] if s == "r" else mul(self.fr[1], -1.0)
         st_ = self.set
         sha = self.actor(sh)
+        ua0 = sub(self.actor(elbow), sha)
+        abd_cap = self.ABD_MAX
+        tor = self.tor_at(s)
+        if self.tor.gate is not None and self._wg.get(s, 1.0) < 0.5:  # a gated torso (him): up to ABD_EXTRA past the plain solve (an open posture)
+            abd_cap = max(self.ABD_MAX, (math.degrees(math.atan2(abs(ua0[1]), max(1e-6, -ua0[2])))
+                                         if ua0[2] < 0 else 90.0) + self.ABD_EXTRA)
         best, low = None, None
         steps = [0] + [k * sg for k in range(1, 37) for sg in (1, -1)] if self.SWIVEL_LOW else \
             [0] + [k * sg for k in range(1, 9) for sg in (1, -1)]
@@ -771,13 +840,21 @@ class Performer(S.Seater):
             A2 = {**A, "upperarm_" + s: sha, "lowerarm_" + s: ea}
             ua = sub(ea, sha)  # abduction: the upper arm's lean out to her side, in her frontal plane
             abd = math.degrees(math.atan2(abs(ua[1]), max(1e-6, -ua[2]))) if ua[2] < 0 else 90.0
-            if self.tor.gate is not None and abd > self.ABD_MAX and k != 0:  # a gated torso (him): never past the
-                continue  # abduction line to clear it, no chicken wings; the gate reports what is left
-            c, c_side, c_bust = clearance(A2, None, s, self.tor, parts=True)
+            if self.tor.gate is not None:  # a gated torso (him): never past its abduction line (no chicken wings),
+                if k != 0 and (abd > abd_cap or (self._wg.get(s, 1.0) < 0.5 and (
+                        self._abdo(ua, s) > max(self.REST_ABD_MAX, self._abdo(ua0, s))
+                        or self._hum(ua) > max(self.REST_ELEV_MAX, self._hum(ua0))))):  # at the rest agent-13's
+                    continue  # lines; the gate reports what is left
+                wa = self.actor(w2)  # nor the fingertips (along the forearm) into the desk
+                tip = add(wa, mul(unit(sub(wa, ea)), self.hand_len[s] + 2.0))
+                if tip[0] > st_.desk_near and tip[2] < st_.desk_top + self.TIP_DESK_CM and k != 0:
+                    continue
+            c, c_side, c_bust = clearance(A2, None, s, tor, parts=True)
             if self.SIDE_WANT is not None:  # the bust by CLEAR_WANT (at the desk rest REST_BUST_WANT), her side only
                 #                             by SIDE_WANT
                 k_ = smooth(min(1.0, self._wg.get(s, 1.0) / 0.5))  # the full line from half a gesture on (the
-                bw = self.CLEAR_WANT * k_ + self.REST_BUST_WANT * (1.0 - k_)  # build's gate counts it there)
+                rbw = self.CLEAR_WANT if self.tor.gate is not None else self.REST_BUST_WANT  # (him: front 3, ruled)
+                bw = self.CLEAR_WANT * k_ + rbw * (1.0 - k_)  # build's gate counts it there)
                 c = min(c_bust - bw, c_side - self.SIDE_WANT) + self.CLEAR_WANT
             if best is None or c > best[0]:
                 best = (c, e, w2)
@@ -1389,6 +1466,7 @@ def build(data: dict, st, sy, sheet: dict, cues: dict, tilts: list, length_s: fl
     issues, clear = [], {"l": 1e9, "r": 1e9}
     side_c, bust_c = {"l": 1e9, "r": 1e9}, {"l": 1e9, "r": 1e9}
     gate_side = {"l": (1e9, None), "r": (1e9, None)}  # (cm, t) the worst side clearance at any checked frame
+    gate_front = {"l": (1e9, None), "r": (1e9, None)}  # and front (the bust model; for him his chest/flank front)
     rest_bust = {"l": 1e9, "r": 1e9}
     framing = {}
     rest_clear = 1e9
@@ -1412,15 +1490,19 @@ def build(data: dict, st, sy, sheet: dict, cues: dict, tilts: list, length_s: fl
             for x in c["issues"]:
                 if x["code"] in skip:
                     continue
+                if x["code"] == "desk.elbow_hangs" and perf.tor.gate is not None:  # his open rest: the elbow raised
+                    continue  # behind the edge, the forearm across it (the orchestrator, 09 Nov); forearm_unsupported holds
                 if x["code"] == "mic.hides_hand" and live != "*" and not any(f" {cm} " in x["message"] for cm in live):
                     continue  # a mic overlap counts only in the camera that is cut in (and only when she is on it)
                 issues.append({**x, "t": round(t, 2)})
             if perf.tor.gate is not None:  # his outfit line: every checked frame, both arms
                 A = {b: perf.actor(v[0]) for b, v in F.items()}
                 for s in "lr":
-                    _, c_side, _ = clearance(A, F, s, perf.tor, parts=True)
+                    _, c_side, c_bust = clearance(A, F, s, perf.tor_at(s, perf.gesture_w(s, t)), parts=True)
                     if c_side < gate_side[s][0]:
                         gate_side[s] = (c_side, round(t, 2))
+                    if c_bust < gate_front[s][0]:
+                        gate_front[s] = (c_bust, round(t, 2))
             if ws > 0.5:
                 A = {b: perf.actor(v[0]) for b, v in F.items()}
                 for s in "lr":
@@ -1478,6 +1560,12 @@ def build(data: dict, st, sy, sheet: dict, cues: dict, tilts: list, length_s: fl
         worst = min(min(bust_c.values()), min(side_c.values()) + 3.0)
     if perf.tor.gate is not None:
         rows["upperarm_side_gate_cm"] = {s: [round(v, 1), t_] for s, (v, t_) in gate_side.items()}
+        rows["upperarm_front_gate_cm"] = {s: [round(v, 1), t_] for s, (v, t_) in gate_front.items()}
+        rows["rest_open_deg"] = getattr(perf, "rest_abd", {})  # the desk rest's extra abduction (last frame)
+        for s, (v, t_) in gate_front.items():
+            if v < 3.0:
+                issues.append({"code": "body.arm_front", "message": f"{s} upper arm {v:.1f} cm off the torso model's "
+                               f"front at {t_} s (line 3)", "value": round(v, 1), "t": t_})
         for s, (v, t_) in gate_side.items():
             if v < perf.tor.gate:
                 issues.append({"code": "body.arm_outfit", "message": f"{s} upper arm {v:.1f} cm off the torso+outfit "
