@@ -36,9 +36,10 @@ Run where film-ue runs (the box driver); per frame it scrubs F+1 then F (as qa.c
         --seq <SEQ> --frames 1290-1400:5 --out /srv/ue/reel/r7/garment/arms_v2b
     ... waist --seq <SEQ> --frames 1290-1400:5,<more> --out /srv/ue/reel/r7/garment/waist_v2b
     ... cleanup     (removes the temp ref-pose actors if a run was cut off)
-    arms --engine fast: the editor only copies the posed meshes (the ref pose once) to <out>/_mesh, and numpy computes
-        in the driver (garment_fast.py, same numbers: test_garment_fast.py); the driver must run ON THE BOX (the files
-        are presenter geometry: read, then deleted). Each reading records its seconds.
+    arms --engine fast [--tree /srv/ue/r7tree]: the editor writes the posed meshes (the ref pose once) to a box-local
+        /tmp dir and runs garment_fast.py in the box's tree with uv (numpy; same numbers: test_garment_fast.py); only
+        the numbers come back to the driver, wherever it runs; the files are removed at the end (cleanup). Each
+        reading records its seconds.
 --frames: comma list of F or A-B or A-B:STEP. Pure helpers are tested off the box (test_garment_measure.py).
 """
 import json
@@ -46,6 +47,7 @@ import math
 
 NS = 24
 REST = "FMQA_R7Rest"
+DUMP_ROOT = "/tmp/fmqa_r7_arms_"   # the fast path's box-local mesh files (presenter geometry: box only)
 SPINE = ["pelvis", "spine_01", "spine_02", "spine_03", "spine_04", "spine_05", "neck_01"]
 
 
@@ -654,7 +656,12 @@ def _editor(G: dict):
         v = c.get_socket_location(bone)
         return (v.x, v.y, v.z)
 
-    def cleanup():
+    def cleanup(dumps=False):
+        if dumps:  # the fast path's box-local mesh files: only at the end of a run (`cleanup` stage)
+            import glob as _gl
+            import shutil as _sh
+            for d in _gl.glob(DUMP_ROOT + "*"):
+                _sh.rmtree(d, ignore_errors=True)
         n = 0
         for a in list(EAS.get_all_level_actors()):
             if a.get_actor_label().startswith(REST):
@@ -664,7 +671,7 @@ def _editor(G: dict):
 
     stage = G.get("STAGE")
     if stage == "cleanup":
-        return {"removed": cleanup()}
+        return {"removed": cleanup(dumps=True)}
     host = actor(label)
     cs = {c.get_name(): c for c in host.get_components_by_class(unreal.SkeletalMeshComponent)}
     body = cs["Body"]
@@ -705,8 +712,6 @@ def _editor(G: dict):
                 if keys[n] in cache:
                     rest[n], rest_bones[n], rest_chain[n] = cache[keys[n]][:3]
                     continue
-                if G.get("DUMP") and str(G.get("DUMP_REST", "0")) != "1":
-                    continue  # the fast path's later frames: the driver already has the ref pose
                 ra = EAS.spawn_actor_from_class(unreal.SkeletalMeshActor, unreal.Vector(0, 0, 0), unreal.Rotator(0, 0, 0))
                 ra.set_actor_label(f"{REST}_{n}")
                 rc = ra.get_editor_property("skeletal_mesh_component")
@@ -727,29 +732,43 @@ def _editor(G: dict):
                                                   "lowerarm_l", "lowerarm_r")},
              "head": [round(x, 2) for x in head], "rest_cached": sorted(n for n in keys if n not in rest_fresh)}
         D["facing_f"], D["facing_diag"] = facing("clavicle_l", "clavicle_r")
-        if G.get("DUMP"):
-            # the fast path (round 7, the orchestrator: ~1 min a frame on one core while the box idles): hand the posed
-            # (and once the ref-pose) meshes to the driver ON THE BOX as raw float64/int32 files; it computes with
-            # numpy. Presenter geometry: written under the run's --out on the box, read and deleted by the driver
+        if G.get("ENGINE") == "fast":
+            # the fast path (round 7, the orchestrator: ~1 min a frame on one core while the box idles): the meshes go
+            # to a box-local dir and numpy computes in a process ON THE BOX (garment_fast.py in the box's tree, its
+            # tools env); only the numbers come back. Presenter geometry never leaves the box; `cleanup` removes it
             import array as _ar
             import os as _os
-            dd = G["DUMP"]
+            import subprocess as _sp
+            dd = f"{DUMP_ROOT}{G.get('RUN') or 'norun'}"
             _os.makedirs(dd, exist_ok=True)
 
             def put(name, rows, code):
                 with open(_os.path.join(dd, name), "wb") as fh:
                     _ar.array(code, [x for r in rows for x in r]).tofile(fh)
 
-            meta = {k: D[k] for k in ("parts", "chain", "assets", "bones", "head", "facing_f", "facing_diag")}
+            meta = {k: D[k] for k in ("parts", "chain", "assets", "bones", "head", "facing_f", "facing_diag",
+                                      "rest_bones", "rest_chain")}
             meta["counts"] = {n: [len(posed[n][0]), len(posed[n][1])] for n in D["parts"]}
-            for n in D["parts"]:
-                put(f"posed_{n}.f64", posed[n][0], "d")
-            if str(G.get("DUMP_REST", "0")) == "1":
+            meta["rest_cached"] = D["rest_cached"]
+            if not cache.get(("dumped", dd)):
                 for n in D["parts"]:
                     put(f"rest_{n}.f64", rest[n][0], "d")
                     put(f"tris_{n}.i32", posed[n][1], "i")
-                meta.update({"rest_bones": rest_bones, "rest_chain": rest_chain})
-            return meta
+                cache[("dumped", dd)] = True
+            for n in D["parts"]:
+                put(f"posed_{n}.f64", posed[n][0], "d")
+            with open(_os.path.join(dd, "meta.json"), "w") as fh:
+                json.dump(meta, fh)
+            tree = G.get("TREE", "/srv/ue/r7tree")
+            uv = G.get("UV") or next((x for x in (_os.path.expanduser("~/.local/bin/uv"), "/usr/local/bin/uv",
+                                                  "/usr/bin/uv") if _os.path.exists(x)), "uv")
+            cmd = [uv, "run", "--project", f"{tree}/tools", "python", f"{tree}/films/host-studio/reel/r7/garment_fast.py",
+                   dd, json.dumps({k: v for k, v in G.items() if k not in ("STAGE",)})]
+            r = _sp.run(cmd, capture_output=True, text=True, timeout=600)
+            lines = [x for x in r.stdout.splitlines() if x.startswith("RESULT ")]
+            if r.returncode != 0 or not lines:
+                raise RuntimeError(f"garment_fast on the box failed ({r.returncode}): {r.stderr[-1500:]}")
+            return json.loads(lines[-1][7:])
         return arms_compute(D, G, PyEngine(float(G.get("CELL", 2.0))), cache)
 
     if stage == "waist":
@@ -809,21 +828,6 @@ def _exec(client, stage: str, **g) -> dict:
     return r["result"]
 
 
-def _arms_fast(client, g, out, rest, cache):
-    """One frame on the fast path: the editor writes the posed meshes (the ref pose too on the first frame) under
-    <out>/_mesh ON THE BOX, numpy computes here; the files are deleted as soon as they are read."""
-    import garment_fast
-    dd = (out / "_mesh").resolve()
-    meta = _exec(client, "arms", **g, DUMP=str(dd), DUMP_REST="1" if rest is None else "0")
-    if not (dd / f"posed_{meta['parts'][0]}.f64").exists():
-        raise SystemExit(f"--engine fast: the editor's mesh files are not visible here ({dd}): run the driver on the "
-                         "box, or use --engine editor")
-    D, rest = garment_fast.load_dump(str(dd), meta, rest)
-    for f in dd.iterdir():
-        f.unlink()
-    return arms_compute(D, g, garment_fast.NpEngine(), cache), rest
-
-
 def main(argv=None) -> int:
     import argparse
     import os
@@ -845,8 +849,10 @@ def main(argv=None) -> int:
         m.add_argument("--set", action="append", default=[], help="KEY=VALUE knob (ARM_T0, AXILLA_CM, BAND_CM, ...)")
         if name == "arms":
             m.add_argument("--engine", choices=("editor", "fast"), default="editor",
-                           help="editor: all in the editor's Python (~1 min/frame); fast: the editor only copies the "
-                                "meshes, numpy here computes (garment_fast; run ON THE BOX: the meshes never leave it)")
+                           help="editor: all in the editor's Python (~1 min/frame); fast: the editor writes the meshes "
+                                "to a box-local dir and runs garment_fast.py ON THE BOX with numpy (only numbers return)")
+            m.add_argument("--tree", default=None, help="the repo checkout ON THE BOX for --engine fast "
+                                                         "(default /srv/ue/r7tree); its tools env needs numpy+scipy")
     sub_.add_parser("cleanup")
     a = ap.parse_args(argv)
     if a.box != "conf":
@@ -860,10 +866,13 @@ def main(argv=None) -> int:
     for kv in a.set:
         k, _, v = kv.partition("=")
         g[k] = v
+    if a.cmd == "arms" and a.engine == "fast":
+        g["ENGINE"] = "fast"
+        if a.tree:
+            g["TREE"] = a.tree
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     per, last = {}, None
-    fast_rest, fast_cache = None, {}
     src_fps = a.frames_fps or a.seq_fps
     plan = to_seq_frames(parse_frames(a.frames), src_fps, a.seq_fps)
     if src_fps != a.seq_fps:
@@ -876,10 +885,7 @@ def main(argv=None) -> int:
             if not r.get("ok"):
                 raise SystemExit(f"seq.scrub {ff}: {r}")
         t0 = time.time()
-        if a.cmd == "arms" and a.engine == "fast":
-            res, fast_rest = _arms_fast(client, g, out, fast_rest, fast_cache)
-        else:
-            res = _exec(client, a.cmd, **g)
+        res = _exec(client, a.cmd, **g)
         res["seconds"] = round(time.time() - t0, 2)
         if a.cmd == "arms" and not per:
             print("parts:", json.dumps(res["parts"]), flush=True)
@@ -913,8 +919,7 @@ def main(argv=None) -> int:
                       [[s["deg"], s["edge_t"], s["tuck"], s["gap_max"], s["poke_max"], s["top_over_max"]]
                        for s in res["sectors"] if s]), flush=True)
     if a.cmd == "arms" and a.engine == "fast":
-        import shutil
-        shutil.rmtree(out / "_mesh", ignore_errors=True)  # presenter geometry: never left behind
+        _exec(client, "cleanup", **g)  # the box-local mesh files and any temp actors
     (out / f"{a.cmd}.json").write_text(json.dumps(per))
     keys = (["upperarm_bust_clear_cm", "upperarm_side_clear_cm", "upperarm_torso_clear_cm"] if a.cmd == "arms"
             else ["waist_fit_cm", "waist_poke_cm"])

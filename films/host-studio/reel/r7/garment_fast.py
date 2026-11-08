@@ -262,6 +262,19 @@ class NpEngine:
         return out
 
 
+def main(argv):
+    """ON THE BOX, run by the editor (--engine fast): garment_fast.py <dump dir> <G json> -> 'RESULT <json>'."""
+    import json
+    import os
+    dd, G = argv[0], json.loads(argv[1])
+    with open(os.path.join(dd, "meta.json")) as fh:
+        meta = json.load(fh)
+    D, _ = load_dump(dd, meta)
+    D["rest_cached"] = meta.get("rest_cached", [])
+    print("RESULT " + json.dumps(gm.arms_compute(D, G, NpEngine())), flush=True)
+    return 0
+
+
 def load_dump(dd, meta, rest=None):
     """The arms_dump stage's files -> garment_measure.arms_compute's D (rest: the first frame's ref pose, reused)."""
     import os
@@ -282,3 +295,8 @@ def load_dump(dd, meta, rest=None):
                          rest["tris"][n])
     D["rest"], D["rest_bones"], D["rest_chain"] = rest["rest"], rest["rest_bones"], rest["rest_chain"]
     return D, rest
+
+
+if __name__ == "__main__":
+    import sys
+    raise SystemExit(main(sys.argv[1:]))

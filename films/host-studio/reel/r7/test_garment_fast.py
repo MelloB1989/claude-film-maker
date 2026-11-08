@@ -199,6 +199,40 @@ def test_engines_agree_rest_pose_and_cache():
     assert flat(x) == flat(y)
 
 
+def test_box_process_matches():
+    """The editor's --engine fast hand-off: the files + meta.json as the editor writes them, garment_fast.py run as a
+    process (as on the box), its RESULT = PyEngine's numbers."""
+    import array
+    import json
+    import subprocess
+    import tempfile
+    D = make_D({"l": (2.0, -17.5, 30.0), "r": (16.0, 4.0, 38.0)}, False)
+    ref = gm.arms_compute(D, {}, gm.PyEngine())
+    dd = tempfile.mkdtemp()
+
+    def put(name, rows, code):
+        with open(os.path.join(dd, name), "wb") as fh:
+            array.array(code, [x for r in rows for x in r]).tofile(fh)
+
+    meta = {k: D[k] for k in ("parts", "chain", "assets", "bones", "head", "facing_f", "facing_diag", "rest_bones",
+                              "rest_chain")}
+    meta["counts"] = {n: [len(D["posed"][n][0]), len(D["posed"][n][1])] for n in D["parts"]}
+    meta["rest_cached"] = []
+    for n in D["parts"]:
+        put(f"rest_{n}.f64", D["rest"][n][0], "d")
+        put(f"tris_{n}.i32", D["posed"][n][1], "i")
+        put(f"posed_{n}.f64", D["posed"][n][0], "d")
+    with open(os.path.join(dd, "meta.json"), "w") as fh:
+        json.dump(meta, fh)
+    r = subprocess.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), "garment_fast.py"),
+                        dd, json.dumps({"RUN": "x", "ENGINE": "fast"})], capture_output=True, text=True)
+    line = [x for x in r.stdout.splitlines() if x.startswith("RESULT ")]
+    assert r.returncode == 0 and line, r.stderr
+    got = json.loads(line[-1][7:])
+    want = json.loads(json.dumps(ref))
+    assert flat(got) == flat(want), {k: (flat(want).get(k), v) for k, v in flat(got).items() if flat(want).get(k) != v}
+
+
 if __name__ == "__main__":
     n = 0
     for k, v in list(globals().items()):
