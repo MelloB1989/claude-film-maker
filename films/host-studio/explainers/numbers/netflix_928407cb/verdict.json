@@ -1,0 +1,1999 @@
+{
+ "verdict": "REFUSE",
+ "rows": [
+  {
+   "id": "lips.lead_in_cm",
+   "value": null,
+   "line": 0.05,
+   "op": "<=",
+   "unit": "cm/frame",
+   "area": "lips",
+   "where": "each on-camera line's SILENCE PROPER before its first word: frames [previous line's last word + 4 (its compose fade-out), first word - ceil(LEAD_FRAMES 2.5) - 1] (agent-01 5f941ade; the 2.5 f anticipation is the orchestrator's approval, r5/lipsync.md 'Round 6'). A line whose window is under 2 frames (the 0.34 s gaps: netflix N02, N07, N12, N16) is NOT judged by this row; its gap stays judged by lips.silence_open / silence_busy and its onset by lips.eye_onsets (every line, by eye). The first read 0.288 at N07 f504-507 sat on the anticipation + the previous line's fade-out (agent-01), re-run on the fixed window",
+   "state": "FAIL",
+   "reason": "not measured: run cast_gate.py lipgap (silence window = onset-24..onset-1); T1 has no cm measure, so it stays T4's"
+  },
+  {
+   "id": "lips.onset_lead_ms",
+   "value": null,
+   "line": 250,
+   "op": "<=",
+   "unit": "ms",
+   "area": "lips",
+   "where": "every line's first word",
+   "state": "FAIL",
+   "reason": "not measured: run film-ue lips gate (agent-01, T1)"
+  },
+  {
+   "id": "lips.lag_frames",
+   "value": null,
+   "line": 1,
+   "op": "<=",
+   "unit": "frames",
+   "area": "lips",
+   "where": "every spoken line",
+   "state": "FAIL",
+   "reason": "not measured: run film-ue lips gate (agent-01, T1, core ef3edd75)"
+  },
+  {
+   "id": "lips.track_r",
+   "value": null,
+   "line": 0.8,
+   "op": ">=",
+   "unit": "r",
+   "area": "lips",
+   "where": "every spoken line",
+   "state": "FAIL",
+   "reason": "not measured: run film-ue lips gate (T1)"
+  },
+  {
+   "id": "lips.measured_against",
+   "value": null,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "lips",
+   "where": "the lips gate file",
+   "state": "FAIL",
+   "reason": "not measured: run film-ue lips gate (T1)"
+  },
+  {
+   "id": "lips.silence_open",
+   "value": null,
+   "line": 0.1,
+   "op": "<=",
+   "unit": "jawOpen",
+   "area": "lips",
+   "where": "every silence of each speaker",
+   "state": "FAIL",
+   "reason": "not measured: run film-ue lips gate (T1)"
+  },
+  {
+   "id": "lips.silence_busy",
+   "value": null,
+   "line": 0.25,
+   "op": "<=",
+   "unit": "ratio",
+   "area": "lips",
+   "where": "every speaker",
+   "state": "FAIL",
+   "reason": "not measured: run film-ue lips gate (T1)"
+  },
+  {
+   "id": "lips.render_lag_frames",
+   "value": null,
+   "line": 1,
+   "op": "<=",
+   "unit": "frames",
+   "area": "lips",
+   "where": "every spoken line",
+   "state": "INFO",
+   "reason": "not measured (info only)"
+  },
+  {
+   "id": "lips.render_conclusive",
+   "value": null,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "lips",
+   "where": "every spoken line",
+   "state": "INFO",
+   "reason": "not measured (info only)"
+  },
+  {
+   "id": "lips.cues_fresh",
+   "value": null,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "lips",
+   "where": "out/host-studio/reel/cues.json",
+   "state": "FAIL",
+   "reason": "not measured: run film-ue lips gate (T1): measured word times, stem sha256 match, no words_lost"
+  },
+  {
+   "id": "head.blink_nod_deg",
+   "value": null,
+   "line": 0.6,
+   "op": "<=",
+   "unit": "deg",
+   "area": "head",
+   "where": "every ON-SCREEN blink of each presenter (qa/scope.py, the shot table's cast lists), blinks during head turns INCLUDED: no turn-blink exemption (orchestrator, round 5: the pitch bell on a turn is our torso-lags-neck artifact, and the operator sees it)",
+   "state": "FAIL",
+   "reason": "not measured: run film-ue op qa.head_stability + film-qa head-gate (agent-04, T2)"
+  },
+  {
+   "id": "head.blink_locked_deg",
+   "value": null,
+   "line": 0.3,
+   "op": "<=",
+   "unit": "deg",
+   "area": "head",
+   "where": "all blinks of each presenter",
+   "state": "FAIL",
+   "reason": "not measured: run film-qa head-gate (T2)"
+  },
+  {
+   "id": "garment.neck_px",
+   "value": null,
+   "line": 0,
+   "op": "<=",
+   "unit": "px",
+   "area": "garment",
+   "where": "the SEATED pose, every presenter camera of the film (qa.clip / qa.garment_look on the explainer sequence)",
+   "state": "FAIL",
+   "reason": "not measured: run r4/clip_pass.py neck_px"
+  },
+  {
+   "id": "garment.silhouette_pct",
+   "value": null,
+   "line": 2.0,
+   "op": "<=",
+   "unit": "%",
+   "area": "garment",
+   "where": "S15 hold, S17, S18",
+   "state": "INFO",
+   "reason": "not measured (info only)"
+  },
+  {
+   "id": "garment.wpo_cm",
+   "value": null,
+   "line": 0.2,
+   "op": "<=",
+   "unit": "cm",
+   "area": "garment",
+   "where": "the SEATED pose, every presenter camera of the film (qa.clip / qa.garment_look on the explainer sequence)",
+   "state": "FAIL",
+   "reason": "not measured: run film-ue garment-gate (agent-02, T3a)"
+  },
+  {
+   "id": "garment.armor_index",
+   "value": null,
+   "line": 0.5,
+   "op": "<=",
+   "unit": "index",
+   "area": "garment",
+   "where": "the SEATED pose, every presenter camera of the film (qa.clip / qa.garment_look on the explainer sequence)",
+   "state": "FAIL",
+   "reason": "not measured: run film-ue garment-gate --look (T3a)"
+  },
+  {
+   "id": "garment.pair_fraction",
+   "value": null,
+   "line": 0.001,
+   "op": "<=",
+   "unit": "fraction",
+   "area": "garment",
+   "where": "the SEATED pose on the finals' own state, every presenter camera. NETFLIX V2 (no overshirt): the orchestrator ruled (07 Nov, box B r6b_v2_clip) Body>Top at MCU f1330 / MCU_L f1015 = her forearm/elbow IN FRONT of the top, and Trousers>Top at WIDE f1176 = her hands/forearms in front of the hem: OCCLUSIONS, not poke-through. r6b_v2_clip is V2's baseline: those pairs count only their excess over its worst (+0.01, qa.clip before=.../r6b_v2_clip/clip.json); every other pair counts raw",
+   "state": "FAIL",
+   "reason": "not measured: run film-ue op qa.clip ... (pairs without Overshirt) on the finals' state -> worst raw fraction, or the excess over a V2 baseline the orchestrator ruled -> numbers/<film>/clip.json"
+  },
+  {
+   "id": "garment.collar_gap_cm",
+   "value": null,
+   "line": 0.8,
+   "op": "<=",
+   "unit": "cm",
+   "area": "garment",
+   "where": "the SEATED pose, every presenter camera of the film (qa.clip / qa.garment_look on the explainer sequence)",
+   "state": "INFO",
+   "reason": "not measured (info only)"
+  },
+  {
+   "id": "garment.collar_roll",
+   "value": null,
+   "line": 0,
+   "op": "==",
+   "unit": "count",
+   "area": "garment",
+   "where": "the SEATED pose, every presenter camera of the film (qa.clip / qa.garment_look on the explainer sequence)",
+   "state": "INFO",
+   "reason": "not measured (info only)"
+  },
+  {
+   "id": "garment.hem_flare_ratio",
+   "value": null,
+   "line": 1.15,
+   "op": "<=",
+   "unit": "ratio",
+   "area": "garment",
+   "where": "the SEATED pose, every presenter camera of the film (qa.clip / qa.garment_look on the explainer sequence)",
+   "state": "FAIL",
+   "reason": "not measured: run qa.garment_look hem_flare (agent-02, T3a)"
+  },
+  {
+   "id": "garment.silhouette_ratio",
+   "value": null,
+   "line": 1.12,
+   "op": "<=",
+   "unit": "ratio",
+   "area": "garment",
+   "where": "S15, S17",
+   "state": "INFO",
+   "reason": "not measured (info only)"
+  },
+  {
+   "id": "garment.cloth_alive",
+   "value": null,
+   "line": 0.3,
+   "op": ">=",
+   "unit": "cm",
+   "area": "garment",
+   "where": "S13, S15 gesture frames",
+   "state": "NOT_ATTEMPTED",
+   "reason": "not measured: run film-ue op qa.cloth per shot -> r5/cloth_gate.py (agent-08, T3b)",
+   "decision": {
+    "reason": "Round 6 explainers: his tee is MetaHuman's default garment (closed shell) and her overshirt stays skinned, the same ruling as the karma reel (cc-64d05f6e, 07 Nov). armor_index, wpo_cm, neck_px and pair_fraction stay hard lines.",
+    "by": "cc-64d05f6e"
+   }
+  },
+  {
+   "id": "garment.cloth_sound",
+   "value": null,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "garment",
+   "where": "S13, S15, S17, S18",
+   "state": "NOT_ATTEMPTED",
+   "reason": "not measured: run film-ue op qa.cloth (T3b)",
+   "decision": {
+    "reason": "Round 6 explainers: his tee is MetaHuman's default garment (closed shell) and her overshirt stays skinned, the same ruling as the karma reel (cc-64d05f6e, 07 Nov). armor_index, wpo_cm, neck_px and pair_fraction stay hard lines.",
+    "by": "cc-64d05f6e"
+   }
+  },
+  {
+   "id": "garment.cloth_detail_ratio",
+   "value": null,
+   "line": 1.25,
+   "op": ">=",
+   "unit": "ratio",
+   "area": "garment",
+   "where": "S13, S15 close shots",
+   "state": "NOT_ATTEMPTED",
+   "reason": "not measured: run agent-08's writer (T3b) from agent-02's qa.clip tee mask",
+   "decision": {
+    "reason": "Round 6 explainers: his tee is MetaHuman's default garment (closed shell) and her overshirt stays skinned, the same ruling as the karma reel (cc-64d05f6e, 07 Nov). armor_index, wpo_cm, neck_px and pair_fraction stay hard lines.",
+    "by": "cc-64d05f6e"
+   }
+  },
+  {
+   "id": "shot.cameras_ok",
+   "value": null,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "camera",
+   "where": "the 13 shots",
+   "state": "FAIL",
+   "reason": "not measured: run r3/probe_cam.py ... --check; framing.py (r3/CAMERAS.md)"
+  },
+  {
+   "id": "shot.render_matches_r4",
+   "value": null,
+   "line": 0.5,
+   "op": ">=",
+   "unit": "ssim",
+   "area": "camera",
+   "where": "S13, S15, S16, S17, S18: every rendered frame",
+   "state": "INFO",
+   "reason": "not measured (info only)"
+  },
+  {
+   "id": "hair.cut_reach_pct",
+   "value": null,
+   "line": 12.0,
+   "op": "<=",
+   "unit": "%",
+   "area": "hair",
+   "where": "every cut both presenters span; S17->S18 f1440 first",
+   "state": "FAIL",
+   "reason": "not measured: run film-ue op qa.hair_continuity (editor), or film-qa hair on rendered frames"
+  },
+  {
+   "id": "hair.pop_reach_pct",
+   "value": null,
+   "line": 8.0,
+   "op": "<=",
+   "unit": "%",
+   "area": "hair",
+   "where": "every presenter shot",
+   "state": "FAIL",
+   "reason": "not measured: run qa.hair_continuity / film-qa hair"
+  },
+  {
+   "id": "hair.cut_pop_ratio",
+   "value": null,
+   "line": 1.8,
+   "op": "<=",
+   "unit": "x",
+   "area": "hair",
+   "where": "no held-camera cut in the explainers",
+   "state": "INFO",
+   "reason": "not measured (info only)"
+  },
+  {
+   "id": "hair.lock",
+   "value": null,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "hair",
+   "where": "the level, read right before the render",
+   "state": "FAIL",
+   "reason": "not measured: run film-ue op groom.lock_check labels=[...]"
+  },
+  {
+   "id": "hair.render_cvars",
+   "value": null,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "hair",
+   "where": "the render YAML used for the finals",
+   "state": "FAIL",
+   "reason": "not measured: run groom.lock's render_cvars vs the spec's cvars (film-qa gate reads both)"
+  },
+  {
+   "id": "lips.eye_onsets",
+   "value": null,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "lips",
+   "where": "every on-camera line of the film",
+   "state": "FAIL",
+   "reason": "not measured: run the strip file signed by cc-64d05f6e -> ../reel/r6/eye_onsets.py STRIP --lines <the film's on-camera line ids>"
+  },
+  {
+   "id": "head.buzz_rms_deg",
+   "value": null,
+   "line": 0.08,
+   "op": "<=",
+   "unit": "deg",
+   "area": "head",
+   "where": "the presenter's on-screen spans (edl/<film>.json)",
+   "state": "FAIL",
+   "reason": "not measured: run films/host-studio/explainers/head.py judge CUE --head head.json --eyes eyes.json --gate numbers/head_<film>.json (agent-04, fleet/agent-04/r6-head)"
+  },
+  {
+   "id": "head.drift_deg",
+   "value": null,
+   "line": [
+    0.15,
+    1.5
+   ],
+   "op": "range",
+   "unit": "deg",
+   "area": "head",
+   "where": "the presenter's on-screen spans (edl/<film>.json)",
+   "state": "FAIL",
+   "reason": "not measured: run films/host-studio/explainers/head.py judge CUE --head head.json --eyes eyes.json --gate numbers/head_<film>.json (agent-04, fleet/agent-04/r6-head)"
+  },
+  {
+   "id": "head.frozen_s",
+   "value": null,
+   "line": 1.5,
+   "op": "<=",
+   "unit": "s",
+   "area": "head",
+   "where": "the presenter's on-screen spans (edl/<film>.json)",
+   "state": "FAIL",
+   "reason": "not measured: run films/host-studio/explainers/head.py judge CUE --head head.json --eyes eyes.json --gate numbers/head_<film>.json (agent-04, fleet/agent-04/r6-head)"
+  },
+  {
+   "id": "head.nods_per_min",
+   "value": null,
+   "line": [
+    3.0,
+    24.0
+   ],
+   "op": "range",
+   "unit": "/min",
+   "area": "head",
+   "where": "the presenter's on-screen spans (edl/<film>.json)",
+   "state": "FAIL",
+   "reason": "not measured: run films/host-studio/explainers/head.py judge CUE --head head.json --eyes eyes.json --gate numbers/head_<film>.json (agent-04, fleet/agent-04/r6-head)"
+  },
+  {
+   "id": "eyes.on_lens_share",
+   "value": null,
+   "line": 0.75,
+   "op": ">=",
+   "unit": "share",
+   "area": "head",
+   "where": "the presenter's on-screen spans (edl/<film>.json)",
+   "state": "FAIL",
+   "reason": "not measured: run films/host-studio/explainers/head.py judge CUE --head head.json --eyes eyes.json --gate numbers/head_<film>.json (agent-04, fleet/agent-04/r6-head)"
+  },
+  {
+   "id": "eyes.saccades_per_s",
+   "value": null,
+   "line": [
+    0.4,
+    3.0
+   ],
+   "op": "range",
+   "unit": "/s",
+   "area": "head",
+   "where": "the presenter's on-screen spans (edl/<film>.json)",
+   "state": "FAIL",
+   "reason": "not measured: run films/host-studio/explainers/head.py judge CUE --head head.json --eyes eyes.json --gate numbers/head_<film>.json (agent-04, fleet/agent-04/r6-head)"
+  },
+  {
+   "id": "eyes.glances_per_min",
+   "value": null,
+   "line": [
+    2.0,
+    8.0
+   ],
+   "op": "range",
+   "unit": "/min",
+   "area": "head",
+   "where": "the presenter's on-screen spans (edl/<film>.json)",
+   "state": "FAIL",
+   "reason": "not measured: run films/host-studio/explainers/head.py judge CUE --head head.json --eyes eyes.json --gate numbers/head_<film>.json (agent-04, fleet/agent-04/r6-head)"
+  },
+  {
+   "id": "blinks.per_min",
+   "value": null,
+   "line": [
+    10.0,
+    30.0
+   ],
+   "op": "range",
+   "unit": "/min",
+   "area": "head",
+   "where": "the presenter's on-screen spans (edl/<film>.json)",
+   "state": "FAIL",
+   "reason": "not measured: run films/host-studio/explainers/head.py judge CUE --head head.json --eyes eyes.json --gate numbers/head_<film>.json (agent-04, fleet/agent-04/r6-head)"
+  },
+  {
+   "id": "body.breath_cycles_per_min",
+   "value": 12.1,
+   "line": [
+    10.0,
+    20.0
+   ],
+   "op": "range",
+   "unit": "/min",
+   "area": "body",
+   "where": "placed body; box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "body.breath_amp_mm",
+   "value": 2.65,
+   "line": [
+    2.0,
+    3.5
+   ],
+   "op": "range",
+   "unit": "mm",
+   "area": "body",
+   "where": "bodycheck z-only (xyz 12.98 = sway); box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "set.clip_px",
+   "value": null,
+   "line": 0,
+   "op": "==",
+   "unit": "px",
+   "area": "set",
+   "where": "every presenter camera, n 8 per shot + the sit/stand-up frames if any",
+   "state": "FAIL",
+   "reason": "not measured: run film-ue op qa.clip label=<presenter> sequence=<SEQ> 'props={\"Chair\":\"<chair>\",\"Desk\":\"<desk>\"}' 'pairs=[[\"Body\",\"Chair\"],[\"Trousers\",\"Chair\"],[\"Chair\",\"Trousers\"],[\"Body\",\"Desk\"],[\"Desk\",\"tee\"]]' (core 0ce1c3ae) -> the worst pair px"
+  },
+  {
+   "id": "set.mic_mouth_px",
+   "value": null,
+   "line": 0,
+   "op": "==",
+   "unit": "px",
+   "area": "set",
+   "where": "the camera ACTUALLY CUT at each frame per the film's EDL (edl/<film>.json: CAM_MCU / CAM_CU / CAM_MCU_L / CAM_WIDE at their spans); a hit in a camera not on screen at that frame is ignored (the orchestrator's ruling, 08 Nov). qa.clip reads the sequence's camera-cut track per frame (cut_camera), so the sequence's cut track must equal the EDL's when it runs (the driver checks it, or passes each EDL shot's frames)",
+   "state": "FAIL",
+   "reason": "not measured: run film-ue op qa.clip ... 'props={\"Mic\":\"<mic>\"}' 'mouth={\"blocker\":\"Mic\"}' (core 0ce1c3ae) -> metrics.worst.mouth.blocked_px"
+  },
+  {
+   "id": "set.props_overlap",
+   "value": null,
+   "line": 0,
+   "op": "==",
+   "unit": "count",
+   "area": "set",
+   "where": "the set",
+   "state": "FAIL",
+   "reason": "not measured: run film-ue op qa.overlaps (axis-aligned boxes) flags candidates; EACH flagged pair is confirmed or cleared by a depth check: qa.clip props={both props} pairs=[[A,B],[B,A]] (the intersection-edge rule), the count = pairs whose qa.clip px > 0 -> numbers/<film>/set.json"
+  },
+  {
+   "id": "shot.exposure_jump_stops",
+   "value": null,
+   "line": 0.05,
+   "op": "<=",
+   "unit": "stops",
+   "area": "shot",
+   "where": "every presenter shot (final frames, on the box)",
+   "state": "FAIL",
+   "reason": "not measured: run qa_av.py exposure FRAMES --shots shots.json --boxes <the static patch per shot> (on the box) -> numbers/<film>/exposure.json; the face-box numbers are kept as INFO in the file"
+  },
+  {
+   "id": "shot.exposure_drift_stops",
+   "value": null,
+   "line": 0.15,
+   "op": "<=",
+   "unit": "stops",
+   "area": "shot",
+   "where": "every presenter shot",
+   "state": "FAIL",
+   "reason": "not measured: run qa_av.py exposure FRAMES --shots shots.json --boxes <the static patch per shot> (on the box) -> numbers/<film>/exposure.json; the face-box numbers are kept as INFO in the file"
+  },
+  {
+   "id": "audio.lufs_err_lu",
+   "value": null,
+   "line": 0.5,
+   "op": "<=",
+   "unit": "LU",
+   "area": "audio",
+   "where": "the cut",
+   "state": "FAIL",
+   "reason": "not measured: run qa_av.py loudness CUT.mp4 (ffmpeg ebur128)"
+  },
+  {
+   "id": "audio.true_peak_dbtp",
+   "value": null,
+   "line": -1.0,
+   "op": "<=",
+   "unit": "dBTP",
+   "area": "audio",
+   "where": "the cut",
+   "state": "FAIL",
+   "reason": "not measured: run qa_av.py loudness CUT.mp4"
+  },
+  {
+   "id": "captions.text_match",
+   "value": null,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "captions",
+   "where": "the cut's SRT vs audio/<film>/cues.json",
+   "state": "FAIL",
+   "reason": "not measured: run qa_av.py captions CUT.srt audio/<film>/cues.json (or qa_av.py all)"
+  },
+  {
+   "id": "captions.onset_ms",
+   "value": null,
+   "line": 200,
+   "op": "<=",
+   "unit": "ms",
+   "area": "captions",
+   "where": "every VO line",
+   "state": "FAIL",
+   "reason": "not measured: run qa_av.py captions (as above)"
+  },
+  {
+   "id": "facts.sourced",
+   "value": null,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "facts",
+   "where": "every VO line",
+   "state": "FAIL",
+   "reason": "not measured: run qa_av.py facts audio/<film>/cues.json facts_<film>.json"
+  },
+  {
+   "id": "deliver.format_ok",
+   "value": null,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "deliver",
+   "where": "the delivered cut",
+   "state": "FAIL",
+   "reason": "not measured: run qa_av.py format CUT.mp4"
+  },
+  {
+   "id": "deliver.qc_ok",
+   "value": null,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "deliver",
+   "where": "the delivered cut",
+   "state": "FAIL",
+   "reason": "not measured: run film-post qc CUT.mp4 --edl X.edl --captions X.srt -o qc.json -> pass"
+  },
+  {
+   "id": "deliver.duration_s",
+   "value": null,
+   "line": [
+    50.0,
+    70.0
+   ],
+   "op": "range",
+   "unit": "s",
+   "area": "deliver",
+   "where": "the cut",
+   "state": "INFO",
+   "reason": "not measured (info only)"
+  },
+  {
+   "id": "eye.real_person",
+   "value": null,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "eye",
+   "where": "the whole film, watched like the viewer",
+   "state": "FAIL",
+   "reason": "not measured: run the review strip signed by cc-64d05f6e: {\"by\": \"cc-64d05f6e\", \"gate\": {\"eye.real_person\": 1|0, ...}, \"notes\"}"
+  },
+  {
+   "id": "eye.light",
+   "value": null,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "eye",
+   "where": "the whole film, watched like the viewer",
+   "state": "FAIL",
+   "reason": "not measured: run the review strip signed by cc-64d05f6e: {\"by\": \"cc-64d05f6e\", \"gate\": {\"eye.light\": 1|0, ...}, \"notes\"}"
+  },
+  {
+   "id": "eye.hair_garment",
+   "value": null,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "eye",
+   "where": "the whole film, watched like the viewer",
+   "state": "FAIL",
+   "reason": "not measured: run the review strip signed by cc-64d05f6e: {\"by\": \"cc-64d05f6e\", \"gate\": {\"eye.hair_garment\": 1|0, ...}, \"notes\"}"
+  },
+  {
+   "id": "eye.graphics",
+   "value": null,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "eye",
+   "where": "the whole film, watched like the viewer",
+   "state": "FAIL",
+   "reason": "not measured: run the review strip signed by cc-64d05f6e: {\"by\": \"cc-64d05f6e\", \"gate\": {\"eye.graphics\": 1|0, ...}, \"notes\"}"
+  },
+  {
+   "id": "body.desk_through",
+   "value": null,
+   "line": 0,
+   "op": "==",
+   "unit": "frames",
+   "area": "set",
+   "where": "every frame of the placed performance (editor, bones vs the set's boxes)",
+   "state": "FAIL",
+   "reason": "not measured: run films/host-studio/explainers/perform.py -> numbers/<film>/body.json (agent-01, fleet/agent-01/r6-perf)"
+  },
+  {
+   "id": "body.mic_touch",
+   "value": null,
+   "line": 0,
+   "op": "==",
+   "unit": "frames",
+   "area": "set",
+   "where": "every frame of the placed performance (editor, bones vs the set's boxes)",
+   "state": "FAIL",
+   "reason": "not measured: run films/host-studio/explainers/perform.py -> numbers/<film>/body.json (agent-01, fleet/agent-01/r6-perf)"
+  },
+  {
+   "id": "body.knee_desk",
+   "value": null,
+   "line": 0,
+   "op": "==",
+   "unit": "frames",
+   "area": "set",
+   "where": "every frame of the placed performance (editor, bones vs the set's boxes)",
+   "state": "FAIL",
+   "reason": "not measured: run films/host-studio/explainers/perform.py -> numbers/<film>/body.json (agent-01, fleet/agent-01/r6-perf)"
+  },
+  {
+   "id": "gfx.caption_band_clear",
+   "value": null,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "captions",
+   "where": "every graphics frame of the film",
+   "state": "FAIL",
+   "reason": "not measured: run the graphics film's own layout: every text/label element's screen box vs y 0.85 -> numbers/<film>/gfx.json (agent-08 whatsapp, agent-12 netflix)"
+  },
+  {
+   "id": "garment.leaders_ok",
+   "value": null,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "garment",
+   "where": "the explainer level, before each final job",
+   "state": "FAIL",
+   "reason": "not measured: run the driver's pre-render leaders read-back (dress + seq_dress) -> numbers/<film>/box.json"
+  },
+  {
+   "id": "shot.streaming_settled",
+   "value": null,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "shot",
+   "where": "every final job, its first frame in every camera; the netflix CU first",
+   "state": "FAIL",
+   "reason": "not measured: run the driver's render spec read-back + the first frame of each job to the orchestrator's eye -> numbers/<film>/box.json"
+  },
+  {
+   "id": "shot.grain_sigma",
+   "value": null,
+   "line": 1.0,
+   "op": "<=",
+   "unit": "8-bit levels",
+   "area": "shot",
+   "where": "the first AND last frame of each final job (a FAIL re-renders that job), the finals-spec MCU test f29 before the batch",
+   "state": "FAIL",
+   "reason": "not measured: run qa_av.py grain <full-res frames> --patches grain_patches.json (on box B: face data) -> numbers/<film>/grain.json"
+  },
+  {
+   "id": "shot.grain_wide_sigma",
+   "value": null,
+   "line": 0.8,
+   "op": "<=",
+   "unit": "8-bit levels",
+   "area": "shot",
+   "where": "the first AND last frame of each WIDE final job (a FAIL re-renders that job)",
+   "state": "FAIL",
+   "reason": "not measured: run qa_av.py grain <frames> --patches grain_patches_wide.json (wall, wall2) -> numbers/<film>/grain.json"
+  },
+  {
+   "id": "shot.grain_wide_texture",
+   "value": null,
+   "line": 1.0,
+   "op": "<=",
+   "unit": "8-bit levels",
+   "area": "shot",
+   "where": "each WIDE final job",
+   "state": "INFO",
+   "reason": "not measured (info only)"
+  },
+  {
+   "id": "face.expr_active_frac",
+   "value": null,
+   "line": 0.6,
+   "op": ">=",
+   "unit": "fraction",
+   "area": "performance",
+   "where": "every speaking + on-screen frame of the presenter (cue words x edl presenter spans)",
+   "state": "INFO",
+   "reason": "not measured (info only)"
+  },
+  {
+   "id": "face.smile_events_per_min",
+   "value": null,
+   "line": 4,
+   "op": ">=",
+   "unit": "/min",
+   "area": "performance",
+   "where": "every speaking + on-screen frame of the presenter (cue words x edl presenter spans)",
+   "state": "FAIL",
+   "reason": "not measured: run film-qa perf-face <final frames> --speaking spans.json --box <face box> (MediaPipe blendshapes, each channel vs the shot's own neutral; on the box) -> numbers/<film>/perf_face.json; pre-check offline: qa_perf.face_rows_curves on the face anim (agent-04)"
+  },
+  {
+   "id": "face.brow_flash_per_min",
+   "value": null,
+   "line": 6,
+   "op": ">=",
+   "unit": "/min",
+   "area": "performance",
+   "where": "every speaking + on-screen frame of the presenter (cue words x edl presenter spans)",
+   "state": "INFO",
+   "reason": "not measured (info only)"
+  },
+  {
+   "id": "face.neutral_hold_max_s",
+   "value": null,
+   "line": 1.5,
+   "op": "<=",
+   "unit": "s",
+   "area": "performance",
+   "where": "every speaking + on-screen frame of the presenter (cue words x edl presenter spans)",
+   "state": "INFO",
+   "reason": "not measured (info only)"
+  },
+  {
+   "id": "body.gesture_onsets_per_s",
+   "value": null,
+   "line": [
+    0.5,
+    1.2
+   ],
+   "op": "range",
+   "unit": "/s",
+   "area": "performance",
+   "where": "every speaking + on-screen frame of the presenter (cue words x edl presenter spans)",
+   "state": "FAIL",
+   "reason": "not measured: run film-ue op seq.sample (hand_l, hand_r every frame of the speaking spans) -> film-qa perf-body SAMPLES.json --speaking spans.json --desk-z <the desk top z> -> numbers/<film>/perf_body.json"
+  },
+  {
+   "id": "body.hands_above_desk_frac",
+   "value": null,
+   "line": 0.5,
+   "op": ">=",
+   "unit": "fraction",
+   "area": "performance",
+   "where": "every speaking + on-screen frame of the presenter (cue words x edl presenter spans)",
+   "state": "FAIL",
+   "reason": "not measured: run film-ue op seq.sample (hand_l, hand_r every frame of the speaking spans) -> film-qa perf-body SAMPLES.json --speaking spans.json --desk-z <the desk top z> -> numbers/<film>/perf_body.json"
+  },
+  {
+   "id": "body.wrist_travel_cm_per_s",
+   "value": null,
+   "line": 0,
+   "op": ">=",
+   "unit": "cm/s",
+   "area": "performance",
+   "where": "every speaking + on-screen frame of the presenter (cue words x edl presenter spans)",
+   "state": "INFO",
+   "reason": "not measured (info only)"
+  },
+  {
+   "id": "body.upperarm_torso_clear_cm",
+   "value": null,
+   "line": 3.0,
+   "op": ">=",
+   "unit": "cm",
+   "area": "performance",
+   "where": "min over on-screen frames (edl presenter + panel shots), both sides",
+   "state": "INFO",
+   "reason": "not measured (info only)"
+  },
+  {
+   "id": "garment.waist_fit_cm",
+   "value": 0.02,
+   "line": 0.75,
+   "op": "<=",
+   "unit": "cm",
+   "area": "garment",
+   "where": "agent-02 waist, worst f1034; box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "body.limb_clearance_xcheck_cm",
+   "value": null,
+   "line": 3.0,
+   "op": ">=",
+   "unit": "cm",
+   "area": "performance",
+   "where": "the same frames",
+   "state": "INFO",
+   "reason": "not measured (info only)"
+  },
+  {
+   "id": "face.curves_expr_active_frac",
+   "value": null,
+   "line": 0.6,
+   "op": ">=",
+   "unit": "fraction",
+   "area": "performance",
+   "where": "every speaking + on-screen frame (spans_<film>.json)",
+   "state": "FAIL",
+   "reason": "not measured: run qa_perf.face_rows_curves on the face anim (anim.read_curves of the take's face anim, CTRL_expressions_*), over spans_<film>.json (agent-04's boxcheck) -> numbers/<film>/perf_curves.json"
+  },
+  {
+   "id": "face.curves_smile_events_per_min",
+   "value": null,
+   "line": 4,
+   "op": ">=",
+   "unit": "/min",
+   "area": "performance",
+   "where": "every speaking + on-screen frame (spans_<film>.json)",
+   "state": "FAIL",
+   "reason": "not measured: run qa_perf.face_rows_curves on the face anim (anim.read_curves of the take's face anim, CTRL_expressions_*), over spans_<film>.json (agent-04's boxcheck) -> numbers/<film>/perf_curves.json"
+  },
+  {
+   "id": "face.curves_brow_flash_per_min",
+   "value": null,
+   "line": 6,
+   "op": ">=",
+   "unit": "/min",
+   "area": "performance",
+   "where": "every speaking + on-screen frame (spans_<film>.json)",
+   "state": "FAIL",
+   "reason": "not measured: run qa_perf.face_rows_curves on the face anim (anim.read_curves of the take's face anim, CTRL_expressions_*), over spans_<film>.json (agent-04's boxcheck) -> numbers/<film>/perf_curves.json"
+  },
+  {
+   "id": "face.curves_neutral_hold_max_s",
+   "value": null,
+   "line": 1.5,
+   "op": "<=",
+   "unit": "s",
+   "area": "performance",
+   "where": "every speaking + on-screen frame (spans_<film>.json)",
+   "state": "FAIL",
+   "reason": "not measured: run qa_perf.face_rows_curves on the face anim (anim.read_curves of the take's face anim, CTRL_expressions_*), over spans_<film>.json (agent-04's boxcheck) -> numbers/<film>/perf_curves.json"
+  },
+  {
+   "id": "face.curves_frown_frac",
+   "value": null,
+   "line": 0.1,
+   "op": "<=",
+   "unit": "fraction",
+   "area": "performance",
+   "where": "spans_<film>.json",
+   "state": "INFO",
+   "reason": "not measured (info only)"
+  },
+  {
+   "id": "garment.waist_poke_cm",
+   "value": null,
+   "line": 0.1,
+   "op": "<=",
+   "unit": "cm",
+   "area": "garment",
+   "where": "every frame with the presenter ON SCREEN (edl/<film>.json presenter + panel shots, speaking or not), as the clip rows: off-screen frames (graphics shots) don't count",
+   "state": "FAIL",
+   "reason": "not measured: run agent-02's garment_measure.py waist POKE term -> numbers/<film>/garment.json; visibility cross-checked by qa.clip's Body>Trousers pair (garment.pair_fraction)"
+  },
+  {
+   "id": "body.hands_in_frame_mcu_frac",
+   "value": 0.723,
+   "line": 0.5,
+   "op": ">=",
+   "unit": "fraction",
+   "area": "performance",
+   "where": "placed body; box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "body.hands_in_frame_cu_frac",
+   "value": 0.392,
+   "line": 0.1,
+   "op": ">=",
+   "unit": "fraction",
+   "area": "performance",
+   "where": "placed body; box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "body.hands_in_frame_wide_frac",
+   "value": 1.0,
+   "line": 0.95,
+   "op": ">=",
+   "unit": "fraction",
+   "area": "performance",
+   "where": "placed body; box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "set.mic_face_px",
+   "value": null,
+   "line": 0,
+   "op": "==",
+   "unit": "px",
+   "area": "set",
+   "where": "the camera ACTUALLY CUT at each frame per the film's EDL (edl/<film>.json: CAM_MCU / CAM_CU / CAM_MCU_L / CAM_WIDE at their spans); a hit in a camera not on screen at that frame is ignored (the orchestrator's ruling, 08 Nov). qa.clip reads the sequence's camera-cut track per frame (cut_camera), so the sequence's cut track must equal the EDL's when it runs (the driver checks it, or passes each EDL shot's frames)",
+   "state": "FAIL",
+   "reason": "not measured: run film-ue op qa.clip label=<presenter> sequence=<SEQ> 'props={\"Mic\":\"<mic>\"}' 'pairs=[]' 'mouth={\"blocker\":\"Mic\",\"radius_cm\":3.0,\"bones\":[\"FACIAL_L_Eye\",\"FACIAL_R_Eye\",\"FACIAL_C_LipUpper\",\"FACIAL_C_LipLower\",\"FACIAL_C_Jaw\"]}' -> metrics.worst.mouth.blocked_px (a missing bone errors: pass the rig's names)"
+  },
+  {
+   "id": "set.mic_hand_clear_cm",
+   "value": null,
+   "line": 5.0,
+   "op": ">=",
+   "unit": "cm",
+   "area": "set",
+   "where": "every speaking frame",
+   "state": "INFO",
+   "reason": "not measured (info only)"
+  },
+  {
+   "id": "shot.farm_frames_ok",
+   "value": null,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "shot",
+   "where": "every farm job of the finals (one per shot, chunked with pre-roll)",
+   "state": "INFO",
+   "reason": "not measured (info only)"
+  },
+  {
+   "id": "shot.chunk_seams_ok",
+   "value": null,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "shot",
+   "where": "every farm job of the finals (one per shot, chunked with pre-roll)",
+   "state": "INFO",
+   "reason": "not measured (info only)"
+  },
+  {
+   "id": "set.strays_ok",
+   "value": null,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "shot",
+   "where": "every farm job of the finals (one per shot, chunked with pre-roll)",
+   "state": "INFO",
+   "reason": "not measured (info only)"
+  },
+  {
+   "id": "shot.farm_state_parity",
+   "value": null,
+   "line": 1,
+   "op": "==",
+   "unit": "bool",
+   "area": "shot",
+   "where": "every chunk of every farm job",
+   "state": "INFO",
+   "reason": "not measured (info only)"
+  },
+  {
+   "id": "body.rest_hand_torso_cm",
+   "value": 19.18,
+   "line": 8.0,
+   "op": ">=",
+   "unit": "cm",
+   "area": "performance",
+   "where": "perf-rest --track, worst; box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "move.fingers_frozen_frac",
+   "value": 0.0,
+   "line": 0.15,
+   "op": "<=",
+   "unit": "fraction",
+   "area": "performance",
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "move.forearm_elev_deg",
+   "value": 37.268,
+   "line": 15.0,
+   "op": ">=",
+   "unit": "deg",
+   "area": "performance",
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "move.humerus_elev_rest_deg",
+   "value": null,
+   "line": 30.0,
+   "op": "<=",
+   "unit": "deg",
+   "area": "performance",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "state": "INFO",
+   "reason": "not measured (info only)"
+  },
+  {
+   "id": "move.humerus_elev_stroke_deg",
+   "value": 41.92,
+   "line": 45.0,
+   "op": "<=",
+   "unit": "deg",
+   "area": "performance",
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "move.lag_hand_ms",
+   "value": 32.279,
+   "line": 30.0,
+   "op": ">=",
+   "unit": "ms",
+   "area": "performance",
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "move.mirror_corr_p50",
+   "value": 0.061,
+   "line": 0.95,
+   "op": "<=",
+   "unit": "corr",
+   "area": "performance",
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "move.path_straight_frac",
+   "value": 0.077,
+   "line": 0.3,
+   "op": "<=",
+   "unit": "fraction",
+   "area": "performance",
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "move.shape_claw_frac",
+   "value": 0.0,
+   "line": 0.02,
+   "op": "<=",
+   "unit": "fraction",
+   "area": "performance",
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "move.shape_wrong_strokes",
+   "value": 0,
+   "line": 0,
+   "op": "==",
+   "unit": "count",
+   "area": "performance",
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "move.two_hand_amp_ratio",
+   "value": 0.882,
+   "line": 0.5,
+   "op": ">=",
+   "unit": "ratio",
+   "area": "performance",
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "move.vel_bell_frac",
+   "value": 0.833,
+   "line": 0.6,
+   "op": ">=",
+   "unit": "fraction",
+   "area": "performance",
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "move.wrist_flexext_p90_deg",
+   "value": 21.627,
+   "line": 25.0,
+   "op": "<=",
+   "unit": "deg",
+   "area": "performance",
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "move.wrist_radial_p95_deg",
+   "value": 3.952,
+   "line": 15.0,
+   "op": "<=",
+   "unit": "deg",
+   "area": "performance",
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "move.wrist_ulnar_p95_deg",
+   "value": 11.642,
+   "line": 25.0,
+   "op": "<=",
+   "unit": "deg",
+   "area": "performance",
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "body.upperarm_bust_clear_cm",
+   "value": 3.56,
+   "line": 3.0,
+   "op": ">=",
+   "unit": "cm",
+   "area": "performance",
+   "where": "agent-02 arms, rest 3.56 (44 frames) / gesture 3.81 (13): min; box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "body.upperarm_side_clear_cm",
+   "value": 1.25,
+   "line": 0.5,
+   "op": ">=",
+   "unit": "cm",
+   "area": "performance",
+   "where": "agent-02 arms, rest 1.25 / gesture 1.31: min; box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "move.humerus_elev_high_deg",
+   "value": null,
+   "line": 60.0,
+   "op": "<=",
+   "unit": "deg",
+   "area": "performance",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "state": "INFO",
+   "reason": "not measured (info only)"
+  },
+  {
+   "id": "move.upperarm_abduction_deg",
+   "value": 30.763,
+   "line": 35.0,
+   "op": "<=",
+   "unit": "deg",
+   "area": "performance",
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "move.hold_min_speed",
+   "value": 0.282,
+   "line": 0.3,
+   "op": ">=",
+   "unit": "cm/s",
+   "area": "performance",
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov",
+   "state": "FAIL",
+   "reason": "0.282 cm/s is not >= 0.3"
+  },
+  {
+   "id": "qa.editor_offline_parity_cm",
+   "value": 0.407,
+   "line": 1.0,
+   "op": "<=",
+   "unit": "cm",
+   "area": "performance",
+   "where": "PLACED body editor dump vs kit, --shoulder, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov (seat+life 0.306)",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "move.humerus_elev_rest_desk_deg",
+   "value": 37.258,
+   "line": 40.0,
+   "op": "<=",
+   "unit": "deg",
+   "area": "performance",
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "move.finger_snap_per_min",
+   "value": 4.5,
+   "line": 2.0,
+   "op": "<=",
+   "unit": "/min",
+   "area": "performance",
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov",
+   "state": "FAIL",
+   "reason": "4.5 /min is not <= 2.0"
+  },
+  {
+   "id": "body.speech_sway_mm",
+   "value": null,
+   "line": 8.0,
+   "op": "<=",
+   "unit": "mm",
+   "area": "performance",
+   "where": "the speaking frames",
+   "state": "INFO",
+   "reason": "not measured (info only)"
+  },
+  {
+   "id": "life.arm_keys",
+   "value": null,
+   "line": 0,
+   "op": "==",
+   "unit": "count",
+   "area": "performance",
+   "where": "the life anim asset of the take",
+   "state": "INFO",
+   "reason": "not measured (info only)"
+  },
+  {
+   "id": "life.hand_delta_cm",
+   "value": null,
+   "line": 1.2,
+   "op": "<=",
+   "unit": "cm",
+   "area": "performance",
+   "where": "the parity spans",
+   "state": "INFO",
+   "reason": "not measured (info only)"
+  },
+  {
+   "id": "move.hand_near_face_frames",
+   "value": 0,
+   "line": 0,
+   "op": "==",
+   "unit": "frames @30",
+   "area": "performance",
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "garment.waist_skin_poke_cm",
+   "value": -0.26,
+   "line": 0.0,
+   "op": "<=",
+   "unit": "cm",
+   "area": "garment",
+   "where": "agent-02 waist, worst f1058; box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "move.finger_claw_frames",
+   "value": 0,
+   "line": 0,
+   "op": "==",
+   "unit": "frames @30",
+   "area": "performance",
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "move.dip_pip_ratio_bad_frac",
+   "value": 0.0,
+   "line": 0.1,
+   "op": "<=",
+   "unit": "fraction",
+   "area": "performance",
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "move.fold_at_limit_frames",
+   "value": 0,
+   "line": 0,
+   "op": "==",
+   "unit": "frames @30",
+   "area": "performance",
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "move.cascade_broken_frac",
+   "value": 1.0,
+   "line": 0.1,
+   "op": "<=",
+   "unit": "fraction",
+   "area": "performance",
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov",
+   "state": "FAIL",
+   "reason": "1.0 fraction is not <= 0.1"
+  },
+  {
+   "id": "move.thumb_flat_frames",
+   "value": 0,
+   "line": 0,
+   "op": "==",
+   "unit": "frames @30",
+   "area": "performance",
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "move.thumb_stiff_frames",
+   "value": 0,
+   "line": 0,
+   "op": "==",
+   "unit": "frames @30",
+   "area": "performance",
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "move.hold_over_collar_frames",
+   "value": 0,
+   "line": 0,
+   "op": "==",
+   "unit": "frames @30",
+   "area": "performance",
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "move.hold_chest_frames",
+   "value": 0,
+   "line": 0,
+   "op": "==",
+   "unit": "frames @30",
+   "area": "performance",
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov",
+   "state": "INFO",
+   "reason": ""
+  },
+  {
+   "id": "move.claw_score_frames",
+   "value": 0,
+   "line": 0,
+   "op": "==",
+   "unit": "frames @30",
+   "area": "performance",
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov",
+   "state": "INFO",
+   "reason": ""
+  },
+  {
+   "id": "move.finger_spread_p90_deg",
+   "value": 3.241,
+   "line": 5.0,
+   "op": "<=",
+   "unit": "deg",
+   "area": "performance",
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "move.rest_contact_bad_frames",
+   "value": 0,
+   "line": 0,
+   "op": "==",
+   "unit": "frames @30",
+   "area": "performance",
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov",
+   "state": "PASS",
+   "reason": ""
+  },
+  {
+   "id": "move.rest_abduction_deg",
+   "value": null,
+   "line": 25.0,
+   "op": "<=",
+   "unit": "deg",
+   "area": "performance",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "state": "FAIL",
+   "reason": "not measured: run r7/naturalness.py (ffe06429+) on the 30 fps track -> numbers/<film>/naturalness.json"
+  }
+ ],
+ "issues": [
+  {
+   "code": "gate.lips.lead_in_cm",
+   "severity": "fail",
+   "message": "lips.lead_in_cm: not measured: run cast_gate.py lipgap (silence window = onset-24..onset-1); T1 has no cm measure, so it stays T4's (round 4 read 0.33: S13 L1 silence f977-1001 (QA_HANDOFF 08:47), waived as a smirk)",
+   "fix": "produce/fix it with: cast_gate.py lipgap (silence window = onset-24..onset-1); T1 has no cm measure, so it stays T4's",
+   "where": "each on-camera line's SILENCE PROPER before its first word: frames [previous line's last word + 4 (its compose fade-out), first word - ceil(LEAD_FRAMES 2.5) - 1] (agent-01 5f941ade; the 2.5 f anticipation is the orchestrator's approval, r5/lipsync.md 'Round 6'). A line whose window is under 2 frames (the 0.34 s gaps: netflix N02, N07, N12, N16) is NOT judged by this row; its gap stays judged by lips.silence_open / silence_busy and its onset by lips.eye_onsets (every line, by eye). The first read 0.288 at N07 f504-507 sat on the anticipation + the previous line's fade-out (agent-01), re-run on the fixed window"
+  },
+  {
+   "code": "gate.lips.onset_lead_ms",
+   "severity": "fail",
+   "message": "lips.onset_lead_ms: not measured: run film-ue lips gate (agent-01, T1) (round 4 read 600: S13 L1: mouth wide f1000-1008 vs audio f1020 (orchestrator, ~0.6-0.8 s))",
+   "fix": "produce/fix it with: film-ue lips gate (agent-01, T1)",
+   "where": "every line's first word"
+  },
+  {
+   "code": "gate.lips.lag_frames",
+   "severity": "fail",
+   "message": "lips.lag_frames: not measured: run film-ue lips gate (agent-01, T1, core ef3edd75) (round 4 read 17: S13 L1 ~0.6-0.8 s early (orchestrator); agent-06's re-run against the v2 solves replaces it)",
+   "fix": "produce/fix it with: film-ue lips gate (agent-01, T1, core ef3edd75)",
+   "where": "every spoken line"
+  },
+  {
+   "code": "gate.lips.track_r",
+   "severity": "fail",
+   "message": "lips.track_r: not measured: run film-ue lips gate (T1) (round 4 read None: agent-06's re-run: round 4's face vs the v2 solves (expected low: it solved v1-script words))",
+   "fix": "produce/fix it with: film-ue lips gate (T1)",
+   "where": "every spoken line"
+  },
+  {
+   "code": "gate.lips.measured_against",
+   "severity": "fail",
+   "message": "lips.measured_against: not measured: run film-ue lips gate (T1) (round 4 read 0: round 4's gate read frames and voice only)",
+   "fix": "produce/fix it with: film-ue lips gate (T1)",
+   "where": "the lips gate file"
+  },
+  {
+   "code": "gate.lips.silence_open",
+   "severity": "fail",
+   "message": "lips.silence_open: not measured: run film-ue lips gate (T1) (round 4 read None: T1's probe; round 4 opened before L1)",
+   "fix": "produce/fix it with: film-ue lips gate (T1)",
+   "where": "every silence of each speaker"
+  },
+  {
+   "code": "gate.lips.silence_busy",
+   "severity": "fail",
+   "message": "lips.silence_busy: not measured: run film-ue lips gate (T1) (round 4 read None: T1's probe)",
+   "fix": "produce/fix it with: film-ue lips gate (T1)",
+   "where": "every speaker"
+  },
+  {
+   "code": "gate.lips.cues_fresh",
+   "severity": "fail",
+   "message": "lips.cues_fresh: not measured: run film-ue lips gate (T1): measured word times, stem sha256 match, no words_lost (round 4 read 0: cues.json was round 3's copy, words_lost=true)",
+   "fix": "produce/fix it with: film-ue lips gate (T1): measured word times, stem sha256 match, no words_lost",
+   "where": "out/host-studio/reel/cues.json"
+  },
+  {
+   "code": "gate.head.blink_nod_deg",
+   "severity": "fail",
+   "message": "head.blink_nod_deg: not measured: run film-ue op qa.head_stability + film-qa head-gate (agent-04, T2) (round 4 read 2.696: Presenter f1395-1407 on the box (round 5 probe, agent-04's edge fix d4485bf4); perfkit alone offline read 1.61 at f1380)",
+   "fix": "produce/fix it with: film-ue op qa.head_stability + film-qa head-gate (agent-04, T2)",
+   "where": "every ON-SCREEN blink of each presenter (qa/scope.py, the shot table's cast lists), blinks during head turns INCLUDED: no turn-blink exemption (orchestrator, round 5: the pitch bell on a turn is our torso-lags-neck artifact, and the operator sees it)"
+  },
+  {
+   "code": "gate.head.blink_locked_deg",
+   "severity": "fail",
+   "message": "head.blink_locked_deg: not measured: run film-qa head-gate (T2) (round 4 read 0.416: Presenter f1080-1559, 12 blinks (round 5 probe))",
+   "fix": "produce/fix it with: film-qa head-gate (T2)",
+   "where": "all blinks of each presenter"
+  },
+  {
+   "code": "gate.garment.neck_px",
+   "severity": "fail",
+   "message": "garment.neck_px: not measured: run r4/clip_pass.py neck_px (round 4 read 3: S15 f1082-1128 1-3 px, waived (QA_HANDOFF 09:1x))",
+   "fix": "produce/fix it with: r4/clip_pass.py neck_px",
+   "where": "the SEATED pose, every presenter camera of the film (qa.clip / qa.garment_look on the explainer sequence)"
+  },
+  {
+   "code": "gate.garment.wpo_cm",
+   "severity": "fail",
+   "message": "garment.wpo_cm: not measured: run film-ue garment-gate (agent-02, T3a) (round 4 read 2.66: 0.15 + 0.75 + 1.76 cm (patch3))",
+   "fix": "produce/fix it with: film-ue garment-gate (agent-02, T3a)",
+   "where": "the SEATED pose, every presenter camera of the film (qa.clip / qa.garment_look on the explainer sequence)"
+  },
+  {
+   "code": "gate.garment.armor_index",
+   "severity": "fail",
+   "message": "garment.armor_index: not measured: run film-ue garment-gate --look (T3a) (round 4 read 0.538: box G3 terms re-scored under agent-02's ramps (2da3ce99); her fitted Top 0.0. A GUARD, not a regression line: the detail ramp is fitted to two points (her Top = cloth, his r4 tee = armour), so it fails round 4 by construction; garment.wpo_cm is the independent line)",
+   "fix": "produce/fix it with: film-ue garment-gate --look (T3a)",
+   "where": "the SEATED pose, every presenter camera of the film (qa.clip / qa.garment_look on the explainer sequence)"
+  },
+  {
+   "code": "gate.garment.pair_fraction",
+   "severity": "fail",
+   "message": "garment.pair_fraction: not measured: run film-ue op qa.clip ... (pairs without Overshirt) on the finals' state -> worst raw fraction, or the excess over a V2 baseline the orchestrator ruled -> numbers/<film>/clip.json (round 4 read 0.0067: Trousers>tee at cast_op4)",
+   "fix": "produce/fix it with: film-ue op qa.clip ... (pairs without Overshirt) on the finals' state -> worst raw fraction, or the excess over a V2 baseline the orchestrator ruled -> numbers/<film>/clip.json",
+   "where": "the SEATED pose on the finals' own state, every presenter camera. NETFLIX V2 (no overshirt): the orchestrator ruled (07 Nov, box B r6b_v2_clip) Body>Top at MCU f1330 / MCU_L f1015 = her forearm/elbow IN FRONT of the top, and Trousers>Top at WIDE f1176 = her hands/forearms in front of the hem: OCCLUSIONS, not poke-through. r6b_v2_clip is V2's baseline: those pairs count only their excess over its worst (+0.01, qa.clip before=.../r6b_v2_clip/clip.json); every other pair counts raw"
+  },
+  {
+   "code": "gate.garment.hem_flare_ratio",
+   "severity": "fail",
+   "message": "garment.hem_flare_ratio: not measured: run qa.garment_look hem_flare (agent-02, T3a) (round 4 read None: round 4's hem followed the body)",
+   "fix": "produce/fix it with: qa.garment_look hem_flare (agent-02, T3a)",
+   "where": "the SEATED pose, every presenter camera of the film (qa.clip / qa.garment_look on the explainer sequence)"
+  },
+  {
+   "code": "gate.shot.cameras_ok",
+   "severity": "fail",
+   "message": "shot.cameras_ok: not measured: run r3/probe_cam.py ... --check; framing.py (r3/CAMERAS.md) (round 4 read None: round 4 passed it (13/13))",
+   "fix": "produce/fix it with: r3/probe_cam.py ... --check; framing.py (r3/CAMERAS.md)",
+   "where": "the 13 shots"
+  },
+  {
+   "code": "gate.hair.cut_reach_pct",
+   "severity": "fail",
+   "message": "hair.cut_reach_pct: not measured: run film-ue op qa.hair_continuity (editor), or film-qa hair on rendered frames (round 4 read None: probe P3 re-reads round 4's S17->S18 frames; the operator: 'at 01:00 her hair becomes short')",
+   "fix": "produce/fix it with: film-ue op qa.hair_continuity (editor), or film-qa hair on rendered frames",
+   "where": "every cut both presenters span; S17->S18 f1440 first"
+  },
+  {
+   "code": "gate.hair.pop_reach_pct",
+   "severity": "fail",
+   "message": "hair.pop_reach_pct: not measured: run qa.hair_continuity / film-qa hair (round 4 read None: round 3's pop at S17 f1416-1440 (probe P3 re-reads it))",
+   "fix": "produce/fix it with: qa.hair_continuity / film-qa hair",
+   "where": "every presenter shot"
+  },
+  {
+   "code": "gate.hair.lock",
+   "severity": "fail",
+   "message": "hair.lock: not measured: run film-ue op groom.lock_check labels=[...] (round 4 read 0: gate g read LODSync/skeletal pins only, never a groom)",
+   "fix": "produce/fix it with: film-ue op groom.lock_check labels=[...]",
+   "where": "the level, read right before the render"
+  },
+  {
+   "code": "gate.hair.render_cvars",
+   "severity": "fail",
+   "message": "hair.render_cvars: not measured: run groom.lock's render_cvars vs the spec's cvars (film-qa gate reads both) (round 4 read 0: r3/30-final.yaml cvars lack r.HairStrands.LODMode 0 (951adf24 never merged))",
+   "fix": "produce/fix it with: groom.lock's render_cvars vs the spec's cvars (film-qa gate reads both)",
+   "where": "the render YAML used for the finals"
+  },
+  {
+   "code": "gate.lips.eye_onsets",
+   "severity": "fail",
+   "message": "lips.eye_onsets: not measured: run the strip file signed by cc-64d05f6e -> ../reel/r6/eye_onsets.py STRIP --lines <the film's on-camera line ids>",
+   "fix": "produce/fix it with: the strip file signed by cc-64d05f6e -> ../reel/r6/eye_onsets.py STRIP --lines <the film's on-camera line ids>",
+   "where": "every on-camera line of the film"
+  },
+  {
+   "code": "gate.head.buzz_rms_deg",
+   "severity": "fail",
+   "message": "head.buzz_rms_deg: not measured: run films/host-studio/explainers/head.py judge CUE --head head.json --eyes eyes.json --gate numbers/head_<film>.json (agent-04, fleet/agent-04/r6-head)",
+   "fix": "produce/fix it with: films/host-studio/explainers/head.py judge CUE --head head.json --eyes eyes.json --gate numbers/head_<film>.json (agent-04, fleet/agent-04/r6-head)",
+   "where": "the presenter's on-screen spans (edl/<film>.json)"
+  },
+  {
+   "code": "gate.head.drift_deg",
+   "severity": "fail",
+   "message": "head.drift_deg: not measured: run films/host-studio/explainers/head.py judge CUE --head head.json --eyes eyes.json --gate numbers/head_<film>.json (agent-04, fleet/agent-04/r6-head)",
+   "fix": "produce/fix it with: films/host-studio/explainers/head.py judge CUE --head head.json --eyes eyes.json --gate numbers/head_<film>.json (agent-04, fleet/agent-04/r6-head)",
+   "where": "the presenter's on-screen spans (edl/<film>.json)"
+  },
+  {
+   "code": "gate.head.frozen_s",
+   "severity": "fail",
+   "message": "head.frozen_s: not measured: run films/host-studio/explainers/head.py judge CUE --head head.json --eyes eyes.json --gate numbers/head_<film>.json (agent-04, fleet/agent-04/r6-head)",
+   "fix": "produce/fix it with: films/host-studio/explainers/head.py judge CUE --head head.json --eyes eyes.json --gate numbers/head_<film>.json (agent-04, fleet/agent-04/r6-head)",
+   "where": "the presenter's on-screen spans (edl/<film>.json)"
+  },
+  {
+   "code": "gate.head.nods_per_min",
+   "severity": "fail",
+   "message": "head.nods_per_min: not measured: run films/host-studio/explainers/head.py judge CUE --head head.json --eyes eyes.json --gate numbers/head_<film>.json (agent-04, fleet/agent-04/r6-head)",
+   "fix": "produce/fix it with: films/host-studio/explainers/head.py judge CUE --head head.json --eyes eyes.json --gate numbers/head_<film>.json (agent-04, fleet/agent-04/r6-head)",
+   "where": "the presenter's on-screen spans (edl/<film>.json)"
+  },
+  {
+   "code": "gate.eyes.on_lens_share",
+   "severity": "fail",
+   "message": "eyes.on_lens_share: not measured: run films/host-studio/explainers/head.py judge CUE --head head.json --eyes eyes.json --gate numbers/head_<film>.json (agent-04, fleet/agent-04/r6-head)",
+   "fix": "produce/fix it with: films/host-studio/explainers/head.py judge CUE --head head.json --eyes eyes.json --gate numbers/head_<film>.json (agent-04, fleet/agent-04/r6-head)",
+   "where": "the presenter's on-screen spans (edl/<film>.json)"
+  },
+  {
+   "code": "gate.eyes.saccades_per_s",
+   "severity": "fail",
+   "message": "eyes.saccades_per_s: not measured: run films/host-studio/explainers/head.py judge CUE --head head.json --eyes eyes.json --gate numbers/head_<film>.json (agent-04, fleet/agent-04/r6-head)",
+   "fix": "produce/fix it with: films/host-studio/explainers/head.py judge CUE --head head.json --eyes eyes.json --gate numbers/head_<film>.json (agent-04, fleet/agent-04/r6-head)",
+   "where": "the presenter's on-screen spans (edl/<film>.json)"
+  },
+  {
+   "code": "gate.eyes.glances_per_min",
+   "severity": "fail",
+   "message": "eyes.glances_per_min: not measured: run films/host-studio/explainers/head.py judge CUE --head head.json --eyes eyes.json --gate numbers/head_<film>.json (agent-04, fleet/agent-04/r6-head)",
+   "fix": "produce/fix it with: films/host-studio/explainers/head.py judge CUE --head head.json --eyes eyes.json --gate numbers/head_<film>.json (agent-04, fleet/agent-04/r6-head)",
+   "where": "the presenter's on-screen spans (edl/<film>.json)"
+  },
+  {
+   "code": "gate.blinks.per_min",
+   "severity": "fail",
+   "message": "blinks.per_min: not measured: run films/host-studio/explainers/head.py judge CUE --head head.json --eyes eyes.json --gate numbers/head_<film>.json (agent-04, fleet/agent-04/r6-head)",
+   "fix": "produce/fix it with: films/host-studio/explainers/head.py judge CUE --head head.json --eyes eyes.json --gate numbers/head_<film>.json (agent-04, fleet/agent-04/r6-head)",
+   "where": "the presenter's on-screen spans (edl/<film>.json)"
+  },
+  {
+   "code": "gate.set.clip_px",
+   "severity": "fail",
+   "message": "set.clip_px: not measured: run film-ue op qa.clip label=<presenter> sequence=<SEQ> 'props={\"Chair\":\"<chair>\",\"Desk\":\"<desk>\"}' 'pairs=[[\"Body\",\"Chair\"],[\"Trousers\",\"Chair\"],[\"Chair\",\"Trousers\"],[\"Body\",\"Desk\"],[\"Desk\",\"tee\"]]' (core 0ce1c3ae) -> the worst pair px",
+   "fix": "produce/fix it with: film-ue op qa.clip label=<presenter> sequence=<SEQ> 'props={\"Chair\":\"<chair>\",\"Desk\":\"<desk>\"}' 'pairs=[[\"Body\",\"Chair\"],[\"Trousers\",\"Chair\"],[\"Chair\",\"Trousers\"],[\"Body\",\"Desk\"],[\"Desk\",\"tee\"]]' (core 0ce1c3ae) -> the worst pair px",
+   "where": "every presenter camera, n 8 per shot + the sit/stand-up frames if any"
+  },
+  {
+   "code": "gate.set.mic_mouth_px",
+   "severity": "fail",
+   "message": "set.mic_mouth_px: not measured: run film-ue op qa.clip ... 'props={\"Mic\":\"<mic>\"}' 'mouth={\"blocker\":\"Mic\"}' (core 0ce1c3ae) -> metrics.worst.mouth.blocked_px",
+   "fix": "produce/fix it with: film-ue op qa.clip ... 'props={\"Mic\":\"<mic>\"}' 'mouth={\"blocker\":\"Mic\"}' (core 0ce1c3ae) -> metrics.worst.mouth.blocked_px",
+   "where": "the camera ACTUALLY CUT at each frame per the film's EDL (edl/<film>.json: CAM_MCU / CAM_CU / CAM_MCU_L / CAM_WIDE at their spans); a hit in a camera not on screen at that frame is ignored (the orchestrator's ruling, 08 Nov). qa.clip reads the sequence's camera-cut track per frame (cut_camera), so the sequence's cut track must equal the EDL's when it runs (the driver checks it, or passes each EDL shot's frames)"
+  },
+  {
+   "code": "gate.set.props_overlap",
+   "severity": "fail",
+   "message": "set.props_overlap: not measured: run film-ue op qa.overlaps (axis-aligned boxes) flags candidates; EACH flagged pair is confirmed or cleared by a depth check: qa.clip props={both props} pairs=[[A,B],[B,A]] (the intersection-edge rule), the count = pairs whose qa.clip px > 0 -> numbers/<film>/set.json",
+   "fix": "produce/fix it with: film-ue op qa.overlaps (axis-aligned boxes) flags candidates; EACH flagged pair is confirmed or cleared by a depth check: qa.clip props={both props} pairs=[[A,B],[B,A]] (the intersection-edge rule), the count = pairs whose qa.clip px > 0 -> numbers/<film>/set.json",
+   "where": "the set"
+  },
+  {
+   "code": "gate.shot.exposure_jump_stops",
+   "severity": "fail",
+   "message": "shot.exposure_jump_stops: not measured: run qa_av.py exposure FRAMES --shots shots.json --boxes <the static patch per shot> (on the box) -> numbers/<film>/exposure.json; the face-box numbers are kept as INFO in the file",
+   "fix": "produce/fix it with: qa_av.py exposure FRAMES --shots shots.json --boxes <the static patch per shot> (on the box) -> numbers/<film>/exposure.json; the face-box numbers are kept as INFO in the file",
+   "where": "every presenter shot (final frames, on the box)"
+  },
+  {
+   "code": "gate.shot.exposure_drift_stops",
+   "severity": "fail",
+   "message": "shot.exposure_drift_stops: not measured: run qa_av.py exposure FRAMES --shots shots.json --boxes <the static patch per shot> (on the box) -> numbers/<film>/exposure.json; the face-box numbers are kept as INFO in the file",
+   "fix": "produce/fix it with: qa_av.py exposure FRAMES --shots shots.json --boxes <the static patch per shot> (on the box) -> numbers/<film>/exposure.json; the face-box numbers are kept as INFO in the file",
+   "where": "every presenter shot"
+  },
+  {
+   "code": "gate.audio.lufs_err_lu",
+   "severity": "fail",
+   "message": "audio.lufs_err_lu: not measured: run qa_av.py loudness CUT.mp4 (ffmpeg ebur128)",
+   "fix": "produce/fix it with: qa_av.py loudness CUT.mp4 (ffmpeg ebur128)",
+   "where": "the cut"
+  },
+  {
+   "code": "gate.audio.true_peak_dbtp",
+   "severity": "fail",
+   "message": "audio.true_peak_dbtp: not measured: run qa_av.py loudness CUT.mp4",
+   "fix": "produce/fix it with: qa_av.py loudness CUT.mp4",
+   "where": "the cut"
+  },
+  {
+   "code": "gate.captions.text_match",
+   "severity": "fail",
+   "message": "captions.text_match: not measured: run qa_av.py captions CUT.srt audio/<film>/cues.json (or qa_av.py all)",
+   "fix": "produce/fix it with: qa_av.py captions CUT.srt audio/<film>/cues.json (or qa_av.py all)",
+   "where": "the cut's SRT vs audio/<film>/cues.json"
+  },
+  {
+   "code": "gate.captions.onset_ms",
+   "severity": "fail",
+   "message": "captions.onset_ms: not measured: run qa_av.py captions (as above)",
+   "fix": "produce/fix it with: qa_av.py captions (as above)",
+   "where": "every VO line"
+  },
+  {
+   "code": "gate.facts.sourced",
+   "severity": "fail",
+   "message": "facts.sourced: not measured: run qa_av.py facts audio/<film>/cues.json facts_<film>.json",
+   "fix": "produce/fix it with: qa_av.py facts audio/<film>/cues.json facts_<film>.json",
+   "where": "every VO line"
+  },
+  {
+   "code": "gate.deliver.format_ok",
+   "severity": "fail",
+   "message": "deliver.format_ok: not measured: run qa_av.py format CUT.mp4",
+   "fix": "produce/fix it with: qa_av.py format CUT.mp4",
+   "where": "the delivered cut"
+  },
+  {
+   "code": "gate.deliver.qc_ok",
+   "severity": "fail",
+   "message": "deliver.qc_ok: not measured: run film-post qc CUT.mp4 --edl X.edl --captions X.srt -o qc.json -> pass",
+   "fix": "produce/fix it with: film-post qc CUT.mp4 --edl X.edl --captions X.srt -o qc.json -> pass",
+   "where": "the delivered cut"
+  },
+  {
+   "code": "gate.eye.real_person",
+   "severity": "fail",
+   "message": "eye.real_person: not measured: run the review strip signed by cc-64d05f6e: {\"by\": \"cc-64d05f6e\", \"gate\": {\"eye.real_person\": 1|0, ...}, \"notes\"}",
+   "fix": "produce/fix it with: the review strip signed by cc-64d05f6e: {\"by\": \"cc-64d05f6e\", \"gate\": {\"eye.real_person\": 1|0, ...}, \"notes\"}",
+   "where": "the whole film, watched like the viewer"
+  },
+  {
+   "code": "gate.eye.light",
+   "severity": "fail",
+   "message": "eye.light: not measured: run the review strip signed by cc-64d05f6e: {\"by\": \"cc-64d05f6e\", \"gate\": {\"eye.light\": 1|0, ...}, \"notes\"}",
+   "fix": "produce/fix it with: the review strip signed by cc-64d05f6e: {\"by\": \"cc-64d05f6e\", \"gate\": {\"eye.light\": 1|0, ...}, \"notes\"}",
+   "where": "the whole film, watched like the viewer"
+  },
+  {
+   "code": "gate.eye.hair_garment",
+   "severity": "fail",
+   "message": "eye.hair_garment: not measured: run the review strip signed by cc-64d05f6e: {\"by\": \"cc-64d05f6e\", \"gate\": {\"eye.hair_garment\": 1|0, ...}, \"notes\"}",
+   "fix": "produce/fix it with: the review strip signed by cc-64d05f6e: {\"by\": \"cc-64d05f6e\", \"gate\": {\"eye.hair_garment\": 1|0, ...}, \"notes\"}",
+   "where": "the whole film, watched like the viewer"
+  },
+  {
+   "code": "gate.eye.graphics",
+   "severity": "fail",
+   "message": "eye.graphics: not measured: run the review strip signed by cc-64d05f6e: {\"by\": \"cc-64d05f6e\", \"gate\": {\"eye.graphics\": 1|0, ...}, \"notes\"}",
+   "fix": "produce/fix it with: the review strip signed by cc-64d05f6e: {\"by\": \"cc-64d05f6e\", \"gate\": {\"eye.graphics\": 1|0, ...}, \"notes\"}",
+   "where": "the whole film, watched like the viewer"
+  },
+  {
+   "code": "gate.body.desk_through",
+   "severity": "fail",
+   "message": "body.desk_through: not measured: run films/host-studio/explainers/perform.py -> numbers/<film>/body.json (agent-01, fleet/agent-01/r6-perf)",
+   "fix": "produce/fix it with: films/host-studio/explainers/perform.py -> numbers/<film>/body.json (agent-01, fleet/agent-01/r6-perf)",
+   "where": "every frame of the placed performance (editor, bones vs the set's boxes)"
+  },
+  {
+   "code": "gate.body.mic_touch",
+   "severity": "fail",
+   "message": "body.mic_touch: not measured: run films/host-studio/explainers/perform.py -> numbers/<film>/body.json (agent-01, fleet/agent-01/r6-perf)",
+   "fix": "produce/fix it with: films/host-studio/explainers/perform.py -> numbers/<film>/body.json (agent-01, fleet/agent-01/r6-perf)",
+   "where": "every frame of the placed performance (editor, bones vs the set's boxes)"
+  },
+  {
+   "code": "gate.body.knee_desk",
+   "severity": "fail",
+   "message": "body.knee_desk: not measured: run films/host-studio/explainers/perform.py -> numbers/<film>/body.json (agent-01, fleet/agent-01/r6-perf)",
+   "fix": "produce/fix it with: films/host-studio/explainers/perform.py -> numbers/<film>/body.json (agent-01, fleet/agent-01/r6-perf)",
+   "where": "every frame of the placed performance (editor, bones vs the set's boxes)"
+  },
+  {
+   "code": "gate.gfx.caption_band_clear",
+   "severity": "fail",
+   "message": "gfx.caption_band_clear: not measured: run the graphics film's own layout: every text/label element's screen box vs y 0.85 -> numbers/<film>/gfx.json (agent-08 whatsapp, agent-12 netflix)",
+   "fix": "produce/fix it with: the graphics film's own layout: every text/label element's screen box vs y 0.85 -> numbers/<film>/gfx.json (agent-08 whatsapp, agent-12 netflix)",
+   "where": "every graphics frame of the film"
+  },
+  {
+   "code": "gate.garment.leaders_ok",
+   "severity": "fail",
+   "message": "garment.leaders_ok: not measured: run the driver's pre-render leaders read-back (dress + seq_dress) -> numbers/<film>/box.json",
+   "fix": "produce/fix it with: the driver's pre-render leaders read-back (dress + seq_dress) -> numbers/<film>/box.json",
+   "where": "the explainer level, before each final job"
+  },
+  {
+   "code": "gate.shot.streaming_settled",
+   "severity": "fail",
+   "message": "shot.streaming_settled: not measured: run the driver's render spec read-back + the first frame of each job to the orchestrator's eye -> numbers/<film>/box.json",
+   "fix": "produce/fix it with: the driver's render spec read-back + the first frame of each job to the orchestrator's eye -> numbers/<film>/box.json",
+   "where": "every final job, its first frame in every camera; the netflix CU first"
+  },
+  {
+   "code": "gate.shot.grain_sigma",
+   "severity": "fail",
+   "message": "shot.grain_sigma: not measured: run qa_av.py grain <full-res frames> --patches grain_patches.json (on box B: face data) -> numbers/<film>/grain.json",
+   "fix": "produce/fix it with: qa_av.py grain <full-res frames> --patches grain_patches.json (on box B: face data) -> numbers/<film>/grain.json",
+   "where": "the first AND last frame of each final job (a FAIL re-renders that job), the finals-spec MCU test f29 before the batch"
+  },
+  {
+   "code": "gate.shot.grain_wide_sigma",
+   "severity": "fail",
+   "message": "shot.grain_wide_sigma: not measured: run qa_av.py grain <frames> --patches grain_patches_wide.json (wall, wall2) -> numbers/<film>/grain.json",
+   "fix": "produce/fix it with: qa_av.py grain <frames> --patches grain_patches_wide.json (wall, wall2) -> numbers/<film>/grain.json",
+   "where": "the first AND last frame of each WIDE final job (a FAIL re-renders that job)"
+  },
+  {
+   "code": "gate.face.smile_events_per_min",
+   "severity": "fail",
+   "message": "face.smile_events_per_min: not measured: run film-qa perf-face <final frames> --speaking spans.json --box <face box> (MediaPipe blendshapes, each channel vs the shot's own neutral; on the box) -> numbers/<film>/perf_face.json; pre-check offline: qa_perf.face_rows_curves on the face anim (agent-04)",
+   "fix": "produce/fix it with: film-qa perf-face <final frames> --speaking spans.json --box <face box> (MediaPipe blendshapes, each channel vs the shot's own neutral; on the box) -> numbers/<film>/perf_face.json; pre-check offline: qa_perf.face_rows_curves on the face anim (agent-04)",
+   "where": "every speaking + on-screen frame of the presenter (cue words x edl presenter spans)"
+  },
+  {
+   "code": "gate.body.gesture_onsets_per_s",
+   "severity": "fail",
+   "message": "body.gesture_onsets_per_s: not measured: run film-ue op seq.sample (hand_l, hand_r every frame of the speaking spans) -> film-qa perf-body SAMPLES.json --speaking spans.json --desk-z <the desk top z> -> numbers/<film>/perf_body.json",
+   "fix": "produce/fix it with: film-ue op seq.sample (hand_l, hand_r every frame of the speaking spans) -> film-qa perf-body SAMPLES.json --speaking spans.json --desk-z <the desk top z> -> numbers/<film>/perf_body.json",
+   "where": "every speaking + on-screen frame of the presenter (cue words x edl presenter spans)"
+  },
+  {
+   "code": "gate.body.hands_above_desk_frac",
+   "severity": "fail",
+   "message": "body.hands_above_desk_frac: not measured: run film-ue op seq.sample (hand_l, hand_r every frame of the speaking spans) -> film-qa perf-body SAMPLES.json --speaking spans.json --desk-z <the desk top z> -> numbers/<film>/perf_body.json",
+   "fix": "produce/fix it with: film-ue op seq.sample (hand_l, hand_r every frame of the speaking spans) -> film-qa perf-body SAMPLES.json --speaking spans.json --desk-z <the desk top z> -> numbers/<film>/perf_body.json",
+   "where": "every speaking + on-screen frame of the presenter (cue words x edl presenter spans)"
+  },
+  {
+   "code": "gate.face.curves_expr_active_frac",
+   "severity": "fail",
+   "message": "face.curves_expr_active_frac: not measured: run qa_perf.face_rows_curves on the face anim (anim.read_curves of the take's face anim, CTRL_expressions_*), over spans_<film>.json (agent-04's boxcheck) -> numbers/<film>/perf_curves.json",
+   "fix": "produce/fix it with: qa_perf.face_rows_curves on the face anim (anim.read_curves of the take's face anim, CTRL_expressions_*), over spans_<film>.json (agent-04's boxcheck) -> numbers/<film>/perf_curves.json",
+   "where": "every speaking + on-screen frame (spans_<film>.json)"
+  },
+  {
+   "code": "gate.face.curves_smile_events_per_min",
+   "severity": "fail",
+   "message": "face.curves_smile_events_per_min: not measured: run qa_perf.face_rows_curves on the face anim (anim.read_curves of the take's face anim, CTRL_expressions_*), over spans_<film>.json (agent-04's boxcheck) -> numbers/<film>/perf_curves.json",
+   "fix": "produce/fix it with: qa_perf.face_rows_curves on the face anim (anim.read_curves of the take's face anim, CTRL_expressions_*), over spans_<film>.json (agent-04's boxcheck) -> numbers/<film>/perf_curves.json",
+   "where": "every speaking + on-screen frame (spans_<film>.json)"
+  },
+  {
+   "code": "gate.face.curves_brow_flash_per_min",
+   "severity": "fail",
+   "message": "face.curves_brow_flash_per_min: not measured: run qa_perf.face_rows_curves on the face anim (anim.read_curves of the take's face anim, CTRL_expressions_*), over spans_<film>.json (agent-04's boxcheck) -> numbers/<film>/perf_curves.json",
+   "fix": "produce/fix it with: qa_perf.face_rows_curves on the face anim (anim.read_curves of the take's face anim, CTRL_expressions_*), over spans_<film>.json (agent-04's boxcheck) -> numbers/<film>/perf_curves.json",
+   "where": "every speaking + on-screen frame (spans_<film>.json)"
+  },
+  {
+   "code": "gate.face.curves_neutral_hold_max_s",
+   "severity": "fail",
+   "message": "face.curves_neutral_hold_max_s: not measured: run qa_perf.face_rows_curves on the face anim (anim.read_curves of the take's face anim, CTRL_expressions_*), over spans_<film>.json (agent-04's boxcheck) -> numbers/<film>/perf_curves.json",
+   "fix": "produce/fix it with: qa_perf.face_rows_curves on the face anim (anim.read_curves of the take's face anim, CTRL_expressions_*), over spans_<film>.json (agent-04's boxcheck) -> numbers/<film>/perf_curves.json",
+   "where": "every speaking + on-screen frame (spans_<film>.json)"
+  },
+  {
+   "code": "gate.garment.waist_poke_cm",
+   "severity": "fail",
+   "message": "garment.waist_poke_cm: not measured: run agent-02's garment_measure.py waist POKE term -> numbers/<film>/garment.json; visibility cross-checked by qa.clip's Body>Trousers pair (garment.pair_fraction)",
+   "fix": "produce/fix it with: agent-02's garment_measure.py waist POKE term -> numbers/<film>/garment.json; visibility cross-checked by qa.clip's Body>Trousers pair (garment.pair_fraction)",
+   "where": "every frame with the presenter ON SCREEN (edl/<film>.json presenter + panel shots, speaking or not), as the clip rows: off-screen frames (graphics shots) don't count"
+  },
+  {
+   "code": "gate.set.mic_face_px",
+   "severity": "fail",
+   "message": "set.mic_face_px: not measured: run film-ue op qa.clip label=<presenter> sequence=<SEQ> 'props={\"Mic\":\"<mic>\"}' 'pairs=[]' 'mouth={\"blocker\":\"Mic\",\"radius_cm\":3.0,\"bones\":[\"FACIAL_L_Eye\",\"FACIAL_R_Eye\",\"FACIAL_C_LipUpper\",\"FACIAL_C_LipLower\",\"FACIAL_C_Jaw\"]}' -> metrics.worst.mouth.blocked_px (a missing bone errors: pass the rig's names)",
+   "fix": "produce/fix it with: film-ue op qa.clip label=<presenter> sequence=<SEQ> 'props={\"Mic\":\"<mic>\"}' 'pairs=[]' 'mouth={\"blocker\":\"Mic\",\"radius_cm\":3.0,\"bones\":[\"FACIAL_L_Eye\",\"FACIAL_R_Eye\",\"FACIAL_C_LipUpper\",\"FACIAL_C_LipLower\",\"FACIAL_C_Jaw\"]}' -> metrics.worst.mouth.blocked_px (a missing bone errors: pass the rig's names)",
+   "where": "the camera ACTUALLY CUT at each frame per the film's EDL (edl/<film>.json: CAM_MCU / CAM_CU / CAM_MCU_L / CAM_WIDE at their spans); a hit in a camera not on screen at that frame is ignored (the orchestrator's ruling, 08 Nov). qa.clip reads the sequence's camera-cut track per frame (cut_camera), so the sequence's cut track must equal the EDL's when it runs (the driver checks it, or passes each EDL shot's frames)"
+  },
+  {
+   "code": "gate.move.hold_min_speed",
+   "severity": "fail",
+   "message": "move.hold_min_speed: 0.282 cm/s is not >= 0.3",
+   "fix": "produce/fix it with: films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement b8dfbfdf; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov"
+  },
+  {
+   "code": "gate.move.finger_snap_per_min",
+   "severity": "fail",
+   "message": "move.finger_snap_per_min: 4.5 /min is not <= 2.0",
+   "fix": "produce/fix it with: r7/naturalness.py (agent-13, fleet/agent-13/r7-movement 80ddd161) on the 30 fps track (a 24 fps dump reads the same snap lower) -> numbers/<film>/naturalness.json",
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov"
+  },
+  {
+   "code": "gate.move.cascade_broken_frac",
+   "severity": "fail",
+   "message": "move.cascade_broken_frac: 1.0 fraction is not <= 0.1",
+   "fix": "produce/fix it with: r7/naturalness.py --who <her|him> (agent-13, fleet/agent-13/r7-movement 4e1ac999+) on the 30 fps track WITH fingertips (gesturekit.track_frame 'tips', agent-01 b2d3bcc0+) -> numbers/<film>/naturalness.json",
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov"
+  },
+  {
+   "code": "gate.move.rest_abduction_deg",
+   "severity": "fail",
+   "message": "move.rest_abduction_deg: not measured: run r7/naturalness.py (ffe06429+) on the 30 fps track -> numbers/<film>/naturalness.json",
+   "fix": "produce/fix it with: r7/naturalness.py (ffe06429+) on the 30 fps track -> numbers/<film>/naturalness.json",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')"
+  }
+ ],
+ "refused_waivers": [],
+ "not_attempted": [
+  {
+   "id": "garment.cloth_alive",
+   "reason": "Round 6 explainers: his tee is MetaHuman's default garment (closed shell) and her overshirt stays skinned, the same ruling as the karma reel (cc-64d05f6e, 07 Nov). armor_index, wpo_cm, neck_px and pair_fraction stay hard lines.",
+   "by": "cc-64d05f6e"
+  },
+  {
+   "id": "garment.cloth_sound",
+   "reason": "Round 6 explainers: his tee is MetaHuman's default garment (closed shell) and her overshirt stays skinned, the same ruling as the karma reel (cc-64d05f6e, 07 Nov). armor_index, wpo_cm, neck_px and pair_fraction stay hard lines.",
+   "by": "cc-64d05f6e"
+  },
+  {
+   "id": "garment.cloth_detail_ratio",
+   "reason": "Round 6 explainers: his tee is MetaHuman's default garment (closed shell) and her overshirt stays skinned, the same ruling as the karma reel (cc-64d05f6e, 07 Nov). armor_index, wpo_cm, neck_px and pair_fraction stay hard lines.",
+   "by": "cc-64d05f6e"
+  }
+ ],
+ "complaints": [
+  "eye",
+  "garment",
+  "hair",
+  "head",
+  "lips",
+  "set"
+ ],
+ "summary": "REFUSE with 3 item(s) NOT ATTEMPTED by decision: garment.cloth_alive (cc-64d05f6e), garment.cloth_sound (cc-64d05f6e), garment.cloth_detail_ratio (cc-64d05f6e)",
+ "film": "netflix"
+}

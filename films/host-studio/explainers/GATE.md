@@ -36,6 +36,39 @@ The orchestrator ruled on 07 Nov, about 23:10 IST.
 - **WIDE shot 11:** stays as rendered, because the band cannot be seen at WIDE scale. If it is ever re-rendered, check
   her shadow on the chair and desk.
 
+**Gate owner (09 Nov):** agent-09 is rate-limited to Tue 11:30; agent-13 runs the gate on `fleet/agent-13/r7-gate`
+(off agent-09's 178a28bf). agent-08's hand rows join it: finger_claw, dip_pip_ratio_bad, fold_at_limit, cascade_broken,
+thumb_flat, thumb_stiff (guard), hold_over_collar; hold_chest and claw_score are report rows.
+
+**His arms (the orchestrator, 09 Nov):** body.upperarm_side_clear_cm >= 0.5 and body.upperarm_bust_clear_cm >= 3 GATE
+him too (they were never INFO in the spec; this records the ruling): his upper arm 6.6-7.9 cm inside his outfit's flank
+is the fault the operator rejected on her. Seated and in gestures, against his outfit's SURFACE (agent-02 confirms it
+is not an inner fold). agent-01 opens his rest/relaxed arms (elbows slightly out, forearms on the desk, no chicken
+wings). His aba900fe + 7b03480f reads side -7.87 @f84 / bust 1.61 @f54: FAIL.
+
+**His flank split (the orchestrator, 09 Nov):** the ~8 cm is split, not cut into one shell: agent-01 opens his
+rest/relaxed abduction to ~20-25 deg (elbows a hand-width off the torso, forearms ON the desk; move.rest_abduction_deg
+<= 25 is the guard against wings), and agent-05 slims the flank by the remainder (<= ~4 cm, blended, no dent from
+CAM_MCU / WIDE / CU; an inner layer or fold first if LAYERS shows one). His FRONT zone is the same as hers: >= 3 cm at
+every frame (gate).
+
+**His blocked build (the orchestrator, 09 Nov):** (1) in his BODY build, body.arm_outfit / arm_torso are WARN (printed
+with the numbers) until agent-05's flank refit lands, so the chain writes a body for agent-02/05 to measure and refit
+against; the FINAL gate keeps body.upperarm_side_clear_cm >= 0.5 and body.upperarm_bust_clear_cm >= 3 HARD (progress
+-7.9 -> -1.2 cm). (2) One owner per part at the rest: agent-08's contact solve owns the resting HAND (palm down, heel ~3
+cm over the desk, fingers never below the top) and runs LAST; agent-01's rest arm IK targets that wrist pose (forearm on
+the desk, the elbow not hanging); ONE combined sha for him and her. (3) His body.hands_in_frame_mcu_frac 0.447 (line
+0.6) is fixed in the FRAMING: CAM_MCU / CAM_MCU_L slightly wider and lower in set_him.json (~6-10 %, the same headroom
+ratio); the orchestrator checks the framing by eye on his TEST.
+
+**The place-stage lift (agent-06's find, 09 Nov):** on her 928407cb PLACED dump the face 'place' stage lifted everything
+from spine_04 up by ~2.6 cm (-0.55 x) with the pelvis fixed; the arms rode on it and her hands floated 2.6 cm above the
+desk in the render. parity --shoulder passed (0.407) because it cancels a torso shift by design. Two rows close the hole:
+qa.editor_torso_parity_cm <= 1.0 (spine_05 + clavicles, plain, rendered dump vs track) and
+move.rest_contact_rendered_frames == 0 (rest contact on the rendered dump). The fix is agent-01's (agent-04's diagnosis):
+perform.py sync's head_to_body bake, H2B_BONES['her'] = [spine_04, spine_05, neck_01, neck_02, head] on r7-body 66785bbe;
+hers becomes [neck_01, neck_02, head], rotations only (his was already cut to neck/head, 9c6823c0, for a 3.6 cm lift).
+
 ## Verdicts
 
 ### Netflix v2b: REJECTED BY THE OPERATOR (07 Nov, about 23:45 IST). The SIGN below is SUPERSEDED.
@@ -53,6 +86,58 @@ rows (`gate_spec.json`):
 - garment.waist_fit_cm.
 
 Each row's must_fail is v2b, measured on box B. The numbers support the eye; the operator decides.
+
+**Her R7 TEST (netflix_r7F_TEST), the orchestrator's verdict, 08 Nov:** a big step up. The face is alive, the CU
+press-to-lens lands, the WIDE count gestures read and the arms are clear. The arm gate passes on the TEST state (min 5.30
+cm; agent-02, `fleet/agent-02/r7-garment` 055b89b0). Two must-fixes before the finals, both judged by the orchestrator's
+eye on CAM_MCU f0-100 (box C):
+
+1. **The high rest pose.** Her hands hover at the top of her chest with drooping wrists, which reads as fidgeting. The
+   rest becomes hands loosely together at the lower ribcage, 20-30 cm in front of the torso, with neutral wrists.
+2. **The lower third covers the gesture zone** in the MCU opening. It moves top-left, or shortens.
+
+**Rulings on agent-01's elbow geometry (the orchestrator, 08 Nov):**
+
+- **(A) Arm clearance is split.** The upper arm must be >= 3 cm from the BUST / front of the Top (the operator's
+  complaint). Against the SIDE of the torso it needs no penetration (>= 0.5 cm; light contact reads natural). The old
+  whole-torso row becomes INFO.
+- **(B) Stroke elevation.** The line is 60 deg ONLY for apexes at or above the upper chest, and 45 deg for the rest. A
+  new row, upperarm_abduction_deg <= 35 at strokes, keeps the lift mostly FLEXION (forward), not abduction. High apexes
+  are kept for the key beats (agent-11 lowers some if more than ~1/3 are high). The rest-elevation line stays 30 deg.
+  agent-13 updates the rows.
+
+**Her verify netflix_r7H (b4325b5b), the orchestrator's verdict, 08 Nov:** a big improvement. The WIDE counting reads
+natural and the face is alive. Two gesture fixes come before the finals: the MCU f58-70 'MILLION' spread goes to head
+height beside her face, and the CU 'Hit play' is a palm out beside her face. A NEW row (both presenters), hand_near_face
+== 0: no hand above the chin or within ~10 cm of the face in the cut camera. agent-01 fixes it in one sha, and only
+her 3 verify shots re-render.
+
+**The operator on her verify (08 Nov):** the face is SHIPPABLE. The hands at the WIDE counts (~t44.5, N13) look
+'zombie': a claw count hand held up at the shoulder with the forearm vertical, and a flat stiff desk hand. agent-08
+leads a hand-perfection task (anatomical shapes, a by-eye shape catalogue, listing instead of counting, new detectors);
+its rows join this gate. Her finals and his TEST are on HOLD until the new hand shapes pass.
+
+**Breath in the seat (the orchestrator, 08 Nov):** for both presenters the breath (a vertical chest lift on
+spine_05/clavicles, ~2-3.5 mm z at 10-20/min, coupled with speech pauses) moves into the BODY track (gesturekit). The
+life layer keeps only a small clavicle + weight shift. The scored track then contains the breath, so the naturalness rows
+and parity both see exactly what renders (agent-09's condition: the row run's track sha = the seat that renders). His 4
+camera rigs come from box T (set_him.json) for his CU/MCU strokes. One sha carries the face rule + seat breath + his
+rigs.
+
+**Parity (the orchestrator, 08 Nov):** agent-13's shoulder-relative parity (r7/parity.py --shoulder) is THE parity
+gate. It runs on the RENDERED dump (seat + life), with a 1.0 cm line, and supersedes the seat-only check and the 1.2
+sanity row. The naturalness rows are scored on the 30 fps TRACK; the parity proves the editor plays it, and the editor-dump
+rows are an INFO cross-check ('track + parity').
+
+**The clock (08 Nov):** the sequence, editor and composite are 24 fps; agent-01's arm_track is 30 fps. Every row maps
+frames by TIME (the orchestrator's rule). Matched frame-to-frame, the 'stale life layer' readings (44 / 47 cm) were a
+clock artefact and are VOID (agent-13): time-matched, the editor agrees with the track to ~0.35 cm. agent-09's tools:
+perf-rest and perf-parity paired frames by number (fixed e500c1d9). perf-face, perf-body, hands_in_frame,
+limb/hand_torso, qa_av and the spans all read 24 fps sequence frames only.
+
+**Cost policy (the operator via the orchestrator, 08 Nov):** at most two GPU boxes (T his, T2 hers). The finals
+render ON those boxes, not on farm workers, so the farm rows are INFO, and leaders and streaming come from each box's
+box.json per job. Every gate passes BEFORE a render: no re-renders, and the verify/test spans are kept to the minimum.
 
 **Round 7 rulings (the orchestrator, 07 Nov):**
 

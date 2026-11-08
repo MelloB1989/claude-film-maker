@@ -1,0 +1,45 @@
+{
+ "gate": {
+  "body.upperarm_bust_clear_cm": {
+   "value": 3.56,
+   "where": "agent-02 arms, rest 3.56 (44 frames) / gesture 3.81 (13): min; box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov"
+  },
+  "body.upperarm_side_clear_cm": {
+   "value": 1.25,
+   "where": "agent-02 arms, rest 1.25 / gesture 1.31: min; box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov"
+  },
+  "body.hands_in_frame_mcu_frac": {
+   "value": 0.723,
+   "where": "placed body; box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov"
+  },
+  "body.hands_in_frame_cu_frac": {
+   "value": 0.392,
+   "where": "placed body; box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov"
+  },
+  "body.hands_in_frame_wide_frac": {
+   "value": 1.0,
+   "where": "placed body; box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov"
+  },
+  "body.breath_amp_mm": {
+   "value": 2.65,
+   "where": "bodycheck z-only (xyz 12.98 = sway); box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov"
+  },
+  "body.breath_cycles_per_min": {
+   "value": 12.1,
+   "where": "placed body; box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov"
+  },
+  "garment.waist_fit_cm": {
+   "value": 0.02,
+   "where": "agent-02 waist, worst f1034; box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov"
+  },
+  "garment.waist_skin_poke_cm": {
+   "value": -0.26,
+   "where": "agent-02 waist, worst f1058; box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov"
+  },
+  "body.rest_hand_torso_cm": {
+   "value": 19.18,
+   "where": "perf-rest --track, worst; box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov"
+  }
+ },
+ "source": "agent-06 box T2 gate run"
+}

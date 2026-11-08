@@ -33,3 +33,24 @@ def test_every_new_spec_item_has_a_line():
     spec = json.loads((here / "gate_spec.json").read_text())
     bad = [k for k, v in spec["items"].items() if k not in core and v.get("line") is None and not v.get("info")]
     assert not bad, f"spec items without a line (an override replaced the whole item?): {bad}"
+
+
+def test_line_by_film():
+    spec = {"items": {"body.hands_in_frame_mcu_frac": {"line": 0.6, "line_by_film": {"netflix": 0.5}}}}
+    assert scoped(spec, "netflix")["items"]["body.hands_in_frame_mcu_frac"]["line"] == 0.5
+    assert scoped(spec, "whatsapp")["items"]["body.hands_in_frame_mcu_frac"]["line"] == 0.6
+
+
+def test_na_ok_row_reads_info_not_fail(tmp_path):
+    import json
+    import subprocess
+    import sys
+    spec = {"items": {"move.humerus_elev_high_deg": {"area": "performance", "op": "<=", "line": 60, "na_ok": True,
+                                                       "na_reason": "no high apex"}}}
+    (tmp_path / "spec.json").write_text(json.dumps(spec))
+    (tmp_path / "n.json").write_text(json.dumps({"gate": {"move.humerus_elev_high_deg": {"value": None}}}))
+    out = tmp_path / "v.json"
+    subprocess.run([sys.executable, "gate_film.py", "--film", "netflix", str(tmp_path / "n.json"), "--spec",
+                    str(tmp_path / "spec.json"), "--out", str(out)], capture_output=True)
+    rows = {r["id"]: r for r in json.loads(out.read_text())["rows"]}
+    assert rows["move.humerus_elev_high_deg"]["state"] == "INFO"
