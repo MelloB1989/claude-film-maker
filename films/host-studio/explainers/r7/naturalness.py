@@ -265,6 +265,13 @@ class Take:
                 on = (W[0] >= DESK_NEAR + 10.0 and E[0] >= DESK_NEAR - 11.0 and W[2] <= DESK_TOP + DESK_REST_Z
                       and min(E[2], W[2]) <= DESK_TOP + 7.0)
                 (desk if on else hang).append(hum)
+            sg = 1.0 if s == "r" else -1.0
+            ab = []
+            for i, f in enumerate(self.F):
+                if self.inside[i] and f["gesture_w"][s] < 0.1:
+                    u = sub(f["p"]["lowerarm_" + s], f["p"]["upperarm_" + s])
+                    ab.append(math.degrees(math.asin(max(-1, min(1, sg * u[1] / norm(u))))))
+            r[s]["rest_abduction_p50"] = med(ab) if len(ab) >= MIN_REST else float("nan")
             r[s]["humerus_rest_p50"] = med(hang) if len(hang) >= MIN_REST else float("nan")  # a few frames in passing
             r[s]["humerus_rest_desk_p50"] = med(desk) if len(desk) >= MIN_REST else float("nan")  # is not a rest
             r[s]["rest_hang_n"], r[s]["rest_desk_n"] = len(hang), len(desk)
@@ -776,6 +783,10 @@ ROWS = {
     "move.humerus_elev_rest_deg": (lambda r: _worst(r, ("forearm", "humerus_rest_p50"), max), "<=", 30.0, "deg",
                                    "median upper-arm elevation while that hand rests (gesture_w < 0.1) with the "
                                    "forearm NOT on the desk, worse hand: unsupported resting elbows hang"),
+    "move.rest_abduction_deg": (lambda r: _worst(r, ("forearm", "rest_abduction_p50"), max), "<=", 25.0, "deg",
+                                "median upper-arm abduction while that hand rests, worse hand: an open seated posture "
+                                "allows elbows a hand-width off the torso (~20-25 deg; the orchestrator, 09 Nov), "
+                                "more is wings"),
     "move.humerus_elev_rest_desk_deg": (lambda r: _worst(r, ("forearm", "humerus_rest_desk_p50"), max), "<=", 40.0,
                                         "deg", "the same with the forearm supported on the desk (the orchestrator's "
                                         "desk rest, 08 Nov; RULA scores a supported arm a band lower): the elbows at "
