@@ -1029,17 +1029,17 @@
    "area": "performance",
    "track": "agent-01 / agent-10 (body), agent-09 (measure)",
    "op": ">=",
-   "line": 15.0,
+   "line": 8.0,
    "unit": "cm",
    "guard": true,
-   "what": "on the REST/bridge frames (both hands still >= 0.25 s), the min distance from either hand (wrist + knuckles + fingertips) to the chest surface (posed Body + Top near the spine, the arms and hands excluded)",
+   "what": "on the REST/bridge frames (both hands still >= 0.25 s), the min distance from either hand (wrist + knuckles + fingertips) to ANY torso surface (posed Body + Top along spine_01 -> neck_01: chest, bust, belly; the lap, arms and every finger excluded)",
    "where": "every rest frame (film-qa perf-rest on seq.sample hand samples, every 2nd)",
    "how": "film-qa perf-rest samples.json -> frames; film-ue op qa.hand_torso_clearance label=<presenter> sequence=<SEQ> 'frames=[...]' (core fleet/agent-09/r7-perf-gate b1d46e42+) -> metrics.worst_cm -> numbers/<film>/rest.json",
    "must_fail": [
     null,
     "INVALID first runs (agent-06: r7F 0.48, the new body 0.38): the measure's chest cloud held the OTHER hand's fingers and the lap, so it read hand-to-hand on the 'hands together' rest (agent-09's bug, fixed b1d46e42); both bodies being re-measured"
    ],
-   "why": "the orchestrator, 08 Nov: a natural presenter rest is hands loosely together at the lower ribcage, 20-30 cm in front of the torso, not touching the body"
+   "why": "the orchestrator, 08 Nov: the presenter-at-desk rest = forearms resting on the desk, hands loosely together ~30-35 cm in front of the torso and >= 8 cm clear of the belly/torso surface; hands on the body are the 'stuck to the body' look the operator rejected"
   },
   "move.fingers_frozen_frac": {
    "area": "performance",
