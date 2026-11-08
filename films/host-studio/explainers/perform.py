@@ -110,7 +110,10 @@ LIFE = {"state": "talk", "breath_deg": 1.35, "clavicle_deg": 1.0, "shift_cm": 0.
 # clavicles (0.71 cm there, 1.3-1.55 at the hands; 0.3 gave 1.087, linear: 0.15); weight shift <= 0.2 cm
 # hers for the finals: vertical breath 1.62 mm at 1.35 (agent-06, T2, the z-only row; line 2-3.5): 1.35 x 2.5 / 1.62
 # = 2.08; her clavicle 1.0 -> 0.5 to keep her parity carry (--shoulder 0.919 at 1.0) under 1.0 as the breath grows
-LIFE_OF = {"her": {**LIFE, "breath_deg": 2.08, "clavicle_deg": 0.5}, "him": {**LIFE, "breath_deg": 0.77, "clavicle_deg": 0.15, "shift_cm": 0.2}}
+# (the orchestrator, 09 Nov: the breath is in the SEAT now, gesturekit.Plan.breath_at; the life keeps only its small
+#   clavicle and weight shift)
+LIFE_OF = {"her": {**LIFE, "breath_deg": 0.0, "clavicle_deg": 0.5},
+           "him": {**LIFE, "breath_deg": 0.0, "clavicle_deg": 0.15, "shift_cm": 0.2}}
 
 
 def ok(res: dict):

@@ -56,5 +56,64 @@
    76.64,
    127.63
   ]
- }
+ },
+ "rigs": {
+  "CAM_MCU": {
+   "loc": [
+    168.14,
+    76.64,
+    127.63
+   ],
+   "yaw": -154.0,
+   "pitch": -2.5,
+   "focal": 60.0,
+   "sensor": [
+    36.0,
+    20.25
+   ]
+  },
+  "CAM_MCU_L": {
+   "loc": [
+    168.14,
+    76.64,
+    127.63
+   ],
+   "yaw": -145.12,
+   "pitch": -2.47,
+   "focal": 60.0,
+   "sensor": [
+    36.0,
+    20.25
+   ]
+  },
+  "CAM_CU": {
+   "loc": [
+    133.33,
+    37.4,
+    127.47
+   ],
+   "yaw": -163.0,
+   "pitch": -2.0,
+   "focal": 85.0,
+   "sensor": [
+    36.0,
+    20.25
+   ]
+  },
+  "CAM_WIDE": {
+   "loc": [
+    277.42,
+    88.41,
+    131.84
+   ],
+   "yaw": -158.0,
+   "pitch": -5.5,
+   "focal": 35.0,
+   "sensor": [
+    36.0,
+    20.25
+   ]
+  }
+ },
+ "_rigs": "box T, 08 Nov (agent-06, cam.describe): his cameras' full rigs, actor frame like cams (world - (20, -20)); the framing check projects his hands through them"
 }
