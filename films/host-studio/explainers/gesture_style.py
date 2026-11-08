@@ -52,8 +52,13 @@ LEFT_EXT_MIN = 20.0  # deg the left hand's wrist extension on a gesture at least
 TWO_HAND_LAG_S = (0.04, 0.08)  # s the left trails the right on a two-hand stroke (same-frame peaks read robotic)
 MIC_L_CAM = {"CAM_CU": (14.0, 3.5), "CAM_WIDE": (14.0, 4.5)}  # per live camera: in the CU the mic hid her left hand over 5 cm (the cut hides
 #   the change of box)
-ACCENT_W = 0.22     # s the accent bump's width
+ACCENT_W = 0.22     # s the accent's own small move, after the apex
 ACCENT_K = 0.7      # x its amplitude
+ACCENT_GAP_S = 0.1  # s after the apex it starts
+OVERSHOOT_K = 0.0   # x the drawn overshoot (r7F, agent-13: the settle back from it was a slow second movement on the
+#   tail of every stroke, so peak/mean read 2.4-3.9 instead of one bell's 1.875; off, right bells 0.64 -> 0.84)
+LEFT_ARC = (0.08, 0.12)  # x the chord: the left hand's own arc (agent-13: its echoes were dead-straight 10 cm lines)
+LEFT_ARC_DIR = (-0.6, -0.2, 0.75)  # (fwd, out, up): its arc bows up and back toward her (the mic is forward and out)
 ROT_LAG_S = 0.06    # s the hand's turn and the fingers trail the wrist's path (proximal to distal)
 HOLD_MIN_S = 0.1    # s a hold kept at least when the next move takes its time
 V_RETRACT = 55.0    # cm/s a retract home's mean speed at most (softer than the stroke)
@@ -155,7 +160,7 @@ class Var:
                    d_pron=max(-9.0, min(9.0, g(0, 4.5))), d_ext=max(-6.0, min(6.0, g(0, 3.0))),
                    dz=max(-2.0, min(2.0, g(0, 1.0))), spread=max(-3.0, min(4.0, g(0, 1.6))),
                    fingers={f: max(-6.0, min(6.0, g(0, 2.5))) for f in GK.FINGERS},
-                   overshoot=(0.02 + 0.03 * energy) * r.uniform(0.7, 1.3), settle=r.uniform(0.08, 0.12),
+                   overshoot=OVERSHOOT_K * (0.02 + 0.03 * energy) * r.uniform(0.7, 1.3), settle=r.uniform(0.08, 0.12),
                    retract=r.uniform(0.32, 0.5), skew=1.0, lag=r.uniform(0.8, 1.25))  # skew 1: one min-jerk
 #                  bell (agent-13: the skewed peak plus the settle read as a spike and a long tail)
 
@@ -252,7 +257,7 @@ class HandTrack:
         return segs
 
     def _accents(self) -> list:
-        """[(apex t, offset vector cm)]: a quick dip-and-push about the apex of every stroke whose goal is close to
+        """[(apex t, its move's s, offset vector cm, the next move)]: a small dip or push after the apex of every stroke whose goal is close to
         where the hand already is (a count's next finger, a beat after an open palm), so it still reads as a
         stroke (agent-10: 18/50 strokes stayed under the 40 cm/s beat line). Forward-down on the right (forward and
         a little up when the hand is already low), a small pull back toward the body on the left (the mic and the
@@ -274,20 +279,49 @@ class HandTrack:
                 vec = (0.7 * amp, 0.0, -0.7 * amp)  # a dip
             else:  # already low over the desk: a push forward and a little up (a dip put the fingers in the desk)
                 vec = (0.95 * amp, 0.0, 0.3 * amp)
-            out.append((s.t1, vec))
+            # its own move into the hold once the stroke has stopped, kept, and given back with the next move (the
+            # same min-jerk as that move: one bell) (r7F, agent-13: a bump about the apex sharpened the stroke's bell)
+            k_ = self.segs.index(s)
+            nxt = next((q for q in self.segs[k_ + 1:] if q.kind in ("stroke", "coart", "retract")), None)
+            hold_end = nxt.t0 if nxt else s.t1 + 1e9
+            t0 = s.t1 + ACCENT_GAP_S  # a beat after the stroke stops: two bells, not one with a shoulder
+            if hold_end - t0 < 0.1:
+                continue  # no room in the hold
+            out.append((t0, min(ACCENT_W, hold_end - t0), vec, nxt))
         return out
 
     def accent(self, t: float) -> tuple:
-        """The accents' offset at t: a cos^2 bump ACCENT_W s wide centred just before the apex (the impact). (r7F: it
-        was 0.12 s, a narrow spike on top of the stroke's bell; agent-13 read peak/mean 2.5-3.7)"""
+        """The accents' offset at t: a small min-jerk move of its own from the apex (where the stroke's speed is 0) into
+        the hold, held, then faded out with the next move's own progress."""
         off = [0.0, 0.0, 0.0]
-        for apex, vec in self.accents:
-            x = (t - (apex - 0.02)) / (ACCENT_W / 2.0)
-            if -1.0 < x < 1.0:
-                g = math.cos(0.5 * math.pi * x) ** 2
-                for i in range(3):
-                    off[i] += vec[i] * g * ACCENT_K
+        for apex, w, vec, nxt in self.accents:
+            if t <= apex:
+                continue
+            g = mj(clip01((t - apex) / w))
+            if nxt is not None and t > nxt.t0:
+                if t >= nxt.t1:
+                    continue
+                g *= 1.0 - mj((t - nxt.t0) / max(1e-3, nxt.t1 - nxt.t0))
+            for i in range(3):
+                off[i] += vec[i] * g * ACCENT_K
         return off
+
+    def arc(self, s: Seg, v: Var) -> tuple:
+        """The path's mid-way offset: the draw's, or on the LEFT its own arc, LEFT_ARC of the chord bowed up and back
+        (perpendicular to the chord; never the right's arc mirrored)."""
+        if self.side != "l":
+            return v.bulge if s.kind != "retract" else tuple(-0.5 * c for c in v.bulge)
+        ch = [s.b.off[i] - s.a.off[i] for i in range(3)]
+        c = math.sqrt(sum(x * x for x in ch))
+        if c < 1.0:
+            return (0.0, 0.0, 0.0)
+        d = LEFT_ARC_DIR
+        k = sum(d[i] * ch[i] for i in range(3)) / (c * c)
+        p = [d[i] - k * ch[i] for i in range(3)]
+        n = math.sqrt(sum(x * x for x in p)) or 1.0
+        lo, hi = LEFT_ARC
+        frac = lo + (hi - lo) * clip01((v.lag - 0.8) / 0.45)
+        return tuple(p[i] / n * frac * c for i in range(3))
 
     def micro(self, t: float, w: float, held: bool) -> tuple:
         """(offset cm, d_pron, d_ext, {finger: deg}): the never-frozen layer. Larger drift on a held stroke."""
@@ -348,17 +382,18 @@ class HandTrack:
             x = mj(u ** v.skew) * (1.0 + v.overshoot)  # arrives past the target; the hold settles it
             u_rot = mj(u)  # (r7F: it turned 0.12 ahead; now the whole turn trails the path, ROT_LAG_S)
             u_f = {f: mj(clip01((t - s.t0 - LAG_S[f] * lag) / d)) for f in GK.FINGERS}
-            hp = lerp_pose(s.a, s.b, x, u_rot, u_f, v.bulge, u)
+            hp = lerp_pose(s.a, s.b, x, u_rot, u_f, self.arc(s, v), mj(u))  # the arc by the path's
+            #   progress (sin(pi u) in time set the speed off 0 at the start)
             w_in = s.w_from + (s.w_to - s.w_from) * mj(u)
             w = {s.ev: w_in}
             if s.prev_ev >= 0:
                 w[s.prev_ev] = (1.0 - mj(u)) * s.w_from
             return hp, w, False
-        # retract: soft (no overshoot, no skew), the wrist follows the hand, a smaller bulge
+        # retract: soft (no overshoot, no skew), the wrist follows the hand, a smaller arc
         x = mj(u)
         u_rot = mj(clip01(u - 0.12))
         u_f = {f: mj(clip01((t - s.t0 - LAG_S[f] * lag) / d)) for f in GK.FINGERS}
-        hp = lerp_pose(s.a, s.b, x, u_rot, u_f, tuple(-0.5 * c for c in v.bulge), u)
+        hp = lerp_pose(s.a, s.b, x, u_rot, u_f, self.arc(s, v), x)
         return hp, {s.ev: s.w_from + (s.w_to - s.w_from) * x}, False
 
     def _from_of(self, hold: Seg) -> GK.HandPose:

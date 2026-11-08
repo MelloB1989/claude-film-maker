@@ -36,11 +36,12 @@ def test_minimum_jerk_and_envelope():
     e = ev("r", 1.0, 1.4)
     v = G.var_of(e, "r")
     assert G.envelope("prep", 0.0, e) == 0.0
-    assert abs(G.envelope("prep", 1.0, e) - (1 + v.overshoot)) < 1e-9 and v.overshoot > 0.01
-    assert abs(G.envelope("hold", 0.0, e) - (1 + v.overshoot)) < 1e-9 and G.envelope("hold", 1.0, e) == 1.0
+    assert abs(G.envelope("prep", 1.0, e) - (1 + v.overshoot)) < 1e-9 and v.overshoot == 0.0  # (agent-13: its
+    #   settle was a second movement on every stroke's tail)
+    assert G.envelope("hold", 0.0, e) == 1.0 and G.envelope("hold", 1.0, e) == 1.0
     assert G.envelope("retract", 1.0, e) == 0.0
-    # one min-jerk bell (r7F, agent-13: no skew): symmetric about the middle, overshoot aside
-    assert abs(G.envelope("prep", 0.5, e) - 0.5 * (1 + v.overshoot)) < 1e-9
+    # one min-jerk bell (r7F, agent-13: no skew): symmetric about the middle
+    assert abs(G.envelope("prep", 0.5, e) - 0.5) < 1e-9
 
 
 def test_seeded_and_unique():
@@ -53,19 +54,40 @@ def test_seeded_and_unique():
     assert va.dt != vl.dt and abs(va.dt) <= 0.04
 
 
-def test_overshoot_then_settle_on_the_track():
+def test_stroke_stops_on_its_goal():
     e = ev("r", 1.0, 1.5, hold=0.5)
     tr = G.HandTrack([e], "r")
     v = G.var_of(e, "r")
     goal = e.pose_r.off
-    rest = GK.HIGH_REST.off
     apex = 1.5 + v.dt
-    span = dist(goal, rest)
     seg = next(s for s in tr.segs if s.kind == "hold")
-    at_apex = tr._eval(seg, apex + 1e-4)[0].off
-    settled = tr._eval(seg, apex + v.settle + 0.05)[0].off
-    assert dist(at_apex, rest) > span * (1 + 0.6 * v.overshoot)  # past the goal
-    assert dist(settled, goal) < 1e-6  # settled (micro-motion is added in at(), not here)
+    assert dist(tr._eval(seg, apex + 1e-4)[0].off, goal) < 1e-6  # no overshoot to settle back from (one bell)
+    assert dist(tr._eval(seg, apex + 0.3)[0].off, goal) < 1e-6  # micro-motion is added in at(), not here
+
+
+def test_accent_is_its_own_move_after_the_apex():
+    a = ev("r", 1.0, 1.4, hold=0.4, seed=1)
+    b = ev("r", 2.0, 2.3, hold=0.3, seed=2, off=a.pose_r.off, pron=a.pose_r.pron, shape=a.pose_r.shape)  # same goal
+    tr = G.HandTrack([a, b], "r")
+    assert tr.accents
+    for apex, w, vec, nxt in tr.accents:
+        assert tr.accent(apex) == [0.0, 0.0, 0.0]  # nothing before or at the apex: the stroke's bell is its own
+        held = tr.accent(apex + w)
+        assert max(abs(x) for x in held) > 0.5
+        if nxt is not None:
+            assert max(abs(x) for x in tr.accent(nxt.t1 + 1e-3)) == 0.0  # given back with the next move
+
+
+def test_left_arc_bows_off_the_chord():
+    e = ev("both", 1.0, 1.5, hold=0.3)
+    tr = G.HandTrack([e], "l")
+    s = next(q for q in tr.segs if q.kind == "stroke")
+    ch = [s.b.off[i] - s.a.off[i] for i in range(3)]
+    c = math.sqrt(sum(x * x for x in ch))
+    arc = tr.arc(s, s.var)
+    n = math.sqrt(sum(x * x for x in arc))
+    assert 0.079 * c <= n <= 0.121 * c and abs(sum(arc[i] * ch[i] for i in range(3))) < 1e-6 * c * c
+    assert arc[2] > 0  # up, never the right's arc mirrored
 
 
 def test_coarticulated_gestures_never_go_home():
