@@ -399,6 +399,20 @@ def parse_frames(spec):
     return out
 
 
+def to_seq_frames(frames, src_fps, seq_fps):
+    """Source frames -> the sequence's own frames BY TIME (t = f / src_fps; the orchestrator's rule: never frame to
+    frame across clocks, arm_track is 30 fps, the sequence 24). [(seq_frame, src_frame, t_s)], first source frame wins
+    when two land on one sequence frame."""
+    out, seen = [], set()
+    for f in frames:
+        t = f / float(src_fps)
+        g = int(round(t * float(seq_fps)))
+        if g not in seen:
+            seen.add(g)
+            out.append((g, f, round(t, 4)))
+    return out
+
+
 # ---------------------------------------------------------------------------------------- editor
 def _editor(G: dict):
     import unreal
@@ -696,7 +710,10 @@ def main(argv=None) -> int:
     for name in ("arms", "waist"):
         m = sub_.add_parser(name)
         m.add_argument("--seq", required=True)
-        m.add_argument("--frames", required=True, help="F, A-B or A-B:STEP, comma separated")
+        m.add_argument("--frames", required=True, help="F, A-B or A-B:STEP, comma separated, at --frames-fps")
+        m.add_argument("--seq-fps", type=float, default=24.0, help="the sequence's display rate (seq.scrub's frames)")
+        m.add_argument("--frames-fps", type=float, default=None,
+                       help="the clock --frames were taken on (arm_track: 30); default the sequence's own")
         m.add_argument("--out", required=True)
         m.add_argument("--set", action="append", default=[], help="KEY=VALUE knob (ARM_T0, AXILLA_CM, BAND_CM, ...)")
     sub_.add_parser("cleanup")
@@ -715,7 +732,13 @@ def main(argv=None) -> int:
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     per, last = {}, None
-    for f in parse_frames(a.frames):
+    src_fps = a.frames_fps or a.seq_fps
+    plan = to_seq_frames(parse_frames(a.frames), src_fps, a.seq_fps)
+    if src_fps != a.seq_fps:
+        print(f"frames at {src_fps:g} fps -> sequence {a.seq_fps:g} fps by time: "
+              + ", ".join(f"{sf}->{g}" for g, sf, _ in plan), flush=True)
+    clock = {g: (sf, t) for g, sf, t in plan}
+    for f, _, _ in plan:
         for ff in (f + 1, f):
             r = client.op("seq.scrub", path=a.seq, frame=ff)
             if not r.get("ok"):
@@ -726,6 +749,8 @@ def main(argv=None) -> int:
         if last is not None and res["frame_head"] == last:
             print(f"WARN f{f}: head did not move since the last frame (pose not updated?)")
         last = res["frame_head"]
+        res["clock"] = {"seq_frame": f, "seq_fps": a.seq_fps, "src_frame": clock[f][0], "src_fps": src_fps,
+                        "t_s": clock[f][1]}
         per[f] = res
         if a.cmd == "arms":
             print(f"f{f}: bust/front {res['upperarm_bust_clear_cm']} (>= 3), side {res['upperarm_side_clear_cm']} (>= 0.5) | "
