@@ -28,7 +28,7 @@ import setplan as SP  # noqa: E402
 FPS = 30
 MARGIN = 0.01  # of the frame
 TIPS = ("index_03", "middle_03", "ring_03", "pinky_03", "thumb_03")
-BARS = {"CAM_MCU": 0.6, "CAM_MCU_L": 0.6, "CAM_CU": 0.3, "CAM_WIDE": 0.95}
+BARS = {"CAM_MCU": 0.5, "CAM_MCU_L": 0.6, "CAM_CU": 0.3, "CAM_WIDE": 0.95}  # her MCU 0.5: the orchestrator, r7F (perform.FRAME_WANT_WHO)
 MARK = SP.MARK  # actor frame = studio minus the chair mark (y not flipped: setplan's and perform's cams agree)
 
 
