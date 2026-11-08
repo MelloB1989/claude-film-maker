@@ -21,7 +21,7 @@ import seatkit as S  # noqa: E402
 
 FPS = 30
 QA_REL = "tools/filmtools/unreal/qa_perf.py"
-QA_BRANCH = "origin/fleet/agent-09/r7-perf-gate"
+QA_BRANCH = __import__("os").environ.get("QA_BRANCH", "origin/fleet/agent-09/r7-explainer-gate")  # the gate the round runs
 
 
 def qa_perf():

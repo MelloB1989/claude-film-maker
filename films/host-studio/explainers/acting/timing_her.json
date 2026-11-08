@@ -15,7 +15,7 @@
    "detail": "open_palm",
    "hand": "r",
    "held": false,
-   "prep_t": 0.507,
+   "prep_t": 0.476,
    "stroke_t": 0.742,
    "hold_s": 0.766,
    "retract_s": 0.231,
@@ -24,7 +24,8 @@
    "lead_s": 0.118,
    "peak_t": 0.86,
    "chained": true,
-   "apex_f": 18
+   "apex_f": 18,
+   "paced": true
   },
   {
    "line": "N01",
@@ -39,8 +40,8 @@
    "held": false,
    "prep_t": 1.508,
    "stroke_t": 1.739,
-   "hold_s": 0.742,
-   "retract_s": 0.18,
+   "hold_s": 0.627,
+   "retract_s": 0.295,
    "amp": 0.4,
    "energy": 0.517,
    "lead_s": 0.136,
@@ -59,17 +60,18 @@
    "detail": "size",
    "hand": "both",
    "held": true,
-   "prep_t": 2.481,
+   "prep_t": 2.366,
    "stroke_t": 2.661,
-   "hold_s": 0.256,
-   "retract_s": 0.182,
+   "hold_s": 0.25,
+   "retract_s": 0.188,
    "amp": 1.0,
    "energy": 0.975,
    "lead_s": 0.084,
    "peak_t": 2.745,
    "hold_trimmed": true,
    "chained": true,
-   "apex_f": 64
+   "apex_f": 64,
+   "paced": true
   },
   {
    "line": "N01",
@@ -80,7 +82,7 @@
    "detail": "beat",
    "hand": "r",
    "held": false,
-   "prep_t": 2.917,
+   "prep_t": 2.761,
    "stroke_t": 3.099,
    "hold_s": 0.091,
    "retract_s": 0.26,
@@ -88,7 +90,8 @@
    "energy": 1.0,
    "lead_s": 0.086,
    "peak_t": 3.185,
-   "apex_f": 74
+   "apex_f": 74,
+   "paced": true
   },
   {
    "line": "N02",
@@ -121,8 +124,8 @@
    "held": false,
    "prep_t": 5.04,
    "stroke_t": 5.323,
-   "hold_s": 0.587,
-   "retract_s": 0.175,
+   "hold_s": 0.469,
+   "retract_s": 0.293,
    "amp": 0.495,
    "energy": 0.251,
    "lead_s": 0.162,
@@ -139,7 +142,7 @@
    "detail": "raise_finger",
    "hand": "r",
    "held": false,
-   "prep_t": 5.91,
+   "prep_t": 5.792,
    "stroke_t": 6.085,
    "hold_s": 0.068,
    "retract_s": 0.246,
@@ -147,7 +150,8 @@
    "energy": 1.0,
    "lead_s": 0.08,
    "peak_t": 6.165,
-   "apex_f": 146
+   "apex_f": 146,
+   "paced": true
   },
   {
    "line": "N03",
@@ -177,7 +181,7 @@
    "detail": "place",
    "hand": "both",
    "held": true,
-   "prep_t": 8.784,
+   "prep_t": 8.752,
    "stroke_t": 9.034,
    "hold_s": 0.263,
    "retract_s": 0.27,
@@ -187,7 +191,8 @@
    "peak_t": 9.195,
    "hold_trimmed": true,
    "chained": true,
-   "apex_f": 217
+   "apex_f": 217,
+   "paced": true
   },
   {
    "line": "N04",
@@ -280,7 +285,7 @@
    "detail": "open_palm",
    "hand": "r",
    "held": false,
-   "prep_t": 14.076,
+   "prep_t": 14.058,
    "stroke_t": 14.338,
    "hold_s": 0.371,
    "retract_s": 0.258,
@@ -289,7 +294,8 @@
    "lead_s": 0.152,
    "peak_t": 14.49,
    "chained": true,
-   "apex_f": 344
+   "apex_f": 344,
+   "paced": true
   },
   {
    "line": "N05",
@@ -302,8 +308,8 @@
    "held": false,
    "prep_t": 14.709,
    "stroke_t": 14.967,
-   "hold_s": 0.645,
-   "retract_s": 0.173,
+   "hold_s": 0.596,
+   "retract_s": 0.222,
    "amp": 0.543,
    "energy": 0.47,
    "lead_s": 0.143,
@@ -322,7 +328,7 @@
    "hand": "r",
    "size": "small",
    "held": false,
-   "prep_t": 15.612,
+   "prep_t": 15.563,
    "stroke_t": 15.785,
    "hold_s": 0.074,
    "retract_s": 0.264,
@@ -332,7 +338,8 @@
    "peak_t": 15.865,
    "camera": null,
    "apex_height": "sternum",
-   "apex_f": 379
+   "apex_f": 379,
+   "paced": true
   },
   {
    "line": "N06",
@@ -343,7 +350,7 @@
    "detail": "deictic",
    "hand": "r",
    "held": true,
-   "prep_t": 17.113,
+   "prep_t": 17.021,
    "stroke_t": 17.3,
    "hold_s": 1.06,
    "retract_s": 0.268,
@@ -352,7 +359,9 @@
    "lead_s": 0.095,
    "peak_t": 17.395,
    "chained": true,
-   "apex_f": 415
+   "apex_f": 415,
+   "paced": true,
+   "hold_trimmed": true
   },
   {
    "line": "N06",
@@ -402,7 +411,7 @@
    "detail": "carry",
    "hand": "both",
    "held": false,
-   "prep_t": 21.264,
+   "prep_t": 21.221,
    "stroke_t": 21.51,
    "hold_s": 0.137,
    "retract_s": 0.365,
@@ -410,7 +419,8 @@
    "energy": 0.55,
    "lead_s": 0.125,
    "peak_t": 21.635,
-   "apex_f": 516
+   "apex_f": 516,
+   "paced": true
   },
   {
    "line": "N07",
@@ -444,8 +454,8 @@
    "held": false,
    "prep_t": 24.401,
    "stroke_t": 24.622,
-   "hold_s": 0.699,
-   "retract_s": 0.222,
+   "hold_s": 0.658,
+   "retract_s": 0.263,
    "amp": 0.457,
    "energy": 0.693,
    "lead_s": 0.118,
@@ -464,7 +474,7 @@
    "detail": "size",
    "hand": "both",
    "held": false,
-   "prep_t": 25.321,
+   "prep_t": 25.28,
    "stroke_t": 25.543,
    "hold_s": 0.06,
    "retract_s": 0.22,
@@ -473,7 +483,8 @@
    "lead_s": 0.137,
    "peak_t": 25.68,
    "chained": true,
-   "apex_f": 613
+   "apex_f": 613,
+   "paced": true
   },
   {
    "line": "N08",
@@ -493,7 +504,8 @@
    "lead_s": 0.142,
    "peak_t": 25.965,
    "chained": true,
-   "apex_f": 620
+   "apex_f": 620,
+   "hold_trimmed": true
   },
   {
    "line": "N08",
@@ -629,7 +641,7 @@
    "detail": "chop",
    "hand": "r",
    "held": false,
-   "prep_t": 33.734,
+   "prep_t": 33.63,
    "stroke_t": 33.958,
    "hold_s": 0.161,
    "retract_s": 0.348,
@@ -637,7 +649,8 @@
    "energy": 0.565,
    "lead_s": 0.122,
    "peak_t": 34.08,
-   "apex_f": 815
+   "apex_f": 815,
+   "paced": true
   },
   {
    "line": "N10",
@@ -729,7 +742,7 @@
    "detail": "deictic",
    "hand": "r",
    "held": false,
-   "prep_t": 40.085,
+   "prep_t": 39.97,
    "stroke_t": 40.357,
    "hold_s": 0.588,
    "retract_s": 0.221,
@@ -738,7 +751,8 @@
    "lead_s": 0.183,
    "peak_t": 40.54,
    "chained": true,
-   "apex_f": 969
+   "apex_f": 969,
+   "paced": true
   },
   {
    "line": "N12",
@@ -788,7 +802,7 @@
    "detail": "count",
    "hand": "r",
    "held": false,
-   "prep_t": 43.859,
+   "prep_t": 43.758,
    "stroke_t": 44.039,
    "hold_s": 0.291,
    "retract_s": 0.236,
@@ -797,7 +811,8 @@
    "lead_s": 0.091,
    "peak_t": 44.13,
    "chained": true,
-   "apex_f": 1057
+   "apex_f": 1057,
+   "paced": true
   },
   {
    "line": "N13",
@@ -837,7 +852,8 @@
    "lead_s": 0.093,
    "peak_t": 45.36,
    "chained": true,
-   "apex_f": 1086
+   "apex_f": 1086,
+   "hold_trimmed": true
   },
   {
    "line": "N13",
@@ -925,7 +941,7 @@
    "detail": "open_palm",
    "hand": "both",
    "held": false,
-   "prep_t": 51.815,
+   "prep_t": 51.739,
    "stroke_t": 52.023,
    "hold_s": 0.134,
    "retract_s": 0.287,
@@ -933,7 +949,8 @@
    "energy": 0.692,
    "lead_s": 0.132,
    "peak_t": 52.155,
-   "apex_f": 1249
+   "apex_f": 1249,
+   "paced": true
   },
   {
    "line": "N15",
@@ -944,7 +961,7 @@
    "detail": "high_low",
    "hand": "r",
    "held": true,
-   "prep_t": 53.635,
+   "prep_t": 53.41,
    "stroke_t": 53.826,
    "hold_s": 0.901,
    "retract_s": 0.218,
@@ -953,7 +970,9 @@
    "lead_s": 0.099,
    "peak_t": 53.925,
    "chained": true,
-   "apex_f": 1292
+   "apex_f": 1292,
+   "hold_trimmed": true,
+   "paced": true
   },
   {
    "line": "N15",
@@ -1003,7 +1022,7 @@
    "detail": "release",
    "hand": "both",
    "held": true,
-   "prep_t": 56.878,
+   "prep_t": 56.763,
    "stroke_t": 57.134,
    "hold_s": 1.0,
    "retract_s": 0.2,
@@ -1011,7 +1030,8 @@
    "energy": 0.224,
    "lead_s": 0.171,
    "peak_t": 57.305,
-   "apex_f": 1371
+   "apex_f": 1371,
+   "paced": true
   }
  ],
  "speech": [
@@ -1052,7 +1072,7 @@
     "size"
    ]
   ],
-  "longest_still_while_speaking_s": 1.52,
+  "longest_still_while_speaking_s": 1.48,
   "at": [
    "N06",
    "your",
@@ -1063,12 +1083,32 @@
    [
     "N01",
     "million",
-    0.256
+    0.25
    ],
    [
     "N04",
     "builds",
     0.263
+   ],
+   [
+    "N06",
+    "Every",
+    1.06
+   ],
+   [
+    "N08",
+    "sizes",
+    0.566
+   ],
+   [
+    "N13",
+    "recommendations:",
+    1.057
+   ],
+   [
+    "N15",
+    "cloud",
+    0.901
    ]
   ],
   "pauses_rest": 2
