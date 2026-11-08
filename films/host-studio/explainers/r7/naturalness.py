@@ -32,6 +32,8 @@ FACE_C, FACE_R = (7.0, 0.0, 4.0), 11.0  # the face/hair shell: centre off the he
 CHEST_KINDS = ("count", "list", "beat")  # agent-08: these hold at chest height
 CHEST_BELOW_COLLAR = 4.0  # cm: the chest line under the clavicle heads (agent-08, report only)
 FOLD_PIP = 95.0  # deg: a held fold at/over this is at the joint limit (agent-08, R7 hands)
+SPREAD_OK = ("open", "deictic", "raise_finger", "count", "pinch")  # kinds/details that part the fingers on purpose
+REST_PALM_CM = 3.5  # cm: a palm resting on the desk puts its knuckle / wrist heads ~1.5-2.5 cm over the top
 SNAP_CM_S = 90.0  # fingertip speed relative to the wrist that, stopped dead within 2 frames, is a snap
 SEQ_FPS = 24.0  # the film's sequence / EDL rate: --span frames are on it (the dumps run at 30)
 MIN_REST = 15  # frames (0.5 s) a rest class needs before its elevation counts
@@ -678,12 +680,68 @@ class Take:
                     out["t"].append(tt)
         return out
 
+    def _spread(self, P, s):
+        """adjacent finger abduction, deg: the proximal phalanges (_01 -> _02 heads) in the palm plane, index|middle,
+        middle|ring, ring|pinky."""
+        n = hand_frame(P, s)[2]
+        v = []
+        for fn in FINGERS:
+            a = sub(P[f"{fn}_02_{s}"], P[f"{fn}_01_{s}"])
+            v.append(unit(sub(a, mul(n, dot(a, n)))))
+        return [ang(v[k], v[k + 1]) for k in range(3)]
+
+    def spread(self):
+        """the orchestrator (09 Nov, the hand stills): a relaxed / list / rest hand keeps the fingers nearly together
+        (adjacent abduction ~0-5 deg); only a deliberate spread (open palm, pointing, a raised finger, a count, a pinch)
+        may part them. On-camera frames of a resting hand (gesture_w < 0.1) or a stroke hold of the other kinds: p90 of
+        the frame's widest adjacent gap, worse hand."""
+        held = {s: set() for s in "lr"}
+        for e in self.ev:
+            if e["kind"] in SPREAD_OK or e.get("detail", "") in SPREAD_OK:
+                continue
+            for i in range(self.idx(e["stroke"]), self.idx(e["stroke"] + e["hold"]) + 1):
+                for s in self.hands_of(e):
+                    held[s].add(i)
+        out = {}
+        for s in "lr":
+            xs = [max(self._spread(f["p"], s)) for i, f in enumerate(self.F)
+                  if self._oncam(i) and (f["gesture_w"][s] < 0.1 or i in held[s])]
+            out[s] = {"n": len(xs), "p50": med(xs), "p90": pct(xs, 0.9)}
+        return out
+
+    def rest_contact(self):
+        """the orchestrator (09 Nov): a resting hand lies ON the desk through the palm / its side, never hovering on
+        its fingertips. On-camera frames of a resting hand (gesture_w < 0.1) over the desk whose lowest palm point (the
+        knuckle heads _01 and the wrist head) sits more than REST_PALM_CM over the desk top; fingertip-only = a tip
+        within 2.5 cm of the top meanwhile."""
+        out = {"frames": 0, "tips_only": 0, "t": []}
+        for i, f in enumerate(self.F):
+            if not self._oncam(i):
+                continue
+            P, bad, tips = f["p"], False, False
+            for s in "lr":
+                if f["gesture_w"][s] >= 0.1 or P["hand_" + s][0] < DESK_NEAR:
+                    continue
+                palm = min([P[f"{fn}_01_{s}"][2] for fn in FINGERS] + [P["hand_" + s][2]]) - DESK_TOP
+                if palm > REST_PALM_CM:
+                    bad = True
+                    tp = [P[k][2] - DESK_TOP for k in (f"{fn}_tip_{s}" for fn in FINGERS) if k in P]
+                    tips = tips or (bool(tp) and min(tp) <= 2.5)
+            if bad:
+                out["frames"] += 1
+                out["tips_only"] += tips
+                tt = round(f["t"], 1)
+                if tt not in out["t"]:
+                    out["t"].append(tt)
+        return out
+
     def report(self):
         return {"wrist": self.wrist(), "forearm": self.forearm(), "shape": self.shapes(), "body": self.body(),
                 "kin": self.kinematics(), "lag": self.lag(), "asym": self.asym(), "fingers": self.frozen(),
                 "torso": self.torso(), "travel": self.travel(), "holds": self.holds(), "snaps": self.snaps(), "face": self.near_face(),
                 "hold_high": self.hold_height(), "cascade": self.cascade(), "dip": self.dip(),
-                "thumb": self.thumb(), "fold": self.fold_limit()}
+                "thumb": self.thumb(), "fold": self.fold_limit(),
+                "spread": self.spread(), "rest_contact": self.rest_contact()}
 
 
 # ---------- the gate rows ----------
@@ -767,6 +825,14 @@ ROWS = {
     "move.fold_at_limit_frames": (lambda r: r["fold"]["frames"], "==", 0, "frames",
                                   "on-camera speaking frames of a held shape (gesture_w > 0.9) with a finger folded at "
                                   "PIP >= 95 (the joint limit; agent-08's catalogue folds at ~85)"),
+    "move.finger_spread_p90_deg": (lambda r: _worst(r, ("spread", "p90"), max), "<=", 5.0, "deg",
+                                   "p90 over on-camera resting / held (non-spreading kinds) frames of the widest "
+                                   "adjacent finger abduction (proximal phalanges in the palm plane), worse hand: "
+                                   "relaxed fingers stay nearly together (the orchestrator, 09 Nov)"),
+    "move.rest_contact_bad_frames": (lambda r: r["rest_contact"]["frames"], "==", 0, "frames",
+                                     "on-camera resting-hand frames over the desk whose palm (knuckle / wrist heads) "
+                                     "is > 3.5 cm over the desk top: hovering, or on the fingertips only (the "
+                                     "orchestrator, 09 Nov)"),
     "move.thumb_flat_frames": (lambda r: _worst(r, ("thumb", "flat_frames"), max), "==", 0, "frames",
                                "on-camera speaking frames with a flat thumb on a curled hand: the thumb's proximal "
                                "phalanx < 10 deg out of the palm plane toward the palm while the fingers' mean MCP > "
