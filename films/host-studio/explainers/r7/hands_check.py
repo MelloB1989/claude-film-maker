@@ -52,15 +52,21 @@ def main() -> None:
     t0, t1 = (float(x) for x in a.span.split(":"))
     n = int(round(PF.length_s(who) * 30)) + 1
     cnt = {"frames": 0, "claw": 0, "claw_score": 0, "ratio_bad": 0, "ratio_n": 0, "fold_limit": 0, "cascade_broken": 0,
-           "rest_frames": 0, "thumb_flat": 0}
+           "rest_frames": 0, "thumb_flat": 0, "tip_under_0.3": 0}
     worst = {"claw_score": -1e9}
     sample = []
     flat_t = []
+    tip_t = []
     for i in range(0, n, a.every):
         t = i / 30.0
         F = perf.fk({**const, **perf.pose(t)})
         ang = frame_angles(perf, F)
         cnt["frames"] += 1
+        tipz = G.finger_tips(perf, F)
+        low_tip = min(v[2] for v in tipz.values()) - perf.set.desk_top if tipz else 99.0
+        if low_tip < 0.3:  # the orchestrator: every fingertip >= 0.3 over the desk top, landings included
+            cnt["tip_under_0.3"] += 1
+            tip_t.append((round(t, 2), round(low_tip, 2)))
         for s in "lr":
             hit = False
             for f in HS.FINGERS4:
@@ -92,7 +98,7 @@ def main() -> None:
                                   "clear": {k: v for k, v in summ["rows"].items() if "clear" in k}},
            "counts": cnt, "dip_pip_ratio_bad_frac": round(cnt["ratio_bad"] / max(1, cnt["ratio_n"]), 3),
            "cascade_broken_frac": round(cnt["cascade_broken"] / max(1, cnt["rest_frames"]), 3),
-           "worst_claw_score": worst, "thumb_flat_t": flat_t[:20], "sample": sample}
+           "worst_claw_score": worst, "thumb_flat_t": flat_t[:20], "tip_under_t": tip_t[:20], "sample": sample}
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
     Path(a.out).write_text(json.dumps(out, indent=1))
     print(json.dumps({k: v for k, v in out.items() if k != "sample"}, indent=1))
