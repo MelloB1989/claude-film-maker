@@ -189,6 +189,12 @@ split, and agent-02 changes the arms measure to a motion-based sleeve split. The
 its must_fail kept (her v2b arm-into-bust still FAILS) and her r7J/B numbers consistent. A refit happens only if the
 true need is > 0.
 
+**His arms gate (the orchestrator, 09 Nov):** both outfit measures for him are artefacts: the sleeve-split side -8 cm
+and the every-vertex 14 cm at the shoulder joint. The orchestrator's eye on f0 / 6 / 12 / 84 shows no clip, and his
+original outfit stays. Until agent-02's motion-based sleeve split is validated (it must read ~0 on these frames and FAIL
+on a known clip), body.upperarm_side_clear_cm and body.upperarm_bust_clear_cm are INFO for HIM, and the gate for his
+arms is the orchestrator's by-eye review of his TEST and finals (MCU / MCU_L / WIDE). Hers are unchanged (gating).
+
 ## Verdicts
 
 ### Netflix v2b: REJECTED BY THE OPERATOR (07 Nov, about 23:45 IST). The SIGN below is SUPERSEDED.
