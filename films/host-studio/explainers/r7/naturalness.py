@@ -33,7 +33,9 @@ CHEST_KINDS = ("count", "list", "beat")  # agent-08: these hold at chest height
 CHEST_BELOW_COLLAR = 4.0  # cm: the chest line under the clavicle heads (agent-08, report only)
 FOLD_PIP = 95.0  # deg: a held fold at/over this is at the joint limit (agent-08, R7 hands)
 SPREAD_OK = ("open", "deictic", "raise_finger", "count", "pinch")  # kinds/details that part the fingers on purpose
-REST_PALM_CM = 3.5  # cm: a palm resting on the desk puts its knuckle / wrist heads ~1.5-2.5 cm over the top
+REST_TIP_CM = 1.5  # cm: the lowest fingertip (finger_tips' centre line) over the desk top on a resting hand (agent-08)
+REST_HEEL_CM = 3.5  # cm: the wrist head over the desk top with the heel of the palm down (the orchestrator: contact
+#   through the palm and fingers, never the tips only); agent-02 to confirm on the mesh
 SNAP_CM_S = 90.0  # fingertip speed relative to the wrist that, stopped dead within 2 frames, is a snap
 SEQ_FPS = 24.0  # the film's sequence / EDL rate: --span frames are on it (the dumps run at 30)
 MIN_REST = 15  # frames (0.5 s) a rest class needs before its elevation counts
@@ -587,6 +589,8 @@ class Take:
             for i, f in enumerate(self.F):
                 if not self._oncam(i) or f["gesture_w"][s] >= 0.1:
                     continue
+                if f["p"]["hand_" + s][2] - DESK_TOP <= 6.0:  # on the desk the palm's arch sets the pads (agent-08)
+                    continue
                 fa = self.fa[s][i][0]
                 tot = [fa[k][0] + fa[k][1] for k in FINGERS]
                 n += 1
@@ -711,9 +715,8 @@ class Take:
 
     def rest_contact(self):
         """the orchestrator (09 Nov): a resting hand lies ON the desk through the palm / its side, never hovering on
-        its fingertips. On-camera frames of a resting hand (gesture_w < 0.1) over the desk whose lowest palm point (the
-        knuckle heads _01 and the wrist head) sits more than REST_PALM_CM over the desk top; fingertip-only = a tip
-        within 2.5 cm of the top meanwhile."""
+        its fingertips. On-camera frames of a resting hand (gesture_w < 0.1) over the desk that HOVERS (its lowest fingertip
+        > REST_TIP_CM over the top) or is TENTED on its pads (the wrist head > REST_HEEL_CM: the heel off the desk)."""
         out = {"frames": 0, "tips_only": 0, "t": []}
         for i, f in enumerate(self.F):
             if not self._oncam(i):
@@ -722,11 +725,13 @@ class Take:
             for s in "lr":
                 if f["gesture_w"][s] >= 0.1 or P["hand_" + s][0] < DESK_NEAR:
                     continue
-                palm = min([P[f"{fn}_01_{s}"][2] for fn in FINGERS] + [P["hand_" + s][2]]) - DESK_TOP
-                if palm > REST_PALM_CM:
+                tp = [P[k][2] - DESK_TOP for k in (f"{fn}_tip_{s}" for fn in FINGERS) if k in P]
+                heel = P["hand_" + s][2] - DESK_TOP
+                hover = bool(tp) and min(tp) > REST_TIP_CM  # nothing touches
+                tented = heel > REST_HEEL_CM  # the heel of the palm off the desk: resting on the pads / tips only
+                if hover or tented:
                     bad = True
-                    tp = [P[k][2] - DESK_TOP for k in (f"{fn}_tip_{s}" for fn in FINGERS) if k in P]
-                    tips = tips or (bool(tp) and min(tp) <= 2.5)
+                    tips = tips or (tented and not hover)
             if bad:
                 out["frames"] += 1
                 out["tips_only"] += tips
@@ -814,8 +819,8 @@ ROWS = {
                                      "on-camera stroke-hold frames with the wrist over the collarbone (the clavicle "
                                      "heads): holds sit at chest height (agent-08, R7 hands)"),
     "move.cascade_broken_frac": (lambda r: _worst(r, ("cascade", "broken_frac"), max), "<=", 0.10, "fraction",
-                                 "on-camera resting frames whose MCP+PIP flexion does not rise index -> pinky (the "
-                                 "relaxed cascade), worse hand"),
+                                 "on-camera resting frames held in the AIR (wrist > desk + 6; on the desk the palm's arch "
+                                 "sets the pads) whose MCP+PIP flexion does not rise index -> pinky, worse hand"),
     "move.finger_claw_frames": (lambda r: r["dip"]["claw_frames"], "==", 0, "frames",
                                 "on-camera speaking frames with a finger in the intrinsic-minus claw: MCP < 20 with "
                                 "PIP > 15 and DIP >= PIP (agent-08); needs fingertip points in the track, else n/a"),
@@ -830,9 +835,9 @@ ROWS = {
                                    "adjacent finger abduction (proximal phalanges in the palm plane), worse hand: "
                                    "relaxed fingers stay nearly together (the orchestrator, 09 Nov)"),
     "move.rest_contact_bad_frames": (lambda r: r["rest_contact"]["frames"], "==", 0, "frames",
-                                     "on-camera resting-hand frames over the desk whose palm (knuckle / wrist heads) "
-                                     "is > 3.5 cm over the desk top: hovering, or on the fingertips only (the "
-                                     "orchestrator, 09 Nov)"),
+                                     "on-camera resting-hand frames over the desk that hover (lowest fingertip > 1.5 "
+                                     "cm over the top) or rest tented on the pads (wrist head > 3.5: the heel off the "
+                                     "desk; the orchestrator, 09 Nov: never fingertip-only)"),
     "move.thumb_flat_frames": (lambda r: _worst(r, ("thumb", "flat_frames"), max), "==", 0, "frames",
                                "on-camera speaking frames with a flat thumb on a curled hand: the thumb's proximal "
                                "phalanx < 10 deg out of the palm plane toward the palm while the fingers' mean MCP > "
