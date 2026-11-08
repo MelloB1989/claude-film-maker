@@ -570,7 +570,7 @@ class Performer(S.Seater):
             pole = add(mul(unit(pole), wg), mul(unit(pr_), 1.0 - wg))
         pole_rest = sub(self.comp(e0), self._fk_t("upperarm_" + s, "clavicle_" + s, W))
         pole = add(mul(unit(pole), ws), mul(unit(pole_rest), 1.0 - ws))
-        rest_hp = HandPose((0.0, 0.0, 0.0), pron=self.sy.pronation, ext=self.ext_base.get(s, 10.0), shape="relaxed")
+        rest_hp = HandPose((0.0, 0.0, 0.0), pron=self.sy.pronation, ext=self.ext_base.get(s, 10.0) + REST_EXT_ADD, shape="rest")
         hp = blend_poses([(ws, hp), (1.0 - ws, rest_hp)])
         if ws < 1.0 and STYLE_HOOK is not None and hasattr(STYLE_HOOK, "rest_life"):
             sh = HS.full(hp.shape)
@@ -1279,6 +1279,10 @@ class Performer(S.Seater):
                 cum = qmul(axis_angle(qrot(cum, axis) if thumb else axis, bends[k]), cum)
             out[j] = qmul(cum, qmul(dh, sk.q(j)))
         return out
+
+
+REST_EXT_ADD = 4.0  # deg more wrist extension at the desk rest (R7 hands): the 'rest' shape's anatomical pinky (MCP
+#   ~45 vs the rig's 20) sat its DIP 0.2 cm lower on the little-finger edge, 0.1 under the desk line; +4 lifts it to 0.5 over
 
 
 def blend_poses(parts: list) -> HandPose:

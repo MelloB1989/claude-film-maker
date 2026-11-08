@@ -58,7 +58,7 @@ THUMB_IP = 62.0
 #   soft_fist  a loose fist, the thumb across the middle phalanges
 SHAPES = {
     "relaxed": {"index": 22, "middle": 28, "ring": 34, "pinky": 40, "thumb": 10, "_opp": 55},
-    "rest": {"index": 26, "middle": 32, "ring": 38, "pinky": 45, "thumb": 15, "_opp": 50},
+    "rest": {"index": 24, "middle": 29, "ring": 33, "pinky": 38, "thumb": 15, "_opp": 50},
     "open": {"index": 3, "middle": 4, "ring": 6, "pinky": 9, "thumb": 5, "_opp": -45},
     "list": {"index": 8, "middle": 10, "ring": 13, "pinky": 17, "thumb": 8, "_opp": -20},
     "point": {"index": 3, "middle": 80, "ring": 84, "pinky": 86, "thumb": 80, "_opp": 20},
