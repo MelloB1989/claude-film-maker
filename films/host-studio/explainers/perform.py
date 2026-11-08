@@ -419,7 +419,8 @@ def job():
                                 **({"frame_want": P["perform"]["frame_want"]} if P["perform"].get("frame_want") else {}),
                                 **({"track_out": P["perform"]["track_out"]} if P["perform"].get("track_out") else {}),
                                 **({"close_alive": True} if P["perform"].get("close_alive") else {}),
-                                **({"mic_cams": P["perform"]["mic_cams"]} if P["perform"].get("mic_cams") else {}))
+                                **({"mic_cams": P["perform"]["mic_cams"]} if P["perform"].get("mic_cams") else {}),
+                                **({"torso": P["perform"]["torso"]} if P["perform"].get("torso") else {}))
     else:
         gs = [S.Gesture(**x) for x in P["gestures"]]
         doc, summary = S.build(data, S.Set(**P["set"]), S.Style(**P["style"]), gs, P["length_s"], P["fps"])
@@ -483,7 +484,13 @@ def perform_params(who: str) -> dict:
     return {"sheet": json.loads((a / f"{who}.json").read_text()), "cues": cues(who), "tilts": tilts, "timing": timing,
             "on_cam": cue_sheet(who)["on_cam"], "frame_want": FRAME_WANT_WHO.get(who),
             "close_alive": who == "him",  # his last 2 s (behind the closing graphic) stay at the speaking rest
-            "mic_cams": MIC_CAMS.get(who, [])}
+            "mic_cams": MIC_CAMS.get(who, []), "torso": TORSO_OF.get(who)}
+
+
+# a presenter's torso model over gesturekit.Torso's (hers) and the outfit gate (the orchestrator, 09 Nov: his upper arms
+# 6.6-7.9 cm inside his outfit's flank on box T, with the model reading +0.5 there: side_pad 8.5 brings the model's
+# side out to his outfit; the gate, >= 0.5 at every checked frame, both arms, seated and in gestures)
+TORSO_OF = {"him": {"side_pad": 8.5, "gate": 0.5, "side_from": 9}}  # side_from 9: agent-02's worst at arm_t 0.46
 
 
 # shots filmed besides the edit's, which the mic rule and the body check guard too (gesturekit.Plan.mic_cams), e.g.
