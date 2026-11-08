@@ -193,6 +193,22 @@ def test_two_hand_scaling_keeps_the_hand_in_the_cut_camera():
         assert log and log[0]["scaled"] < 1.0 and v1 <= max(v0 + pf.FRAME_SLACK, pf.FRAME_V_MAX) + 1e-6, (cam, log, v0, v1)
 
 
+def test_a_point_outside_the_picture_is_not_behind_the_mic():
+    """the orchestrator, 08 Nov: mic occlusion counts only for points inside the cut camera's frame"""
+    import perform as P
+    import seatkit as S
+    st = P.set_of("him")
+    rig = P.SET.rigs["CAM_CU"]
+    c = rig["loc"]
+    m = st.mic
+    for k in (0.5, 0.8):  # on the line from the camera through the mic: behind it
+        p = [c[i] + (m[i] - c[i]) * (1.0 + k) for i in range(3)]
+        assert S.behind_mic(c, p, st) is not None
+        assert (S.behind_mic(c, p, st, rig=rig) is None) == (not S.in_picture(rig, p))
+    low = [m[0], m[1], m[2] - 60.0]  # far below the CU's frame
+    assert not S.in_picture(rig, low) and S.behind_mic(c, low, st, hand_r=1e3, rig=rig) is None
+
+
 def test_build_on_her_skeleton_passes_with_the_hooks(tmp_path):
     """gesturekit.build with the hooks on her skeleton read, the first 6 s of her sheet (the hook N01-N02)."""
     import perform as P
