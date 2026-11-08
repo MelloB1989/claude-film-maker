@@ -33,7 +33,12 @@ CHEST_KINDS = ("count", "list", "beat")  # agent-08: these hold at chest height
 CHEST_BELOW_COLLAR = 4.0  # cm: the chest line under the clavicle heads (agent-08, report only)
 FOLD_PIP = 95.0  # deg: a held fold at/over this is at the joint limit (agent-08, R7 hands)
 SPREAD_OK = ("open", "deictic", "raise_finger", "count", "pinch")  # kinds/details that part the fingers on purpose
-REST_PALM_CM = 3.5  # cm: a palm resting on the desk puts its knuckle / wrist heads ~1.5-2.5 cm over the top
+REST_TIP_CM = 1.5  # cm: the lowest fingertip (finger_tips' centre line) over the desk top on a resting hand (agent-08)
+REST_HEEL = {"her": 2.9}  # per presenter, from agent-02's mesh (him pending: the default applies)
+REST_HEEL_CM = 2.9  # cm: the wrist head over the desk top with the heel of the palm down (agent-02 on her mesh: 2.35 heel
+#   only, 1.85 heel + pads; + 0.5 tolerance) (the orchestrator: contact
+#   through the palm and fingers, never the tips only)
+SPREAD_MIN_INPLANE = 0.5  # a proximal phalanx > 60 deg out of the palm plane (a closed finger): no spread read
 SNAP_CM_S = 90.0  # fingertip speed relative to the wrist that, stopped dead within 2 frames, is a snap
 SEQ_FPS = 24.0  # the film's sequence / EDL rate: --span frames are on it (the dumps run at 30)
 MIN_REST = 15  # frames (0.5 s) a rest class needs before its elevation counts
@@ -263,6 +268,13 @@ class Take:
                 on = (W[0] >= DESK_NEAR + 10.0 and E[0] >= DESK_NEAR - 11.0 and W[2] <= DESK_TOP + DESK_REST_Z
                       and min(E[2], W[2]) <= DESK_TOP + 7.0)
                 (desk if on else hang).append(hum)
+            sg = 1.0 if s == "r" else -1.0
+            ab = []
+            for i, f in enumerate(self.F):
+                if self.inside[i] and f["gesture_w"][s] < 0.1:
+                    u = sub(f["p"]["lowerarm_" + s], f["p"]["upperarm_" + s])
+                    ab.append(math.degrees(math.asin(max(-1, min(1, sg * u[1] / norm(u))))))
+            r[s]["rest_abduction_p50"] = med(ab) if len(ab) >= MIN_REST else float("nan")
             r[s]["humerus_rest_p50"] = med(hang) if len(hang) >= MIN_REST else float("nan")  # a few frames in passing
             r[s]["humerus_rest_desk_p50"] = med(desk) if len(desk) >= MIN_REST else float("nan")  # is not a rest
             r[s]["rest_hang_n"], r[s]["rest_desk_n"] = len(hang), len(desk)
@@ -587,6 +599,8 @@ class Take:
             for i, f in enumerate(self.F):
                 if not self._oncam(i) or f["gesture_w"][s] >= 0.1:
                     continue
+                if f["p"]["hand_" + s][2] - DESK_TOP <= 6.0:  # on the desk the palm's arch sets the pads (agent-08)
+                    continue
                 fa = self.fa[s][i][0]
                 tot = [fa[k][0] + fa[k][1] for k in FINGERS]
                 n += 1
@@ -686,8 +700,11 @@ class Take:
         n = hand_frame(P, s)[2]
         v = []
         for fn in FINGERS:
-            a = sub(P[f"{fn}_02_{s}"], P[f"{fn}_01_{s}"])
-            v.append(unit(sub(a, mul(n, dot(a, n)))))
+            a = unit(sub(P[f"{fn}_02_{s}"], P[f"{fn}_01_{s}"]))
+            ip = sub(a, mul(n, dot(a, n)))
+            if norm(ip) < SPREAD_MIN_INPLANE:  # a closed / fist finger lies along the palm normal: its projection
+                return None  # is degenerate (agent-12's mocap pilot: soft fists read ~100 deg), not a spread
+            v.append(unit(ip))
         return [ang(v[k], v[k + 1]) for k in range(3)]
 
     def spread(self):
@@ -704,16 +721,15 @@ class Take:
                     held[s].add(i)
         out = {}
         for s in "lr":
-            xs = [max(self._spread(f["p"], s)) for i, f in enumerate(self.F)
-                  if self._oncam(i) and (f["gesture_w"][s] < 0.1 or i in held[s])]
+            xs = [max(g) for g in (self._spread(f["p"], s) for i, f in enumerate(self.F)
+                                   if self._oncam(i) and (f["gesture_w"][s] < 0.1 or i in held[s])) if g]
             out[s] = {"n": len(xs), "p50": med(xs), "p90": pct(xs, 0.9)}
         return out
 
     def rest_contact(self):
         """the orchestrator (09 Nov): a resting hand lies ON the desk through the palm / its side, never hovering on
-        its fingertips. On-camera frames of a resting hand (gesture_w < 0.1) over the desk whose lowest palm point (the
-        knuckle heads _01 and the wrist head) sits more than REST_PALM_CM over the desk top; fingertip-only = a tip
-        within 2.5 cm of the top meanwhile."""
+        its fingertips. On-camera frames of a resting hand (gesture_w < 0.1) over the desk that HOVERS (its lowest fingertip
+        > REST_TIP_CM over the top) or is TENTED on its pads (the wrist head > REST_HEEL_CM: the heel off the desk)."""
         out = {"frames": 0, "tips_only": 0, "t": []}
         for i, f in enumerate(self.F):
             if not self._oncam(i):
@@ -722,11 +738,13 @@ class Take:
             for s in "lr":
                 if f["gesture_w"][s] >= 0.1 or P["hand_" + s][0] < DESK_NEAR:
                     continue
-                palm = min([P[f"{fn}_01_{s}"][2] for fn in FINGERS] + [P["hand_" + s][2]]) - DESK_TOP
-                if palm > REST_PALM_CM:
+                tp = [P[k][2] - DESK_TOP for k in (f"{fn}_tip_{s}" for fn in FINGERS) if k in P]
+                heel = P["hand_" + s][2] - DESK_TOP
+                hover = bool(tp) and min(tp) > REST_TIP_CM  # nothing touches
+                tented = heel > REST_HEEL.get(self.d.get("who", ""), REST_HEEL_CM)  # the heel of the palm off the desk: resting on the pads / tips only
+                if hover or tented:
                     bad = True
-                    tp = [P[k][2] - DESK_TOP for k in (f"{fn}_tip_{s}" for fn in FINGERS) if k in P]
-                    tips = tips or (bool(tp) and min(tp) <= 2.5)
+                    tips = tips or (tented and not hover)
             if bad:
                 out["frames"] += 1
                 out["tips_only"] += tips
@@ -771,6 +789,10 @@ ROWS = {
     "move.humerus_elev_rest_deg": (lambda r: _worst(r, ("forearm", "humerus_rest_p50"), max), "<=", 30.0, "deg",
                                    "median upper-arm elevation while that hand rests (gesture_w < 0.1) with the "
                                    "forearm NOT on the desk, worse hand: unsupported resting elbows hang"),
+    "move.rest_abduction_deg": (lambda r: _worst(r, ("forearm", "rest_abduction_p50"), max), "<=", 25.0, "deg",
+                                "median upper-arm abduction while that hand rests, worse hand: an open seated posture "
+                                "allows elbows a hand-width off the torso (~20-25 deg; the orchestrator, 09 Nov), "
+                                "more is wings"),
     "move.humerus_elev_rest_desk_deg": (lambda r: _worst(r, ("forearm", "humerus_rest_desk_p50"), max), "<=", 40.0,
                                         "deg", "the same with the forearm supported on the desk (the orchestrator's "
                                         "desk rest, 08 Nov; RULA scores a supported arm a band lower): the elbows at "
@@ -814,8 +836,8 @@ ROWS = {
                                      "on-camera stroke-hold frames with the wrist over the collarbone (the clavicle "
                                      "heads): holds sit at chest height (agent-08, R7 hands)"),
     "move.cascade_broken_frac": (lambda r: _worst(r, ("cascade", "broken_frac"), max), "<=", 0.10, "fraction",
-                                 "on-camera resting frames whose MCP+PIP flexion does not rise index -> pinky (the "
-                                 "relaxed cascade), worse hand"),
+                                 "on-camera resting frames held in the AIR (wrist > desk + 6; on the desk the palm's arch "
+                                 "sets the pads) whose MCP+PIP flexion does not rise index -> pinky, worse hand"),
     "move.finger_claw_frames": (lambda r: r["dip"]["claw_frames"], "==", 0, "frames",
                                 "on-camera speaking frames with a finger in the intrinsic-minus claw: MCP < 20 with "
                                 "PIP > 15 and DIP >= PIP (agent-08); needs fingertip points in the track, else n/a"),
@@ -830,9 +852,9 @@ ROWS = {
                                    "adjacent finger abduction (proximal phalanges in the palm plane), worse hand: "
                                    "relaxed fingers stay nearly together (the orchestrator, 09 Nov)"),
     "move.rest_contact_bad_frames": (lambda r: r["rest_contact"]["frames"], "==", 0, "frames",
-                                     "on-camera resting-hand frames over the desk whose palm (knuckle / wrist heads) "
-                                     "is > 3.5 cm over the desk top: hovering, or on the fingertips only (the "
-                                     "orchestrator, 09 Nov)"),
+                                     "on-camera resting-hand frames over the desk that hover (lowest fingertip > 1.5 "
+                                     "cm over the top) or rest tented on the pads (wrist head > 2.9: the heel off the "
+                                     "desk; the orchestrator, 09 Nov: never fingertip-only)"),
     "move.thumb_flat_frames": (lambda r: _worst(r, ("thumb", "flat_frames"), max), "==", 0, "frames",
                                "on-camera speaking frames with a flat thumb on a curled hand: the thumb's proximal "
                                "phalanx < 10 deg out of the palm plane toward the palm while the fingers' mean MCP > "
