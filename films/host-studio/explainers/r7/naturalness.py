@@ -132,17 +132,18 @@ class Take:
         self.F = d["frames"]
         for f in self.F:  # an editor dump may carry only frame numbers, at its own rate
             f.setdefault("t", f["f"] / self.fps)
-        self.dt = (self.F[1]["t"] - self.F[0]["t"]) if len(self.F) > 1 else 1 / self.fps
+        self.dt = 1 / self.fps
+        self.F = self._grid(self.F)
         self.ev = d.get("events", [])
         self.speak = [f["speak_w"] > SPEAK for f in self.F]
         if spans:  # only these SEQUENCE frame ranges count (a shot): speaking frames, events by apex, movements by start
             #   the spans are the film's frames (24 fps, the EDL), not the dump's: matched by time
-            self.inside = [any(a / seq_fps - 1e-6 <= f["t"] < (b + 1) / seq_fps - 1e-6 for a, b in spans)
-                           for f in self.F]
+            self.inside = [not f.get("_pad") and any(a / seq_fps - 1e-6 <= f["t"] < (b + 1) / seq_fps - 1e-6
+                                                         for a, b in spans) for f in self.F]
             self.speak = [x and y for x, y in zip(self.speak, self.inside)]
             self.ev = [e for e in self.ev if self.inside[self.apex(e)]]
         else:
-            self.inside = [True] * len(self.F)
+            self.inside = [not f.get("_pad") for f in self.F]
         self.wa = {s: [wrist_angles(f["p"], s) for f in self.F] for s in "lr"}
         self.fa = {s: [finger_angles(f["p"], s) for f in self.F] for s in "lr"}
         self.wr = {s: [f["p"]["hand_" + s] for f in self.F] for s in "lr"}
@@ -165,6 +166,23 @@ class Take:
     def apex(self, e):
         """mid-hold frame of an event."""
         return self.idx(e["stroke"] + 0.5 * min(e["hold"], 0.4))
+
+    def _grid(self, F):
+        """frames on a regular grid from t=0 (times map to indices as t/dt): an editor dump holds only its spans, so
+        each gap is filled with the frame before it, held still and marked _pad (outside every span)."""
+        k = [int(round(f["t"] * self.fps)) for f in F]
+        if k == list(range(len(F))):
+            return F
+        out, j = [], 0
+        for i in range(k[-1] + 1):
+            while j + 1 < len(F) and k[j + 1] <= i:
+                j += 1
+            if k[j] == i:
+                out.append(F[j])
+            else:
+                src = F[j] if k[j] < i else F[0]
+                out.append({**src, "f": i, "t": i * self.dt, "_pad": True, "speak_w": 0.0})
+        return out
 
     # --- rows ---
     def wrist(self):
@@ -553,6 +571,22 @@ def rows(rep):
     return out
 
 
+def with_meta(d, m):
+    """an editor dump (joints only, its own fps, default 24) gets the solved track's per-frame weights and its events,
+    mapped by TIME (never frame to frame: the editor runs at the sequence's 24 fps, the track at 30)."""
+    fe, fm = float(d.setdefault("fps", SEQ_FPS)), float(m.get("fps", 30))
+    M = {int(f["f"]): f for f in m["frames"]}
+    for f in d["frames"]:
+        t = f.setdefault("t", f["f"] / fe)
+        g = M.get(int(round(t * fm)))
+        if g is None:
+            raise SystemExit(f"--meta has no frame at t={t:.3f}")
+        f.setdefault("speak_w", g["speak_w"])
+        f.setdefault("gesture_w", g["gesture_w"])
+    d.setdefault("events", m.get("events", []))
+    d.setdefault("on_cam", m.get("on_cam", []))
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("tracks", nargs="+")
@@ -561,6 +595,8 @@ def main(argv=None):
                     help="SEQUENCE frames A-B at --seq-fps (the EDL's, repeatable): only these count")
     ap.add_argument("--seq-fps", type=float, default=SEQ_FPS)
     ap.add_argument("--fps", type=float, help="the dump's own rate when it carries none (an editor dump: 24)")
+    ap.add_argument("--meta", help="a solved track (arm_track.json, 30 fps) to take speak_w / gesture_w / events / "
+                                   "on_cam from, BY TIME, for an editor dump that carries only joint positions")
     ap.add_argument("--full", action="store_true", help="print the full report, not only the rows")
     a = ap.parse_args(argv)
     res = {}
@@ -569,6 +605,8 @@ def main(argv=None):
         d = json.loads(Path(p).read_text())
         if a.fps:
             d["fps"] = a.fps
+        if a.meta:
+            with_meta(d, json.loads(Path(a.meta).read_text()))
         rep = Take(d, spans or None, a.seq_fps).report()
         res[Path(p).stem] = {"rows": rows(rep), "report": rep}
     names = list(res)
