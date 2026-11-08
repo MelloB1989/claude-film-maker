@@ -408,6 +408,20 @@ class Take:
             r[s] = {"frozen_frac": tot / max(1e-9, spk), "frozen_max_s": max(runs or [0.0])}
         return r
 
+    def holds(self):
+        """wrist speed while she speaks OUTSIDE every movement (holds and rests), per hand: a live hold drifts
+        0.5-1 cm/s (breath, micro-motion); 0 is a frozen, placed hand."""
+        r = {}
+        for s in "lr":
+            inmove = [False] * len(self.F)
+            for a, b in self.segments(s):
+                for i in range(a, b + 1):
+                    inmove[i] = True
+            v = [self.v[s][i] for i in range(len(self.F)) if self.speak[i] and not inmove[i]]
+            r[s] = {"n": len(v), "p10": pct(v, 0.1), "p50": med(v),
+                    "frozen_frac": sum(1 for x in v if x < 0.1) / max(1, len(v))}
+        return r
+
     def torso(self):
         """report only: does the chest/head move with the strokes? correlation of the spine_05 and head speeds with
         the right wrist's, and their mean speeds over speaking frames."""
@@ -435,7 +449,7 @@ class Take:
     def report(self):
         return {"wrist": self.wrist(), "forearm": self.forearm(), "shape": self.shapes(), "body": self.body(),
                 "kin": self.kinematics(), "lag": self.lag(), "asym": self.asym(), "fingers": self.frozen(),
-                "torso": self.torso(), "travel": self.travel()}
+                "torso": self.torso(), "travel": self.travel(), "holds": self.holds()}
 
 
 # ---------- the gate rows ----------
@@ -489,6 +503,9 @@ ROWS = {
     "move.two_hand_amp_ratio": (lambda r: r["asym"]["amp_ratio_p50"], ">=", 0.5, "ratio",
                                 "two-hand strokes: median wrist travel of the lesser hand over the greater's (a "
                                 "two-hand gesture with one hand parked reads as one hand and a prop)"),
+    "move.hold_min_speed": (lambda r: _worst(r, ("holds", "p10"), min), ">=", 0.3, "cm/s",
+                            "p10 of the wrist speed while speaking outside every movement (holds, rests), worse hand: "
+                            "a live hold drifts (the orchestrator, 08 Nov); 0 = frozen"),
     "move.mirror_corr_p50": (lambda r: r["asym"]["mirror_corr_p50"], "<=", 0.95, "corr",
                              "GUARD: two-hand strokes, median correlation of the left wrist velocity with the right's "
                              "mirrored (1.0 = a mirror copy)"),

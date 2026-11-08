@@ -113,6 +113,14 @@
     "pass": false,
     "what": "two-hand strokes: median wrist travel of the lesser hand over the greater's (a two-hand gesture with one hand parked reads as one hand and a prop)"
    },
+   "move.hold_min_speed": {
+    "value": 0.336,
+    "op": ">=",
+    "line": 0.3,
+    "unit": "cm/s",
+    "pass": true,
+    "what": "p10 of the wrist speed while speaking outside every movement (holds, rests), worse hand: a live hold drifts (the orchestrator, 08 Nov); 0 = frozen"
+   },
    "move.mirror_corr_p50": {
     "value": -0.145,
     "op": "<=",
@@ -308,6 +316,20 @@
     "l": 4.655759352738473,
     "r": 17.323238284383272,
     "l_over_r": 0.26875802758746287
+   },
+   "holds": {
+    "l": {
+     "n": 320,
+     "p10": 0.3357459425674811,
+     "p50": 0.9071143040764345,
+     "frozen_frac": 0.003125
+    },
+    "r": {
+     "n": 259,
+     "p10": 0.3357459425674787,
+     "p50": 3.5085049386029663,
+     "frozen_frac": 0.0
+    }
    }
   }
  },
@@ -424,6 +446,14 @@
     "unit": "ratio",
     "pass": true,
     "what": "two-hand strokes: median wrist travel of the lesser hand over the greater's (a two-hand gesture with one hand parked reads as one hand and a prop)"
+   },
+   "move.hold_min_speed": {
+    "value": 0.212,
+    "op": ">=",
+    "line": 0.3,
+    "unit": "cm/s",
+    "pass": false,
+    "what": "p10 of the wrist speed while speaking outside every movement (holds, rests), worse hand: a live hold drifts (the orchestrator, 08 Nov); 0 = frozen"
    },
    "move.mirror_corr_p50": {
     "value": -0.139,
@@ -620,6 +650,20 @@
     "l": 9.770422978971284,
     "r": 18.880436583737968,
     "l_over_r": 0.5174892506133418
+   },
+   "holds": {
+    "l": {
+     "n": 246,
+     "p10": 0.21234437873461898,
+     "p50": 0.7275086906773716,
+     "frozen_frac": 0.008130081300813009
+    },
+    "r": {
+     "n": 261,
+     "p10": 0.3357459425674692,
+     "p50": 3.8014981685201836,
+     "frozen_frac": 0.0
+    }
    }
   }
  },
@@ -736,6 +780,14 @@
     "unit": "ratio",
     "pass": true,
     "what": "two-hand strokes: median wrist travel of the lesser hand over the greater's (a two-hand gesture with one hand parked reads as one hand and a prop)"
+   },
+   "move.hold_min_speed": {
+    "value": 0.246,
+    "op": ">=",
+    "line": 0.3,
+    "unit": "cm/s",
+    "pass": false,
+    "what": "p10 of the wrist speed while speaking outside every movement (holds, rests), worse hand: a live hold drifts (the orchestrator, 08 Nov); 0 = frozen"
    },
    "move.mirror_corr_p50": {
     "value": 0.259,
@@ -916,6 +968,20 @@
     "l": 6.4858188177744065,
     "r": 19.844683030250795,
     "l_over_r": 0.32682904573923244
+   },
+   "holds": {
+    "l": {
+     "n": 269,
+     "p10": 0.30030030030029387,
+     "p50": 0.8085833043745477,
+     "frozen_frac": 0.0037174721189591076
+    },
+    "r": {
+     "n": 208,
+     "p10": 0.24575069579724942,
+     "p50": 0.75818464816759,
+     "frozen_frac": 0.009615384615384616
+    }
    }
   }
  },
@@ -1032,6 +1098,14 @@
     "unit": "ratio",
     "pass": true,
     "what": "two-hand strokes: median wrist travel of the lesser hand over the greater's (a two-hand gesture with one hand parked reads as one hand and a prop)"
+   },
+   "move.hold_min_speed": {
+    "value": 0.212,
+    "op": ">=",
+    "line": 0.3,
+    "unit": "cm/s",
+    "pass": false,
+    "what": "p10 of the wrist speed while speaking outside every movement (holds, rests), worse hand: a live hold drifts (the orchestrator, 08 Nov); 0 = frozen"
    },
    "move.mirror_corr_p50": {
     "value": 0.286,
@@ -1212,6 +1286,20 @@
     "l": 6.585705868970046,
     "r": 18.216364970806705,
     "l_over_r": 0.3615268951585131
+   },
+   "holds": {
+    "l": {
+     "n": 266,
+     "p10": 0.30030030030029387,
+     "p50": 0.7729108060284892,
+     "frozen_frac": 0.0037593984962406013
+    },
+    "r": {
+     "n": 207,
+     "p10": 0.21234437873471326,
+     "p50": 0.6190849287714008,
+     "frozen_frac": 0.014492753623188406
+    }
    }
   }
  }

@@ -41,6 +41,7 @@ hand counts.
 | move.vel_bell_frac | >= 0.60 | 60 % of movements with a peak/mean of 1.6-2.3 around minimum jerk's 1.875 |
 | move.lag_hand_ms | >= 30 | the hand's rotation starts at least 30 ms (one frame) after the upper arm's (proximal to distal) |
 | move.two_hand_amp_ratio | >= 0.5 | on two-hand strokes the lesser hand travels at least half as far as the greater |
+| move.hold_min_speed | >= 0.3 cm/s | the orchestrator (08 Nov): p10 of the wrist speed while speaking outside every movement (holds and rests), worse hand. A live hold drifts 0.5-1 cm/s with breath and micro-motion; a frozen hand reads as placed |
 | move.mirror_corr_p50 | <= 0.95 | GUARD (never failed yet): two-hand velocity is not a mirror copy |
 | move.fingers_frozen_frac | <= 0.15 | GUARD (never failed yet): fingers are not dead still for >= 0.5 s while speaking |
 
