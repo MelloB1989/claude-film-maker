@@ -54,6 +54,15 @@ rows (`gate_spec.json`):
 
 Each row's must_fail is v2b, measured on box B. The numbers support the eye; the operator decides.
 
+**Her R7 TEST (netflix_r7F_TEST), the orchestrator's verdict, 08 Nov:** a big step up. The face is alive, the CU
+press-to-lens lands, the WIDE count gestures read and the arms are clear. The arm gate passes on the TEST state (min 5.30
+cm; agent-02, `fleet/agent-02/r7-garment` 055b89b0). Two must-fixes before the finals, both judged by the orchestrator's
+eye on CAM_MCU f0-100 (box C):
+
+1. **The high rest pose.** Her hands hover at the top of her chest with drooping wrists, which reads as fidgeting. The
+   rest becomes hands loosely together at the lower ribcage, 20-30 cm in front of the torso, with neutral wrists.
+2. **The lower third covers the gesture zone** in the MCU opening. It moves top-left, or shortens.
+
 **Round 7 rulings (the orchestrator, 07 Nov):**
 
 | ruling | what it changes |
