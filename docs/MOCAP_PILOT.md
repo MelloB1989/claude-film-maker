@@ -327,6 +327,72 @@ timing, then solves the arms under the constraints: desk rest, mic and boom, fac
    agent-08's finger layer is the fallback per segment, not a blanket override.
 5. **Gates, unchanged:** the body rows, clearance, hands-in-frame, desk, mic and knee contact, and parity.
 
+## 7b. Route B, built: MediaPipe hybrid on Linux (`mp2mh`, 08 Nov)
+
+The operator prefers Linux, so the orchestrator ran MediaPipe on the Kling clip: the Apache-2.0 pose and hand
+models, CPU only, about 2.5 s per second of video, about $0.01. The finding: the pose gives stable arm DIRECTIONS
+(no scale); the hands give good 2D fits; the 3D finger angles are unusable raw (bone-length CV 0.3, 14-56 %
+hyperextension, spread p90 12-40 deg). `tools/filmtools/mocap/mp2mh.py` is the hybrid retarget. It runs offline, in
+pure Python, against an r7 checkout of `films/host-studio/explainers` (written against agent-08's r7-hands
+928407cb).
+
+**Arms**
+
+- Directions come from the PICTURE plus the limb's length. Lateral and vertical are the image's, over the limb's
+  longest projection, the larger side, since bodies are symmetric. Depth is what the unit length leaves, its sign
+  from MediaPipe's world landmarks.
+- MediaPipe's world z had the forearms 10-35 deg down where the picture shows them level, toward the lens.
+- The directions are laid from HER shoulders with HER limb lengths, giving per-frame wrist goals.
+- Pronation comes from the palm's knuckle line, in gesturekit's `hand_rot_p` convention. Extension is the hand's
+  line off the forearm, x0.4, capped at 25 deg, because MediaPipe's palm plane over-reads it.
+- The goals become per-frame gesturekit events, so gesturekit's own face fit and mic rule fit them.
+- The upper-arm elevation caps are off by default (`--caps` keeps them). They are style lines for generated strokes,
+  and pulled a real performer's open gestures in by up to 22 cm.
+- The corrections are spread in time (a dilation, then a Gaussian), so nothing jumps.
+- The desk is a floor under the wrist, plus a two-pass finger raise that keeps every finger joint and tip over the
+  desk top.
+- The stream then plays through a style hook, so her IK, the elbow swivel and clearance, the desk rest and the
+  left-hand mic limits all run as for her generated take.
+- The swivel's bust line follows the hand's height: the desk rest's line for hands just over the desk, the full
+  3.8 cm at the chest.
+
+**Hands**
+
+- Per finger, one robust closure: the palm direction against the MCP-to-tip chord. The joint angles are never used.
+- It is classified per frame into agent-08's named anatomical shapes (open, list, relaxed, point, pinch, soft_fist),
+  with a pinch test (thumb tip to index tip), a 9-frame dwell and a 5-frame blend, plus a +-8 % curl scalar.
+- The fingers trail the wrist in agent-08's cascade; agent-08's `finger_post` does the spread.
+
+**Torso:** the turn, the shoulders' lift and the lean come from the shoulder line and the trunk, relative to the
+clip's median, clamped to 8 / 5 / 6 deg.
+
+**Output:** gesturekit.build's own doc, which is perform.py's WRITE format, with its summary and the arm track for
+agent-13's rows. `bind.py` writes the doc on a box as `AS_exp_<who>_mocap_<name>` and can place it on a scratch
+sequence's Body track. `preview.py` draws a stick view (no face) beside the source.
+
+**On the Kling clip** (10.0 s, her skeleton, 24 fps; about 15 s to build):
+
+| What | Value |
+|---|---|
+| gesturekit's checks | desk 0, fingers in the desk 0, mic 0 (33 goals moved by the mic rule), face 0 (15 goals fitted under the chin line) |
+| `body.hands_out_of_frame` | CAM_MCU 15 % (line 60 %). The performer gestures just over the desk, under the MCU's bottom edge (her bust line). A property of this take: shoot the operator's takes with the hands up at the chest (§8). |
+| `body.arm_torso` | 0.2 cm, from the desk-rest bust line on the low hands (the arm beside the chest, as at the rest). agent-02's mesh measure judges it. |
+| Corrections | median 11 cm (L) / 5 cm (R), mostly the desk floor. Her desk sits higher on her than the performer's does. |
+
+**agent-13's naturalness rows** (r7-movement ffe06429, 30 fps track):
+
+- **Pass:** stroke elevation 32 deg, abduction 22 deg, wrist ulnar 8 / radial 12 deg, no claws, no folds,
+  DIP/PIP ok, thumb fine, nothing near the face or over the collar, holds alive (1.3 cm/s), fingers frozen 9 %,
+  finger snaps 0/min.
+- **Fail:**
+  - `forearm_elev` 6 deg (line >= 15): the take's level forearms.
+  - `wrist_flexext_p90` 30 deg (line 25).
+  - `lag_hand_ms` -64: MediaPipe's palm-plane noise sets the hand's onset.
+  - `finger_spread_p90` 102 deg: ONLY on soft_fist frames. In a fist the proximal phalanges run along the palm
+    normal (dot 0.90-0.99), so the row's projection into the palm plane is degenerate. Every other shape is p90
+    2.5-5.4 deg.
+  - `shape_wrong_strokes`: n/a for mocap (no acting-sheet kinds).
+
 ## 8. The operator's recording guide
 
 For the production takes (the operator or a performer, phone on a tripod):
