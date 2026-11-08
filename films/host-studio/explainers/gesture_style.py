@@ -457,7 +457,8 @@ def hand(perf, s: str, t: float) -> tuple:
         if two > 0:
             on = getattr(perf.plan, "on_cam", None) or []
             cam = next((c for a, b, c in on if a <= t < b), None)
-            hp = _mic_clamp(hp, min(1.0, two), MIC_L_CAM.get(cam))
+            box = MIC_L_CAM.get(cam) if on else min(MIC_L_CAM.values(), key=lambda b: b[1])  # no cut list: every
+            hp = _mic_clamp(hp, min(1.0, two), box)  # camera counts, so the tightest box
     return hp, big
 
 
