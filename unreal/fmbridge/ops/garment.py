@@ -708,6 +708,60 @@ def limb_clearance(*, label: str, sequence: str, frames: list | None = None, sho
     return _result(issues, {"worst_cm": worst, "at": at, "frames": out})
 
 
+HAND_POINTS = {s: (f"hand_{s}", f"index_03_{s}", f"middle_03_{s}", f"ring_03_{s}", f"pinky_03_{s}", f"thumb_03_{s}")
+               for s in ("l", "r")}  # the wrist + 5 fingertips (agent-10's offline framing.py uses the same)
+
+
+@op("qa.hands_in_frame", mutates=False, idempotent=True, tags=["camera", "metahuman"])
+def hands_in_frame(*, label: str, sequence: str, frames: list, body: str = "Body", width_px: int = 1920,
+                   height_px: int = 1080):
+    """Are her hands IN the shot's frame while she gestures? (round 7: in the MCU test the gestures happened below the
+    frame: elbows out, no hands = still stiff.) Per frame: the cut camera, the wrist + 5 fingertips of each hand (1 % margin)
+    projected through it (fmbridge.qa.clip.project_px); a frame counts when >= 1 hand is FULLY in frame. Per camera
+    kind (MCU incl. MCU_L, CU, WIDE) the share of the given frames, against fmbridge.qa.limbs.HAND_LINES.
+
+    Args: label, sequence; frames: the speaking frames (spans_<film>.json, every frame or every Nth).
+    Returns: {"pass", "issues", "metrics": {"kinds": {kind: {frac, n, line, cameras}}, "frames": {f: {camera, in, l, r}}}}.
+    Example: film-ue op qa.hands_in_frame label=Presenter sequence=/Game/Explainer/SEQ_Explain_Her 'frames=[0,6,12]'
+    """
+    a = find_actor(label)
+    comp = roles(a).get(body)
+    if comp is None:
+        raise OpError(f"{label} has no {body!r} component", code="not_found")
+    names = {str(b) for b in comp.get_all_socket_names()} if hasattr(comp, "get_all_socket_names") else None
+    rows, missing = {}, set()
+    for f in frames:
+        yield from _scrub(sequence, f, 4)
+        cam = cut_camera(sequence, f)
+        info = camera_info(cam, aspect=width_px / height_px)
+        row = {"camera": cam}
+        for sd, pts in HAND_POINTS.items():
+            px = []
+            for b in pts:
+                if names is not None and b not in names:
+                    missing.add(b)
+                    continue
+                p = comp.get_socket_location(b)
+                px.append(_clip.project_px(info, (p.x, p.y, p.z), width_px, height_px))
+            row[sd] = (_limbs.hand_in(px, width_px, height_px, margin=round(0.01 * width_px))
+                       if len(px) == len(pts) else False)  # a 1 % margin (agent-10's framing.py)
+        row["in"] = bool(row["l"] or row["r"])
+        rows[f] = row
+        yield
+    kinds = _limbs.hands_fracs(rows)
+    issues = []
+    if missing:
+        issues.append(issue("hands.bones", "fail", f"{label}: no bone(s) {sorted(missing)}", "pass the rig's names",
+                            subject=label))
+    for k, v in kinds.items():
+        if v["frac"] < v["line"]:
+            issues.append(issue("hands.out_of_frame", "fail", f"{label} {k}: >= 1 hand fully in frame in "
+                                f"{100 * v['frac']:.0f}% of {v['n']} frames (line {100 * v['line']:.0f}%)",
+                                "raise the gesture space to chest-collarbone height, in front of the torso (agent-01)",
+                                subject=label, value=v["frac"], expected=v["line"]))
+    return _result(issues, {"kinds": kinds, "frames": rows})
+
+
 def _export(asset, path: str, morphs: bool = False) -> list:
     t = unreal.AssetExportTask()
     t.set_editor_property("object", asset)
