@@ -231,7 +231,7 @@
    "line": 0,
    "unit": "px",
    "what": "worst frame's mouth pixels the studio mic covers (qa.clip mouth: a 2 cm disc round the lip bones, the mic nearer than the face)",
-   "where": "every presenter camera (CAM_MCU / CAM_CU / CAM_MCU_L / CAM_WIDE), every shot; round 7: the mic moves UP to chin/mouth height, 12-18 cm in front and 10-15 cm to the presenter's left (the orchestrator), so this row now bites",
+   "where": "the camera ACTUALLY CUT at each frame per the film's EDL (edl/<film>.json: CAM_MCU / CAM_CU / CAM_MCU_L / CAM_WIDE at their spans); a hit in a camera not on screen at that frame is ignored (the orchestrator's ruling, 08 Nov). qa.clip reads the sequence's camera-cut track per frame (cut_camera), so the sequence's cut track must equal the EDL's when it runs (the driver checks it, or passes each EDL shot's frames)",
    "how": "film-ue op qa.clip ... 'props={\"Mic\":\"<mic>\"}' 'mouth={\"blocker\":\"Mic\"}' (core 0ce1c3ae) -> metrics.worst.mouth.blocked_px",
    "why": "the brief: the mic never covers the mouth in any camera"
   },
@@ -936,7 +936,7 @@
    "line": 0,
    "unit": "px",
    "what": "pixels of the FACE (3 cm discs round both eyes, the lips and the jaw) that the studio mic covers, from the shot's camera: the mic must not overlap the face box and the lips stay fully visible",
-   "where": "every presenter camera (MCU, CU, MCU_L, WIDE), n 8 per shot + the widest head turns",
+   "where": "the camera ACTUALLY CUT at each frame per the film's EDL (edl/<film>.json: CAM_MCU / CAM_CU / CAM_MCU_L / CAM_WIDE at their spans); a hit in a camera not on screen at that frame is ignored (the orchestrator's ruling, 08 Nov). qa.clip reads the sequence's camera-cut track per frame (cut_camera), so the sequence's cut track must equal the EDL's when it runs (the driver checks it, or passes each EDL shot's frames)",
    "how": "film-ue op qa.clip label=<presenter> sequence=<SEQ> 'props={\"Mic\":\"<mic>\"}' 'pairs=[]' 'mouth={\"blocker\":\"Mic\",\"radius_cm\":3.0,\"bones\":[\"FACIAL_L_Eye\",\"FACIAL_R_Eye\",\"FACIAL_C_LipUpper\",\"FACIAL_C_LipLower\",\"FACIAL_C_Jaw\"]}' -> metrics.worst.mouth.blocked_px (a missing bone errors: pass the rig's names)",
    "must_fail": [
     null,
