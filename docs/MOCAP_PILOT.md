@@ -11,15 +11,16 @@ Confidence tags: **confirmed** (Epic's docs or the Fab listing), **reported** (f
 ## 0. Status and verdict
 
 **Prepared, not yet solved.** The research, the automation and the Linux-side rows are done and tested offline. The
-solve is waiting on five things, none of which an agent can do alone:
+solve waits on the items below; two are settled:
 
-1. **The test clip.** The operator is supplying an AI-generated video (no real person) of a seated presenter at a
-   desk: 10-15 s, 1080p, locked-off camera, hands always visible.
-2. **The spot quota.** Tonight's T/T2 renders come first, so nothing starts until the orchestrator says go.
-3. **AWS.** The agent containers have no AWS CLI or credentials. Whoever runs the farm's AWS calls on kali runs the
-   §9 commands.
-4. **The operator's Epic sign-in** (about 10 minutes on the box). The plugin comes only from Fab.
-5. **The licence for the generated animation.** The listing shows none (§2).
+1. **The test clip:** received and prepped (Kling 4.0, 720p24, §5). A tighter native-1080p take and a no-desk
+   full-body variant have been asked of the operator.
+2. **The spot quota:** GO from the orchestrator (08 Nov). The T/T2 renders are in Tokyo, so Mumbai's 32 G/VT spot
+   vCPU are free.
+3. **AWS:** karmax runs §9 steps 1-3 on kali once the sign-in window is set. Agents hold no AWS credentials.
+4. **The operator's Epic sign-in** (about 10 minutes on the box). The plugin comes only from Fab. **Launch waits for
+   this window.**
+5. **The licence ruling for production.** The binding clauses are quoted in §2; the pilot itself is allowed.
 
 **Feasibility, from the research:**
 
@@ -67,12 +68,63 @@ solve is waiting on five things, none of which an agent can do alone:
 ## 2. Fit with our rules
 
 - **No motion libraries:** satisfied. Every take is a new performance of our own script.
-- **No non-commercial model output anywhere** (agent-10's survey ruling, `explainers/r7/gesture_model.md`):
-  - **Open.** The Fab listing shows no licence ("-"). Press (CG Channel, Digital Production) says it is free
-    including commercial use. Fab's Standard License allows commercial end products. No term speaks to the
-    *generated animation* itself.
-  - **The operator should confirm this before a published video uses a solved take.** The pilot itself (a test clip,
-    nothing published) is fine.
+- **No non-commercial model output anywhere** (agent-10's survey ruling, `explainers/r7/gesture_model.md`). The
+  listing as Fab's API returns it (`/i/listings/4095b8e0-…`, 08 Nov):
+  - `licenses`: the **Standard License**, tiers Personal and Professional, both free. This is not CC and not the
+    legacy UE Marketplace licence.
+  - `listingType`: `tool-and-plugin`; category Engine Tools; `isAiForbidden: true`, which is the listing's "Allows
+    usage with AI: No", i.e. Fab's **NoAI** tag.
+  - Licensor: Epic. No other licensor is named, so §1(b) makes Epic the licensor.
+  - **Choose Professional when adding it.** It is also free, and Personal is only for buyers under $100k of
+    digital-content revenue (§2(a)).
+
+  **The binding text.** fab.com/eula serves only a non-binding summary in English; the agreement itself is rendered
+  by script and could not be fetched. Epic publishes the binding agreement for Germany as a PDF ("Zuletzt
+  aktualisiert: 6. April 2025",
+  `https://cdn2.unrealengine.com/fab-eula-germany-00d314ccd30d.pdf`). The quotes below are from that PDF, with our
+  translations. Check them against the English agreement in the signed-in Fab page before production.
+
+  **(a) Commercial use of what we make with a tool listing.**
+  - **§4, distributing linear media.** "Vorbehaltlich geltender Einschränkungen in Abschnitt 6 … können Sie ein
+    Projekt, das ein gerendertes lineares Medienprodukt ist, frei vertreiben … i. gerenderte Videodateien (z. B.
+    übertragene oder gestreamte Videodateien, Cartoons, Filme oder Bilder)".
+    *"Subject to section 6, you may freely distribute a Project that is a rendered linear media product … rendered
+    video files (e.g. broadcast or streamed video files, cartoons, films or images)."* Our films are exactly that.
+  - **Ownership** (after §2(e)). "Sie [sind] Inhaber aller Rechte, außer der Rechte an den Inhalten, von allem, was
+    Sie im Rahmen dieser Vereinbarung mit den Inhalten entwickeln".
+    *"You own all rights, except the rights in the Content, in everything you develop with the Content under this
+    agreement."* So the solved animation is ours; the plugin stays Epic's.
+  - **§2(e), plugins.** "werden Ihnen auf einer Einzelplatzbasis angeboten und dürfen nur von der Anzahl von
+    Benutzern verwendet werden, für die Sie Lizenzen erworben haben".
+    *"Offered per seat; used only by as many users as you have licences for."* That is one seat for the operator's
+    account. Other people need their own free seats.
+  - **§5(b).** "Für Unreal Engine Plugins gilt außerdem, dass alle Projekte, in die Sie Plugins einbinden, nur als
+    Engine Tools gemäß der Unreal Engine-Vereinbarung vertrieben werden dürfen."
+    *"Projects that include a UE plugin may be distributed only as Engine Tools under the UE EULA."* So never commit
+    or share the plugin, or a UE project containing it. This public repo only holds scripts that call it, and the
+    Linux boxes never need it (the FBX carries the animation).
+  - **§6(a)** forbids combining Standard-licence content with GPL/LGPL/CC-BY-SA code. That is one more reason not to
+    use the GPL `fabcli`.
+
+  **(b) The NoAI flag** ("Allows usage with AI: No").
+  - **§6(b)(vii)** forbids using NoAI content "(i) in Datensätzen …, die von generativen KI-Programmen verwendet
+    werden; (ii) bei der Entwicklung von generativen KI-Programmen …; oder (iii) als Schulungs-Input für generative
+    KI-Programme".
+    *"(i) in datasets used by generative AI programs, (ii) in developing generative AI programs, (iii) as training
+    input to generative AI programs."*
+  - **§16(l)(i)** defines it: "Inhalte, die zum Zeitpunkt Ihrer Transaktion … mit „NoAI“ gekennzeichnet sind". The
+    clause is titled "Inhalte, die nicht als Trainings-Input für generative KI-Programme verwendet werden dürfen".
+    *"Content tagged NoAI at the time of your transaction"; "content that may not be used as training input for
+    generative AI programs."*
+  - **Our reading** (not legal advice):
+    - The flag restricts what we do *with the plugin*: no datasets, training or genAI development. It does not
+      restrict what video we feed it.
+    - Running it on a Kling-generated clip, and rendering films from the result, falls outside (i)-(iii).
+    - **Do not** use the plugin's solves as a training set for a gesture or motion model of our own. Even though
+      the output is ours under the ownership clause, that is the clause's evident target.
+    - Kling's own terms for its video are a separate question; the clip is for the pilot only.
+  - **Ruling:** the orchestrator allowed the pilot (08 Nov). Production use waits for the orchestrator's ruling on
+    these quotes.
 - **The face stays ours:**
   - We solve **body only**: Face Tracking off, Head Movement Mode `DISABLED`.
   - In 5.8.0, an Audio-to-Lip Sync animation placed on the **Body** track overrides the markerless body and hands
@@ -379,7 +431,7 @@ costs are the operator's recording time and the first build of §7.
 
 ## 11. Risks and open questions
 
-- **The licence of the generated animation** (§2). The operator decides.
+- **The licence for production use** (§2): the binding clauses are quoted there; the orchestrator rules. Never commit the plugin or a project containing it (§5(b)), and never use the solves as genAI training data (NoAI).
 - **A seated performer at a desk:** unsupported by the guidelines. The pilot measures it, and the fallback is the
   no-desk take (§5, §8).
 - **The plugin is experimental.** Reported failures:
