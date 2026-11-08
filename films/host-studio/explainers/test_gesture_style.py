@@ -151,7 +151,8 @@ def test_build_on_her_skeleton_passes_with_the_hooks():
     doc, summ = GK.build(data, S.Set(**bp["set"]), S.Style(**bp["style"]), pp["sheet"], pp["cues"], pp["tilts"],
                          6.0, 30)
     assert summ["hooks"]["style"] and summ["pass"], summ["issues"][:5]
-    assert min(summ["rows"]["upperarm_torso_clear_cm"].values()) >= 3.0
+    assert min(summ["rows"]["upperarm_bust_clear_cm"].values()) >= 3.0  # the bust by 3 (her side: not into it)
+    assert min(summ["rows"]["upperarm_side_clear_cm"].values()) >= 0.0
 
 
 if __name__ == "__main__":
