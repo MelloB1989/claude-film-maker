@@ -124,7 +124,7 @@ POSE_ORIGIN = HandPose((22.0, 17.0, 13.0), pron=40.0, ext=10.0, shape="relaxed",
 # with her top): the presenter's rest. Hands loosely together in a soft steeple at the lower ribcage, well in front of
 # her (not touching her), palms facing, wrists straight, fingers gently curved; the gestures rise from it into the
 # frame. The fingers aim at the midline (YAW_BASE is faded out at the rest, see hand_targets).
-REST_PRON, REST_EXT = 0.0, 14.0  # R7 hands (the orchestrator's review: the resting hand hovered on its fingertips, the
+REST_PRON, REST_EXT = 0.0, 8.0  # R7 hands (the orchestrator's review: the resting hand hovered on its fingertips, the
 #   wrist cocked, the fingers splayed: a spider): the hand rests PALM DOWN on the desk, the wrist neutral, the fingers
 #   together and gently curled ('rest'), the contact through the palm and the finger pads, never the tips alone. On
 #   her rig (offline, both hands, t44.5 / t58.8): the wrist joint 3.5-3.7 cm over the desk top (seatkit's rest), the
@@ -661,7 +661,7 @@ class Performer(S.Seater):
             k_rest = max(1.0 - ws, 1.0 - self.gesture_w(s, t))  # at the pause rest or the speaking (desk) rest
             if k_rest > 0.0:  # (R7 hands) the heel of the palm down on the desk, not a hand tented on its pads
                 a_w = self.actor(wrist)
-                z_want = self.set.desk_top + self.REST_WRIST
+                z_want = self.set.desk_top + self.sy.forearm_clear - self.REST_WRIST_UNDER
                 if a_w[2] > z_want:  # (by the rest's weight: in full earlier, it drove the landing fingers deeper)
                     wrist = add(wrist, mul(sub(self.comp([a_w[0], a_w[1], z_want]), wrist), k_rest))
             elbow, wrist = self.swivel(s, sh, wrist, l1, l2, pole, W, ws)
@@ -1496,11 +1496,13 @@ class Performer(S.Seater):
 
     DESK_LIVE = 0.15  # cm the pads' height breathes about DESK_TIP (0.21 Hz)
     DESK_TIP = 0.9  # cm a resting hand's lowest fingertip (its centre line) over the desk top: the pad on it
-    REST_WRIST = 3.1  # cm the resting wrist joint over the desk top at most: the heel of the palm on it (agent-13's
-    #   rest_contact 'tented' line is 3.5, which a lift-off at gesture weight 0.08 met at 3.51 from 3.2; seatkit's
-    #   desk.wrist floor is forearm_clear - 0.3 = 2.5)
+    REST_WRIST_UNDER = 0.2  # cm the resting wrist joint sits under the presenter's forearm_clear: the heel of the palm
+    #   ON the desk (agent-02 on her mesh: heel down = the wrist joint 2.35 up; her forearm_clear 2.4 -> 2.2; his 2.8 ->
+    #   2.6 until his mesh is measured). agent-13's tented line is the mesh's heel + 0.5 (2.9 for her)
     DESK_THUMB = 0.6  # cm the thumb's joints keep over the desk top (seatkit's desk.finger line is 0.4)
-    DESK_PITCH_MAX = 16.0  # deg the contact solve pitches the hand at most (14 left a landing pinky DIP 0.1 under)
+    DESK_PITCH_MAX = 16.0  # deg the contact solve pitches the hand at most. A trade-off at the LANDINGS (the elbow drops
+    #   onto the desk at 140-220 cm/s): 30 keeps every finger out of the desk but snaps 5.2 /min; 16 snaps 3.1 with a
+    #   landing pinky DIP 0.6-0.7 cm under for a frame. The landing itself must ease (agent-01's rest IK)
     REST_HAND_PITCH, REST_PITCH_BAND = 10.0, 8.0  # deg: the resting palm's long axis over the desk (hers sits 4-13)
     #   and the band the safety level leaves alone
 
@@ -1578,22 +1580,23 @@ class Performer(S.Seater):
             return
         js = [j for j in (f"thumb_02_{s}", f"thumb_03_{s}") if j in W]
         line = self.set.desk_top + self.DESK_THUMB
-        worst = min(js, key=lambda j: self.actor(W[j][0])[2], default=None)
-        if worst is None or self.actor(W[worst][0])[2] >= line:
-            return
-        piv = W[j1][0]
-        arm = sub(W[worst][0], piv)
-        reach = math.hypot(arm[0], arm[1])
-        if reach < 1.0:
-            return
-        need = line - self.actor(W[worst][0])[2]
-        ang = math.degrees(math.asin(max(-1.0, min(1.0, need / reach)))) * 1.05
-        ax = unit(cross(arm, [0.0, 0.0, 1.0]))
-        r = axis_angle(ax, ang)
-        if self.actor(add(piv, qrot(r, arm)))[2] < self.actor(W[worst][0])[2]:
-            r = axis_angle(ax, -ang)
-        for b in [b for b in W if b.startswith("thumb_") and b.endswith("_" + s)]:
-            W[b] = [add(piv, qrot(r, sub(W[b][0], piv))), qnorm(qmul(r, W[b][1]))]
+        for _ in range(3):  # each pass lifts the lowest joint; a joint near the base needs the next pass
+            worst = min(js, key=lambda j: self.actor(W[j][0])[2], default=None)
+            if worst is None or self.actor(W[worst][0])[2] >= line - 0.02:
+                return
+            piv = W[j1][0]
+            arm = sub(W[worst][0], piv)
+            reach = math.hypot(arm[0], arm[1])
+            if reach < 1.0:
+                return
+            need = line - self.actor(W[worst][0])[2]
+            ang = math.degrees(math.asin(max(-1.0, min(1.0, need / reach)))) * 1.05
+            ax = unit(cross(arm, [0.0, 0.0, 1.0]))
+            r = axis_angle(ax, ang)
+            if self.actor(add(piv, qrot(r, arm)))[2] < self.actor(W[worst][0])[2]:
+                r = axis_angle(ax, -ang)
+            for b in [b for b in W if b.startswith("thumb_") and b.endswith("_" + s)]:
+                W[b] = [add(piv, qrot(r, sub(W[b][0], piv))), qnorm(qmul(r, W[b][1]))]
 
     def _finger_chain(self, joints, bends, axis, dh, cmc, thumb: bool) -> dict:
         """{joint: component rotation} down one finger: each joint turned by its bend about the hinge (the thumb's

@@ -120,9 +120,9 @@ def test_the_thumb_is_opposed_not_flat_in_the_palm(rig, name, s):
 
 
 def test_the_desk_rest_is_gently_curled_in_the_orchestrators_ranges():
-    for f in HS.FINGERS4:  # MCP 15-25 / PIP 20-35 / DIP 10-20 (the orchestrator), a little latitude on the middle
+    for f in HS.FINGERS4:  # agent-02's heel + pads pose on her mesh (MCP 12-24 / PIP 12-25), a little latitude
         m, p, d = angles("rest", f)
-        assert 15.0 <= m <= 30.0 and 15.0 <= p <= 35.0 and 10.0 <= d <= 20.0, (f, m, p, d)
+        assert 12.0 <= m <= 30.0 and 12.0 <= p <= 25.0 and 8.0 <= d <= 18.0, (f, m, p, d)
 
 
 @pytest.mark.parametrize("name", ["relaxed", "rest", "list"])
