@@ -1732,7 +1732,8 @@
     "her b4325b5b 715 / 219; agent-08 08d932a6 (wrist drawn to 3.2) 723 / 223 at the 2.9 line"
    ],
    "note": "the heel line is agent-02's mesh measure (928407cb _Arms ref pose, both hands): 2.35 heel-only / 1.85 heel + pads -> 2.9 with 0.5 tolerance; agent-08's 3.2 cm rest leaves the heel ~1 cm off: FAIL; his line when box T runs",
-   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips",
+   "line_note": "heel line per presenter (--who): her 2.9 (agent-02: 2.35 heel-down + 0.5), him 3.34 (2.84 + 0.5); naturalness 83ae09ae+"
   },
   "move.rest_abduction_deg": {
    "area": "performance",
@@ -1781,7 +1782,8 @@
     "her 928407cb PLACED re-dump with tips: 188 (kit 237 at the 2.9 heel line)"
    ],
    "note": "the heel line is agent-02's mesh measure (928407cb _Arms ref pose, both hands): 2.35 heel-only / 1.85 heel + pads -> 2.9 with 0.5 tolerance; agent-08's 3.2 cm rest leaves the heel ~1 cm off: FAIL; his line when box T runs",
-   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips",
+   "line_note": "heel line per presenter (--who): her 2.9 (agent-02: 2.35 heel-down + 0.5), him 3.34 (2.84 + 0.5); naturalness 83ae09ae+"
   },
   "move.palm_to_camera_frames": {
    "area": "performance",
