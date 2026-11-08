@@ -46,10 +46,14 @@ def main() -> None:
     p = PF.perform_params(w)
     sy = replace(PF.STYLE[w], **PF.PERFORM_STYLE)
     sk = S.Skeleton.from_read(d)
-    plan = G.plan_from_sheet(p["sheet"], p["cues"], p["tilts"], timing=p["timing"], on_cam=p["on_cam"])
+    # as gesturekit.build builds it on the box (agent-01): his gated torso (the open rest, the outfit line), his close
+    #   held alive, the mic cams, the fallback's rest ranges; without them his track was another performance
+    plan = G.plan_from_sheet(p["sheet"], p["cues"], p["tilts"], timing=p["timing"], on_cam=p["on_cam"],
+                             close_alive=PF.length_s(w) if p.get("close_alive") else None,
+                             mic_cams=p.get("mic_cams"), rest_only=p.get("rest_only"))
     st = PF.set_of(w)
     se, _ = S.autotune(sk, st, sy)
-    perf = G.Performer(sk, st, se.sy, plan)
+    perf = G.Performer(sk, st, se.sy, plan, torso=G.Torso(**p["torso"]) if p.get("torso") else None)
     const = {b: d["local"][b] for b in d["tracks"] if b in d["local"]}
     fps, n = 30, int(round(PF.length_s(w) * 30)) + 1
     frames = []
@@ -60,7 +64,8 @@ def main() -> None:
                        "gesture_w": {s: round(perf.gesture_w(s, t), 3) for s in "lr"},
                        "p": {b: [round(x, 4) for x in perf.actor(F[b][0])] for b in BONES if b in F}})
     ev = [{"hand": e.hand, "kind": e.kind, "prep": e.prep, "stroke": e.stroke, "hold": e.hold,
-           "line": getattr(e, "line", "")} for e in plan.events]
+           "line": getattr(e, "line", ""), "detail": getattr(e, "detail", ""), "retract": e.retract}
+          for e in plan.events]  # (detail: the gate's 'size: pinch' and 'press' exemptions read it)
     out = Path(a.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps({"who": w, "fps": fps, "frame": "actor: x fwd, y the actor's right, z up, cm",

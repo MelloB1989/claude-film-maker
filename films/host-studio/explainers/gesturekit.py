@@ -99,7 +99,9 @@ def gesture_pose(g: dict, hand: str, count_n: int) -> HandPose:
     if kind == "size":
         if detail == "place":
             return HandPose((28.0, 12.0 + so * 0.5, -4.0), pron=10.0, ext=5.0, shape="open")  # palms down, set it down
-        return HandPose((28.0, 12.0 + so, 0.0), pron=88.0, ext=10.0, shape="open")  # palms facing: the span
+        # palms facing: the span, the fingers together (the 'open' fan read as a spread on a span, agent-13's
+        #   finger_spread 5.6 on his proxy: only open / deictic / count / pinch part them on purpose)
+        return HandPose((28.0, 12.0 + so, 0.0), pron=88.0, ext=10.0, shape="list")
     if kind == "list":  # R7 hands (agent-08 / agent-11): an open hand, palm up and in, PLACING each item on a line in
         #   front at chest height, the forearm angled toward the camera; item n a hand-width further right (from the
         #   right hand's working line, RIGHT_MIN_LAT, off the mic)
@@ -792,11 +794,18 @@ class Performer(S.Seater):
         sha = self.actor(self._fk_t("upperarm_" + s, "clavicle_" + s, W))
         want = max(tor.gate, self.SIDE_WANT or 0.0) + 0.5
         out = None
+
+        def at(k):
+            self.sy = replace(sy0, elbow_out=sy0.elbow_out + k,
+                              elbow_out_l=None if sy0.elbow_out_l is None else sy0.elbow_out_l + k)
+            return super(Performer, self).elbow_rest(s, W)
+
         try:
-            for k in range(int(self.REST_OUT_MAX) + 1):
-                self.sy = replace(sy0, elbow_out=sy0.elbow_out + k,
-                                  elbow_out_l=None if sy0.elbow_out_l is None else sy0.elbow_out_l + k)
-                o = super().elbow_rest(s, W)
+            k0 = 0  # (the style's own elbow_out already past the abduction line, agent-13's 25.05 on his proxy: in first)
+            while k0 > -self.REST_OUT_MAX and self._abdo(sub(at(k0)[0], sha), s) > self.REST_ABD_MAX:
+                k0 -= 1
+            for k in range(k0, int(self.REST_OUT_MAX) + 1):
+                o = at(k)
                 if out is not None and (not o[2] or self._abdo(sub(o[0], sha), s) > self.REST_ABD_MAX):  # the elbow off the desk (it hangs, out and up): the last that
                     k -= 1  # reached; the gate reports what is left (no chicken wings)
                     break
@@ -906,15 +915,16 @@ class Performer(S.Seater):
             t0, e0, w0, g, gv = st_
             dt = t - t0
             if dt > 0:
+                om = self.ELBOW_W  # the spring's step first, exact (an Euler step after the absorption handed 40 % of
+                #   a 16 cm swivel flip straight through in the same frame: his proxy's elbow 212 cm/s, snaps 9.6)
+                ex = math.exp(-om * dt)
+                c = add(gv, mul(g, om))
+                g, gv = mul(add(g, mul(c, dt)), ex), mul(sub(gv, mul(c, om * dt)), ex)
                 de = sub(e, e0)
                 free = norm(sub(w, w0)) + self.ELBOW_FREE_CM * dt * 30.0
                 n = norm(de)
-                if n > free:  # the excess absorbed (the output keeps its place, the spring takes it home)
+                if n > free:  # then the excess absorbed (the output keeps its place, the spring takes it home)
                     g = sub(g, mul(de, (n - free) / n))
-                om = self.ELBOW_W
-                acc = sub(mul(g, -om * om), mul(gv, 2.0 * om))
-                gv = add(gv, mul(acc, dt))
-                g = add(g, mul(gv, dt))
         self._ef = {**getattr(self, "_ef", {}), s: (t, e, w, g, gv)}
         if norm(g) < 1e-6:
             return e, w
@@ -983,10 +993,11 @@ class Performer(S.Seater):
                 if floor is None or ea[2] < floor[0]:
                     floor = (ea[2], e, w2)  # (none allowed: the lowest of the circle)
                 rest_ = self._wg.get(s, 1.0) < 0.5
-                over = abd > abd_cap or (rest_ and (self._abdo(ua, s) > max(self.REST_ABD_MAX, self._abdo(ua0, s))
-                                                    or self._hum(ua) > max(self.REST_ELEV_MAX, self._hum(ua0))))
+                rest_over = rest_ and (self._abdo(ua, s) > self.REST_ABD_MAX or self._hum(ua) > self.REST_ELEV_MAX)
+                over = abd > abd_cap or rest_over
                 hangs = rest_ and ea[2] > st_.desk_top + self.sy.elbow_r + self.REST_LIFT_CM
-                if (k != 0 and over) or hangs:
+                if (k != 0 and over) or rest_over or hangs:  # (the plain solve too: his speaking rest's pole alone
+                    #   put the upper arm 25.05 deg out, agent-13's rest_abduction on his proxy)
                     # at the rest agent-13's lines and the elbow not hanging (the orchestrator, 09 Nov); the gate
                     continue  # reports what is left
                 wa = self.actor(w2)  # nor the fingertips (along the forearm) into the desk
@@ -1526,7 +1537,7 @@ class Performer(S.Seater):
     #   a rate-capped cone ahead of the want (lag_hand -58..-128), a causal release or a longer release delay (snaps at
     #   the landings, 3-7/min), the turn planned per stroke on minimum jerks (snaps 4.2 at the arrivals), either sense
     #   the shorter way round (snaps 7-9)
-    PALM_DELAY = 0.055  # s the curve runs behind the frame's want (the zero-phase turn led the upper arm: lag_hand_ms;
+    PALM_DELAY = 0.05  # s the curve runs behind the frame's want (the zero-phase turn led the upper arm: lag_hand_ms;
     #   on d1869ce7 + this, agent-13's rows: W 24 / 0.055 lag_hand 38, snaps 0, palm_to_camera 0, radial 2.7; 22 / 0.05
     #   passes too; 20 / 0.045 lag 20; 22 / 0.06 a palm frame at 17.3)
     PALM_DT = 1.0 / 30.0  # s the guard's curve is sampled at (linear between; the pass costs one pose per sample)
