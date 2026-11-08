@@ -1574,7 +1574,9 @@
    "must_fail": [
     0.172,
     "her b4325b5b whole take 0.172 (verify windows 0.0); 404db805 0.49, 52ab5ea2 0.49; 8ebecc97 0"
-   ]
+   ],
+   "na_ok": true,
+   "na_reason": "no resting hand held in the air (every rest lies on the desk)"
   },
   "move.thumb_flat_frames": {
    "area": "performance",
