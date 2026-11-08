@@ -318,10 +318,9 @@ def test_rearms_a_stale_alarm_and_leaves_a_current_one():
     cw = FakeCW()
     cw.alarms["killswitch-idle-i-1"] = reaper.alarm_spec("i-1", CONF)  # the old flat 4 %
     cw.alarms["killswitch-idle-i-2"] = reaper.alarm_spec("i-2", VCONF, 5.0)  # already right
-    cw.alarms["killswitch-idle-i-3"] = reaper.alarm_spec("i-3", CONF)  # stopped: re-armed too, before it starts
+    cw.alarms["killswitch-idle-i-3"] = reaper.alarm_spec("i-3", CONF)  # stopped: left until it has run 30 min
     s, logs = go(ec2, cw, idle_vcpu=0.8)
-    assert [(p["AlarmName"], p["Threshold"]) for p in cw.puts] == [("killswitch-idle-i-1", 10.0),
-                                                                    ("killswitch-idle-i-3", 10.0)]
+    assert [(p["AlarmName"], p["Threshold"]) for p in cw.puts] == [("killswitch-idle-i-1", 10.0)]
     assert {r["do"] for r in logs if "do" in r} == {"rearm"} and s["failed"] == 0
     s, _ = go(ec2, cw, idle_vcpu=0.8)
     assert s["actions"] == 0  # settled
@@ -357,3 +356,41 @@ def test_work_window_can_name_its_box():
     a, b, lab, iid = deploy.parse_window("i-0abc@2026-11-08T12:00/2026-11-08T12:30=render")
     assert (b - a, lab, iid) == (1800, "render", "i-0abc")
     assert deploy.parse_window("2026-11-08T12:00/2026-11-08T12:30")[2:] == ("2026-11-08T12:00/2026-11-08T12:30", "")
+
+
+def test_restarted_box_with_stale_idle_points_is_not_stopped():
+    """Box T, 10:47 UTC: restarted 3 min earlier, its alarm still at the old 4 %, and CloudWatch holding the 5 idle
+    points from before the stop (6-9 %, under the new 10 %). Writing the alarm then made CloudWatch evaluate those
+    points and stop the box 100 s later. Inside the grace the reaper writes nothing, so that cannot happen."""
+    t = inst("i-t", vcpu=8, up_h=3 / 60)
+    old = dict(reaper.alarm_spec("i-t", CONF), StateValue="OK")
+    cw = FakeCW()
+    cw.alarms[old["AlarmName"]] = old
+    s, logs = go(FakeEC2([t, inst("i-new", vcpu=8, up_h=10 / 60)]), cw, idle_vcpu=0.8)
+    assert cw.puts == [] and cw.alarms["killswitch-idle-i-t"]["Threshold"] == 4.0
+    assert {(r["instance"], r["do"]) for r in logs if "do" in r} == {("i-t", "wait"), ("i-new", "wait")}
+    assert s["actions"] == 0 and s["waiting"] == 2
+    # 31 min after the start every point in the window is from this run: now it is brought up to date
+    t["LaunchTime"] = datetime.fromtimestamp(NOW - 31 * 60, UTC)
+    go(FakeEC2([t]), cw, idle_vcpu=0.8)
+    assert [(p["AlarmName"], p["Threshold"]) for p in cw.puts] == [("killswitch-idle-i-t", 10.0)]
+
+
+def test_grace_is_the_window_plus_a_period():
+    assert reaper.grace_s(CONF) == 30 * 60
+
+
+def test_an_alarm_stuck_in_alarm_since_before_the_start_is_reset():
+    t = inst("i-t", vcpu=8, up_h=2)
+    before = datetime.fromtimestamp(NOW - 3 * 3600, UTC).isoformat()
+    cw = FakeCW()
+    cw.alarms["killswitch-idle-i-t"] = dict(reaper.alarm_spec("i-t", VCONF, 10.0), StateValue="ALARM",
+                                            StateUpdatedTimestamp=before)
+    _, logs = go(FakeEC2([t]), cw, idle_vcpu=0.8)
+    assert [r["do"] for r in logs if "do" in r] == ["reset"]
+    assert "StateValue" not in cw.alarms["killswitch-idle-i-t"]  # a new alarm: INSUFFICIENT_DATA, can fire again
+    # in ALARM since after this start: it already acted (or is about to), so it is left alone
+    cw.alarms["killswitch-idle-i-t"].update(StateValue="ALARM",
+                                            StateUpdatedTimestamp=datetime.fromtimestamp(NOW - 60, UTC))
+    s, _ = go(FakeEC2([t]), cw, idle_vcpu=0.8)
+    assert s["actions"] == 0

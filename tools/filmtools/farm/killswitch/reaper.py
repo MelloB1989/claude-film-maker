@@ -61,12 +61,8 @@ def ttl_hours(inst: dict, default: float) -> float:
 
 
 def uptime_h(inst: dict, now: float) -> float:
-    lt = inst["LaunchTime"]  # the last start, not the first launch: a stopped-and-started box starts a new clock
-    if isinstance(lt, str):
-        lt = datetime.fromisoformat(lt)  # 3.11+ reads the trailing Z
-    if lt.tzinfo is None:
-        lt = lt.replace(tzinfo=UTC)
-    return (now - lt.timestamp()) / 3600
+    # LaunchTime is the last start, not the first launch: a stopped-and-started box starts a new clock
+    return (now - _ts(inst["LaunchTime"])) / 3600
 
 
 def vcpus(inst: dict) -> int:
@@ -139,8 +135,28 @@ def stale(alarm: dict, want: dict) -> list[str]:
     return out
 
 
+def grace_s(conf: dict) -> int:
+    return conf["periods"] * conf["period_s"] + 300  # the alarm's window, plus one period for the metric's lag
+
+
+def _ts(v) -> float:
+    if isinstance(v, str):
+        v = datetime.fromisoformat(v)
+    if v.tzinfo is None:
+        v = v.replace(tzinfo=UTC)
+    return v.timestamp()
+
+
+def stuck(alarm: dict, inst: dict) -> bool:
+    """In ALARM since before the box's last start: an alarm acts only on entering ALARM, so it would never fire."""
+    if alarm.get("StateValue") != "ALARM" or "StateUpdatedTimestamp" not in alarm:
+        return False
+    return _ts(alarm["StateUpdatedTimestamp"]) < _ts(inst["LaunchTime"])
+
+
 def plan(instances: list[dict], alarms: list[dict], conf: dict, now: float) -> list[dict]:
-    """What to do, as actions: {"do": arm|rearm|disarm|stop|delete, "instance": id, "why": ...}. Pure, so tested."""
+    """What to do, as actions: {"do": arm|rearm|reset|wait|disarm|stop|delete, "instance": id, "why": ...}.
+    Pure, so tested. A stopped box's alarm is left as it is; it is brought up to date after its next start."""
     acts = []
     by_id = {i["InstanceId"]: i for i in instances}
     armed = {a["AlarmName"][len(PREFIX):]: a for a in alarms}
@@ -154,18 +170,27 @@ def plan(instances: list[dict], alarms: list[dict], conf: dict, now: float) -> l
                 acts.append({"do": "disarm", "instance": iid, "name": name, "type": itype,
                              "why": f"tag {OPT_OUT_TAG}=off"})
             continue
-        th = threshold_for(inst, conf)
-        if iid in armed and state != "terminated":
-            diff = stale(armed[iid], alarm_spec(iid, conf, th))
-            if diff:
-                acts.append({"do": "rearm", "instance": iid, "name": name, "type": itype, "threshold": th,
-                             "why": f"alarm differs in {', '.join(diff)} (now CPU < {th:g} %)"})
         if state != "running":
             continue
-        if iid not in armed:
+        th, up = threshold_for(inst, conf), uptime_h(inst, now)
+        al = armed.get(iid)
+        # Grace: writing an alarm makes CloudWatch evaluate the datapoints it already holds, which on a box started
+        # less than n periods ago include the idle ones from before its last stop; that once stopped a box 100 s
+        # after a restart. So nothing is armed, re-armed or reset until every point in the window is from this run.
+        if up * 3600 < grace_s(conf):
+            if al is None or stale(al, alarm_spec(iid, conf, th)) or stuck(al, inst):
+                acts.append({"do": "wait", "instance": iid, "name": name, "type": itype,
+                             "why": f"up {up * 60:.0f} min < {grace_s(conf) // 60} min grace"})
+        elif al is None:
             acts.append({"do": "arm", "instance": iid, "name": name, "type": itype, "threshold": th,
                          "why": f"running GPU, no alarm (CPU < {th:g} % = {vcpus(inst) or '?'} vCPU box)"})
-        up, ttl = uptime_h(inst, now), ttl_hours(inst, conf["default_ttl_h"])
+        elif stuck(al, inst):
+            acts.append({"do": "reset", "instance": iid, "name": name, "type": itype, "threshold": th,
+                         "why": "alarm in ALARM since before this start: it would never fire again"})
+        elif diff := stale(al, alarm_spec(iid, conf, th)):
+            acts.append({"do": "rearm", "instance": iid, "name": name, "type": itype, "threshold": th,
+                         "why": f"alarm differs in {', '.join(diff)} (now CPU < {th:g} %)"})
+        ttl = ttl_hours(inst, conf["default_ttl_h"])
         if up > ttl:
             acts.append({"do": "stop", "instance": iid, "name": name, "type": itype,
                          "why": f"up {up:.1f} h > TTL {ttl:g} h"})
@@ -182,9 +207,12 @@ def apply(acts: list[dict], ec2, cw, conf: dict, log) -> list[dict]:
     for a in acts:
         rec = dict(a, dry_run=conf["dry_run"])
         try:
-            if conf["dry_run"]:
+            if conf["dry_run"] or a["do"] == "wait":
                 pass
             elif a["do"] in ("arm", "rearm"):
+                cw.put_metric_alarm(**alarm_spec(a["instance"], conf, a.get("threshold")))
+            elif a["do"] == "reset":  # a new alarm starts from INSUFFICIENT_DATA, so it can enter ALARM again
+                cw.delete_alarms(AlarmNames=[PREFIX + a["instance"]])
                 cw.put_metric_alarm(**alarm_spec(a["instance"], conf, a.get("threshold")))
             elif a["do"] in ("disarm", "delete"):
                 cw.delete_alarms(AlarmNames=[PREFIX + a["instance"]])
@@ -206,7 +234,8 @@ def run(ec2, cw, conf: dict, now: float | None = None, log=None) -> dict:
     gpus = [i for i in instances if is_gpu(i.get("InstanceType", ""))]
     summary = {"summary": True, "gpu_instances": len(gpus),
                "gpu_running": sum(i["State"]["Name"] == "running" for i in gpus),
-               "alarms": len(alarms), "actions": len(done), "failed": sum(not d["ok"] for d in done),
+               "alarms": len(alarms), "actions": sum(d["do"] != "wait" for d in done),
+               "waiting": sum(d["do"] == "wait" for d in done), "failed": sum(not d["ok"] for d in done),
                "dry_run": conf["dry_run"]}
     log(summary)
     return summary
