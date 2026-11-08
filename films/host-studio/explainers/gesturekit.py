@@ -191,6 +191,8 @@ class Plan:
     gap_merge: float = 0.9  # pauses shorter than this keep the hands up (agent-10's timing can set it)
     on_cam: list = field(default_factory=list)  # [[t0, t1, camera label]] the shots she is in
     bridges: list = field(default_factory=list)  # [[t0, t1]] pauses that keep the hands up (agent-10's timing)
+    rest_only: list = field(default_factory=list)  # [[t0, t1]] the hands rest on the desk, no gestures (the operator's
+    #   fallback: shoulders, torso, head and breath stay alive; the hands home REST_ONLY_EASE before t0, up after t1)
     mic_cams: list = field(default_factory=list)  # [[t0, t1, camera]] shots filmed besides the edit's (his TEST render
     #   films CAM_MCU over 0-7.46 s): the mic rule guards these too; the framing rows stay on on_cam
 
@@ -240,6 +242,16 @@ class Plan:
         a = (max(pk[i] - self.BREATH_IN_S, p0) if i < len(pk) else p0 + 4.4)
         u = min(1.0, (t - p0) / max(1e-6, a - p0))
         return self.BREATH_CM * (1.0 - u * u * u * (10 - 15 * u + 6 * u * u))
+
+    REST_ONLY_EASE = 0.6  # s the hands take home before a rest_only range and back up after it
+
+    def rest_w(self, t: float) -> float:
+        """1 inside a rest_only range (the hands at the desk rest), eased over REST_ONLY_EASE outside its ends."""
+        e, w = self.REST_ONLY_EASE, 0.0
+        for a, b in self.rest_only:
+            if a - e < t < b + e:
+                w = max(w, min(smooth((t - (a - e)) / e), 1.0 - smooth((t - b) / e)))
+        return w
 
     def speak_w(self, t: float, pre: float = 0.5, post: float = 0.6, gap_merge: float | None = None) -> float:
         """1 while speaking (lines merged across gaps under gap_merge s), eased in/out."""
@@ -318,7 +330,7 @@ def catalogue_plan(on_cam=None) -> Plan:
 
 def plan_from_sheet(sheet: dict, cues: dict, tilts: list | None = None, base_lean: float = 4.0,
                     timing: list | None = None, on_cam: list | None = None, close_alive: float | None = None,
-                    mic_cams: list | None = None) -> Plan:
+                    mic_cams: list | None = None, rest_only: list | None = None) -> Plan:
     """agent-11's acting sheet (lines[].body01) + the cue sheet (speaking spans) -> Plan. `timing` (agent-10's
     prosody planner) overrides each gesture's prep/stroke/hold/retract/amp/energy by (line, word_i)."""
     events, lean = [], []
@@ -388,7 +400,12 @@ def plan_from_sheet(sheet: dict, cues: dict, tilts: list | None = None, base_lea
     if close_alive and speaking:  # the take's length: after the last line the hands stay at the speaking desk rest
         #   to the end, as the take opens alive (his forearms can't reach the desk rest: elbows off the edge, 55.4 s)
         bridges = list(bridges) + [[max(b_ for _, b_ in speaking), float(close_alive) + 1.0]]
-    return Plan(events, speaking, lean, tilts or [], base_lean, gap_merge, on_cam or [], bridges, mic_cams or [])
+    ro = [[float(a), float(b)] for a, b in rest_only or []]
+    if ro:  # the operator's fallback: no gesture reaches into a rest range or its eases (the hands rest there)
+        e = Plan.REST_ONLY_EASE
+        events = [ev for ev in events
+                  if not any(ev.prep < b + e and ev.stroke + ev.hold + ev.retract > a - e for a, b in ro)]
+    return Plan(events, speaking, lean, tilts or [], base_lean, gap_merge, on_cam or [], bridges, ro, mic_cams or [])
 
 
 # --- torso model and the arm clearance ---------------------------------------------------------------------------
@@ -541,7 +558,7 @@ class Performer(S.Seater):
         sg = 1.0 if s == "r" else -1.0
         A_l, A_r = (self.actor(self._fk_t("upperarm_" + x, "clavicle_" + x, W)) for x in "lr")
         st_pt = [(A_l[0] + A_r[0]) / 2 + 8.0, (A_l[1] + A_r[1]) / 2, (A_l[2] + A_r[2]) / 2 - 14.0]
-        ws = self.plan.speak_w(t)
+        ws = self.plan.speak_w(t) * (1.0 - self.plan.rest_w(t))  # (a rest_only range: at the desk, speaking or not)
         if s == "l" and LEFT_RESTS:
             # her left forearm rests on the desk while she speaks and rises only for its own / two-hand gestures:
             # anywhere up near her chest it sat over the mic in the picture (it hangs at sternum height, frame right)
@@ -627,6 +644,8 @@ class Performer(S.Seater):
     def pose(self, t: float = 0.0, gestures=None) -> dict:
         if not self._ready:
             return super().pose(t, gestures or [])
+        if getattr(self, "_pg_tab", None) is None:
+            self.palm_prime()
         self._t = t  # (the hand's trail keeps a short history per frame)
         self._breath_v = None  # (seatkit's own pose goes through _locals too: no breath until the arms are done)
         sk, sy = self.sk, self.sy
@@ -1482,29 +1501,85 @@ class Performer(S.Seater):
         t = getattr(self, "_t", None)
         if t is None:
             return fingers, across
-        ang = self._palm_slew(s, t, self._palm_want(s, fingers, across, d0, a0, t, fa))
+        rec = getattr(self, "_pg_rec", None)
+        if rec is not None:  # the priming pass: what each frame wants, unguarded
+            rec[s].append((t, self._palm_want(s, fingers, across, d0, a0, t, fa)))
+            return fingers, across
+        ang = self._palm_at(s, t - self.PALM_DELAY)
         if not ang:
             return fingers, across
         q = axis_angle(fa, ang)
         return qrot(q, fingers), qrot(q, across)
 
-    PALM_RATE = 150.0  # deg/s the guard's turn at most (agent-13's finger_snap: it turned 45-87 deg in 3-4 frames as the
-    #   wrist stopped, 31.2 / 33.9 s; ~18 cm out, 150 deg/s is a fingertip ~47 cm/s)
+    PALM_W = 12.0  # rad/s the guard's turn follows what each frame wants: a critically damped spring run forward and
+    #   back over the take (zero phase: it turns ahead of the arrival and eases out after the release, never stops
+    #   dead). Per frame it turned the hand 45-87 deg in 3-4 frames as the wrist stopped and unwound as fast on the
+    #   retract, the thumb's IP head >= 90 cm/s stopping dead (agent-13's / agent-08's finger_snap 7.32/min, 963942f4);
+    #   a causal spring lagged into the holds (palm_to_camera) or, faster, snapped
+    PALM_RATE = 1e9  # deg/s the guard's curve turns at most before the spring (a cone ahead of the want: 120-250 led the arm, lag_hand -58..-128 ms, snaps 4-5/min; off)
+    PALM_DELAY = 0.0  # s the curve runs behind the frame's want (the zero-phase turn led the upper arm: lag_hand_ms)
+    PALM_DT = 1.0 / 30.0  # s the guard's curve is sampled at (linear between; the pass costs one pose per sample)
 
-    def _palm_slew(self, s, t, want):
-        """The guard's angle toward `want` at PALM_RATE, once per frame (a second call in a frame gets the same answer;
-        a gap or a step back in time starts over at `want`)."""
-        st_ = getattr(self, "_pg", {}).get(s)  # (t_prev, a_prev, t_cur, a_cur)
-        if st_ is not None and t == st_[2]:
-            t0, a0 = st_[0], st_[1]
-        elif st_ is not None and st_[2] < t <= st_[2] + 2.5 / 30.0:
-            t0, a0 = st_[2], st_[3]
-        else:
-            t0, a0 = None, want
-        a = want if t0 is None else a0 + max(-1.0, min(1.0, (want - a0) / max(1e-6, self.PALM_RATE * (t - t0)))) * \
-            self.PALM_RATE * (t - t0)
-        self._pg = {**getattr(self, "_pg", {}), s: (t0 if t0 is not None else t, a0, t, a)}
-        return a
+    def _palm_at(self, s, t):
+        tab = getattr(self, "_pg_tab", None)
+        if tab is None:
+            return 0.0
+        xs = tab[s]
+        k = (t - tab["t0"]) / self.PALM_DT
+        if k <= 0:
+            return xs[0]
+        if k >= len(xs) - 1:
+            return xs[-1]
+        i = int(k)
+        return xs[i] + (xs[i + 1] - xs[i]) * (k - i)
+
+    def palm_prime(self, t1=None):
+        """The guard's curve over the take: what each frame wants (a pose pass with the guard off), smoothed forward and
+        back by the spring. pose() primes itself on its first call; the pass leaves the performer as it found it."""
+        import copy
+        evs = self.plan.events
+        t1 = t1 if t1 is not None else max([e.stroke + e.hold + e.retract for e in evs] or [0.0]) + 1.0
+        keep = {k: v for k, v in self.__dict__.items()}
+        memo = {id(v): v for k, v in keep.items() if k in ("sk", "plan", "set", "sy", "fr")}
+        snap = copy.deepcopy(keep, memo)
+        self._pg_tab = {"t0": 0.0, "l": [0.0], "r": [0.0]}  # (re-entry: the pass itself sees no table)
+        self._pg_rec = {"l": [], "r": []}
+        try:
+            n = int(t1 / self.PALM_DT) + 1
+            for i in range(n):
+                self.pose(i * self.PALM_DT)
+            rec = self._pg_rec
+        finally:
+            self.__dict__.clear()
+            self.__dict__.update(snap)
+        tab = {"t0": 0.0}
+        for s in "lr":
+            want = [0.0] * n
+            for tt, a in rec[s]:  # the last call in a frame stands (the pose's own)
+                want[min(n - 1, max(0, int(round(tt / self.PALM_DT))))] = a
+            sg = -1.0 if s == "r" else 1.0  # (one sense per side: supination)
+            m = [max(0.0, sg * x) for x in want]
+            dm = self.PALM_RATE * self.PALM_DT  # the least turn >= every frame's want at <= PALM_RATE: it turns in
+            for i in range(1, n):  # ahead of a want that rises fast and unwinds slowly (a flickering want: one turn)
+                m[i] = max(m[i], m[i - 1] - dm)
+            for i in range(n - 2, -1, -1):
+                m[i] = max(m[i], m[i + 1] - dm)
+            tab[s] = [sg * x for x in self._spring_pass(self._spring_pass(m)[::-1])[::-1]]
+        self._pg_tab = tab
+
+    def _spring_pass(self, xs):
+        w, dt = self.PALM_W, self.PALM_DT
+        ex = math.exp(-w * dt)
+        a, v, out = xs[0], 0.0, []
+        for x in xs:
+            x0 = a - x
+            c = v + w * x0
+            a, v = x + (x0 + c * dt) * ex, (v - w * c * dt) * ex
+            out.append(a)
+        return out
+
+    PALM_WG = (0.15, 0.6)  # the stroke weight over which the guard comes in: done by the arrival (a hold that began
+    #   palm-out counted on palm_to_camera), the spring's lag on top
 
     def _palm_want(self, s, fingers, across, d0, a0, t, fa):
         """The signed guard angle (deg about the forearm) this frame wants, before the rate limit."""
@@ -1514,8 +1589,10 @@ class Performer(S.Seater):
             return 0.0
         press = sum(e.weight(t) for e in self.plan.events
                     if (e.hand == s or e.hand == "both") and "press" in (e.kind + " " + str(getattr(e, "detail", ""))))
-        k_up *= max(0.0, 1.0 - min(1.0, press)) * smooth((self._wg.get(s, 0.0) - 0.4) / 0.5)  # at the strokes (the
-        #   landings keep the hand's own contact turn: a pinky went into the desk)
+        wr = self._wg_rot.get(s, self._wg.get(s, 0.0))  # the hand's own turn clock (ROT_LAG_S behind the arm: on the
+        #   arm's weight the guard turned the hand with or before the upper arm, agent-13's lag_hand_ms)
+        k_up *= max(0.0, 1.0 - min(1.0, press)) * smooth((wr - self.PALM_WG[0]) / (self.PALM_WG[1] - self.PALM_WG[0]))
+        #   at the strokes (the landings keep the hand's own contact turn: a pinky went into the desk)
         if k_up <= 0:
             return 0.0
         sk = self.sk
@@ -1825,13 +1902,15 @@ def metrics(perf: Performer, t0: float, t1: float, fps: float = 30.0) -> dict:
 def build(data: dict, st, sy, sheet: dict, cues: dict, tilts: list, length_s: float, fps: int = 30,
           check_every: int = 6, timing: list | None = None, on_cam: list | None = None,
           frame_want: dict | None = None, track_out: str | None = None, close_alive: bool = False,
-          mic_cams: list | None = None, torso: dict | None = None, catalogue: bool = False) -> tuple:
+          mic_cams: list | None = None, torso: dict | None = None, catalogue: bool = False,
+          rest_only: list | None = None) -> tuple:
     """seatkit.build for the performance: the seated pose with the plan driving the upper body, as tracks (constant
     for the bones that never move, per key for spine, neck, head, clavicles, arms, hands and fingers). Returns (doc
     for perform.py's WRITE, summary with the checks and the body rows' numbers)."""
     sk = S.Skeleton.from_read(data)
     plan = catalogue_plan() if catalogue else plan_from_sheet(
-        sheet, cues, tilts, timing=timing, on_cam=on_cam, close_alive=length_s if close_alive else None, mic_cams=mic_cams)
+        sheet, cues, tilts, timing=timing, on_cam=on_cam, close_alive=length_s if close_alive else None, mic_cams=mic_cams,
+        rest_only=rest_only)
     se, tuned = S.autotune(sk, st, sy)
     perf = Performer(sk, st, se.sy, plan, torso=Torso(**torso) if torso else None)
     n = int(round(length_s * fps)) + 1
