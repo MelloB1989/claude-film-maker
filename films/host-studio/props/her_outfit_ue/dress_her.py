@@ -1,5 +1,5 @@
 """Her, ready for a presenter render: garments on leader pose to Body, her hair's MI_K_HerHair* look, her hoops and
-watch seated on her bones; all applied in one pass, read back, and applied again if a step undid another (a change to
+watch seated on her bones (r7: no watch, WATCH below); all applied in one pass, read back, and applied again if a step undid another (a change to
 any of her instance components re-creates them: a re-created garment loses its leader and stands in bind pose (round 3
 preview, S17/S18), what rode her bones loses its offset, her hair loses its materials (teal)). Raises unless all of it
 holds; saves the level when it does.
@@ -15,6 +15,10 @@ from fmbridge.ops import level as L
 GARMENTS = ("Top", "Trousers", "Overshirt")
 HAIR = [f"/Game/Studio/Materials/MI_K_HerHair{s}" for s in ("", "_Cards", "_Helmet")]
 WATCH_BONE, WATCH_UP_ARM = "lowerarm_twist_01_l", 3.6
+# r7 (the operator, 9 Nov: "the left hand with watch looks very bad, watch is clipping through hand, drop the watch"):
+# no watch. The dress pass REMOVES the HerWatch actor from the open level (not a visibility key: nothing to key back
+# on), and the check fails while one is there. True brings back round 4's seat (studio.py makes the actor).
+WATCH = False
 # Her hair's strand coverage (round 3, gate c), reel/hair_cover_ab.py's winner on S16: {GroomGroupsDesc field: value}
 # for every group of her Hair groom, absolute (this runs after every re-place). Empty leaves the groom's own. Set FIRST
 # in apply(): a groom_groups_desc change re-creates the component, which drops its materials and its forced LOD 0
@@ -76,6 +80,12 @@ def apply():
         a.set_actor_location(unreal.Vector(p.x - 0.1, p.y + (0.25 if side == "L" else -0.25), p.z + 0.15), False,
                              False)
         a.attach_to_component(face, bone, rule, rule, rule, False)
+    if not WATCH:
+        eas = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
+        for a in eas.get_all_level_actors():
+            if a.get_actor_label().startswith("HerWatch"):
+                eas.destroy_actor(a)
+        return
     w, P = ride("HerWatch"), body_.get_socket_location
     hand = P("hand_l")
     fwd = (hand - P("lowerarm_l")).normal()
@@ -102,12 +112,19 @@ def check():
             bad["Hair"] = got
         if COVERAGE and coverage_off(hair):
             bad["Hair_coverage"] = coverage_off(hair)
-    for lab, comp, bone in (("HerEarL", sk["Face"], "FACIAL_L_Ear4"), ("HerEarR", sk["Face"], "FACIAL_R_Ear4"),
-                            ("HerWatch", body_, WATCH_BONE)):
+    riders = [("HerEarL", sk["Face"], "FACIAL_L_Ear4"), ("HerEarR", sk["Face"], "FACIAL_R_Ear4")]
+    if not WATCH:
+        left = [a.get_actor_label() for a in unreal.get_editor_subsystem(unreal.EditorActorSubsystem).get_all_level_actors()
+                if a.get_actor_label().startswith("HerWatch")]
+        if left:
+            bad["HerWatch_present"] = left
+    for lab, comp, bone in riders + ([("HerWatch", body_, WATCH_BONE)] if WATCH else []):
         rc = L.actor(lab).root_component
         par = rc.get_attach_parent()
         if par is None or par.get_name() != comp.get_name() or str(rc.get_attach_socket_name()) != bone:
             bad[lab] = f"rides {par.get_name() if par else None}/{rc.get_attach_socket_name()}"
+    if not WATCH:
+        return bad, "removed"
     w = L.actor("HerWatch")
     hand = body_.get_socket_location("hand_l")
     fwd = (hand - body_.get_socket_location("lowerarm_l")).normal()
