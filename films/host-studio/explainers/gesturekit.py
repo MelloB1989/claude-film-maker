@@ -459,6 +459,9 @@ class Performer(S.Seater):
         # pauses: down to the desk rest (forearms on the edge)
         e0, w0, _ = self.elbow_rest(s, W)
         tgt = [w0[i] + (tgt[i] - w0[i]) * ws for i in range(3)]
+        if ws < 1.0 and STYLE_HOOK is not None and hasattr(STYLE_HOOK, "rest_life"):  # never frozen at the desk
+            d_off, d_fing = STYLE_HOOK.rest_life(self, s, t)
+            tgt = [tgt[0] + d_off[0] * (1.0 - ws), tgt[1] + sg * d_off[1] * (1.0 - ws), tgt[2]]
         if s == "r" and ws > 0:  # her right hand works on her right of the sternum point (left of frame, off the mic),
             #                       except a deictic to the panel, which crosses on purpose
             cross = any(e.kind == "deictic" and e.pose_r.off[1] < 12.0 and e.weight(t) > 0.2 for e in self.plan.events)
@@ -479,6 +482,9 @@ class Performer(S.Seater):
         pole = add(mul(unit(pole), ws), mul(unit(pole_rest), 1.0 - ws))
         rest_hp = HandPose((0.0, 0.0, 0.0), pron=self.sy.pronation, ext=self.ext_base.get(s, 10.0), shape="relaxed")
         hp = blend_poses([(ws, hp), (1.0 - ws, rest_hp)])
+        if ws < 1.0 and STYLE_HOOK is not None and hasattr(STYLE_HOOK, "rest_life"):
+            sh = dict(hp.shape) if isinstance(hp.shape, dict) else dict(SHAPES.get(hp.shape, {}))
+            hp = replace(hp, shape=sh | {k: sh.get(k, 0.0) + d_fing.get(k, 0.0) * (1.0 - ws) for k in FINGERS})
         return self.comp(tgt), hp, pole, ws, big
 
     def pose(self, t: float = 0.0, gestures=None) -> dict:

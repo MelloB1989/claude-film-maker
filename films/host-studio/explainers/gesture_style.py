@@ -60,6 +60,9 @@ OVERSHOOT_K = 0.0   # x the drawn overshoot (r7F, agent-13: the settle back from
 LEFT_ARC = (0.08, 0.12)  # x the chord: the left hand's own arc (agent-13: its echoes were dead-straight 10 cm lines)
 LEFT_ARC_DIR = (-0.6, -0.2, 0.75)  # (fwd, out, up): its arc bows up and back toward her (the mic is forward and out)
 ROT_LAG_S = 0.06    # s the hand's turn and the fingers trail the wrist's path (proximal to distal)
+DRIFT_CM = 0.8      # cm the wrist's slow drift, each axis (orchestrator: real hands are never 0 cm/s in a hold)
+DRIFT_HZ = 0.26     # its band (low: a drift, not a tremor)
+DESK_DRIFT = 0.5    # x it at the desk rest, along the desk only (fwd, out), and the fingers at half
 HOLD_MIN_S = 0.1    # s a hold kept at least when the next move takes its time
 V_RETRACT = 55.0    # cm/s a retract home's mean speed at most (softer than the stroke)
 COART_S = 0.45      # a gap shorter than this flows straight into the next gesture
@@ -198,7 +201,7 @@ class HandTrack:
         self.keys = {}
         film = "".join(sorted({str(getattr(e, "line", ""))[:1] for e in events}))  # N (her) / W (him) lines
         sd = seed_of(film, side, "micro")
-        self.n_off = [Noise(sd + k, 0.35) for k in range(3)]
+        self.n_off = [Noise(sd + k, DRIFT_HZ) for k in range(3)]
         self.n_rot = [Noise(sd + 10 + k, 0.45) for k in range(2)]
         self.n_f = {f: Noise(sd + 20 + k, 0.5) for k, f in enumerate(GK.FINGERS)}
         self.n_f_common = Noise(sd + 40, 0.3)
@@ -324,10 +327,15 @@ class HandTrack:
         return tuple(p[i] / n * frac * c for i in range(3))
 
     def micro(self, t: float, w: float, held: bool) -> tuple:
-        """(offset cm, d_pron, d_ext, {finger: deg}): the never-frozen layer. Larger drift on a held stroke."""
-        k = 1.0 + (0.8 if held else 0.0)
-        off = tuple(0.28 * k * n(t) for n in self.n_off)
-        dp, de = 1.6 * k * self.n_rot[0](t), 1.3 * k * self.n_rot[1](t)
+        """(offset cm, d_pron, d_ext, {finger: deg}): the never-frozen layer, the same everywhere (r7F hold life: it
+        was 0.28 cm, x1.8 on a held stroke, ~0.3 cm/s in the holds and a step where a hold began; now a slow
+        DRIFT_CM drift, ~0.6-0.8 cm/s mean and under 2 cm/s, the two hands on their own seeds)."""
+        off = tuple(DRIFT_CM * n(t) for n in self.n_off)
+        if self.side == "l":  # never toward the mic (forward, out, up: it hangs at her mouth): it drifts back, in and
+            #   down from its pose (its fingers went behind the mic in a two-hand hold)
+            off = tuple(0.75 * (o - DRIFT_CM) for o in off)
+        kr = 1.0 if self.side == "r" else 0.7  # the left's turn smaller (its fingertips sit by the mic)
+        dp, de = 2.2 * kr * self.n_rot[0](t), 1.8 * kr * self.n_rot[1](t)
         c = self.n_f_common(t)
         fing = {f: 2.6 * (0.6 * self.n_f[f](t) + 0.4 * c) for f in GK.FINGERS}
         return off, dp, de, fing
@@ -495,6 +503,14 @@ def hand(perf, s: str, t: float) -> tuple:
             box = MIC_L_CAM.get(cam) if on else min(MIC_L_CAM.values(), key=lambda b: b[1])  # no cut list: every
             hp = _mic_clamp(hp, min(1.0, two), box)  # camera counts, so the tightest box
     return hp, big
+
+
+def rest_life(perf, s: str, t: float) -> tuple:
+    """((fwd, out, up) cm, {finger: deg}) for the desk rest: the track's drift along the desk (never into it) and its
+    finger micro-motion at half, so the hands resting there are never frozen either."""
+    tr = _tracks(perf)[s]
+    off, _, _, fing = tr.micro(t, 0.0, False)
+    return (DESK_DRIFT * off[0], DESK_DRIFT * off[1], 0.0), {f: 0.5 * v for f, v in fing.items()}
 
 
 def weights(perf, t: float) -> dict:
