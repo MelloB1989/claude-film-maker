@@ -1209,8 +1209,27 @@ def track_frame(perf, plan, F, i: int, t: float) -> dict:
     as frozen)."""
     return {"f": i, "t": round(t, 4), "speak_w": round(plan.speak_w(t), 3),
             "gesture_w": {s: round(perf.gesture_w(s, t), 3) for s in "lr"},
-            "p": {b: [round(x, 4) for x in perf.actor(F[b][0])] for b in TRACK_BONES if b in F},
+            "p": {b: [round(x, 4) for x in perf.actor(F[b][0])] for b in TRACK_BONES if b in F} | finger_tips(perf, F),
             "hand_q": {s: [round(x, 5) for x in F["hand_" + s][1]] for s in "lr"}}
+
+
+TIP_K = {"thumb": 0.9}  # the distal phalanx (no bone of its own) x the _03 bone's own length; 0.85 for the fingers
+
+
+def finger_tips(perf, F) -> dict:
+    """{'<finger>_tip_<s>': actor point}: each _03 bone's head + its axis x the distal phalanx's length (TIP_K x the
+    _03 bone's own length, from the rig), so the rows can measure the DIP (agent-13, R7 hands)."""
+    out = {}
+    for s in "lr":
+        sign = 1.0 if s == "l" else -1.0
+        for f in ("thumb", "index", "middle", "ring", "pinky"):
+            j = f"{f}_03_{s}"
+            if j not in F or j not in perf.sk.local:
+                continue
+            L = TIP_K.get(f, 0.85) * norm(perf.sk.local[j]["t"])
+            tip = add(F[j][0], mul(qrot(F[j][1], [sign, 0.0, 0.0]), L))
+            out[f"{f}_tip_{s}"] = [round(x, 4) for x in perf.actor(tip)]
+    return out
 
 
 def track_doc(plan, fps: int, frames: list) -> dict:
