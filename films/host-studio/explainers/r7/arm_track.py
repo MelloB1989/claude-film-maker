@@ -47,7 +47,7 @@ def main() -> None:
         F = perf.fk({**const, **perf.pose(t)})
         frames.append({"f": i, "t": round(t, 4), "speak_w": round(plan.speak_w(t), 3),
                        "gesture_w": {s: round(perf.gesture_w(s, t), 3) for s in "lr"},
-                       "p": {b: [round(x, 2) for x in perf.actor(F[b][0])] for b in BONES if b in F},
+                       "p": {b: [round(x, 4) for x in perf.actor(F[b][0])] for b in BONES if b in F},
                        "hand_q": {s: [round(x, 5) for x in F["hand_" + s][1]] for s in "lr"}})
     ev = [{"hand": e.hand, "kind": e.kind, "prep": e.prep, "stroke": e.stroke, "hold": e.hold,
            "line": getattr(e, "line", "")} for e in plan.events]
