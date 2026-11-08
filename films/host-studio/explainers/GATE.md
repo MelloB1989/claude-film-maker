@@ -177,6 +177,11 @@ box):** TEST spans 0-179 + 422-480: every row passes (lag 33.2, a thin margin ov
 Whole take: finger_snap 6.41/min FAIL (line 2; 4.27 on 5ea6ab94), every other row passes (lag 81.5), so his FINALS are NO-GO until
 agent-01's snap fix, which must leave the TEST spans' motion unchanged.
 
+**His 3c2adc79 on T (agent-06):** body build PASS (writes, issues []; hif MCU 0.681, CU 0.281, MCU_L 0.615, WIDE 1.0).
+TEST NO-GO in both sweep variants: lag_hand_ms 29.83 / 29.97 (the hand leads by 271 ms at t 6.3 s in span 0-179) and
+rest_contact_bad 1 (tips only, t 0.6 s). Whole-take snaps 5.34 (base) / 6.41 (finals only). T stopped; his read was
+deleted on the box. A TEST-only waiver is the orchestrator's to give, not the gate's.
+
 ## Verdicts
 
 ### Netflix v2b: REJECTED BY THE OPERATOR (07 Nov, about 23:45 IST). The SIGN below is SUPERSEDED.
