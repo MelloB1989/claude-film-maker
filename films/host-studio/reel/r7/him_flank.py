@@ -236,6 +236,12 @@ def _editor(G: dict):
                 if r < 15.0:
                     bins[int(t * 20)].append(r)
             R[side] = [round(sorted(b)[int(0.9 * (len(b) - 1))], 3) if b else None for b in bins]
+            # bins with no fully arm-weighted vertex (his shoulder half: MetaHuman's helpers share the weight) take
+            # the nearest measured bin's radius, so the tube is measured over all of T_RANGE (box T m1: t < 0.4 empty)
+            got = [i for i, r in enumerate(R[side]) if r is not None]
+            if got:
+                R[side] = [R[side][i] if R[side][i] is not None else R[side][min(got, key=lambda j: abs(j - i))]
+                           for i in range(20)]
         # the outfit's torso verts per side (bind), their dominant bone and arm weight
         gdm = asset_dm(gmesh)
         gp = verts(gdm)
@@ -254,7 +260,8 @@ def _editor(G: dict):
             # the upper arm = sleeve): a flank vertex skinned mostly to the arm but nearer the spine is torso here
             # too, so it is measured and pushed. Slot 1 = how far into the sleeve, cm (d_spine - d_arm; <= 0 torso)
             sl = seg_dist(p, H["pelvis"], H["neck_01"]) - seg_dist(p, H[f"upperarm_{side}"], H[f"lowerarm_{side}"])
-            zone[v] = [side, round(sl, 3), dom, [round(x, 4) for x in p]]
+            aw = sum(w for i, w in ws if 0 <= i < len(gnames) and gnames[i].startswith(ARM))
+            zone[v] = [side, round(sl, 3), dom, [round(x, 4) for x in p], round(aw, 3)]
         doms = sorted({z[2] for z in zone.values()})
         refT = {b: [list(v3(gref[b].translation)), [gref[b].rotation.x, gref[b].rotation.y, gref[b].rotation.z,
                                                      gref[b].rotation.w]] for b in doms}
@@ -265,7 +272,8 @@ def _editor(G: dict):
         with open(os.path.join(out_dir, "accum.json"), "w") as fh:
             json.dump({}, fh)
         return {"garment": S["garment_asset"], "body": S["body_asset"], "verts": len(gp), "zone_verts": len(zone),
-                "zone_sleeve": sum(1 for z in zone.values() if z[1] > 0), "R_l": R["l"], "R_r": R["r"],
+                "zone_sleeve": sum(1 for z in zone.values() if z[1] > 0 and z[4] > 0.5),
+                "zone_near_arm_spine_weighted": sum(1 for z in zone.values() if z[1] > 0 and z[4] <= 0.5), "R_l": R["l"], "R_r": R["r"],
                 "dominant_bones": doms[:40]}
 
     S = json.load(open(setup_path))
@@ -286,8 +294,11 @@ def _editor(G: dict):
             a_dir = unit(sub(e, s))
             Rs = S["R"][side]
             worst, n_need = None, 0
-            for vs, (zs, aw, dom, _) in S["zone"].items():
-                if zs != side or aw > 0:
+            for vs, (zs, _sl, dom, _p, _aw) in S["zone"].items():
+                # EVERY zone vertex is measured (round 7, agent-02's LAYERS: in his A-pose ref the flank under the
+                # armpit is nearer the upper arm than the spine, so a geometric split dropped exactly the flank the
+                # relaxed arm lies on). Sleeve cloth round the arm reads need 0 by itself (it is outside the tube)
+                if zs != side:
                     continue
                 p = gpos[int(vs)]
                 t = seg_t(p, s, e)
@@ -361,14 +372,17 @@ def _editor(G: dict):
         zone = {int(k): tuple(z[3]) for k, z in S["zone"].items()}
         needs = {int(k): (v[0], tuple(v[1])) for k, v in acc.items()}
         F = field(zone, needs, cap, float(G.get("CORE", CORE_CM)), float(G.get("FALL", FALL_CM)))
-        aw = {int(k): z[1] for k, z in S["zone"].items()}
+        sl = {int(k): z[1] for k, z in S["zone"].items()}
+        aw = {int(k): z[4] for k, z in S["zone"].items()}
         src = S["garment_asset"]
         gdm = asset_dm(EAL.load_asset(src))
         gp = verts(gdm)
         new = list(gp)
         moved = {"l": [0, 0.0], "r": [0, 0.0]}
         for v, (mag, d) in F.items():
-            damp = min(1.0, max(0.0, 1.0 - aw[v] / SLEEVE_FADE))  # the sleeve takes a fading share: no step at the armhole
+            # full on every vertex that needs it and on spine-weighted cloth; only the true sleeve (arm-weighted AND
+            # nearer the arm) round a needing vertex fades, over SLEEVE_FADE cm into it: no step at the armhole
+            damp = 1.0 if (v in needs or aw[v] <= 0.5) else min(1.0, max(0.0, 1.0 - sl[v] / SLEEVE_FADE))
             mag *= damp
             if mag <= 1e-4:
                 continue
