@@ -828,6 +828,8 @@ def main(argv=None):
     ap.add_argument("--meta", help="a solved track (arm_track.json, 30 fps) to take speak_w / gesture_w / events / "
                                    "on_cam from, BY TIME, for an editor dump that carries only joint positions")
     ap.add_argument("--full", action="store_true", help="print the full report, not only the rows")
+    ap.add_argument("--gate", help="write the gate's numbers contract for the FIRST track: {gate: {row: {value, where}}} "
+                                   "(numbers/<film>/naturalness.json)")
     a = ap.parse_args(argv)
     res = {}
     for p in a.tracks:
@@ -856,6 +858,13 @@ def main(argv=None):
         print(json.dumps({n: res[n]["report"] for n in names}, indent=1, default=str))
     if a.json:
         Path(a.json).write_text(json.dumps(res, indent=1, default=str))
+    if a.gate:
+        n0 = names[0]
+        where = f"{Path(a.tracks[0]).name} (30 fps track), " + \
+            (("seq spans " + " + ".join(a.span) + " @ %g fps by time" % a.seq_fps) if a.span else "whole take")
+        g = {k: {"value": (None if isinstance(v["value"], float) and v["value"] != v["value"] else v["value"]),
+                 "where": where} for k, v in res[n0]["rows"].items()}
+        Path(a.gate).write_text(json.dumps({"gate": g, "source": "r7/naturalness.py (agent-13)"}, indent=1) + "\n")
 
 
 if __name__ == "__main__":
