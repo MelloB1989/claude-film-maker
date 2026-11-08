@@ -833,6 +833,7 @@ class Performer(S.Seater):
         wg = self._wg.get(s, 1.0) if wg is None else wg
         return self.tor if self.tor.gate is None or wg < 0.5 else replace(self.tor, side_pad=0.0)
 
+    GOAL_DESK_CM = 6.0  # cm a gesture goal's wrist keeps over the desk's wrist contact line
     TIP_DESK_CM = 4.0  # cm over the desk the forearm-line fingertip keeps in a gated swivel (the fingers curl below it)
     REST_LIFT_CM = 3.0  # cm a gated rest's elbow rises at most over its desk contact (the orchestrator: forearm on the
     #   desk, the elbow not hanging; the outfit refit takes what this leaves)
@@ -856,8 +857,21 @@ class Performer(S.Seater):
         the body nor back behind the shoulder), the lowest; none clearing: the clearest (while she speaks; the desk
         rest keeps its pole)."""
         elbow, wr = S.two_bone(sh, wrist, l1, l2, pole)
-        if ws < 0.5:
+        f0, f1 = self.SWIVEL_FADE
+        if ws <= f0:
             return elbow, wr
+        e_s, w_s = self._swivel_core(s, sh, wrist, l1, l2, pole, W, elbow, wr)
+        k = smooth(min(1.0, (ws - f0) / (f1 - f0)))
+        if k >= 1.0:
+            return e_s, w_s
+        # faded in over the landing (agent-08: a hard switch at ws 0.5 dropped her elbow at 142-216 cm/s in the frame
+        # before the wrist landed, a snap): the elbow's direction blended, then solved on the arm's circle again
+        pb = add(mul(sub(elbow, sh), 1.0 - k), mul(sub(e_s, sh), k))
+        return S.two_bone(sh, wrist, l1, l2, pb)
+
+    SWIVEL_FADE = (0.3, 0.7)  # the speaking weight over which the swivel's choice fades in from the plain solve
+
+    def _swivel_core(self, s, sh, wrist, l1, l2, pole, W, elbow, wr):
         A = {b: self.actor(W[b][0]) for b in ("spine_03", "spine_05")}
         axis = unit(sub(wr, sh))
         side = self.fr[1] if s == "r" else mul(self.fr[1], -1.0)
@@ -1311,11 +1325,22 @@ class Performer(S.Seater):
             self.face_log.append({"t": round(e.stroke, 2), "s": s, "down_cm": round(dz, 1), "cleared": hi_ok is not None})
             return out
 
+        desk_floor = self.set.desk_top + self.sy.wrist_r + self.GOAL_DESK_CM
+
+        def desk_fit(hp: HandPose, s: str, e) -> HandPose:
+            """a goal over the desk keeps its wrist GOAL_DESK_CM over the desk's contact line (a low beat put his
+            pinky 0.3 cm into the desk, proxy 32.8 s): raised the least that clears it."""
+            x, z = st_pt[0] + hp.off[0], st_pt[2] + hp.off[2]
+            if x < self.set.desk_near or z >= desk_floor:
+                return hp
+            self.face_log.append({"t": round(e.stroke, 2), "s": s, "down_cm": round(z - desk_floor, 1), "desk": True})
+            return replace(hp, off=(hp.off[0], hp.off[1], hp.off[2] + desk_floor - z))
+
         for e in self.plan.events:
             if e.hand in ("r", "both"):
-                e.pose_r = face_fit(fit(e.pose_r, "r"), "r", e)
+                e.pose_r = desk_fit(face_fit(fit(e.pose_r, "r"), "r", e), "r", e)
             if e.pose_l is not None and e.hand in ("l", "both"):
-                e.pose_l = face_fit(fit(e.pose_l, "l"), "l", e)
+                e.pose_l = desk_fit(face_fit(fit(e.pose_l, "l"), "l", e), "l", e)
         self.mic_log = self._mic_plan(st_pt)  # after the fit: the goals as they will be played
         self.rest_fit = {s: fit(HIGH_REST, s, rest=True).off for s in "lr"}
         self._gs_tracks = None  # the style track was drawn (torso() asks for its weights) from the unfitted goals
