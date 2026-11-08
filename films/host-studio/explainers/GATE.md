@@ -73,6 +73,10 @@ eye on CAM_MCU f0-100 (box C):
   are kept for the key beats (agent-11 lowers some if more than ~1/3 are high). The rest-elevation line stays 30 deg.
   agent-13 updates the rows.
 
+**Parity (the orchestrator, 08 Nov):** agent-13's shoulder-relative parity (r7/parity.py --shoulder) is THE parity
+gate. It runs on the RENDERED dump (seat + life), with a 1.0 cm line, and supersedes the seat-only check and the 1.2
+sanity row.
+
 **The clock (08 Nov):** the sequence, editor and composite are 24 fps; agent-01's arm_track is 30 fps. Every row maps
 frames by TIME (the orchestrator's rule). Matched frame-to-frame, the 'stale life layer' readings (44 / 47 cm) were a
 clock artefact and are VOID (agent-13): time-matched, the editor agrees with the track to ~0.35 cm. agent-09's tools:
