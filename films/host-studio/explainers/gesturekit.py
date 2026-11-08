@@ -1401,7 +1401,7 @@ def build(data: dict, st, sy, sheet: dict, cues: dict, tilts: list, length_s: fl
     for the bones that never move, per key for spine, neck, head, clavicles, arms, hands and fingers). Returns (doc
     for perform.py's WRITE, summary with the checks and the body rows' numbers)."""
     sk = S.Skeleton.from_read(data)
-    plan = catalogue_plan(on_cam) if catalogue else plan_from_sheet(
+    plan = catalogue_plan() if catalogue else plan_from_sheet(
         sheet, cues, tilts, timing=timing, on_cam=on_cam, close_alive=length_s if close_alive else None, mic_cams=mic_cams)
     se, tuned = S.autotune(sk, st, sy)
     perf = Performer(sk, st, se.sy, plan)
