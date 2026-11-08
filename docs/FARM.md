@@ -210,3 +210,45 @@ film-farm up F -n N --ami ami-...                           # workers with no sy
 ```
 
 An image costs its snapshots (~300 GB gp3 snapshot, ~$15/month) until it is deregistered and its snapshots deleted.
+
+## 8. Kill switch (every GPU box in the region, enforced by AWS itself)
+
+The farm's own idle and TTL checks run on the boxes and on whoever drives them. The kill switch does not: it lives
+entirely in AWS, so a box is stopped even when the laptop, the fleet or the box's own worker is gone. It covers
+**every** GPU instance in the region (families `g*`, `gr*`, `p*`, whatever project launched it), and only those.
+It **stops**; it never terminates.
+
+| Piece | What it does |
+|---|---|
+| `killswitch-idle-<instance-id>` (one CloudWatch alarm per GPU box) | `AWS/EC2 CPUUtilization` Average **< 4 %** for **5 consecutive 5-min periods** (25 min) → `arn:aws:automate:<region>:ec2:stop`. Missing data is *not breaching*, so a stopped box stays quiet. An idle editor sits near 3 %; solves and renders run 20-30 %+. |
+| `killswitch-reaper` (Lambda, Python 3.12, 128 MB), every 10 min from `killswitch-reaper-schedule` (EventBridge Scheduler) | (a) arms the alarm on every running GPU box that has none; (b) stops a running GPU box whose uptime (since its last start) is over its `TTLHours` tag, **12 h** without one; (c) deletes killswitch alarms whose instance is terminated or gone; (d) logs every action as a JSON line in `/aws/lambda/killswitch-reaper` (30 days). |
+| `killswitch-reaper-role` | `ec2:DescribeInstances`; `ec2:StopInstances` only where `ec2:InstanceType` is `g*`/`p*`; `cloudwatch:PutMetricAlarm`/`DeleteAlarms` only on `alarm:killswitch-*` (`DescribeAlarms`, a read, on `*`); its own log stream. No terminate. |
+| `killswitch-reaper-schedule-role` | lets the schedule invoke the function, nothing else. |
+
+**Opting a box out.** Tag it `KillSwitch=off` (a deliberate long job; the orchestrator sets it explicitly). The
+reaper then skips its TTL and deletes its idle alarm on its next run (within 10 min): until then the old alarm can
+still fire, so for a job that starts idle, tag first and wait for the reaper (or run `invoke`). Remove the tag and
+the alarm comes back on the next run. To give a box longer than 12 h without opting out, tag `TTLHours=<h>`.
+
+**Not covered.** A *one-time* spot instance cannot be stopped (only terminated); the alarm and the reaper both fail
+on it, and the reaper logs the error. The farm's spot workers are persistent requests, which stop fine. A box that
+is busy for more than its TTL is stopped mid-job: that is what `TTLHours` / `KillSwitch=off` are for.
+
+From `tools/`, where the AWS CLI has the account (the account id is read at run time, never written down):
+
+```
+python -m filmtools.farm.killswitch.deploy show                  # the alarm, IAM and schedule documents
+python -m filmtools.farm.killswitch.deploy dry-run               # what the reaper would do now; changes nothing
+python -m filmtools.farm.killswitch.deploy calibrate --name 'ue-box-b*' --hours 48   # would the alarm have fired?
+python -m filmtools.farm.killswitch.deploy deploy                # create or update (idempotent)
+python -m filmtools.farm.killswitch.deploy invoke                # one run now, with its log
+python -m filmtools.farm.killswitch.deploy drill-alarm i-0abc --period 60   # 5 x 1 min (needs detailed monitoring)
+python -m filmtools.farm.killswitch.deploy undeploy              # schedule, function, roles and every killswitch alarm
+python -m filmtools.farm.killswitch.deploy undeploy --keep-alarms --purge-logs
+```
+
+`undeploy` leaves the service-linked role `AWSServiceRoleForCloudWatchEvents` (every alarm's EC2 action runs as it)
+and, unless `--purge-logs`, the log group. The reaper does not rewrite an alarm that exists, so after changing the
+threshold, `undeploy --keep-alarms` is wrong: delete the alarms (plain `undeploy`, then `deploy`) and the reaper
+re-arms them with the new numbers within 10 min. The Lambda is `tools/filmtools/farm/killswitch/reaper.py`, alone
+(standard library and the runtime's boto3); its tests are `tools/tests/test_killswitch.py`.
