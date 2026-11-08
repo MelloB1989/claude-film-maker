@@ -6,6 +6,7 @@
 #   comp_box.sh netflix v3                         # her finals from /srv/ue/explainer/renders/netflix/final
 #   comp_box.sh whatsapp v1 "" "48 240 600"
 #   PLACEHOLDER=1 comp_box.sh whatsapp p1 none     # graphics-only dry run (missing shots become labelled slugs)
+#   PRES_S3=private/renders/r7/farm/explain/netflix/final comp_box.sh netflix v3   # r7: the farm's finals, synced first
 #
 # SRC is this checkout's root (default: the tree this script sits in); TOOLS a tools/ with filmtools for qc_ok
 # (default: SRC/tools if present, else /srv/ue/r5tree/tools). Outputs: /srv/ue/explain/<film>/out_<tag>/.
@@ -21,6 +22,11 @@ GFXP=${GFXP:-gfx/v3/explain-$FILM}  # the v3 graphics (orchestrator); GFXP=gfx/e
 GFX=/srv/ue/explain/$FILM/gfx_${GFXP//\//_}
 OUT=/srv/ue/explain/$FILM/out_$TAG
 [ -z "$PRES" ] && PRES=/srv/ue/explainer/renders/$FILM/final
+# r7: the finals come from the render farm (agent-07): shot<NN>_<CAM>/<frame>.png under PRES_S3, synced onto this box
+if [ -n "${PRES_S3:-}" ]; then
+    PRES=/srv/ue/explain/$FILM/pres_${PRES_S3//\//_}
+    aws s3 sync --only-show-errors "$B/$PRES_S3/" "$PRES/"
+fi
 UV="nice -n 10 $HOME/.local/bin/uv run --no-project --with pillow --with imageio-ffmpeg --with numpy"
 
 aws s3 sync --only-show-errors --delete --exclude 'review/*' --exclude '*.tar' --exclude '_*' "$B/$GFXP/" "$GFX/"
