@@ -1523,7 +1523,7 @@ class Performer(S.Seater):
         if rec is not None:  # the priming pass: what each frame wants, unguarded
             rec[s].append((t, self._palm_want(s, fingers, across, d0, a0, t, fa)))
             return fingers, across
-        ang = self._palm_at(s, t - self.PALM_DELAY)
+        ang = self._palm_at(s, t - self.PALM_DELAY + self.EASE_LEAD * self.ease_at(t))
         if not ang:
             return fingers, across
         q = axis_angle(fa, ang)
@@ -1540,6 +1540,26 @@ class Performer(S.Seater):
     PALM_DELAY = 0.05  # s the curve runs behind the frame's want (the zero-phase turn led the upper arm: lag_hand_ms;
     #   on d1869ce7 + this, agent-13's rows: W 24 / 0.055 lag_hand 38, snaps 0, palm_to_camera 0, radial 2.7; 22 / 0.05
     #   passes too; 20 / 0.045 lag 20; 22 / 0.06 a palm frame at 17.3)
+    # arrivals eased by time (agent-08, his whole-take snaps at l 11.9, 34.7, 35.2, 51.5, r 21.2): at each the wrist
+    #   stops dead while the guard's zero-phase turn (centred on the arrival) peaks at 380-690 deg/s and the hand's own
+    #   turn, ROT_LAG_S behind the path, at 170-240; a slower spring only spreads the same turn round the stop (box T:
+    #   PALM_W 20 snaps 5.34, 28 4.27). Within EASE_HALF of a time in EASE_AT (ramped over EASE_RAMP) the guard's curve
+    #   runs EASE_LEAD s ahead and the hand's turn EASE_ROT of ROT_LAG_S less behind, both done by the stop; outside the
+    #   windows nothing changes (his TEST spans bit-identical). EASE_AT per presenter in perform.TUNE_OF; off at 0 / 0
+    EASE_AT: tuple = ()
+    EASE_HALF = 0.35  # s each side of a time
+    EASE_RAMP = 0.15  # s the window fades in / out over
+    EASE_LEAD = 0.0  # s (his proxy: 0.1 stopped turn worst 525 -> 272 deg/s, snaps 0; 0.2 overshoots, snaps 3.2)
+    EASE_ROT = 0.0  # of ROT_LAG_S taken off in a window (1: the turn in step with the path)
+
+    def ease_at(self, t: float) -> float:
+        """0..1: how far t is inside an EASE_AT window."""
+        e = 0.0
+        for c in self.EASE_AT:
+            x = abs(t - c) - self.EASE_HALF
+            e = max(e, 1.0 if x <= 0 else smooth(1.0 - x / self.EASE_RAMP))
+        return e
+
     PALM_DT = 1.0 / 30.0  # s the guard's curve is sampled at (linear between; the pass costs one pose per sample)
 
     def _palm_at(self, s, t):
