@@ -407,7 +407,8 @@ def job():
                                 P["perform"]["cues"], P["perform"]["tilts"], P["length_s"], P["fps"],
                                 timing=P["perform"].get("timing"), on_cam=P["perform"].get("on_cam"),
                                 **({"frame_want": P["perform"]["frame_want"]} if P["perform"].get("frame_want") else {}),
-                                **({"track_out": P["perform"]["track_out"]} if P["perform"].get("track_out") else {}))
+                                **({"track_out": P["perform"]["track_out"]} if P["perform"].get("track_out") else {}),
+                                **({"close_alive": True} if P["perform"].get("close_alive") else {}))
     else:
         gs = [S.Gesture(**x) for x in P["gestures"]]
         doc, summary = S.build(data, S.Set(**P["set"]), S.Style(**P["style"]), gs, P["length_s"], P["fps"])
@@ -469,7 +470,8 @@ def perform_params(who: str) -> dict:
         tilts = tilts.get("tilts", [])
     timing = json.loads((a / f"timing_{who}.json").read_text()) if (a / f"timing_{who}.json").exists() else None
     return {"sheet": json.loads((a / f"{who}.json").read_text()), "cues": cues(who), "tilts": tilts, "timing": timing,
-            "on_cam": cue_sheet(who)["on_cam"], "frame_want": FRAME_WANT_WHO.get(who)}
+            "on_cam": cue_sheet(who)["on_cam"], "frame_want": FRAME_WANT_WHO.get(who),
+            "close_alive": who == "him"}  # his last 2 s (behind the closing graphic) stay at the speaking rest
 
 
 # per presenter, over gesturekit.FRAME_WANT: her CAM_MCU hands-in-frame line is 0.5 (the orchestrator, 08 Nov, r7F: a
