@@ -3548,7 +3548,7 @@
      "amp": 0.55,
      "held": false,
      "target": "front",
-     "apex_height": "chin",
+     "apex_height": "collarbone",
      "start_word": "hundred",
      "note": "the hook's spread again, smaller (CU)",
      "word_i": 153
@@ -3638,7 +3638,7 @@
       "amp": 0.55,
       "held": false,
       "target": "front",
-      "apex_height": "chin"
+      "apex_height": "collarbone"
      },
      {
       "type": "open",
