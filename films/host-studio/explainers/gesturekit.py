@@ -650,6 +650,12 @@ class Performer(S.Seater):
             sh = self._fk_t(ua, cl, W)
             l1, l2 = self.A[s]
             wrist, hp, pole, ws, _ = self.hand_targets(s, t, W)
+            k_rest = max(1.0 - ws, 1.0 - self.gesture_w(s, t))  # at the pause rest or the speaking (desk) rest
+            if k_rest > 0.0:  # (R7 hands) the heel of the palm down on the desk, not a hand tented on its pads
+                a_w = self.actor(wrist)
+                z_want = self.set.desk_top + self.REST_WRIST
+                if a_w[2] > z_want:
+                    wrist = add(wrist, mul(sub(self.comp([a_w[0], a_w[1], z_want]), wrist), k_rest))
             elbow, wrist = self.swivel(s, sh, wrist, l1, l2, pole, W, ws)
             back = ortho(sub(elbow, sh), unit(sub(wrist, sh)))
             W[ua] = [sh, self._aim(ua, la, sub(elbow, sh), back, front_rest=mul(f, -1.0))]
@@ -658,7 +664,6 @@ class Performer(S.Seater):
             self._finger_pose(s, hp, W)
             if STYLE_HOOK is not None and hasattr(STYLE_HOOK, "finger_post"):
                 STYLE_HOOK.finger_post(self, s, hp, W)  # e.g. the fingers' spread in the palm's plane
-            k_rest = max(1.0 - ws, 1.0 - self.gesture_w(s, t))  # at the pause rest or the speaking (desk) rest
             if k_rest > 0.0:
                 self._desk_contact(s, W, k_rest)
         # the breath (the orchestrator, 09 Nov: in the SEAT, so the arm rows and parity see what renders): the chest
@@ -1308,6 +1313,8 @@ class Performer(S.Seater):
                 parent = j
 
     DESK_TIP = 0.9  # cm a resting hand's lowest fingertip (its centre line) over the desk top: the pad on it
+    REST_WRIST = 3.2  # cm the resting wrist joint over the desk top at most: the heel of the palm on it (agent-13's
+    #   rest_contact 'tented' line is 3.5; seatkit's desk.wrist floor is forearm_clear - 0.3 = 2.5)
     DESK_THUMB = 0.6  # cm the thumb's joints keep over the desk top (seatkit's desk.finger line is 0.4)
     DESK_PITCH_MAX = 14.0  # deg the contact solve pitches the hand at most
 
