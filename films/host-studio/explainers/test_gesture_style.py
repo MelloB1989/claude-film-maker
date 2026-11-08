@@ -174,6 +174,25 @@ def test_mic_rule_tests_only_the_cut_camera():
     assert cc(Pf, 1.5, 4.5) == [Pf.set.cams["CAM_MCU"], Pf.set.cams["CAM_MCU_L"]]  # a gesture over the cut: both
 
 
+def test_two_hand_scaling_keeps_the_hand_in_the_cut_camera():
+    """the orchestrator, 08 Nov: his right scaled down toward the desk rest left his CU (53% -> 9%)"""
+    import perform as P
+    pf = GK.Performer.__new__(GK.Performer)
+    pf.set, pf.mic_side = P.set_of("him"), "l"
+    pf.set.rigs = P.SET.rigs
+    st_pt = [3.2, 0.9, 83.6]  # (his proxy's sternum point)
+    for cam in ("CAM_CU", "CAM_MCU"):
+        e = ev("both", 6.5, 6.8, off=(10.0, 20.1, 22.0))
+        p0 = e.pose_l
+        far = GK.replace(p0, off=tuple(GK.HIGH_REST.off[i] + 1.7 * (p0.off[i] - GK.HIGH_REST.off[i]) for i in range(3)))
+        e.mic_from, e.mic_moved = {"l": (far, 11.0)}, frozenset("l")
+        pf.plan = GK.Plan([e], [], [], on_cam=[[0.0, 20.0, cam]])
+        r0 = e.pose_r
+        log = pf._two_hand([], st_pt)
+        v0, v1 = pf.picture_v(r0.off, "r", st_pt, 6.0, 7.0)[0], pf.picture_v(e.pose_r.off, "r", st_pt, 6.0, 7.0)[0]
+        assert log and log[0]["scaled"] < 1.0 and v1 <= max(v0 + pf.FRAME_SLACK, pf.FRAME_V_MAX) + 1e-6, (cam, log, v0, v1)
+
+
 def test_build_on_her_skeleton_passes_with_the_hooks(tmp_path):
     """gesturekit.build with the hooks on her skeleton read, the first 6 s of her sheet (the hook N01-N02)."""
     import perform as P
