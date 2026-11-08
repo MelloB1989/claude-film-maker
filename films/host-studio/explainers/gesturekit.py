@@ -94,7 +94,7 @@ def gesture_pose(g: dict, hand: str, count_n: int) -> HandPose:
         return HandPose((28.0, 12.0 + so, 0.0), pron=88.0, ext=10.0, shape="open")  # palms facing: the span
     if kind == "count":
         # to her right at chest height, out wide (from her right-front cameras a high count hand sat over the mic)
-        return HandPose((20.0, 28.0, 0.0), pron=95.0, ext=40.0, shape=f"count{max(1, min(3, count_n))}")
+        return HandPose((20.0, 28.0, 0.0), pron=95.0, ext=12.0, shape=f"count{max(1, min(3, count_n))}")
     if kind == "deictic":
         if "left" in target or "panel" in target:  # her left = the panel side: cross-body, under the mic head
             # palm turned toward the panel, the hand near her midline and forward: a cross-body arm pressed into
@@ -102,7 +102,7 @@ def gesture_pose(g: dict, hand: str, count_n: int) -> HandPose:
             return HandPose((36.0, 8.0, 0.0), pron=-60.0, ext=12.0, shape="open")
         return HandPose((26.0, 24.0, 10.0), pron=-20.0, ext=15.0, shape="open")  # her right, up
     if detail in ("raise_finger",):
-        return HandPose((18.0, 27.0, 4.0), pron=80.0, ext=45.0, shape="point")  # out to her right: clear of the mic
+        return HandPose((18.0, 27.0, 4.0), pron=80.0, ext=12.0, shape="point")  # out to her right: clear of the mic
     if detail in ("press",):
         return HandPose((28.0, 10.0, -3.0), pron=5.0, ext=0.0, shape="relaxed")
     if detail in ("pinch",):
