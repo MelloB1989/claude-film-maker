@@ -87,6 +87,13 @@ by ruling (A); bust 3.7 / side 0.5 PASS; hands_in_frame MCU 0.61 (netflix 0.5), 
 **Gate owner (09 Nov, later):** agent-13 is rate-limited to Tue 11:30; agent-04 runs the gate on
 `fleet/agent-04/r7-gate` (off agent-13's 95374c60), with agent-13's tools as they stand (r7-movement ccc46755).
 
+**Her watch DROPPED (the operator, 09 Nov):** "the left hand with watch looks very bad, watch is clipping through
+hand, drop the watch" (r7I WIDE: the band and body cut into her wrist and hand as the wrist bends). agent-05 removes the
+watch from her level of record in the set/garment setup code, not with a visibility key, so every future dress keeps it
+off. agent-06 applies it at the start of the next T2 session, before her chain. The gate has no watch clearance row
+to drop. The evidence is a still in the keys (WIDE f1080, 2x crop of the left wrist), and the orchestrator checks it by
+eye. Him: unchanged; the orchestrator checks his wrist on his TEST, and the same rule applies if it clips.
+
 ## Verdicts
 
 ### Netflix v2b: REJECTED BY THE OPERATOR (07 Nov, about 23:45 IST). The SIGN below is SUPERSEDED.
