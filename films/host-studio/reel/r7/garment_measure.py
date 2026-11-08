@@ -721,7 +721,8 @@ def arms_compute(D, G, E, cache=None):
             # under the armpit is nearer the upper arm than the spine on its A-pose ref, so SLEEVES=1 dropped it and
             # the arm read the gap's rim, -8): a garment vertex nearest the upper arm is sleeve only if it MOVES WITH
             # THE ARM this frame (its distance to the upper-arm bone keeps from the ref pose better than its distance
-            # to the spine does); else it is flank cloth: torso. Per frame, so the zones are re-flagged too
+            # to the spine does); else it is flank cloth: torso, unless it lies inside the sleeve's tube (hidden).
+            # Per frame, so the zones are re-flagged too
             torso, flags = dict(torso), dict(flags)
             ua0, la0 = B[f"upperarm_{sd}"], B[f"lowerarm_{sd}"]
             for n in parts:
@@ -730,15 +731,23 @@ def arms_compute(D, G, E, cache=None):
                 Pr, Pp = rest[n][0], posed[n][0]
                 a1, b1 = rest_bones[n][0][f"upperarm_{sd}"]
                 sh = rest_bones[n][1][sd]
-                add = []
+                add, keep_d = [], []
                 for i, (bn, _, _) in labels[n].items():
                     if bn != f"upperarm_{sd}" or math.dist(Pr[i], sh) <= ax:
                         continue
-                    da = abs(seg_t(Pp[i], ua0, la0)[0] - seg_t(Pr[i], a1, b1)[0])
+                    dp, tp = seg_t(Pp[i], ua0, la0)
+                    da = abs(dp - seg_t(Pr[i], a1, b1)[0])
                     ds = abs(chain_dist(Pp[i], chain) - chain_dist(Pr[i], rest_chain[n]))
                     if ds + float(G.get("MOVE_TOL", 0.5)) < da:
-                        add.append(i)
-                moved[n] = len(add)
+                        add.append((i, dp))
+                    elif 0.3 <= tp <= 0.9:
+                        keep_d.append(dp)  # the sleeve (moves with the arm): its radius round the bone this frame
+                # cloth INSIDE the sleeve's tube is hidden whatever it does (his LAYERS on SLEEVES=2: the underarm
+                # cloth, half on the spine, dragged through the arm's own volume, read -3.5 as 'torso'): never torso
+                r_sl = sorted(keep_d)[len(keep_d) // 2] if keep_d else 0.0
+                inside = sum(1 for _, dp in add if dp < r_sl - float(G.get("SLEEVE_TOL", 0.5)))
+                add = [i for i, dp in add if dp >= r_sl - float(G.get("SLEEVE_TOL", 0.5))]
+                moved[n] = {"added": len(add), "inside_sleeve": inside, "sleeve_r": round(r_sl, 2)}
                 torso[n] = sorted(set(int(i) for i in torso[n]) | set(int(i) for i in add))
                 flags[n] = E.flags(E.tris(Pr, rest[n][1], torso[n], n, rest_chain[n]), rc0, rest_fwd, front)
         pe = {n: E.tris(posed[n][0], posed[n][1], torso[n], n, chain if n != "Body" else None) for n in parts}
