@@ -210,7 +210,8 @@ if _FLANK.exists() and os.environ.get("EXPL_FLANK", "1") != "0":
     _f = json.loads(_FLANK.read_text())
     GARMENT_SRC["him"].update({_f["garment"]: _f["dest"], "Body": _f["body"]})
     GARMENT_HIDES["him"].append(("Body", _f["garment"], float(_f.get("reach_cm", 2.0)),
-                                 {"inside_cm": float(_f.get("inside_cm", 5.0)), "within": _f["within"]}))
+                                 {"inside_cm": float(_f.get("inside_cm", 5.0)), "within": _f["within"],
+                                  "fill_max": int(_f.get("fill_max", 0))}))
 
 # r7 arm girth (agent-05, the operator 8 Nov ~19:50: "her hand limbs are a little bit (not much) thin compared to her
 # body"): her_outfit_ue/arm_girth.py SCALE 0.10, the upper arm and forearm 10 % fuller round the bone axis (the
