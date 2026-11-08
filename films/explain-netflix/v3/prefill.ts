@@ -58,8 +58,8 @@ export default class Prefill extends MotionScene {
     s.add(this.lib.group, this.box.group, this.hero.group, this.tag.group);
     this.libLabel = this.own(new Label(P ? 'library' : 'Netflix library', { size: em(P ? 44 : 52), role: 'fgDim' }));
     this.libLabel.group.position.set(LIB.x, LIB.y - 0.85, 0.3);
-    this.boxLabel = this.own(new Label(P ? 'box near you' : 'the box near you', { size: em(P ? 44 : 52) }));
-    this.boxLabel.group.position.set(BOX.x - (P ? 0.55 : 0.3), BOX.y - (P ? 0.85 : 0.72), 0.3);
+    this.boxLabel = this.own(new Label(P ? 'box near you' : 'the box near you', { size: em(P ? 44 : 42), align: P ? 'center' : 'right' }));
+    this.boxLabel.group.position.set(P ? BOX.x - 0.55 : BOX.x + 0.7, BOX.y - (P ? 0.85 : 0.72), 0.3); // full: right edge on the gauge, inside title-safe
     s.add(this.libLabel.group, this.boxLabel.group);
     // the fill gauge beside the box
     const gTrack = new THREE.Mesh(new RoundedBoxGeometry(0.12, 1.0, 0.12, 2, 0.04), surfaceMat('#2a211b'));

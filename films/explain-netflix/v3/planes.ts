@@ -79,7 +79,7 @@ export default class Planes extends MotionScene {
     this.aws.group.position.copy(AWS).add(v(0, -0.15, 0.75));
     s.add(this.aws.group);
     const chipNames = ['Login', 'Profiles', 'Recommendations'];
-    const chipAt = [v(-1.05, 0.55, 0.3), v(1.3, 0.55, 0.3), v(0.05, -0.72, 0.6)];
+    const chipAt = [v(-1.05, 0.55, 0.3), v(1.3, 0.55, 0.3), v(-0.6, -0.72, 0.9)];
     chipNames.forEach((n, i) => {
       const l = this.own(new Label(n, { size: em(42), family: F.mono(500), role: 'accent2', k: 1.2 }));
       l.group.position.copy(AWS).add(chipAt[i]!);
@@ -101,7 +101,7 @@ export default class Planes extends MotionScene {
     this.boxLabel.group.position.copy(BOX).add(v(0.15, -0.6, 0.4));
     s.add(this.boxLabel.group);
     this.use = this.own(new Label('use this box', { size: em(44), family: F.mono(500), role: 'accent2', k: 1.3, align: 'right' }));
-    this.use.group.position.copy(BOX).add(v(-0.85, 0.1, 0.3));
+    this.use.group.position.copy(BOX).add(v(-0.95, 0.15, 0.5));
     s.add(this.use.group);
     // the request (screen to AWS), the pointer (AWS to box), the stream (box to screen)
     const tvTop = TV.clone().add(v(0.55, 0.62, 0.1));
