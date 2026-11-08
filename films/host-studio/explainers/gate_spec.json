@@ -1294,8 +1294,8 @@
    "what": "min over on-screen frames, both sides, of the upper arm's SIGNED distance to the BUST / front of the Top (agent-02's mesh measure, the bust/front zone): the arm swallowed by the breast from the camera's view",
    "where": "min over on-screen frames (edl presenter + panel shots), both sides",
    "must_fail": [
-    -8.19,
-    "netflix v2b (arms_v2b3): both upper arms inside the Top/breast through 00:43.5-00:46, the operator's complaint (re-read per zone when agent-02's split lands)"
+    null,
+    "OPEN until the per-zone v2b run (agent-02 asked agent-06 for ~1-2 min on T2 around f1056): the whole-torso -8.19 is the min over both zones, so it proves only that ONE zone row fails, not which (agent-02)"
    ],
    "why": "the orchestrator's ruling (A), 08 Nov: the 3 cm rule is for the operator's complaint (the arm swallowed by the BUST), not for a relaxed arm off the side of the ribcage",
    "r4": [
@@ -1314,8 +1314,8 @@
    "what": "min over on-screen frames, both sides, of the upper arm's SIGNED distance to the SIDE of the torso (agent-02's side zone): no penetration; light contact reads natural",
    "where": "min over on-screen frames, both sides",
    "must_fail": [
-    null,
-    "an arm into the ribcage side (agent-02 to show one); v2b's per-zone reading pending the split"
+    -8.19,
+    "netflix v2b's whole-torso -8.19 (arms_v2b3): any penetration fails side >= 0.5, the safe reading (agent-02) until the per-zone run names the zone"
    ],
    "why": "the orchestrator's ruling (A): vs the side of the torso, no penetration (>= 0.5 cm)",
    "r4": [
