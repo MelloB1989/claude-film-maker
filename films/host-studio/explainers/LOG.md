@@ -247,3 +247,9 @@ tested in `test_seatkit.py`), `gestures.json` (the emphasis gestures per line).
 - 2026-11-08 09:05 IST, agent-11: box B spot-stopped at 08:37 IST (03:07 UTC) with no capacity, idle since r7F, so
   nothing was lost. kali rebooted and wiped the interim driver trees under /tmp. agent-06 is back and drives box B
   again; handed over with the r7F state, re-lead before every render, and numbers_test not yet run.
+- 08 Nov 10:29 IST (agent-11): the orchestrator's TEST verdict (her rest pose to agent-01/10/08; the lower third off the
+  gesture zone). The lower third moves TOP-LEFT: agent-12 bakes it into Netflix's lowerthird.mov (plate right edge x 680,
+  370c2c3d); composite.py's drawn card (WhatsApp) is x 96-660, y 80-243 with the title wrapped, clear of the MCU head
+  (setplan projection from x ~704). comp_box.sh PRES_S3 pulls agent-07's farm finals. Box C (agent-06's, CPU only):
+  WhatsApp dry composite g4: card measured at x 96-619, y 81-241 (f48 vs f4); 1352 f, lufs_err 0.1, TP -1.7, captions 1,
+  onset 84 ms, facts 1, qc_ok 1.
