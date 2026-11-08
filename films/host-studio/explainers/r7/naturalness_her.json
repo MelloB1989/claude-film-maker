@@ -7,7 +7,23 @@
     "line": 45.0,
     "unit": "deg",
     "pass": false,
-    "what": "median upper-arm elevation off hanging (shoulder->elbow vs straight down) at the right hand's stroke apexes: elbows lifted up and out = 'chicken wings'"
+    "what": "median upper-arm elevation off hanging (shoulder->elbow vs straight down) at the right hand's stroke apexes below upper_chest"
+   },
+   "move.humerus_elev_high_deg": {
+    "value": NaN,
+    "op": "<=",
+    "line": 60.0,
+    "unit": "deg",
+    "pass": null,
+    "what": "the same at apexes at/above upper_chest (wrist >= 16 cm over the sternum point; the orchestrator's 60 deg, 08 Nov)"
+   },
+   "move.upperarm_abduction_deg": {
+    "value": 37.654,
+    "op": "<=",
+    "line": 35.0,
+    "unit": "deg",
+    "pass": false,
+    "what": "median upper-arm abduction (out of the sagittal plane) at stroke apexes, worse hand: the elevation must be mostly flexion, toward the camera"
    },
    "move.humerus_elev_rest_deg": {
     "value": 57.966,
@@ -147,6 +163,14 @@
      "humerus_elev_p50": 73.22462034891035,
      "humerus_elev_p90": 73.49451078777794,
      "elbow_drop_p50": 7.924999999999997,
+     "flexion_p50": 71.37844914568419,
+     "abduction_p50": 25.808657893539497,
+     "abduction_p90": 26.353698543634334,
+     "humerus_lo_p50": 73.22462034891035,
+     "humerus_hi_p50": NaN,
+     "humerus_lo_p90": 73.49451078777794,
+     "humerus_hi_p90": NaN,
+     "high_frac": 0.0,
      "humerus_rest_p50": 57.966429537172004
     },
     "r": {
@@ -160,6 +184,14 @@
      "humerus_elev_p50": 60.786703609630834,
      "humerus_elev_p90": 66.57737522611352,
      "elbow_drop_p50": 13.400000000000006,
+     "flexion_p50": 49.927536317339445,
+     "abduction_p50": 37.654109568334675,
+     "abduction_p90": 54.985684866426475,
+     "humerus_lo_p50": 60.786703609630834,
+     "humerus_hi_p50": NaN,
+     "humerus_lo_p90": 66.57737522611352,
+     "humerus_hi_p90": NaN,
+     "high_frac": 0.0,
      "humerus_rest_p50": 57.46296179610214
     }
    },
@@ -331,12 +363,28 @@
  "her_52ab5ea2": {
   "rows": {
    "move.humerus_elev_stroke_deg": {
-    "value": 77.791,
+    "value": 74.471,
     "op": "<=",
     "line": 45.0,
     "unit": "deg",
     "pass": false,
-    "what": "median upper-arm elevation off hanging (shoulder->elbow vs straight down) at the right hand's stroke apexes: elbows lifted up and out = 'chicken wings'"
+    "what": "median upper-arm elevation off hanging (shoulder->elbow vs straight down) at the right hand's stroke apexes below upper_chest"
+   },
+   "move.humerus_elev_high_deg": {
+    "value": 84.69,
+    "op": "<=",
+    "line": 60.0,
+    "unit": "deg",
+    "pass": false,
+    "what": "the same at apexes at/above upper_chest (wrist >= 16 cm over the sternum point; the orchestrator's 60 deg, 08 Nov)"
+   },
+   "move.upperarm_abduction_deg": {
+    "value": 42.736,
+    "op": "<=",
+    "line": 35.0,
+    "unit": "deg",
+    "pass": false,
+    "what": "median upper-arm abduction (out of the sagittal plane) at stroke apexes, worse hand: the elevation must be mostly flexion, toward the camera"
    },
    "move.humerus_elev_rest_deg": {
     "value": 73.096,
@@ -476,6 +524,14 @@
      "humerus_elev_p50": 58.1580269484858,
      "humerus_elev_p90": 58.31622011820964,
      "elbow_drop_p50": 14.484999999999992,
+     "flexion_p50": 49.34565759135736,
+     "abduction_p50": 35.76132308720294,
+     "abduction_p90": 36.20593046840137,
+     "humerus_lo_p50": 58.1580269484858,
+     "humerus_hi_p50": NaN,
+     "humerus_lo_p90": 58.31622011820964,
+     "humerus_hi_p90": NaN,
+     "high_frac": 0.0,
      "humerus_rest_p50": 62.53553742492464
     },
     "r": {
@@ -489,6 +545,14 @@
      "humerus_elev_p50": 77.79098481550223,
      "humerus_elev_p90": 94.73241497898721,
      "elbow_drop_p50": 5.805,
+     "flexion_p50": 73.18378159176038,
+     "abduction_p50": 42.735983693552484,
+     "abduction_p90": 55.454353136975485,
+     "humerus_lo_p50": 74.47122824699574,
+     "humerus_hi_p50": 84.68950891382053,
+     "humerus_lo_p90": 76.43742740757573,
+     "humerus_hi_p90": 99.3774717473609,
+     "high_frac": 0.5,
      "humerus_rest_p50": 73.09636671855839
     }
    },
@@ -657,344 +721,31 @@
    }
   }
  },
- "her_773091c2": {
-  "rows": {
-   "move.humerus_elev_stroke_deg": {
-    "value": 77.972,
-    "op": "<=",
-    "line": 45.0,
-    "unit": "deg",
-    "pass": false,
-    "what": "median upper-arm elevation off hanging (shoulder->elbow vs straight down) at the right hand's stroke apexes: elbows lifted up and out = 'chicken wings'"
-   },
-   "move.humerus_elev_rest_deg": {
-    "value": 63.661,
-    "op": "<=",
-    "line": 30.0,
-    "unit": "deg",
-    "pass": false,
-    "what": "median upper-arm elevation while that hand is at rest (gesture_w < 0.1), worse hand: resting elbows hang"
-   },
-   "move.forearm_elev_deg": {
-    "value": 17.113,
-    "op": ">=",
-    "line": 15.0,
-    "unit": "deg",
-    "pass": true,
-    "what": "median forearm elevation (elbow->wrist above horizontal) at the right hand's stroke apexes: horizontal = 'typing in the air'"
-   },
-   "move.wrist_flexext_p90_deg": {
-    "value": 38.149,
-    "op": "<=",
-    "line": 25.0,
-    "unit": "deg",
-    "pass": false,
-    "what": "p90 over speaking frames of |wrist flexion/extension| (3rd metacarpal vs the forearm), worse hand"
-   },
-   "move.wrist_ulnar_p95_deg": {
-    "value": 38.777,
-    "op": "<=",
-    "line": 25.0,
-    "unit": "deg",
-    "pass": false,
-    "what": "p95 over speaking frames of ulnar deviation, worse hand"
-   },
-   "move.wrist_radial_p95_deg": {
-    "value": 25.754,
-    "op": "<=",
-    "line": 15.0,
-    "unit": "deg",
-    "pass": false,
-    "what": "p95 over speaking frames of radial deviation, worse hand"
-   },
-   "move.shape_wrong_strokes": {
-    "value": 9,
-    "op": "==",
-    "line": 0,
-    "unit": "count",
-    "pass": false,
-    "what": "stroke apexes whose hand is a claw, a pinch outside a 'pinch' gesture, or flat"
-   },
-   "move.shape_claw_frac": {
-    "value": 0.099,
-    "op": "<=",
-    "line": 0.02,
-    "unit": "fraction",
-    "pass": false,
-    "what": "speaking frames with a claw hand (a finger bent back at a middle joint), worse hand"
-   },
-   "move.path_straight_frac": {
-    "value": 0.232,
-    "op": "<=",
-    "line": 0.3,
-    "unit": "fraction",
-    "pass": true,
-    "what": "wrist movements (>= 8 cm) whose path strays < 3 % of its chord: straight lines"
-   },
-   "move.vel_bell_frac": {
-    "value": 0.518,
-    "op": ">=",
-    "line": 0.6,
-    "unit": "fraction",
-    "pass": false,
-    "what": "wrist movements with a peak/mean speed of 1.6-2.3 (minimum jerk 1.875), worse hand"
-   },
-   "move.lag_hand_ms": {
-    "value": -18.222,
-    "op": ">=",
-    "line": 30.0,
-    "unit": "ms",
-    "pass": false,
-    "what": "median onset of the hand's rotation after the upper arm's, per movement (right hand): proximal leads, distal follows"
-   },
-   "move.two_hand_amp_ratio": {
-    "value": 0.258,
-    "op": ">=",
-    "line": 0.5,
-    "unit": "ratio",
-    "pass": false,
-    "what": "two-hand strokes: median wrist travel of the lesser hand over the greater's (a two-hand gesture with one hand parked reads as one hand and a prop)"
-   },
-   "move.mirror_corr_p50": {
-    "value": 0.089,
-    "op": "<=",
-    "line": 0.95,
-    "unit": "corr",
-    "pass": true,
-    "what": "GUARD: two-hand strokes, median correlation of the left wrist velocity with the right's mirrored (1.0 = a mirror copy)"
-   },
-   "move.fingers_frozen_frac": {
-    "value": 0.0,
-    "op": "<=",
-    "line": 0.15,
-    "unit": "fraction",
-    "pass": true,
-    "what": "GUARD: speaking time inside >= 0.5 s runs with the fingers under 2 deg/s, worse hand"
-   }
-  },
-  "report": {
-   "wrist": {
-    "l": {
-     "flexext_abs_p90": 30.988551337052574,
-     "flexext_p50": -30.812202121471454,
-     "flex_max": -14.168961828149916,
-     "ext_max": 33.10848632483834,
-     "ulnar_p95": 29.71445300654573,
-     "radial_p95": 20.17333835738143,
-     "dev_p50": -4.113596974629854
-    },
-    "r": {
-     "flexext_abs_p90": 38.14884513568556,
-     "flexext_p50": -31.22243998790772,
-     "flex_max": 31.135039742162785,
-     "ext_max": 44.98103616163873,
-     "ulnar_p95": 38.77728975026128,
-     "radial_p95": 25.753959079957742,
-     "dev_p50": -19.51400970978911
-    }
-   },
-   "forearm": {
-    "l": {
-     "n": 14,
-     "elev_p50": -6.70266817933908,
-     "elev_p25": -6.877742472568128,
-     "flat_frac": 1.0,
-     "elbow_inside_p50": 86.29396946518715,
-     "abd_p50": 48.00294818687124,
-     "forearm_in_p50": 55.24097213703152,
-     "humerus_elev_p50": 58.194142935812074,
-     "humerus_elev_p90": 58.32109492994906,
-     "elbow_drop_p50": 14.469999999999999,
-     "humerus_rest_p50": 63.66090735785405
-    },
-    "r": {
-     "n": 50,
-     "elev_p50": 17.113202034285464,
-     "elev_p25": 14.586197632221667,
-     "flat_frac": 0.14,
-     "elbow_inside_p50": 93.10757442406151,
-     "abd_p50": 75.00158258049477,
-     "forearm_in_p50": 38.49226628937743,
-     "humerus_elev_p50": 77.97216548693157,
-     "humerus_elev_p90": 94.73241497898721,
-     "elbow_drop_p50": 5.719999999999999,
-     "humerus_rest_p50": 58.262144095172786
-    }
-   },
-   "shape": {
-    "wrong_strokes": 9,
-    "classes": {
-     "point": 29,
-     "relaxed": 26,
-     "claw": 9
-    },
-    "claw_frac": {
-     "l": 0.0,
-     "r": 0.09877977919814061
-    },
-    "flat_frac": {
-     "l": 0.0,
-     "r": 0.0
-    },
-    "cascade_frac": {
-     "l": 1.0,
-     "r": 1.0
-    },
-    "wrong": [
-     {
-      "f": 184,
-      "hand": "r",
-      "kind": "beat",
-      "line": "N03",
-      "shape": "claw"
-     },
-     {
-      "f": 387,
-      "hand": "r",
-      "kind": "size",
-      "line": "N05",
-      "shape": "claw"
-     },
-     {
-      "f": 745,
-      "hand": "r",
-      "kind": "size",
-      "line": "N08",
-      "shape": "claw"
-     },
-     {
-      "f": 868,
-      "hand": "r",
-      "kind": "size",
-      "line": "N09",
-      "shape": "claw"
-     },
-     {
-      "f": 1119,
-      "hand": "r",
-      "kind": "size",
-      "line": "N11",
-      "shape": "claw"
-     },
-     {
-      "f": 1271,
-      "hand": "r",
-      "kind": "size",
-      "line": "N12",
-      "shape": "claw"
-     },
-     {
-      "f": 1327,
-      "hand": "r",
-      "kind": "count",
-      "line": "N13",
-      "shape": "claw"
-     },
-     {
-      "f": 1344,
-      "hand": "r",
-      "kind": "count",
-      "line": "N13",
-      "shape": "claw"
-     },
-     {
-      "f": 1365,
-      "hand": "r",
-      "kind": "count",
-      "line": "N13",
-      "shape": "claw"
-     }
-    ]
-   },
-   "body": {
-    "l": {
-     "near_frac": 0.0,
-     "stroke_fwd_p50": 17.575,
-     "stroke_fwd_p10": 17.262999999999998
-    },
-    "r": {
-     "near_frac": 0.0,
-     "stroke_fwd_p50": 23.145,
-     "stroke_fwd_p10": 19.967000000000002
-    }
-   },
-   "kin": {
-    "l": {
-     "n": 0,
-     "curv_p50": NaN,
-     "straight_frac": NaN,
-     "peak_mean_p50": NaN,
-     "bell_frac": NaN,
-     "v_peak_p50": NaN,
-     "v_peak_max": 0.0
-    },
-    "r": {
-     "n": 56,
-     "curv_p50": 0.06262508303505498,
-     "straight_frac": 0.23214285714285715,
-     "peak_mean_p50": 2.2765619105180184,
-     "bell_frac": 0.5178571428571429,
-     "v_peak_p50": 137.20813984586454,
-     "v_peak_max": 370.22746343428827
-    }
-   },
-   "lag": {
-    "l": {
-     "n": 0,
-     "hand_minus_upper_ms_p50": NaN,
-     "fingers_minus_upper_ms_p50": NaN,
-     "ordered_frac": 0.0
-    },
-    "r": {
-     "n": 56,
-     "hand_minus_upper_ms_p50": -18.222469530849494,
-     "fingers_minus_upper_ms_p50": 28.193329003785905,
-     "ordered_frac": 0.25
-    }
-   },
-   "asym": {
-    "n": 14,
-    "mirror_corr_p50": 0.08900042854755028,
-    "mirror_corr_max": 0.3796376029201318,
-    "onset_diff_ms_p50": 44.17929798636244,
-    "amp_ratio_p50": 0.2580820087154413
-   },
-   "fingers": {
-    "l": {
-     "frozen_frac": 0.0,
-     "frozen_max_s": 0.43290000000000006
-    },
-    "r": {
-     "frozen_frac": 0.0,
-     "frozen_max_s": 0.19980000000000003
-    }
-   },
-   "torso": {
-    "spine_05": {
-     "corr_with_r_wrist": 0.17926540641981675,
-     "mean_cm_s": 0.46076223082162165
-    },
-    "head": {
-     "corr_with_r_wrist": 0.14173683133841417,
-     "mean_cm_s": 0.8574870896357767
-    }
-   },
-   "travel": {
-    "l": 3.375474196477823,
-    "r": 23.847405260472264,
-    "l_over_r": 0.1415447156455535
-   }
-  }
- },
  "her_58f6e0aa": {
   "rows": {
    "move.humerus_elev_stroke_deg": {
-    "value": 77.972,
+    "value": 74.951,
     "op": "<=",
     "line": 45.0,
     "unit": "deg",
     "pass": false,
-    "what": "median upper-arm elevation off hanging (shoulder->elbow vs straight down) at the right hand's stroke apexes: elbows lifted up and out = 'chicken wings'"
+    "what": "median upper-arm elevation off hanging (shoulder->elbow vs straight down) at the right hand's stroke apexes below upper_chest"
+   },
+   "move.humerus_elev_high_deg": {
+    "value": 85.55,
+    "op": "<=",
+    "line": 60.0,
+    "unit": "deg",
+    "pass": false,
+    "what": "the same at apexes at/above upper_chest (wrist >= 16 cm over the sternum point; the orchestrator's 60 deg, 08 Nov)"
+   },
+   "move.upperarm_abduction_deg": {
+    "value": 42.736,
+    "op": "<=",
+    "line": 35.0,
+    "unit": "deg",
+    "pass": false,
+    "what": "median upper-arm abduction (out of the sagittal plane) at stroke apexes, worse hand: the elevation must be mostly flexion, toward the camera"
    },
    "move.humerus_elev_rest_deg": {
     "value": 63.659,
@@ -1134,6 +885,14 @@
      "humerus_elev_p50": 58.17766295254083,
      "humerus_elev_p90": 58.321004634120264,
      "elbow_drop_p50": 14.47999999999999,
+     "flexion_p50": 49.32309443387999,
+     "abduction_p50": 36.01127366210211,
+     "abduction_p90": 36.513441235924084,
+     "humerus_lo_p50": 58.17766295254083,
+     "humerus_hi_p50": NaN,
+     "humerus_lo_p90": 58.321004634120264,
+     "humerus_hi_p90": NaN,
+     "high_frac": 0.0,
      "humerus_rest_p50": 63.658825622618096
     },
     "r": {
@@ -1147,6 +906,14 @@
      "humerus_elev_p50": 77.97216548693157,
      "humerus_elev_p90": 94.73241497898721,
      "elbow_drop_p50": 5.719999999999999,
+     "flexion_p50": 73.20097502414029,
+     "abduction_p50": 42.735983693552484,
+     "abduction_p90": 55.817453959704906,
+     "humerus_lo_p50": 74.95107204815693,
+     "humerus_hi_p50": 85.54950743985873,
+     "humerus_lo_p90": 76.38667163520307,
+     "humerus_hi_p90": 99.3774717473609,
+     "high_frac": 0.5,
      "humerus_rest_p50": 58.2156756747959
     }
    },
@@ -1247,6 +1014,302 @@
     "l": 3.3851945711859073,
     "r": 23.303310650063146,
     "l_over_r": 0.14526668000182774
+   }
+  }
+ },
+ "her_ee99f626": {
+  "rows": {
+   "move.humerus_elev_stroke_deg": {
+    "value": 51.429,
+    "op": "<=",
+    "line": 45.0,
+    "unit": "deg",
+    "pass": false,
+    "what": "median upper-arm elevation off hanging (shoulder->elbow vs straight down) at the right hand's stroke apexes below upper_chest"
+   },
+   "move.humerus_elev_high_deg": {
+    "value": 59.776,
+    "op": "<=",
+    "line": 60.0,
+    "unit": "deg",
+    "pass": true,
+    "what": "the same at apexes at/above upper_chest (wrist >= 16 cm over the sternum point; the orchestrator's 60 deg, 08 Nov)"
+   },
+   "move.upperarm_abduction_deg": {
+    "value": 32.042,
+    "op": "<=",
+    "line": 35.0,
+    "unit": "deg",
+    "pass": true,
+    "what": "median upper-arm abduction (out of the sagittal plane) at stroke apexes, worse hand: the elevation must be mostly flexion, toward the camera"
+   },
+   "move.humerus_elev_rest_deg": {
+    "value": 26.614,
+    "op": "<=",
+    "line": 30.0,
+    "unit": "deg",
+    "pass": true,
+    "what": "median upper-arm elevation while that hand is at rest (gesture_w < 0.1), worse hand: resting elbows hang"
+   },
+   "move.forearm_elev_deg": {
+    "value": 44.923,
+    "op": ">=",
+    "line": 15.0,
+    "unit": "deg",
+    "pass": true,
+    "what": "median forearm elevation (elbow->wrist above horizontal) at the right hand's stroke apexes: horizontal = 'typing in the air'"
+   },
+   "move.wrist_flexext_p90_deg": {
+    "value": 23.064,
+    "op": "<=",
+    "line": 25.0,
+    "unit": "deg",
+    "pass": true,
+    "what": "p90 over speaking frames of |wrist flexion/extension| (3rd metacarpal vs the forearm), worse hand"
+   },
+   "move.wrist_ulnar_p95_deg": {
+    "value": 24.81,
+    "op": "<=",
+    "line": 25.0,
+    "unit": "deg",
+    "pass": true,
+    "what": "p95 over speaking frames of ulnar deviation, worse hand"
+   },
+   "move.wrist_radial_p95_deg": {
+    "value": 34.283,
+    "op": "<=",
+    "line": 15.0,
+    "unit": "deg",
+    "pass": false,
+    "what": "p95 over speaking frames of radial deviation, worse hand"
+   },
+   "move.shape_wrong_strokes": {
+    "value": 0,
+    "op": "==",
+    "line": 0,
+    "unit": "count",
+    "pass": true,
+    "what": "stroke apexes whose hand is a claw, a pinch outside a 'pinch' gesture, or flat"
+   },
+   "move.shape_claw_frac": {
+    "value": 0.0,
+    "op": "<=",
+    "line": 0.02,
+    "unit": "fraction",
+    "pass": true,
+    "what": "speaking frames with a claw hand (a finger bent back at a middle joint), worse hand"
+   },
+   "move.path_straight_frac": {
+    "value": 0.0,
+    "op": "<=",
+    "line": 0.3,
+    "unit": "fraction",
+    "pass": true,
+    "what": "wrist movements (>= 8 cm) whose path strays < 3 % of its chord: straight lines"
+   },
+   "move.vel_bell_frac": {
+    "value": 0.646,
+    "op": ">=",
+    "line": 0.6,
+    "unit": "fraction",
+    "pass": true,
+    "what": "wrist movements with a peak/mean speed of 1.6-2.3 (minimum jerk 1.875), worse hand"
+   },
+   "move.lag_hand_ms": {
+    "value": -4.683,
+    "op": ">=",
+    "line": 30.0,
+    "unit": "ms",
+    "pass": false,
+    "what": "median onset of the hand's rotation after the upper arm's, per movement (right hand): proximal leads, distal follows"
+   },
+   "move.two_hand_amp_ratio": {
+    "value": 0.374,
+    "op": ">=",
+    "line": 0.5,
+    "unit": "ratio",
+    "pass": false,
+    "what": "two-hand strokes: median wrist travel of the lesser hand over the greater's (a two-hand gesture with one hand parked reads as one hand and a prop)"
+   },
+   "move.mirror_corr_p50": {
+    "value": 0.094,
+    "op": "<=",
+    "line": 0.95,
+    "unit": "corr",
+    "pass": true,
+    "what": "GUARD: two-hand strokes, median correlation of the left wrist velocity with the right's mirrored (1.0 = a mirror copy)"
+   },
+   "move.fingers_frozen_frac": {
+    "value": 0.0,
+    "op": "<=",
+    "line": 0.15,
+    "unit": "fraction",
+    "pass": true,
+    "what": "GUARD: speaking time inside >= 0.5 s runs with the fingers under 2 deg/s, worse hand"
+   }
+  },
+  "report": {
+   "wrist": {
+    "l": {
+     "flexext_abs_p90": 14.589106589076172,
+     "flexext_p50": -14.16385129454675,
+     "flex_max": -9.672085072491143,
+     "ext_max": 19.126004732285033,
+     "ulnar_p95": 15.786966129368595,
+     "radial_p95": 12.150533222788088,
+     "dev_p50": -3.1622332000959164
+    },
+    "r": {
+     "flexext_abs_p90": 23.064079092404825,
+     "flexext_p50": -13.971790517433153,
+     "flex_max": 19.947258390807185,
+     "ext_max": 32.1990517612451,
+     "ulnar_p95": 24.809528079583686,
+     "radial_p95": 34.283363873685246,
+     "dev_p50": -9.40873700275329
+    }
+   },
+   "forearm": {
+    "l": {
+     "n": 14,
+     "elev_p50": 9.195905236573193,
+     "elev_p25": 6.847518619549724,
+     "flat_frac": 0.9285714285714286,
+     "elbow_inside_p50": 76.18992354817786,
+     "abd_p50": 33.27194098596652,
+     "forearm_in_p50": 46.190083913580196,
+     "humerus_elev_p50": 38.67188968258989,
+     "humerus_elev_p90": 42.505695997073744,
+     "elbow_drop_p50": 21.434999999999995,
+     "flexion_p50": 25.096962817832114,
+     "abduction_p50": 30.88043536960805,
+     "abduction_p90": 32.98886911881203,
+     "humerus_lo_p50": 38.67188968258989,
+     "humerus_hi_p50": NaN,
+     "humerus_lo_p90": 42.505695997073744,
+     "humerus_hi_p90": NaN,
+     "high_frac": 0.0,
+     "humerus_rest_p50": 25.54126854176716
+    },
+    "r": {
+     "n": 50,
+     "elev_p50": 44.92265331130279,
+     "elev_p25": 37.692638323718896,
+     "flat_frac": 0.0,
+     "elbow_inside_p50": 70.05988936592057,
+     "abd_p50": 45.11253679001115,
+     "forearm_in_p50": 45.30731259316829,
+     "humerus_elev_p50": 56.30900280126991,
+     "humerus_elev_p90": 70.60788458994496,
+     "elbow_drop_p50": 15.230000000000004,
+     "flexion_p50": 47.926769705593046,
+     "abduction_p50": 32.04184905858223,
+     "abduction_p90": 34.65445832340742,
+     "humerus_lo_p50": 51.42861751812942,
+     "humerus_hi_p50": 59.7763420352987,
+     "humerus_lo_p90": 56.62685931375663,
+     "humerus_hi_p90": 73.44976137221352,
+     "high_frac": 0.5,
+     "humerus_rest_p50": 26.613782758809027
+    }
+   },
+   "shape": {
+    "wrong_strokes": 0,
+    "classes": {
+     "relaxed": 61,
+     "point": 3
+    },
+    "claw_frac": {
+     "l": 0.0,
+     "r": 0.0
+    },
+    "flat_frac": {
+     "l": 0.0,
+     "r": 0.0
+    },
+    "cascade_frac": {
+     "l": 1.0,
+     "r": 0.9972677595628415
+    },
+    "wrong": []
+   },
+   "body": {
+    "l": {
+     "near_frac": 0.0,
+     "stroke_fwd_p50": 13.55,
+     "stroke_fwd_p10": 13.222
+    },
+    "r": {
+     "near_frac": 0.0,
+     "stroke_fwd_p50": 15.12,
+     "stroke_fwd_p10": 12.503
+    }
+   },
+   "kin": {
+    "l": {
+     "n": 0,
+     "curv_p50": NaN,
+     "straight_frac": NaN,
+     "peak_mean_p50": NaN,
+     "bell_frac": NaN,
+     "v_peak_p50": NaN,
+     "v_peak_max": 0.0
+    },
+    "r": {
+     "n": 48,
+     "curv_p50": 0.09937497816831523,
+     "straight_frac": 0.0,
+     "peak_mean_p50": 2.1054409134539185,
+     "bell_frac": 0.6458333333333334,
+     "v_peak_p50": 114.7187097972741,
+     "v_peak_max": 161.94882251751153
+    }
+   },
+   "lag": {
+    "l": {
+     "n": 0,
+     "hand_minus_upper_ms_p50": NaN,
+     "fingers_minus_upper_ms_p50": NaN,
+     "ordered_frac": 0.0
+    },
+    "r": {
+     "n": 48,
+     "hand_minus_upper_ms_p50": -4.683382042530937,
+     "fingers_minus_upper_ms_p50": 31.021639231148647,
+     "ordered_frac": 0.3541666666666667
+    }
+   },
+   "asym": {
+    "n": 14,
+    "mirror_corr_p50": 0.0941052200709061,
+    "mirror_corr_max": 0.35604411192593133,
+    "onset_diff_ms_p50": 67.9916268184435,
+    "amp_ratio_p50": 0.37353603844800665
+   },
+   "fingers": {
+    "l": {
+     "frozen_frac": 0.0,
+     "frozen_max_s": 0.19980000000000003
+    },
+    "r": {
+     "frozen_frac": 0.0,
+     "frozen_max_s": 0.19980000000000003
+    }
+   },
+   "torso": {
+    "spine_05": {
+     "corr_with_r_wrist": 0.1965760914073974,
+     "mean_cm_s": 0.455399764576689
+    },
+    "head": {
+     "corr_with_r_wrist": 0.16938697023661417,
+     "mean_cm_s": 0.8492744865672244
+    }
+   },
+   "travel": {
+    "l": 6.85897763430397,
+    "r": 25.584279191027754,
+    "l_over_r": 0.26809344844506583
    }
   }
  }

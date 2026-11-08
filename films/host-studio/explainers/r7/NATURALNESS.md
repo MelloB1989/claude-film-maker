@@ -27,7 +27,9 @@ hand counts.
 
 | Row | Line | Why |
 |---|---|---|
-| move.humerus_elev_stroke_deg | <= 45 | RULA's strained band starts at 45 deg; conversational strokes keep the elbow low |
+| move.humerus_elev_stroke_deg | <= 45 | RULA's strained band starts at 45 deg; conversational strokes keep the elbow low. Apexes below upper_chest only |
+| move.humerus_elev_high_deg | <= 60 | the orchestrator's ruling (08 Nov): apexes at/above upper_chest (wrist >= 16 cm over the sternum point = shoulders' mid height - 14) may lift to 60, the forearm cannot reach them from 45. n/a when there are none |
+| move.upperarm_abduction_deg | <= 35 | the orchestrator's ruling: the elevation is mostly flexion (toward the camera), not abduction (chicken wings). Abduction = the upper arm's angle out of the sagittal plane, median at apexes, worse hand |
 | move.humerus_elev_rest_deg | <= 30 | at rest the upper arm hangs (RULA 0-20 "neutral", 30 allows the clearance from the bust) |
 | move.forearm_elev_deg | >= 15 | forearms angled up to the listener; a forearm under 15 deg at chest height is the "typing in the air" look |
 | move.wrist_flexext_p90_deg | <= 25 | the brief's +-20 "mostly", with p90 allowing the strokes' brief extension; Palmer/Ryu functional ranges |
@@ -52,7 +54,10 @@ Measured conventions:
 - **Fingers**: MCP and PIP from the joint heads, + toward the palm. `_03` is the DIP joint, so the pinch test is a
   DIP-to-DIP distance under 3.5 cm.
 
-## 3. Her values, whole take (rows4.json; TEST spans in rows4_test.json)
+Ruling of 08 Nov on clearance (agent-02's mesh): the upper arm keeps >= 3 cm from the bust/front of the Top and
+>= 0.5 cm (no penetration) from the side of the torso.
+
+## 3. Her values (first pass; the current table is naturalness_her.json), whole take (rows4.json; TEST spans in rows4_test.json)
 
 | Row | old 404db805 | r7F TEST 52ab5ea2 | 773091c2 | 58f6e0aa |
 |---|---|---|---|---|

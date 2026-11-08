@@ -20,6 +20,7 @@ from pathlib import Path
 
 FINGERS = ("index", "middle", "ring", "pinky")
 SPEAK = 0.5
+HIGH_APEX_CM = 16.0  # wrist over the sternum point that counts as an upper_chest-or-higher apex (APEX_Z 19, -3 slack)
 TORSO_DEPTH = 11.0  # cm from the spine_05 joint to the front of the chest/stomach (seated adult, either presenter)
 
 
@@ -166,7 +167,8 @@ class Take:
         return out
 
     def forearm(self):
-        out = {s: {"elev": [], "elbow": [], "abd": [], "yaw": [], "hum": [], "drop": [], "flexn": []} for s in "lr"}
+        out = {s: {"elev": [], "elbow": [], "abd": [], "yaw": [], "hum": [], "drop": [], "flexn": [], "hi": [], "lo": [],
+                   "abdo": []} for s in "lr"}
         for e in self.ev:
             if e["kind"] == "rest":
                 continue
@@ -183,6 +185,13 @@ class Take:
                 out[s]["hum"].append(math.degrees(math.acos(max(-1, min(1, -u[2] / norm(u))))))  # 0 = hanging
                 out[s]["drop"].append(P["upperarm_" + s][2] - P["lowerarm_" + s][2])
                 out[s]["flexn"].append(math.degrees(math.atan2(u[0], -u[2])))  # upper arm forward off vertical, sagittal
+                # abduction = the upper arm out of the sagittal plane (pure flexion reads 0)
+                out[s]["abdo"].append(math.degrees(math.asin(max(-1, min(1, sg * u[1] / norm(u))))))
+                # the apex class (the orchestrator, 08 Nov): wrist at/above upper_chest (19 cm over the sternum
+                # point, shoulders' mid height - 14; 3 cm slack for the reach cap pulling the wrist in) gets 60 deg
+                stp = (P["upperarm_l"][2] + P["upperarm_r"][2]) / 2 - 14.0
+                hum = out[s]["hum"][-1]
+                (out[s]["hi"] if P["hand_" + s][2] - stp >= HIGH_APEX_CM else out[s]["lo"]).append(hum)
         r = {}
         for s in "lr":
             el = out[s]["elev"]
@@ -191,7 +200,11 @@ class Take:
                     "elbow_inside_p50": med(out[s]["elbow"]), "abd_p50": med(out[s]["abd"]),
                     "forearm_in_p50": med(out[s]["yaw"]), "humerus_elev_p50": med(out[s]["hum"]),
                     "humerus_elev_p90": pct(out[s]["hum"], 0.9), "elbow_drop_p50": med(out[s]["drop"]),
-                    "flexion_p50": med(out[s]["flexn"])}
+                    "flexion_p50": med(out[s]["flexn"]), "abduction_p50": med(out[s]["abdo"]),
+                    "abduction_p90": pct(out[s]["abdo"], 0.9),
+                    "humerus_lo_p50": med(out[s]["lo"]), "humerus_hi_p50": med(out[s]["hi"]),
+                    "humerus_lo_p90": pct(out[s]["lo"], 0.9), "humerus_hi_p90": pct(out[s]["hi"], 0.9),
+                    "high_frac": len(out[s]["hi"]) / max(1, len(out[s]["hi"]) + len(out[s]["lo"]))}
         for s in "lr":  # the resting / between-gesture upper arm
             hum = [math.degrees(math.acos(max(-1, min(1, -(f["p"]["lowerarm_" + s][2] - f["p"]["upperarm_" + s][2]) /
                                                      norm(sub(f["p"]["lowerarm_" + s], f["p"]["upperarm_" + s]))))))
@@ -430,9 +443,15 @@ def _worst(rep, path, worse):
 
 
 ROWS = {
-    "move.humerus_elev_stroke_deg": (lambda r: r["forearm"]["r"]["humerus_elev_p50"], "<=", 45.0, "deg",
+    "move.humerus_elev_stroke_deg": (lambda r: r["forearm"]["r"]["humerus_lo_p50"], "<=", 45.0, "deg",
                                      "median upper-arm elevation off hanging (shoulder->elbow vs straight down) at "
-                                     "the right hand's stroke apexes: elbows lifted up and out = 'chicken wings'"),
+                                     "the right hand's stroke apexes below upper_chest"),
+    "move.humerus_elev_high_deg": (lambda r: r["forearm"]["r"]["humerus_hi_p50"], "<=", 60.0, "deg",
+                                   "the same at apexes at/above upper_chest (wrist >= 16 cm over the sternum point; the "
+                                   "orchestrator's 60 deg, 08 Nov)"),
+    "move.upperarm_abduction_deg": (lambda r: _worst(r, ("forearm", "abduction_p50"), max), "<=", 35.0, "deg",
+                                    "median upper-arm abduction (out of the sagittal plane) at stroke apexes, worse "
+                                    "hand: the elevation must be mostly flexion, toward the camera"),
     "move.humerus_elev_rest_deg": (lambda r: _worst(r, ("forearm", "humerus_rest_p50"), max), "<=", 30.0, "deg",
                                    "median upper-arm elevation while that hand is at rest (gesture_w < 0.1), worse "
                                    "hand: resting elbows hang"),
@@ -472,9 +491,9 @@ def rows(rep):
     out = {}
     for k, (fn, op, line, unit_, what) in ROWS.items():
         v = fn(rep)
-        ok = {"<=": v <= line, ">=": v >= line, "==": v == line}[op] if v == v else False
+        ok = {"<=": v <= line, ">=": v >= line, "==": v == line}[op] if v == v else None  # None: nothing to measure
         out[k] = {"value": round(v, 3) if isinstance(v, float) else v, "op": op, "line": line, "unit": unit_,
-                  "pass": bool(ok), "what": what}
+                  "pass": ok if ok is None else bool(ok), "what": what}
     return out
 
 
@@ -495,7 +514,7 @@ def main(argv=None):
     print("row".ljust(w) + "line".ljust(10) + "".join(n[:16].ljust(18) for n in names))
     for k in ROWS:
         r0 = res[names[0]]["rows"][k]
-        cells = "".join((f"{res[n]['rows'][k]['value']}" + (" ok" if res[n]["rows"][k]["pass"] else " FAIL")).ljust(18)
+        cells = "".join((f"{res[n]['rows'][k]['value']}" + {True: " ok", False: " FAIL", None: " n/a"}[res[n]["rows"][k]["pass"]]).ljust(18)
                         for n in names)
         print(k.ljust(w) + f"{r0['op']}{r0['line']}".ljust(10) + cells)
     if a.full:
