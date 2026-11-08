@@ -560,12 +560,16 @@ def main(argv=None):
     ap.add_argument("--span", action="append", default=[],
                     help="SEQUENCE frames A-B at --seq-fps (the EDL's, repeatable): only these count")
     ap.add_argument("--seq-fps", type=float, default=SEQ_FPS)
+    ap.add_argument("--fps", type=float, help="the dump's own rate when it carries none (an editor dump: 24)")
     ap.add_argument("--full", action="store_true", help="print the full report, not only the rows")
     a = ap.parse_args(argv)
     res = {}
     for p in a.tracks:
         spans = [tuple(int(x) for x in sp.split("-")) for sp in a.span]
-        rep = Take(json.loads(Path(p).read_text()), spans or None, a.seq_fps).report()
+        d = json.loads(Path(p).read_text())
+        if a.fps:
+            d["fps"] = a.fps
+        rep = Take(d, spans or None, a.seq_fps).report()
         res[Path(p).stem] = {"rows": rows(rep), "report": rep}
     names = list(res)
     w = max(len(k) for k in ROWS) + 2
