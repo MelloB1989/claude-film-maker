@@ -1,5 +1,5 @@
 {
- "_doc": "agent-10's prosody timing for gesturekit.plan_from_sheet(timing=...): per gesture (line, word_i) prep_t / stroke_t (the apex, s on the VO clock; apex_f = the 24 fps frame) / hold_s / retract_s / amp / energy override the sheet's; entries with add: true are beats on secondary stresses (type = body01 kind, detail, hand, size). gap_merge: pauses longer than this rest. Written by gesture/plan.py from gesture/prosody.py (vo.wav).",
+ "_doc": "agent-10's prosody timing for gesturekit.plan_from_sheet(timing=...): per gesture (line, word_i) prep_t / stroke_t (the apex, s on the VO clock; apex_f = the 24 fps frame) / hold_s / retract_s / amp / energy override the sheet's; entries with add: true are beats on secondary stresses (type = body01 kind, detail, hand, size). gap_merge: pauses longer than this rest, except the bridge pauses [[t0, t1]] (the hands hold the high relaxed rest). Written by gesture/plan.py from gesture/prosody.py (vo.wav).",
  "film": "whatsapp",
  "who": "him",
  "fps": 24,
@@ -164,7 +164,7 @@
    "prep_t": 6.572,
    "stroke_t": 6.786,
    "hold_s": 0.5,
-   "retract_s": 0.2,
+   "retract_s": 0.288,
    "amp": 0.4,
    "energy": 0.658,
    "lead_s": 0.109,
@@ -990,34 +990,10 @@
  "speech": [
   [
    0.75,
-   7.069
-  ],
-  [
-   7.833,
-   17.191
-  ],
-  [
-   17.958,
-   25.211
-  ],
-  [
-   25.958,
-   31.683
-  ],
-  [
-   32.417,
    35.877
   ],
   [
    36.625,
-   41.162
-  ],
-  [
-   41.917,
-   46.34
-  ],
-  [
-   47.083,
    54.301
   ]
  ],
@@ -1025,8 +1001,8 @@
   "gestures": 49,
   "sheet": 43,
   "added_beats": 6,
-  "speaking_s": 48.29,
-  "onsets_per_s": 1.015,
+  "speaking_s": 52.8,
+  "onsets_per_s": 0.928,
   "lead_s_range": [
    0.08,
    0.197
@@ -1051,6 +1027,32 @@
     0.391
    ]
   ],
-  "pauses_rest": 7
- }
+  "pauses_rest": 1
+ },
+ "bridge": [
+  [
+   7.069,
+   7.833
+  ],
+  [
+   17.191,
+   17.958
+  ],
+  [
+   25.211,
+   25.958
+  ],
+  [
+   31.683,
+   32.417
+  ],
+  [
+   41.162,
+   41.917
+  ],
+  [
+   46.34,
+   47.083
+  ]
+ ]
 }
