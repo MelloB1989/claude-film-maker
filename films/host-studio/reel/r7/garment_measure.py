@@ -583,7 +583,9 @@ def ray_layers(p, chain, meshes, labels=None, reach=40.0):
             best = (dd, (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t))
     o, d = best[1], norm(sub(p, best[1]))
     hits = []
-    for part, P, T, keep in meshes:
+    for m in meshes:
+        part, P, T, keep = m[:4]
+        tset = m[4] if len(m) > 4 else None  # mark each hit T (in the measured torso set) or x (left out: sleeve...)
         for tri in T:
             if keep is not None and not all(i in keep for i in tri):
                 continue
@@ -593,7 +595,8 @@ def ray_layers(p, chain, meshes, labels=None, reach=40.0):
                 continue
             face = 1 if dot(cross(sub(pb, pa), sub(pc, pa)), d) > 0 else -1
             lab = labels.get(part, {}).get(tri[0]) if labels else None
-            hits.append([round(s - best[0], 2), face, part, lab and [lab[0], round(lab[1], 2), round(lab[2], 1)]])
+            hits.append([round(s - best[0], 2), face, part, lab and [lab[0], round(lab[1], 2), round(lab[2], 1)],
+                         "T" if tset is None or all(i in tset for i in tri) else "x"])
     hits.sort(key=lambda h: h[0])
     uniq = []  # a line through a shared edge or corner hits every triangle there once: one surface
     for h in hits:
@@ -677,7 +680,7 @@ def arms_compute(D, G, E, cache=None):
             arm_r = float(G["ARM_R"]) if G.get("ARM_R") else (r_med * float(G.get("ARM_R_X", 1.3)) if r_med else None)
             arm, _ = arm_sets(labels["Body"], rest["Body"][0], sh, sd, float(G.get("ARM_T0", 0.3)), ax, arm_r)
             torso, flags, skipped, rest_sets, rzone, rq_of = {}, {}, [], [], {"front": [], "side": []}, {}
-            sleeves = str(G.get("SLEEVES", "0")) == "1"
+            sleeves = str(G.get("SLEEVES", "0")) in ("1", "2")
             for n in parts:
                 torso[n] = arm_sets(labels[n], rest[n][0], rest_bones[n][1][sd], sd, 1.1, ax, arm_r,
                                     sleeves=sleeves and n != "Body")[1]
@@ -712,6 +715,32 @@ def arms_compute(D, G, E, cache=None):
             rz = {z: _min_check([zc[z] for zc in zchecks]) for z in ("front", "side")}
             cache[skey] = (arm, r_med, arm_r, torso, flags, skipped, (rw, rneg), rz)
         arm, r_med, arm_r, torso, flags, skipped, (rw, rneg), rz = cache[skey]
+        moved = {}
+        if str(G.get("SLEEVES", "0")) == "2":
+            # SLEEVES=2 (round 7, his LAYERS: the seated arm lay on a GAP in the torso set; his loose outfit's flank
+            # under the armpit is nearer the upper arm than the spine on its A-pose ref, so SLEEVES=1 dropped it and
+            # the arm read the gap's rim, -8): a garment vertex nearest the upper arm is sleeve only if it MOVES WITH
+            # THE ARM this frame (its distance to the upper-arm bone keeps from the ref pose better than its distance
+            # to the spine does); else it is flank cloth: torso. Per frame, so the zones are re-flagged too
+            torso, flags = dict(torso), dict(flags)
+            ua0, la0 = B[f"upperarm_{sd}"], B[f"lowerarm_{sd}"]
+            for n in parts:
+                if n == "Body":
+                    continue
+                Pr, Pp = rest[n][0], posed[n][0]
+                a1, b1 = rest_bones[n][0][f"upperarm_{sd}"]
+                sh = rest_bones[n][1][sd]
+                add = []
+                for i, (bn, _, _) in labels[n].items():
+                    if bn != f"upperarm_{sd}" or math.dist(Pr[i], sh) <= ax:
+                        continue
+                    da = abs(seg_t(Pp[i], ua0, la0)[0] - seg_t(Pr[i], a1, b1)[0])
+                    ds = abs(chain_dist(Pp[i], chain) - chain_dist(Pr[i], rest_chain[n]))
+                    if ds + float(G.get("MOVE_TOL", 0.5)) < da:
+                        add.append(i)
+                moved[n] = len(add)
+                torso[n] = sorted(set(int(i) for i in torso[n]) | set(int(i) for i in add))
+                flags[n] = E.flags(E.tris(Pr, rest[n][1], torso[n], n, rest_chain[n]), rc0, rest_fwd, front)
         pe = {n: E.tris(posed[n][0], posed[n][1], torso[n], n, chain if n != "Body" else None) for n in parts}
         entries = E.cat([pe[n] for n in parts])
         worst, neg, lt3 = E.clear(entries, arm, P, max_d, chain)
@@ -724,7 +753,7 @@ def arms_compute(D, G, E, cache=None):
                "arm_r_med": r_med and round(r_med, 2), "arm_r": arm_r and round(arm_r, 2),
                "rest_clear_cm": rw and round(rw[0], 2), "rest_verts_lt0": rneg,
                "rest_part": rw and rw[3][0], "rest_check_skips": [], "rest_check_mapped": skipped,
-               "sleeves": str(G.get("SLEEVES", "0")) == "1"}
+               "sleeves": str(G.get("SLEEVES", "0")), "flank_moved_in": moved}
         if rw and rw[0] < 0:  # why the self-check failed: the arm point and the torso face, by their ref labels
             ln, lt, ld = labels["Body"][rw[1]]
             tn, tt, td = labels[rw[3][0]].get(rw[3][1], ("?", 0.0, 0.0))
@@ -741,11 +770,12 @@ def arms_compute(D, G, E, cache=None):
         if worst:
             rec.update(rec_of(worst, ua, la))
         if str(G.get("LAYERS", "0")) == "1":  # the surfaces on the line spine -> the worst arm point (ray_layers)
-            meshes = []
+            meshes = []  # a garment: ALL its triangles, each hit marked T (measured as torso) or x (left out)
             for n in parts:
                 keep = {int(i) for i in torso[n]}
+                tl = [tuple(int(i) for i in t) for t in posed[n][1]]
                 meshes.append((n, [tuple(float(x) for x in p) for p in posed[n][0]],
-                               [tuple(int(i) for i in t) for t in posed[n][1] if all(int(i) in keep for i in t)], None))
+                               tl if n != "Body" else [t for t in tl if all(i in keep for i in t)], None, keep))
             rec["layers"] = {}
             for z, w in (("whole", worst), ("front", zr["front"][0]), ("side", zr["side"][0])):
                 if w:
@@ -1090,6 +1120,7 @@ def main(argv=None) -> int:
                     # each surface on the line spine -> the worst arm point: cm from the point (+ out), facing, label
                     print(f"f{f}: LAYERS {sd} {z} (clear {ly['clear_cm']}, point {ly['spine_cm']} cm off the spine): "
                           + ", ".join(f"{h[0]:+} {'out' if h[1] > 0 else 'in'} {h[3][0] if h[3] else h[2]}"
+                                      f"{'' if len(h) < 5 or h[4] == 'T' else ' (x: not torso)'}"
                                       for h in ly["hits"]), flush=True)
             print(f"f{f}: clear {res['upperarm_torso_clear_cm']} (facing vs actor {res['facing_vs_actor_deg']} deg) | "
                   + " | ".join(
@@ -1120,6 +1151,10 @@ def main(argv=None) -> int:
         if vals:
             fw = (min if key.startswith("upperarm_") else max)(vals, key=vals.get)
             print(json.dumps({"measure": key, "worst_frame": fw, "worst": vals[fw], "frames": len(per),
+                              "file": str(out / f"{a.cmd}.json")}))
+        elif key.startswith("waist_skin_poke"):  # None on every frame: no visible skin in the window (a pass)
+            print(json.dumps({"measure": key, "worst_frame": None, "worst": None, "frames": len(per),
+                              "note": "no visible skin under the band on any frame (nothing to poke): pass",
                               "file": str(out / f"{a.cmd}.json")}))
     return 0
 
