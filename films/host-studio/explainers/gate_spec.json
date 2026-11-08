@@ -1036,8 +1036,8 @@
    "where": "every rest frame (film-qa perf-rest on seq.sample hand samples, every 2nd)",
    "how": "film-qa perf-rest samples.json -> frames; film-ue op qa.hand_torso_clearance label=<presenter> sequence=<SEQ> 'frames=[...]' (core fleet/agent-09/r7-perf-gate) -> metrics.worst_cm -> numbers/<film>/rest.json",
    "must_fail": [
-    null,
-    "her r7F TEST (hands hovering at the top of her chest, 'fidgeting with her top', the orchestrator 08 Nov): measure it on box D; the new rest (wrists ~80 cm, ~25-30 cm forward) must pass. Line 15 PROVISIONAL until both are measured"
+    0.48,
+    "her r7F TEST body (box D, agent-06, qa.hand_torso_clearance on 30 perf-rest frames in f0-200 + f1040-1162): worst 0.48 cm, her LEFT hand at 0.48 on every rest frame (the same high rest pose each time: hands at the top of her chest), the right hand 10.8-19.4; only the gesture-adjacent frames read ~11.5 / 28-30. The new rest (agent-01 1e88aca8) is being measured; the line is set between them"
    ],
    "why": "the orchestrator, 08 Nov: a natural presenter rest is hands loosely together at the lower ribcage, 20-30 cm in front of the torso, not touching the body"
   },
