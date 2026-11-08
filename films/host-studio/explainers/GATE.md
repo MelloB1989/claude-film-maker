@@ -201,6 +201,13 @@ him only once it reads ~0 on his clean frames AND fails her v2b clip under SLEEV
 front line is hers only) and side >= 0.5 cm. HER bust/front stays >= 3 and side >= 0.5. His rows are still INFO
 tonight, with the orchestrator's eye as his arm gate.
 
+**His 73804954 on T, variant BASE (agent-06's sweep):** body PASS (writes, issues []). TEST spans: every row passes
+(rest_contact 0, palm 0, lag >= 30). Whole take: finger_snap 2.136 / min (l 11.8, 16.7; r 21.1, 35.1 s).
+**The orchestrator's on-camera rule (09 Nov):** a snap inside a graphics-only shot is invisible and does not count, so
+only on-camera snaps count against the 2.0 line. Mapped to edl/whatsapp.json (f = t x 24): f283 and f401 fall in shot 5
+gfx, f506 in shot 7 gfx and f842 in shot 9 gfx. On-camera snaps = 0: PASS. Base is his variant for the TEST and the
+finals; ROT_LAG_ADD=0.03 is out (TEST lag 29.76).
+
 ## Verdicts
 
 ### Netflix v2b: REJECTED BY THE OPERATOR (07 Nov, about 23:45 IST). The SIGN below is SUPERSEDED.
