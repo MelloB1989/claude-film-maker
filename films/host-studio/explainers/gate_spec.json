@@ -1081,7 +1081,8 @@
     0.601,
     "the r7F TEST body 52ab5ea2, whole take, measured from 0.1 mm joint dumps (agent-13 9f258309): 0.601 (404db805 0.567). The earlier 0.01 cm rounding added ~6 deg/s of jitter on 3 cm finger bones, so the row passed on noise; agent-01's efe01206 reads 0.521 (left): FAIL"
    ],
-   "why": "a robotic tell: fingers dead still while she talks; a real row since the dumps carry 0.1 mm"
+   "why": "a robotic tell: fingers dead still while she talks; a real row since the dumps carry 0.1 mm",
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "move.forearm_elev_deg": {
    "area": "performance",
@@ -1096,7 +1097,8 @@
     -2.8,
     "agent-01's earlier R7 body 404db805, WHOLE take (agent-13 cf513b41): -2.8; agent-01's ee99f626 reads 44.9 ok"
    ],
-   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md"
+   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md",
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "move.humerus_elev_rest_deg": {
    "area": "performance",
@@ -1113,7 +1115,8 @@
    ],
    "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md",
    "na_ok": true,
-   "na_reason": "no hanging rest >= 0.5 s (the forearms rest on the desk: the desk row applies)"
+   "na_reason": "no hanging rest >= 0.5 s (the forearms rest on the desk: the desk row applies)",
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "move.humerus_elev_stroke_deg": {
    "area": "performance",
@@ -1128,7 +1131,8 @@
     74.5,
     "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): 74.5; agent-01's ee99f626 reads 51.4 F"
    ],
-   "why": "the orchestrator's ruling (B), 08 Nov: 60 deg only for apexes at/above the upper chest, 45 below, and the lift mostly flexion (abduction <= 35)"
+   "why": "the orchestrator's ruling (B), 08 Nov: 60 deg only for apexes at/above the upper chest, 45 below, and the lift mostly flexion (abduction <= 35)",
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "move.lag_hand_ms": {
    "area": "performance",
@@ -1143,7 +1147,8 @@
     -25.4,
     "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): -25.4; agent-01's ee99f626 reads -4.7 F"
    ],
-   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md"
+   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md",
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "move.mirror_corr_p50": {
    "area": "performance",
@@ -1161,7 +1166,8 @@
    "guard": true,
    "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md",
    "na_ok": true,
-   "na_reason": "no two-hand stroke in the spans"
+   "na_reason": "no two-hand stroke in the spans",
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "move.path_straight_frac": {
    "area": "performance",
@@ -1178,7 +1184,8 @@
    ],
    "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md",
    "na_ok": true,
-   "na_reason": "fewer than 5 wrist movements on both hands (agent-13 93d10277 MIN_MOVES): too few to judge a share"
+   "na_reason": "fewer than 5 wrist movements on both hands (agent-13 93d10277 MIN_MOVES): too few to judge a share",
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "move.shape_claw_frac": {
    "area": "performance",
@@ -1193,7 +1200,8 @@
     0.099,
     "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): 0.099; agent-01's ee99f626 reads 0 ok"
    ],
-   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md"
+   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md",
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "move.shape_wrong_strokes": {
    "area": "performance",
@@ -1208,7 +1216,8 @@
     9,
     "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): 9; agent-01's ee99f626 reads 0 ok"
    ],
-   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md"
+   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md",
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "move.two_hand_amp_ratio": {
    "area": "performance",
@@ -1225,7 +1234,8 @@
    ],
    "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md",
    "na_ok": true,
-   "na_reason": "no two-hand stroke in the spans"
+   "na_reason": "no two-hand stroke in the spans",
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "move.vel_bell_frac": {
    "area": "performance",
@@ -1242,7 +1252,8 @@
    ],
    "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md",
    "na_ok": true,
-   "na_reason": "fewer than 5 wrist movements on both hands (agent-13 93d10277 MIN_MOVES): too few to judge a share"
+   "na_reason": "fewer than 5 wrist movements on both hands (agent-13 93d10277 MIN_MOVES): too few to judge a share",
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "move.wrist_flexext_p90_deg": {
    "area": "performance",
@@ -1257,7 +1268,8 @@
     38.9,
     "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): 38.9; agent-01's ee99f626 reads 23.1 ok"
    ],
-   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md"
+   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md",
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "move.wrist_radial_p95_deg": {
    "area": "performance",
@@ -1272,7 +1284,8 @@
     23.7,
     "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): 23.7; agent-01's ee99f626 reads 34.3 F"
    ],
-   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md"
+   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md",
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "move.wrist_ulnar_p95_deg": {
    "area": "performance",
@@ -1287,7 +1300,8 @@
     39.2,
     "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): 39.2; agent-01's ee99f626 reads 24.8 ok"
    ],
-   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md"
+   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md",
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "body.upperarm_bust_clear_cm": {
    "area": "performance",
@@ -1354,7 +1368,8 @@
    ],
    "why": "the orchestrator's ruling (B), 08 Nov: 60 deg only for apexes at/above the upper chest, 45 below, and the lift mostly flexion (abduction <= 35)",
    "na_ok": true,
-   "na_reason": "no apex at/above upper_chest"
+   "na_reason": "no apex at/above upper_chest",
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "move.upperarm_abduction_deg": {
    "area": "performance",
@@ -1369,7 +1384,8 @@
     42.7,
     "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): 42.7; agent-01's ee99f626 reads 32.0 ok"
    ],
-   "why": "the orchestrator's ruling (B), 08 Nov: 60 deg only for apexes at/above the upper chest, 45 below, and the lift mostly flexion (abduction <= 35)"
+   "why": "the orchestrator's ruling (B), 08 Nov: 60 deg only for apexes at/above the upper chest, 45 below, and the lift mostly flexion (abduction <= 35)",
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "move.hold_min_speed": {
    "area": "performance",
@@ -1384,7 +1400,8 @@
     0.221,
     "the r7F TEST body 52ab5ea2, whole take, from 0.1 mm dumps (agent-13 9f258309): 0.221 (0.212 at 0.01 cm)"
    ],
-   "why": "the orchestrator, 08 Nov: no dead-still hands while she talks (a robotic tell)"
+   "why": "the orchestrator, 08 Nov: no dead-still hands while she talks (a robotic tell)",
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "qa.editor_offline_parity_cm": {
    "area": "performance",
@@ -1418,7 +1435,8 @@
    "guard": true,
    "na_ok": true,
    "na_reason": "no desk rest >= 0.5 s (the hands hang: the hanging row applies)",
-   "why": "the orchestrator's desk rest (08 Nov): forearms on the desk, elbows relaxed; an upper arm lifted past 40 deg to reach the desk reads strained"
+   "why": "the orchestrator's desk rest (08 Nov): forearms on the desk, elbows relaxed; an upper arm lifted past 40 deg to reach the desk reads strained",
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "move.finger_snap_per_min": {
    "area": "performance",
@@ -1433,7 +1451,8 @@
    "must_fail": [
     8.4,
     "her body 8a45d961: 8.4/min whole take (13.5 in the verify windows); 404db805 25.5, 52ab5ea2 11.5 (agent-13)"
-   ]
+   ],
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "body.speech_sway_mm": {
    "area": "performance",
@@ -1496,7 +1515,8 @@
    "must_fail": [
     90,
     "her b4325b5b (the r7H verify): 90 frames in the verify windows (whole take 254), incl. the MCU t2.60-2.93 'MILLION' and the CU t4.37-5.83 'Hit play'; 52ab5ea2 60 / 207. Chin lines measured (agent-02)"
-   ]
+   ],
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "garment.waist_skin_poke_cm": {
    "area": "garment",
@@ -1522,14 +1542,15 @@
    "op": "==",
    "line": 0,
    "unit": "frames @30",
-   "what": "on-camera speaking frames with any finger (index..pinky) in the intrinsic-minus claw: MCP < 20 with PIP > 15 and DIP >= PIP (bends about the knuckle line; DIP from the fingertip point)",
+   "what": "on-camera speaking frames with any finger (index..pinky) in a claw: intrinsic-minus (MCP < 20 with PIP > 15 and DIP >= PIP), MCP hyperextended (< -10), or MCP lagging PIP (MCP < PIP/2 - 10; the orchestrator's anatomy, 09 Nov)",
    "how": "r7/naturalness.py --who <her|him> (agent-13, fleet/agent-13/r7-movement 4e1ac999+) on the 30 fps track WITH fingertips (gesturekit.track_frame 'tips', agent-01 b2d3bcc0+) -> numbers/<film>/naturalness.json",
    "must_fail": [
     279,
     "her b4325b5b (re-dumped with tips): 896 whole take / 279 verify windows (881 the right index, MCP 4-18 / PIP 17-21 / DIP 22-25, across the WIDE f1060-1080); agent-08 8ebecc97 0 (agent-13)"
    ],
    "na_ok": true,
-   "na_reason": "the track carries no fingertips (pre-b2d3bcc0)"
+   "na_reason": "the track carries no fingertips (pre-b2d3bcc0)",
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "move.dip_pip_ratio_bad_frac": {
    "area": "performance",
@@ -1546,7 +1567,8 @@
     "her b4325b5b 0.733 / 0.71 (the rig's rest ratios 0.25-0.55); 8ebecc97 0"
    ],
    "na_ok": true,
-   "na_reason": "the track carries no fingertips (pre-b2d3bcc0)"
+   "na_reason": "the track carries no fingertips (pre-b2d3bcc0)",
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "move.fold_at_limit_frames": {
    "area": "performance",
@@ -1561,7 +1583,8 @@
    "must_fail": [
     56,
     "her b4325b5b 56 / 56 (the WIDE counts: ring/pinky MCP 73 / PIP 101-105); 8ebecc97 0"
-   ]
+   ],
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "move.cascade_broken_frac": {
    "area": "performance",
@@ -1578,7 +1601,8 @@
     "her b4325b5b whole take 0.172 (verify windows 0.0); 404db805 0.49, 52ab5ea2 0.49; 8ebecc97 0"
    ],
    "na_ok": true,
-   "na_reason": "no resting hand held in the air (every rest lies on the desk)"
+   "na_reason": "no resting hand held in the air (every rest lies on the desk)",
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "move.thumb_flat_frames": {
    "area": "performance",
@@ -1593,7 +1617,8 @@
    "must_fail": [
     41,
     "her b4325b5b 100 / 41 (right hand); 404db805 166, 52ab5ea2 240; 8ebecc97 773 / 241; dd4cc957 6 / 4"
-   ]
+   ],
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "move.thumb_stiff_frames": {
    "area": "performance",
@@ -1611,7 +1636,8 @@
    ],
    "na_ok": true,
    "na_reason": "the track carries no fingertips (pre-b2d3bcc0)",
-   "guard": true
+   "guard": true,
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "move.hold_over_collar_frames": {
    "area": "performance",
@@ -1626,7 +1652,8 @@
    "must_fail": [
     59,
     "her b4325b5b 179 / 59 (the holds by the face: 2.7-2.9, 4.5-5.8, 17.3-18.4, 25.5-26.7, 40.4-40.9, 46.3-47.3, 53.8-54.7, 57.1-57.6); b2d3bcc0 0"
-   ]
+   ],
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "move.hold_chest_frames": {
    "area": "performance",
@@ -1646,7 +1673,8 @@
    "r4": [
     null,
     "REPORT row (agent-08): reported, never blocks"
-   ]
+   ],
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "move.claw_score_frames": {
    "area": "performance",
@@ -1668,7 +1696,8 @@
     "REPORT row (agent-08): reported, never blocks"
    ],
    "na_ok": true,
-   "na_reason": "the track carries no fingertips (pre-b2d3bcc0)"
+   "na_reason": "the track carries no fingertips (pre-b2d3bcc0)",
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "move.finger_spread_p90_deg": {
    "area": "performance",
@@ -1683,7 +1712,8 @@
    "must_fail": [
     9.46,
     "her b4325b5b 9.12 whole / 9.46 verify windows; 4fdd6af3 10.6 / 12.0; 404db805 27.1 (agent-13)"
-   ]
+   ],
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "move.rest_contact_bad_frames": {
    "area": "performance",
@@ -1699,7 +1729,8 @@
     223,
     "her b4325b5b 715 / 219; agent-08 08d932a6 (wrist drawn to 3.2) 723 / 223 at the 2.9 line"
    ],
-   "note": "the heel line is agent-02's mesh measure (928407cb _Arms ref pose, both hands): 2.35 heel-only / 1.85 heel + pads -> 2.9 with 0.5 tolerance; agent-08's 3.2 cm rest leaves the heel ~1 cm off: FAIL; his line when box T runs"
+   "note": "the heel line is agent-02's mesh measure (928407cb _Arms ref pose, both hands): 2.35 heel-only / 1.85 heel + pads -> 2.9 with 0.5 tolerance; agent-08's 3.2 cm rest leaves the heel ~1 cm off: FAIL; his line when box T runs",
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "move.rest_abduction_deg": {
    "area": "performance",
@@ -1715,7 +1746,8 @@
     "404db805 37.1 (L) / 52ab5ea2 52.1 (R): the old elbows-out rests; her 928407cb 21.6 passes"
    ],
    "why": "the orchestrator, 09 Nov (his flank): an open seated posture allows the elbows a hand-width off the torso at rest, up to ~20-25 deg of abduction with the forearms ON the desk; beyond that (elbows flared/raised, forearms off the desk) is wings",
-   "guard": true
+   "guard": true,
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "qa.editor_torso_parity_cm": {
    "area": "performance",
@@ -1746,7 +1778,24 @@
     188,
     "her 928407cb PLACED on T2: 188 (the place stage's +2.6 cm lift; the seat dump read 0 at the old line)"
    ],
-   "note": "the heel line is agent-02's mesh measure (928407cb _Arms ref pose, both hands): 2.35 heel-only / 1.85 heel + pads -> 2.9 with 0.5 tolerance; agent-08's 3.2 cm rest leaves the heel ~1 cm off: FAIL; his line when box T runs"
+   "note": "the heel line is agent-02's mesh measure (928407cb _Arms ref pose, both hands): 2.35 heel-only / 1.85 heel + pads -> 2.9 with 0.5 tolerance; agent-08's 3.2 cm rest leaves the heel ~1 cm off: FAIL; his line when box T runs",
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
+  },
+  "move.palm_to_camera_frames": {
+   "area": "performance",
+   "track": "agent-13 (measure) / agent-08 (hand shapes) / agent-01 (body)",
+   "where": "her speaking frames (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "why": "the orchestrator's review of 00:08 (09 Nov): the list apex reads as palm-to-camera like a 'halt' with the wrist extended; a list/offering palm angles UP/IN toward the midline",
+   "op": "==",
+   "line": 0,
+   "unit": "frames @30",
+   "what": "on-camera stroke-hold frames (any kind but 'press') where a hand's palm faces the camera (the palm normal within 60 deg of the actor's front, +x) with its fingers pointing up: the 'halt' hand",
+   "how": "r7/naturalness.py (ccc46755+), on the kit track AND on the placed editor dump",
+   "must_fail": [
+    116,
+    "her 928407cb: 336 whole / 116 verify windows (incl. the N13 list f1060-1075: palm normal +x 0.66-0.80); b4325b5b 319 / 97"
+   ],
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   }
  },
  "not_attempted": {
