@@ -21,7 +21,8 @@ from pathlib import Path
 FINGERS = ("index", "middle", "ring", "pinky")
 SPEAK = 0.5
 HIGH_APEX_CM = 16.0  # wrist over the sternum point that counts as an upper_chest-or-higher apex (APEX_Z 19, -3 slack)
-TORSO_DEPTH = 11.0  # cm from the spine_05 joint to the front of the chest/stomach (seated adult, either presenter)
+TORSO_DEPTH = 11.0
+MIN_MOVES = 5  # wrist movements a hand needs before its path/speed fractions count  # cm from the spine_05 joint to the front of the chest/stomach (seated adult, either presenter)
 
 
 # ---------- vectors ----------
@@ -292,9 +293,11 @@ class Take:
                 peaks.append(max(vv))
             nan = float("nan")
             r[s] = {"n": len(curv), "curv_p50": med(curv),
-                    "straight_frac": sum(1 for c in curv if c < 0.03) / len(curv) if curv else nan,
+                    # a hand with fewer than MIN_MOVES movements has no say in the fraction rows (3 small echo
+                    # moves of her left decided both rows on 0085e4d7)
+                    "straight_frac": sum(1 for c in curv if c < 0.03) / len(curv) if len(curv) >= MIN_MOVES else nan,
                     "peak_mean_p50": med(ratio),
-                    "bell_frac": sum(1 for x in ratio if 1.6 <= x <= 2.3) / len(ratio) if ratio else nan,
+                    "bell_frac": sum(1 for x in ratio if 1.6 <= x <= 2.3) / len(ratio) if len(ratio) >= MIN_MOVES else nan,
                     "v_peak_p50": med(peaks), "v_peak_max": max(peaks or [0.0])}
         return r
 
