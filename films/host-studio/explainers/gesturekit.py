@@ -1630,7 +1630,38 @@ class Performer(S.Seater):
             r = axis_angle(ax, -ang * kk)  # (the axis's sign: the turn must take the tip toward the desk line)
         for b in [ha] + bones:
             W[b] = [add(piv, qrot(r, sub(W[b][0], piv))), qnorm(qmul(r, W[b][1]))]
+        self._fingers_off_desk(s, W)
         self._thumb_off_desk(s, W)
+
+    def _fingers_off_desk(self, s: str, W) -> None:
+        """A finger whose DIP joint or tip dips under the desk line lifts at its knuckle by just enough (a landing:
+        the hand's pitch is capped, and pitching it further bends the wrist past the flex/ext line; the finger alone
+        gives, the way a real finger meets the desk)."""
+        sk = self.sk
+        for f in ("index", "middle", "ring", "pinky"):
+            j1, j3 = f"{f}_01_{s}", f"{f}_03_{s}"
+            if j1 not in W or j3 not in W or j3 not in sk.local:
+                continue
+            lt = sk.local[j3]["t"]
+            for _ in range(2):
+                tip = add(W[j3][0], mul(qrot(W[j3][1], unit(lt)), TIP_K.get(f, 0.75) * norm(lt)))
+                pts = [(W[j3][0], self.set.desk_top + self.DESK_THUMB), (tip, self.set.desk_top + self.DESK_TIP - 0.3)]
+                worst, line = min(pts, key=lambda pl: self.actor(pl[0])[2] - pl[1])
+                need = line - self.actor(worst)[2]
+                if need <= 0.0:
+                    break
+                piv = W[j1][0]
+                arm = sub(worst, piv)
+                reach = math.hypot(arm[0], arm[1])
+                if reach < 1.0:
+                    break
+                ang = math.degrees(math.asin(max(-1.0, min(1.0, need / reach)))) * 1.05
+                ax = unit(cross(arm, [0.0, 0.0, 1.0]))
+                r = axis_angle(ax, ang)
+                if self.actor(add(piv, qrot(r, arm)))[2] < self.actor(worst)[2]:
+                    r = axis_angle(ax, -ang)
+                for b in [x for x in W if x.startswith(f + "_") and x.endswith("_" + s) and "metacarpal" not in x]:
+                    W[b] = [add(piv, qrot(r, sub(W[b][0], piv))), qnorm(qmul(r, W[b][1]))]
 
     def _thumb_off_desk(self, s: str, W) -> None:
         """A thumb joint under DESK_THUMB rides up on the desk: the thumb turns up at its base (CMC) by just enough
