@@ -665,6 +665,7 @@ class Performer(S.Seater):
                 if a_w[2] > z_want:  # (by the rest's weight: in full earlier, it drove the landing fingers deeper)
                     wrist = add(wrist, mul(sub(self.comp([a_w[0], a_w[1], z_want]), wrist), k_rest))
             elbow, wrist = self.swivel(s, sh, wrist, l1, l2, pole, W, ws)
+            elbow, wrist = self._elbow_settle(s, sh, wrist, l1, l2, elbow, wrist)
             back = ortho(sub(elbow, sh), unit(sub(wrist, sh)))
             W[ua] = [sh, self._aim(ua, la, sub(elbow, sh), back, front_rest=mul(f, -1.0))]
             W[la] = [self._fk_t(la, ua, W), self._aim(la, ha, sub(wrist, elbow), back, front_rest=mul(f, -1.0))]
@@ -856,8 +857,7 @@ class Performer(S.Seater):
         whose upper arm clears the torso/breast model by CLEAR_WANT (and the mic, the boom, the desk, never in across
         the body nor back behind the shoulder), the lowest; none clearing: the clearest (while she speaks; the desk
         rest keeps its pole)."""
-        e_out, w_out = self._swivel_pick(s, sh, wrist, l1, l2, pole, W, ws)
-        return self._elbow_settle(s, sh, wrist, l1, l2, e_out, w_out)
+        return self._swivel_pick(s, sh, wrist, l1, l2, pole, W, ws)
 
     ELBOW_TAU = 0.05  # s each of the two cascaded lags on the elbow's direction (agent-13 / agent-08, 09 Nov: the
     #   swivel's 5 deg choice flipped between candidates as a stroke released, the elbow jumping 7 cm in a frame at
@@ -865,7 +865,8 @@ class Performer(S.Seater):
 
     def _elbow_settle(self, s, sh, wrist, l1, l2, e, w):
         """The elbow's direction from the shoulder (actor frame), smoothed in time by two cascaded first-order lags,
-        then solved on the arm's circle again (the wrist exact). A frame out of order or a gap resets it."""
+        then solved on the arm's circle again (the wrist exact). A frame out of order or a gap resets it. Called once
+        per arm per frame, from pose (the planner and the hooks call swivel for other goals)."""
         t = getattr(self, "_t", None)
         if t is None:
             return e, w
