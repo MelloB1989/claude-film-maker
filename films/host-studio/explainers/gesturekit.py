@@ -259,7 +259,9 @@ def plan_from_sheet(sheet: dict, cues: dict, tilts: list | None = None, base_lea
                 #                 straight and the elbow rose in front of her chest, inside the Top (box B, agent-11:
                 #                 -7 cm at N01 'million', N13 'that'); this keeps it out and down as at the high rest.
                 #                 Higher than this, the hand passes behind the mic from CAM_CU / CAM_WIDE.
-                pl = replace(pl, off=(min(pl.off[0], LEFT_TWO[0]), LEFT_TWO[1], max(pl.off[2], LEFT_TWO[2])))
+                # r7F (agent-13: the left travelled 0.27 of the right on two-hand strokes, line 0.4-0.7): the left
+                #   follows the right's move from the rest at LEFT_SHARE, mirrored, inside the mic box (gesture_style)
+                pl = replace(pl, off=tuple(HIGH_REST.off[i] + LEFT_SHARE * (pr.off[i] - HIGH_REST.off[i]) for i in range(3)))
             seed0 += 1
             prep = float(g["prep_t"])  # agent-10's prosody timing owns prep/stroke/hold/retract when present
             ev = Event(g.get("hand", "r"), prep, float(g["stroke_t"]), float(g.get("hold_s", 0.25)),
@@ -744,7 +746,8 @@ YAW_BASE = {"r": 30.0, "l": 0.0}  # deg her right fingers always turn out a litt
 RIGHT_MIN_LAT = 15.0  # cm her right hand stays to her right of the sternum point while she speaks
 LEFT_RESTS = False  # r7b: the left hand rested on the desk between its own gestures while the mic hung at her sternum;
 #                     with the mic moved up to her mouth (the orchestrator, 08 Nov) it gestures like the right
-LEFT_MAX_LAT = 9.0
+LEFT_MAX_LAT = 16.0  # r7F: 9 with the mic at her chest (MIC_L)
+LEFT_SHARE = 0.55  # the left's move on a two-hand stroke, of the right's
 LEFT_TWO = (24.0, 9.0, -2.0)  # cm her left hand on a two-hand gesture (agent-10, see plan_from_sheet)
 LEFT_MAX_Z = 40.0  # cm over the sternum point for her left hand (no cap with the mic at her mouth)  # cm: her left hand stays at least 3 cm to her RIGHT of the sternum point while she speaks
 
