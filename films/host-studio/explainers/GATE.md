@@ -217,6 +217,15 @@ nods to 3.5. Fix c1e15f42 (him only): acting nods at half depth, beat nods off; 
 measured 0.77 ratio. Re-run his face step onward, then the head gate. STOP-SHIP first: a black band round his torso in the
 binding stills (the orchestrator; not from the face tools).
 
+**His convergence (the orchestrator, 07:40; agent-04's gate):** REST_HOLD=0.2 (agent-01 857aa5b4) is the pick: TEST [],
+heel max 2.74, 0 frames over 2.84. Its one new snap (r 39.5 s = f948, gfx shot 11) doesn't count under the on-camera rule
+(new snaps disqualify only in pres/panel shots). The head is fleet/agent-04/r7-face 5194d443: on c1e15f42 the box read
+drift 1.484 but nods 0.0/min (half-depth nods never reach the detector), so 4 payoff-line nods (W01, W03, W11, W17) are at
+full 2.5 deg and the rest at 0.2, with beats off; offline drift 1.14 and ~7 countable nods/min on camera.
+**rest_contact_rendered at a rest/gesture boundary (agent-04, in advance):** a flagged frame whose track gesture_w,
+interpolated at its time, is >= 0.1 is a gesture frame mislabelled by the 24 fps sampling: excluded and logged. Below
+0.1 it is a real rest and FAILS.
+
 ## Verdicts
 
 ### Netflix v2b: REJECTED BY THE OPERATOR (07 Nov, about 23:45 IST). The SIGN below is SUPERSEDED.
