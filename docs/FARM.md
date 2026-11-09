@@ -102,6 +102,9 @@ box:  worker ─ claim ─► c/<chunk>/lease.json   created If-None-Match: *   
 - Worker logs and `workers/<box>.json` hold chunk ids, frame counts and timings, never images or scene content.
 - Use the level's own state: if a presenter is anywhere on the level, mark the job private even when no presenter is
   in frame.
+- Host_Op data is more than the face and the renders: his rig and skeleton numbers count too. None of it goes to
+  kali, pc2, git or the Mac relay. Tools that read it run box-side and print numbers only (counts, boxes, pass/fail).
+  Composites with a presenter are made on a box; graphics-only renders are not face data.
 
 ## 5. Boxes and money
 
@@ -123,6 +126,10 @@ box:  worker ─ claim ─► c/<chunk>/lease.json   created If-None-Match: *   
 - Rough numbers (ap-south-1, Nov 2026): g6e.2xlarge on-demand $2.69/h. At final 4x8, 1080p, an L40S gives about
   0.35-0.4 fps including warm-ups, and a fresh editor plus level open adds ~3-5 min per chunk. So a 60 s explainer
   (1440 frames) is about 1 h of render on one box, or ~20 min on 4 boxes with chunks of ~120.
+- Measured (round 7 per-shot finals, 2026-11-09, Tokyo spot): ~1.25-1.4 s/frame on an L40S (g6e), ~3.3 s/frame on
+  an L4 (g6).
+- **Spot only** for round 7 (no on-demand GPU). The Tokyo L40S spot pool can be reclaimed: fall back to
+  other types (g6e.4xlarge, g6.4xlarge on L4, ...) launched from a fresh AMI of the box's state.
 
 ## 6. Gotchas
 
@@ -144,6 +151,15 @@ box:  worker ─ claim ─► c/<chunk>/lease.json   created If-None-Match: *   
   word. The bill is per second from `running`.
 - **Persistent spot.** A spot box stopped by a reclaim restarts by itself when capacity returns, and its worker service
   starts again (cloud-init does not run twice; the settings stay in /etc/film-farm).
+- **Cancelling a persistent spot request TERMINATES its instance, even a stopped one.** Make an AMI of the stopped box
+  first (its state is then kept), wait until it is available, and only then cancel the request.
+- **A box cold-booted from an AMI lazy-loads its disk from the snapshots.** The first frames read cold blocks, and
+  a black band appeared in them. Render warm-up stills first, then the finals. Render the finals per shot and push
+  each shot to S3 as it finishes, so a reclaim costs one shot, not the film.
+- **Pack a box under systemd** (a unit on the box), not as a command over the remote channel (SSM), whose session
+  can end mid-pack.
+- **The kill switch** (§8) stops an idle or over-TTL GPU box by itself; tag `KillSwitch=off` for a deliberate long
+  job or a long S3 pull.
 
 ## 7. Runbook: bringing the workers up to a box's state (`ue.sync`)
 
