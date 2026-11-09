@@ -200,6 +200,153 @@ tested in `test_seatkit.py`), `gestures.json` (the emphasis gestures per line).
 | 18:05 | agent-07 moved the desk in (near edge x 38) and mirrored the boom to the -Y edge (scale -1 at yaw -90): no re-pose needed. Armrest 63.0 vs apron underside 63.4 noted |
 | 18:30 | A full re-run died at once: `cd && rm && nohup … &` on one line ran the whole chain in a subshell that SSM killed with the command → relaunch with `setsid nohup` on its own line |
 | 18:45 | Orchestrator (via agent-07): her feet never seen, WIDE's empty right → SM_WalnutDesk_Panel, SM_FloorLamp (practical, SOCKET_Bulb), SM_FloorSnakePlant; all 7 FBX re-import at size; uploaded with all textures |
+
+## Round 7: performance (agent-11, director)
+
+- 07 Nov 23:43 IST: her acting sheet, first draft. `acting.py` resolves a per-line sheet (emotion, intensity, base
+  smile/brows, face moves and gestures on exact words, lean) against the VO alignment into `acting/her.json` (seconds +
+  frames, plus `face04` / `body01` views for agent-04 and agent-01) and `ACTING.md`. On paper: 19.4 smiles/min, 20.6
+  brow moves/min, 0.87 gesture onsets/s, longest neutral stretch inside a line 1.41 s, no gesture twice in a row.
+  TEST span: CAM_MCU f0-196 (N01-N03) + CAM_WIDE f1040-1162 (N13) = 13.25 s; N04 (f196-305) optional.
+- 07 Nov 23:47 IST: the orchestrator approved v1 as direction, with two calibrations, applied: full Duchenne (>= 0.8)
+  only on five payoffs (members, just starts, near you, AWS, just plays), mid-line smiles 0.4-0.6 with a shape /
+  asymmetry each; gesture amplitude `amp` per stroke and HELD strokes (`held`, `hold_s` 0.5-1.0). His 17 lines
+  (`acting/him.json`), same staging and calibration (payoffs: messages, Here's how, read it, your hands, a day): 0.94
+  onsets/s, longest neutral stretch <= 1.5 s; his TEST span CAM_MCU f0-179 (W01-W03) + CAM_WIDE f422-480 (W07).
+- 08 Nov 01:10 IST: overnight prep for composite v3. `comp_box.sh` runs the whole composite on a box in one command,
+  CPU only (graphics sync, composite.py, contact + stills, qa_av all with filmtools so qc_ok runs, upload to private review).
+  It's staged on box B as /srv/ue/explain/src4 (src3 + qa_av.py + comp_box.sh). WhatsApp graphics-only dry run
+  `PLACEHOLDER=1 comp_box.sh whatsapp p1 none`: 1352 f, -14.1/-1.7, text_match 1 (157 words / 46 captions), onset 84 ms,
+  facts 1, qc_ok 1. SFX for the v3 graphics: `sfx.py` made 9 cues x 2 takes (~118 credits) with ElevenLabs sound
+  generation, picked by measurement; `place` lays each film's sfx_v3.json on the timeline and `mix.py --sfx` adds the
+  stems (a fake list held -14.03/-1.67). The v3 graphics and hit lists land ~07:30 IST (agent-12 netflix, agent-13 whatsapp).
+- 07 Nov ~01:30 IST (r7, agent-04): her face acts. Cause of the "pale" face: mouth-only solves, plus a plan that
+  added only random brow flashes (brow_chance 0.45) and no smiles. `face_acting.py` turns agent-11's sheet
+  (v1.1) into perf.face events on the exact words: brows, curious one-brow, Duchenne (cheek + squint) only on the
+  5 payoffs, soft 0.4-0.6 elsewhere over a warm base, nods and a shake, and filler past 0.7 s of neutral speech.
+  The lips stay the solve's (corner pull and dimple only, x0.75 while talking). Tilts go to agent-01's body.
+  Offline rows pass: active 0.88, smiles 27/min, brows 22/min, neutral hold 0.79 s. FACE_R7.md is the driver's sheet.
+## Round 7 garment: her bottoms at the waist (agent-05, branch fleet/agent-05/r7-waist; task 0c7d, with agent-02)
+
+| IST | |
+|---|---|
+| 23:15 | Brief: "her skirt or whatever she is wearing below is not fit to her". Her bottoms are her_outfit.py's Trousers (fitted to her A-pose, weights smoothed 30x over the garment), leader-posed seated |
+| 23:30 | agent-06's garment.export (read-only) → box B /srv/ue/fit/her_r7 (live meshes: Trousers_Under_Top, Body_Under_Top) + the uncut SKM_Presenter_Trousers |
+| 23:35 | `props/her_waist_r7.py` probe (24 sectors x 5 heights through the band, AS_exp_her_body seated): the uncut band stands 0.62-1.97 cm off her waist (front 0.7-0.9, sides 0.9-2.0); the live cut copy has lost 7.4k verts incl. the band's INNER face (r6b's Trousers-under-Top 6 cm cut): a hollow band, gap 0.7-2.2 cm, and a step down to the Top |
+| 23:50 | Refit in her seated pose, carried back to the bind pose by each vertex's inverse skinning: Top tuck 0.12 cm off her skin (under the band), the band 0.42 cm over it, her body's weights unsmoothed through the band ramping to the trousers' own 5-13 cm under it, seams welded. Seated after: band gap 0.41-0.52 cm in every sector, 0 body/Top pokes. Standing it would sit up to 0.7 cm inside her belly: a seated-only asset (_R7W). ~3k verts at her seated front hip crease (9-13 cm under the edge) read inside her skin: left alone; Body-under-Trousers now hides her skin there |
+| 23:58 | setplan: GARMENT_SRC Top/Trousers → SKM_Presenter_{Top,Trousers}_R7W; GARMENT_HIDES her: the inner layer under the outer one (Top under Trousers 2.5, Body under Top 6, Body under Trousers 2.5), the Trousers-under-Top cut dropped. Import: `her_outfit_ue/import_r7_waist.py` (agent-06) |
+- 07 Nov 23:55-08 Nov 00:20 agent-08 (`fleet/agent-08/r7-humanize`): the mocap-library route was dropped (the operator:
+  no motion libraries, "we can't show same animations"; nothing was downloaded). `gesture_style.py` is the layer that
+  makes gesturekit's generated motion human: a seeded draw per gesture (film line + index + hand: amplitude, height,
+  wrist angles, finger offsets and spread, timing +-40 ms, path bulge), min-jerk preps skewed late, stroke overshoot
+  and settle, drifting holds, co-articulated retracts, the wrist leading in and following out, a pinky-to-index
+  finger cascade and never-frozen finger micro-motion. Her full take on her skeleton read: build passes, arm
+  clearance 3.8/3.8 cm, most similar gesture pair 0.842 (his 0.741, across 0.84; without it 25 identical pairs per
+  film). The left hand's draw is bounded (a 1.17x draw put her forearm on the mic arm, fingers in the desk).
+- 08 Nov 01:10 IST: overnight prep for composite v3. `comp_box.sh` runs the whole composite on a box in one command,
+  CPU only (graphics sync, composite.py, contact + stills, qa_av all with filmtools so qc_ok runs, upload to private review).
+  It's staged on box B as /srv/ue/explain/src4 (src3 + qa_av.py + comp_box.sh). WhatsApp graphics-only dry run
+  `PLACEHOLDER=1 comp_box.sh whatsapp p1 none`: 1352 f, -14.1/-1.7, text_match 1 (157 words / 46 captions), onset 84 ms,
+  facts 1, qc_ok 1. SFX for the v3 graphics: `sfx.py` made 9 cues x 2 takes (~118 credits) with ElevenLabs sound
+  generation, picked by measurement; `place` lays each film's sfx_v3.json on the timeline and `mix.py --sfx` adds the
+  stems (a fake list held -14.03/-1.67). The v3 graphics and hit lists land ~07:30 IST (agent-12 netflix, agent-13 whatsapp).
+
+## Speech-driven gestures (agent-10, branch fleet/agent-10/r7-gesture)
+
+| IST | |
+|---|---|
+| 23:50 | Licence survey of open speech-to-gesture models (r7/gesture_model.md): every model with body + fingers is non-commercial (BEAT2 / SMPL-X / ZEGGS / MPI / CC-NC). Orchestrator: no NC output anywhere |
+| 23:58 | Mocap-clip planner started on agent-08's Mixamo list; dropped at the operator's call: no motion libraries, every gesture generated by code |
+| 00:05 | prosody.py (syllable nuclei, stressed = loudest, local vocal energy over speech only) + plan.py -> acting/timing_her.json for agent-01's gesturekit hook: apex 80-200 ms before the stressed peak, amp/speed by energy, 7 beats on secondary stresses, rest > 0.6 s, chained post-stroke holds |
+| 00:10 | evaluate.py (agent-09's body rows on agent-01's Performer): whole 0.42 -> 0.58 onsets/s, MCU test 0.61 -> 1.07, WIDE 1.09, hands up 0.975, clearance >= 3.57 cm. 18/50 strokes still under the 40 cm/s beat line: same-pose successors (counts 2-3, N04 'Appliances.'), sent to agent-01. Stick preview (not her) frame-synced to vo.wav: test span + full 60 s |
+
+## Box B driver, night of 7-8 Nov (agent-06, branch fleet/agent-06/r7-boxb)
+
+| IST | |
+|---|---|
+| 01:58 | Her TEST chain_T2 (cams, FACE_SOLVE=full face pass) started on agent-01's 1b8797f4 body + the new mic. Cams old vs new < 0.2 deg |
+| ~04:10 | kali rebooted, its /tmp was wiped (driver trees + box conf), and chain_T2 died mid-face (exit 255). pc2 was down too |
+| night | agent-11 drove box B meanwhile: body --perform at 7976d7b6 (0 issues, clearance L 5.92 / R 5.30), face, head (on_lens 0.916), hands (MCU 1.0, CU 0.889, WIDE 1.0), TEST render netflix_r7F shots 1,2,11 done 04:10 IST, test_clip r7F 13.25 s for the orchestrator. Level saved |
+| 08:37 | Box B spot-stopped (service-initiated). Nothing unsaved |
+| 09:00 | agent-06 back. Rebuilt the kali driver (/tmp/fleet-agent-06-ue/r7: tree 102de420 = r7-body 7976d7b6 merged, fu, sether, conf film-ue.boxb.json). start-instances: InsufficientInstanceCapacity. Retrying the same instance every 10 min (no new spend). On-demand / other-AZ question is with the orchestrator |
+## Round 7 garment (agent-02, branch fleet/agent-02/r7-garment; measures in `reel/r7/garment_measure.py`)
+
+| IST (8 Nov) | What |
+|---|---|
+| 00:10-00:40 | `garment_measure.py` waist + arms. Fixes found on box B runs: the actor's forward is 90 deg off her facing (angles now from her skeleton); the arm/torso split needed the arm radius, an open-edge sign rule, a shoulder floor and a nearer-the-spine rule; a ref-pose self-check gates every arms run |
+| 00:40 | v2b waist: `waist_fit_cm` 1.04 at her LEFT side (90 deg), front 0.56, no poke. Orchestrator's eye (WIDE f1100 3x): the band flares out past the Top's side line on her left = the operator's "not fit" |
+| 01:00 | agent-05's R7W (seated refit): fit 0.0 but her belly pokes out through the front band, +0.32..0.59 cm on the R7 body (qa.clip Body>Trousers 2.6 % in the WIDE). agent-09 splits the row: `waist_fit_cm` <= 0.75 (must_fail v2b 1.04) + `waist_poke_cm` <= 0.1 (must_fail R7W +0.49), on-screen frames only |
+| 01:20 | R7W2 (agent-05, fitted over her UE-posed belly from `export_posed.py` at f1080/270/150/870): fit 0.28, poke -0.26 on f150/270/870/1080. Orchestrator: waist PASS by eye (WIDE f1100 3x). Her TEST renders in R7W2 with the cuts Top<Trousers 2.5, Body<Top 6, Body<Trousers 2.5 |
+| 01:20 | Arms (`upperarm_torso_clear_cm`): self-check passes (ref pose +5.19, 0 inside); agent-01's elbows-out R7 frames read +5.7..+8.7. Pending before it gates: the v2b reading (must_fail, her right arm at 00:44) |
+| 02:10 | Arms VALID: v2b (SEQ_Explain_Her_v2b, f1044-1104:3) -8.19 cm, both upper arms inside the Top/breast the whole 00:43.5-00:46 hold, self-check passing every frame; R7 elbows-out controls +5.7..+7.1. Gate: `upperarm_torso_clear_cm` >= 3 on screen, must_fail v2b. The sign is solid; the depth is approximate |
+| 10:08 | Orchestrator: replace box B. AMI ami-0549070f5f5f9a2a2 from stopped box B. Spot g6e.4xlarge: no capacity in 1a or 1b for 10 min (1c doesn't offer g6e), so box C i-076cd8c1839dbbd8d ON-DEMAND in 1a at 10:19 |
+| 10:28 | Box C verified (both levels, SEQs, Perf/r7A, r7B, v2b, SM_MicBoom_her, _R7W/_R7W2 garments, set_her/him), her level re-led. Box B's spot request sir-kri7mksg cancelled, box B terminated |
+| 10:35 | Operator: no on-demand, spot only. Box C saved, API-stopped 10:40, AMI ami-03d0ee853276c5958 (newest state), box C terminated 10:42. agent-07's spot hunter launches box D from it |
+| 10:45 | Ready for box D: her verify at r7-body 773091c2 (rest 25,10,-4; her MCU hands line 0.5): bless signs (kali out/ was wiped; live c95d1126), body --perform, arms on rest frames, cams, preview, FACE_SOLVE=full all --from sync, render CAM_MCU shot 1 (netflix_r7R). Then his chain (x/newbox.sh repoints the driver) |
+- 08 Nov 02:14-03:20 IST (agent-11, interim box B driver: agent-06 and the pc2 agents unreachable): box B was
+  spot-reclaimed at 02:14:51 (no g6e capacity in ap-south-1a; the persistent request restarted it itself at 02:21). Nothing
+  was lost: agent-06's cams + `FACE_SOLVE=full all --from face` had been saved (assets 01:58-02:10, level 02:12). After
+  the restart the editor opened /Game/Studio, and the SSM tunnel was stale (`film-ue close` + `tunnel`). Her level was
+  reopened and the garments re-led, then agent-06's chain_T2 resumed from head sample. Head gate on fresh data:
+  on_lens 0.916, every span >= 0.82 (the head's own aim off the lens: 1.1-1.8 deg MCU/WIDE, 6.9-7.4 deg CU). Face
+  (gate09, whole take): active 0.83, smiles 20.8/min, brows 29.2/min, neutral 0.79 s, frown 0. Hands in frame: MCU 1.0,
+  CU 0.89, WIDE 1.0. ARMS FAIL: the left upper arm is inside the Top by up to 7.05 cm at f66 and f1118-1136, the two
+  big two-hand spreads where the sheet keeps the left hand inside the mic line (N01 "million", N13 "that"); the right
+  arm is 5.8-8.5 cm clear. The arms measure's cleanup leaves the garments unled: re-lead (`mh.leader`) before any
+  render. The TEST render (shots 1,2,11) started anyway, so the face can be judged while the arms are fixed.
+- 08 Nov 02:20-02:45 IST: agent-13's WhatsApp v3 batch 1 (12 files) synced to gfx/v3/explain-whatsapp; graphics-only dry
+  composite g3a on box B: all 9 graphics, 1352 f, lufs err 0.1, TP -1.7, text_match 1, onset 84 ms, facts 1, qc_ok 1.
+- 08 Nov 03:30-04:15 IST (agent-11, box B): the TEST's WIDE shot hit a Vulkan GPU crash (TerminateOnGPUCrash); the
+  editor restarted itself, and a shot-11-only retry rendered clean. agent-10 found the left-arm cause: gesture_style's
+  MIC_L (7 out, 3.5 cm below the sternum point) straightened her left arm on all 14 two-hand gestures, so the elbow rose
+  into her chest. d2589d46 (9 out, level) failed the body's own mic check from CAM_WIDE at t 46.4. 7976d7b6 (9 out,
+  2 cm below) passes. Applied as two files on agent-06's driver tree: body --perform 0 issues, all --from sync passes,
+  head on_lens 0.916, mesh arms over every two-hand gesture (80 frames) L min 5.92 / R min 5.30 cm (f66: -7.05 ->
+  +6.30). TEST render netflix_r7F (shots 1, 2, 11) 04:04-04:10; `test_clip.sh` on the box composites the film with
+  placeholders and cuts the TEST spans: netflix_r7F_TEST.mp4 (13.25 s) + stills, private review, to the orchestrator.
+- 2026-11-08 ~05:55 IST, agent-11: agent-13's WhatsApp v3 polish pass (12 files, soft caption band, no full-frame
+  flashes on the panels) re-synced to gfx/v3/explain-whatsapp. Dry composite g3b: 1352 f, lufs err 0.1, TP -1.7,
+  text_match 1, onset 84 ms, facts 1, qc_ok 1 (same as g3a).
+- 2026-11-08 09:05 IST, agent-11: box B spot-stopped at 08:37 IST (03:07 UTC) with no capacity, idle since r7F, so
+  nothing was lost. kali rebooted and wiped the interim driver trees under /tmp. agent-06 is back and drives box B
+  again; handed over with the r7F state, re-lead before every render, and numbers_test not yet run.
+- 08 Nov 10:29 IST (agent-11): the orchestrator's TEST verdict (her rest pose to agent-01/10/08; the lower third off the
+  gesture zone). The lower third moves TOP-LEFT: agent-12 bakes it into Netflix's lowerthird.mov (plate right edge x 680,
+  370c2c3d); composite.py's drawn card (WhatsApp) is x 96-660, y 80-243 with the title wrapped, clear of the MCU head
+  (setplan projection from x ~704). comp_box.sh PRES_S3 pulls agent-07's farm finals. Box C (agent-06's, CPU only):
+  WhatsApp dry composite g4: card measured at x 96-619, y 81-241 (f48 vs f4); 1352 f, lufs_err 0.1, TP -1.7, captions 1,
+  onset 84 ms, facts 1, qc_ok 1.
+
+### Editor boxes, 8 Nov evening (agent-06, IST)
+
+| IST | What |
+|---|---|
+| 14:20 | Box D (Mumbai g4dn.4xlarge T4, spot) from box C's AMI: core install; T4 feasibility CAM_MCU f0-30 at the finals preset: 199 s, peak VRAM 9.9 GB of 15, no GPU errors. |
+| 14:30-15:00 | Her chain on 1e88aca8: gates first read the sequence before the new seat was bound (body writes only the seat; preview binds it); re-ordered. "Stale life layer" parity of 44-47 cm later traced to a CLOCK slip: editor dumps are 24 fps sequence frames, arm_track.json is 30 fps; parity now matches by time (agent-13 parity.py). |
+| 15:00 | Box D terminated (spot request cancelled). Her chain moved to Tokyo T2 (g6e.2xlarge spot, restored from the Tokyo bucket); his to Tokyo T. Kali cannot read box-written private/ objects: parity/rows/rest filters run on the boxes, numbers only come back. |
+| 15:30-18:30 | Body iterations ac3dc14a -> 906d80d3 -> 8a45d961 -> b4325b5b (her), up to 9eaf6a4b / ea9eadc0 / aba900fe (him): mic occlusion per cut camera, finger snaps eased, life scaled for him. Box T killed twice by the kill switch re-arm (stale idle points) and once by Tokyo capacity; T2 spot-interrupted 11:42-11:49 UTC mid face pass. |
+| 19:15 | Her T2 gates on b4325b5b: parity --shoulder 0.919 cm, all rows on the kit track (finger_snap 0), rest 16.36 cm, arms rest + gesture pass (agent-02 949cde7c), hands_in_frame MCU 0.797 / CU 0.529 / WIDE 1.0, head gate pass (on_lens 0.916). Breath z 1.62 mm (target 2-3.5) goes to the finals' life (d85ecdc6). |
+| 19:33 | Her verify render netflix_r7H shots 1, 2, 11 at the finals preset on T2 (7 min); Tokyo private review/explain/netflix_r7H/final/. T2 saved + API-stopped for the orchestrator's review. |
+- 08 Nov 13:20 IST (agent-11): acting sheets per the orchestrator's elbow rulings: at most ~1/3 of strokes at/above the upper
+  chest (off-camera strokes at the sternum, 5 non-key visible ones pinned; her 0.326, him 0.302; 7154f0db) and nothing at
+  the chin (CU strokes and N15 'cloud' at the collarbone; 5a2c042e; agent-01 sets APEX_Z collarbone 22). v3 mixes with the
+  graphics' SFX lists (agent-12 93 hits, agent-13 75): -14.03/-1.66 and -14.06/-1.71 (e936898c). agent-12's final Netflix
+  v3 graphics (8-sample, 809e29eb) synced to gfx/v3/explain-netflix (12 objects). No box (spot only, none up), so the
+  graphics-only Netflix dry composite ran on the build host in a container: 1427 f, lufs_err 0.0, TP -1.7, format_ok 1,
+  captions 1, onset 84 ms, facts 1, qc_ok 1; lower third top-left as planned. composite.py now counts the picture's frames
+  with framecrc: ffmpeg 6.1 prints no frame= on a stream copy (the check read -1).
+
+- 2026-11-08 15:01 IST agent-11: r7 cost policy. comp_box.sh takes RENDER_BUCKET (Tokyo box -> Tokyo bucket; f36709f9) and from a Tokyo box copies only the mp4, master and srt to Mumbai private (9c7a6321). One approved server-side copy of gfx/v3 Mumbai -> rf-render-788655295054-apne1 (25 objects, 3.37 GB, matches). Asked agent-06/07 to write final frames to the Tokyo private prefix.
+- 08 Nov 19:50-20:25 IST agent-08 (R7 hands lead, `fleet/agent-08/r7-hands`): the operator on her verify, 00:08: "the
+  finger -> it looks like zombie". Cause: gesturekit's shapes were curl offsets on the rig's reference curl with the
+  PIP/DIP clamped at -5, so her counted right index sat at MCP 12-19 / PIP 19 / DIP 21 (the intrinsic-minus claw), and
+  the desk hand's DIPs at 7-18 (flat). `handshape.py` replaces them with named whole-hand poses as ABSOLUTE anatomical
+  targets: one closure per finger through an MCP-first synergy (DIP = 0.67 PIP), the relaxed cascade, spread narrowing
+  as the fingers close, and the thumb (palmar abduction out of the palm's plane + MCP/IP flexion, fitted by its tip).
+  Each joint turns by target - the rig's measured reference, so both rigs work. Merged agent-01's LIST kind (4bdf1518)
+  and agent-11's LIST sheets (963f561d): no finger counts are left in either sheet. Her take offline: build pass 0
+  issues; claw 0, DIP/PIP out of band 0, fold at the limit 0; snaps 1.01/min. The catalogue take
+  (`perform.py body --perform --catalogue`, AS_exp_<who>_hands_cat) and side builds (`--suffix`) feed the stills on T2.
 | 11:15 (08 Nov) | agent-13, R7 movement director: r7/naturalness.py + r7/NATURALNESS.md (research, 12 rows + 2 guards for agent-09, run on her old 404db805 / r7F TEST 52ab5ea2 / 773091c2 / 58f6e0aa). Main finding: her right upper arm sits 78 deg off hanging at strokes (elbows up and out), 64 at rest; wrists deviate 31-33 deg; the hand rotation leads the arm by 18 ms; the left hand travels 0.27 of the right on two-hand strokes |
 | 12:48 (08 Nov) | agent-13: agent-01 r7-body 7652457b passes all 14 naturalness rows + 2 guards, whole take and TEST spans (r7/naturalness_her*.json). Measure fix: still frames (< 2.5 cm/s) are trimmed off movement ends; with the overshoot off the holds are dead still and the next speed minimum sat at the hold end, inflating peak/mean |
 | 13:10 (08 Nov) | agent-13: agent-01 r7-body 1e88aca8 (hold life + finger life) passes all 16 naturalness rows (15 + mirror guard), whole take and TEST spans, on 0.1 mm dumps; released to agent-06 for the verify body |
@@ -207,3 +354,35 @@ tested in `test_seatkit.py`), `gestures.json` (the emphasis gestures per line).
 | 2026-11-08 15:39 IST | agent-13 | r7 movement: FPS FIX. --span and parity read the 24 fps film frames as the 30 fps dump frames: the "stale layer" (44/47 cm parity) was that, the editor matches offline to ~0.4 cm. Now matched by time. In the true verify windows 8d17a4ed / ac3dc14a FAIL wrist_flexext_p90 43.4 (right wrist extends to -54 on the counts t44-46.5 and the beat/deictic t6-7.3) |
 | 2026-11-08 15:44 IST | agent-13 | r7 movement: 906d80d3 (agent-01 count/raise_finger wrist) passes all 18 rows, whole take (flexext 21.5) and the true verify windows (flexext 20.8, bells 0.600 on the line); released behind parity; T2 parity 1.08 with the rebuilt life layer, 0.72 seat-only |
 | 2026-11-08 15:58 IST | agent-13 | r7 movement: 8a45d961 (agent-01 MOVE_MIN_S 0.3, trunk lean 0.25 s, right drift x1.3) passes all 18 rows, whole take and verify windows at 30 fps AND resampled at 24 (bells 0.933 / holds 0.44 in the windows); released |
+| 2026-11-08 17:21 IST | agent-13 | r7 movement: b4325b5b (agent-01 hand heading + finger ease) passes all 19 rows incl. finger_snap (whole 1.05 /min, windows 0), at 30 fps and an exact 24 fps solve; 30->24 interpolation error in the windows 0.62 cm (was 3.04); released |
+| 2026-11-08 20:28 IST | agent-13 | r7 GATE OWNER (agent-09 rate-limited): branch fleet/agent-13/r7-gate off 178a28bf; agent-08 hand rows added (claw, DIP/PIP, fold_at_limit, cascade, thumb_flat/stiff, hold_over_collar; report hold_chest, claw_score); parity text time-matched; n/a-able move rows |
+| 2026-11-08 22:10 IST | agent-06 | Editor boxes after the power cut. T2 (her) on agent-08's 928407cb: body, life, gates. Parity --shoulder 0.306 seat / 0.407 placed. Rest 19.18. Arms on _Arms: bust 3.56/3.81, side 1.25/1.31. hands_in_frame placed MCU 0.723 / CU 0.392 / WIDE 1.0. Breath z 2.65 mm @ 12.1/min. Waist: no visible skin. Catalogue v3 (30 ok, 3 SKIP) and 00:08 after v3 are in private/review/explain/hands/. FOUND: the place stage lifts her from spine_04 up by +2.6 z / -0.55 x (spine_03 0.00), so the resting hands float over the desk; --shoulder parity cancels it, and agent-13's --torso row and the rows on the placed dump now catch it. mp_pilot (agent-12 kling_her_t1) rendered CAM_WIDE + CAM_MCU 0-239 preview to private/review/explain/mp_pilot/kling_t1/ (parity 1.12 worst, p95 0.28). T (him): agent-01 66785bbe fails its own body check (hands_out_of_frame MCU 0.45, arm_outfit -1.2), and merged with 928407cb fails desk.finger; T stays stopped for the combined sha. |
+
+### Round 7 her waist 2 + arm girth (agent-05, branch fleet/agent-05/r7-girth; task 917b, with agent-02, agent-06 on T2)
+
+| IST (8 Nov) | What |
+|---|---|
+| ~20:00 | The operator: "some clipping near her waist", arms "a little bit (not much) thin". netflix_r7H WIDE f1034-1167: skin through the band's lower edge |
+| ~20:30 | Cause: body.hide_under picks the skin to hide in the REF pose with an outward ray only; R7W2 was fitted seated and carried back to bind, so at her hip crease it sits INSIDE her skin there: never covered, and rings=2 widened each miss. agent-02 (current body): skin 0.75-0.79 cm out at +-40 deg (front hip crease), 6.3 cm under the band edge, ~170 verts, every frame |
+| ~20:40 | hide_under: inside_cm (a short ray in along -normal also counts) + fill_max (small uncovered islands with the garment in reach everywhere). Her Body<Trousers 4.0 / inside 3 / fill 400, Top<Trousers inside 2. arm_girth.py: upper arm + forearm +10 % round the bone axis by her own arm weights (deltoid ramps in over 30 %, the watch band's 6.5 cm and the hands 0), the Top's sleeves by the same field; new _Arms assets, setplan EXPL_ARMS (default on) |
+| T2 | arm_girth: radius upper 3.48 -> 3.83, fore 2.77 -> 3.04 (both sides), max move 0.47 cm, hands/watch 0, verts equal, Top bones = body's. Body<Trousers: inside 80, filled [120, 80, 79, 4, 4, 1, 1] (the hip crease; arms 7.1k and feet 3.5k islands untouched). agent-02: waist skin poke 0.79 -> none, fit 0.02; arms on _Arms rest bust 3.59 / side 1.73, gesture 3.97 / 1.71 (pass). T2 saved on the originals + the new hides until the girth is approved |
+
+| ~21:30 | Orchestrator APPROVED by eye: the waist after = clean dark trousers, no see-through gap at the band; _Arms reads subtly fuller, sleeves follow, the watch sits fine. _Arms + the new hides = her level of record |
+
+Her setup of record (any box, from r7-girth or a tree with it merged):
+1. fmbridge with garment.py at r7-girth (body.hide_under inside_cm / fill_max) loaded in the editor.
+2. Once per project (refuses to overwrite; already done on T2):
+   `film-ue exec -c "STAGE='apply'; SCALE=0.10; exec(open('<tree>/films/host-studio/props/her_outfit_ue/arm_girth.py').read())"`
+   -> SKM_Presenter_F_BodyMesh_Arms, SKM_Presenter_Top_R7W_Arms. `STAGE='check'` re-reads them (radius +10 %, hands/watch 0).
+3. `set.py --who her --steps garments,dress` with EXPL_ARMS unset (= 1): the Body/Top on _Arms, then the hides
+   Top<Trousers 2.5/inside 2, Body<Top 6, Body<Trousers 4/inside 3/fill 400; check the Body<Trousers line's filled
+   list is the hip crease only (T2: [120, 80, 79, 4, 4, 1, 1]). Leaders pass, then save (assets + level).
+4. Gates on it: agent-02 waist_skin_poke_cm <= 0 (WIDE), arms rest + gesture (bust >= 3, side >= 0.5).
+EXPL_ARMS=0 gives the slim originals (with the new hides) for comparisons only.
+
+2026-11-08 23:32 IST | agent-06 | r7I (the operator's look at her hands). Her offline body --perform on 963942f4 + agent-08 02505b92 (r7-boxb d5a05e8f) reported 0 issues, so T2 ran: cams -> body (pass, the offline rows) -> life -> place (check placed pass). Placed gates (dump with fingertips): parity 0.446 / --shoulder 0.309 / --torso 0.186 (placed = seat). claw 0, palm_to_camera 0, rest_contact 0, spread 3.2. finger_snap 9.0/min FAIL (known; rendered by the orchestrator's call). Rendered shots 1/2/11 at --preset final, 293 frames in 365 s (1.25 s/frame incl. warmup), private. Her solve.json re-derived from the existing face anims and box WAVs with no re-solve; 18 face assets' curve + uasset hashes identical before/after; lips numbers measured. T2 saved and stopped.
+- 09 Nov (agent-05, branch fleet/agent-05/r7-nowatch): HER WATCH DROPPED (the operator on r7I WIDE: "watch is clipping
+  through hand, drop the watch"). `props/her_outfit_ue/dress_her.py` WATCH = False: set.py's dress step destroys the
+  HerWatch actor in her level and its check fails while one is there (no visibility key to undo). Studio/reel tools
+  that still list HerWatch (studio.py makes it, reel/cast_gate.py checks it) are unchanged: re-dressing a reel level
+  with this dress_her removes the watch there too.

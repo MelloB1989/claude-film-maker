@@ -33,6 +33,7 @@ import argparse
 import json
 import math
 import sys
+import os
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -59,7 +60,17 @@ SEED = {"him": 71, "her": 72}
 SET = S.Set(seat_top=45.0, seat_front=24.5, desk_top=71.0, desk_near=12.0, desk_far=67.0, desk_under=60.4,
             mic=[21.0, -14.0, 96.0], mic_radius=9.0,
             boom=[[64.6, -30.28, 71.0], [53.9, -26.0, 116.3], [29.2, -16.0, 100.4], [21.0, -14.0, 96.0]],
-            cams={"CAM_MCU": [167.5, 78.0, 121.3], "CAM_CU": [132.7, 38.7, 121.0], "CAM_WIDE": [277.0, 89.7, 125.3]})
+            cams={"CAM_MCU": [167.5, 78.0, 121.3], "CAM_CU": [132.7, 38.7, 121.0], "CAM_WIDE": [277.0, 89.7, 125.3],
+                  "CAM_MCU_L": [168.0, 77.87, 121.1]})  # (her PANEL shots: the body check and the mic rule test the cut camera)
+# her cameras' full rigs (box B, 08 Nov ~02:00 IST, read-only): the framing check projects her hands into each shot
+#   (CAM_MCU pitch -2.55 -> -3.55, CAM_MCU_L -2.43 -> -2.93: the orchestrator, 09 Nov, for the palm-down rest (the
+#   build samples 0.61 / 0.633; -3.05 read 0.593); agent-06 sets the level)
+SET.rigs = {
+    "CAM_MCU": {"loc": [167.83, 77.66, 121.31], "yaw": -154.14, "pitch": -3.55, "focal": 60.0, "sensor": [36.0, 20.25]},
+    "CAM_MCU_L": {"loc": [168.0, 77.87, 121.1], "yaw": -145.22, "pitch": -2.93, "focal": 60.0, "sensor": [36.0, 20.25]},
+    "CAM_CU": {"loc": [133.16, 38.44, 121.13], "yaw": -163.21, "pitch": -2.03, "focal": 85.0, "sensor": [36.0, 20.25]},
+    "CAM_WIDE": {"loc": [277.31, 89.53, 125.43], "yaw": -158.08, "pitch": -5.49, "focal": 35.0, "sensor": [36.0, 20.25]},
+}
 # ^ her set as on box B, 07 Nov ~22:00 IST (agent-11): the waterfall desk (top 71, near edge studio x 32), the mic on her
 #   left with its clamp at the desk's far edge (the same numbers as set_her.json, which still wins when present)
 #   (history: r3 set 18:3x IST moved the mic to her LEFT (studio -Y) and the cameras to her right, azimuth +17..+24)
@@ -73,7 +84,10 @@ STYLE = {  # forearms resting on the desk (the orchestrator, r3 stills): elbows 
     # back, elbows tucked by her sides, the upper arm as near vertical as the desk allows (a lower desk, set_her.json)
     "her": S.Style(lean=12.0, twist=0.0, hip_above_seat=11.0, knee_out=3.0, foot_out=6.0, pronation=75.0, shin_tilt=6.0,
                    elbow_out=-2.0, clavicle_fwd=-1.0, clavicle_drop=5.0, forearm_in=5.0,
-                   elbow_r=4.6, wrist_r=3.7),  # bare forearms (V2, no overshirt): 1 cm of air read in the WIDE
+                   elbow_r=4.6, wrist_r=3.7,  # bare forearms (V2, no overshirt): 1 cm of air read in the WIDE
+                   forearm_in_l=22.0,  # r7: her left resting wrist toward her midline, off the mic arm's base
+                   forearm_clear=2.4),  # R7 hands (agent-02 on her mesh: the heel of the palm on the desk = the wrist
+    #                                     joint 2.35 cm up): the palm-down rest's wrist sits at forearm_clear - 0.2
     # him: the same seat rules as hers (elbows tucked by his sides on the top, near-parallel forearms, bare forearms
     # in his tee); he is taller: at the 71 cm desk his elbows land under his shoulders, 4-7 cm short of the near edge
     # (box B, 07 Nov), so they rest just OFF the edge with the forearms lying across it (elbow_overhang)
@@ -95,6 +109,16 @@ LEAD_FRAMES = 2.5
 # almost no weight shift (the seat holds the pelvis), no torso follow (r5: it rode the blinks)
 LIFE = {"state": "talk", "breath_deg": 1.35, "clavicle_deg": 1.0, "shift_cm": 0.25, "follow": 0.0}
 # (box B, 07 Nov: breath_deg 0.9 / clavicle 0.8 gave 14.1 breaths/min at 1.6 mm sternum rise; agent-09's line is >= 2)
+# his, scaled to his body (the orchestrator, 08 Nov: hers on him read 5.27 mm of chest rise, double hers at 2.7, and
+# his parity --shoulder on seat + life 2.08 against seat only 0.12): breath to ~3 mm, linear in breath_deg
+# (1.35 x 3.0 / 5.27 = 0.77); the clavicle lower than in proportion (0.57) since his parity error starts at the
+# clavicles (0.71 cm there, 1.3-1.55 at the hands; 0.3 gave 1.087, linear: 0.15); weight shift <= 0.2 cm
+# hers for the finals: vertical breath 1.62 mm at 1.35 (agent-06, T2, the z-only row; line 2-3.5): 1.35 x 2.5 / 1.62
+# = 2.08; her clavicle 1.0 -> 0.5 to keep her parity carry (--shoulder 0.919 at 1.0) under 1.0 as the breath grows
+# (the orchestrator, 09 Nov: the breath is in the SEAT now, gesturekit.Plan.breath_at; the life keeps only its small
+#   clavicle and weight shift)
+LIFE_OF = {"her": {**LIFE, "breath_deg": 0.0, "clavicle_deg": 0.5},
+           "him": {**LIFE, "breath_deg": 0.0, "clavicle_deg": 0.15, "shift_cm": 0.2}}
 
 
 def ok(res: dict):
@@ -142,8 +166,19 @@ def length_s(who: str) -> float:
     return frames(who) / FPS
 
 
+def full_solve() -> bool:
+    """r7 (agent-04, the orchestrator's primary face): a FULL-FACE solve per line with a mood per line
+    (face_acting.FULL_SOLVE: env FACE_SOLVE=full, the default); FACE_SOLVE=mouth keeps round 6's mouth-only solves
+    (AS_exp_<line>, the A side of the A/B), which stay as they are."""
+    try:
+        import face_acting as FA
+        return bool(FA.FULL_SOLVE)
+    except Exception:
+        return False
+
+
 def line_anim(k: str) -> str:
-    return f"{SPEECH}/Anim/AS_exp_{k}"
+    return f"{SPEECH}/Anim/AS_exp_{k}" + ("_full" if full_solve() else "")
 
 
 def mesh_of(who: str, comp: str) -> str:
@@ -177,11 +212,17 @@ def cmd_solve(who: str, only=None, face_mesh: str = "") -> dict:
         k = ln["id"]
         if only and k not in only:
             continue
-        mood, inten = MOOD.get(ln["beat"], MOOD_DEFAULT)
-        r = ok(client().op("speech.to_face", wav=box(who, Path(ln["file"]).name), name=f"exp_{k}", face_mesh=mesh,
-                           mood=mood, intensity=inten, process_mask="mouth", head=False, blinks=False,
+        if full_solve():  # the whole face from the voice, in the line's mood (agent-04's face_acting)
+            import face_acting as FA
+            mood, inten = FA.solve_mood(who, k)
+            name, mask = f"exp_{k}_full", "full"
+        else:
+            mood, inten = MOOD.get(ln["beat"], MOOD_DEFAULT)
+            name, mask = f"exp_{k}", "mouth"
+        r = ok(client().op("speech.to_face", wav=box(who, Path(ln["file"]).name), name=name, face_mesh=mesh,
+                           mood=mood, intensity=inten, process_mask=mask, head=False, blinks=False,
                            fallback=False, timeout=1800))
-        out[k] = {"anim": r["anim"], "timing": r.get("timing"), "options": r.get("options"),
+        out[k] = {"anim": r["anim"], "mask": mask, "mood": [mood, inten], "timing": r.get("timing"), "options": r.get("options"),
                   "missing": r.get("missing_options"), "sha256": __import__("hashlib").sha256(
                       (HERE / ln["file"]).read_bytes()).hexdigest()}
         if not (r.get("timing") or {}).get("ok", False):
@@ -369,9 +410,36 @@ def job():
     exec(P["read"], g)  # one namespace: READ's comprehensions see its names
     data = g["result"]
     yield
-    gs = [S.Gesture(**x) for x in P["gestures"]]
-    doc, summary = S.build(data, S.Set(**P["set"]), S.Style(**P["style"]), gs, P["length_s"], P["fps"])
+    if P.get("perform"):  # r7: the presenter performance from the acting sheet (gesturekit, pushed beside seatkit)
+        try:  # the hand shapes, then agent-08's hooks: reloaded first, or the editor keeps a stale copy across runs
+            import handshape
+            importlib.reload(handshape)
+        except ImportError:
+            pass
+        try:
+            import gesture_style
+            importlib.reload(gesture_style)
+        except ImportError:
+            pass
+        import gesturekit as GK
+        importlib.reload(GK)
+        doc, summary = GK.build(data, S.Set(**P["set"]), S.Style(**P["style"]), P["perform"]["sheet"],
+                                P["perform"]["cues"], P["perform"]["tilts"], P["length_s"], P["fps"],
+                                timing=P["perform"].get("timing"), on_cam=P["perform"].get("on_cam"),
+                                **({"frame_want": P["perform"]["frame_want"]} if P["perform"].get("frame_want") else {}),
+                                **({"track_out": P["perform"]["track_out"]} if P["perform"].get("track_out") else {}),
+                                **({"close_alive": True} if P["perform"].get("close_alive") else {}),
+                                **({"mic_cams": P["perform"]["mic_cams"]} if P["perform"].get("mic_cams") else {}),
+                                **({"torso": P["perform"]["torso"]} if P["perform"].get("torso") else {}),
+                                **({"rest_only": P["perform"]["rest_only"]} if P["perform"].get("rest_only") else {}),
+                                **({"tune": P["perform"]["tune"]} if P["perform"].get("tune") else {}),
+                                **({"catalogue": True} if P["perform"].get("catalogue") else {}))
+    else:
+        gs = [S.Gesture(**x) for x in P["gestures"]]
+        doc, summary = S.build(data, S.Set(**P["set"]), S.Style(**P["style"]), gs, P["length_s"], P["fps"])
     yield
+    for w in summary.get("warnings") or []:  # (gesturekit: the arm-vs-outfit numbers until the refit lands)
+        print(f"WARNING {w['code']}: {w['message']}", file=sys.stderr)
     if P.get("probe") or (not summary["pass"] and not P["force"]):  # probe: read and solve only, nothing written
         return {"pass": summary["pass"], "summary": summary, "written": False}
     anim_new(path=P["out"], skeleton=data["mesh"], length_s=doc["length_s"], fps=doc["fps"], replace=True)
@@ -407,7 +475,10 @@ def set_of(who: str) -> S.Set:
     extra = sorted(k for k in given if k not in known and not k.startswith("_"))
     if extra:  # e.g. desk_y: the desk's sides are not a contact rule here (her elbows sit well inside them)
         print(f"set_{who}.json: not seatkit.Set fields, ignored: {extra}", file=sys.stderr)
-    return S.Set(**{**SET.__dict__, **{k: v for k, v in given.items() if k in known}})
+    st = S.Set(**{**SET.__dict__, **{k: v for k, v in given.items() if k in known}})
+    if HANDS_FALLBACK and FALLBACK_CAMS.get(who):  # the operator's fallback: the talking cams chest-up
+        st = dataclasses.replace(st, rigs={c: {**r, **FALLBACK_CAMS[who].get(c, {})} for c, r in st.rigs.items()})
+    return st
 
 
 def body_params(who: str) -> dict:
@@ -416,17 +487,114 @@ def body_params(who: str) -> dict:
             "gestures": [g.__dict__ for g in gestures(who)], "length_s": length_s(who), "fps": 30}
 
 
-def cmd_body(who: str, force: bool = False) -> dict:
+PERFORM_STYLE = {"elbow_overhang": 14.0, "elbow_out": 13.0}  # r7b: elbows rest OUT (her left forearm rests on the desk
+#   while she speaks; tucked, its upper arm met her torso; the tuck was r6's overshirt fix, and V2 has no overshirt)  # r7: the desk rest in pauses has the forearms across the edge (upright)
+
+
+def perform_params(who: str) -> dict:
+    """The acting sheet (acting/<who>.json, agent-11), the cue sheet and agent-04's tilts (acting/tilts_<who>.json)
+    for gesturekit.build."""
+    a = HERE / "acting"
+    tilts = json.loads((a / f"tilts_{who}.json").read_text()) if (a / f"tilts_{who}.json").exists() else []
+    if isinstance(tilts, dict):
+        tilts = tilts.get("tilts", [])
+    timing = json.loads((a / f"timing_{who}.json").read_text()) if (a / f"timing_{who}.json").exists() else None
+    return {"sheet": json.loads((a / f"{who}.json").read_text()), "cues": cues(who), "tilts": tilts, "timing": timing,
+            "on_cam": cue_sheet(who)["on_cam"],
+            "frame_want": {**(FRAME_WANT_WHO.get(who) or {}),  # (the fallback's chest-up cams: hands out by design)
+                           **({c: 0.0 for c in FALLBACK_CAMS.get(who, {})} if HANDS_FALLBACK else {})} or None,
+            "close_alive": who == "him",  # his last 2 s (behind the closing graphic) stay at the speaking rest
+            "mic_cams": MIC_CAMS.get(who, []), "torso": TORSO_OF.get(who), "tune": TUNE_OF.get(who) or None,
+            "rest_only": REST_ONLY_FALLBACK.get(who, []) if HANDS_FALLBACK else []}
+
+
+# The operator's hands fallback (the orchestrator, 10 Nov; prepared, NOT applied): if her hands still look bad on the
+# r7I preview, the talking shots go chest-up (FALLBACK_CAMS, the hands below the frame edge) and in the WIDE her hands
+# rest on the desk, no gestures (gesturekit's rest_only: shoulders, torso, head, breath alive). agent-11's shot list
+# (fleet/agent-11/r7-acting FALLBACK_HER.md): shot 11 CAM_WIDE f1034-1168 at 24 fps = 43.083-48.667 s with handles.
+HANDS_FALLBACK = os.environ.get("HANDS_FALLBACK") == "1"  # switched on for a run: HANDS_FALLBACK=1 python3 perform.py ...
+REST_ONLY_FALLBACK = {"her": [[43.083, 48.667]]}
+# her talking cameras chest-up (same names and positions, a longer lens tilted for it): the frame's bottom edge at the
+# chest 100 cm up, the head's top 7 % under the top edge (offline on her kit track, r7 body). Her gesture peaks reach
+# 107-110 cm (over the neck joint), so a fingertip still enters from the bottom edge in some on-camera frames: CAM_MCU
+# 15 %, CAM_MCU_L 8 %, CAM_CU 33 % (no whole hand in any); the edge at 95 cm: 28 / 44 / 36 %.
+FALLBACK_CAMS = {"her": {"CAM_MCU": {"focal": 117.5, "pitch": -1.62}, "CAM_MCU_L": {"focal": 115.5, "pitch": -1.58},
+                         "CAM_CU": {"focal": 88.0, "pitch": -2.08}}}
+
+
+# a presenter's torso model over gesturekit.Torso's (hers) and the outfit gate (the orchestrator, 09 Nov: his upper arms
+# 6.6-7.9 cm inside his outfit's flank on box T, with the model reading +0.5 there: side_pad 8.5 brings the model's
+# side out to his outfit; the gate, >= 0.5 at every checked frame, both arms, seated and in gestures)
+# a presenter's own gesturekit.Performer constants over the class's (hers): his picked from r7/him_sweep.py's table on
+#   his skeleton on box T (his rows can't be run off the box)
+TUNE_OF: dict = {"him": {"REST_WRIST_UNDER": 0.28, "EASE_AT": (11.9, (17.1, 0.3), 21.2, 34.95, 51.5, 55.4),
+                         "EASE_LEAD": 0.1, "EASE_ROT": 1.0, "ROT_LAG_ADD": 0.02,
+                         "REST_HOLD": 0.2}}  # (T sweep on c32bc150: his
+#   rest tented on its pads at 0.6 s with 0.2, none at 0.5; but 0.5 put the wrist in the desk box (seatkit's desk.wrist:
+#   forearm_clear - 0.3), so 0.28)
+#   EASE_AT: his whole-take snap arrivals on T (agent-08: l 11.9 17.1 34.7 35.2 51.5 55.4, r 21.2 35.2), all outside his
+#   TEST spans (0-7.46, 17.58-20.0 s; 17.1's window ends at 17.55); EASE_LEAD 0.1 / EASE_ROT 1 finish the guard's and the
+#   hand's turn by the wrist's stop there (his proxy: stopped turn worst 525 -> 272 deg/s, every row passes); ROT_LAG_ADD
+#   0.02: his turn a little further behind the arm elsewhere (lag_hand_ms on his TEST spans 29.8 on T, the 35 margin;
+#   his proxy TEST r 82 -> 103)
+#   REST_HOLD: his rest tented on its pads in the RENDER on T-d (f67 2.8 s, f182 7.6 s, gesture_w < 0.1: k_rest 0.9+
+#   left the wrist ~0.2 cm up, the rendered wrist a few mm over the track's) -> the heel held down at every rest's edge.
+#   3680e60b's full hold to gw 0.12 then smoothstep to 0.3 (True) let go too fast: new snaps on T-d (l 6.7 in shot 3's
+#   CU, 13.0; r 35.2, 39.5). 0.3: the lift's share g * smoothstep(g / 0.3), C1 into the plain g (proxy: rest heel max
+#   2.74 -> 2.55, the rest 2.52; every row, lag and TEST unchanged). r7/him_sweep.py's rest_heel row on the box decides
+#   (T-d sweep on his read, 84e46b3e: False heel 3.23, 6 frames over 2.84; True / 0.3 / 0.45 TEST snap fails; 0.2:
+#   TEST [], heel 2.74, 0 over, snaps base's + r 39.5 in gfx shot 11 (off camera): the orchestrator's pick, 07:40)
+TORSO_OF = {"him": {"side_pad": 8.5, "gate": 0.5, "side_from": 9, "warn": True, "breast_r": 4.5, "breast_out": 4.0}}
+# side_from 9: agent-02's worst at arm_t 0.46. breast_r / breast_out: his chest, not her bust spheres (7.5 / 7.0): with
+#   hers his 3 cm front line lifted the elbows to 91 cm in his strokes (wings; his proxy: humerus_elev_high 77.6, 28
+#   holds over the collar); a pectoral 4.5 / 4.0 until agent-02 measures his chest front
+
+
+# shots filmed besides the edit's, which the mic rule and the body check guard too (gesturekit.Plan.mic_cams), e.g.
+# {"him": [[0.0, 7.4583, "CAM_MCU"], [17.5833, 20.0, "CAM_WIDE"]]} for a test render that films one camera over its
+# spans. None now: the TEST renders film per EDL shot (agent-13, 08 Nov), so on_cam already guards what is filmed.
+MIC_CAMS: dict = {}
+
+
+# per presenter, over gesturekit.FRAME_WANT: her CAM_MCU hands-in-frame line is 0.5 (the orchestrator, 08 Nov, r7F: a
+# natural rest at her lower ribcage beats visible hands in the pauses; the gestures still rise into the frame)
+FRAME_WANT_WHO = {"her": {"CAM_MCU": 0.5}}
+
+
+def cmd_body(who: str, force: bool = False, perform: bool = False, catalogue: bool = False, suffix: str = "") -> dict:
     """The seated body, built ON THE BOX (seatkit pushed next to the WAVs): the skeleton read there, the pose solved
     and checked there, AS_exp_<who>_seat written; only the check's numbers come back."""
     kit = box(who, "kit")
     client().push(str(HERE / "seatkit.py"), box(who, "kit", "seatkit.py"))
+    bp = body_params(who)
+    extra = {}
+    if perform:
+        client().push(str(HERE / "gesturekit.py"), box(who, "kit", "gesturekit.py"))
+        if (HERE / "gesture_style.py").exists():  # agent-08's generated kinematics (envelope / vary / fingers)
+            client().push(str(HERE / "gesture_style.py"), box(who, "kit", "gesture_style.py"))
+        client().push(str(HERE / "handshape.py"), box(who, "kit", "handshape.py"))  # the hand shapes (R7 hands)
+        bp["style"].update(PERFORM_STYLE)
+        extra = {"perform": {**perform_params(who), "track_out": box(who, "kit", "arm_track.json")}}  # the arm track
+        if catalogue:  # R7 hands: the shape catalogue take, its own animation (the verify body is left alone)
+            import gesturekit as GK
+            extra["perform"].update(catalogue=True, track_out=box(who, "kit", "arm_track_hands_cat.json"))
+            bp["length_s"] = GK.catalogue_length_s()
+        elif suffix:  # a side build: its own arm track too
+            extra["perform"]["track_out"] = box(who, "kit", f"arm_track_{suffix}.json")
+        #   for agent-13's rows, written ON THE BOX (his skeleton never leaves it): run the rows there
     r = run(BODY, {"kit_dir": kit, "read": READ, "label": LABEL[who], "idle": IDLE, "world": WORLD_BONES,
-                   "out": f"{ANIM}/AS_exp_{who}_seat", "force": force, **body_params(who)}, 1800)
-    keep(who, "body_check", r["summary"])
+                   "out": f"{ANIM}/AS_exp_{who}_" + ("hands_cat" if catalogue else "seat") + (f"_{suffix}" if suffix else ""),
+                   "force": force, **bp,
+                   **extra}, 3600)
+    keep(who, "body_check" + ("_hands_cat" if catalogue else "") + (f"_{suffix}" if suffix else ""), r["summary"])
     if not r.get("written"):
         raise SystemExit(f"the seated pose fails its own check (nothing written): {r['summary']['issues'][:5]} "
                          f"{r['summary']['rest']['issues'][:5]}")
+    if perform:
+        return {"anim": r["out"], "keys": r["keys"], "bones": r["bones"], "pass": r["pass"],
+                "rows": r["summary"].get("rows"), "events": r["summary"].get("events"),
+                "issues": r["summary"].get("issues", [])[:10], "tuned": r["summary"].get("tuned"),
+                "arm_track": r["summary"].get("arm_track")}
     return {"anim": r["out"], "keys": r["keys"], "bones": r["bones"], "pass": r["pass"],
             "rest": {k: r["summary"]["rest"][k] for k in ("hips", "knees", "elbows", "wrists", "head", "issues")},
             "wrist_ext": r["summary"]["wrist_ext"], "yaw_off": r["summary"]["yaw_off"],
@@ -439,7 +607,7 @@ def cmd_calibrate_body(who: str) -> dict:
 
 def cmd_life(who: str) -> dict:
     r = ok(client().op("anim.body_life", out=f"{ANIM}/AS_exp_{who}_life", body_mesh=mesh_of(who, "Body"),
-                       length_s=round(length_s(who), 3), seed=SEED[who], timeout=600, **LIFE))
+                       length_s=round(length_s(who), 3), seed=SEED[who], timeout=600, **LIFE_OF[who]))
     keep(who, "life", r)
     return r
 
@@ -718,12 +886,13 @@ BAKE_CHUNK = 240
 
 
 def bake(who: str, source: str, target: str, anim: str, out: str, bones, head_control_off: bool = False,
-         chunk: int = BAKE_CHUNK, stage: str = "", rot_only: bool = False) -> dict:
+         chunk: int = 0, stage: str = "", rot_only: bool = False) -> dict:
     """anim.bake_pose / bake_follow, sampled in `chunk`-frame jobs (each prints before it runs) and written once."""
     c = client()
     path, lab = WORK[who], LABEL[who]
     n = frames(who)
     files = []
+    chunk = chunk or BAKE_CHUNK
     tag = out.rsplit("/", 1)[-1] + (f"_{stage}" if stage else "")  # bakes 1 and 3 write the same asset
     for f0 in range(0, n, chunk):
         part = list(range(f0, min(n, f0 + chunk)))
@@ -741,7 +910,11 @@ def bake(who: str, source: str, target: str, anim: str, out: str, bones, head_co
 # (box B bodycheck, 07 Nov 23:1x; hips/knees 0). Her spine bake read 0 cm, so hers keeps the reel's set. His bake 2
 # also takes ROTATIONS only: the face's neck offsets are another mesh's; with them his bake 3 killed the editor at
 # frames 240-479 every time.
-H2B_BONES = {"her": ["spine_04", "spine_05", "neck_01", "neck_02", "head"], "him": ["neck_01", "neck_02", "head"]}
+# Hers now the same (the orchestrator, 09 Nov; agent-04 / agent-08): her face comes from the FULL-face pass, whose
+# spine_04/05 lifted her placed upper body +2.6 cm (the resting hands hung at the desk edge); rotations only, like his.
+# agent-04's head turn, nods and tilts ride neck/head only.
+H2B_BONES = {"her": ["neck_01", "neck_02", "head"], "him": ["neck_01", "neck_02", "head"]}
+H2B_ROT_ONLY = {"her": True, "him": True}
 
 
 TRACKCHECK = r"""
@@ -791,6 +964,68 @@ def cmd_trackcheck(who: str, anim: str = "", span: str = "", bones: str = "") ->
                             "bones": [b for b in bones.split(",") if b], "jump_deg": 25.0}, 1800)
 
 
+HEADAXES = r"""
+import json, math, unreal
+APE = unreal.AnimPoseExtensions
+P = json.loads(PARAMS)
+def q2(t):
+    r = t.rotation
+    return [r.x, r.y, r.z, r.w]
+def rot(q, v):
+    x, y, z, w = q
+    ix, iy, iz, iw = w*v[0] + y*v[2] - z*v[1], w*v[1] + z*v[0] - x*v[2], w*v[2] + x*v[1] - y*v[0], -x*v[0] - y*v[1] - z*v[2]
+    return [ix*w + iw*-x + iy*-z - iz*-y, iy*w + iw*-y + iz*-x - ix*-z, iz*w + iw*-z + ix*-y - iy*-x]
+out = {}
+f, r, u = P["fwd"], P["right"], [0.0, 0.0, 1.0]
+for a in P["anims"]:
+    obj = unreal.load_asset(a)
+    if obj is None:
+        out[a] = None
+        continue
+    rows = {}
+    ref = None
+    for t in P["times"]:
+        pose = APE.get_anim_pose_at_time(obj, t, unreal.AnimPoseEvaluationOptions())
+        q = q2(APE.get_bone_pose(pose, "head", unreal.AnimPoseSpaces.WORLD))
+        rest = q2(APE.get_ref_bone_pose(pose, "head", unreal.AnimPoseSpaces.WORLD))
+        ref = ref or q
+        # the head's rotation RELATIVE to the first time listed, in the character frame
+        x, y, z, w = ref
+        inv = [-x, -y, -z, w]
+        def mul(a_, b_):
+            ax, ay, az, aw = a_; bx, by, bz, bw = b_
+            return [aw*bx + ax*bw + ay*bz - az*by, aw*by - ax*bz + ay*bw + az*bx, aw*bz + ax*by - ay*bx + az*bw,
+                    aw*bw - ax*bx - ay*by - az*bz]
+        d = mul(q, inv)
+        fw, up = rot(d, f), rot(d, u)
+        dot = lambda a_, b_: sum(i * j for i, j in zip(a_, b_))
+        x2, y2, z2, w2 = rest
+        da = mul(q, [-x2, -y2, -z2, w2])  # absolute: against her REST head (the skeleton's reference, facing forward)
+        fa, ua = rot(da, f), rot(da, u)
+        rows[str(t)] = {"yaw_right": round(math.degrees(math.atan2(dot(fw, r), dot(fw, f))), 2),
+                        "pitch_up": round(math.degrees(math.asin(max(-1, min(1, dot(fw, u))))), 2),
+                        "roll_right": round(math.degrees(math.atan2(dot(up, r), dot(up, u))), 2),
+                        "abs_yaw_right": round(math.degrees(math.atan2(dot(fa, r), dot(fa, f))), 2),
+                        "abs_roll_right": round(math.degrees(math.atan2(dot(ua, r), dot(ua, u))), 2)}
+    out[a] = rows
+result = out
+"""
+
+
+def cmd_headaxes(who: str, times: str = "1.0,2.5") -> dict:
+    """Read-only: the head's yaw/pitch/roll (character frame, relative to the first time; abs_* against her rest head,
+    so abs_yaw_right compares with the camera's direction from cams.json) in each stage's animation
+    (seat, body after sync, the face's follow): where a head turn or tilt enters the chain (agent-04: her head turned
+    toward the mic at f60, inside the first tilt)."""
+    fr = json.loads((OUT / who / "body_check.json").read_text()).get("frame") or {"fwd": [0.0, 1.0, 0.0],
+                                                                                  "right": [-1.0, 0.0, 0.0]}
+    anims = [f"{ANIM}/AS_exp_{who}_{k}" for k in ("seat", "body", "follow", "gaze")]
+    r = run(HEADAXES, {"anims": anims, "times": [float(x) for x in times.split(",")], "fwd": fr["fwd"],
+                       "right": fr["right"]})
+    keep(who, "headaxes", r)
+    return r
+
+
 def fresh_editor(who: str, level: str) -> dict:
     """Save what's dirty, restart the editor, reopen `level`, re-lead the garments (box B, 07 Nov: his 8th-14th
     sampling job in a row killed the editor even with a GC after each; a fresh editor ran bake 3's 6 jobs clean)."""
@@ -801,7 +1036,7 @@ def fresh_editor(who: str, level: str) -> dict:
     return {"restart": r.get("action"), "level": level, "leaders": lead(who)}
 
 
-def cmd_sync(who: str, from_bake: int = 1, restart_level: str = "") -> dict:
+def cmd_sync(who: str, from_bake: int = 1, restart_level: str = "", bake_chunk: int = 0) -> dict:
     """The reel's sync on the seated body: the face rides the body with its head control on, the body takes the head
     motion that makes, the shared skeleton is baked back onto the face; then perf.face's planned head turn goes on the
     body (on 5.8 the face takes its neck from the body)."""
@@ -820,6 +1055,9 @@ def cmd_sync(who: str, from_bake: int = 1, restart_level: str = "") -> dict:
     # work sequence's tracks are put back to what bake N expects (an editor restart can drop unsaved track changes)
     follow, body = f"{ANIM}/AS_exp_{who}_follow", f"{ANIM}/AS_exp_{who}_body"
     a = b = {"skipped": True}
+    global BAKE_CHUNK
+    if bake_chunk:
+        BAKE_CHUNK = bake_chunk
     if from_bake <= 1:
         print("sync 1/3: bake_follow (head control on)", file=sys.stderr, flush=True)
         a = bake(who, "Body", "Face", face, follow, "shared", head_control_off=False, stage="b1")
@@ -832,7 +1070,7 @@ def cmd_sync(who: str, from_bake: int = 1, restart_level: str = "") -> dict:
             ok(c.op("seq.set_anim", path=path, component="Face", anim=follow, label=lab))
             ok(c.op("seq.set_anim", path=path, component="Body", anim=seat, label=lab))
         print("sync 2/3: head_to_body", file=sys.stderr, flush=True)
-        b = bake(who, "Face", "Body", seat, body, H2B_BONES[who], stage="b2", rot_only=(who == "him"))
+        b = bake(who, "Face", "Body", seat, body, H2B_BONES[who], stage="b2", rot_only=H2B_ROT_ONLY[who])
     if restart_level and from_bake < 3:
         print("sync: fresh editor before bake 3", file=sys.stderr, flush=True)
         fresh_editor(who, restart_level)
@@ -1091,13 +1329,16 @@ def cmd_bodycheck(who: str, seq: str = "", every: int = 2, chunk: int = 120, spa
     if far:
         issues.append({"code": "body.not_as_solved", "message": f"{far} > 3 cm from seatkit's pose (breathing and the "
                        f"head turn move them by < 1 cm): a convention differs on this rig", "delta": vs})
-    br = breath([f / FPS for f in fr], sz)
+    # (the orchestrator, 08 Nov: the breath row is the VERTICAL sternum rise; the trace's main axis was the forward-back
+    #   speech sway, kept and reported as info)
+    br = breath([f / FPS for f in fr], [[0.0, 0.0, p[2]] for p in sz])
+    sway = breath([f / FPS for f in fr], sz)
     numbers = {"body.breath_cycles_per_min": br["per_min"], "body.breath_amp_mm": br["amp_mm"],
                "body.desk_through": sum(1 for x in issues if x["code"] == "desk.through"),
                "body.mic_touch": sum(1 for x in issues if x["code"].startswith("mic.")),
                "body.knee_desk": sum(1 for x in issues if x["code"] == "desk.knee")}
     res = {"numbers": numbers, "vs_seatkit_cm": vs, "hip_z_range": worst.get("hip_z"), "breath": br,
-           "issues": issues[:40], "n_issues": len(issues), "pass": not issues}
+           "sway_info": sway, "issues": issues[:40], "n_issues": len(issues), "pass": not issues}
     keep(who, "bodycheck", res)
     d = HERE / "numbers" / FILM[who]
     d.mkdir(parents=True, exist_ok=True)
@@ -1241,11 +1482,12 @@ def step(name: str, who: str, a) -> dict:
     else:
         r = {"push": lambda: cmd_push(who), "solve": lambda: cmd_solve(who, a.only, a.face_mesh), "bias": lambda: cmd_bias(who),
              "compose": lambda: cmd_compose(who), "workseq": lambda: cmd_workseq(who, a.fresh),
-             "body": lambda: cmd_body(who, a.force), "cams": lambda: cmd_cams(who), "life": lambda: cmd_life(who),
-             "face": lambda: cmd_face(who), "sync": lambda: cmd_sync(who, a.from_bake, a.restart_level), "gaze": lambda: cmd_gaze(who),
+             "body": lambda: cmd_body(who, a.force, a.perform, a.catalogue, a.suffix), "cams": lambda: cmd_cams(who), "life": lambda: cmd_life(who),
+             "face": lambda: cmd_face(who), "sync": lambda: cmd_sync(who, a.from_bake, a.restart_level, a.bake_chunk), "gaze": lambda: cmd_gaze(who),
              "place": lambda: cmd_place(who, a.seq), "preview": lambda: cmd_preview(who, a.seq),
              "numbers": lambda: cmd_numbers(who, a.seq),
-             "trackcheck": lambda: cmd_trackcheck(who, a.anim, a.span, a.bones), "signs": lambda: cmd_signs(who, a.bless), "rolltest": lambda: cmd_rolltest(who), "bodycheck": lambda: cmd_bodycheck(who, a.seq, a.every, a.chunk, a.span),
+             "trackcheck": lambda: cmd_trackcheck(who, a.anim, a.span, a.bones),
+             "headaxes": lambda: cmd_headaxes(who, a.times), "signs": lambda: cmd_signs(who, a.bless), "rolltest": lambda: cmd_rolltest(who), "bodycheck": lambda: cmd_bodycheck(who, a.seq, a.every, a.chunk, a.span),
              "calibrate_body": lambda: cmd_calibrate_body(who)}[name]()
     return r
 
@@ -1253,7 +1495,7 @@ def step(name: str, who: str, a) -> dict:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("cmd", choices=["push", "solve", "bias", "compose", "check", "workseq", "cams", "body", "life",
-                                    "calibrate_body", "face", "sync", "gaze", "place", "preview", "numbers", "rolltest", "signs", "trackcheck", "bodycheck", "all", "dry"])
+                                    "calibrate_body", "face", "sync", "gaze", "place", "preview", "numbers", "rolltest", "signs", "trackcheck", "headaxes", "bodycheck", "all", "dry"])
     ap.add_argument("--who", required=True, choices=list(FILM))
     ap.add_argument("--stage", default="solve", choices=["solve", "face", "final", "placed"])
     ap.add_argument("--only", type=lambda s: s.split(","))
@@ -1261,14 +1503,21 @@ def main() -> None:
     ap.add_argument("--fresh", action="store_true")
     ap.add_argument("--force", action="store_true", help="body: write even if the pose fails its own check")
     ap.add_argument("--from-bake", type=int, default=1, help="sync: resume at bake 2 or 3 after a crash")
+    ap.add_argument("--bake-chunk", type=int, default=0, help="sync: frames per sampling job (default 240)")
     ap.add_argument("--restart-level", default="", help="sync: restart the editor before bakes 2 and 3 and reopen "
                     "this level (a long run of sampling jobs kills it on his scene)")
+    ap.add_argument("--times", default="1.0,2.5", help="headaxes: seconds (the first is the reference)")
     ap.add_argument("--anim", default="", help="trackcheck: the animation (default AS_exp_<who>_body)")
     ap.add_argument("--bones", default="", help="trackcheck: comma list (default all tracks)")
     ap.add_argument("--every", type=int, default=2, help="bodycheck: every n-th frame")
     ap.add_argument("--chunk", type=int, default=120, help="bodycheck: frames per seq.sample call (0 = one call)")
     ap.add_argument("--span", default="", help="bodycheck: a:b frame range")
     ap.add_argument("--face-mesh", default="", help="solve: the face SkeletalMesh to solve on (another level open)")
+    ap.add_argument("--perform", action="store_true", help="body: r7, the performance from acting/<who>.json")
+    ap.add_argument("--suffix", default="", help="body: write AS_exp_<who>_seat_<suffix> beside the take's own (a "
+                    "side build for stills; the bound body is left alone)")
+    ap.add_argument("--catalogue", action="store_true", help="body --perform: R7 hands, the shape catalogue take "
+                    "(AS_exp_<who>_hands_cat; stills at gesturekit.catalogue_stills())")
     ap.add_argument("--bless", action="store_true", help="signs: record the live head-signs file as this presenter's")
     ap.add_argument("--from", dest="start", default="body")
     ap.add_argument("--to", dest="stop", default="numbers")

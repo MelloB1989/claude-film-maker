@@ -8,30 +8,30 @@
  ],
  "desk_under": 60.4,
  "mic": [
-  21.0,
-  -14.0,
-  96.0
+  28.9,
+  -16.0,
+  115.0
  ],
  "boom": [
   [
    64.6,
-   -30.28,
+   -51.7,
    71.0
   ],
   [
-   53.91,
-   -25.99,
-   116.3
+   57.18,
+   -44.28,
+   126.1
   ],
   [
-   29.2,
-   -16.01,
-   100.4
+   28.9,
+   -16.0,
+   125.8
   ],
   [
-   21.0,
-   -14.0,
-   96.0
+   28.9,
+   -16.0,
+   115.0
   ]
  ],
  "frame": "actor (studio minus the chair mark (20,-20,0)), cm; written by setplan.set_for_perf",
@@ -56,5 +56,64 @@
    76.64,
    127.63
   ]
- }
+ },
+ "rigs": {
+  "CAM_MCU": {
+   "loc": [
+    168.14,
+    76.64,
+    127.63
+   ],
+   "yaw": -154.0,
+   "pitch": -5.3,
+   "focal": 46.0,
+   "sensor": [
+    36.0,
+    20.25
+   ]
+  },
+  "CAM_MCU_L": {
+   "loc": [
+    168.14,
+    76.64,
+    127.63
+   ],
+   "yaw": -145.12,
+   "pitch": -4.2,
+   "focal": 52.0,
+   "sensor": [
+    36.0,
+    20.25
+   ]
+  },
+  "CAM_CU": {
+   "loc": [
+    133.33,
+    37.4,
+    127.47
+   ],
+   "yaw": -163.0,
+   "pitch": -2.0,
+   "focal": 85.0,
+   "sensor": [
+    36.0,
+    20.25
+   ]
+  },
+  "CAM_WIDE": {
+   "loc": [
+    277.42,
+    88.41,
+    131.84
+   ],
+   "yaw": -158.0,
+   "pitch": -5.5,
+   "focal": 35.0,
+   "sensor": [
+    36.0,
+    20.25
+   ]
+  }
+ },
+ "_rigs": "box T, 08 Nov (agent-06, cam.describe): his cameras' full rigs, actor frame like cams (world - (20, -20)); the framing check projects his hands through them"
 }

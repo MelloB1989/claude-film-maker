@@ -45,6 +45,7 @@ SERIES = "SYSTEM DESIGN IN 60 SECONDS"
 TOPIC = {"whatsapp": "How WhatsApp delivers 100+ billion messages a day",
          "netflix": "How Netflix streams to 300+ million members without buffering"}
 LT_F0, LT_F1 = 12, 84         # the lower third's frames (on the first presenter shot)
+LT_MAX_X = 660                # the drawn card's right edge limit (top-left, clear of the MCU head)
 CAP_Y = 1000                  # caption baseline centre (y of the text's vertical middle)
 CAP_SIZE = 50
 CAP_MAX_WORDS, CAP_MAX_CHARS = 6, 34
@@ -145,21 +146,35 @@ def slug_gfx(path: Path, film: str, shot: dict, panel: bool) -> None:
 
 
 def lower_third(path: Path, film: str, title: str) -> None:
+    """The topic card, TOP-LEFT (r7, the orchestrator's TEST verdict: at y 770 it sat over her gesturing hands in the
+    MCU opening). The title wraps to keep the card left of x LT_MAX_X: the MCU head starts at x ~700 (setplan)."""
     im = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     d = ImageDraw.Draw(im)
-    f1, f2 = font("Geist-600.ttf", 30), font("Geist-400.ttf", 36)
-    x, y = 96, 770
-    w = max(d.textlength(SERIES, font=f1) * 1.12, d.textlength(title, font=f2)) + 64
+    f1, f2 = font("Geist-600.ttf", 26), font("Geist-400.ttf", 32)
+    x, y = 96, 80
+    tw = LT_MAX_X - x - 64
+    lines, cur = [], ""
+    for wd in title.split():
+        t = f"{cur} {wd}".strip()
+        if cur and d.textlength(t, font=f2) > tw:
+            lines.append(cur)
+            cur = wd
+        else:
+            cur = t
+    lines.append(cur)
+    w = max(d.textlength(SERIES, font=f1) * 1.12, *(d.textlength(t, font=f2) for t in lines)) + 64
+    h = 64 + 42 * len(lines) + 14
     shadow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    ImageDraw.Draw(shadow).rounded_rectangle((x - 8, y - 4, x + w + 8, y + 132), 18, fill=(0, 0, 0, 110))
+    ImageDraw.Draw(shadow).rounded_rectangle((x - 8, y - 4, x + w + 8, y + h + 8), 18, fill=(0, 0, 0, 110))
     im.alpha_composite(shadow.filter(ImageFilter.GaussianBlur(18)))
-    d.rounded_rectangle((x, y, x + w, y + 124), 14, fill=(26, 20, 16, 210), outline=(59, 49, 41, 255), width=2)
-    d.rectangle((x, y + 18, x + 6, y + 106), fill=ACCENT[film])
+    d.rounded_rectangle((x, y, x + w, y + h), 14, fill=(26, 20, 16, 210), outline=(59, 49, 41, 255), width=2)
+    d.rectangle((x, y + 18, x + 6, y + h - 18), fill=ACCENT[film])
     cx = x + 32
     for ch in SERIES:  # tracked caps
-        d.text((cx, y + 22), ch, font=f1, fill=ACCENT[film])
+        d.text((cx, y + 20), ch, font=f1, fill=ACCENT[film])
         cx += d.textlength(ch, font=f1) * 1.08
-    d.text((x + 32, y + 66), title, font=f2, fill=TEXT)
+    for i, t in enumerate(lines):
+        d.text((x + 32, y + 60 + 42 * i), t, font=f2, fill=TEXT)
     im.save(path)
 
 
@@ -369,12 +384,14 @@ def render_shot(shot: dict, film: str, a: argparse.Namespace, work: Path, used: 
 
 def stream_length(path: Path, stream: str, ffmpeg: str) -> float:
     """The picture's frame count, or the sound's seconds (the last packet's time plus its own length, ~21 ms)."""
+    if stream == "v":  # one framecrc line per packet: ffmpeg 6.1 prints no frame= progress on a stream copy
+        r = subprocess.run([ffmpeg, "-hide_banner", "-loglevel", "error", "-i", str(path), "-map", "0:v", "-c", "copy",
+                            "-f", "framecrc", "-"], capture_output=True, text=True)
+        n = sum(1 for ln in r.stdout.splitlines() if ln and not ln.startswith("#"))
+        return float(n) if r.returncode == 0 and n else -1.0
     r = subprocess.run([ffmpeg, "-hide_banner", "-i", str(path), "-map", f"0:{stream}", "-c", "copy", "-f", "null", "-"],
                        capture_output=True, text=True)
     lines = r.stderr.replace("\r", "\n").splitlines()
-    if stream == "v":
-        n = [ln.split("frame=", 1)[1].split()[0] for ln in lines if "frame=" in ln]
-        return float(n[-1]) if n else -1.0
     t = [ln.rsplit("time=", 1)[1].split()[0] for ln in lines if "time=" in ln]
     if not t or t[-1].startswith("N/A"):
         return -1.0

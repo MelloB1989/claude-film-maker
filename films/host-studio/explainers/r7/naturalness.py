@@ -25,6 +25,22 @@ HIGH_APEX_CM = 16.0  # wrist over the sternum point that counts as an upper_ches
 TORSO_DEPTH = 11.0
 STILL_CM_S = 2.5  # wrist speed under which a frame is still (a hold), not part of a movement
 MIN_MOVES = 5  # wrist movements a hand needs before its path/speed fractions count  # cm from the spine_05 joint to the front of the chest/stomach (seated adult, either presenter)
+CHIN_BELOW = {"her": 5.25, "him": 6.1}  # agent-02 on the mesh (09 Nov): the soft-tissue menton under the head bone's head, per presenter
+CHIN_BELOW_HEAD = 5.0  # cm, the default until a presenter's mesh value lands: the chin under the head bone's head (the skull base); neck_01 sits ~10 under it, the
+#   shoulders ~19: the chin is ~11-13 cm above the suprasternal notch (seated adult, either presenter)
+FACE_C, FACE_R = (7.0, 0.0, 4.0), 11.0  # the face/hair shell: centre off the head joint (fwd, right, up), radius cm
+CHEST_KINDS = ("count", "list", "beat")  # agent-08: these hold at chest height
+CHEST_BELOW_COLLAR = 4.0  # cm: the chest line under the clavicle heads (agent-08, report only)
+FOLD_PIP = 95.0  # deg: a held fold at/over this is at the joint limit (agent-08, R7 hands)
+SPREAD_OK = ("open", "deictic", "raise_finger", "count", "pinch")  # kinds/details that part the fingers on purpose
+REST_TIP_CM = 1.5  # cm: the lowest fingertip (finger_tips' centre line) over the desk top on a resting hand (agent-08)
+REST_HEEL = {"her": 2.9, "him": 3.34}  # per presenter, agent-02 on each mesh: heel-only wrist head + 0.5 (her 2.35, him 2.84 on SKM_Host body, 09 Nov)
+REST_HEEL_CM = 2.9  # cm: the wrist head over the desk top with the heel of the palm down (agent-02 on her mesh: 2.35 heel
+#   only, 1.85 heel + pads; + 0.5 tolerance) (the orchestrator: contact
+#   through the palm and fingers, never the tips only)
+SPREAD_MIN_INPLANE = 0.5  # a proximal phalanx > 60 deg out of the palm plane (a closed finger): no spread read
+PALM_CAM_OK = ("press",)  # gestures whose palm faces the lens on purpose
+SNAP_CM_S = 90.0  # fingertip speed relative to the wrist that, stopped dead within 2 frames, is a snap
 SEQ_FPS = 24.0  # the film's sequence / EDL rate: --span frames are on it (the dumps run at 30)
 MIN_REST = 15  # frames (0.5 s) a rest class needs before its elevation counts
 DESK_TOP, DESK_NEAR = 71.0, 12.0  # set_her.json / set_him.json (same desk): its top z and near edge x, actor frame, cm
@@ -128,10 +144,13 @@ def shape_class(fa, pinch):
 class Take:
     def __init__(self, d: dict, spans: list | None = None, seq_fps: float = SEQ_FPS):
         self.d = d
+        self.chin_below = float(d.get("chin_below") or CHIN_BELOW.get(d.get("who", ""), CHIN_BELOW_HEAD))
         self.fps = float(d.get("fps", 30))
         self.F = d["frames"]
         for f in self.F:  # an editor dump may carry only frame numbers, at its own rate
             f.setdefault("t", f["f"] / self.fps)
+            if f.get("tips"):  # gesturekit.track_frame's fingertips (b2d3bcc0+) ride next to the joint heads
+                f["p"] = {**f["p"], **f["tips"]}
         self.dt = 1 / self.fps
         self.F = self._grid(self.F)
         self.ev = d.get("events", [])
@@ -250,6 +269,13 @@ class Take:
                 on = (W[0] >= DESK_NEAR + 10.0 and E[0] >= DESK_NEAR - 11.0 and W[2] <= DESK_TOP + DESK_REST_Z
                       and min(E[2], W[2]) <= DESK_TOP + 7.0)
                 (desk if on else hang).append(hum)
+            sg = 1.0 if s == "r" else -1.0
+            ab = []
+            for i, f in enumerate(self.F):
+                if self.inside[i] and f["gesture_w"][s] < 0.1:
+                    u = sub(f["p"]["lowerarm_" + s], f["p"]["upperarm_" + s])
+                    ab.append(math.degrees(math.asin(max(-1, min(1, sg * u[1] / norm(u))))))
+            r[s]["rest_abduction_p50"] = med(ab) if len(ab) >= MIN_REST else float("nan")
             r[s]["humerus_rest_p50"] = med(hang) if len(hang) >= MIN_REST else float("nan")  # a few frames in passing
             r[s]["humerus_rest_desk_p50"] = med(desk) if len(desk) >= MIN_REST else float("nan")  # is not a rest
             r[s]["rest_hang_n"], r[s]["rest_desk_n"] = len(hang), len(desk)
@@ -264,7 +290,8 @@ class Take:
                 fa, pn = self.fa[s][i]
                 c = shape_class(fa, pn)
                 cnt[c] = cnt.get(c, 0) + 1
-                wrong = c in ("claw", "pinch") and e["kind"] != "pinch" or (c == "flat")
+                asked = "pinch" in (e["kind"], e.get("detail", ""))  # the sheet's 'size: pinch' asks for one
+                wrong = c == "claw" or (c == "pinch" and not asked) or c == "flat"
                 bad += wrong
                 if wrong:
                     per.append({"f": i, "hand": s, "kind": e["kind"], "line": e.get("line", ""), "shape": c})
@@ -371,6 +398,14 @@ class Take:
                 return (i - 1 + (th - w[i - 1]) / max(1e-9, w[i] - w[i - 1])) * self.dt
         return None
 
+    @staticmethod
+    def _low(w, a, b):
+        """the first local low of w from a (walk while it still falls), at most b."""
+        k = a
+        while k < b and w[k + 1] < w[k]:
+            k += 1
+        return k
+
     def lag(self):
         """proximal-to-distal onset: upper arm -> forearm -> hand (absolute orientation) -> fingers, per movement."""
         r = {}
@@ -389,8 +424,10 @@ class Take:
             segs = self.segments(s)
             for a, b in segs:
                 a0 = max(0, a - 3)
-                o = [self._onset(w, a0, b) for w in (up, fo, hd)]
-                of = self._onset(fw, a0, b)
+                # each series' onset is searched from its OWN low after a0: a tail still decaying from the previous
+                # arrival is not an onset (agent-01, 09 Nov: 20 of his 21 'leading' hands were that tail)
+                o = [self._onset(w, self._low(w, a0, b), b) for w in (up, fo, hd)]
+                of = self._onset(fw, self._low(fw, a0, b), b)
                 if None in o:
                     continue
                 lags.append(1000 * (o[2] - o[0]))
@@ -488,10 +525,274 @@ class Take:
         out["l_over_r"] = out["l"] / max(1e-9, out["r"])
         return out
 
+    def snaps(self):
+        """finger shapes that SNAP in: a fingertip (the DIP head) moving >= SNAP_CM_S relative to its wrist that falls
+        to <= 25 % within 2 frames, while she speaks; instants (0.1 s apart) per speaking minute, worse hand."""
+        out = {}
+        for s in "lr":
+            tips = [f"{fn}_03_{s}" for fn in ("thumb",) + FINGERS]
+            hits = set()
+            for b in tips:
+                rel = [sub(f["p"][b], f["p"]["hand_" + s]) for f in self.F]
+                v = [0.0] + [norm(sub(rel[i], rel[i - 1])) / self.dt for i in range(1, len(rel))]
+                for i in range(1, len(v) - 2):
+                    if self.speak[i] and v[i] >= SNAP_CM_S and min(v[i + 1], v[i + 2]) <= 0.25 * v[i]:
+                        hits.add(round(self.F[i]["t"], 1))
+            mins = sum(self.speak) * self.dt / 60.0
+            out[s] = {"n": len(hits), "per_min": len(hits) / mins if mins > 0 else float("nan"), "t": sorted(hits)}
+        return out
+
+    def near_face(self):
+        """hands up at the face (the orchestrator, 09 Nov: 'no hand/finger above the chin, or within ~10 cm of the
+        face/hair, in any cut camera'): on-camera frames (the dump's on_cam, within the spans) where any wrist or finger
+        joint head is above the chin line (the head joint - CHIN_BELOW_HEAD) or inside the face shell (a sphere at the
+        head joint + FACE_C, radius FACE_R + 10 cm)."""
+        cams = self.d.get("on_cam") or []
+        out = {"frames": 0, "on_cam_frames": 0, "t": [], "max_over_chin_cm": float("-inf")}
+        for i, f in enumerate(self.F):
+            if not self.inside[i] or (cams and not any(a <= f["t"] < b for a, b, *_ in cams)):
+                continue
+            out["on_cam_frames"] += 1
+            H = f["p"]["head"]
+            chin = H[2] - self.chin_below
+            c = add(H, list(FACE_C))
+            hit = False
+            for s in "lr":
+                for b in ["hand_" + s] + [f"{fn}_0{j}_{s}" for fn in ("thumb",) + FINGERS for j in (2, 3)]:
+                    P = f["p"].get(b)
+                    if P is None:
+                        continue
+                    out["max_over_chin_cm"] = max(out["max_over_chin_cm"], P[2] - chin)
+                    hit = hit or P[2] > chin or norm(sub(P, c)) < FACE_R + 10.0
+            if hit:
+                out["frames"] += 1
+                tt = round(f["t"], 1)
+                if tt not in out["t"]:
+                    out["t"].append(tt)
+        return out
+
+    def _oncam(self, i):
+        cams = self.d.get("on_cam") or []
+        t = self.F[i]["t"]
+        return self.inside[i] and (not cams or any(a <= t < b for a, b, *_ in cams))
+
+    def hold_height(self):
+        """event holds (stroke .. stroke + hold) on camera with the wrist over the collarbone (the clavicle heads'
+        mean height): agent-08's hold rule (R7 hands, 09 Nov), count/beat holds sit at chest height."""
+        out = {"frames": 0, "t": [], "chest_frames": 0, "chest_t": []}
+        for e in self.ev:
+            if e["kind"] == "rest":
+                continue
+            for i in range(self.idx(e["stroke"]), self.idx(e["stroke"] + e["hold"]) + 1):
+                if not self._oncam(i):
+                    continue
+                P = self.F[i]["p"]
+                cz = (P["clavicle_l"][2] + P["clavicle_r"][2]) / 2
+                if e["kind"] in CHEST_KINDS and any(P["hand_" + s][2] > cz - CHEST_BELOW_COLLAR
+                                                    for s in self.hands_of(e)):
+                    out["chest_frames"] += 1
+                    tt = round(self.F[i]["t"], 1)
+                    if tt not in out["chest_t"]:
+                        out["chest_t"].append(tt)
+                if any(P["hand_" + s][2] > cz for s in self.hands_of(e)):
+                    out["frames"] += 1
+                    tt = round(self.F[i]["t"], 1)
+                    if tt not in out["t"]:
+                        out["t"].append(tt)
+        return out
+
+    def cascade(self):
+        """the relaxed cascade (agent-08's shape rows): on-camera frames where the hand is not in a gesture
+        (gesture_w < 0.1) and its total flexion (MCP + PIP) does not rise index -> pinky (5 deg slack per step)."""
+        out = {}
+        for s in "lr":
+            n = bad = 0
+            for i, f in enumerate(self.F):
+                if not self._oncam(i) or f["gesture_w"][s] >= 0.1:
+                    continue
+                if f["p"]["hand_" + s][2] - DESK_TOP <= 6.0:  # on the desk the palm's arch sets the pads (agent-08)
+                    continue
+                fa = self.fa[s][i][0]
+                tot = [fa[k][0] + fa[k][1] for k in FINGERS]
+                n += 1
+                bad += any(tot[k + 1] < tot[k] - 5.0 for k in range(3))
+            out[s] = {"n": n, "broken_frac": bad / n if n else float("nan")}
+        return out
+
+    def dip(self):
+        """per finger MCP / PIP / DIP from the joint heads plus a fingertip point ('<finger>_tip_<s>', when the track
+        carries it): the intrinsic-minus claw (MCP < 20 with PIP > 15 and DIP >= PIP) and DIP/PIP outside 0.5-0.85
+        while PIP >= 20 (agent-08: DIP ~ 0.67 PIP). n/a without tips."""
+        out = {"claw_frames": float("nan"), "ratio_bad_frac": float("nan"), "claw_t": [],
+               "claw_score_frames": float("nan"), "thumb_stiff_frames": float("nan")}
+        if not any(k.endswith("_tip_r") for k in self.F[0]["p"]):
+            return out
+        claw = rn = rb = cs = 0
+        stiff = {s: 0 for s in "lr"}
+        run = {s: 0 for s in "lr"}
+        need = int(round(0.5 / self.dt))
+        stiff_n = 0
+        for i, f in enumerate(self.F):
+            if not self._oncam(i) or not self.speak[i]:
+                continue
+            P, hit, cs_hit = f["p"], False, False
+            for s in "lr":
+                _, lat, _ = hand_frame(P, s)
+                W = P["hand_" + s]
+                t1, t2, t3, tt_ = (P[f"thumb_01_{s}"], P[f"thumb_02_{s}"], P[f"thumb_03_{s}"], P[f"thumb_tip_{s}"]) \
+                    if f"thumb_tip_{s}" in P else (None,) * 4
+                if t1 is not None:  # thumb MCP + IP flexion < 5 for > 0.5 s: straight and stiff
+                    fl = ang(sub(t2, t1), sub(t3, t2)) + ang(sub(t3, t2), sub(tt_, t3))
+                    run[s] = run[s] + 1 if fl < 5.0 else 0
+                    stiff_n += run[s] == need
+                    stiff[s] += run[s] >= need
+                for fn in FINGERS:
+                    j1, j2, j3, tp = \
+                        (P[f"{fn}_01_{s}"], P[f"{fn}_02_{s}"], P[f"{fn}_03_{s}"], P[f"{fn}_tip_{s}"])
+                    a, b, c, d = sub(j1, W), sub(j2, j1), sub(j3, j2), sub(tp, j3)
+                    m, pp, dd = bend(a, b, lat, s), bend(b, c, lat, s), bend(c, d, lat, s)
+                    if (m < 20.0 and pp > 15.0 and dd >= pp) or m < -10.0 or (pp >= 10.0 and m < 0.5 * pp - 10.0):
+                        hit = True  # intrinsic-minus, MCP hyperextension, or MCP lagging PIP (the orchestrator's anatomy)
+                    if pp + dd > 1.67 * (m + 8.0) + 25.0:  # handshape.claw_score's symmetric form (report)
+                        cs_hit = True
+                    if pp >= 20.0:
+                        rn += 1
+                        rb += not (0.5 <= dd / pp <= 0.85)
+            cs += cs_hit
+            if hit:
+                claw += 1
+                tt = round(f["t"], 1)
+                if tt not in out["claw_t"]:
+                    out["claw_t"].append(tt)
+        out["claw_frames"], out["ratio_bad_frac"] = claw, (rb / rn if rn else float("nan"))
+        out["claw_score_frames"], out["thumb_stiff_frames"] = cs, max(stiff.values())
+        return out
+
+    def thumb(self):
+        """thumb opposition (agent-08, R7 hands): opp_deg = the thumb's proximal phalanx (thumb_02 -> thumb_03) out of
+        the palm plane toward the palm (normal (middle_01 - hand) x (index_01 - pinky_01), signed toward middle_03).
+        Flat = opp_deg < 10 while the fingers' mean MCP > 30 (a curled hand with a flat thumb); on-camera speaking
+        frames, worse hand."""
+        out = {}
+        for s in "lr":
+            n = flat = 0
+            opp = []
+            for i, f in enumerate(self.F):
+                if not self._oncam(i) or not self.speak[i]:
+                    continue
+                P = f["p"]
+                nrm = hand_frame(P, s)[2]  # toward the palm from the knuckle line (a middle-finger sign flips past 90)
+                ph = unit(sub(P["thumb_03_" + s], P["thumb_02_" + s]))
+                o = math.degrees(math.asin(max(-1.0, min(1.0, dot(ph, nrm)))))
+                opp.append(o)
+                mcp = sum(self.fa[s][i][0][k][0] for k in FINGERS) / 4
+                n += 1
+                flat += o < 10.0 and mcp > 30.0
+            out[s] = {"n": n, "opp_p50": med(opp), "flat_frames": flat}
+        return out
+
+    def fold_limit(self):
+        """a folded finger at its joint limit (agent-08: the catalogue keeps folds at PIP ~85): on-camera speaking frames
+        of a held shape (gesture_w > 0.9) with any finger's PIP >= FOLD_PIP."""
+        out = {"frames": 0, "t": []}
+        for i, f in enumerate(self.F):
+            if not self._oncam(i) or not self.speak[i]:
+                continue
+            if any(f["gesture_w"][s] > 0.9 and any(self.fa[s][i][0][k][1] >= FOLD_PIP for k in FINGERS) for s in "lr"):
+                out["frames"] += 1
+                tt = round(f["t"], 1)
+                if tt not in out["t"]:
+                    out["t"].append(tt)
+        return out
+
+    def _spread(self, P, s):
+        """adjacent finger abduction, deg: the proximal phalanges (_01 -> _02 heads) in the palm plane, index|middle,
+        middle|ring, ring|pinky."""
+        n = hand_frame(P, s)[2]
+        v = []
+        for fn in FINGERS:
+            a = unit(sub(P[f"{fn}_02_{s}"], P[f"{fn}_01_{s}"]))
+            ip = sub(a, mul(n, dot(a, n)))
+            if norm(ip) < SPREAD_MIN_INPLANE:  # a closed / fist finger lies along the palm normal: its projection
+                return None  # is degenerate (agent-12's mocap pilot: soft fists read ~100 deg), not a spread
+            v.append(unit(ip))
+        return [ang(v[k], v[k + 1]) for k in range(3)]
+
+    def spread(self):
+        """the orchestrator (09 Nov, the hand stills): a relaxed / list / rest hand keeps the fingers nearly together
+        (adjacent abduction ~0-5 deg); only a deliberate spread (open palm, pointing, a raised finger, a count, a pinch)
+        may part them. On-camera frames of a resting hand (gesture_w < 0.1) or a stroke hold of the other kinds: p90 of
+        the frame's widest adjacent gap, worse hand."""
+        held = {s: set() for s in "lr"}
+        for e in self.ev:
+            if e["kind"] in SPREAD_OK or e.get("detail", "") in SPREAD_OK:
+                continue
+            for i in range(self.idx(e["stroke"]), self.idx(e["stroke"] + e["hold"]) + 1):
+                for s in self.hands_of(e):
+                    held[s].add(i)
+        out = {}
+        for s in "lr":
+            xs = [max(g) for g in (self._spread(f["p"], s) for i, f in enumerate(self.F)
+                                   if self._oncam(i) and (f["gesture_w"][s] < 0.1 or i in held[s])) if g]
+            out[s] = {"n": len(xs), "p50": med(xs), "p90": pct(xs, 0.9)}
+        return out
+
+    def rest_contact(self):
+        """the orchestrator (09 Nov): a resting hand lies ON the desk through the palm / its side, never hovering on
+        its fingertips. On-camera frames of a resting hand (gesture_w < 0.1) over the desk that HOVERS (its lowest fingertip
+        > REST_TIP_CM over the top) or is TENTED on its pads (the wrist head > REST_HEEL_CM: the heel off the desk)."""
+        out = {"frames": 0, "tips_only": 0, "t": []}
+        for i, f in enumerate(self.F):
+            if not self._oncam(i):
+                continue
+            P, bad, tips = f["p"], False, False
+            for s in "lr":
+                if f["gesture_w"][s] >= 0.1 or P["hand_" + s][0] < DESK_NEAR:
+                    continue
+                tp = [P[k][2] - DESK_TOP for k in (f"{fn}_tip_{s}" for fn in FINGERS) if k in P]
+                heel = P["hand_" + s][2] - DESK_TOP
+                hover = bool(tp) and min(tp) > REST_TIP_CM  # nothing touches
+                tented = heel > REST_HEEL.get(self.d.get("who", ""), REST_HEEL_CM)  # the heel of the palm off the desk: resting on the pads / tips only
+                if hover or tented:
+                    bad = True
+                    tips = tips or (tented and not hover)
+            if bad:
+                out["frames"] += 1
+                out["tips_only"] += tips
+                tt = round(f["t"], 1)
+                if tt not in out["t"]:
+                    out["t"].append(tt)
+        return out
+
+    def palm_cam(self):
+        """the 'halt' hand (the orchestrator, 09 Nov, her 00:08 list): stroke-hold frames on camera where the palm faces
+        the camera (the palm normal within 60 deg of +x, the actor's front, where the cameras stand) with the fingers
+        pointing up; a 'press' toward the lens is the one gesture meant that way."""
+        out = {"frames": 0, "t": []}
+        for e in self.ev:
+            if e["kind"] in PALM_CAM_OK or e.get("detail", "") in PALM_CAM_OK or e["kind"] == "rest":
+                continue
+            for i in range(self.idx(e["stroke"]), self.idx(e["stroke"] + e["hold"]) + 1):
+                if not self._oncam(i):
+                    continue
+                for s in self.hands_of(e):
+                    d, _, n = hand_frame(self.F[i]["p"], s)
+                    if n[0] > 0.5 and d[2] > 0.3:
+                        out["frames"] += 1
+                        tt = round(self.F[i]["t"], 1)
+                        if tt not in out["t"]:
+                            out["t"].append(tt)
+                        break
+        return out
+
     def report(self):
         return {"wrist": self.wrist(), "forearm": self.forearm(), "shape": self.shapes(), "body": self.body(),
                 "kin": self.kinematics(), "lag": self.lag(), "asym": self.asym(), "fingers": self.frozen(),
-                "torso": self.torso(), "travel": self.travel(), "holds": self.holds()}
+                "torso": self.torso(), "travel": self.travel(), "holds": self.holds(), "snaps": self.snaps(), "face": self.near_face(),
+                "hold_high": self.hold_height(), "cascade": self.cascade(), "dip": self.dip(),
+                "thumb": self.thumb(), "fold": self.fold_limit(),
+                "spread": self.spread(), "rest_contact": self.rest_contact(),
+                "palm_cam": self.palm_cam()}
 
 
 # ---------- the gate rows ----------
@@ -521,6 +822,10 @@ ROWS = {
     "move.humerus_elev_rest_deg": (lambda r: _worst(r, ("forearm", "humerus_rest_p50"), max), "<=", 30.0, "deg",
                                    "median upper-arm elevation while that hand rests (gesture_w < 0.1) with the "
                                    "forearm NOT on the desk, worse hand: unsupported resting elbows hang"),
+    "move.rest_abduction_deg": (lambda r: _worst(r, ("forearm", "rest_abduction_p50"), max), "<=", 25.0, "deg",
+                                "median upper-arm abduction while that hand rests, worse hand: an open seated posture "
+                                "allows elbows a hand-width off the torso (~20-25 deg; the orchestrator, 09 Nov), "
+                                "more is wings"),
     "move.humerus_elev_rest_desk_deg": (lambda r: _worst(r, ("forearm", "humerus_rest_desk_p50"), max), "<=", 40.0,
                                         "deg", "the same with the forearm supported on the desk (the orchestrator's "
                                         "desk rest, 08 Nov; RULA scores a supported arm a band lower): the elbows at "
@@ -552,6 +857,54 @@ ROWS = {
     "move.hold_min_speed": (lambda r: _worst(r, ("holds", "p10"), min), ">=", 0.3, "cm/s",
                             "p10 of the wrist speed while speaking outside every movement (holds, rests), worse hand: "
                             "a live hold drifts (the orchestrator, 08 Nov); 0 = frozen"),
+    "move.finger_snap_per_min": (lambda r: _worst(r, ("snaps", "per_min"), max), "<=", 2.0, "per min",
+                                 "finger shapes that snap in: a fingertip >= 90 cm/s relative to the wrist stopped "
+                                 "to <= 25 % within 2 frames, per speaking minute, worse hand (minimum jerk holds for "
+                                 "the fingers too; 'fingers snapping between fixed shapes' is a robotic tell)"),
+    "move.hand_near_face_frames": (lambda r: r["face"]["frames"], "==", 0, "frames",
+                                   "on-camera frames with any wrist/finger joint above the chin line (head joint - 5 cm) "
+                                   "or within 10 cm of the face/hair shell (the orchestrator, 09 Nov: no face gestures "
+                                   "on either presenter's sheet)"),
+    "move.hold_over_collar_frames": (lambda r: r["hold_high"]["frames"], "==", 0, "frames",
+                                     "on-camera stroke-hold frames with the wrist over the collarbone (the clavicle "
+                                     "heads): holds sit at chest height (agent-08, R7 hands)"),
+    "move.cascade_broken_frac": (lambda r: _worst(r, ("cascade", "broken_frac"), max), "<=", 0.10, "fraction",
+                                 "on-camera resting frames held in the AIR (wrist > desk + 6; on the desk the palm's arch "
+                                 "sets the pads) whose MCP+PIP flexion does not rise index -> pinky, worse hand"),
+    "move.finger_claw_frames": (lambda r: r["dip"]["claw_frames"], "==", 0, "frames",
+                                "on-camera speaking frames with a finger in a claw: intrinsic-minus (MCP < 20, PIP > 15, "
+                                "DIP >= PIP), MCP hyperextended < -10, or MCP < PIP/2 - 10 (the orchestrator); needs tips"),
+    "move.dip_pip_ratio_bad_frac": (lambda r: r["dip"]["ratio_bad_frac"], "<=", 0.10, "fraction",
+                                    "finger-frames (PIP >= 20) whose DIP/PIP falls outside 0.5-0.85 (agent-08: DIP ~ "
+                                    "0.67 PIP); needs fingertip points, else n/a"),
+    "move.fold_at_limit_frames": (lambda r: r["fold"]["frames"], "==", 0, "frames",
+                                  "on-camera speaking frames of a held shape (gesture_w > 0.9) with a finger folded at "
+                                  "PIP >= 95 (the joint limit; agent-08's catalogue folds at ~85)"),
+    "move.finger_spread_p90_deg": (lambda r: _worst(r, ("spread", "p90"), max), "<=", 5.0, "deg",
+                                   "p90 over on-camera resting / held (non-spreading kinds) frames of the widest "
+                                   "adjacent finger abduction (proximal phalanges in the palm plane), worse hand: "
+                                   "relaxed fingers stay nearly together (the orchestrator, 09 Nov)"),
+    "move.rest_contact_bad_frames": (lambda r: r["rest_contact"]["frames"], "==", 0, "frames",
+                                     "on-camera resting-hand frames over the desk that hover (lowest fingertip > 1.5 "
+                                     "cm over the top) or rest tented on the pads (wrist head > 2.9: the heel off the "
+                                     "desk; the orchestrator, 09 Nov: never fingertip-only)"),
+    "move.palm_to_camera_frames": (lambda r: r["palm_cam"]["frames"], "==", 0, "frames",
+                                   "on-camera stroke-hold frames (not a 'press') with the palm facing the camera "
+                                   "(normal within 60 deg of the front) and the fingers up: the 'halt' hand (the "
+                                   "orchestrator, 09 Nov: a list palm angles up/in toward the midline)"),
+    "move.thumb_flat_frames": (lambda r: _worst(r, ("thumb", "flat_frames"), max), "==", 0, "frames",
+                               "on-camera speaking frames with a flat thumb on a curled hand: the thumb's proximal "
+                               "phalanx < 10 deg out of the palm plane toward the palm while the fingers' mean MCP > "
+                               "30 (agent-08), worse hand"),
+    "move.thumb_stiff_frames": (lambda r: r["dip"]["thumb_stiff_frames"], "==", 0, "frames",
+                                "frames inside runs > 0.5 s with the thumb's MCP + IP flexion < 5 deg (straight, "
+                                "stiff; agent-08), worse hand; needs fingertip points, else n/a"),
+    "move.hold_chest_frames": (lambda r: r["hold_high"]["chest_frames"], "info", 0, "frames",
+                               "REPORT: count/list/beat hold frames with the wrist above the chest line (clavicle "
+                               "heads - 4 cm; agent-08)"),
+    "move.claw_score_frames": (lambda r: r["dip"]["claw_score_frames"], "info", 0, "frames",
+                               "REPORT: frames with a finger at PIP + DIP > 1.67 (MCP + 8) + 25 (handshape.claw_score's "
+                               "symmetric form; agent-08); needs fingertip points"),
     "move.mirror_corr_p50": (lambda r: r["asym"]["mirror_corr_p50"], "<=", 0.95, "corr",
                              "GUARD: two-hand strokes, median correlation of the left wrist velocity with the right's "
                              "mirrored (1.0 = a mirror copy)"),
@@ -565,7 +918,8 @@ def rows(rep):
     out = {}
     for k, (fn, op, line, unit_, what) in ROWS.items():
         v = fn(rep)
-        ok = {"<=": v <= line, ">=": v >= line, "==": v == line}[op] if v == v else None  # None: nothing to measure
+        ok = None if op == "info" or v != v else {"<=": v <= line, ">=": v >= line, "==": v == line}[op]
+        #   None: a report row, or nothing to measure
         out[k] = {"value": round(v, 3) if isinstance(v, float) else v, "op": op, "line": line, "unit": unit_,
                   "pass": ok if ok is None else bool(ok), "what": what}
     return out
@@ -594,10 +948,14 @@ def main(argv=None):
     ap.add_argument("--span", action="append", default=[],
                     help="SEQUENCE frames A-B at --seq-fps (the EDL's, repeatable): only these count")
     ap.add_argument("--seq-fps", type=float, default=SEQ_FPS)
+    ap.add_argument("--who", choices=("her", "him"), help="the presenter, when the track does not say (the chin line)")
+    ap.add_argument("--chin-below", type=float, help="cm the chin sits under the head joint (overrides --who)")
     ap.add_argument("--fps", type=float, help="the dump's own rate when it carries none (an editor dump: 24)")
     ap.add_argument("--meta", help="a solved track (arm_track.json, 30 fps) to take speak_w / gesture_w / events / "
                                    "on_cam from, BY TIME, for an editor dump that carries only joint positions")
     ap.add_argument("--full", action="store_true", help="print the full report, not only the rows")
+    ap.add_argument("--gate", help="write the gate's numbers contract for the FIRST track: {gate: {row: {value, where}}} "
+                                   "(numbers/<film>/naturalness.json)")
     a = ap.parse_args(argv)
     res = {}
     for p in a.tracks:
@@ -605,6 +963,10 @@ def main(argv=None):
         d = json.loads(Path(p).read_text())
         if a.fps:
             d["fps"] = a.fps
+        if a.who:
+            d["who"] = a.who
+        if a.chin_below:
+            d["chin_below"] = a.chin_below
         if a.meta:
             with_meta(d, json.loads(Path(a.meta).read_text()))
         rep = Take(d, spans or None, a.seq_fps).report()
@@ -614,13 +976,21 @@ def main(argv=None):
     print("row".ljust(w) + "line".ljust(10) + "".join(n[:16].ljust(18) for n in names))
     for k in ROWS:
         r0 = res[names[0]]["rows"][k]
-        cells = "".join((f"{res[n]['rows'][k]['value']}" + {True: " ok", False: " FAIL", None: " n/a"}[res[n]["rows"][k]["pass"]]).ljust(18)
+        cells = "".join((f"{res[n]['rows'][k]['value']}" + ({True: " ok", False: " FAIL", None: " n/a"}[res[n]["rows"][k]["pass"]]
+                                                             if r0["op"] != "info" else " info")).ljust(18)
                         for n in names)
         print(k.ljust(w) + f"{r0['op']}{r0['line']}".ljust(10) + cells)
     if a.full:
         print(json.dumps({n: res[n]["report"] for n in names}, indent=1, default=str))
     if a.json:
         Path(a.json).write_text(json.dumps(res, indent=1, default=str))
+    if a.gate:
+        n0 = names[0]
+        where = f"{Path(a.tracks[0]).name} (30 fps track), " + \
+            (("seq spans " + " + ".join(a.span) + " @ %g fps by time" % a.seq_fps) if a.span else "whole take")
+        g = {k: {"value": (None if isinstance(v["value"], float) and v["value"] != v["value"] else v["value"]),
+                 "where": where} for k, v in res[n0]["rows"].items()}
+        Path(a.gate).write_text(json.dumps({"gate": g, "source": "r7/naturalness.py (agent-13)"}, indent=1) + "\n")
 
 
 if __name__ == "__main__":

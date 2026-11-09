@@ -91,6 +91,34 @@ def test_covered_shrinks_from_the_border(fmb):
     assert G.covered(14, tris, [False] * 14, rings=0) == []
 
 
+def _grid(n):
+    """An n x n vertex grid's triangles (vertex r * n + c)."""
+    tris = []
+    for r in range(n - 1):
+        for c in range(n - 1):
+            a = r * n + c
+            tris += [(a, a + 1, a + n), (a + 1, a + n + 1, a + n)]
+    return tris
+
+
+def test_fill_holes_covers_small_islands_only(fmb):
+    import fmbridge.ops.garment as G
+    n = 7
+    tris = _grid(n)
+    hit = [True] * (n * n)
+    for v in (0, 1, 7, 8):          # the open skin: a corner of 4
+        hit[v] = False
+    hit[3 * n + 3] = False          # a 1-vertex miss in the middle of the covered patch
+    hit[5 * n + 5] = False          # another, refused by ok
+    out, filled, islands = G.fill_holes(n * n, tris, hit, max_verts=2, ok=lambda comp: 5 * n + 5 not in comp)
+    assert islands == [4, 1, 1] and filled == [1]
+    assert out[3 * n + 3] and not out[5 * n + 5] and not any(out[v] for v in (0, 1, 7, 8))
+    out, filled, _ = G.fill_holes(n * n, tris, hit, max_verts=0)
+    assert filled == [] and out == hit
+    hidden = G.covered(n * n, tris, G.fill_holes(n * n, tris, hit, 2)[0], rings=1)
+    assert len(hidden) > len(G.covered(n * n, tris, hit, rings=1))
+
+
 def test_hide_under_refuses_the_face(host):
     from fmbridge.errors import OpError
     with pytest.raises(OpError, match="Body only"):

@@ -1,4 +1,27 @@
-# His WhatsApp explainer on box B: the performance (agent-01)
+# His WhatsApp explainer: the performance (agent-01)
+
+## R7 on box C (the orchestrator, 08 Nov 10:20 IST): agent-06 drives, r7-body 7976d7b6 or later
+
+Box C (`ue-box-c-explainer`, from box B's AMI) runs his whole chain; then his 13 s TEST for the orchestrator.
+Same as her R7 TEST chain, which passed its body on box B (0 issues, mesh arms L 5.92 / R 5.30 cm):
+
+```bash
+uv run python $P cams --who him                       # FIRST: each camera from his seated eyes (no > 10° direct cut)
+uv run python $P signs --who him --bless              # after his perf.calibrate (HEAD_HIM.md 1a-1b)
+uv run python $P body --who him --perform             # NEVER --force: the gestures from acting/him.json +
+                                                      # acting/timing_him.json (agent-10), set_him.json (his mic)
+FACE_SOLVE=full uv run python $P all --who him --from life --bake-chunk 30 --restart-level <his level>
+uv run python $P headaxes --who him                   # the head gate: no turn toward the mic (send to agent-04)
+```
+
+- body expects: `issues` 0, `upperarm_torso_clear_cm` >= 3 both arms, `hands_in_frame_frac` per camera >= 0.6
+  MCU / MCU_L, >= 0.3 CU, ~1.0 WIDE, the mic clear >= 5 cm in each live camera. A fail writes nothing: send me
+  `out/explainers/perf/him/body_check.json` (numbers only, never his skeleton).
+- Offline his plan reads 49 gestures over 45.6 s of speech = 1.07 onsets/s (the sheet's 0.5-1.2), 10 two-hand.
+- `--bake-chunk 30`: 240-frame sampling jobs died on his scene; 30 passes. `--from-bake 2|3` resumes a crash.
+- After the perf milestone: ue.sync the project deltas to private S3 for the farm (agent-08).
+
+The sections below are the r6 sheet (box B); the R7 lines above replace its `all` run.
 
 The orchestrator's plan (07 Nov): his explainer runs on box B after her finals, once agent-06's fixed head state is in
 box B's project. agent-07 drives. The head side is [HEAD_HIM.md](HEAD_HIM.md) (agent-04): run its step 1 (keep her

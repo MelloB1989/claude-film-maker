@@ -15,6 +15,8 @@ service), else nothing runs. Steps (default all, in this order; each converges, 
     level    duplicate /Game/Studio/Studio once, open it; delete the studio's standing-host lights and cameras and the
              other presenter; lower the sign; put the presenter on the chair mark, visible
     props    sync s3 …/props/explainer/ to the box, import each FBX into /Game/Explainer/Props, place chair/desk/mic
+    mic      r7: the presenter's own boom (s3 …/props/explainer/mic_r7/SM_MicBoom_<who>.fbx, props/mic_boom.py posed
+             by setplan.mic_rig) replaces ExpMic in place, dressed with the old boom's slot materials
     light    the presenter's rig (channel 1), the presenter on channels 0+1, exposure locked (manual)
     cameras  the four cameras, focus tracking her camera-side eye
     seq      SEQ_Explain_<Who>: bind the presenter (visible) and the cameras, drift keys, camera cuts from the EDL
@@ -47,7 +49,7 @@ BOX_PROPS = "/srv/ue/explainer/props"
 REVIEW_S3 = f"{BUCKET}/private/renders/r6/review/explain/"
 ACTOR = {"her": "Presenter", "him": "Host"}
 SEQ = {"her": f"{FOLDER}/SEQ_Explain_Her", "him": f"{FOLDER}/SEQ_Explain_Him"}
-STEPS = ["level", "props", "dressing", "light", "cameras", "seq", "garments", "dress", "save"]
+STEPS = ["level", "props", "mic", "dressing", "light", "cameras", "seq", "garments", "dress", "save"]
 # the presenter's dress pass (leaders, hair look, accessories; saves the level) and what she wears, per presenter
 # his dress_him.py also rewrites the reel's SEQ_Reel: for him the level part alone (mh.leader) is what the set needs
 DRESS = {"her": HERE.parent / "props/her_outfit_ue/dress_her.py", "him": None}
@@ -175,7 +177,7 @@ result = {{"rc": r.returncode, "err": r.stderr[-500:], "props": json.load(open(p
                                      intensity=12.0, folder=f"{PROPS_DIR}/Materials"))
     waterfall = P.DESK_WATERFALL in by_name
     desk_panel = waterfall or P.DESK_PANEL in by_name
-    for label, (name, loc, yaw, scale) in P.PROPS.items():
+    for label, (name, loc, yaw, scale) in P.props(who).items():
         if label == "ExpDesk" and waterfall:
             # r6b: agent-05's waterfall desk, built at the final height (no Z scale), dressed with the studio walnut
             name, scale = P.DESK_WATERFALL, [1.0, 1.0, 1.0]
@@ -209,6 +211,42 @@ result = {{"rc": r.returncode, "err": r.stderr[-500:], "props": json.load(open(p
         op("look.light", label="ExpLampBulb", kind=b["kind"], loc=[x, y, b["z"]], intensity=b["intensity"],
            temperature=b["temperature"], radius=b["radius"], shadows=True, volumetric=0.0)
         op("look.channels", labels=["ExpLampBulb"], channels=[0])
+
+
+def step_mic(who: str) -> None:
+    """r7 (the orchestrator): the mic head at the presenter's mouth height, aimed up at the mouth, the arm from above.
+    Imports SM_MicBoom_<who> (built on the box by props/mic_boom.py with setplan.mic_rig's MIC_C_CM / MIC_AIM_CM) and
+    respawns ExpMic at the rig's clamp and yaw, with the slot materials the old boom wore (same slot names)."""
+    name = f"SM_MicBoom_{who}"
+    ex(f"""import subprocess, os
+os.makedirs({BOX_PROPS!r} + "/mic_r7", exist_ok=True)
+r = subprocess.run(["aws", "s3", "sync", {PROPS_S3 + "mic_r7/"!r}, {BOX_PROPS!r} + "/mic_r7", "--only-show-errors"],
+                   capture_output=True, text=True)
+result = r.returncode""")
+    fbx = f"{BOX_PROPS}/mic_r7/{name}.fbx"
+    old = {}
+    if any(x[0] == "ExpMic" for x in op("level.actors", contains="ExpMic")):
+        old = op("look.slots", label="ExpMic") or {}
+    paths = op("assets.import", files=[fbx], dest=PROPS_DIR, replace=True, combine=True, kind="static", nanite=False,
+               collision="none", materials=False, textures=False, name=name)
+    mesh = next((x for x in paths if x.split("/")[-1].split(".")[0] == name), paths[0] if paths else "")
+    if not mesh:
+        raise SystemExit(f"{name}: import returned nothing (is {fbx} on the box?)")
+    _, loc, yaw, _ = P.props(who)["ExpMic"]
+    op("level.spawn", label="ExpMic", asset=mesh.split(".")[0], loc=list(loc), rot_={"pitch": 0.0, "yaw": yaw, "roll": 0.0},
+       scale=[1.0, 1.0, 1.0], replace=True)
+    slots = op("look.slots", label="ExpMic") or {}
+    # mic_boom.py's slots are not agent-05's boom's (M_PowderBlack, M_Steel, M_Rubber, …): dress them with those MIs
+    pm = f"{PROPS_DIR}/Materials"
+    want = {sl: old[sl] for sl in slots if old.get(sl)} or {
+        sl: f"{pm}/{mi}" for sl, mi in {"M_MatteBlack": "MI_Exp_PowderBlack", "M_Metal": "MI_Exp_Steel",
+                                        "M_Spring": "MI_Exp_Steel", "M_Foam": "MI_Exp_Rubber"}.items() if sl in slots}
+    if want:
+        op("look.slots", label="ExpMic", materials=want)
+    op("look.channels", labels=["ExpMic"], channels=[0, 1])
+    r = P.mic_rig(who)
+    print(f"ExpMic: {mesh} at {list(loc)} yaw {yaw}; capsule {tuple(round(v, 1) for v in r['points']['capsule'])}; "
+          f"slots {sorted(slots)} dressed {sorted(want)}")
 
 
 def step_dressing(who: str) -> None:
@@ -349,9 +387,12 @@ for c in L.actor({ACTOR[who]!r}).get_components_by_class(unreal.SkeletalMeshComp
         c.set_hidden_in_game({variant == "none"!r})
         out["Overshirt_visible"] = {variant != "none"!r}
 result = out"""))
-    for comp, over, reach in hides:
-        r = op("body.hide_under", label=ACTOR[who], body=comp, garment=over, reach_cm=reach, apply=True)
-        print(f"{comp} under {over} (reach {reach}): hidden {r.get('hidden')} ({r.get('fraction')}) → {r.get('mesh')}")
+    for comp, over, reach, *extra in hides:
+        kw = extra[0] if extra else {}
+        r = op("body.hide_under", label=ACTOR[who], body=comp, garment=over, reach_cm=reach, apply=True, **kw)
+        print(f"{comp} under {over} (reach {reach}{', ' + json.dumps(kw) if kw else ''}): hidden {r.get('hidden')} "
+              f"({r.get('fraction')}), inside {r.get('covered_inside')}, islands {r.get('islands')}, filled "
+              f"{r.get('holes_filled')} → {r.get('mesh')}")
 
 
 def step_dress(who: str) -> None:
@@ -493,7 +534,7 @@ def main() -> int:
     for s in STEPS:
         if s in a.steps.split(","):
             print(f"== {s}")
-            {"level": lambda: step_level(a.who), "props": lambda: step_props(a.who), "dressing": lambda: step_dressing(a.who),
+            {"level": lambda: step_level(a.who), "props": lambda: step_props(a.who), "mic": lambda: step_mic(a.who), "dressing": lambda: step_dressing(a.who),
              "light": lambda: step_light(a.who), "cameras": lambda: step_cameras(a.who),
              "seq": lambda: step_seq(a.who, a.edl, a.length), "garments": lambda: step_garments(a.who), "dress": lambda: step_dress(a.who),
              "save": step_save}[s]()

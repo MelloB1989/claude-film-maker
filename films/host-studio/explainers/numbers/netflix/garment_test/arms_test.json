@@ -1,0 +1,452 @@
+{
+ "measure": "body.upperarm_torso_clear_cm",
+ "line": ">= 3 cm, min over on-screen frames, both sides; gate on the sign + the line (agent-09)",
+ "pass": true,
+ "worst_cm": 5.3,
+ "worst_frame": 108,
+ "worst_by_side": {
+  "r": [
+   5.3,
+   108
+  ],
+  "l": [
+   5.92,
+   1040
+  ]
+ },
+ "verts_lt0_total": 0,
+ "verts_lt3_total": 0,
+ "self_check": {
+  "all_pass": true,
+  "readings": 156,
+  "rest_clear_cm": [
+   5.19
+  ]
+ },
+ "frames_unique": 78,
+ "rows_in_log": 80,
+ "frame_spec": "0-196:6,1040-1162:6,120-140:4,210-225:4,610-630:4,835-850:4,1310-1330:4",
+ "where": "her TEST state on box B (agent-11 driving, 07 Nov ~22:2x UTC): SEQ /Game/Explainer/SEQ_Explain_Her, actor Presenter; body = perform.py body --who her --perform from agent-06's driver tree with agent-10's 7976d7b6 gesturekit.py + gesture_style.py copied in (the same tree without them read -7.05 cm on her left arm); garments R7W2 (agent-05 fleet/agent-05/r7-waist dc28cb6c) with the cuts Top<Trousers 2.5, Body<Top 6, Body<Trousers 2.5. garment_measure.py: very likely d0077659 (fleet/agent-02/r7-garment): the newest commit touching it before the run, and the log prints that version's facing/arm_r/rest fields; the driver tree's copy was lost in the kali reboot, so not proven by checksum. Source log: fleet/agent-11/r7-acting c659db85 .../garment_test/arms_F.log",
+ "must_fail": {
+  "v2b": -8.19,
+  "file": "fleet/agent-06/r7-boxb numbers/netflix/garment_v2b/arms_v2b3.{log,json}"
+ },
+ "parts": {
+  "Body": {
+   "verts": 27274,
+   "tris": 50264,
+   "rest_vs_body_cm": 0.0,
+   "upperarm_verts": {
+    "l": 1089,
+    "r": 1089
+   }
+  },
+  "Top": {
+   "verts": 42364,
+   "tris": 80004,
+   "rest_vs_body_cm": 0.0,
+   "upperarm_verts": {
+    "l": 7200,
+    "r": 7265
+   }
+  }
+ },
+ "summary_line": {
+  "measure": "upperarm_torso_clear_cm",
+  "worst_frame": 108,
+  "worst": 5.3,
+  "frames": 78
+ },
+ "per_frame": {
+  "0": {
+   "clear_cm": 6.0,
+   "r": 7.04,
+   "l": 6.0
+  },
+  "6": {
+   "clear_cm": 6.01,
+   "r": 7.03,
+   "l": 6.01
+  },
+  "12": {
+   "clear_cm": 6.02,
+   "r": 7.03,
+   "l": 6.02
+  },
+  "18": {
+   "clear_cm": 5.41,
+   "r": 5.41,
+   "l": 6.38
+  },
+  "24": {
+   "clear_cm": 5.59,
+   "r": 5.59,
+   "l": 6.38
+  },
+  "30": {
+   "clear_cm": 6.12,
+   "r": 6.12,
+   "l": 6.24
+  },
+  "36": {
+   "clear_cm": 6.17,
+   "r": 6.23,
+   "l": 6.17
+  },
+  "42": {
+   "clear_cm": 6.09,
+   "r": 6.09,
+   "l": 6.27
+  },
+  "48": {
+   "clear_cm": 6.22,
+   "r": 6.25,
+   "l": 6.22
+  },
+  "54": {
+   "clear_cm": 6.08,
+   "r": 6.48,
+   "l": 6.08
+  },
+  "60": {
+   "clear_cm": 6.06,
+   "r": 6.5,
+   "l": 6.06
+  },
+  "66": {
+   "clear_cm": 6.3,
+   "r": 6.44,
+   "l": 6.3
+  },
+  "72": {
+   "clear_cm": 5.85,
+   "r": 5.85,
+   "l": 6.68
+  },
+  "78": {
+   "clear_cm": 5.64,
+   "r": 5.64,
+   "l": 6.57
+  },
+  "84": {
+   "clear_cm": 6.22,
+   "r": 6.22,
+   "l": 6.22
+  },
+  "90": {
+   "clear_cm": 6.2,
+   "r": 6.27,
+   "l": 6.2
+  },
+  "96": {
+   "clear_cm": 6.17,
+   "r": 6.25,
+   "l": 6.17
+  },
+  "102": {
+   "clear_cm": 6.12,
+   "r": 6.12,
+   "l": 6.21
+  },
+  "108": {
+   "clear_cm": 5.3,
+   "r": 5.3,
+   "l": 6.29
+  },
+  "114": {
+   "clear_cm": 5.35,
+   "r": 5.35,
+   "l": 6.29
+  },
+  "120": {
+   "clear_cm": 5.34,
+   "r": 5.34,
+   "l": 6.31
+  },
+  "124": {
+   "clear_cm": 5.46,
+   "r": 5.46,
+   "l": 6.48
+  },
+  "126": {
+   "clear_cm": 5.64,
+   "r": 5.64,
+   "l": 6.55
+  },
+  "128": {
+   "clear_cm": 5.77,
+   "r": 5.77,
+   "l": 6.45
+  },
+  "132": {
+   "clear_cm": 5.76,
+   "r": 5.76,
+   "l": 6.44
+  },
+  "136": {
+   "clear_cm": 5.76,
+   "r": 5.76,
+   "l": 6.44
+  },
+  "138": {
+   "clear_cm": 5.77,
+   "r": 5.77,
+   "l": 6.42
+  },
+  "140": {
+   "clear_cm": 5.78,
+   "r": 5.78,
+   "l": 6.39
+  },
+  "144": {
+   "clear_cm": 6.73,
+   "r": 6.99,
+   "l": 6.73
+  },
+  "150": {
+   "clear_cm": 6.39,
+   "r": 7.87,
+   "l": 6.39
+  },
+  "156": {
+   "clear_cm": 6.13,
+   "r": 7.44,
+   "l": 6.13
+  },
+  "162": {
+   "clear_cm": 6.13,
+   "r": 7.52,
+   "l": 6.13
+  },
+  "168": {
+   "clear_cm": 6.13,
+   "r": 7.51,
+   "l": 6.13
+  },
+  "174": {
+   "clear_cm": 6.36,
+   "r": 7.44,
+   "l": 6.36
+  },
+  "180": {
+   "clear_cm": 6.42,
+   "r": 6.64,
+   "l": 6.42
+  },
+  "186": {
+   "clear_cm": 6.28,
+   "r": 6.78,
+   "l": 6.28
+  },
+  "192": {
+   "clear_cm": 6.05,
+   "r": 7.03,
+   "l": 6.05
+  },
+  "210": {
+   "clear_cm": 6.02,
+   "r": 7.07,
+   "l": 6.02
+  },
+  "214": {
+   "clear_cm": 6.44,
+   "r": 6.91,
+   "l": 6.44
+  },
+  "218": {
+   "clear_cm": 6.11,
+   "r": 6.11,
+   "l": 6.47
+  },
+  "222": {
+   "clear_cm": 6.16,
+   "r": 6.16,
+   "l": 6.46
+  },
+  "610": {
+   "clear_cm": 6.53,
+   "r": 6.53,
+   "l": 6.61
+  },
+  "614": {
+   "clear_cm": 5.78,
+   "r": 5.78,
+   "l": 6.33
+  },
+  "618": {
+   "clear_cm": 6.0,
+   "r": 6.0,
+   "l": 6.38
+  },
+  "622": {
+   "clear_cm": 6.31,
+   "r": 6.31,
+   "l": 6.4
+  },
+  "626": {
+   "clear_cm": 6.3,
+   "r": 6.3,
+   "l": 6.41
+  },
+  "630": {
+   "clear_cm": 6.3,
+   "r": 6.3,
+   "l": 6.41
+  },
+  "835": {
+   "clear_cm": 6.16,
+   "r": 6.17,
+   "l": 6.16
+  },
+  "839": {
+   "clear_cm": 6.22,
+   "r": 6.22,
+   "l": 6.36
+  },
+  "843": {
+   "clear_cm": 6.2,
+   "r": 6.2,
+   "l": 6.44
+  },
+  "847": {
+   "clear_cm": 6.25,
+   "r": 6.25,
+   "l": 6.42
+  },
+  "1040": {
+   "clear_cm": 5.92,
+   "r": 6.98,
+   "l": 5.92
+  },
+  "1046": {
+   "clear_cm": 5.93,
+   "r": 6.98,
+   "l": 5.93
+  },
+  "1052": {
+   "clear_cm": 5.99,
+   "r": 7.0,
+   "l": 5.99
+  },
+  "1058": {
+   "clear_cm": 6.38,
+   "r": 8.02,
+   "l": 6.38
+  },
+  "1064": {
+   "clear_cm": 6.74,
+   "r": 7.6,
+   "l": 6.74
+  },
+  "1070": {
+   "clear_cm": 6.38,
+   "r": 8.07,
+   "l": 6.38
+  },
+  "1076": {
+   "clear_cm": 6.38,
+   "r": 8.18,
+   "l": 6.38
+  },
+  "1082": {
+   "clear_cm": 6.55,
+   "r": 8.0,
+   "l": 6.55
+  },
+  "1088": {
+   "clear_cm": 6.39,
+   "r": 7.96,
+   "l": 6.39
+  },
+  "1094": {
+   "clear_cm": 6.4,
+   "r": 7.98,
+   "l": 6.4
+  },
+  "1100": {
+   "clear_cm": 6.41,
+   "r": 7.98,
+   "l": 6.41
+  },
+  "1106": {
+   "clear_cm": 6.41,
+   "r": 7.98,
+   "l": 6.41
+  },
+  "1112": {
+   "clear_cm": 6.31,
+   "r": 7.94,
+   "l": 6.31
+  },
+  "1118": {
+   "clear_cm": 6.22,
+   "r": 6.33,
+   "l": 6.22
+  },
+  "1124": {
+   "clear_cm": 6.22,
+   "r": 6.52,
+   "l": 6.22
+  },
+  "1130": {
+   "clear_cm": 6.21,
+   "r": 6.53,
+   "l": 6.21
+  },
+  "1136": {
+   "clear_cm": 6.27,
+   "r": 6.54,
+   "l": 6.27
+  },
+  "1142": {
+   "clear_cm": 5.93,
+   "r": 5.93,
+   "l": 6.74
+  },
+  "1148": {
+   "clear_cm": 5.61,
+   "r": 5.61,
+   "l": 6.39
+  },
+  "1154": {
+   "clear_cm": 6.14,
+   "r": 6.14,
+   "l": 6.22
+  },
+  "1160": {
+   "clear_cm": 6.17,
+   "r": 6.25,
+   "l": 6.17
+  },
+  "1310": {
+   "clear_cm": 6.31,
+   "r": 6.31,
+   "l": 6.38
+  },
+  "1314": {
+   "clear_cm": 6.3,
+   "r": 6.33,
+   "l": 6.3
+  },
+  "1318": {
+   "clear_cm": 6.07,
+   "r": 6.07,
+   "l": 6.32
+  },
+  "1322": {
+   "clear_cm": 6.05,
+   "r": 6.05,
+   "l": 6.31
+  },
+  "1326": {
+   "clear_cm": 6.05,
+   "r": 6.05,
+   "l": 6.29
+  },
+  "1330": {
+   "clear_cm": 6.05,
+   "r": 6.05,
+   "l": 6.28
+  }
+ }
+}

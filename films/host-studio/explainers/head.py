@@ -37,6 +37,8 @@ HEAD_STYLE = {"micro_deg": 0.4, "breath_deg": 0.2, "breath_hz": 0.21, "speech_ga
               # r6: no roll until a roll test on the archetype face (the shared signs file writes roll on HeadPitch,
               # and her K2c "yourself" tilt measured as a 5 deg chin dip): no rest tilt, no lean into the glances
               "rest_roll_deg": 0.0, "lean": 0.0}
+BEAT_EVERY = {"him": 0}  # his beat nods off (T-d 2.668 drift); his acting nods: face_acting NOD_SCALE / NOD_FULL
+ACTING = True    # round 7: face_acting.plan's expressions and nods over the head plan (False: round 6's face)
 ROLL_OK = False  # set once agent-01's roll test passes: a seeded rest tilt of up to 1.2 deg comes back
 GLANCE_EVERY_S = (9.0, 16.0)  # the gap between thinking glances (screen time)
 GLANCE_YAW = (8.0, 13.0)      # deg off the lens, to one side
@@ -189,9 +191,18 @@ def plan(cue: dict, who: str) -> dict:
     avoid.sort()
     roll = round(rng.uniform(-1.2, 1.2), 2)
     head = {**HEAD_STYLE, "seed": SEED[who], **({"rest_roll_deg": roll, "lean": 0.12} if ROLL_OK else {})}
-    return {"preset": PRESET, "solver_head": "replace", "blink_head": "still", "blink_mode": "replace",
-            "blink_state": "talk", "beat_every": 2, "emphasis": "auto", "start_gaze": [y0, p0], "lead": "eyes",
-            "gaze": gaze, "head": head, "avoid_blinks": avoid, "seed": SEED[who], "glances": gl, "reaims": ra}
+    out = {"preset": PRESET, "solver_head": "replace", "blink_head": "still", "blink_mode": "replace",
+           "blink_state": "talk", "beat_every": BEAT_EVERY.get(who, 2), "emphasis": "auto", "start_gaze": [y0, p0],
+           "lead": "eyes",
+           "gaze": gaze, "head": head, "avoid_blinks": avoid, "seed": SEED[who], "glances": gl, "reaims": ra}
+    if ACTING:  # round 7: the face acts (face_acting.py, from agent-11's sheet): expressions, nods, tilts' blink guards
+        import face_acting as FA
+        a = FA.plan(who)
+        out["expressions"] = a["expressions"]
+        out["nods"] = a["nods"]
+        out["avoid_blinks"] = sorted(avoid + a["avoid_blinks"])
+        out["mouth_mix"], out["brow_chance"] = a["mouth_mix"], a["brow_chance"]
+    return out
 
 
 def face_args(cue: dict, who: str) -> dict:
@@ -260,7 +271,7 @@ def _unit(v):
 def eye_metrics(eyes: dict, fps: float) -> dict:
     """From seq.sample of both eyes + the camera: the angle (deg) of each eye's gaze off its line to the lens, per
     frame. The gaze axis is the eye bone's axis that points most at the lens over the span (signed)."""
-    off_all, sacc, glance_n, dur_s, steps_on, per_span = [], 0, 0, 0.0, [], []
+    off_all, sacc, glance_n, dur_s, steps_on, per_span, head_all = [], 0, 0, 0.0, [], [], []
     for sp in eyes["spans"]:
         cam = np.asarray(sp["cam"], float)
         offs = []
@@ -299,6 +310,18 @@ def eye_metrics(eyes: dict, fps: float) -> dict:
                 run = 0
         off_all.append(off)
         dur_s += len(off) / fps
+        # the head's own aim off the lens (r7: new mic stills showed head AND eyes turned toward the mic): the head
+        # bone's axis that points most at the lens over the span, its angle to the line from the head to the lens
+        head_off = None
+        if "head" in sp["bones"]:
+            hb = np.asarray(sp["bones"]["head"], float)
+            h_to = _unit(cam - hb[:, :3])
+            hax = [hb[:, 3 + 3 * k:6 + 3 * k] for k in range(3)]
+            hs = [float(np.mean(np.sum(a * h_to, axis=1))) for a in hax]
+            hk = int(np.argmax(np.abs(hs)))
+            hg = _unit(hax[hk] * math.copysign(1.0, hs[hk]))
+            head_off = np.degrees(np.arccos(np.clip(np.sum(hg * h_to, axis=1), -1, 1)))
+            head_all.append(head_off)
         q = max(1, len(off) // 4)  # where in the span the eyes are off: its quarters (a slow lock shows at the start)
         per_span.append({"frames": [sp["frames"][0], sp["frames"][-1]], "camera": sp.get("camera", ""),
                          "on_lens": round(float(np.mean(off < 3.0)), 2), "off_med_deg": round(float(np.median(off)), 2),
@@ -306,6 +329,7 @@ def eye_metrics(eyes: dict, fps: float) -> dict:
                                               if len(off[k * q:(k + 1) * q])],
                          # the eyes' off-lens direction (+ right/up in the image as the camera sees it is not known
                          # here; the signed mean of the gaze-minus-lens vector's z says above/below)
+                         "head_off_med_deg": None if head_off is None else round(float(np.median(head_off)), 2),
                          "off_up_deg": round(float(np.degrees(np.mean(np.arcsin(np.clip(g[:, 2], -1, 1)) -
                                                                       np.arcsin(np.clip(to_cam[:, 2], -1, 1))))), 2)})
     off = np.concatenate(off_all) if off_all else np.zeros(0)
@@ -317,6 +341,9 @@ def eye_metrics(eyes: dict, fps: float) -> dict:
             # INFO: the eyes' frame-to-frame motion on the lens (a lock's jitter shows here: p50 over ~0.08 deg buzzes)
             "eyes.step_p50_deg": round(float(np.median(np.concatenate(steps_on))), 3) if steps_on and
             sum(len(x) for x in steps_on) else None,
+            # INFO: the head's aim off the lens (median over the screen time; the head bone's forward is not the
+            # face's exactly, so read it against a known-good take: r6 V2 her)
+            "head.off_lens_med_deg": round(float(np.median(np.concatenate(head_all))), 2) if head_all else None,
             "eyes.spans": per_span}
 
 

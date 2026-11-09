@@ -1,0 +1,16 @@
+{
+ "gate": {
+  "body.gesture_onsets_per_s": {
+   "value": 0.59,
+   "where": "691 speaking frames (28.8 s), desk top z 71.0"
+  },
+  "body.hands_above_desk_frac": {
+   "value": 0.404,
+   "where": "691 speaking frames (28.8 s), desk top z 71.0"
+  },
+  "body.wrist_travel_cm_per_s": {
+   "value": 4.87,
+   "where": "691 speaking frames (28.8 s), desk top z 71.0"
+  }
+ }
+}

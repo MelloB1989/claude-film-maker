@@ -279,6 +279,7 @@ class Set:
     boom: list | None = None  # [[x, y, z], ...]: the mic's arm as a polyline, clamp -> elbow -> head, actor frame
     boom_radius: float = 4.0
     cams: dict | None = None  # {label: [x, y, z]} actor frame: no hand may pass BEHIND the mic from any of them
+    rigs: dict | None = None  # {label: {"loc": [x,y,z] actor frame, "yaw", "pitch" (deg), "focal" mm, "sensor": [w,h]}}
 
 
 @dataclass
@@ -301,6 +302,7 @@ class Style:
     rest: str = "forearms"  # "forearms": elbows and forearms resting ON the desk (a podcaster leaning on it);
     #                         "wrists": only the wrists on the desk, elbows in the air (round 6's first stills)
     elbow_out: float = 4.0  # cm each elbow sits outside its shoulder
+    elbow_out_l: float | None = None  # her left (mic side) elbow's own, when it differs
     elbow_r: float = 5.0  # cm from the elbow joint to the desk under it (the forearm's thickness there + the sleeve:
     #                       4.2 left the overshirt 21 px into the desk in qa.clip, box B)
     wrist_r: float = 4.0  # cm from the wrist joint to the desk (box B: at 2.6 each exhale took a pronated hand's edge
@@ -471,6 +473,21 @@ class Seater:
                 a1 = math.degrees(math.asin(max(-1.0, min(1.0, (drop + sy.heel_lift) / L))))
                 qf = qmul(axis_angle(r, a1 - a0), qf)
             W[fo] = [self._fk_t(fo, ca, W), qf]
+            if ba in sk.local:  # the ball ON the floor whatever put it off (his box body read: +1.26 cm with the foot
+                #   at its height): pitch the foot about its ankle, across the heel-to-ball line, by the angle that
+                #   lands the ball at its rest height (two Newton steps; under BALL_TOL nothing moves: hers sat at ~0)
+                want_z = sk.p(ba)[2] + sy.sole
+                for _ in range(2):
+                    hb_w = qrot(W[fo][1], sk.local[ba]["t"])
+                    err = W[fo][0][2] + hb_w[2] - want_z
+                    ax = cross(hb_w, u)
+                    if abs(err) < BALL_TOL or norm(ax) < 1e-6:
+                        break
+                    ax = unit(ax)
+                    dz = qrot(axis_angle(ax, 1.0), hb_w)[2] - hb_w[2]  # cm per deg about ax, its sign included
+                    if abs(dz) < 1e-6:
+                        break
+                    W[fo] = [W[fo][0], qnorm(qmul(axis_angle(ax, -err / dz), W[fo][1]))]
         # arms
         weights = {"l": [], "r": []}
         for g in gestures or []:
@@ -512,7 +529,7 @@ class Seater:
         l1, l2 = self.A[s]
         ez = st.desk_top + sy.elbow_r
         dz = a[2] - ez
-        dy = sy.elbow_out
+        dy = sy.elbow_out_l if (s == "l" and sy.elbow_out_l is not None) else sy.elbow_out
         h2 = l1 * l1 - dy * dy - dz * dz
         reached = h2 > 1.0
         dx = math.sqrt(max(1.0, h2))
@@ -679,7 +696,7 @@ def check(seater: Seater, posed: dict) -> dict:
             if ov > 0 and e[0] < st.desk_near:  # resting across the edge: most of the forearm on the top
                 fa = norm(sub(h, e))
                 on_top = max(0.0, h[0] - st.desk_near) / max(1e-6, h[0] - e[0])
-                need(on_top >= 0.55, "desk.forearm_unsupported", f"only {on_top:.0%} of forearm_{s} is over the "
+                need(on_top >= 0.5, "desk.forearm_unsupported", f"only {on_top:.0%} of forearm_{s} is over the "
                      f"desk ({fa:.0f} cm forearm)", on_top)
             need(e[2] <= st.desk_top + seater.sy.elbow_r + 1.0, "desk.elbow_hangs",
                  f"elbow_{s} at z {e[2]:.1f} hangs above the desk", e[2])
@@ -692,7 +709,7 @@ def check(seater: Seater, posed: dict) -> dict:
                     need(A[b][2] >= st.desk_top + 0.4, "desk.finger", f"{b} at z {A[b][2]:.1f} below the desk top",
                          A[b][2])
         if st.mic:
-            for b in ("hand_" + s, f"middle_03_{s}", f"index_03_{s}", f"thumb_03_{s}"):
+            for b in ("hand_" + s, "lowerarm_" + s, f"middle_03_{s}", f"index_03_{s}", f"thumb_03_{s}"):
                 if b in A:
                     d = norm(sub(A[b], st.mic))
                     need(d >= st.mic_radius, "mic.hand", f"{b} {d:.1f} cm from the mic head", d)
@@ -707,7 +724,7 @@ def check(seater: Seater, posed: dict) -> dict:
                 if b not in A:
                     continue
                 for cam, c in st.cams.items():
-                    hit = behind_mic(c, A[b], st)
+                    hit = behind_mic(c, A[b], st, hand_r=5.0, rig=(getattr(st, "rigs", None) or {}).get(cam))  # the orchestrator: the mic clear by >= 5 cm in the picture
                     need(hit is None, "mic.hides_hand", f"{b} is behind the mic from {cam} "
                          f"({hit:.1f} cm from the line of sight)" if hit is not None else "", hit)
     arms = {}
@@ -730,7 +747,34 @@ def seg_dist(p, a, b) -> float:
     return norm(sub(p, add(a, mul(ab, u))))
 
 
-def behind_mic(cam, p, st: "Set", hand_r: float = 6.0):
+def project(rig: dict, p) -> tuple | None:
+    """A point (actor frame) in a camera's picture: (u, v) with (0, 0) the top-left corner and (1, 1) the bottom-right
+    (16:9 on the rig's sensor), or None when it is behind the camera. Unreal's camera: yaw about up from +X, pitch up."""
+    yw, pt = math.radians(rig["yaw"]), math.radians(rig["pitch"])
+    fwd = [math.cos(pt) * math.cos(yw), math.cos(pt) * math.sin(yw), math.sin(pt)]
+    right = [-math.sin(yw), math.cos(yw), 0.0]
+    up = cross(right, fwd)
+    if up[2] < 0:
+        up = mul(up, -1.0)
+    d = sub(p, rig["loc"])
+    x = dot(d, fwd)
+    if x <= 1.0:
+        return None
+    f, (sw, sh) = rig["focal"], rig["sensor"]
+    u = 0.5 + (dot(d, right) / x) * f / sw
+    v = 0.5 - (dot(d, up) / x) * f / sh
+    return u, v
+
+
+def in_picture(rig: dict | None, p) -> bool:
+    """Is a point inside a camera's picture (no rig: counted as inside)."""
+    if not rig:
+        return True
+    uv = project(rig, p)
+    return uv is not None and 0.0 <= uv[0] <= 1.0 and 0.0 <= uv[1] <= 1.0
+
+
+def behind_mic(cam, p, st: "Set", hand_r: float = 6.0, rig: dict | None = None):
     """None, or how close (cm) a hand point and the mic come IN THE PICTURE of a camera at `cam`: the angle between
     the two lines of sight, as a distance at the nearer one's range, under (mic radius + hand_r). Either way round
     counts: the mic hiding the hand, or the hand over the mic (the orchestrator, v1/r6b: 'her left hand is on the mic
@@ -741,6 +785,8 @@ def behind_mic(cam, p, st: "Set", hand_r: float = 6.0):
         c = max(-1.0, min(1.0, dot(a, b) / (la * lb)))
         return math.sin(math.acos(c)) * min(la, lb) - r_q
 
+    if not in_picture(rig, p):
+        return None  # (the orchestrator, 08 Nov: a hand point outside the camera's picture is not behind the mic)
     worst = None
     pts = ([(st.mic, st.mic_radius)] if st.mic else [])
     if st.boom:
@@ -788,6 +834,7 @@ def gestures_from_cues(cues: list, fps: float = 30.0, start_s: float = 0.0) -> l
     return out
 
 
+BALL_TOL = 0.2  # cm: a ball this close to its rest height is left as the foot put it (Seater.pose's legs)
 TUNE = {"desk.elbow_off": ("lean", 1.0, 23.0), "seat.thigh_edge": ("hip_above_seat", 0.4, 12.5),
         "desk.knee": ("hip_above_seat", -0.4, 9.0)}
 

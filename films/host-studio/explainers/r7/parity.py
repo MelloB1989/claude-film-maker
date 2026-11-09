@@ -21,6 +21,8 @@ import math
 from pathlib import Path
 
 LINE_CM = 1.0
+TORSO = ["spine_05", "clavicle_l", "clavicle_r"]  # --torso: the body under the arms must not move (a place stage lifted
+#   her spine_04+ 2.6 cm with the pelvis fixed, 09 Nov: the hands floated off the desk and --shoulder cancelled it)
 HAND = [f"hand_{s}" for s in "lr"] + [f"{f}_{j}_{s}" for s in "lr" for f in ("thumb", "index", "middle", "ring", "pinky")
                                       for j in ("01", "02", "03")]
 
@@ -52,7 +54,24 @@ def _rel(P, b):
     return None if sh is None or P.get(b) is None else [x - y for x, y in zip(P[b], sh)]
 
 
-def parity(ed, off, spans=None, ed_fps=24.0, off_fps=30.0, seq_fps=24.0, rel=False):
+def _swing(a, b):
+    """the shortest rotation taking direction a onto b, as a function on vectors (Rodrigues)."""
+    na, nb = math.sqrt(sum(x * x for x in a)), math.sqrt(sum(x * x for x in b))
+    u, v = [x / na for x in a], [x / nb for x in b]
+    k = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]]
+    s, c = math.sqrt(sum(x * x for x in k)), sum(x * y for x, y in zip(u, v))
+    if s < 1e-9:
+        return lambda x: list(x)
+    k = [x / s for x in k]
+
+    def rot(x):
+        kx = [k[1] * x[2] - k[2] * x[1], k[2] * x[0] - k[0] * x[2], k[0] * x[1] - k[1] * x[0]]
+        kd = sum(p * q for p, q in zip(k, x))
+        return [x[i] * c + kx[i] * s + k[i] * kd * (1 - c) for i in range(3)]
+    return rot
+
+
+def parity(ed, off, spans=None, ed_fps=24.0, off_fps=30.0, seq_fps=24.0, rel=False, clav=False, bones=None):
     """editor frames at their own rate (the sequence's, 24) vs the offline track (30), matched by TIME; spans are
     sequence frames at seq_fps."""
     (A, ed_fps), (B, off_fps) = frames(ed, ed_fps), frames(off, off_fps)
@@ -62,12 +81,21 @@ def parity(ed, off, spans=None, ed_fps=24.0, off_fps=30.0, seq_fps=24.0, rel=Fal
     worst, per_bone, per_frame = 0.0, {}, []
     for f in common:
         fm, fb = 0.0, ""
-        for b in HAND:
+        for b in (bones or HAND):
             q = at(B, off_fps, f / ed_fps, b)
             e = A[f].get(b)
             if rel and q is not None and e is not None:
                 sq, se = at(B, off_fps, f / ed_fps, "upperarm_" + b[-1]), A[f].get("upperarm_" + b[-1])
                 q, e = (None, None) if sq is None or se is None else ([x - y for x, y in zip(q, sq)], _rel(A[f], b))
+            if clav and q is not None and e is not None:
+                sd = b[-1]
+                ck, ce = at(B, off_fps, f / ed_fps, "clavicle_" + sd), A[f].get("clavicle_" + sd)
+                uk, ue = at(B, off_fps, f / ed_fps, "upperarm_" + sd), A[f].get("upperarm_" + sd)
+                if None in (ck, ce, uk, ue):
+                    q, e = None, None
+                else:  # the track's arm carried through the editor's clavicle swing, about the clavicle head
+                    R = _swing([x - y for x, y in zip(uk, ck)], [x - y for x, y in zip(ue, ce)])
+                    q = [x + y for x, y in zip(ce, R([x - y for x, y in zip(q, ck)]))]
             if e is not None and q is not None:
                 d = math.dist(e, q)
                 per_bone[b] = max(per_bone.get(b, 0.0), d)
@@ -79,16 +107,16 @@ def parity(ed, off, spans=None, ed_fps=24.0, off_fps=30.0, seq_fps=24.0, rel=Fal
         worst = per_frame[0][0]
     vals = sorted(x[0] for x in per_frame)
     p50 = vals[len(vals) // 2] if vals else float("nan")
-    return {"frames": len(common), "bones": sum(1 for b in HAND if b in per_bone),
+    return {"frames": len(common), "bones": sum(1 for b in (bones or HAND) if b in per_bone),
             "max_cm": round(worst, 3) if common else float("nan"), "p50_cm": round(p50, 3),
             "over_line_frac": round(sum(1 for v in vals if v > LINE_CM) / len(vals), 3) if vals else float("nan"),
             "worst": [{"f": f, "bone": b, "cm": round(v, 2)} for v, f, b in per_frame[:8]],
             "worst_bone": {b: round(v, 2) for b, v in sorted(per_bone.items(), key=lambda kv: -kv[1])[:6]}}
 
 
-def row(rep):
+def row(rep, key="qa.editor_offline_parity_cm"):
     v = rep["max_cm"]
-    return {"qa.editor_offline_parity_cm": {"value": v, "op": "<=", "line": LINE_CM, "unit": "cm",
+    return {key: {"value": v, "op": "<=", "line": LINE_CM, "unit": "cm",
                                             "pass": None if v != v else v <= LINE_CM,
                                             "what": "max over matched frames of the largest wrist/finger joint distance "
                                                     "between the editor dump and the offline/box track (a stale layer "
@@ -106,18 +134,33 @@ def main(argv=None):
     ap.add_argument("--shoulder", action="store_true",
                     help="measure the hands from their shoulder (upperarm head): a breath layer on the spine/clavicles "
                          "(the orchestrator kept life, 08 Nov) carries the arm without changing it")
+    ap.add_argument("--clavicle", action="store_true",
+                    help="carry the track's arm through the editor's clavicle swing (about the clavicle head) before "
+                         "comparing: a breath layer that ROTATES the clavicles (a shrug) swings the whole arm, which "
+                         "--shoulder (a shift) does not cancel")
+    ap.add_argument("--torso", action="store_true",
+                    help="compare the torso (spine_05 + clavicles, plain, actor frame) instead of the hands: "
+                         "qa.editor_torso_parity_cm (a stage that moves the body under the arms fails it)")
     ap.add_argument("--json")
+    ap.add_argument("--gate", help="write the gate's numbers contract (numbers/<film>/parity.json)")
     a = ap.parse_args(argv)
     spans = [tuple(int(x) for x in s.split("-")) for s in a.span] or None
     rep = parity(json.loads(Path(a.editor).read_text()), json.loads(Path(a.offline).read_text()), spans,
-                 a.editor_fps, a.offline_fps, a.seq_fps, a.shoulder)
-    r = row(rep)
+                 a.editor_fps, a.offline_fps, a.seq_fps, False if a.torso else a.shoulder,
+                 False if a.torso else a.clavicle, TORSO if a.torso else None)
+    r = row(rep, "qa.editor_torso_parity_cm" if a.torso else "qa.editor_offline_parity_cm")
     k, v = next(iter(r.items()))
     print(f"{k}  {v['value']} cm (<= {LINE_CM})  {'ok' if v['pass'] else 'n/a' if v['pass'] is None else 'FAIL'}  "
           f"frames {rep['frames']}, bones {rep['bones']}, p50 {rep['p50_cm']}, over-line {rep['over_line_frac']}")
     print("worst frames:", ", ".join(f"f{w['f']} {w['bone']} {w['cm']}" for w in rep["worst"]))
     if a.json:
         Path(a.json).write_text(json.dumps({"rows": r, "report": rep}, indent=1))
+    if a.gate:
+        mode = "--torso" if a.torso else "--shoulder" if a.shoulder else "--clavicle" if a.clavicle else "plain"
+        Path(a.gate).write_text(json.dumps({"gate": {k: {"value": v["value"] if v["value"] == v["value"] else None,
+                                                         "where": f"{Path(a.editor).name} vs {Path(a.offline).name}, "
+                                                                  f"{mode}, spans {' + '.join(a.span) or 'all'} by time"}},
+                                            "source": "r7/parity.py (agent-13)"}, indent=1) + "\n")
 
 
 if __name__ == "__main__":

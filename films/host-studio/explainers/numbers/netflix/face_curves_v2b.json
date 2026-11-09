@@ -1,0 +1,39 @@
+{
+ "anim": "/Game/Explainer/Perf/AS_exp_her_gaze",
+ "abs": {
+  "expr_active_frac": 0.207,
+  "smile_per_min": 0.0,
+  "brow_flash_per_min": 0.0,
+  "neutral_hold_max_s": 6.04,
+  "neutral_hold_at_s": 33.29,
+  "speaking_s": 49.17
+ },
+ "rel20": {
+  "expr_active_frac": 0.207,
+  "smile_per_min": 0.0,
+  "brow_flash_per_min": 0.0,
+  "neutral_hold_max_s": 6.04,
+  "neutral_hold_at_s": 33.29,
+  "speaking_s": 49.17
+ },
+ "frames_file": "/tmp/fleet-agent-06-ue/r7/tree/out/explainers/face/her/frames_AS_exp_her_gaze.json",
+ "gate09": {
+  "face.curves_expr_active_frac": {
+   "value": 0.22,
+   "where": "691 speaking frames (28.8 s)"
+  },
+  "face.curves_smile_events_per_min": {
+   "value": 0.0,
+   "where": "691 speaking frames (28.8 s)"
+  },
+  "face.curves_brow_flash_per_min": {
+   "value": 0.0,
+   "where": "691 speaking frames (28.8 s)"
+  },
+  "face.curves_neutral_hold_max_s": {
+   "value": 3.0,
+   "where": "691 speaking frames (28.8 s)"
+  }
+ },
+ "pass": false
+}

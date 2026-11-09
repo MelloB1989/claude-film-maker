@@ -745,7 +745,9 @@ def hands_in_frame(*, label: str, sequence: str, frames: list, body: str = "Body
                 px.append(_clip.project_px(info, (p.x, p.y, p.z), width_px, height_px))
             row[sd] = (_limbs.hand_in(px, width_px, height_px, margin=round(0.01 * width_px))
                        if len(px) == len(pts) else False)  # a 1 % margin (agent-10's framing.py)
+            row[sd + "_part"] = _limbs.hand_part(px, width_px, height_px)
         row["in"] = bool(row["l"] or row["r"])
+        row["part"] = bool(row["l_part"] or row["r_part"])
         rows[f] = row
         yield
     kinds = _limbs.hands_fracs(rows)
@@ -905,6 +907,39 @@ def export(*, label: str, out_dir: str, garments: list | None = None, ref_body: 
 
 # --- body under a garment --------------------------------------------------------------------------------------------
 
+def fill_holes(n_verts: int, tris: list, hit: list, max_verts: int, ok=None) -> tuple:
+    """Uncovered islands of at most max_verts vertices (joined by triangle edges) that only covered skin surrounds,
+    marked covered: a patch the garment's rays missed (cloth that crosses the skin in the reference pose) is still
+    under it. The biggest uncovered island (the rest of the skin) always stays, and so does any island ok(vertices)
+    refuses. Pure: returns (hit, island sizes filled, every uncovered island's size, biggest first)."""
+    nbr = [[] for _ in range(n_verts)]
+    for a, b, c in tris:
+        nbr[a] += (b, c)
+        nbr[b] += (a, c)
+        nbr[c] += (a, b)
+    seen = [False] * n_verts
+    islands = []
+    for v in range(n_verts):
+        if hit[v] or seen[v] or not nbr[v]:
+            continue
+        seen[v], comp, stack = True, [v], [v]
+        while stack:
+            for w in nbr[stack.pop()]:
+                if not hit[w] and not seen[w]:
+                    seen[w] = True
+                    comp.append(w)
+                    stack.append(w)
+        islands.append(comp)
+    out, filled = list(hit), []
+    biggest = max(islands, key=len) if islands else []
+    for comp in islands:
+        if comp is not biggest and len(comp) <= max_verts and (ok is None or ok(comp)):
+            for v in comp:
+                out[v] = True
+            filled.append(len(comp))
+    return out, sorted(filled, reverse=True), sorted((len(c) for c in islands), reverse=True)
+
+
 def covered(n_verts: int, tris: list, hit: list, rings: int = 2) -> list:
     """Triangles to hide: every corner covered (hit[v] True: a ray out along the skin's normal meets the garment
     within reach), then the hidden region shrunk by `rings` of triangles from its border with uncovered skin, so a
@@ -921,17 +956,25 @@ def covered(n_verts: int, tris: list, hit: list, rings: int = 2) -> list:
 
 @op("body.hide_under", mutates=True, idempotent=True, tags=["metahuman", "experimental"])
 def hide_under(*, label: str, garment: str, body: str = "Body", reach_cm: float = 4.0, rings: int = 2,
-               apply: bool = False, dest: str = "") -> dict:
+               apply: bool = False, dest: str = "", inside_cm: float = 0.0, fill_max: int = 0,
+               within: list | None = None) -> dict:
     """Hide the body where a garment covers it (MetaHuman does this for its own garments; a garment of your own
     needs it too): a body vertex is covered when a ray out along its normal meets the garment within reach_cm, a
     triangle is hidden when all its corners are, less `rings` triangles round the border (cloth that moves off the
     body never opens a gap). Measured in the reference pose (the meshes' own vertices), so it holds for every frame.
+    inside_cm > 0 also counts a vertex covered when a ray IN along -normal meets the garment within inside_cm: cloth
+    fitted in another pose (her seated waist refit, carried back to bind) can sit inside the skin in the reference
+    pose, where the outward ray never meets it. fill_max > 0 also covers every uncovered island of at most that many
+    vertices that covered skin surrounds and the garment is within reach of everywhere (fill_holes), before the
+    rings shrink. within [[x, y, z, r], ...] (reference-pose cm): only body vertices inside one of these spheres can
+    be covered (a local refit hides only its own region's skin).
 
     With apply=False (default) it only counts. With apply=True the triangles are deleted on a COPY of the body mesh
     (dest, default <body mesh>_Under_<garment>), set on the component, and leader pose re-applied (mh.leader).
     Never on the Face: its rig (DNA, morph targets) does not survive a mesh copy; refit the garment round the face
     instead (garment.fit's collider takes the face).
-    Returns: {"vertices", "covered_vertices", "triangles", "hidden", "fraction", "mesh" (with apply)}.
+    Returns: {"vertices", "covered_vertices", "covered_inside", "islands" (uncovered islands' sizes), "holes_filled",
+    "triangles", "hidden", "fraction", "mesh" (with apply)}.
     Example: film-ue op body.hide_under label=Ava garment=Top apply=true
     """
     if body == "Face" or garment in SKIN:
@@ -964,10 +1007,17 @@ def hide_under(*, label: str, garment: str, body: str = "Body", reach_cm: float 
     if not normals or len(normals) != len(vs):
         raise OpError(f"could not read the body's vertex normals ({len(normals or [])} for {len(vs)} verts)",
                       code="engine", hint="a mesh with vertex-ID gaps: re-save the body mesh, or check editor.api_names")
-    hit = []
+    hit, inside = [], 0
+    spheres = [(unreal.Vector(x, y, z), float(r)) for x, y, z, r in (within or [])]
     for k, (p, n) in enumerate(zip(vs, normals)):
-        nl = n.length() or 1.0
-        hit.append(gs.ray(p, n * (1.0 / nl), float(reach_cm)) is not None)
+        if spheres and not any((p - c).length() <= r for c, r in spheres):
+            hit.append(False)
+            continue
+        d = n * (1.0 / (n.length() or 1.0))
+        h = gs.ray(p, d, float(reach_cm)) is not None
+        if not h and inside_cm > 0 and gs.ray(p, d * -1.0, float(inside_cm)) is not None:
+            h, inside = True, inside + 1
+        hit.append(h)
         if k % 2000 == 1999:
             yield
     # GetAllTriangleIDs: UE's camel-case splitter makes it get_all_triangle_i_ds; take whichever this build exposes
@@ -978,9 +1028,18 @@ def hide_under(*, label: str, garment: str, body: str = "Body", reach_cm: float 
         r = MQ.get_triangle_indices(bdm, t)
         iv = _pick(r, "IntVector")
         tris.append((iv.x, iv.y, iv.z))
+    def under(comp):  # every vertex of the island within reach of the garment (a foot past a hem is not)
+        for v in comp:
+            r = gs.nearest(vs[v])
+            if r is None or (vs[v] - r[0]).length() > max(reach_cm, inside_cm):
+                return False
+        return True
+
+    hit, filled, islands = fill_holes(len(vs), tris, hit, int(fill_max), under)
     hide = covered(len(vs), tris, hit, rings)
-    out = {"vertices": len(vs), "covered_vertices": sum(hit), "triangles": len(tris), "hidden": len(hide),
-           "fraction": round(len(hide) / max(1, len(tris)), 4)}
+    out = {"vertices": len(vs), "covered_vertices": sum(hit), "covered_inside": inside, "islands": islands[:12],
+           "holes_filled": filled[:20],
+           "triangles": len(tris), "hidden": len(hide), "fraction": round(len(hide) / max(1, len(tris)), 4)}
     if not apply:
         return out
     if not hide:

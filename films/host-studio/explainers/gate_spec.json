@@ -135,25 +135,28 @@
    "track": "agent-01",
    "op": "range",
    "line": [
-    8.0,
-    22.0
+    10.0,
+    20.0
    ],
    "unit": "/min",
    "what": "chest/shoulder rise cycles on the seated body (spine_05/clavicles), on screen",
    "where": "every presenter shot",
    "how": "agent-01's seated-body sampler (seq.sample on spine_05 + clavicle_l/r) -> the dominant 0.13-0.37 Hz cycle",
-   "why": "the brief: breathing; a seated talking head with a still chest reads as a mannequin"
+   "why": "the orchestrator's ruling (08 Nov): 10-20 breaths/min, on the vertical sternum rise"
   },
   "body.breath_amp_mm": {
    "area": "body",
    "track": "agent-01",
-   "op": ">=",
-   "line": 2.0,
+   "op": "range",
+   "line": [
+    2.0,
+    3.5
+   ],
    "unit": "mm",
-   "what": "median peak-to-peak chest rise per breath cycle on screen",
+   "what": "median VERTICAL (z) sternum rise per breath cycle while speaking (spine_05), not the main motion axis: visible breathing, not a heave",
    "where": "every presenter shot",
-   "how": "the same sampler",
-   "why": "visible, not a heave: ~2-6 mm at the sternum when talking"
+   "how": "agent-01's seated-body sampler on spine_05, z component only -> numbers/<film>/body.json",
+   "why": "the orchestrator's ruling (08 Nov): the breath row measures the vertical rise; target ~2-3.5 mm at 10-20/min; the forward-back speech sway is separate (body.speech_sway_mm, INFO)"
   },
   "garment.neck_px": {
    "where": "the SEATED pose, every presenter camera of the film (qa.clip / qa.garment_look on the explainer sequence)"
@@ -901,17 +904,17 @@
    "area": "performance",
    "track": "agent-01 / agent-10 (body), agent-09 (measure)",
    "op": ">=",
-   "line": 0.3,
+   "line": 0.1,
    "unit": "fraction",
-   "what": "speaking frames in CU shots with >= 1 hand FULLY in the shot's frame (wrist + 4 fingertips projected through the cut camera)",
+   "what": "speaking frames in CU shots with >= 1 hand at least PARTLY in the shot's frame (any of wrist + 5 fingertips projected inside the picture)",
    "where": "every speaking frame (or every 2nd) of the CU shots",
-   "how": "film-ue op qa.hands_in_frame label=<presenter> sequence=<SEQ> 'frames=[every 2nd speaking frame of spans_<film>.json]' (core fleet/agent-09/r7-perf-gate 1169789c) -> metrics.kinds.<KIND>.frac -> numbers/<film>/hands.json",
+   "how": "film-ue op qa.hands_in_frame label=<presenter> sequence=<SEQ> 'frames=[every 2nd speaking frame of spans_<film>.json]' (core fleet/agent-09/r7-perf-gate 24700ae0) -> metrics.kinds.<KIND>.frac -> numbers/<film>/hands.json",
    "must_fail": [
-    0.0,
-    "netflix v2b 0.0 (n 18) and TEST side A 0.0 (box B qa.hands_in_frame, core 3a782e71, TEST frames; fleet/agent-06/r7-boxb 276be4a0 hands_A/hands_v2b.json)"
+    null,
+    "v2b / side A read 0.0 on the FULLY-in-frame rule; to be re-read on the partly-visible rule (core 24700ae0)"
    ],
    "guard": true,
-   "why": "the orchestrator: the viewer sees elbows out and no hands = still stiff; the gesture space is chest-to-collarbone in front of the torso"
+   "why": "the orchestrator's ruling (08 Nov): in a CU a hand counts when at least partly visible, line 0.1, both presenters; the face rule (move.hand_near_face_frames) is absolute"
   },
   "body.hands_in_frame_wide_frac": {
    "area": "performance",
@@ -1078,7 +1081,8 @@
     0.601,
     "the r7F TEST body 52ab5ea2, whole take, measured from 0.1 mm joint dumps (agent-13 9f258309): 0.601 (404db805 0.567). The earlier 0.01 cm rounding added ~6 deg/s of jitter on 3 cm finger bones, so the row passed on noise; agent-01's efe01206 reads 0.521 (left): FAIL"
    ],
-   "why": "a robotic tell: fingers dead still while she talks; a real row since the dumps carry 0.1 mm"
+   "why": "a robotic tell: fingers dead still while she talks; a real row since the dumps carry 0.1 mm",
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "move.forearm_elev_deg": {
    "area": "performance",
@@ -1093,7 +1097,8 @@
     -2.8,
     "agent-01's earlier R7 body 404db805, WHOLE take (agent-13 cf513b41): -2.8; agent-01's ee99f626 reads 44.9 ok"
    ],
-   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md"
+   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md",
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "move.humerus_elev_rest_deg": {
    "area": "performance",
@@ -1108,7 +1113,10 @@
     73.1,
     "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): 73.1; agent-01's ee99f626 reads 26.6 ok"
    ],
-   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md"
+   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md",
+   "na_ok": true,
+   "na_reason": "no hanging rest >= 0.5 s (the forearms rest on the desk: the desk row applies)",
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "move.humerus_elev_stroke_deg": {
    "area": "performance",
@@ -1123,7 +1131,8 @@
     74.5,
     "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): 74.5; agent-01's ee99f626 reads 51.4 F"
    ],
-   "why": "the orchestrator's ruling (B), 08 Nov: 60 deg only for apexes at/above the upper chest, 45 below, and the lift mostly flexion (abduction <= 35)"
+   "why": "the orchestrator's ruling (B), 08 Nov: 60 deg only for apexes at/above the upper chest, 45 below, and the lift mostly flexion (abduction <= 35)",
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "move.lag_hand_ms": {
    "area": "performance",
@@ -1138,7 +1147,8 @@
     -25.4,
     "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): -25.4; agent-01's ee99f626 reads -4.7 F"
    ],
-   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md"
+   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md",
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "move.mirror_corr_p50": {
    "area": "performance",
@@ -1154,7 +1164,10 @@
     "a GUARD: no body has failed it yet (agent-13)"
    ],
    "guard": true,
-   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md"
+   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md",
+   "na_ok": true,
+   "na_reason": "no two-hand stroke in the spans",
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "move.path_straight_frac": {
    "area": "performance",
@@ -1171,7 +1184,8 @@
    ],
    "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md",
    "na_ok": true,
-   "na_reason": "fewer than 5 wrist movements on both hands (agent-13 93d10277 MIN_MOVES): too few to judge a share"
+   "na_reason": "fewer than 5 wrist movements on both hands (agent-13 93d10277 MIN_MOVES): too few to judge a share",
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "move.shape_claw_frac": {
    "area": "performance",
@@ -1186,7 +1200,8 @@
     0.099,
     "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): 0.099; agent-01's ee99f626 reads 0 ok"
    ],
-   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md"
+   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md",
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "move.shape_wrong_strokes": {
    "area": "performance",
@@ -1201,7 +1216,8 @@
     9,
     "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): 9; agent-01's ee99f626 reads 0 ok"
    ],
-   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md"
+   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md",
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "move.two_hand_amp_ratio": {
    "area": "performance",
@@ -1216,7 +1232,10 @@
     0.429,
     "agent-01's earlier R7 body 404db805, WHOLE take (agent-13 cf513b41): 0.429; agent-01's ee99f626 reads 0.374 F"
    ],
-   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md"
+   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md",
+   "na_ok": true,
+   "na_reason": "no two-hand stroke in the spans",
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "move.vel_bell_frac": {
    "area": "performance",
@@ -1233,7 +1252,8 @@
    ],
    "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md",
    "na_ok": true,
-   "na_reason": "fewer than 5 wrist movements on both hands (agent-13 93d10277 MIN_MOVES): too few to judge a share"
+   "na_reason": "fewer than 5 wrist movements on both hands (agent-13 93d10277 MIN_MOVES): too few to judge a share",
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "move.wrist_flexext_p90_deg": {
    "area": "performance",
@@ -1248,7 +1268,8 @@
     38.9,
     "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): 38.9; agent-01's ee99f626 reads 23.1 ok"
    ],
-   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md"
+   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md",
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "move.wrist_radial_p95_deg": {
    "area": "performance",
@@ -1263,7 +1284,8 @@
     23.7,
     "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): 23.7; agent-01's ee99f626 reads 34.3 F"
    ],
-   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md"
+   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md",
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "move.wrist_ulnar_p95_deg": {
    "area": "performance",
@@ -1278,23 +1300,33 @@
     39.2,
     "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): 39.2; agent-01's ee99f626 reads 24.8 ok"
    ],
-   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md"
+   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md",
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "body.upperarm_bust_clear_cm": {
    "area": "performance",
    "track": "round 7 (agent-09 measure; agent-04 face, agent-01 body, agent-02 garment)",
    "unit": "cm",
-   "how": "agent-02's films/host-studio/reel/r7/garment_measure.py (fleet/agent-02/r7-garment c42b3aac): per frame, min over both sides of the SIGNED distance from the upper-arm skin (Body verts nearest upperarm_<s> at the ref pose, from 30 % shoulder->elbow) to the nearest torso triangle (torso skin + the Top's torso part, sleeves excluded), sign from the triangle normal, < 0 = inside -> numbers/<film>/garment.json. Cross-check (INFO): agent-09's qa.limb_clearance (bone-segment split, radial sign)",
+   "how": "agent-02's films/host-studio/reel/r7/garment_measure.py (fleet/agent-02/r7-garment c42b3aac): per frame, min over both sides of the SIGNED distance from the upper-arm skin (Body verts nearest upperarm_<s> at the ref pose, from 30 % shoulder->elbow) to the nearest torso triangle (torso skin + the Top's torso part, sleeves excluded), sign from the triangle normal, < 0 = inside -> numbers/<film>/garment.json. Cross-check (INFO): agent-09's qa.limb_clearance (bone-segment split, radial sign); garment_measure 949cde7c+ (agent-02): INSIDE is decided on the WHOLE torso (zone_clearance), the zone only picks which line applies (e7d74d40's split read a side vertex as deep inside the front: T2 rest -9.5 vs whole +1.51, a false fail)",
    "guard": true,
    "op": ">=",
    "line": 3.0,
    "what": "min over on-screen frames, both sides, of the upper arm's SIGNED distance to the BUST / front of the Top (agent-02's mesh measure, the bust/front zone): the arm swallowed by the breast from the camera's view",
    "where": "min over on-screen frames (edl presenter + panel shots), both sides",
    "must_fail": [
-    -8.19,
-    "netflix v2b (arms_v2b3): both upper arms inside the Top/breast through 00:43.5-00:46, the operator's complaint (re-read per zone when agent-02's split lands)"
+    -8.18,
+    "netflix v2b PER ZONE (agent-02, garment_measure bf7d938c, T2, SEQ_Explain_Her_v2b, f1056 = 00:44): bust -8.18 (right front, 181 verts inside; left front -7.96, 211); self-checks clean"
    ],
-   "why": "the orchestrator's ruling (A), 08 Nov: the 3 cm rule is for the operator's complaint (the arm swallowed by the BUST), not for a relaxed arm off the side of the ribcage"
+   "why": "the orchestrator's ruling (A), 08 Nov: the 3 cm rule is for the operator's complaint (the arm swallowed by the BUST), not for a relaxed arm off the side of the ribcage ; the orchestrator, 09 Nov: a GATE for HIM likewise (>= 3 vs his outfit's front), seated and in gestures ; the orchestrator, 09 Nov: his FRONT zone is the SAME as hers, >= 3 cm at every frame (gate)",
+   "r4": [
+    null,
+    "her b4325b5b (agent-02, garment_measure 949cde7c, T2): rest 3.74 @f489, gesture 4.13 @f1040, 0 verts inside: PASS"
+   ],
+   "must_fail_whatsapp": [
+    1.61,
+    "his arms_9fe8fee0: front 1.61 @f54"
+   ],
+   "how_whatsapp": "agent-02: garment_measure arms --label Host --engine fast --set TOP=SkeletalMesh --set SLEEVES=1, frames 0-179:6,422-480:6 (his TEST), every frame seated + gestures; his OUTFIT is the torso surface (his Body has no torso skin under it)"
   },
   "body.upperarm_side_clear_cm": {
    "area": "performance",
@@ -1303,14 +1335,23 @@
    "line": 0.5,
    "unit": "cm",
    "guard": true,
-   "how": "agent-02's films/host-studio/reel/r7/garment_measure.py (fleet/agent-02/r7-garment c42b3aac): per frame, min over both sides of the SIGNED distance from the upper-arm skin (Body verts nearest upperarm_<s> at the ref pose, from 30 % shoulder->elbow) to the nearest torso triangle (torso skin + the Top's torso part, sleeves excluded), sign from the triangle normal, < 0 = inside -> numbers/<film>/garment.json. Cross-check (INFO): agent-09's qa.limb_clearance (bone-segment split, radial sign)",
+   "how": "agent-02's films/host-studio/reel/r7/garment_measure.py (fleet/agent-02/r7-garment c42b3aac): per frame, min over both sides of the SIGNED distance from the upper-arm skin (Body verts nearest upperarm_<s> at the ref pose, from 30 % shoulder->elbow) to the nearest torso triangle (torso skin + the Top's torso part, sleeves excluded), sign from the triangle normal, < 0 = inside -> numbers/<film>/garment.json. Cross-check (INFO): agent-09's qa.limb_clearance (bone-segment split, radial sign); garment_measure 949cde7c+ (agent-02): INSIDE is decided on the WHOLE torso (zone_clearance), the zone only picks which line applies (e7d74d40's split read a side vertex as deep inside the front: T2 rest -9.5 vs whole +1.51, a false fail)",
    "what": "min over on-screen frames, both sides, of the upper arm's SIGNED distance to the SIDE of the torso (agent-02's side zone): no penetration; light contact reads natural",
    "where": "min over on-screen frames, both sides",
    "must_fail": [
-    null,
-    "an arm into the ribcage side (agent-02 to show one); v2b's per-zone reading pending the split"
+    -8.08,
+    "netflix v2b PER ZONE (the same run): side -8.08 (left side, 27 verts inside; right side -7.89, 8)"
    ],
-   "why": "the orchestrator's ruling (A): vs the side of the torso, no penetration (>= 0.5 cm)"
+   "why": "the orchestrator's ruling (A): vs the side of the torso, no penetration (>= 0.5 cm) ; the orchestrator, 09 Nov: a GATE for HIM too (his upper arm 6.6-7.9 cm inside his outfit's flank is the same class of fault as her arm in the body), seated and in gestures, vs his outfit's SURFACE (agent-02 confirms it is not an inner fold) ; the orchestrator, 09 Nov: SPLIT his 8 cm: agent-01 opens his rest abduction to ~20-25 deg (forearms on the desk; move.rest_abduction_deg <= 25 bounds it), agent-05 slims the flank by the remainder (<= ~4 cm, blended, no dent from CAM_MCU/WIDE/CU; an inner layer/fold first if LAYERS shows one)",
+   "r4": [
+    null,
+    "her b4325b5b: rest 1.51 @f721, gesture 1.59 @f1068, 0 verts inside: PASS"
+   ],
+   "must_fail_whatsapp": [
+    -7.87,
+    "his arms_9fe8fee0 (aba900fe + 7b03480f): side -7.87 @f84 (left, 200 verts inside)"
+   ],
+   "how_whatsapp": "agent-02: garment_measure arms --label Host --engine fast --set TOP=SkeletalMesh --set SLEEVES=1, frames 0-179:6,422-480:6 (his TEST), every frame seated + gestures; his OUTFIT is the torso surface (his Body has no torso skin under it)"
   },
   "move.humerus_elev_high_deg": {
    "area": "performance",
@@ -1327,7 +1368,8 @@
    ],
    "why": "the orchestrator's ruling (B), 08 Nov: 60 deg only for apexes at/above the upper chest, 45 below, and the lift mostly flexion (abduction <= 35)",
    "na_ok": true,
-   "na_reason": "no stroke apex at/above the upper chest in the measured frames: nothing to judge (agent-13: pass=null)"
+   "na_reason": "no apex at/above upper_chest",
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "move.upperarm_abduction_deg": {
    "area": "performance",
@@ -1342,7 +1384,8 @@
     42.7,
     "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): 42.7; agent-01's ee99f626 reads 32.0 ok"
    ],
-   "why": "the orchestrator's ruling (B), 08 Nov: 60 deg only for apexes at/above the upper chest, 45 below, and the lift mostly flexion (abduction <= 35)"
+   "why": "the orchestrator's ruling (B), 08 Nov: 60 deg only for apexes at/above the upper chest, 45 below, and the lift mostly flexion (abduction <= 35)",
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "move.hold_min_speed": {
    "area": "performance",
@@ -1357,7 +1400,8 @@
     0.221,
     "the r7F TEST body 52ab5ea2, whole take, from 0.1 mm dumps (agent-13 9f258309): 0.221 (0.212 at 0.01 cm)"
    ],
-   "why": "the orchestrator, 08 Nov: no dead-still hands while she talks (a robotic tell)"
+   "why": "the orchestrator, 08 Nov: no dead-still hands while she talks (a robotic tell)",
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
   },
   "qa.editor_offline_parity_cm": {
    "area": "performance",
@@ -1366,14 +1410,14 @@
    "line": 1.0,
    "unit": "cm",
    "guard": true,
-   "what": "the max over frames (matched by number) of the largest wrist/finger joint distance (32 joint heads) between the EDITOR dump of the sequence and the solved offline track of the same body (hers: r7/arm_track.py; his: the box's kit/arm_track.json from body --perform), in the track's actor frame",
-   "where": "the speaking frames of the take (or every 2nd), both hands",
+   "what": "the max over frames (matched by TIME: the editor at 24 fps, the track at 30, interpolated) of the largest wrist/finger joint distance (32 joint heads) between the EDITOR dump of the sequence and the solved offline track of the same body (hers: r7/arm_track.py; his: the box's kit/arm_track.json from body --perform), in the track's actor frame ; with --shoulder each hand's joints are measured from that side's upperarm head",
+   "where": "the verify windows for a TEST/verify render; for the FINALS every frame with the presenter ON SCREEN (edl/<film>.json presenter + panel shots): an off-screen frame is never filmed and does not count (her t33.2 / f797 reads 1.7 cm at a rest, inside graphics shot 9; agent-13)",
    "how": "python3 r7/parity.py <the editor dump of what RENDERS: seat + life> <kit/arm_track.json> --span 0-196 --span 1040-1162 --shoulder (agent-13: each hand's joints measured from that side's shoulder, the upperarm head, so breathing on the spine/clavicles cancels and a different arm does not; matched by TIME) -> numbers/<film>/parity.json",
    "must_fail": [
     8.1,
     "a DIFFERENT body sha with --shoulder: 8d17a4ed vs 906d80d3 reads 8.1 cm (agent-13); a synthetic 0.6 cm breath on the chain reads 0.0 with --shoulder (0.6 without). By design --shoulder does NOT judge the shoulders/torso themselves (the breath/torso/head life the orchestrator kept)"
    ],
-   "why": "the orchestrator, 08 Nov: NO render until the naturalness rows PASS on the EDITOR DUMP itself; a stale layer must not slip through again (HIS chain on box T too)"
+   "why": "the orchestrator's rulings (08 Nov): parity --shoulder <= 1.0 on the RENDERED dump (seat + life) is THE gate for both presenters (it judges what renders). FALLBACK, only if it still fails after the life tuning (his aba900fe: clavicle 0.15, expected ~0.6-0.7): seat-only PLAIN parity <= 1.0 AND life.arm_keys == 0 AND the life-only hand delta <= 1.2 cm, all three, recorded with the reason"
   },
   "move.humerus_elev_rest_desk_deg": {
    "area": "performance",
@@ -1390,8 +1434,374 @@
    ],
    "guard": true,
    "na_ok": true,
-   "na_reason": "no desk-rest frames",
-   "why": "the orchestrator's desk rest (08 Nov): forearms on the desk, elbows relaxed; an upper arm lifted past 40 deg to reach the desk reads strained"
+   "na_reason": "no desk rest >= 0.5 s (the hands hang: the hanging row applies)",
+   "why": "the orchestrator's desk rest (08 Nov): forearms on the desk, elbows relaxed; an upper arm lifted past 40 deg to reach the desk reads strained",
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
+  },
+  "move.finger_snap_per_min": {
+   "area": "performance",
+   "track": "agent-13 (measure) / agent-01 (body)",
+   "where": "her speaking frames (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "why": "the orchestrator, 08 Nov: fingers snapping into shapes is exactly the 'robotic' tell the operator hates; both presenters",
+   "op": "<=",
+   "line": 2.0,
+   "unit": "/min",
+   "what": "speaking instants (0.1 s bins) where any fingertip (DIP head, thumb + 4 fingers) moves >= 90 cm/s relative to its wrist and falls to <= 25 % of that within 2 frames, per speaking minute, worse hand: fingers SNAPPING into shapes instead of easing min-jerk to the apex",
+   "how": "r7/naturalness.py (agent-13, fleet/agent-13/r7-movement 80ddd161) on the 30 fps track (a 24 fps dump reads the same snap lower) -> numbers/<film>/naturalness.json",
+   "must_fail": [
+    8.4,
+    "her body 8a45d961: 8.4/min whole take (13.5 in the verify windows); 404db805 25.5, 52ab5ea2 11.5 (agent-13)"
+   ],
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips",
+   "note_rendered": "on a 24 fps dump the same snap reads lower (928407cb: kit 4.5/min, placed 0.0): the kit track (30 fps) row is the stricter and stays the gate; the placed row is the check that the render adds none"
+  },
+  "body.speech_sway_mm": {
+   "area": "performance",
+   "track": "agent-01",
+   "op": "<=",
+   "line": 8.0,
+   "unit": "mm",
+   "info": true,
+   "what": "forward-back torso sway with the speech (spine_05, the main horizontal axis), median peak-to-peak",
+   "where": "the speaking frames",
+   "how": "agent-01's seated-body sampler",
+   "r4": [
+    null,
+    "INFO by the orchestrator's ruling (08 Nov): natural (his ~5 mm at 12.8/min); kept, reported, not gated"
+   ],
+   "why": "separate from the breath (vertical)"
+  },
+  "life.arm_keys": {
+   "area": "performance",
+   "track": "agent-06",
+   "op": "==",
+   "line": 0,
+   "unit": "count",
+   "info": true,
+   "what": "bones of upperarm/lowerarm/hand/finger keyed by the life layer asset (it may carry the arm via the spine/clavicles, never change it)",
+   "where": "the life anim asset of the take",
+   "how": "agent-06 lists the life asset's keyed bones",
+   "r4": [
+    null,
+    "FALLBACK row only (the orchestrator's ruling): gates together with seat-only plain parity <= 1.0 and the life-only hand delta <= 1.2 cm, if --shoulder fails on the rendered dump. HIS aba900fe (agent-06): 0 (clavicle_l/r, pelvis, spine_01-05 only)"
+   ],
+   "why": "a breathing layer must not change the arm"
+  },
+  "life.hand_delta_cm": {
+   "area": "performance",
+   "track": "agent-06",
+   "op": "<=",
+   "line": 1.2,
+   "unit": "cm",
+   "info": true,
+   "what": "the largest hand/finger displacement the life layer adds (rendered dump minus seat-only dump), by time",
+   "where": "the parity spans",
+   "how": "r7/parity.py seat+life dump vs the seat-only dump",
+   "r4": [
+    null,
+    "FALLBACK row only, with life.arm_keys and seat-only parity (the orchestrator's ruling). HIS aba900fe: 0.863 cm (worst f50-57 middle_03_r); seat-only vs kit 0.116: all three fallback rows PASS on aba900fe (superseded by the breath-in-seat sha)"
+   ],
+   "why": "breathing carries the arm a little; not more than 1.2 cm"
+  },
+  "move.hand_near_face_frames": {
+   "area": "performance",
+   "track": "agent-13 (measure) / agent-01 (planner)",
+   "why": "the orchestrator's verdict on her verify (08 Nov): a hand by the face reads as touching her hair / a wave / 'stop'",
+   "op": "==",
+   "line": 0,
+   "unit": "frames @30",
+   "what": "frames inside the spans AND on screen (the EDL cut cameras) where any of each hand's joint heads (wrist; thumb/index/middle/ring/pinky _02 and _03) is ABOVE THE CHIN LINE (z > head_z - 5.0 cm, CHIN_BELOW_HEAD to be measured on each mesh by agent-02) OR within 10 cm of the face/hair shell (|P - (head + (7 fwd, 0, 4 up))| < 21 cm), in 3D in the actor frame",
+   "where": "the spans x on-screen frames, both presenters; the 30 fps track",
+   "how": "r7/naturalness.py (agent-13 e0098c21; chin line per presenter from agent-02's mesh probe: her 5.25 cm, him 6.1 cm under the head joint; pass --who her|him, the box's kit track has no 'who') -> numbers/<film>/naturalness.json",
+   "must_fail": [
+    90,
+    "her b4325b5b (the r7H verify): 90 frames in the verify windows (whole take 254), incl. the MCU t2.60-2.93 'MILLION' and the CU t4.37-5.83 'Hit play'; 52ab5ea2 60 / 207. Chin lines measured (agent-02)"
+   ],
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
+  },
+  "garment.waist_skin_poke_cm": {
+   "area": "garment",
+   "track": "agent-02",
+   "op": "<=",
+   "line": 0.0,
+   "unit": "cm",
+   "what": "the worst SKIN vertex out through the trousers, per vertex, ALL ROUND the waist (and _front_cm reported), per frame: stricter than waist_poke_cm (the band's front-half radius)",
+   "where": "every frame with the presenter ON SCREEN (edl/<film>.json presenter + panel shots, speaking or not), as the clip rows: off-screen frames (graphics shots) don't count",
+   "how": "agent-02's garment_measure 579f2e95 (garment.waist_skin_poke_cm) -> numbers/<film>/garment.json",
+   "must_fail": [
+    null,
+    "her current body's WIDE frame agent-05 saw (pending, agent-02)"
+   ],
+   "guard": true,
+   "why": "the orchestrator (R7_body): seated frames must read 0: no skin through the trousers anywhere"
+  },
+  "move.finger_claw_frames": {
+   "area": "performance",
+   "track": "agent-13 (measure) / agent-08 (hand shapes) / agent-01 (body)",
+   "where": "her speaking frames (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "why": "agent-08's hand-perfection task (R7 hands, 09 Nov): the operator's 'zombie' hands at her WIDE counts (claw count hand, flat stiff desk hand); anatomical shapes, both presenters",
+   "op": "==",
+   "line": 0,
+   "unit": "frames @30",
+   "what": "on-camera speaking frames with any finger (index..pinky) in a claw: intrinsic-minus (MCP < 20 with PIP > 15 and DIP >= PIP), MCP hyperextended (< -10), or MCP lagging PIP (MCP < PIP/2 - 10; the orchestrator's anatomy, 09 Nov)",
+   "how": "r7/naturalness.py --who <her|him> (agent-13, fleet/agent-13/r7-movement 4e1ac999+) on the 30 fps track WITH fingertips (gesturekit.track_frame 'tips', agent-01 b2d3bcc0+) -> numbers/<film>/naturalness.json",
+   "must_fail": [
+    279,
+    "her b4325b5b (re-dumped with tips): 896 whole take / 279 verify windows (881 the right index, MCP 4-18 / PIP 17-21 / DIP 22-25, across the WIDE f1060-1080); agent-08 8ebecc97 0 (agent-13)"
+   ],
+   "na_ok": true,
+   "na_reason": "the track carries no fingertips (pre-b2d3bcc0)",
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips",
+   "note_rendered": "agent-08's finger_compare (09 Nov): the editor's fingers = the kit's within 0.1 deg (DIP too) at f1060-1075; the 00:08 'claw' read was the palm-to-camera pose + the place-stage lift, not the finger angles; claw 0 on the placed dump is real"
+  },
+  "move.dip_pip_ratio_bad_frac": {
+   "area": "performance",
+   "track": "agent-13 (measure) / agent-08 (hand shapes) / agent-01 (body)",
+   "where": "her speaking frames (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "why": "agent-08's hand-perfection task (R7 hands, 09 Nov): the operator's 'zombie' hands at her WIDE counts (claw count hand, flat stiff desk hand); anatomical shapes, both presenters",
+   "op": "<=",
+   "line": 0.1,
+   "unit": "fraction",
+   "what": "finger-frames (on camera, speaking, PIP >= 20) whose DIP/PIP is outside 0.5-0.85 (anatomical DIP ~ 0.67 PIP)",
+   "how": "r7/naturalness.py --who <her|him> (agent-13, fleet/agent-13/r7-movement 4e1ac999+) on the 30 fps track WITH fingertips (gesturekit.track_frame 'tips', agent-01 b2d3bcc0+) -> numbers/<film>/naturalness.json",
+   "must_fail": [
+    0.71,
+    "her b4325b5b 0.733 / 0.71 (the rig's rest ratios 0.25-0.55); 8ebecc97 0"
+   ],
+   "na_ok": true,
+   "na_reason": "the track carries no fingertips (pre-b2d3bcc0)",
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
+  },
+  "move.fold_at_limit_frames": {
+   "area": "performance",
+   "track": "agent-13 (measure) / agent-08 (hand shapes) / agent-01 (body)",
+   "where": "her speaking frames (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "why": "agent-08's hand-perfection task (R7 hands, 09 Nov): the operator's 'zombie' hands at her WIDE counts (claw count hand, flat stiff desk hand); anatomical shapes, both presenters",
+   "op": "==",
+   "line": 0,
+   "unit": "frames @30",
+   "what": "on-camera speaking frames of a held shape (gesture_w > 0.9) with any finger folded at PIP >= 95 (the joint limit; agent-08's catalogue folds at ~85)",
+   "how": "r7/naturalness.py --who <her|him> (agent-13, fleet/agent-13/r7-movement 4e1ac999+) on the 30 fps track WITH fingertips (gesturekit.track_frame 'tips', agent-01 b2d3bcc0+) -> numbers/<film>/naturalness.json",
+   "must_fail": [
+    56,
+    "her b4325b5b 56 / 56 (the WIDE counts: ring/pinky MCP 73 / PIP 101-105); 8ebecc97 0"
+   ],
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
+  },
+  "move.cascade_broken_frac": {
+   "area": "performance",
+   "track": "agent-13 (measure) / agent-08 (hand shapes) / agent-01 (body)",
+   "where": "her speaking frames (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "why": "agent-08's hand-perfection task (R7 hands, 09 Nov): the operator's 'zombie' hands at her WIDE counts (claw count hand, flat stiff desk hand); anatomical shapes, both presenters",
+   "op": "<=",
+   "line": 0.1,
+   "unit": "fraction",
+   "what": "on-camera frames of a resting hand held in the AIR (gesture_w < 0.1 and the wrist head > desk + 6 cm; on the desk the palm's transverse arch sets the pads, agent-08) whose MCP+PIP flexion does not rise index -> pinky (5 deg slack per step), worse hand",
+   "how": "r7/naturalness.py --who <her|him> (agent-13, fleet/agent-13/r7-movement 4e1ac999+) on the 30 fps track WITH fingertips (gesturekit.track_frame 'tips', agent-01 b2d3bcc0+) -> numbers/<film>/naturalness.json",
+   "must_fail": [
+    0.172,
+    "her b4325b5b whole take 0.172 (verify windows 0.0); 404db805 0.49, 52ab5ea2 0.49; 8ebecc97 0"
+   ],
+   "na_ok": true,
+   "na_reason": "no resting hand held in the air (every rest lies on the desk)",
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
+  },
+  "move.thumb_flat_frames": {
+   "area": "performance",
+   "track": "agent-13 (measure) / agent-08 (hand shapes) / agent-01 (body)",
+   "where": "her speaking frames (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "why": "agent-08's hand-perfection task (R7 hands, 09 Nov): the operator's 'zombie' hands at her WIDE counts (claw count hand, flat stiff desk hand); anatomical shapes, both presenters",
+   "op": "==",
+   "line": 0,
+   "unit": "frames @30",
+   "what": "on-camera speaking frames with a flat thumb on a curled hand: the thumb's proximal phalanx (thumb_02 -> thumb_03 heads) < 10 deg out of the palm plane toward the palm (normal from the knuckle line) while the fingers' mean MCP > 30, worse hand",
+   "how": "r7/naturalness.py --who <her|him> (agent-13, fleet/agent-13/r7-movement 4e1ac999+) on the 30 fps track WITH fingertips (gesturekit.track_frame 'tips', agent-01 b2d3bcc0+) -> numbers/<film>/naturalness.json",
+   "must_fail": [
+    41,
+    "her b4325b5b 100 / 41 (right hand); 404db805 166, 52ab5ea2 240; 8ebecc97 773 / 241; dd4cc957 6 / 4"
+   ],
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
+  },
+  "move.thumb_stiff_frames": {
+   "area": "performance",
+   "track": "agent-13 (measure) / agent-08 (hand shapes) / agent-01 (body)",
+   "where": "her speaking frames (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "why": "agent-08's hand-perfection task (R7 hands, 09 Nov): the operator's 'zombie' hands at her WIDE counts (claw count hand, flat stiff desk hand); anatomical shapes, both presenters",
+   "op": "==",
+   "line": 0,
+   "unit": "frames @30",
+   "what": "frames inside runs > 0.5 s with the thumb's MCP + IP flexion < 5 deg (straight, stiff), worse hand",
+   "how": "r7/naturalness.py --who <her|him> (agent-13, fleet/agent-13/r7-movement 4e1ac999+) on the 30 fps track WITH fingertips (gesturekit.track_frame 'tips', agent-01 b2d3bcc0+) -> numbers/<film>/naturalness.json",
+   "must_fail": [
+    null,
+    "no body fails it yet (b4325b5b, 8ebecc97 0): GUARD until one does"
+   ],
+   "na_ok": true,
+   "na_reason": "the track carries no fingertips (pre-b2d3bcc0)",
+   "guard": true,
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
+  },
+  "move.hold_over_collar_frames": {
+   "area": "performance",
+   "track": "agent-13 (measure) / agent-08 (hand shapes) / agent-01 (body)",
+   "where": "her speaking frames (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "why": "agent-08's hand-perfection task (R7 hands, 09 Nov): the operator's 'zombie' hands at her WIDE counts (claw count hand, flat stiff desk hand); anatomical shapes, both presenters",
+   "op": "==",
+   "line": 0,
+   "unit": "frames @30",
+   "what": "on-camera stroke-hold frames (stroke .. stroke + hold) with the wrist over the clavicle heads' mean height",
+   "how": "r7/naturalness.py --who <her|him> (agent-13, fleet/agent-13/r7-movement 4e1ac999+) on the 30 fps track WITH fingertips (gesturekit.track_frame 'tips', agent-01 b2d3bcc0+) -> numbers/<film>/naturalness.json",
+   "must_fail": [
+    59,
+    "her b4325b5b 179 / 59 (the holds by the face: 2.7-2.9, 4.5-5.8, 17.3-18.4, 25.5-26.7, 40.4-40.9, 46.3-47.3, 53.8-54.7, 57.1-57.6); b2d3bcc0 0"
+   ],
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
+  },
+  "move.hold_chest_frames": {
+   "area": "performance",
+   "track": "agent-13 (measure) / agent-08 (hand shapes) / agent-01 (body)",
+   "where": "her speaking frames (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "why": "agent-08's hand-perfection task (R7 hands, 09 Nov): the operator's 'zombie' hands at her WIDE counts (claw count hand, flat stiff desk hand); anatomical shapes, both presenters",
+   "op": "==",
+   "line": 0,
+   "unit": "frames @30",
+   "what": "REPORT: count/list/beat hold frames with the wrist above the chest line (clavicle heads - 4 cm)",
+   "how": "r7/naturalness.py --who <her|him> (agent-13, fleet/agent-13/r7-movement 4e1ac999+) on the 30 fps track WITH fingertips (gesturekit.track_frame 'tips', agent-01 b2d3bcc0+) -> numbers/<film>/naturalness.json",
+   "must_fail": [
+    null,
+    "report"
+   ],
+   "info": true,
+   "r4": [
+    null,
+    "REPORT row (agent-08): reported, never blocks"
+   ],
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
+  },
+  "move.claw_score_frames": {
+   "area": "performance",
+   "track": "agent-13 (measure) / agent-08 (hand shapes) / agent-01 (body)",
+   "where": "her speaking frames (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "why": "agent-08's hand-perfection task (R7 hands, 09 Nov): the operator's 'zombie' hands at her WIDE counts (claw count hand, flat stiff desk hand); anatomical shapes, both presenters",
+   "op": "==",
+   "line": 0,
+   "unit": "frames @30",
+   "what": "REPORT: frames with a finger at PIP + DIP > 1.67 (MCP + 8) + 25 (handshape.claw_score's symmetric form)",
+   "how": "r7/naturalness.py --who <her|him> (agent-13, fleet/agent-13/r7-movement 4e1ac999+) on the 30 fps track WITH fingertips (gesturekit.track_frame 'tips', agent-01 b2d3bcc0+) -> numbers/<film>/naturalness.json",
+   "must_fail": [
+    null,
+    "report"
+   ],
+   "info": true,
+   "r4": [
+    null,
+    "REPORT row (agent-08): reported, never blocks"
+   ],
+   "na_ok": true,
+   "na_reason": "the track carries no fingertips (pre-b2d3bcc0)",
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
+  },
+  "move.finger_spread_p90_deg": {
+   "area": "performance",
+   "track": "agent-13 (measure) / agent-08 (hand shapes) / agent-01 (body)",
+   "where": "her speaking frames (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "why": "the orchestrator's review of the hand stills (09 Nov): 'piano/spider' spread fingers, and a resting hand hovering on its fingertips",
+   "op": "<=",
+   "line": 5.0,
+   "unit": "deg",
+   "what": "p90 over on-camera frames of a resting hand (gesture_w < 0.1) or a stroke hold of a non-spreading kind (not open / deictic / raise_finger / count / pinch) of the widest ADJACENT finger abduction (the proximal phalanges _01->_02 projected into the palm plane), worse hand: relaxed fingers stay nearly together ; a frame where any finger's proximal phalanx is > 60 deg out of the palm plane (a closed/fist finger: the projection is degenerate) is skipped (the orchestrator, from agent-12's mocap pilot)",
+   "how": "r7/naturalness.py --who <her|him> (agent-13, fleet/agent-13/r7-movement 9a65ef37+) on the 30 fps track WITH fingertips (gesturekit.track_frame 'tips', agent-01 b2d3bcc0+) -> numbers/<film>/naturalness.json",
+   "must_fail": [
+    9.46,
+    "her b4325b5b 9.12 whole / 9.46 verify windows; 4fdd6af3 10.6 / 12.0; 404db805 27.1 (agent-13)"
+   ],
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
+  },
+  "move.rest_contact_bad_frames": {
+   "area": "performance",
+   "track": "agent-13 (measure) / agent-08 (hand shapes) / agent-01 (body)",
+   "where": "her speaking frames (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "why": "the orchestrator's review of the hand stills (09 Nov): 'piano/spider' spread fingers, and a resting hand hovering on its fingertips",
+   "op": "==",
+   "line": 0,
+   "unit": "frames @30",
+   "what": "on-camera frames with a RESTING hand (gesture_w < 0.1) over the desk (wrist x >= desk_near) that HOVERS (its lowest fingertip, finger_tips' centre line, > 1.5 cm over the desk top) or rests TENTED on its pads (the wrist head > 2.9 cm over the top: the heel of the palm off the desk; agent-02 on her mesh: the wrist head sits 2.35 cm up heel-only, 1.85 heel + pads, + 0.5 tolerance). The orchestrator: contact through the palm and fingers, never fingertip-only",
+   "how": "r7/naturalness.py --who <her|him> (agent-13, fleet/agent-13/r7-movement f8398eca+) on the 30 fps track WITH fingertips (gesturekit.track_frame 'tips', agent-01 b2d3bcc0+) -> numbers/<film>/naturalness.json",
+   "must_fail": [
+    223,
+    "her b4325b5b 715 / 219; agent-08 08d932a6 (wrist drawn to 3.2) 723 / 223 at the 2.9 line"
+   ],
+   "note": "the heel line is agent-02's mesh measure (928407cb _Arms ref pose, both hands): 2.35 heel-only / 1.85 heel + pads -> 2.9 with 0.5 tolerance; agent-08's 3.2 cm rest leaves the heel ~1 cm off: FAIL; his line when box T runs",
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
+  },
+  "move.rest_abduction_deg": {
+   "area": "performance",
+   "track": "agent-13 (movement director) / agent-01, agent-10 (body)",
+   "how": "r7/naturalness.py (ffe06429+) on the 30 fps track -> numbers/<film>/naturalness.json",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "op": "<=",
+   "line": 25.0,
+   "unit": "deg",
+   "what": "median upper-arm abduction (out of the sagittal plane) over the frames where that hand rests (gesture_w < 0.1), worse hand",
+   "must_fail": [
+    37.1,
+    "404db805 37.1 (L) / 52ab5ea2 52.1 (R): the old elbows-out rests; her 928407cb 21.6 passes"
+   ],
+   "why": "the orchestrator, 09 Nov (his flank): an open seated posture allows the elbows a hand-width off the torso at rest, up to ~20-25 deg of abduction with the forearms ON the desk; beyond that (elbows flared/raised, forearms off the desk) is wings",
+   "guard": true,
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
+  },
+  "qa.editor_torso_parity_cm": {
+   "area": "performance",
+   "track": "agent-06 (box) / agent-13 / agent-09",
+   "op": "<=",
+   "line": 1.0,
+   "unit": "cm",
+   "what": "the max over frames (matched by TIME) of the distance of spine_05 and both clavicle heads between the RENDERED editor dump (the placed body: seat + life + face place) and the solved track, PLAIN in the actor frame: the body under the arms must be the body the rows scored",
+   "where": "the verify windows for a TEST/verify render; for the FINALS every frame with the presenter ON SCREEN (edl/<film>.json presenter + panel shots): an off-screen frame is never filmed and does not count (her t33.2 / f797 reads 1.7 cm at a rest, inside graphics shot 9; agent-13)",
+   "how": "python3 r7/parity.py <the placed editor dump> <kit/arm_track.json> --span <spans> --torso --gate numbers_<film>_torso.json (agent-13 7518e537+)",
+   "must_fail": [
+    2.658,
+    "her 928407cb PLACED re-dump with tips (T2 her_placed_tips, agent-06 09 Nov): --torso 2.658 (p50 2.65) while --shoulder read 0.407; plain 2.847"
+   ],
+   "why": "agent-13, 09 Nov: --shoulder parity cancels a shift of the torso under the arms; this row closes that hole (her hands floated 2.6 cm above the desk in the render)"
+  },
+  "move.rest_contact_rendered_frames": {
+   "area": "performance",
+   "track": "agent-13 (measure) / agent-08 (hand shapes) / agent-01 (body)",
+   "where": "her speaking frames (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "why": "the orchestrator's review of the hand stills (09 Nov): 'piano/spider' spread fingers, and a resting hand hovering on its fingertips",
+   "op": "==",
+   "line": 0,
+   "unit": "frames @30",
+   "what": "move.rest_contact_bad_frames measured on the RENDERED (placed) editor dump instead of the track: the hands must touch the desk in what renders",
+   "how": "python3 r7/naturalness.py <the PLACED editor dump> --fps 24 --meta <kit/arm_track.json> --who <her|him> --span <spans> -> its move.rest_contact_bad_frames (agent-13 7518e537+)",
+   "must_fail": [
+    188,
+    "her 928407cb PLACED re-dump with tips: 188 (kit 237 at the 2.9 heel line)"
+   ],
+   "note": "the heel line is agent-02's mesh measure (928407cb _Arms ref pose, both hands): 2.35 heel-only / 1.85 heel + pads -> 2.9 with 0.5 tolerance; agent-08's 3.2 cm rest leaves the heel ~1 cm off: FAIL; his line when box T runs",
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips"
+  },
+  "move.palm_to_camera_frames": {
+   "area": "performance",
+   "track": "agent-13 (measure) / agent-08 (hand shapes) / agent-01 (body)",
+   "where": "her speaking frames (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "why": "the orchestrator's review of 00:08 (09 Nov): the list apex reads as palm-to-camera like a 'halt' with the wrist extended; a list/offering palm angles UP/IN toward the midline",
+   "op": "==",
+   "line": 0,
+   "unit": "frames @30",
+   "what": "on-camera stroke-hold frames (any kind but 'press') where a hand's palm faces the camera (the palm normal within 60 deg of the actor's front, +x) with its fingers pointing up: the 'halt' hand",
+   "how": "r7/naturalness.py (ccc46755+), on the kit track AND on the placed editor dump",
+   "must_fail": [
+    116,
+    "her 928407cb: 336 whole / 116 verify windows (incl. the N13 list f1060-1075: palm normal +x 0.66-0.80); b4325b5b 319 / 97"
+   ],
+   "where_rendered": "the orchestrator, 09 Nov: every hand row (claw, cascade, spread, rest_contact, snaps, palm) ALSO runs on the PLACED editor dump (what renders), --fps 24 --meta kit; the editor dump must carry fingertips",
+   "must_fail_rendered": [
+    93,
+    "her 928407cb PLACED re-dump with tips: 93 frames in the verify windows (kit 116)"
+   ]
   }
  },
  "not_attempted": {

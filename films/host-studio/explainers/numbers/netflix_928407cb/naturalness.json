@@ -1,0 +1,129 @@
+{
+ "gate": {
+  "move.humerus_elev_stroke_deg": {
+   "value": 41.92,
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov"
+  },
+  "move.humerus_elev_high_deg": {
+   "value": null,
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov"
+  },
+  "move.upperarm_abduction_deg": {
+   "value": 30.763,
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov"
+  },
+  "move.humerus_elev_rest_deg": {
+   "value": null,
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov"
+  },
+  "move.humerus_elev_rest_desk_deg": {
+   "value": 37.258,
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov"
+  },
+  "move.forearm_elev_deg": {
+   "value": 37.268,
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov"
+  },
+  "move.wrist_flexext_p90_deg": {
+   "value": 21.627,
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov"
+  },
+  "move.wrist_ulnar_p95_deg": {
+   "value": 11.642,
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov"
+  },
+  "move.wrist_radial_p95_deg": {
+   "value": 3.952,
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov"
+  },
+  "move.shape_wrong_strokes": {
+   "value": 0,
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov"
+  },
+  "move.shape_claw_frac": {
+   "value": 0.0,
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov"
+  },
+  "move.path_straight_frac": {
+   "value": 0.077,
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov"
+  },
+  "move.vel_bell_frac": {
+   "value": 0.833,
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov"
+  },
+  "move.lag_hand_ms": {
+   "value": 32.279,
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov"
+  },
+  "move.two_hand_amp_ratio": {
+   "value": 0.882,
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov"
+  },
+  "move.hold_min_speed": {
+   "value": 0.282,
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov"
+  },
+  "move.finger_snap_per_min": {
+   "value": 4.5,
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov"
+  },
+  "move.hand_near_face_frames": {
+   "value": 0,
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov"
+  },
+  "move.hold_over_collar_frames": {
+   "value": 0,
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov"
+  },
+  "move.cascade_broken_frac": {
+   "value": 1.0,
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov"
+  },
+  "move.finger_claw_frames": {
+   "value": 0,
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov"
+  },
+  "move.dip_pip_ratio_bad_frac": {
+   "value": 0.0,
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov"
+  },
+  "move.fold_at_limit_frames": {
+   "value": 0,
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov"
+  },
+  "move.finger_spread_p90_deg": {
+   "value": 3.241,
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov"
+  },
+  "move.rest_contact_bad_frames": {
+   "value": 0,
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov"
+  },
+  "move.thumb_flat_frames": {
+   "value": 0,
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov"
+  },
+  "move.thumb_stiff_frames": {
+   "value": 0,
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov"
+  },
+  "move.hold_chest_frames": {
+   "value": 0,
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov"
+  },
+  "move.claw_score_frames": {
+   "value": 0,
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov"
+  },
+  "move.mirror_corr_p50": {
+   "value": 0.061,
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov"
+  },
+  "move.fingers_frozen_frac": {
+   "value": 0.0,
+   "where": "kit track, box T2, agent-08 928407cb (tree 1b109234), seq spans 0-196 + 1040-1162 by time; agent-06 09 Nov"
+  }
+ },
+ "source": "r7/naturalness.py on the box"
+}

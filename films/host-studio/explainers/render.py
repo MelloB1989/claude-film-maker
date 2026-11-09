@@ -25,6 +25,8 @@ import set as S  # noqa: E402
 
 OUT = "/srv/ue/explainer/renders"
 S3 = f"{S.BUCKET}/private/renders/r6/explain"
+# round 7 (cost ruling): finals land in the private Tokyo bucket, beside boxes T/T2 (agent-11's composite reads there)
+S3_R7_TOKYO = "s3://rf-render-788655295054-apne1/ue-linux/private/renders/r7/farm/explain"
 # round 5's film cvars (groom.lock's render_cvars, SSS full res); r.HairStrands.SkyLighting 0 as studio.py sets it
 CVARS = {"r.SSS.Quality": 1, "r.SSS.HalfRes": 0, "r.HairStrands.LODMode": 0, "r.HairStrands.AutoLOD.Bias": 1.0,
          "r.HairStrands.UseCardsInsteadOfStrands": 0, "r.HairStrands.SkyLighting": 0,
@@ -46,7 +48,7 @@ def spec(who: str, film: str, n: int, cam: str, f0: int, f1: int, preset: str) -
             **{k: v for k, v in PRESETS[preset].items()}}
 
 
-def post(film: str, preset: str, shots: list, audio: str = "") -> None:
+def post(film: str, preset: str, shots: list, audio: str = "", s3: str = S3) -> None:
     """On the box: an h264 preview per shot (24 fps; with `audio`, an s3 key or box path of the film's mix, its slice
     from the shot's first frame muxed in, for judging lips), then sync to s3 (KMS)."""
     base = f"{OUT}/{film}/{preset}"
@@ -69,7 +71,8 @@ for d in {dirs!r}:
                         "-i", f"{{base}}/{{d}}/%04d{{ext}}", *a, "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "16",
                         f"{{base}}/{{d}}.mp4"], capture_output=True, text=True)
     res[d] = [len(pngs), first, r.returncode, r.stderr[-200:]]
-r = subprocess.run(["aws", "s3", "sync", base, {f"{S3}/{film}/{preset}/"!r}, "--sse", "aws:kms", "--only-show-errors"],
+r = subprocess.run(["aws", "s3", "sync", base, {f"{s3}/{film}/{preset}/"!r}, "--sse", "aws:kms", "--only-show-errors",
+                    "--region", {"ap-northeast-1" if "-apne1/" in s3 + "/" else "ap-south-1"!r}],
                    capture_output=True, text=True)
 res["s3"] = [r.returncode, r.stderr[-300:]]
 result = res"""
@@ -88,6 +91,8 @@ def main() -> int:
     ap.add_argument("--dry", action="store_true", help="print the plan and the specs, touch nothing")
     ap.add_argument("--post-only", action="store_true", help="only encode the previews and sync (frames on disk)")
     ap.add_argument("--audio", default="", help="the film's mix (s3 key or box path) muxed into each preview")
+    ap.add_argument("--s3", default=S3, help=f"where the frames and previews sync to, <s3>/<film>/<preset>/shotNN_CAM/ "
+                    f"(default {S3}; round 7 finals: {S3_R7_TOKYO})")
     a = ap.parse_args()
     edl = json.loads(Path(a.edl).read_text())
     plan = S.render_plan(edl)
@@ -103,7 +108,7 @@ def main() -> int:
     S.client = client
     S.guard(a.box, a.instance)
     if a.post_only:
-        post(a.film, a.preset, plan, a.audio)
+        post(a.film, a.preset, plan, a.audio, a.s3)
         return 0
     seq, failed = S.SEQ[a.who], []
     box_json = HERE / "numbers" / a.film / "box.json"
@@ -141,7 +146,7 @@ def main() -> int:
     finally:  # the edit back, whatever happened
         S.op("seq.camera_cuts", path=seq, cuts=S.edl_cuts(edl))
         S.op("assets.save", paths=[seq])
-    post(a.film, a.preset, plan, a.audio)
+    post(a.film, a.preset, plan, a.audio, a.s3)
     print("FAILED shots:", failed if failed else "none")
     return 1 if failed else 0
 

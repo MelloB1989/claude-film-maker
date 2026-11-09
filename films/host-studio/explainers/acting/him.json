@@ -1,0 +1,3790 @@
+{
+ "film": "whatsapp",
+ "who": "him",
+ "fps": 24,
+ "clock": "VO t=0 = sequence frame 0",
+ "arc": {
+  "hook": "curiosity",
+  "body": "confident clarity",
+  "payoff": "satisfied delight"
+ },
+ "staging": "the operator's notes, R7_common.md): hands off the body and above the desk while she speaks; elbows out so\nthe upper arms clear the torso and breasts by >= 3 cm; the mic is on HER LEFT, so big gestures are her RIGHT hand, or\nboth hands in front of her sternum (inside her shoulder line), never past her left shoulder line; her left hand alone\nonly small and low. The graphic panel (CAM_MCU_L shots) is on frame right = HER LEFT: a deictic to it is her right hand\nacross the body, open palm, chest height, stopping ~15 cm left of her sternum (under the mic head, never into it),\nwith her head and eyes turning ~10 deg that way and straight back to the lens.",
+ "conventions": {
+  "lead_s": {
+   "brow_flash": 0.12,
+   "brow_one": 0.15,
+   "brow_hold": 0.12,
+   "smile": 0.3,
+   "smile_soft": 0.35,
+   "squint": 0.15,
+   "nod": 0.15,
+   "tilt": 0.25,
+   "glance": 0.1,
+   "shake": 0.15
+  },
+  "dur_s": {
+   "brow_flash": 0.45,
+   "brow_one": 0.8,
+   "brow_hold": 0.9,
+   "smile": 0.6,
+   "smile_soft": 0.8,
+   "squint": 0.4,
+   "nod": 0.35,
+   "tilt": 1.2,
+   "glance": 0.4,
+   "shake": 0.5
+  }
+ },
+ "pre": {
+  "note": "Already alive when the cut opens: an easy closed-mouth grin building, a small head tilt to his right (4 deg), an inhale with the shoulders rising 1 cm, hands loosely together at the sternum in front of him (fingers loosely laced, elbows out), at the bottom edge of the MCU frame, not on the desk. A small lean in from 0.4 s.",
+  "face": [
+   {
+    "kind": "smile_soft",
+    "t": 0.15,
+    "f": 4,
+    "amount": 0.35
+   },
+   {
+    "kind": "tilt",
+    "t": 0.2,
+    "f": 5,
+    "side": "R",
+    "deg": 4
+   }
+  ],
+  "lean": [
+   {
+    "t": 0.4,
+    "f": 10,
+    "deg": 4
+   }
+  ]
+ },
+ "lines": [
+  {
+   "id": "W01",
+   "text": "Every day, WhatsApp moves over a hundred billion messages.",
+   "t0": 0.75,
+   "t1": 3.745,
+   "f0": 0,
+   "f1": 93,
+   "shot": 1,
+   "kind": "pres",
+   "camera": "CAM_MCU",
+   "gfx": null,
+   "on_cam": true,
+   "arc": "hook",
+   "arc_target": "curiosity",
+   "emotion": "curious, friendly: 'guess how many'",
+   "intensity": 0.75,
+   "base": {
+    "smile": 0.3,
+    "brows": 0.1
+   },
+   "face": [
+    {
+     "kind": "brow_flash",
+     "word": "Every",
+     "t": 0.75,
+     "f": 18,
+     "onset_t": 0.63,
+     "end_t": 1.08,
+     "word_i": 0
+    },
+    {
+     "kind": "brow_one",
+     "word": "over",
+     "t": 2.283,
+     "f": 55,
+     "onset_t": 2.133,
+     "end_t": 3.033,
+     "side": "R",
+     "hold": 0.9,
+     "word_i": 4
+    },
+    {
+     "kind": "tilt",
+     "word": "over",
+     "t": 2.283,
+     "f": 55,
+     "onset_t": 2.033,
+     "end_t": 3.233,
+     "side": "R",
+     "deg": 5,
+     "word_i": 4
+    },
+    {
+     "kind": "nod",
+     "word": "billion",
+     "t": 2.921,
+     "f": 70,
+     "onset_t": 2.771,
+     "end_t": 3.121,
+     "word_i": 7
+    },
+    {
+     "kind": "smile",
+     "word": "billion",
+     "t": 2.921,
+     "f": 70,
+     "onset_t": 2.621,
+     "end_t": 3.521,
+     "amount": 0.5,
+     "shape": "lopsided R, open lips",
+     "hold": 0.3,
+     "word_i": 7
+    },
+    {
+     "kind": "smile",
+     "word": "messages.",
+     "t": 3.258,
+     "f": 78,
+     "onset_t": 2.958,
+     "end_t": 4.058,
+     "amount": 0.85,
+     "note": "full Duchenne (payoff 1/5)",
+     "hold": 0.5,
+     "word_i": 8
+    }
+   ],
+   "gestures": [
+    {
+     "type": "open_palm",
+     "hand": "R",
+     "word": "Every",
+     "stroke_t": 0.75,
+     "stroke_f": 18,
+     "prep_t": 0.45,
+     "prep_f": 11,
+     "hold_s": 0.25,
+     "size": "small",
+     "amp": 0.3,
+     "held": false,
+     "target": "camera",
+     "apex_height": "sternum",
+     "word_i": 0
+    },
+    {
+     "type": "size",
+     "hand": "both",
+     "word": "billion",
+     "stroke_t": 2.921,
+     "stroke_f": 70,
+     "prep_t": 2.446,
+     "prep_f": 59,
+     "hold_s": 0.6,
+     "size": "big",
+     "amp": 0.85,
+     "held": true,
+     "target": "front",
+     "apex_height": "collarbone",
+     "start_word": "hundred",
+     "note": "hands start 15 cm apart in front of his sternum, spread to shoulder width; L hand below the mic",
+     "word_i": 7
+    },
+    {
+     "type": "beat",
+     "hand": "R",
+     "word": "messages.",
+     "stroke_t": 3.258,
+     "stroke_f": 78,
+     "prep_t": 2.958,
+     "prep_f": 71,
+     "hold_s": 0.25,
+     "size": "small",
+     "amp": 0.3,
+     "held": false,
+     "target": "camera",
+     "apex_height": "sternum",
+     "word_i": 8
+    }
+   ],
+   "lean": [
+    {
+     "word": "over",
+     "t": 2.283,
+     "f": 55,
+     "deg": 7
+    },
+    {
+     "word": "messages.",
+     "t": 3.258,
+     "f": 78,
+     "deg": 4
+    }
+   ],
+   "face04": {
+    "line": "W01",
+    "emotion": "curious, friendly: 'guess how many'",
+    "intensity": 0.75,
+    "solver_mood": "SURPRISE",
+    "brow": [
+     {
+      "word": "Every",
+      "word_i": 0,
+      "t": 0.75
+     }
+    ],
+    "smile": [
+     {
+      "word": "billion",
+      "word_i": 7,
+      "t": 2.921,
+      "kind": "soft",
+      "amount": 0.5,
+      "hold_s": 0.3,
+      "shape": "lopsided R, open lips"
+     },
+     {
+      "word": "messages.",
+      "word_i": 8,
+      "t": 3.258,
+      "kind": "duchenne",
+      "amount": 0.85,
+      "hold_s": 0.5,
+      "shape": null
+     }
+    ],
+    "curious": [
+     {
+      "word": "over",
+      "word_i": 4,
+      "t": 2.283,
+      "kind": "one_brow",
+      "side": "R",
+      "hold_s": 0.9
+     }
+    ],
+    "nod": [
+     {
+      "word": "billion",
+      "word_i": 7,
+      "t": 2.921,
+      "kind": "yes"
+     }
+    ],
+    "tilt": [
+     {
+      "word": "over",
+      "word_i": 4,
+      "t": 2.283,
+      "deg": 5,
+      "side": "R"
+     }
+    ]
+   },
+   "body01": {
+    "line": "W01",
+    "on_cam": true,
+    "camera": "CAM_MCU",
+    "gestures": [
+     {
+      "type": "open",
+      "detail": "open_palm",
+      "hand": "r",
+      "word": "Every",
+      "word_i": 0,
+      "stroke_t": 0.75,
+      "prep_t": 0.45,
+      "hold_s": 0.25,
+      "size": "small",
+      "amp": 0.3,
+      "held": false,
+      "target": "camera",
+      "apex_height": "sternum"
+     },
+     {
+      "type": "size",
+      "detail": "size",
+      "hand": "both",
+      "word": "billion",
+      "word_i": 7,
+      "stroke_t": 2.921,
+      "prep_t": 2.446,
+      "hold_s": 0.6,
+      "size": "big",
+      "amp": 0.85,
+      "held": true,
+      "target": "front",
+      "apex_height": "collarbone"
+     },
+     {
+      "type": "beat",
+      "detail": "beat",
+      "hand": "r",
+      "word": "messages.",
+      "word_i": 8,
+      "stroke_t": 3.258,
+      "prep_t": 2.958,
+      "hold_s": 0.25,
+      "size": "small",
+      "amp": 0.3,
+      "held": false,
+      "target": "camera",
+      "apex_height": "sternum"
+     }
+    ],
+    "hands_in_frame_min": 0.6,
+    "lean": [
+     {
+      "kind": "in",
+      "deg": 7,
+      "word": "over",
+      "t": 2.283
+     },
+     {
+      "kind": "neutral",
+      "deg": 4,
+      "word": "messages.",
+      "t": 3.258
+     }
+    ],
+    "rest_after": true
+   }
+  },
+  {
+   "id": "W02",
+   "text": "And almost none of them stay on its servers.",
+   "t0": 4.042,
+   "t1": 6.201,
+   "f0": 93,
+   "f1": 152,
+   "shot": 2,
+   "kind": "gfx",
+   "camera": null,
+   "gfx": "title",
+   "on_cam": false,
+   "arc": "hook",
+   "arc_target": "curiosity",
+   "emotion": "intrigue, the twist",
+   "intensity": 0.7,
+   "base": {
+    "smile": 0.2,
+    "brows": 0.15
+   },
+   "face": [
+    {
+     "kind": "brow_one",
+     "word": "almost",
+     "t": 4.483,
+     "f": 108,
+     "onset_t": 4.333,
+     "end_t": 5.033,
+     "side": "L",
+     "hold": 0.7,
+     "word_i": 10
+    },
+    {
+     "kind": "shake",
+     "word": "none",
+     "t": 4.878,
+     "f": 117,
+     "onset_t": 4.728,
+     "end_t": 5.228,
+     "word_i": 11
+    },
+    {
+     "kind": "smile_soft",
+     "word": "servers.",
+     "t": 5.772,
+     "f": 139,
+     "onset_t": 5.422,
+     "end_t": 6.222,
+     "amount": 0.45,
+     "word_i": 17
+    }
+   ],
+   "gestures": [
+    {
+     "type": "pinch",
+     "hand": "R",
+     "word": "almost",
+     "stroke_t": 4.483,
+     "stroke_f": 108,
+     "prep_t": 4.183,
+     "prep_f": 100,
+     "hold_s": 0.25,
+     "size": "small",
+     "amp": 0.3,
+     "held": false,
+     "target": "front",
+     "apex_height": "sternum",
+     "word_i": 10
+    },
+    {
+     "type": "wave_off",
+     "hand": "R",
+     "word": "none",
+     "stroke_t": 4.878,
+     "stroke_f": 117,
+     "prep_t": 4.578,
+     "prep_f": 110,
+     "hold_s": 0.25,
+     "size": "medium",
+     "amp": 0.55,
+     "held": false,
+     "target": "her right, low",
+     "apex_height": "sternum",
+     "note": "palm-down sweep out to his right: none",
+     "word_i": 11
+    }
+   ],
+   "lean": [
+    {
+     "word": "almost",
+     "t": 4.483,
+     "f": 108,
+     "deg": 6
+    }
+   ],
+   "face04": {
+    "line": "W02",
+    "emotion": "intrigue, the twist",
+    "intensity": 0.7,
+    "solver_mood": "SURPRISE",
+    "curious": [
+     {
+      "word": "almost",
+      "word_i": 10,
+      "t": 4.483,
+      "kind": "one_brow",
+      "side": "L",
+      "hold_s": 0.7
+     }
+    ],
+    "warm": [
+     {
+      "word": "servers.",
+      "word_i": 17,
+      "t": 5.772,
+      "amount": 0.45
+     }
+    ],
+    "shake": [
+     {
+      "word": "none",
+      "word_i": 11,
+      "t": 4.878
+     }
+    ]
+   },
+   "body01": {
+    "line": "W02",
+    "on_cam": false,
+    "camera": null,
+    "gestures": [
+     {
+      "type": "size",
+      "detail": "pinch",
+      "hand": "r",
+      "word": "almost",
+      "word_i": 10,
+      "stroke_t": 4.483,
+      "prep_t": 4.183,
+      "hold_s": 0.25,
+      "size": "small",
+      "amp": 0.3,
+      "held": false,
+      "target": "front",
+      "apex_height": "sternum"
+     },
+     {
+      "type": "deictic",
+      "detail": "wave_off",
+      "hand": "r",
+      "word": "none",
+      "word_i": 11,
+      "stroke_t": 4.878,
+      "prep_t": 4.578,
+      "hold_s": 0.25,
+      "size": "medium",
+      "amp": 0.55,
+      "held": false,
+      "target": "her right, low",
+      "apex_height": "sternum"
+     }
+    ],
+    "hands_in_frame_min": null,
+    "lean": [
+     {
+      "kind": "in",
+      "deg": 6,
+      "word": "almost",
+      "t": 4.483
+     }
+    ],
+    "rest_after": true
+   }
+  },
+  {
+   "id": "W03",
+   "text": "Here's how.",
+   "t0": 6.5,
+   "t1": 7.069,
+   "f0": 152,
+   "f1": 179,
+   "shot": 3,
+   "kind": "pres",
+   "camera": "CAM_CU",
+   "gfx": null,
+   "on_cam": true,
+   "arc": "hook",
+   "arc_target": "curiosity",
+   "emotion": "conspiratorial delight: 'let me show you'",
+   "intensity": 0.8,
+   "base": {
+    "smile": 0.4,
+    "brows": 0.1
+   },
+   "face": [
+    {
+     "kind": "brow_flash",
+     "word": "Here's",
+     "t": 6.5,
+     "f": 156,
+     "onset_t": 6.38,
+     "end_t": 6.83,
+     "word_i": 18
+    },
+    {
+     "kind": "smile",
+     "word": "how.",
+     "t": 6.86,
+     "f": 165,
+     "onset_t": 6.56,
+     "end_t": 7.76,
+     "amount": 0.85,
+     "note": "full Duchenne (payoff 2/5)",
+     "hold": 0.6,
+     "word_i": 19
+    },
+    {
+     "kind": "nod",
+     "word": "how.",
+     "t": 6.86,
+     "f": 165,
+     "onset_t": 6.71,
+     "end_t": 7.06,
+     "word_i": 19
+    }
+   ],
+   "gestures": [
+    {
+     "type": "open_palm",
+     "hand": "both",
+     "word": "how.",
+     "stroke_t": 6.86,
+     "stroke_f": 165,
+     "prep_t": 6.56,
+     "prep_f": 157,
+     "hold_s": 0.5,
+     "size": "small",
+     "amp": 0.3,
+     "held": true,
+     "target": "camera",
+     "apex_height": "collarbone",
+     "note": "palms up, collarbone height: here it is",
+     "word_i": 19
+    }
+   ],
+   "lean": [
+    {
+     "word": "Here's",
+     "t": 6.5,
+     "f": 156,
+     "deg": 7
+    }
+   ],
+   "note": "CU, half a second of speech: the face carries it; the hands only enter at the bottom of the frame",
+   "face04": {
+    "line": "W03",
+    "emotion": "conspiratorial delight: 'let me show you'",
+    "intensity": 0.8,
+    "solver_mood": "SURPRISE",
+    "brow": [
+     {
+      "word": "Here's",
+      "word_i": 18,
+      "t": 6.5
+     }
+    ],
+    "smile": [
+     {
+      "word": "how.",
+      "word_i": 19,
+      "t": 6.86,
+      "kind": "duchenne",
+      "amount": 0.85,
+      "hold_s": 0.6,
+      "shape": null
+     }
+    ],
+    "nod": [
+     {
+      "word": "how.",
+      "word_i": 19,
+      "t": 6.86,
+      "kind": "yes"
+     }
+    ]
+   },
+   "body01": {
+    "line": "W03",
+    "on_cam": true,
+    "camera": "CAM_CU",
+    "gestures": [
+     {
+      "type": "open",
+      "detail": "open_palm",
+      "hand": "both",
+      "word": "how.",
+      "word_i": 19,
+      "stroke_t": 6.86,
+      "prep_t": 6.56,
+      "hold_s": 0.5,
+      "size": "small",
+      "amp": 0.3,
+      "held": true,
+      "target": "camera",
+      "apex_height": "collarbone"
+     }
+    ],
+    "hands_in_frame_min": 0.3,
+    "lean": [
+     {
+      "kind": "in",
+      "deg": 7,
+      "word": "Here's",
+      "t": 6.5
+     }
+    ],
+    "rest_after": true
+   }
+  },
+  {
+   "id": "W04",
+   "text": "Open the app, and your phone keeps one connection open to WhatsApp.",
+   "t0": 7.833,
+   "t1": 11.235,
+   "f0": 179,
+   "f1": 273,
+   "shot": 4,
+   "kind": "panel",
+   "camera": "CAM_MCU_L",
+   "gfx": "connect",
+   "on_cam": true,
+   "arc": "body",
+   "arc_target": "confident clarity",
+   "emotion": "clear, friendly walkthrough",
+   "intensity": 0.7,
+   "base": {
+    "smile": 0.3,
+    "brows": 0.05
+   },
+   "face": [
+    {
+     "kind": "brow_flash",
+     "word": "Open",
+     "t": 7.833,
+     "f": 188,
+     "onset_t": 7.713,
+     "end_t": 8.163,
+     "word_i": 20
+    },
+    {
+     "kind": "smile",
+     "word": "phone",
+     "t": 9.098,
+     "f": 218,
+     "onset_t": 8.798,
+     "end_t": 9.798,
+     "amount": 0.45,
+     "shape": "closed",
+     "hold": 0.4,
+     "word_i": 25
+    },
+    {
+     "kind": "nod",
+     "word": "connection",
+     "t": 10.099,
+     "f": 242,
+     "onset_t": 9.949,
+     "end_t": 10.299,
+     "word_i": 28
+    },
+    {
+     "kind": "tilt",
+     "word": "WhatsApp.",
+     "t": 10.909,
+     "f": 262,
+     "onset_t": 10.659,
+     "end_t": 11.859,
+     "side": "L",
+     "deg": 5,
+     "note": "toward the panel",
+     "word_i": 31
+    }
+   ],
+   "gestures": [
+    {
+     "type": "press",
+     "hand": "R",
+     "word": "app,",
+     "stroke_t": 8.309,
+     "stroke_f": 199,
+     "prep_t": 8.009,
+     "prep_f": 192,
+     "hold_s": 0.25,
+     "size": "small",
+     "amp": 0.3,
+     "held": false,
+     "target": "front",
+     "apex_height": "sternum",
+     "note": "a thumb tap on an imaginary phone",
+     "word_i": 22
+    },
+    {
+     "type": "place",
+     "hand": "R",
+     "word": "one",
+     "stroke_t": 9.725,
+     "stroke_f": 233,
+     "prep_t": 9.425,
+     "prep_f": 226,
+     "hold_s": 0.25,
+     "size": "small",
+     "amp": 0.3,
+     "held": false,
+     "target": "front",
+     "apex_height": "sternum",
+     "note": "an open hand sets down 'one' in front of him at chest height (no finger count)",
+     "word_i": 27
+    },
+    {
+     "type": "deictic",
+     "hand": "R",
+     "word": "connection",
+     "stroke_t": 10.099,
+     "stroke_f": 242,
+     "prep_t": 9.799,
+     "prep_f": 235,
+     "hold_s": 0.7,
+     "size": "medium",
+     "amp": 0.55,
+     "held": true,
+     "target": "panel (his left)",
+     "apex_height": "upper_chest",
+     "note": "draws the line from his chest toward the panel: cross-body, chest height, stops 15 cm left of the sternum under the mic head",
+     "word_i": 28
+    }
+   ],
+   "lean": [
+    {
+     "word": "your",
+     "t": 8.959,
+     "f": 215,
+     "deg": 6
+    }
+   ],
+   "face04": {
+    "line": "W04",
+    "emotion": "clear, friendly walkthrough",
+    "intensity": 0.7,
+    "solver_mood": "HAPPINESS",
+    "brow": [
+     {
+      "word": "Open",
+      "word_i": 20,
+      "t": 7.833
+     }
+    ],
+    "smile": [
+     {
+      "word": "phone",
+      "word_i": 25,
+      "t": 9.098,
+      "kind": "soft",
+      "amount": 0.45,
+      "hold_s": 0.4,
+      "shape": "closed"
+     }
+    ],
+    "nod": [
+     {
+      "word": "connection",
+      "word_i": 28,
+      "t": 10.099,
+      "kind": "yes"
+     }
+    ],
+    "tilt": [
+     {
+      "word": "WhatsApp.",
+      "word_i": 31,
+      "t": 10.909,
+      "deg": 5,
+      "side": "L"
+     }
+    ]
+   },
+   "body01": {
+    "line": "W04",
+    "on_cam": true,
+    "camera": "CAM_MCU_L",
+    "gestures": [
+     {
+      "type": "beat",
+      "detail": "press",
+      "hand": "r",
+      "word": "app,",
+      "word_i": 22,
+      "stroke_t": 8.309,
+      "prep_t": 8.009,
+      "hold_s": 0.25,
+      "size": "small",
+      "amp": 0.3,
+      "held": false,
+      "target": "front",
+      "apex_height": "sternum"
+     },
+     {
+      "type": "size",
+      "detail": "place",
+      "hand": "r",
+      "word": "one",
+      "word_i": 27,
+      "stroke_t": 9.725,
+      "prep_t": 9.425,
+      "hold_s": 0.25,
+      "size": "small",
+      "amp": 0.3,
+      "held": false,
+      "target": "front",
+      "apex_height": "sternum"
+     },
+     {
+      "type": "deictic",
+      "detail": "deictic",
+      "hand": "r",
+      "word": "connection",
+      "word_i": 28,
+      "stroke_t": 10.099,
+      "prep_t": 9.799,
+      "hold_s": 0.7,
+      "size": "medium",
+      "amp": 0.55,
+      "held": true,
+      "target": "panel (his left)",
+      "apex_height": "upper_chest"
+     }
+    ],
+    "hands_in_frame_min": 0.6,
+    "lean": [
+     {
+      "kind": "in",
+      "deg": 6,
+      "word": "your",
+      "t": 8.959
+     }
+    ],
+    "rest_after": true
+   }
+  },
+  {
+   "id": "W05",
+   "text": "On the server, each connection is its own tiny Erlang process.",
+   "t0": 11.542,
+   "t1": 15.06,
+   "f0": 273,
+   "f1": 422,
+   "shot": 5,
+   "kind": "gfx",
+   "camera": null,
+   "gfx": "erlang",
+   "on_cam": false,
+   "arc": "body",
+   "arc_target": "confident clarity",
+   "emotion": "fascinated, nerdy delight",
+   "intensity": 0.65,
+   "base": {
+    "smile": 0.3,
+    "brows": 0.05
+   },
+   "face": [
+    {
+     "kind": "tilt",
+     "word": "each",
+     "t": 12.552,
+     "f": 301,
+     "onset_t": 12.302,
+     "end_t": 13.502,
+     "side": "L",
+     "deg": 4,
+     "word_i": 35
+    },
+    {
+     "kind": "brow_flash",
+     "word": "tiny",
+     "t": 13.829,
+     "f": 332,
+     "onset_t": 13.709,
+     "end_t": 14.159,
+     "word_i": 40
+    },
+    {
+     "kind": "smile_soft",
+     "word": "Erlang",
+     "t": 14.212,
+     "f": 341,
+     "onset_t": 13.862,
+     "end_t": 14.662,
+     "amount": 0.5,
+     "word_i": 41
+    },
+    {
+     "kind": "nod",
+     "word": "process.",
+     "t": 14.549,
+     "f": 349,
+     "onset_t": 14.399,
+     "end_t": 14.749,
+     "word_i": 42
+    }
+   ],
+   "gestures": [
+    {
+     "type": "place",
+     "hand": "both",
+     "word": "server,",
+     "stroke_t": 11.879,
+     "stroke_f": 285,
+     "prep_t": 11.579,
+     "prep_f": 278,
+     "hold_s": 0.25,
+     "size": "medium",
+     "amp": 0.55,
+     "held": false,
+     "target": "front",
+     "apex_height": "sternum",
+     "word_i": 34
+    },
+    {
+     "type": "pinch",
+     "hand": "R",
+     "word": "tiny",
+     "stroke_t": 13.829,
+     "stroke_f": 332,
+     "prep_t": 13.529,
+     "prep_f": 325,
+     "hold_s": 0.5,
+     "size": "small",
+     "amp": 0.3,
+     "held": true,
+     "target": "front",
+     "apex_height": "sternum",
+     "word_i": 40
+    },
+    {
+     "type": "beat",
+     "hand": "R",
+     "word": "process.",
+     "stroke_t": 14.549,
+     "stroke_f": 349,
+     "prep_t": 14.249,
+     "prep_f": 342,
+     "hold_s": 0.25,
+     "size": "small",
+     "amp": 0.3,
+     "held": false,
+     "target": "camera",
+     "apex_height": "sternum",
+     "word_i": 42
+    }
+   ],
+   "lean": [
+    {
+     "word": "tiny",
+     "t": 13.829,
+     "f": 332,
+     "deg": 5
+    }
+   ],
+   "face04": {
+    "line": "W05",
+    "emotion": "fascinated, nerdy delight",
+    "intensity": 0.65,
+    "solver_mood": "HAPPINESS",
+    "brow": [
+     {
+      "word": "tiny",
+      "word_i": 40,
+      "t": 13.829
+     }
+    ],
+    "warm": [
+     {
+      "word": "Erlang",
+      "word_i": 41,
+      "t": 14.212,
+      "amount": 0.5
+     }
+    ],
+    "nod": [
+     {
+      "word": "process.",
+      "word_i": 42,
+      "t": 14.549,
+      "kind": "yes"
+     }
+    ],
+    "tilt": [
+     {
+      "word": "each",
+      "word_i": 35,
+      "t": 12.552,
+      "deg": 4,
+      "side": "L"
+     }
+    ]
+   },
+   "body01": {
+    "line": "W05",
+    "on_cam": false,
+    "camera": null,
+    "gestures": [
+     {
+      "type": "size",
+      "detail": "place",
+      "hand": "both",
+      "word": "server,",
+      "word_i": 34,
+      "stroke_t": 11.879,
+      "prep_t": 11.579,
+      "hold_s": 0.25,
+      "size": "medium",
+      "amp": 0.55,
+      "held": false,
+      "target": "front",
+      "apex_height": "sternum"
+     },
+     {
+      "type": "size",
+      "detail": "pinch",
+      "hand": "r",
+      "word": "tiny",
+      "word_i": 40,
+      "stroke_t": 13.829,
+      "prep_t": 13.529,
+      "hold_s": 0.5,
+      "size": "small",
+      "amp": 0.3,
+      "held": true,
+      "target": "front",
+      "apex_height": "sternum"
+     },
+     {
+      "type": "beat",
+      "detail": "beat",
+      "hand": "r",
+      "word": "process.",
+      "word_i": 42,
+      "stroke_t": 14.549,
+      "prep_t": 14.249,
+      "hold_s": 0.25,
+      "size": "small",
+      "amp": 0.3,
+      "held": false,
+      "target": "camera",
+      "apex_height": "sternum"
+     }
+    ],
+    "hands_in_frame_min": null,
+    "lean": [
+     {
+      "kind": "in",
+      "deg": 5,
+      "word": "tiny",
+      "t": 13.829
+     }
+    ],
+    "rest_after": true
+   }
+  },
+  {
+   "id": "W06",
+   "text": "One server once held two million of them.",
+   "t0": 15.333,
+   "t1": 17.191,
+   "f0": 273,
+   "f1": 422,
+   "shot": 5,
+   "kind": "gfx",
+   "camera": null,
+   "gfx": "erlang",
+   "on_cam": false,
+   "arc": "body",
+   "arc_target": "confident clarity",
+   "emotion": "impressed: a big number",
+   "intensity": 0.75,
+   "base": {
+    "smile": 0.3,
+    "brows": 0.1
+   },
+   "face": [
+    {
+     "kind": "brow_flash",
+     "word": "two",
+     "t": 16.366,
+     "f": 393,
+     "onset_t": 16.246,
+     "end_t": 16.696,
+     "word_i": 47
+    },
+    {
+     "kind": "smile",
+     "word": "million",
+     "t": 16.552,
+     "f": 397,
+     "onset_t": 16.252,
+     "end_t": 17.252,
+     "amount": 0.55,
+     "shape": "open lips",
+     "hold": 0.4,
+     "word_i": 48
+    },
+    {
+     "kind": "nod",
+     "word": "them.",
+     "t": 17.016,
+     "f": 408,
+     "onset_t": 16.866,
+     "end_t": 17.216,
+     "word_i": 50
+    }
+   ],
+   "gestures": [
+    {
+     "type": "place",
+     "hand": "R",
+     "word": "One",
+     "stroke_t": 15.333,
+     "stroke_f": 368,
+     "prep_t": 15.033,
+     "prep_f": 361,
+     "hold_s": 0.25,
+     "size": "small",
+     "amp": 0.3,
+     "held": false,
+     "target": "front",
+     "apex_height": "sternum",
+     "note": "an open hand sets down 'one server' (no finger count)",
+     "word_i": 43
+    },
+    {
+     "type": "size",
+     "hand": "both",
+     "word": "million",
+     "stroke_t": 16.552,
+     "stroke_f": 397,
+     "prep_t": 16.216,
+     "prep_f": 389,
+     "hold_s": 0.25,
+     "size": "big",
+     "amp": 0.85,
+     "held": false,
+     "target": "front",
+     "apex_height": "sternum",
+     "start_word": "two",
+     "note": "spread OUT at chest height (wrists at or below the collarbone), bowing forward, never up toward the face",
+     "word_i": 48
+    }
+   ],
+   "lean": [
+    {
+     "word": "two",
+     "t": 16.366,
+     "f": 393,
+     "deg": 6
+    }
+   ],
+   "face04": {
+    "line": "W06",
+    "emotion": "impressed: a big number",
+    "intensity": 0.75,
+    "solver_mood": "HAPPINESS",
+    "brow": [
+     {
+      "word": "two",
+      "word_i": 47,
+      "t": 16.366
+     }
+    ],
+    "smile": [
+     {
+      "word": "million",
+      "word_i": 48,
+      "t": 16.552,
+      "kind": "soft",
+      "amount": 0.55,
+      "hold_s": 0.4,
+      "shape": "open lips"
+     }
+    ],
+    "nod": [
+     {
+      "word": "them.",
+      "word_i": 50,
+      "t": 17.016,
+      "kind": "yes"
+     }
+    ]
+   },
+   "body01": {
+    "line": "W06",
+    "on_cam": false,
+    "camera": null,
+    "gestures": [
+     {
+      "type": "size",
+      "detail": "place",
+      "hand": "r",
+      "word": "One",
+      "word_i": 43,
+      "stroke_t": 15.333,
+      "prep_t": 15.033,
+      "hold_s": 0.25,
+      "size": "small",
+      "amp": 0.3,
+      "held": false,
+      "target": "front",
+      "apex_height": "sternum"
+     },
+     {
+      "type": "size",
+      "detail": "size",
+      "hand": "both",
+      "word": "million",
+      "word_i": 48,
+      "stroke_t": 16.552,
+      "prep_t": 16.216,
+      "hold_s": 0.25,
+      "size": "big",
+      "amp": 0.85,
+      "held": false,
+      "target": "front",
+      "apex_height": "sternum"
+     }
+    ],
+    "hands_in_frame_min": null,
+    "lean": [
+     {
+      "kind": "in",
+      "deg": 6,
+      "word": "two",
+      "t": 16.366
+     }
+    ],
+    "rest_after": true
+   }
+  },
+  {
+   "id": "W07",
+   "text": "You hit send. Is your friend online?",
+   "t0": 17.958,
+   "t1": 19.862,
+   "f0": 422,
+   "f1": 480,
+   "shot": 6,
+   "kind": "pres",
+   "camera": "CAM_WIDE",
+   "gfx": null,
+   "on_cam": true,
+   "arc": "body",
+   "arc_target": "confident clarity",
+   "emotion": "playful question",
+   "intensity": 0.75,
+   "base": {
+    "smile": 0.3,
+    "brows": 0.1
+   },
+   "face": [
+    {
+     "kind": "smile_soft",
+     "word": "You",
+     "t": 17.958,
+     "f": 431,
+     "onset_t": 17.608,
+     "end_t": 18.408,
+     "amount": 0.4,
+     "word_i": 51
+    },
+    {
+     "kind": "brow_flash",
+     "word": "send.",
+     "t": 18.388,
+     "f": 441,
+     "onset_t": 18.268,
+     "end_t": 18.718,
+     "word_i": 53
+    },
+    {
+     "kind": "glance",
+     "word": "Is",
+     "t": 18.864,
+     "f": 453,
+     "onset_t": 18.764,
+     "end_t": 19.164,
+     "dir": "up, his right",
+     "dur": 0.35,
+     "note": "agent-04's THINK beat",
+     "word_i": 54
+    },
+    {
+     "kind": "brow_hold",
+     "word": "friend",
+     "t": 19.189,
+     "f": 461,
+     "onset_t": 19.069,
+     "end_t": 19.669,
+     "hold": 0.6,
+     "word_i": 56
+    },
+    {
+     "kind": "tilt",
+     "word": "online?",
+     "t": 19.479,
+     "f": 467,
+     "onset_t": 19.229,
+     "end_t": 20.429,
+     "side": "R",
+     "deg": 6,
+     "word_i": 57
+    }
+   ],
+   "gestures": [
+    {
+     "type": "point_viewer",
+     "hand": "R",
+     "word": "You",
+     "stroke_t": 17.958,
+     "stroke_f": 431,
+     "prep_t": 17.658,
+     "prep_f": 424,
+     "hold_s": 0.25,
+     "size": "small",
+     "amp": 0.3,
+     "held": false,
+     "target": "camera",
+     "apex_height": "lower_chest",
+     "note": "open hand",
+     "word_i": 51
+    },
+    {
+     "type": "press",
+     "hand": "R",
+     "word": "send.",
+     "stroke_t": 18.388,
+     "stroke_f": 441,
+     "prep_t": 18.088,
+     "prep_f": 434,
+     "hold_s": 0.4,
+     "size": "medium",
+     "amp": 0.55,
+     "held": false,
+     "target": "front",
+     "apex_height": "sternum",
+     "note": "a thumb press, crisp",
+     "word_i": 53
+    },
+    {
+     "type": "open_palm",
+     "hand": "both",
+     "word": "online?",
+     "stroke_t": 19.594,
+     "stroke_f": 470,
+     "prep_t": 19.294,
+     "prep_f": 463,
+     "hold_s": 0.25,
+     "size": "medium",
+     "amp": 0.55,
+     "held": false,
+     "target": "front",
+     "apex_height": "sternum",
+     "note": "palms up, a small shrug: well, is he?",
+     "word_i": 57
+    }
+   ],
+   "lean": [
+    {
+     "word": "You",
+     "t": 17.958,
+     "f": 431,
+     "deg": 6
+    },
+    {
+     "word": "online?",
+     "t": 19.479,
+     "f": 467,
+     "deg": 3
+    }
+   ],
+   "note": "WIDE: elbows 20+ cm off the torso, hands up the whole line (the same fix as her 00:44 shot)",
+   "face04": {
+    "line": "W07",
+    "emotion": "playful question",
+    "intensity": 0.75,
+    "solver_mood": "HAPPINESS",
+    "brow": [
+     {
+      "word": "send.",
+      "word_i": 53,
+      "t": 18.388
+     }
+    ],
+    "curious": [
+     {
+      "word": "friend",
+      "word_i": 56,
+      "t": 19.189,
+      "kind": "brows_held",
+      "side": null,
+      "hold_s": 0.6
+     }
+    ],
+    "warm": [
+     {
+      "word": "You",
+      "word_i": 51,
+      "t": 17.958,
+      "amount": 0.4
+     }
+    ],
+    "tilt": [
+     {
+      "word": "online?",
+      "word_i": 57,
+      "t": 19.479,
+      "deg": 6,
+      "side": "R"
+     }
+    ],
+    "glance": [
+     {
+      "word": "Is",
+      "word_i": 54,
+      "t": 18.864,
+      "dir": "up, his right",
+      "dur_s": 0.35
+     }
+    ]
+   },
+   "body01": {
+    "line": "W07",
+    "on_cam": true,
+    "camera": "CAM_WIDE",
+    "gestures": [
+     {
+      "type": "open",
+      "detail": "point_viewer",
+      "hand": "r",
+      "word": "You",
+      "word_i": 51,
+      "stroke_t": 17.958,
+      "prep_t": 17.658,
+      "hold_s": 0.25,
+      "size": "small",
+      "amp": 0.3,
+      "held": false,
+      "target": "camera",
+      "apex_height": "lower_chest"
+     },
+     {
+      "type": "beat",
+      "detail": "press",
+      "hand": "r",
+      "word": "send.",
+      "word_i": 53,
+      "stroke_t": 18.388,
+      "prep_t": 18.088,
+      "hold_s": 0.4,
+      "size": "medium",
+      "amp": 0.55,
+      "held": false,
+      "target": "front",
+      "apex_height": "sternum"
+     },
+     {
+      "type": "open",
+      "detail": "open_palm",
+      "hand": "both",
+      "word": "online?",
+      "word_i": 57,
+      "stroke_t": 19.594,
+      "prep_t": 19.294,
+      "hold_s": 0.25,
+      "size": "medium",
+      "amp": 0.55,
+      "held": false,
+      "target": "front",
+      "apex_height": "sternum"
+     }
+    ],
+    "hands_in_frame_min": 1.0,
+    "lean": [
+     {
+      "kind": "in",
+      "deg": 6,
+      "word": "You",
+      "t": 17.958
+     },
+     {
+      "kind": "neutral",
+      "deg": 3,
+      "word": "online?",
+      "t": 19.479
+     }
+    ],
+    "rest_after": true
+   }
+  },
+  {
+   "id": "W08",
+   "text": "Then it goes straight down their connection.",
+   "t0": 20.167,
+   "t1": 21.943,
+   "f0": 480,
+   "f1": 614,
+   "shot": 7,
+   "kind": "gfx",
+   "camera": null,
+   "gfx": "store",
+   "on_cam": false,
+   "arc": "body",
+   "arc_target": "confident clarity",
+   "emotion": "simple, direct",
+   "intensity": 0.6,
+   "base": {
+    "smile": 0.25,
+    "brows": 0.05
+   },
+   "face": [
+    {
+     "kind": "brow_flash",
+     "word": "straight",
+     "t": 20.724,
+     "f": 497,
+     "onset_t": 20.604,
+     "end_t": 21.054,
+     "word_i": 61
+    },
+    {
+     "kind": "nod",
+     "word": "connection.",
+     "t": 21.594,
+     "f": 518,
+     "onset_t": 21.444,
+     "end_t": 21.794,
+     "word_i": 64
+    }
+   ],
+   "gestures": [
+    {
+     "type": "sweep",
+     "hand": "R",
+     "word": "straight",
+     "stroke_t": 20.724,
+     "stroke_f": 497,
+     "prep_t": 20.424,
+     "prep_f": 490,
+     "hold_s": 0.25,
+     "size": "medium",
+     "amp": 0.55,
+     "held": false,
+     "target": "front, down",
+     "apex_height": "sternum",
+     "note": "a flat hand slides straight forward",
+     "word_i": 61
+    }
+   ],
+   "lean": [
+    {
+     "word": "straight",
+     "t": 20.724,
+     "f": 497,
+     "deg": 5
+    }
+   ],
+   "face04": {
+    "line": "W08",
+    "emotion": "simple, direct",
+    "intensity": 0.6,
+    "solver_mood": "HAPPINESS",
+    "brow": [
+     {
+      "word": "straight",
+      "word_i": 61,
+      "t": 20.724
+     }
+    ],
+    "nod": [
+     {
+      "word": "connection.",
+      "word_i": 64,
+      "t": 21.594,
+      "kind": "yes"
+     }
+    ]
+   },
+   "body01": {
+    "line": "W08",
+    "on_cam": false,
+    "camera": null,
+    "gestures": [
+     {
+      "type": "open",
+      "detail": "sweep",
+      "hand": "r",
+      "word": "straight",
+      "word_i": 61,
+      "stroke_t": 20.724,
+      "prep_t": 20.424,
+      "hold_s": 0.25,
+      "size": "medium",
+      "amp": 0.55,
+      "held": false,
+      "target": "front, down",
+      "apex_height": "sternum"
+     }
+    ],
+    "hands_in_frame_min": null,
+    "lean": [
+     {
+      "kind": "in",
+      "deg": 5,
+      "word": "straight",
+      "t": 20.724
+     }
+    ],
+    "rest_after": true
+   }
+  },
+  {
+   "id": "W09",
+   "text": "If not, it waits. And once it's delivered, it's deleted.",
+   "t0": 22.25,
+   "t1": 25.211,
+   "f0": 480,
+   "f1": 614,
+   "shot": 7,
+   "kind": "gfx",
+   "camera": null,
+   "gfx": "store",
+   "on_cam": false,
+   "arc": "body",
+   "arc_target": "confident clarity",
+   "emotion": "patient, then a tidy satisfaction",
+   "intensity": 0.7,
+   "base": {
+    "smile": 0.25,
+    "brows": 0.05
+   },
+   "face": [
+    {
+     "kind": "brow_one",
+     "word": "not,",
+     "t": 22.471,
+     "f": 539,
+     "onset_t": 22.321,
+     "end_t": 22.821,
+     "side": "R",
+     "hold": 0.5,
+     "word_i": 66
+    },
+    {
+     "kind": "tilt",
+     "word": "waits.",
+     "t": 23.039,
+     "f": 553,
+     "onset_t": 22.789,
+     "end_t": 23.989,
+     "side": "L",
+     "deg": 4,
+     "word_i": 68
+    },
+    {
+     "kind": "nod",
+     "word": "delivered,",
+     "t": 24.263,
+     "f": 582,
+     "onset_t": 24.113,
+     "end_t": 24.463,
+     "word_i": 72
+    },
+    {
+     "kind": "smile",
+     "word": "deleted.",
+     "t": 24.926,
+     "f": 598,
+     "onset_t": 24.626,
+     "end_t": 25.626,
+     "amount": 0.55,
+     "shape": "closed",
+     "hold": 0.4,
+     "word_i": 74
+    }
+   ],
+   "gestures": [
+    {
+     "type": "wave_off",
+     "hand": "R",
+     "word": "not,",
+     "stroke_t": 22.471,
+     "stroke_f": 539,
+     "prep_t": 22.171,
+     "prep_f": 532,
+     "hold_s": 0.25,
+     "size": "small",
+     "amp": 0.3,
+     "held": false,
+     "target": "her right",
+     "apex_height": "sternum",
+     "word_i": 66
+    },
+    {
+     "type": "open_palm",
+     "hand": "R",
+     "word": "waits.",
+     "stroke_t": 23.039,
+     "stroke_f": 553,
+     "prep_t": 22.739,
+     "prep_f": 546,
+     "hold_s": 0.5,
+     "size": "small",
+     "amp": 0.3,
+     "held": true,
+     "target": "camera",
+     "apex_height": "sternum",
+     "note": "palm out: it waits",
+     "word_i": 68
+    },
+    {
+     "type": "chop",
+     "hand": "R",
+     "word": "deleted.",
+     "stroke_t": 24.926,
+     "stroke_f": 598,
+     "prep_t": 24.626,
+     "prep_f": 591,
+     "hold_s": 0.25,
+     "size": "medium",
+     "amp": 0.55,
+     "held": false,
+     "target": "front",
+     "apex_height": "sternum",
+     "note": "a crisp wipe: gone",
+     "word_i": 74
+    }
+   ],
+   "lean": [
+    {
+     "word": "once",
+     "t": 23.736,
+     "f": 570,
+     "deg": 5
+    }
+   ],
+   "face04": {
+    "line": "W09",
+    "emotion": "patient, then a tidy satisfaction",
+    "intensity": 0.7,
+    "solver_mood": "HAPPINESS",
+    "smile": [
+     {
+      "word": "deleted.",
+      "word_i": 74,
+      "t": 24.926,
+      "kind": "soft",
+      "amount": 0.55,
+      "hold_s": 0.4,
+      "shape": "closed"
+     }
+    ],
+    "curious": [
+     {
+      "word": "not,",
+      "word_i": 66,
+      "t": 22.471,
+      "kind": "one_brow",
+      "side": "R",
+      "hold_s": 0.5
+     }
+    ],
+    "nod": [
+     {
+      "word": "delivered,",
+      "word_i": 72,
+      "t": 24.263,
+      "kind": "yes"
+     }
+    ],
+    "tilt": [
+     {
+      "word": "waits.",
+      "word_i": 68,
+      "t": 23.039,
+      "deg": 4,
+      "side": "L"
+     }
+    ]
+   },
+   "body01": {
+    "line": "W09",
+    "on_cam": false,
+    "camera": null,
+    "gestures": [
+     {
+      "type": "deictic",
+      "detail": "wave_off",
+      "hand": "r",
+      "word": "not,",
+      "word_i": 66,
+      "stroke_t": 22.471,
+      "prep_t": 22.171,
+      "hold_s": 0.25,
+      "size": "small",
+      "amp": 0.3,
+      "held": false,
+      "target": "her right",
+      "apex_height": "sternum"
+     },
+     {
+      "type": "open",
+      "detail": "open_palm",
+      "hand": "r",
+      "word": "waits.",
+      "word_i": 68,
+      "stroke_t": 23.039,
+      "prep_t": 22.739,
+      "hold_s": 0.5,
+      "size": "small",
+      "amp": 0.3,
+      "held": true,
+      "target": "camera",
+      "apex_height": "sternum"
+     },
+     {
+      "type": "beat",
+      "detail": "chop",
+      "hand": "r",
+      "word": "deleted.",
+      "word_i": 74,
+      "stroke_t": 24.926,
+      "prep_t": 24.626,
+      "hold_s": 0.25,
+      "size": "medium",
+      "amp": 0.55,
+      "held": false,
+      "target": "front",
+      "apex_height": "sternum"
+     }
+    ],
+    "hands_in_frame_min": null,
+    "lean": [
+     {
+      "kind": "in",
+      "deg": 5,
+      "word": "once",
+      "t": 23.736
+     }
+    ],
+    "rest_after": true
+   }
+  },
+  {
+   "id": "W10",
+   "text": "Your ticks? One: the server has it.",
+   "t0": 25.958,
+   "t1": 28.28,
+   "f0": 614,
+   "f1": 769,
+   "shot": 8,
+   "kind": "panel",
+   "camera": "CAM_MCU_L",
+   "gfx": "ticks",
+   "on_cam": true,
+   "arc": "body",
+   "arc_target": "confident clarity",
+   "emotion": "playful, knowing: everyone wonders this",
+   "intensity": 0.75,
+   "base": {
+    "smile": 0.3,
+    "brows": 0.1
+   },
+   "face": [
+    {
+     "kind": "glance",
+     "word": "Your",
+     "t": 25.958,
+     "f": 623,
+     "onset_t": 25.858,
+     "end_t": 26.258,
+     "dir": "his left, to the panel",
+     "dur": 0.35,
+     "note": "agent-04's THINK beat, toward the ticks",
+     "word_i": 75
+    },
+    {
+     "kind": "brow_hold",
+     "word": "ticks?",
+     "t": 26.225,
+     "f": 629,
+     "onset_t": 26.105,
+     "end_t": 26.705,
+     "hold": 0.6,
+     "word_i": 76
+    },
+    {
+     "kind": "smile",
+     "word": "server",
+     "t": 27.607,
+     "f": 663,
+     "onset_t": 27.307,
+     "end_t": 28.207,
+     "amount": 0.45,
+     "shape": "lopsided L",
+     "hold": 0.3,
+     "word_i": 79
+    },
+    {
+     "kind": "nod",
+     "word": "it.",
+     "t": 28.187,
+     "f": 676,
+     "onset_t": 28.037,
+     "end_t": 28.387,
+     "word_i": 81
+    }
+   ],
+   "gestures": [
+    {
+     "type": "deictic",
+     "hand": "R",
+     "word": "ticks?",
+     "stroke_t": 26.225,
+     "stroke_f": 629,
+     "prep_t": 25.925,
+     "prep_f": 622,
+     "hold_s": 0.5,
+     "size": "medium",
+     "amp": 0.55,
+     "held": true,
+     "target": "panel (his left)",
+     "apex_height": "upper_chest",
+     "note": "cross-body open palm toward the ticks, under the mic head",
+     "word_i": 76
+    },
+    {
+     "type": "list",
+     "hand": "R",
+     "word": "One:",
+     "stroke_t": 26.945,
+     "stroke_f": 647,
+     "prep_t": 26.645,
+     "prep_f": 639,
+     "hold_s": 0.25,
+     "size": "medium",
+     "amp": 0.55,
+     "held": false,
+     "target": "front, his midline",
+     "apex_height": "sternum",
+     "item": 1,
+     "of": 2,
+     "note": "open hand, palm angled up/in, PLACES item 1 of 2 on a line in front of him at chest height (back from the panel to his midline); the forearm angled toward camera, wrist below the collarbone, a small drift, no finger counting",
+     "word_i": 77
+    },
+    {
+     "type": "beat",
+     "hand": "R",
+     "word": "has",
+     "stroke_t": 27.967,
+     "stroke_f": 671,
+     "prep_t": 27.667,
+     "prep_f": 664,
+     "hold_s": 0.25,
+     "size": "small",
+     "amp": 0.3,
+     "held": false,
+     "target": "camera",
+     "apex_height": "sternum",
+     "word_i": 80
+    }
+   ],
+   "lean": [
+    {
+     "word": "Your",
+     "t": 25.958,
+     "f": 623,
+     "deg": 5
+    }
+   ],
+   "face04": {
+    "line": "W10",
+    "emotion": "playful, knowing: everyone wonders this",
+    "intensity": 0.75,
+    "solver_mood": "HAPPINESS",
+    "smile": [
+     {
+      "word": "server",
+      "word_i": 79,
+      "t": 27.607,
+      "kind": "soft",
+      "amount": 0.45,
+      "hold_s": 0.3,
+      "shape": "lopsided L"
+     }
+    ],
+    "curious": [
+     {
+      "word": "ticks?",
+      "word_i": 76,
+      "t": 26.225,
+      "kind": "brows_held",
+      "side": null,
+      "hold_s": 0.6
+     }
+    ],
+    "nod": [
+     {
+      "word": "it.",
+      "word_i": 81,
+      "t": 28.187,
+      "kind": "yes"
+     }
+    ],
+    "glance": [
+     {
+      "word": "Your",
+      "word_i": 75,
+      "t": 25.958,
+      "dir": "his left, to the panel",
+      "dur_s": 0.35
+     }
+    ]
+   },
+   "body01": {
+    "line": "W10",
+    "on_cam": true,
+    "camera": "CAM_MCU_L",
+    "gestures": [
+     {
+      "type": "deictic",
+      "detail": "deictic",
+      "hand": "r",
+      "word": "ticks?",
+      "word_i": 76,
+      "stroke_t": 26.225,
+      "prep_t": 25.925,
+      "hold_s": 0.5,
+      "size": "medium",
+      "amp": 0.55,
+      "held": true,
+      "target": "panel (his left)",
+      "apex_height": "upper_chest"
+     },
+     {
+      "type": "list",
+      "detail": "list",
+      "hand": "r",
+      "word": "One:",
+      "word_i": 77,
+      "stroke_t": 26.945,
+      "prep_t": 26.645,
+      "hold_s": 0.25,
+      "size": "medium",
+      "amp": 0.55,
+      "held": false,
+      "target": "front, his midline",
+      "apex_height": "sternum",
+      "item": 1,
+      "of": 2
+     },
+     {
+      "type": "beat",
+      "detail": "beat",
+      "hand": "r",
+      "word": "has",
+      "word_i": 80,
+      "stroke_t": 27.967,
+      "prep_t": 27.667,
+      "hold_s": 0.25,
+      "size": "small",
+      "amp": 0.3,
+      "held": false,
+      "target": "camera",
+      "apex_height": "sternum"
+     }
+    ],
+    "hands_in_frame_min": 0.6,
+    "lean": [
+     {
+      "kind": "in",
+      "deg": 5,
+      "word": "Your",
+      "t": 25.958
+     }
+    ],
+    "rest_after": true
+   }
+  },
+  {
+   "id": "W11",
+   "text": "Two: it reached their phone. Blue: they've read it.",
+   "t0": 28.583,
+   "t1": 31.683,
+   "f0": 614,
+   "f1": 769,
+   "shot": 8,
+   "kind": "panel",
+   "camera": "CAM_MCU_L",
+   "gfx": "ticks",
+   "on_cam": true,
+   "arc": "body",
+   "arc_target": "confident clarity",
+   "emotion": "building to a little reveal",
+   "intensity": 0.8,
+   "base": {
+    "smile": 0.3,
+    "brows": 0.05
+   },
+   "face": [
+    {
+     "kind": "nod",
+     "word": "phone.",
+     "t": 29.872,
+     "f": 717,
+     "onset_t": 29.722,
+     "end_t": 30.072,
+     "word_i": 86
+    },
+    {
+     "kind": "brow_flash",
+     "word": "Blue:",
+     "t": 30.522,
+     "f": 733,
+     "onset_t": 30.402,
+     "end_t": 30.852,
+     "word_i": 87
+    },
+    {
+     "kind": "smile",
+     "word": "read",
+     "t": 31.404,
+     "f": 754,
+     "onset_t": 31.104,
+     "end_t": 32.204,
+     "amount": 0.85,
+     "note": "full Duchenne (payoff 3/5): the blue ticks",
+     "hold": 0.5,
+     "word_i": 89
+    }
+   ],
+   "gestures": [
+    {
+     "type": "list",
+     "hand": "R",
+     "word": "Two:",
+     "stroke_t": 28.583,
+     "stroke_f": 686,
+     "prep_t": 28.283,
+     "prep_f": 679,
+     "hold_s": 0.25,
+     "size": "medium",
+     "amp": 0.55,
+     "held": false,
+     "target": "front, a hand-width to his right",
+     "apex_height": "sternum",
+     "item": 2,
+     "of": 2,
+     "note": "open hand, palm angled up/in, PLACES item 2 of 2 on a line in front of him at chest height (a hand-width to his right); the forearm angled toward camera, wrist below the collarbone, a small drift, no finger counting",
+     "word_i": 82
+    },
+    {
+     "type": "deictic",
+     "hand": "R",
+     "word": "Blue:",
+     "stroke_t": 30.522,
+     "stroke_f": 733,
+     "prep_t": 30.222,
+     "prep_f": 725,
+     "hold_s": 0.5,
+     "size": "medium",
+     "amp": 0.55,
+     "held": true,
+     "target": "panel (his left)",
+     "apex_height": "upper_chest",
+     "note": "the open hand turns toward the panel's blue ticks",
+     "word_i": 87
+    },
+    {
+     "type": "open_palm",
+     "hand": "R",
+     "word": "read",
+     "stroke_t": 31.404,
+     "stroke_f": 754,
+     "prep_t": 31.104,
+     "prep_f": 746,
+     "hold_s": 0.25,
+     "size": "small",
+     "amp": 0.3,
+     "held": false,
+     "target": "camera",
+     "apex_height": "sternum",
+     "word_i": 89
+    }
+   ],
+   "lean": [
+    {
+     "word": "Blue:",
+     "t": 30.522,
+     "f": 733,
+     "deg": 7
+    }
+   ],
+   "face04": {
+    "line": "W11",
+    "emotion": "building to a little reveal",
+    "intensity": 0.8,
+    "solver_mood": "HAPPINESS",
+    "brow": [
+     {
+      "word": "Blue:",
+      "word_i": 87,
+      "t": 30.522
+     }
+    ],
+    "smile": [
+     {
+      "word": "read",
+      "word_i": 89,
+      "t": 31.404,
+      "kind": "duchenne",
+      "amount": 0.85,
+      "hold_s": 0.5,
+      "shape": null
+     }
+    ],
+    "nod": [
+     {
+      "word": "phone.",
+      "word_i": 86,
+      "t": 29.872,
+      "kind": "yes"
+     }
+    ]
+   },
+   "body01": {
+    "line": "W11",
+    "on_cam": true,
+    "camera": "CAM_MCU_L",
+    "gestures": [
+     {
+      "type": "list",
+      "detail": "list",
+      "hand": "r",
+      "word": "Two:",
+      "word_i": 82,
+      "stroke_t": 28.583,
+      "prep_t": 28.283,
+      "hold_s": 0.25,
+      "size": "medium",
+      "amp": 0.55,
+      "held": false,
+      "target": "front, a hand-width to his right",
+      "apex_height": "sternum",
+      "item": 2,
+      "of": 2
+     },
+     {
+      "type": "deictic",
+      "detail": "deictic",
+      "hand": "r",
+      "word": "Blue:",
+      "word_i": 87,
+      "stroke_t": 30.522,
+      "prep_t": 30.222,
+      "hold_s": 0.5,
+      "size": "medium",
+      "amp": 0.55,
+      "held": true,
+      "target": "panel (his left)",
+      "apex_height": "upper_chest"
+     },
+     {
+      "type": "open",
+      "detail": "open_palm",
+      "hand": "r",
+      "word": "read",
+      "word_i": 89,
+      "stroke_t": 31.404,
+      "prep_t": 31.104,
+      "hold_s": 0.25,
+      "size": "small",
+      "amp": 0.3,
+      "held": false,
+      "target": "camera",
+      "apex_height": "sternum"
+     }
+    ],
+    "hands_in_frame_min": 0.6,
+    "lean": [
+     {
+      "kind": "in",
+      "deg": 7,
+      "word": "Blue:",
+      "t": 30.522
+     }
+    ],
+    "rest_after": true
+   }
+  },
+  {
+   "id": "W12",
+   "text": "In a group, your phone encrypts once. The server fans it out to everyone.",
+   "t0": 32.417,
+   "t1": 35.877,
+   "f0": 769,
+   "f1": 870,
+   "shot": 9,
+   "kind": "gfx",
+   "camera": null,
+   "gfx": "group",
+   "on_cam": false,
+   "arc": "body",
+   "arc_target": "confident clarity",
+   "emotion": "clever efficiency",
+   "intensity": 0.7,
+   "base": {
+    "smile": 0.3,
+    "brows": 0.05
+   },
+   "face": [
+    {
+     "kind": "brow_flash",
+     "word": "once.",
+     "t": 33.752,
+     "f": 810,
+     "onset_t": 33.632,
+     "end_t": 34.082,
+     "word_i": 97
+    },
+    {
+     "kind": "nod",
+     "word": "once.",
+     "t": 33.752,
+     "f": 810,
+     "onset_t": 33.602,
+     "end_t": 33.952,
+     "word_i": 97
+    },
+    {
+     "kind": "smile",
+     "word": "everyone.",
+     "t": 35.389,
+     "f": 849,
+     "onset_t": 35.089,
+     "end_t": 36.089,
+     "amount": 0.5,
+     "shape": "open lips",
+     "hold": 0.4,
+     "word_i": 104
+    }
+   ],
+   "gestures": [
+    {
+     "type": "raise_finger",
+     "hand": "R",
+     "word": "once.",
+     "stroke_t": 33.752,
+     "stroke_f": 810,
+     "prep_t": 33.452,
+     "prep_f": 803,
+     "hold_s": 0.5,
+     "size": "small",
+     "amp": 0.3,
+     "held": true,
+     "target": "up",
+     "apex_height": "sternum",
+     "word_i": 97
+    },
+    {
+     "type": "sweep",
+     "hand": "both",
+     "word": "fans",
+     "stroke_t": 34.716,
+     "stroke_f": 833,
+     "prep_t": 34.416,
+     "prep_f": 826,
+     "hold_s": 0.25,
+     "size": "big",
+     "amp": 0.85,
+     "held": false,
+     "target": "front",
+     "apex_height": "sternum",
+     "note": "both hands fan out from the centre",
+     "word_i": 100
+    }
+   ],
+   "lean": [
+    {
+     "word": "once.",
+     "t": 33.752,
+     "f": 810,
+     "deg": 5
+    }
+   ],
+   "face04": {
+    "line": "W12",
+    "emotion": "clever efficiency",
+    "intensity": 0.7,
+    "solver_mood": "HAPPINESS",
+    "brow": [
+     {
+      "word": "once.",
+      "word_i": 97,
+      "t": 33.752
+     }
+    ],
+    "smile": [
+     {
+      "word": "everyone.",
+      "word_i": 104,
+      "t": 35.389,
+      "kind": "soft",
+      "amount": 0.5,
+      "hold_s": 0.4,
+      "shape": "open lips"
+     }
+    ],
+    "nod": [
+     {
+      "word": "once.",
+      "word_i": 97,
+      "t": 33.752,
+      "kind": "yes"
+     }
+    ]
+   },
+   "body01": {
+    "line": "W12",
+    "on_cam": false,
+    "camera": null,
+    "gestures": [
+     {
+      "type": "beat",
+      "detail": "raise_finger",
+      "hand": "r",
+      "word": "once.",
+      "word_i": 97,
+      "stroke_t": 33.752,
+      "prep_t": 33.452,
+      "hold_s": 0.5,
+      "size": "small",
+      "amp": 0.3,
+      "held": true,
+      "target": "up",
+      "apex_height": "sternum"
+     },
+     {
+      "type": "open",
+      "detail": "sweep",
+      "hand": "both",
+      "word": "fans",
+      "word_i": 100,
+      "stroke_t": 34.716,
+      "prep_t": 34.416,
+      "hold_s": 0.25,
+      "size": "big",
+      "amp": 0.85,
+      "held": false,
+      "target": "front",
+      "apex_height": "sternum"
+     }
+    ],
+    "hands_in_frame_min": null,
+    "lean": [
+     {
+      "kind": "in",
+      "deg": 5,
+      "word": "once.",
+      "t": 33.752
+     }
+    ],
+    "rest_after": true
+   }
+  },
+  {
+   "id": "W13",
+   "text": "And the server can't read a word of it.",
+   "t0": 36.625,
+   "t1": 38.575,
+   "f0": 870,
+   "f1": 929,
+   "shot": 10,
+   "kind": "pres",
+   "camera": "CAM_CU",
+   "gfx": null,
+   "on_cam": true,
+   "arc": "body",
+   "arc_target": "confident clarity",
+   "emotion": "reassuring, a little conspiratorial",
+   "intensity": 0.8,
+   "base": {
+    "smile": 0.3,
+    "brows": 0.05
+   },
+   "face": [
+    {
+     "kind": "brow_hold",
+     "word": "can't",
+     "t": 37.403,
+     "f": 898,
+     "onset_t": 37.283,
+     "end_t": 37.883,
+     "hold": 0.6,
+     "word_i": 108
+    },
+    {
+     "kind": "shake",
+     "word": "can't",
+     "t": 37.403,
+     "f": 898,
+     "onset_t": 37.253,
+     "end_t": 37.753,
+     "word_i": 108
+    },
+    {
+     "kind": "smile",
+     "word": "word",
+     "t": 37.995,
+     "f": 912,
+     "onset_t": 37.695,
+     "end_t": 38.795,
+     "amount": 0.6,
+     "shape": "closed, knowing",
+     "hold": 0.5,
+     "word_i": 111
+    }
+   ],
+   "gestures": [
+    {
+     "type": "wave_off",
+     "hand": "R",
+     "word": "can't",
+     "stroke_t": 37.403,
+     "stroke_f": 898,
+     "prep_t": 37.103,
+     "prep_f": 890,
+     "hold_s": 0.25,
+     "size": "small",
+     "amp": 0.3,
+     "held": false,
+     "target": "camera",
+     "apex_height": "collarbone",
+     "note": "palm out, a small side-to-side 'no'",
+     "word_i": 108
+    },
+    {
+     "type": "beat",
+     "hand": "R",
+     "word": "word",
+     "stroke_t": 37.995,
+     "stroke_f": 912,
+     "prep_t": 37.695,
+     "prep_f": 905,
+     "hold_s": 0.25,
+     "size": "small",
+     "amp": 0.3,
+     "held": false,
+     "target": "camera",
+     "apex_height": "collarbone",
+     "word_i": 111
+    }
+   ],
+   "lean": [
+    {
+     "word": "And",
+     "t": 36.625,
+     "f": 879,
+     "deg": 6
+    }
+   ],
+   "note": "CU: the 'no' is the face and a small hand at the bottom of the frame",
+   "face04": {
+    "line": "W13",
+    "emotion": "reassuring, a little conspiratorial",
+    "intensity": 0.8,
+    "solver_mood": "HAPPINESS",
+    "smile": [
+     {
+      "word": "word",
+      "word_i": 111,
+      "t": 37.995,
+      "kind": "soft",
+      "amount": 0.6,
+      "hold_s": 0.5,
+      "shape": "closed, knowing"
+     }
+    ],
+    "curious": [
+     {
+      "word": "can't",
+      "word_i": 108,
+      "t": 37.403,
+      "kind": "brows_held",
+      "side": null,
+      "hold_s": 0.6
+     }
+    ],
+    "shake": [
+     {
+      "word": "can't",
+      "word_i": 108,
+      "t": 37.403
+     }
+    ]
+   },
+   "body01": {
+    "line": "W13",
+    "on_cam": true,
+    "camera": "CAM_CU",
+    "gestures": [
+     {
+      "type": "deictic",
+      "detail": "wave_off",
+      "hand": "r",
+      "word": "can't",
+      "word_i": 108,
+      "stroke_t": 37.403,
+      "prep_t": 37.103,
+      "hold_s": 0.25,
+      "size": "small",
+      "amp": 0.3,
+      "held": false,
+      "target": "camera",
+      "apex_height": "collarbone"
+     },
+     {
+      "type": "beat",
+      "detail": "beat",
+      "hand": "r",
+      "word": "word",
+      "word_i": 111,
+      "stroke_t": 37.995,
+      "prep_t": 37.695,
+      "hold_s": 0.25,
+      "size": "small",
+      "amp": 0.3,
+      "held": false,
+      "target": "camera",
+      "apex_height": "collarbone"
+     }
+    ],
+    "hands_in_frame_min": 0.3,
+    "lean": [
+     {
+      "kind": "in",
+      "deg": 6,
+      "word": "And",
+      "t": 36.625
+     }
+    ],
+    "rest_after": true
+   }
+  },
+  {
+   "id": "W14",
+   "text": "The Signal protocol keeps the keys on your phones.",
+   "t0": 38.875,
+   "t1": 41.162,
+   "f0": 929,
+   "f1": 997,
+   "shot": 11,
+   "kind": "gfx",
+   "camera": null,
+   "gfx": "e2e",
+   "on_cam": false,
+   "arc": "body",
+   "arc_target": "confident clarity",
+   "emotion": "confident trust",
+   "intensity": 0.7,
+   "base": {
+    "smile": 0.3,
+    "brows": 0.05
+   },
+   "face": [
+    {
+     "kind": "brow_flash",
+     "word": "Signal",
+     "t": 39.061,
+     "f": 937,
+     "onset_t": 38.941,
+     "end_t": 39.391,
+     "word_i": 115
+    },
+    {
+     "kind": "smile",
+     "word": "keys",
+     "t": 40.28,
+     "f": 967,
+     "onset_t": 39.98,
+     "end_t": 40.98,
+     "amount": 0.5,
+     "shape": "closed",
+     "hold": 0.4,
+     "word_i": 119
+    },
+    {
+     "kind": "nod",
+     "word": "phones.",
+     "t": 40.756,
+     "f": 978,
+     "onset_t": 40.606,
+     "end_t": 40.956,
+     "word_i": 122
+    }
+   ],
+   "gestures": [
+    {
+     "type": "open_palm",
+     "hand": "R",
+     "word": "Signal",
+     "stroke_t": 39.061,
+     "stroke_f": 937,
+     "prep_t": 38.761,
+     "prep_f": 930,
+     "hold_s": 0.25,
+     "size": "small",
+     "amp": 0.3,
+     "held": false,
+     "target": "camera",
+     "apex_height": "sternum",
+     "word_i": 115
+    },
+    {
+     "type": "point_viewer",
+     "hand": "R",
+     "word": "your",
+     "stroke_t": 40.628,
+     "stroke_f": 975,
+     "prep_t": 40.328,
+     "prep_f": 968,
+     "hold_s": 0.25,
+     "size": "small",
+     "amp": 0.3,
+     "held": false,
+     "target": "camera",
+     "apex_height": "sternum",
+     "word_i": 121
+    }
+   ],
+   "lean": [
+    {
+     "word": "your",
+     "t": 40.628,
+     "f": 975,
+     "deg": 5
+    }
+   ],
+   "face04": {
+    "line": "W14",
+    "emotion": "confident trust",
+    "intensity": 0.7,
+    "solver_mood": "HAPPINESS",
+    "brow": [
+     {
+      "word": "Signal",
+      "word_i": 115,
+      "t": 39.061
+     }
+    ],
+    "smile": [
+     {
+      "word": "keys",
+      "word_i": 119,
+      "t": 40.28,
+      "kind": "soft",
+      "amount": 0.5,
+      "hold_s": 0.4,
+      "shape": "closed"
+     }
+    ],
+    "nod": [
+     {
+      "word": "phones.",
+      "word_i": 122,
+      "t": 40.756,
+      "kind": "yes"
+     }
+    ]
+   },
+   "body01": {
+    "line": "W14",
+    "on_cam": false,
+    "camera": null,
+    "gestures": [
+     {
+      "type": "open",
+      "detail": "open_palm",
+      "hand": "r",
+      "word": "Signal",
+      "word_i": 115,
+      "stroke_t": 39.061,
+      "prep_t": 38.761,
+      "hold_s": 0.25,
+      "size": "small",
+      "amp": 0.3,
+      "held": false,
+      "target": "camera",
+      "apex_height": "sternum"
+     },
+     {
+      "type": "open",
+      "detail": "point_viewer",
+      "hand": "r",
+      "word": "your",
+      "word_i": 121,
+      "stroke_t": 40.628,
+      "prep_t": 40.328,
+      "hold_s": 0.25,
+      "size": "small",
+      "amp": 0.3,
+      "held": false,
+      "target": "camera",
+      "apex_height": "sternum"
+     }
+    ],
+    "hands_in_frame_min": null,
+    "lean": [
+     {
+      "kind": "in",
+      "deg": 5,
+      "word": "your",
+      "t": 40.628
+     }
+    ],
+    "rest_after": true
+   }
+  },
+  {
+   "id": "W15",
+   "text": "Photos go to a blob store, encrypted. Only the key rides in the message.",
+   "t0": 41.917,
+   "t1": 46.34,
+   "f0": 997,
+   "f1": 1121,
+   "shot": 12,
+   "kind": "panel",
+   "camera": "CAM_MCU_L",
+   "gfx": "media",
+   "on_cam": true,
+   "arc": "body",
+   "arc_target": "confident clarity",
+   "emotion": "clear, a neat detail",
+   "intensity": 0.7,
+   "base": {
+    "smile": 0.25,
+    "brows": 0.05
+   },
+   "face": [
+    {
+     "kind": "glance",
+     "word": "Photos",
+     "t": 41.917,
+     "f": 1006,
+     "onset_t": 41.817,
+     "end_t": 42.217,
+     "dir": "his left, to the panel",
+     "dur": 0.4,
+     "note": "agent-04's THINK beat, with the deictic",
+     "word_i": 123
+    },
+    {
+     "kind": "brow_flash",
+     "word": "blob",
+     "t": 42.846,
+     "f": 1028,
+     "onset_t": 42.726,
+     "end_t": 43.176,
+     "word_i": 127
+    },
+    {
+     "kind": "nod",
+     "word": "encrypted.",
+     "t": 43.819,
+     "f": 1052,
+     "onset_t": 43.669,
+     "end_t": 44.019,
+     "word_i": 129
+    },
+    {
+     "kind": "brow_flash",
+     "word": "Only",
+     "t": 44.669,
+     "f": 1072,
+     "onset_t": 44.549,
+     "end_t": 44.999,
+     "word_i": 130
+    },
+    {
+     "kind": "smile",
+     "word": "key",
+     "t": 45.121,
+     "f": 1083,
+     "onset_t": 44.821,
+     "end_t": 45.821,
+     "amount": 0.5,
+     "shape": "lopsided R",
+     "hold": 0.4,
+     "word_i": 132
+    }
+   ],
+   "gestures": [
+    {
+     "type": "deictic",
+     "hand": "R",
+     "word": "Photos",
+     "stroke_t": 41.917,
+     "stroke_f": 1006,
+     "prep_t": 41.617,
+     "prep_f": 999,
+     "hold_s": 0.25,
+     "size": "small",
+     "amp": 0.3,
+     "held": false,
+     "target": "panel (his left)",
+     "apex_height": "sternum",
+     "note": "cross-body, under the mic head",
+     "word_i": 123
+    },
+    {
+     "type": "place",
+     "hand": "both",
+     "word": "store,",
+     "stroke_t": 43.171,
+     "stroke_f": 1036,
+     "prep_t": 42.871,
+     "prep_f": 1029,
+     "hold_s": 0.5,
+     "size": "medium",
+     "amp": 0.55,
+     "held": true,
+     "target": "front",
+     "apex_height": "upper_chest",
+     "note": "sets a box down in front of him",
+     "word_i": 128
+    },
+    {
+     "type": "pinch",
+     "hand": "R",
+     "word": "Only",
+     "stroke_t": 44.669,
+     "stroke_f": 1072,
+     "prep_t": 44.369,
+     "prep_f": 1065,
+     "hold_s": 0.6,
+     "size": "small",
+     "amp": 0.3,
+     "held": true,
+     "target": "camera",
+     "apex_height": "sternum",
+     "note": "just the key: thumb and index",
+     "word_i": 130
+    },
+    {
+     "type": "open_palm",
+     "hand": "R",
+     "word": "message.",
+     "stroke_t": 45.957,
+     "stroke_f": 1103,
+     "prep_t": 45.657,
+     "prep_f": 1096,
+     "hold_s": 0.25,
+     "size": "small",
+     "amp": 0.3,
+     "held": false,
+     "target": "front",
+     "apex_height": "sternum",
+     "word_i": 136
+    }
+   ],
+   "lean": [
+    {
+     "word": "Only",
+     "t": 44.669,
+     "f": 1072,
+     "deg": 6
+    }
+   ],
+   "face04": {
+    "line": "W15",
+    "emotion": "clear, a neat detail",
+    "intensity": 0.7,
+    "solver_mood": "HAPPINESS",
+    "brow": [
+     {
+      "word": "blob",
+      "word_i": 127,
+      "t": 42.846
+     },
+     {
+      "word": "Only",
+      "word_i": 130,
+      "t": 44.669
+     }
+    ],
+    "smile": [
+     {
+      "word": "key",
+      "word_i": 132,
+      "t": 45.121,
+      "kind": "soft",
+      "amount": 0.5,
+      "hold_s": 0.4,
+      "shape": "lopsided R"
+     }
+    ],
+    "nod": [
+     {
+      "word": "encrypted.",
+      "word_i": 129,
+      "t": 43.819,
+      "kind": "yes"
+     }
+    ],
+    "glance": [
+     {
+      "word": "Photos",
+      "word_i": 123,
+      "t": 41.917,
+      "dir": "his left, to the panel",
+      "dur_s": 0.4
+     }
+    ]
+   },
+   "body01": {
+    "line": "W15",
+    "on_cam": true,
+    "camera": "CAM_MCU_L",
+    "gestures": [
+     {
+      "type": "deictic",
+      "detail": "deictic",
+      "hand": "r",
+      "word": "Photos",
+      "word_i": 123,
+      "stroke_t": 41.917,
+      "prep_t": 41.617,
+      "hold_s": 0.25,
+      "size": "small",
+      "amp": 0.3,
+      "held": false,
+      "target": "panel (his left)",
+      "apex_height": "sternum"
+     },
+     {
+      "type": "size",
+      "detail": "place",
+      "hand": "both",
+      "word": "store,",
+      "word_i": 128,
+      "stroke_t": 43.171,
+      "prep_t": 42.871,
+      "hold_s": 0.5,
+      "size": "medium",
+      "amp": 0.55,
+      "held": true,
+      "target": "front",
+      "apex_height": "upper_chest"
+     },
+     {
+      "type": "size",
+      "detail": "pinch",
+      "hand": "r",
+      "word": "Only",
+      "word_i": 130,
+      "stroke_t": 44.669,
+      "prep_t": 44.369,
+      "hold_s": 0.6,
+      "size": "small",
+      "amp": 0.3,
+      "held": true,
+      "target": "camera",
+      "apex_height": "sternum"
+     },
+     {
+      "type": "open",
+      "detail": "open_palm",
+      "hand": "r",
+      "word": "message.",
+      "word_i": 136,
+      "stroke_t": 45.957,
+      "prep_t": 45.657,
+      "hold_s": 0.25,
+      "size": "small",
+      "amp": 0.3,
+      "held": false,
+      "target": "front",
+      "apex_height": "sternum"
+     }
+    ],
+    "hands_in_frame_min": 0.6,
+    "lean": [
+     {
+      "kind": "in",
+      "deg": 6,
+      "word": "Only",
+      "t": 44.669
+     }
+    ],
+    "rest_after": true
+   }
+  },
+  {
+   "id": "W16",
+   "text": "Tiny processes. Messages that don't linger. Keys that never leave your hands.",
+   "t0": 47.083,
+   "t1": 52.006,
+   "f0": 1121,
+   "f1": 1252,
+   "shot": 13,
+   "kind": "pres",
+   "camera": "CAM_MCU",
+   "gfx": null,
+   "on_cam": true,
+   "arc": "payoff",
+   "arc_target": "satisfied delight",
+   "emotion": "satisfied, the three ideas land",
+   "intensity": 0.8,
+   "base": {
+    "smile": 0.35,
+    "brows": 0.05
+   },
+   "face": [
+    {
+     "kind": "brow_flash",
+     "word": "Tiny",
+     "t": 47.083,
+     "f": 1130,
+     "onset_t": 46.963,
+     "end_t": 47.413,
+     "word_i": 137
+    },
+    {
+     "kind": "nod",
+     "word": "processes.",
+     "t": 47.547,
+     "f": 1141,
+     "onset_t": 47.397,
+     "end_t": 47.747,
+     "word_i": 138
+    },
+    {
+     "kind": "brow_flash",
+     "word": "Messages",
+     "t": 48.627,
+     "f": 1167,
+     "onset_t": 48.507,
+     "end_t": 48.957,
+     "word_i": 139
+    },
+    {
+     "kind": "shake",
+     "word": "don't",
+     "t": 49.289,
+     "f": 1183,
+     "onset_t": 49.139,
+     "end_t": 49.639,
+     "word_i": 141
+    },
+    {
+     "kind": "smile",
+     "word": "linger.",
+     "t": 49.568,
+     "f": 1190,
+     "onset_t": 49.268,
+     "end_t": 50.268,
+     "amount": 0.5,
+     "shape": "open lips",
+     "hold": 0.4,
+     "word_i": 142
+    },
+    {
+     "kind": "brow_flash",
+     "word": "Keys",
+     "t": 50.334,
+     "f": 1208,
+     "onset_t": 50.214,
+     "end_t": 50.664,
+     "word_i": 143
+    },
+    {
+     "kind": "smile",
+     "word": "hands.",
+     "t": 51.576,
+     "f": 1238,
+     "onset_t": 51.276,
+     "end_t": 52.376,
+     "amount": 0.85,
+     "note": "full Duchenne (payoff 4/5)",
+     "hold": 0.5,
+     "word_i": 148
+    },
+    {
+     "kind": "nod",
+     "word": "hands.",
+     "t": 51.576,
+     "f": 1238,
+     "onset_t": 51.426,
+     "end_t": 51.776,
+     "word_i": 148
+    }
+   ],
+   "gestures": [
+    {
+     "type": "list",
+     "hand": "R",
+     "word": "Tiny",
+     "stroke_t": 47.083,
+     "stroke_f": 1130,
+     "prep_t": 46.783,
+     "prep_f": 1123,
+     "hold_s": 0.25,
+     "size": "small",
+     "amp": 0.3,
+     "held": false,
+     "target": "front, his midline",
+     "apex_height": "sternum",
+     "item": 1,
+     "of": 3,
+     "note": "open hand, palm angled up/in, PLACES item 1 of 3 on a line in front of him at chest height (at his midline); the forearm angled toward camera, wrist below the collarbone, a small drift, no finger counting",
+     "word_i": 137
+    },
+    {
+     "type": "list",
+     "hand": "R",
+     "word": "Messages",
+     "stroke_t": 48.627,
+     "stroke_f": 1167,
+     "prep_t": 48.327,
+     "prep_f": 1160,
+     "hold_s": 0.25,
+     "size": "medium",
+     "amp": 0.55,
+     "held": false,
+     "target": "front, a hand-width to his right",
+     "apex_height": "sternum",
+     "item": 2,
+     "of": 3,
+     "note": "open hand, palm angled up/in, PLACES item 2 of 3 on a line in front of him at chest height (a hand-width to his right); the forearm angled toward camera, wrist below the collarbone, a small drift, no finger counting",
+     "word_i": 139
+    },
+    {
+     "type": "list",
+     "hand": "R",
+     "word": "Keys",
+     "stroke_t": 50.334,
+     "stroke_f": 1208,
+     "prep_t": 50.034,
+     "prep_f": 1201,
+     "hold_s": 0.5,
+     "size": "medium",
+     "amp": 0.55,
+     "held": true,
+     "target": "front, two hand-widths to his right",
+     "apex_height": "sternum",
+     "item": 3,
+     "of": 3,
+     "note": "open hand, palm angled up/in, PLACES item 3 of 3 on a line in front of him at chest height (two hand-widths to his right); the forearm angled toward camera, wrist below the collarbone, a small drift, no finger counting",
+     "word_i": 143
+    },
+    {
+     "type": "open_palm",
+     "hand": "both",
+     "word": "hands.",
+     "stroke_t": 51.576,
+     "stroke_f": 1238,
+     "prep_t": 51.276,
+     "prep_f": 1231,
+     "hold_s": 0.6,
+     "size": "medium",
+     "amp": 0.55,
+     "held": true,
+     "target": "front",
+     "apex_height": "upper_chest",
+     "note": "both palms up, showing his hands: literal",
+     "word_i": 148
+    }
+   ],
+   "lean": [
+    {
+     "word": "Tiny",
+     "t": 47.083,
+     "f": 1130,
+     "deg": 4
+    },
+    {
+     "word": "Keys",
+     "t": 50.334,
+     "f": 1208,
+     "deg": 7
+    }
+   ],
+   "face04": {
+    "line": "W16",
+    "emotion": "satisfied, the three ideas land",
+    "intensity": 0.8,
+    "solver_mood": "HAPPINESS",
+    "brow": [
+     {
+      "word": "Tiny",
+      "word_i": 137,
+      "t": 47.083
+     },
+     {
+      "word": "Messages",
+      "word_i": 139,
+      "t": 48.627
+     },
+     {
+      "word": "Keys",
+      "word_i": 143,
+      "t": 50.334
+     }
+    ],
+    "smile": [
+     {
+      "word": "linger.",
+      "word_i": 142,
+      "t": 49.568,
+      "kind": "soft",
+      "amount": 0.5,
+      "hold_s": 0.4,
+      "shape": "open lips"
+     },
+     {
+      "word": "hands.",
+      "word_i": 148,
+      "t": 51.576,
+      "kind": "duchenne",
+      "amount": 0.85,
+      "hold_s": 0.5,
+      "shape": null
+     }
+    ],
+    "nod": [
+     {
+      "word": "processes.",
+      "word_i": 138,
+      "t": 47.547,
+      "kind": "yes"
+     },
+     {
+      "word": "hands.",
+      "word_i": 148,
+      "t": 51.576,
+      "kind": "yes"
+     }
+    ],
+    "shake": [
+     {
+      "word": "don't",
+      "word_i": 141,
+      "t": 49.289
+     }
+    ]
+   },
+   "body01": {
+    "line": "W16",
+    "on_cam": true,
+    "camera": "CAM_MCU",
+    "gestures": [
+     {
+      "type": "list",
+      "detail": "list",
+      "hand": "r",
+      "word": "Tiny",
+      "word_i": 137,
+      "stroke_t": 47.083,
+      "prep_t": 46.783,
+      "hold_s": 0.25,
+      "size": "small",
+      "amp": 0.3,
+      "held": false,
+      "target": "front, his midline",
+      "apex_height": "sternum",
+      "item": 1,
+      "of": 3
+     },
+     {
+      "type": "list",
+      "detail": "list",
+      "hand": "r",
+      "word": "Messages",
+      "word_i": 139,
+      "stroke_t": 48.627,
+      "prep_t": 48.327,
+      "hold_s": 0.25,
+      "size": "medium",
+      "amp": 0.55,
+      "held": false,
+      "target": "front, a hand-width to his right",
+      "apex_height": "sternum",
+      "item": 2,
+      "of": 3
+     },
+     {
+      "type": "list",
+      "detail": "list",
+      "hand": "r",
+      "word": "Keys",
+      "word_i": 143,
+      "stroke_t": 50.334,
+      "prep_t": 50.034,
+      "hold_s": 0.5,
+      "size": "medium",
+      "amp": 0.55,
+      "held": true,
+      "target": "front, two hand-widths to his right",
+      "apex_height": "sternum",
+      "item": 3,
+      "of": 3
+     },
+     {
+      "type": "open",
+      "detail": "open_palm",
+      "hand": "both",
+      "word": "hands.",
+      "word_i": 148,
+      "stroke_t": 51.576,
+      "prep_t": 51.276,
+      "hold_s": 0.6,
+      "size": "medium",
+      "amp": 0.55,
+      "held": true,
+      "target": "front",
+      "apex_height": "upper_chest"
+     }
+    ],
+    "hands_in_frame_min": 0.6,
+    "lean": [
+     {
+      "kind": "neutral",
+      "deg": 4,
+      "word": "Tiny",
+      "t": 47.083
+     },
+     {
+      "kind": "in",
+      "deg": 7,
+      "word": "Keys",
+      "t": 50.334
+     }
+    ],
+    "rest_after": true
+   }
+  },
+  {
+   "id": "W17",
+   "text": "That's over a hundred billion messages a day.",
+   "t0": 52.292,
+   "t1": 54.301,
+   "f0": 1252,
+   "f1": 1316,
+   "shot": 14,
+   "kind": "pres",
+   "camera": "CAM_CU",
+   "gfx": null,
+   "on_cam": true,
+   "arc": "payoff",
+   "arc_target": "satisfied delight",
+   "emotion": "satisfied delight, the bookend",
+   "intensity": 0.9,
+   "base": {
+    "smile": 0.55,
+    "brows": 0.05
+   },
+   "face": [
+    {
+     "kind": "brow_flash",
+     "word": "That's",
+     "t": 52.292,
+     "f": 1255,
+     "onset_t": 52.172,
+     "end_t": 52.622,
+     "word_i": 149
+    },
+    {
+     "kind": "smile",
+     "word": "billion",
+     "t": 53.267,
+     "f": 1278,
+     "onset_t": 52.967,
+     "end_t": 54.567,
+     "amount": 0.9,
+     "note": "full Duchenne (payoff 5/5), held into the cut",
+     "hold": 1.0,
+     "word_i": 153
+    },
+    {
+     "kind": "tilt",
+     "word": "day.",
+     "t": 54.126,
+     "f": 1299,
+     "onset_t": 53.876,
+     "end_t": 55.076,
+     "side": "R",
+     "deg": 5,
+     "word_i": 156
+    },
+    {
+     "kind": "nod",
+     "word": "day.",
+     "t": 54.126,
+     "f": 1299,
+     "onset_t": 53.976,
+     "end_t": 54.326,
+     "word_i": 156
+    }
+   ],
+   "gestures": [
+    {
+     "type": "size",
+     "hand": "both",
+     "word": "billion",
+     "stroke_t": 53.267,
+     "stroke_f": 1278,
+     "prep_t": 52.815,
+     "prep_f": 1268,
+     "hold_s": 0.25,
+     "size": "medium",
+     "amp": 0.55,
+     "held": false,
+     "target": "front",
+     "apex_height": "collarbone",
+     "start_word": "hundred",
+     "note": "the hook's spread again, smaller (CU)",
+     "word_i": 153
+    },
+    {
+     "type": "release",
+     "hand": "both",
+     "word": "day.",
+     "stroke_t": 54.126,
+     "stroke_f": 1299,
+     "prep_t": 53.826,
+     "prep_f": 1292,
+     "hold_s": 1.0,
+     "size": "small",
+     "amp": 0.3,
+     "held": true,
+     "target": "front",
+     "apex_height": "collarbone",
+     "note": "palms open, held to the cut",
+     "word_i": 156
+    }
+   ],
+   "lean": [
+    {
+     "word": "That's",
+     "t": 52.292,
+     "f": 1255,
+     "deg": 6
+    }
+   ],
+   "face04": {
+    "line": "W17",
+    "emotion": "satisfied delight, the bookend",
+    "intensity": 0.9,
+    "solver_mood": "HAPPINESS",
+    "brow": [
+     {
+      "word": "That's",
+      "word_i": 149,
+      "t": 52.292
+     }
+    ],
+    "smile": [
+     {
+      "word": "billion",
+      "word_i": 153,
+      "t": 53.267,
+      "kind": "duchenne",
+      "amount": 0.9,
+      "hold_s": 1.0,
+      "shape": null
+     }
+    ],
+    "nod": [
+     {
+      "word": "day.",
+      "word_i": 156,
+      "t": 54.126,
+      "kind": "yes"
+     }
+    ],
+    "tilt": [
+     {
+      "word": "day.",
+      "word_i": 156,
+      "t": 54.126,
+      "deg": 5,
+      "side": "R"
+     }
+    ]
+   },
+   "body01": {
+    "line": "W17",
+    "on_cam": true,
+    "camera": "CAM_CU",
+    "gestures": [
+     {
+      "type": "size",
+      "detail": "size",
+      "hand": "both",
+      "word": "billion",
+      "word_i": 153,
+      "stroke_t": 53.267,
+      "prep_t": 52.815,
+      "hold_s": 0.25,
+      "size": "medium",
+      "amp": 0.55,
+      "held": false,
+      "target": "front",
+      "apex_height": "collarbone"
+     },
+     {
+      "type": "open",
+      "detail": "release",
+      "hand": "both",
+      "word": "day.",
+      "word_i": 156,
+      "stroke_t": 54.126,
+      "prep_t": 53.826,
+      "hold_s": 1.0,
+      "size": "small",
+      "amp": 0.3,
+      "held": true,
+      "target": "front",
+      "apex_height": "collarbone"
+     }
+    ],
+    "hands_in_frame_min": 0.3,
+    "lean": [
+     {
+      "kind": "in",
+      "deg": 6,
+      "word": "That's",
+      "t": 52.292
+     }
+    ],
+    "rest_after": true
+   }
+  }
+ ],
+ "test": {
+  "spans": [
+   {
+    "camera": "CAM_MCU",
+    "f0": 0,
+    "f1": 179,
+    "lines": [
+     "W01",
+     "W02",
+     "W03"
+    ],
+    "why": "his hook on one camera: the 'hundred billion' spread, the one brow, the twist and 'Here's how'"
+   },
+   {
+    "camera": "CAM_WIDE",
+    "f0": 422,
+    "f1": 480,
+    "lines": [
+     "W07"
+    ],
+    "why": "his WIDE: hands up, elbows off the torso, the playful question"
+   }
+  ],
+  "optional": {
+   "camera": "CAM_MCU",
+   "f0": 179,
+   "f1": 273,
+   "lines": [
+    "W04"
+   ],
+   "why": "append for the first panel deictic (+3.9 s)"
+  }
+ },
+ "checks": {
+  "speaking_s": 45.62,
+  "smiles_per_min": 19.7,
+  "brow_flash_per_min": 28.9,
+  "gesture_onsets_per_s": {
+   "all": 0.94,
+   "per_line": {
+    "W01": 1.0,
+    "W02": 0.93,
+    "W03": 1.76,
+    "W04": 0.88,
+    "W05": 0.85,
+    "W06": 1.08,
+    "W07": 1.58,
+    "W08": 0.56,
+    "W09": 1.01,
+    "W10": 1.29,
+    "W11": 0.97,
+    "W12": 0.58,
+    "W13": 1.03,
+    "W14": 0.87,
+    "W15": 0.9,
+    "W16": 0.81,
+    "W17": 1.0
+   }
+  },
+  "neutral_hold_max_s": {
+   "max": 1.18,
+   "per_line": {
+    "W01": 0.95,
+    "W02": 0.39,
+    "W03": 0.0,
+    "W04": 0.63,
+    "W05": 0.76,
+    "W06": 0.91,
+    "W07": 0.35,
+    "W08": 0.44,
+    "W09": 0.16,
+    "W10": 0.6,
+    "W11": 1.14,
+    "W12": 1.18,
+    "W13": 0.66,
+    "W14": 0.59,
+    "W15": 0.81,
+    "W16": 0.76,
+    "W17": 0.34
+   }
+  },
+  "same_gesture_twice": [],
+  "apex_high_share": 0.256,
+  "on_cam_lines": [
+   "W01",
+   "W03",
+   "W04",
+   "W07",
+   "W10",
+   "W11",
+   "W13",
+   "W15",
+   "W16",
+   "W17"
+  ]
+ }
+}

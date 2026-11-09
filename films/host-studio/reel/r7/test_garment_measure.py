@@ -1,0 +1,322 @@
+"""Off-box tests of garment_measure.py's pure helpers (synthetic meshes, no editor):
+    python3 -m pytest films/host-studio/reel/r7/test_garment_measure.py -q"""
+import math
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import garment_measure as gm  # noqa: E402
+
+
+def sphere(c, r, n=16):
+    """UV sphere (P, T) with outward winding."""
+    P = [(c[0], c[1], c[2] + r)]
+    for i in range(1, n):
+        ph = math.pi * i / n
+        for j in range(n):
+            th = 2 * math.pi * j / n
+            P.append((c[0] + r * math.sin(ph) * math.cos(th), c[1] + r * math.sin(ph) * math.sin(th),
+                      c[2] + r * math.cos(ph)))
+    P.append((c[0], c[1], c[2] - r))
+    T = []
+    for j in range(n):
+        T.append((0, 1 + j, 1 + (j + 1) % n))
+    for i in range(n - 2):
+        for j in range(n):
+            a, b = 1 + i * n + j, 1 + i * n + (j + 1) % n
+            T += [(a, a + n, b), (b, a + n, b + n)]
+    last = len(P) - 1
+    base = 1 + (n - 2) * n
+    for j in range(n):
+        T.append((base + j, last, base + (j + 1) % n))
+    return P, T
+
+
+def test_closest_on_tri_regions():
+    a, b, c = (0, 0, 0), (1, 0, 0), (0, 1, 0)
+    assert math.dist(gm.closest_on_tri((0.2, 0.2, 5), a, b, c), (0.2, 0.2, 0)) < 1e-9
+    assert gm.closest_on_tri((-1, -1, 0), a, b, c) == a
+    q = gm.closest_on_tri((0.5, -1, 0), a, b, c)
+    assert math.dist(q, (0.5, 0, 0)) < 1e-9
+    q = gm.closest_on_tri((1, 1, 0), a, b, c)
+    assert math.dist(q, (0.5, 0.5, 0)) < 1e-9
+
+
+def test_sphere_winding_is_outward():
+    P, T = sphere((0, 0, 0), 5.0)
+    for t in T[:40]:
+        n = gm.tri_normal(*(P[i] for i in t))
+        m = tuple(sum(P[i][k] for i in t) / 3 for k in range(3))
+        assert gm.dot(n, m) > 0
+
+
+def test_clearance_sign_outside_and_inside():
+    P, T = sphere((0, 0, 0), 10.0, 24)
+    keep = set(range(len(P)))
+    grid = gm.TriGrid(gm.torso_tris(P, T, keep, "Body"), 2.0)
+    worst, neg, lt3 = gm.clearance(grid, [(0, (14.0, 0, 0)), (1, (0, 16.0, 0))])
+    assert abs(worst[0] - 4.0) < 0.2 and neg == 0 and lt3 == 0
+    worst, neg, lt3 = gm.clearance(grid, [(0, (14.0, 0, 0)), (1, (8.0, 0, 0))])
+    assert -2.3 < worst[0] < -1.7 and neg == 1 and lt3 == 1
+
+
+def test_shell_normals_turned_out_from_spine():
+    P, T = sphere((0, 0, 0), 10.0, 24)
+    T = [(a, c, b) for a, b, c in T]  # inward winding: a garment's inner face
+    keep = set(range(len(P)))
+    chain = [(0, 0, -20.0), (0, 0, 20.0)]
+    grid = gm.TriGrid(gm.torso_tris(P, T, keep, "Top", chain), 2.0)
+    worst, neg, _ = gm.clearance(grid, [(0, (8.0, 0, 0))])
+    assert worst[0] < 0 and neg == 1
+    worst, neg, _ = gm.clearance(grid, [(0, (13.0, 0, 0))])
+    assert worst[0] > 0 and neg == 0
+
+
+def test_label_and_arm_sets():
+    segs = {"spine:pelvis": ((0, 0, 0), (0, 0, 50)), "upperarm_r": ((-20, 0, 45), (-30, 0, 20)),
+            "clavicle_r": ((0, 0, 45), (-20, 0, 45))}
+    P = [(0, 5, 20), (-27, 0, 27), (-21, 0, 43), (-3, 0, 44), (-30, 3, 21), (-31, 0, 23)]
+    lab = gm.label_rest(P, segs)
+    assert lab[0][0] == "spine:pelvis" and lab[1][0] == "upperarm_r" and lab[3][0] == "clavicle_r"
+    arm, torso = gm.arm_sets(lab, P, (-20, 0, 45), "r", 0.3, 7.0)
+    assert arm == [1, 4, 5]    # vertex 2 is at the shoulder end (t < 0.3)
+    assert sorted(torso) == [0, 3]
+
+
+def test_arm_radius_keeps_side_skin_out_of_the_arm():
+    """v2b run 1: her side under the A-pose arm was nearest the upper arm's bone and counted as arm (-10.4 cm)."""
+    segs = {"spine:pelvis": ((0, 0, 0), (0, 0, 50)), "upperarm_r": ((-20, 0, 45), (-30, 0, 20))}
+    skin = [(-30 + 3.5 * math.cos(a), 3.5 * math.sin(a), 22.0) for a in (0, 1.5, 3.0, 4.5)]  # arm skin, t ~ 0.9
+    side = [(-16.0, 0.0, 27.0)]                                                              # side, 10 cm off
+    P = skin + side
+    lab = gm.label_rest(P, segs)
+    assert lab[4][0] == "upperarm_r"
+    r = gm.arm_radius(lab, "r")
+    assert abs(r - 3.5) < 0.3
+    arm, torso = gm.arm_sets(lab, P, (-20, 0, 45), "r", 0.3, 7.0, r * 1.3)
+    assert arm == [0, 1, 2, 3] and torso == [4]
+
+
+def ring(t, r, n=72, dth=0.0):
+    return [(t, r, -180.0 + 360.0 * k / n + dth) for k in range(n)]
+
+
+def test_waist_fitted_band_reads_small():
+    skin = [x for t in range(-10, 20) for x in ring(t + 0.5, 12.0)]
+    top = [x for t in range(-4, 20) for x in ring(t + 0.5, 12.4)]
+    trou = [x for t in range(-20, 6) for x in ring(t + 0.5, 12.8) + ring(t + 0.5, 13.0)]
+    secs = gm.waist_sectors(trou, top, skin, 4.0)
+    s0 = secs[0]
+    assert s0["deg"] == 0 and abs(s0["edge_t"] - 5.5) < 1e-6
+    assert abs(s0["gap_max"] - 0.4) < 1e-6 and s0["poke_max"] < 0 and s0["tuck"] == 9.0
+    score, why, poke, _ = gm.waist_score(secs)
+    assert score == 0.4 and why.startswith("gap") and poke < 0
+
+
+def test_waist_loose_front_and_bare_skin():
+    skin = [x for t in range(-10, 20) for x in ring(t + 0.5, 12.0)]
+    top = [x for t in range(3, 20) for x in ring(t + 0.5, 12.4)]  # rides up: hem above the edge
+    trou = [(t, (15.0 if abs(th) < 40 else 12.8), th) for t in [x + 0.5 for x in range(-20, 2)]
+            for _, _, th in ring(0, 0)]
+    secs = gm.waist_sectors(trou, top, skin, 4.0)
+    front = secs[0]
+    assert front["tuck"] == -2.0 and abs(front["gap_max"] - 3.0) < 1e-6
+    score, why, _, _ = gm.waist_score(secs)
+    assert score == 3.0 and "gap at" in why
+    back = secs[12]
+    assert back["deg"] == 180 and abs(back["gap_max"] - 0.8) < 1e-6
+
+
+def test_waist_poke_and_arms_ignored():
+    skin = [x for t in range(-10, 20) for x in ring(t + 0.5, 12.0)]
+    skin += [(0.5, 13.6, 0.0)]          # belly through the band, front
+    skin += [(0.5, 25.0, 90.0)]         # a hand at her side: not a poke
+    trou = [x for t in range(-20, 3) for x in ring(t + 0.5, 12.6) + ring(t + 0.5, 12.8)]
+    secs = gm.waist_sectors(trou, [], skin, 4.0)
+    assert abs(secs[0]["poke_max"] - 0.8) < 1e-6
+    assert secs[6]["deg"] == 90 and secs[6]["poke_max"] < 0
+    fit, _, poke, where = gm.waist_score(secs)
+    assert fit == 0.6 and poke == 0.8 and where.startswith("skin at 0 deg")
+
+
+def test_natural_waist_and_cyl():
+    skin = [x for t in range(-10, 20) for x in ring(t + 0.5, 10.0 + abs(t - 6) * 0.3)]
+    nw = gm.natural_waist(skin, -10, 20)
+    assert nw[0] == 6.5
+    cy = gm.Cyl((0, 0, 0), (0, 0, 10), (1, 0, 0), (0, 1, 0))
+    t, r, th = cy((0, 5, 3))
+    assert (t, r, round(th)) == (3, 5, 90)
+    t, r, th = cy((0, -5, 3))
+    assert round(th) == -90
+
+
+def test_parse_frames():
+    assert gm.parse_frames("29,1290-1300:5, 7") == [29, 1290, 1295, 1300, 7]
+
+
+def test_point_beside_an_open_patch_is_not_inside():
+    """v2b2 ref pose: an arm point beside the torso patch's cut edge read as 13.7 cm 'inside'."""
+    P = [(0, 0, 0), (10, 0, 0), (0, 10, 0), (10, 10, 0)]   # a flat patch facing +z, open edges all round
+    T = [(0, 1, 2), (1, 3, 2)]
+    grid = gm.TriGrid(gm.torso_tris(P, T, {0, 1, 2, 3}, "Top"), 2.0)
+    worst, neg, _ = gm.clearance(grid, [(0, (20.0, 5.0, -2.0))])   # off the edge, a little below the plane
+    assert worst[0] > 0 and neg == 0
+    worst, neg, _ = gm.clearance(grid, [(0, (5.0, 5.0, -2.0))])    # right behind the face
+    assert abs(worst[0] + 2.0) < 1e-6 and neg == 1
+
+
+def test_deltoid_near_the_shoulder_is_not_torso():
+    """v2b r7w ref pose: a point at t 0.25, 5.1 cm off the upper-arm bone counted as torso beside arm points at t 0.3."""
+    segs = {"spine:pelvis": ((0, 0, 0), (0, 0, 50)), "upperarm_r": ((-20, 0, 45), (-30, 0, 20))}
+    lab = {0: ("upperarm_r", 0.25, 5.1), 1: ("upperarm_r", 0.6, 7.0), 2: ("upperarm_r", 0.33, 2.9)}
+    P = [(-40, 0, 40), (-40, 0, 20), (-40, 0, 30)]   # all far from the shoulder joint: only the t rule decides
+    arm, torso = gm.arm_sets(lab, P, (-20, 0, 45), "r", 0.3, 7.0, 4.08)
+    assert arm == [2] and torso == [1]
+
+
+def test_far_point_behind_a_curved_patch_is_not_inside():
+    """R7 f1104: a raised arm 13.9 cm off the torso patch read 'behind' a face: inside needs nearer the spine too."""
+    P = [(0, 0, 0), (10, 0, 0), (0, 10, 0), (10, 10, 0)]    # a patch facing +z, the spine far below it at z -10
+    T = [(0, 1, 2), (1, 3, 2)]
+    chain = [(5, 5, -10.0), (5, 5, -9.0)]
+    grid = gm.TriGrid(gm.torso_tris(P, T, {0, 1, 2, 3}, "Top"), 2.0)
+    worst, neg, _ = gm.clearance(grid, [(0, (5.0, 5.0, -2.0))], chain=chain)       # between face and spine
+    assert worst[0] < 0 and neg == 1
+    chain2 = [(5, 5, 10.0), (5, 5, 11.0)]                                         # spine on the other side
+    worst, neg, _ = gm.clearance(grid, [(0, (5.0, 5.0, -2.0))], chain=chain2)
+    assert worst[0] > 0 and neg == 0
+
+
+def test_front_deg_is_square_to_a_leaning_spine():
+    chain = [(0, 0, 0), (0, 0, 10), (3, 0, 20)]           # X forward, spine leaning forward up top
+    fwd = (1, 0, 0)
+    assert abs(gm.front_deg((10, 0, 5), chain, fwd)) < 1e-6
+    assert abs(gm.front_deg((0, 10, 5), chain, fwd) - 90) < 1e-6
+    assert abs(gm.front_deg((-10, 0, 5), chain, fwd) - 180) < 1e-6
+    assert abs(gm.front_deg((5, 5, 5), chain, fwd) - 45) < 1e-6
+    assert gm.front_deg((5, 0, 25), chain, fwd) < 1e-6      # past the top: still in front of the leaning segment
+
+
+def test_zones_split_bust_from_side():
+    """ee99f626: an arm 1 cm off her side is fine (side >= 0.5); the bust zone is what the 3 cm line is for."""
+    P, T = sphere((0, 0, 0), 10.0, 24)
+    keep = set(range(len(P)))
+    chain = [(0, 0, -20.0), (0, 0, 20.0)]
+    ents = gm.torso_tris(P, T, keep, "Body")
+    fr, sd = gm.split_front(ents, ents, chain, (1, 0, 0), 60.0)
+    assert fr and sd and len(fr) + len(sd) == len(ents)
+    arm = [(0, (0, 11.0, 0))]                              # beside her, 1 cm off the side
+    side_w, _, _ = gm.clearance(gm.TriGrid(sd, 2.0), arm, chain=chain)
+    front_w, _, _ = gm.clearance(gm.TriGrid(fr, 2.0), arm, chain=chain)
+    assert abs(side_w[0] - 1.0) < 0.2 and front_w[0] > 3.0
+    arm = [(0, (8.0, 0, 0))]                               # into the bust
+    front_w, neg, _ = gm.clearance(gm.TriGrid(fr, 2.0), arm, chain=chain)
+    assert front_w[0] < 0 and neg == 1
+
+
+def test_frames_map_by_time():
+    """arm_track (30 fps) f185-205 is 6.17-6.83 s: the 24 fps sequence's f148-164, not f185-205."""
+    plan = gm.to_seq_frames([185, 205, 0, 30], 30, 24)
+    assert [g for g, _, _ in plan] == [148, 164, 0, 24]
+    assert plan[0][2] == round(185 / 30, 4)
+    assert [g for g, _, _ in gm.to_seq_frames([1044, 1104], 24, 24)] == [1044, 1104]
+    assert len(gm.to_seq_frames([0, 1, 2, 3, 4], 30, 24)) == 4   # two 30 fps frames share a 24 fps one
+
+
+def box_torso():
+    """A closed box torso, x -8..15 (the bust at +15), y -10..10, z -20..20, outward winding."""
+    R = [(-8, 15), (-10, 10), (-20, 20)]
+    P = [(x, y, z) for x in R[0] for y in R[1] for z in R[2]]
+    idx = {p: i for i, p in enumerate(P)}
+    T = []
+    for ax in range(3):
+        o = [a for a in range(3) if a != ax]
+        for side in (0, 1):
+            cs = []
+            for u in (0, 1):
+                for v in (0, 1):
+                    p = [0, 0, 0]
+                    p[ax], p[o[0]], p[o[1]] = R[ax][side], R[o[0]][u], R[o[1]][v]
+                    cs.append(idx[tuple(p)])
+            a, b, c, d = cs
+            for t in ((a, b, d), (a, d, c)):
+                n = gm.tri_normal(*(P[i] for i in t))
+                m = tuple(sum(P[i][k] for i in t) / 3 for k in range(3))
+                T.append(t if gm.dot(n, gm.sub(m, (3.5, 0, 0))) > 0 else (t[0], t[2], t[1]))
+    return P, T
+
+
+def test_zone_inside_comes_from_the_whole_torso():
+    """T2 rest (8a45d961): an arm vertex 1 cm off her SIDE read -9.5 cm in the front zone alone (behind the front
+    patch's far edge, nearer the spine than it) while the whole torso read +1.5."""
+    P, T = box_torso()
+    chain = [(0, 0, -20.0), (0, 0, 20.0)]
+    ents = gm.torso_tris(P, T, set(range(len(P))), "Body")
+    flags = gm.front_flags(ents, chain, (1, 0, 0), 30.0)
+    fr = [e for e, f in zip(ents, flags) if f]
+    sd = [e for e, f in zip(ents, flags) if not f]
+    zof = ["front" if f else "side" for f in flags]
+    arm = [(0, (5.0, 11.0, 0.0))]
+    assert gm.clearance(gm.TriGrid(fr, 2.0), arm, chain=chain)[0][0] < -9    # the old artefact
+    res = gm.zone_clearance(gm.TriGrid(ents, 2.0), zof, {"front": gm.TriGrid(fr, 2.0), "side": gm.TriGrid(sd, 2.0)},
+                            arm, chain=chain)
+    assert abs(res["side"][0][0] - 1.0) < 1e-6 and res["side"][1] == 0
+    assert res["front"][0][0] > 9 and res["front"][1] == 0
+    # a real hit: 2 cm into the bust counts in the front zone only
+    res = gm.zone_clearance(gm.TriGrid(ents, 2.0), zof, {"front": gm.TriGrid(fr, 2.0), "side": gm.TriGrid(sd, 2.0)},
+                            [(0, (13.0, 0.0, 0.0))], chain=chain)
+    assert abs(res["front"][0][0] + 2.0) < 1e-6 and res["front"][1] == 1
+    assert res["side"][0][0] > 0 and res["side"][1] == 0
+
+
+def tube(r, t0, t1, n=48, rows=12, flip=False):
+    """Open cylinder round z (P, T), winding outward (or inward with flip)."""
+    P = [(r * math.cos(2 * math.pi * j / n), r * math.sin(2 * math.pi * j / n), t0 + (t1 - t0) * i / rows)
+         for i in range(rows + 1) for j in range(n)]
+    T = []
+    for i in range(rows):
+        for j in range(n):
+            a, b, c, d = i * n + j, i * n + (j + 1) % n, (i + 1) * n + (j + 1) % n, (i + 1) * n + j
+            T += [(a, c, b), (a, d, c)] if flip else [(a, b, c), (a, c, d)]
+    return P, T
+
+
+def test_skin_poke_through_the_band():
+    # trousers: outer face r 15 (wound inward, as an authored inner face might be) + inner face r 14.5, t -20..0
+    Po, To = tube(15.0, -20.0, 0.0, flip=True)
+    Pi, Ti = tube(14.5, -20.0, 0.0)
+    P = Po + Pi
+    T = To + [(a + len(Po), b + len(Po), c + len(Po)) for a, b, c in Ti]
+    P = P + [(15.2, 0.0, -3.0), (15.2, 0.0, -3.0), (15.3, 0.0, -3.0)]   # a collapsed triangle (T2: zero division)
+    T = T + [(len(P) - 3, len(P) - 2, len(P) - 1)]
+    cy = gm.Cyl((0.0, 0.0, -30.0), (0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0))
+    edge = [30.0] * gm.NS                                # cylindrical t of the trousers' top edge (z 0)
+    skin = [(k, (14.0 * math.cos(a), 14.0 * math.sin(a), z)) for k, (a, z) in
+            enumerate((a / 10.0, z) for a in range(0, 63, 3) for z in (-2.0, -5.0, -8.0))]
+    r = gm.surface_poke(P, T, skin, cy, edge)
+    assert r["poke_cm"] < 0 and r["verts_gt0"] == 0, r   # all covered: reads its stand-off (-0.5)
+    assert abs(r["poke_cm"] + 0.5) < 0.05, r            # (the 48-gon chord sits 0.03 in)
+    skin2 = skin + [(900, (15.4, 0.0, -3.0)),             # 0.4 cm out through the band, at her front, 3 cm down
+                    (901, (0.0, 14.8, -2.0)),             # inside the cloth's thickness: not out
+                    (902, (15.5, 0.0, 2.0)),              # above the edge (bare skin is the fit row's job)
+                    (903, (0.0, -15.6, -14.0))]           # below the window (POKE_CM 10)
+    r = gm.surface_poke(P, T, skin2, cy, edge)
+    assert abs(r["poke_cm"] - 0.4) < 1e-6 and r["verts_gt0"] == 1 and r["verts_gt01"] == 1, r
+    assert r["where"]["vert"] == 900 and r["where"]["deg"] == 0 and r["where"]["below_edge_cm"] == 3.0, r
+    assert abs(r["poke_front_cm"] - 0.4) < 1e-6
+
+
+def test_ray_layers_count_the_shells():
+    # spine along z at the origin; an outer shell r 15 and an inner layer r 12 (tubes); an arm point at r 13.5
+    Po, To = tube(15.0, -20.0, 20.0)
+    Pi, Ti = tube(12.0, -20.0, 20.0, flip=True)
+    chain = [(0.0, 0.0, -30.0), (0.0, 0.0, 30.0)]
+    meshes = [("Top", Po, To, None), ("Top", Pi, Ti, set(range(len(Pi))))]
+    r = gm.ray_layers((13.5, 0.0, 0.0), chain, meshes, {"Top": {0: ("spine_03", 0.5, 15.0)}})
+    assert r["spine_cm"] == 13.5
+    out = [h for h in r["hits"] if h[0] > 0]
+    inn = [h for h in r["hits"] if h[0] < 0]
+    assert len(out) == 1 and abs(out[0][0] - 1.5) < 0.05 and out[0][1] == 1, r   # the outer shell, facing out
+    assert len(inn) == 1 and abs(inn[0][0] + 1.5) < 0.05 and inn[0][1] == -1, r  # an inner layer under the arm
+    r = gm.ray_layers((13.4, 1.0, 1.0), chain, meshes)                             # off the corners: same answer
+    assert [h[1] for h in r["hits"]] == [-1, 1] and r["hits"][0][0] < 0 < r["hits"][1][0], r

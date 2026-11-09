@@ -1,0 +1,725 @@
+{
+ "pass": false,
+ "issues": [
+  {
+   "code": "hands.out_of_frame",
+   "severity": "fail",
+   "message": "Presenter MCU: >= 1 hand fully in frame in 0% of 39 frames (line 60%)",
+   "fix": "raise the gesture space to chest-collarbone height, in front of the torso (agent-01)",
+   "subject": "Presenter",
+   "value": 0.0,
+   "expected": 0.6
+  },
+  {
+   "code": "hands.out_of_frame",
+   "severity": "fail",
+   "message": "Presenter CU: >= 1 hand fully in frame in 0% of 18 frames (line 30%)",
+   "fix": "raise the gesture space to chest-collarbone height, in front of the torso (agent-01)",
+   "subject": "Presenter",
+   "value": 0.0,
+   "expected": 0.3
+  }
+ ],
+ "metrics": {
+  "kinds": {
+   "MCU": {
+    "frac": 0.0,
+    "n": 39,
+    "line": 0.6,
+    "cameras": [
+     "CAM_MCU"
+    ]
+   },
+   "CU": {
+    "frac": 0.0,
+    "n": 18,
+    "line": 0.3,
+    "cameras": [
+     "CAM_CU"
+    ]
+   },
+   "WIDE": {
+    "frac": 1.0,
+    "n": 55,
+    "line": 0.95,
+    "cameras": [
+     "CAM_WIDE"
+    ]
+   }
+  },
+  "frames": {
+   "18": {
+    "camera": "CAM_MCU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "20": {
+    "camera": "CAM_MCU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "22": {
+    "camera": "CAM_MCU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "24": {
+    "camera": "CAM_MCU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "26": {
+    "camera": "CAM_MCU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "28": {
+    "camera": "CAM_MCU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "30": {
+    "camera": "CAM_MCU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "32": {
+    "camera": "CAM_MCU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "34": {
+    "camera": "CAM_MCU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "36": {
+    "camera": "CAM_MCU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "38": {
+    "camera": "CAM_MCU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "40": {
+    "camera": "CAM_MCU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "42": {
+    "camera": "CAM_MCU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "44": {
+    "camera": "CAM_MCU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "46": {
+    "camera": "CAM_MCU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "48": {
+    "camera": "CAM_MCU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "50": {
+    "camera": "CAM_MCU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "52": {
+    "camera": "CAM_MCU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "54": {
+    "camera": "CAM_MCU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "56": {
+    "camera": "CAM_MCU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "58": {
+    "camera": "CAM_MCU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "60": {
+    "camera": "CAM_MCU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "62": {
+    "camera": "CAM_MCU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "64": {
+    "camera": "CAM_MCU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "66": {
+    "camera": "CAM_MCU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "68": {
+    "camera": "CAM_MCU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "70": {
+    "camera": "CAM_MCU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "72": {
+    "camera": "CAM_MCU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "74": {
+    "camera": "CAM_MCU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "76": {
+    "camera": "CAM_MCU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "78": {
+    "camera": "CAM_MCU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "80": {
+    "camera": "CAM_MCU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "82": {
+    "camera": "CAM_MCU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "84": {
+    "camera": "CAM_MCU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "86": {
+    "camera": "CAM_MCU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "88": {
+    "camera": "CAM_MCU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "90": {
+    "camera": "CAM_MCU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "92": {
+    "camera": "CAM_MCU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "94": {
+    "camera": "CAM_MCU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "102": {
+    "camera": "CAM_CU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "104": {
+    "camera": "CAM_CU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "106": {
+    "camera": "CAM_CU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "108": {
+    "camera": "CAM_CU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "110": {
+    "camera": "CAM_CU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "112": {
+    "camera": "CAM_CU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "114": {
+    "camera": "CAM_CU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "116": {
+    "camera": "CAM_CU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "118": {
+    "camera": "CAM_CU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "120": {
+    "camera": "CAM_CU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "122": {
+    "camera": "CAM_CU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "124": {
+    "camera": "CAM_CU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "126": {
+    "camera": "CAM_CU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "128": {
+    "camera": "CAM_CU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "130": {
+    "camera": "CAM_CU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "132": {
+    "camera": "CAM_CU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "134": {
+    "camera": "CAM_CU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "136": {
+    "camera": "CAM_CU",
+    "l": false,
+    "r": false,
+    "in": false
+   },
+   "1049": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1051": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1053": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1055": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1057": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1059": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1061": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1063": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1065": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1067": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1069": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1071": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1073": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1075": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1077": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1079": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1081": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1083": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1085": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1087": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1089": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1091": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1093": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1095": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1097": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1099": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1101": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1103": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1105": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1107": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1109": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1111": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1113": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1115": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1117": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1119": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1121": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1123": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1125": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1127": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1129": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1131": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1133": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1135": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1137": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1139": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1141": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1143": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1145": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1147": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1149": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1151": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1153": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1155": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   },
+   "1157": {
+    "camera": "CAM_WIDE",
+    "l": true,
+    "r": true,
+    "in": true
+   }
+  }
+ }
+}

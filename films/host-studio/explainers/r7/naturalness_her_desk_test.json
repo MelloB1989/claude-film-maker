@@ -1,8 +1,8 @@
 {
- "fine_8a45d961": {
+ "fine_b4325b5b": {
   "rows": {
    "move.humerus_elev_stroke_deg": {
-    "value": 41.592,
+    "value": 41.582,
     "op": "<=",
     "line": 45.0,
     "unit": "deg",
@@ -34,7 +34,7 @@
     "what": "median upper-arm elevation while that hand rests (gesture_w < 0.1) with the forearm NOT on the desk, worse hand: unsupported resting elbows hang"
    },
    "move.humerus_elev_rest_desk_deg": {
-    "value": 36.921,
+    "value": 36.893,
     "op": "<=",
     "line": 40.0,
     "unit": "deg",
@@ -50,7 +50,7 @@
     "what": "median forearm elevation (elbow->wrist above horizontal) at the right hand's stroke apexes: horizontal = 'typing in the air'"
    },
    "move.wrist_flexext_p90_deg": {
-    "value": 20.739,
+    "value": 20.185,
     "op": "<=",
     "line": 25.0,
     "unit": "deg",
@@ -58,7 +58,7 @@
     "what": "p90 over speaking frames of |wrist flexion/extension| (3rd metacarpal vs the forearm), worse hand"
    },
    "move.wrist_ulnar_p95_deg": {
-    "value": 14.311,
+    "value": 14.186,
     "op": "<=",
     "line": 25.0,
     "unit": "deg",
@@ -66,7 +66,7 @@
     "what": "p95 over speaking frames of ulnar deviation, worse hand"
    },
    "move.wrist_radial_p95_deg": {
-    "value": 2.65,
+    "value": 2.683,
     "op": "<=",
     "line": 15.0,
     "unit": "deg",
@@ -90,7 +90,7 @@
     "what": "speaking frames with a claw hand (a finger bent back at a middle joint), worse hand"
    },
    "move.path_straight_frac": {
-    "value": 0.067,
+    "value": 0.0,
     "op": "<=",
     "line": 0.3,
     "unit": "fraction",
@@ -98,7 +98,7 @@
     "what": "wrist movements (>= 8 cm) whose path strays < 3 % of its chord: straight lines"
    },
    "move.vel_bell_frac": {
-    "value": 0.933,
+    "value": 0.857,
     "op": ">=",
     "line": 0.6,
     "unit": "fraction",
@@ -106,7 +106,7 @@
     "what": "wrist movements with a peak/mean speed of 1.6-2.3 (minimum jerk 1.875), worse hand"
    },
    "move.lag_hand_ms": {
-    "value": 46.842,
+    "value": 45.817,
     "op": ">=",
     "line": 30.0,
     "unit": "ms",
@@ -114,7 +114,7 @@
     "what": "median onset of the hand's rotation after the upper arm's, per movement (right hand): proximal leads, distal follows"
    },
    "move.two_hand_amp_ratio": {
-    "value": 0.736,
+    "value": 0.514,
     "op": ">=",
     "line": 0.5,
     "unit": "ratio",
@@ -122,15 +122,23 @@
     "what": "two-hand strokes: median wrist travel of the lesser hand over the greater's (a two-hand gesture with one hand parked reads as one hand and a prop)"
    },
    "move.hold_min_speed": {
-    "value": 0.44,
+    "value": 0.504,
     "op": ">=",
     "line": 0.3,
     "unit": "cm/s",
     "pass": true,
     "what": "p10 of the wrist speed while speaking outside every movement (holds, rests), worse hand: a live hold drifts (the orchestrator, 08 Nov); 0 = frozen"
    },
+   "move.finger_snap_per_min": {
+    "value": 0.0,
+    "op": "<=",
+    "line": 2.0,
+    "unit": "per min",
+    "pass": true,
+    "what": "finger shapes that snap in: a fingertip >= 90 cm/s relative to the wrist stopped to <= 25 % within 2 frames, per speaking minute, worse hand (minimum jerk holds for the fingers too; 'fingers snapping between fixed shapes' is a robotic tell)"
+   },
    "move.mirror_corr_p50": {
-    "value": -0.042,
+    "value": -0.019,
     "op": "<=",
     "line": 0.95,
     "unit": "corr",
@@ -138,7 +146,7 @@
     "what": "GUARD: two-hand strokes, median correlation of the left wrist velocity with the right's mirrored (1.0 = a mirror copy)"
    },
    "move.fingers_frozen_frac": {
-    "value": 0.0,
+    "value": 0.04,
     "op": "<=",
     "line": 0.15,
     "unit": "fraction",
@@ -149,22 +157,22 @@
   "report": {
    "wrist": {
     "l": {
-     "flexext_abs_p90": 20.149732369629962,
-     "flexext_p50": -8.254239265027012,
-     "flex_max": 1.6000883092373068,
-     "ext_max": 28.465290212791153,
-     "ulnar_p95": 3.859642993013536,
-     "radial_p95": 2.5377664048262196,
-     "dev_p50": -1.4170573824846149
+     "flexext_abs_p90": 19.926054469241947,
+     "flexext_p50": -8.31615535415276,
+     "flex_max": 2.8654123332117987,
+     "ext_max": 28.391819785679942,
+     "ulnar_p95": 5.9031708149089015,
+     "radial_p95": 2.6830017159233748,
+     "dev_p50": -1.404865220729965
     },
     "r": {
-     "flexext_abs_p90": 20.73917315202046,
-     "flexext_p50": -13.412751210616918,
-     "flex_max": 12.727773195677868,
-     "ext_max": 30.55761460577746,
-     "ulnar_p95": 14.311004442738161,
-     "radial_p95": 2.6503347136566062,
-     "dev_p50": -3.4677400186991196
+     "flexext_abs_p90": 20.18532846110719,
+     "flexext_p50": -13.451498547653017,
+     "flex_max": 11.471475224287717,
+     "ext_max": 29.251293161257422,
+     "ulnar_p95": 14.186024173156822,
+     "radial_p95": 2.3855731937510107,
+     "dev_p50": -4.813748535888528
     }
    },
    "forearm": {
@@ -173,7 +181,7 @@
      "elev_p50": 14.663903305981995,
      "elev_p25": 14.579332978956838,
      "flat_frac": 0.0,
-     "elbow_inside_p50": 69.02214804637,
+     "elbow_inside_p50": 67.04547916346154,
      "abd_p50": 28.929675445700962,
      "forearm_in_p50": 39.48147691424935,
      "humerus_elev_p50": 31.15330644239979,
@@ -188,34 +196,34 @@
      "humerus_hi_p90": NaN,
      "high_frac": 0.0,
      "humerus_rest_p50": NaN,
-     "humerus_rest_desk_p50": 36.92059842915222,
+     "humerus_rest_desk_p50": 36.767129003307886,
      "rest_hang_n": 0,
-     "rest_desk_n": 293,
+     "rest_desk_n": 267,
      "rest_desk_frac": 1.0
     },
     "r": {
      "n": 13,
      "elev_p50": 49.16074763438213,
-     "elev_p25": 37.26771961796128,
+     "elev_p25": 37.284605101219086,
      "flat_frac": 0.0,
      "elbow_inside_p50": 73.36788432904397,
-     "abd_p50": 34.8695328380636,
+     "abd_p50": 35.02012069972512,
      "forearm_in_p50": 12.142866232077617,
-     "humerus_elev_p50": 43.43951690576139,
+     "humerus_elev_p50": 43.362298751178805,
      "humerus_elev_p90": 59.10304627407065,
-     "elbow_drop_p50": 19.933400000000006,
-     "flexion_p50": 31.05995052361727,
+     "elbow_drop_p50": 19.958799999999997,
+     "flexion_p50": 31.073855847389538,
      "abduction_p50": 31.231152560560357,
-     "abduction_p90": 34.185882192539424,
-     "humerus_lo_p50": 41.59186268768428,
+     "abduction_p90": 34.183964947443584,
+     "humerus_lo_p50": 41.58175671328226,
      "humerus_hi_p50": 58.011102577258804,
-     "humerus_lo_p90": 43.55321248223164,
-     "humerus_hi_p90": 59.46214552684341,
+     "humerus_lo_p90": 43.829930588423565,
+     "humerus_hi_p90": 59.471966065985455,
      "high_frac": 0.38461538461538464,
      "humerus_rest_p50": NaN,
-     "humerus_rest_desk_p50": 36.54837462396577,
+     "humerus_rest_desk_p50": 36.89345507281238,
      "rest_hang_n": 0,
-     "rest_desk_n": 32,
+     "rest_desk_n": 24,
      "rest_desk_frac": 1.0
     }
    },
@@ -235,7 +243,7 @@
     },
     "cascade_frac": {
      "l": 1.0,
-     "r": 0.981029810298103
+     "r": 0.9904458598726115
     },
     "wrong": []
    },
@@ -243,92 +251,104 @@
     "l": {
      "near_frac": 0.0,
      "stroke_fwd_p50": 11.262600000000003,
-     "stroke_fwd_p10": 10.444680000000002
+     "stroke_fwd_p10": 10.44244
     },
     "r": {
      "near_frac": 0.0,
      "stroke_fwd_p50": 12.915300000000002,
-     "stroke_fwd_p10": 10.97044
+     "stroke_fwd_p10": 10.917800000000002
     }
    },
    "kin": {
     "l": {
      "n": 6,
-     "curv_p50": 0.10720788803719726,
+     "curv_p50": 0.10553089343811825,
      "straight_frac": 0.0,
-     "peak_mean_p50": 1.8397212709573423,
+     "peak_mean_p50": 1.7206297614075834,
      "bell_frac": 1.0,
-     "v_peak_p50": 52.872374579002084,
+     "v_peak_p50": 35.895984798767316,
      "v_peak_max": 64.82211376143178
     },
     "r": {
-     "n": 15,
-     "curv_p50": 0.051971751469936614,
-     "straight_frac": 0.06666666666666667,
-     "peak_mean_p50": 2.042869404475647,
-     "bell_frac": 0.9333333333333333,
-     "v_peak_p50": 96.85297869580467,
-     "v_peak_max": 131.77494541262377
+     "n": 14,
+     "curv_p50": 0.07362458628463225,
+     "straight_frac": 0.0,
+     "peak_mean_p50": 1.9510773794080745,
+     "bell_frac": 0.8571428571428571,
+     "v_peak_p50": 63.271039374844875,
+     "v_peak_max": 131.88272115311386
     }
    },
    "lag": {
     "l": {
      "n": 6,
-     "hand_minus_upper_ms_p50": 125.52692694837498,
-     "fingers_minus_upper_ms_p50": 187.92614129189954,
-     "ordered_frac": 0.8333333333333334
+     "hand_minus_upper_ms_p50": 85.02503847848408,
+     "fingers_minus_upper_ms_p50": 25.21489875831584,
+     "ordered_frac": 0.6666666666666666
     },
     "r": {
-     "n": 15,
-     "hand_minus_upper_ms_p50": 46.841909985460006,
-     "fingers_minus_upper_ms_p50": 76.4984090027312,
-     "ordered_frac": 0.3333333333333333
+     "n": 14,
+     "hand_minus_upper_ms_p50": 45.81670636394203,
+     "fingers_minus_upper_ms_p50": 55.43122568713538,
+     "ordered_frac": 0.35714285714285715
     }
    },
    "asym": {
     "n": 3,
-    "mirror_corr_p50": -0.04181079316581011,
-    "mirror_corr_max": 0.19011723600825248,
-    "onset_diff_ms_p50": 27.106260767794765,
-    "amp_ratio_p50": 0.7355311330626926
+    "mirror_corr_p50": -0.01924240429897438,
+    "mirror_corr_max": 0.18921739548927222,
+    "onset_diff_ms_p50": 73.32482854258603,
+    "amp_ratio_p50": 0.5138449063415859
    },
    "fingers": {
     "l": {
-     "frozen_frac": 0.0,
-     "frozen_max_s": 0.26666666666666666
+     "frozen_frac": 0.04,
+     "frozen_max_s": 0.5333333333333333
     },
     "r": {
      "frozen_frac": 0.0,
-     "frozen_max_s": 0.03333333333333333
+     "frozen_max_s": 0.23333333333333334
     }
    },
    "torso": {
     "spine_05": {
-     "corr_with_r_wrist": 0.35908884224099796,
-     "mean_cm_s": 0.7815487751401479
+     "corr_with_r_wrist": 0.18342668155086414,
+     "mean_cm_s": 0.8006135042487103
     },
     "head": {
-     "corr_with_r_wrist": 0.3578872134172727,
-     "mean_cm_s": 1.5250026444710416
+     "corr_with_r_wrist": 0.18650640709607497,
+     "mean_cm_s": 1.5460972637483335
     }
    },
    "travel": {
-    "l": 6.390583130402259,
-    "r": 20.979242197630427,
-    "l_over_r": 0.30461458379674294
+    "l": 6.361747039742188,
+    "r": 21.092091165486483,
+    "l_over_r": 0.30161765326294787
    },
    "holds": {
     "l": {
-     "n": 320,
-     "p10": 0.5203160062058424,
-     "p50": 0.831254501223117,
+     "n": 293,
+     "p10": 0.5044594259767076,
+     "p50": 0.8596060144043397,
      "frozen_frac": 0.0
     },
     "r": {
-     "n": 206,
-     "p10": 0.4403807721216314,
-     "p50": 0.8023649059993747,
+     "n": 188,
+     "p10": 0.5130010839500627,
+     "p50": 1.3884599131882471,
      "frozen_frac": 0.0
+    }
+   },
+   "snaps": {
+    "l": {
+     "n": 0,
+     "per_min": 0.0,
+     "t": []
+    },
+    "r": {
+     "n": 0,
+     "per_min": 0.0,
+     "t": []
     }
    }
   }
