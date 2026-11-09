@@ -29,6 +29,9 @@ if [ -n "${PRES_S3:-}" ]; then
     PRES=/srv/ue/explain/$FILM/pres_${PRES_S3//\//_}
     aws s3 sync --only-show-errors --exclude "*.mp4" "$B/$PRES_S3/" "$PRES/"  # render.py's shot previews not needed
 fi
+# ffmpeg 7.0.2 (static) and 9.0 cut the composite's picture to ~300 frames (r7A, 08 Nov; cause open); 6.0.1/6.1 are
+# right, so a user-space 6.0.1 at ~/.local/opt/ffmpeg60 goes first when present
+[ -x "$HOME/.local/opt/ffmpeg60/bin/ffmpeg" ] && export PATH=$HOME/.local/opt/ffmpeg60/bin:$PATH
 UV="nice -n 10 $HOME/.local/bin/uv run --no-project --with pillow --with imageio-ffmpeg --with numpy"
 
 aws s3 sync --only-show-errors --delete --exclude 'review/*' --exclude '*.tar' --exclude '_*' "$B/$GFXP/" "$GFX/"
