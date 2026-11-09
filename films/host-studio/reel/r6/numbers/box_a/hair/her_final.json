@@ -1,0 +1,117 @@
+{
+ "pass": false,
+ "character": "Presenter",
+ "issues": [
+  {
+   "code": "hair.cut_jump",
+   "severity": "fail",
+   "message": "Presenter: hair changes across the cut S15 -> S16 at f1200: reach 1.349 -> 0.921 (-31.7%, line 12%); area 0.747 -> 1.386 (+85.5%, line 25%) (SHORTER)",
+   "fix": "lock the grooms (film-ue op groom.lock labels=...; render with its render_cvars), then re-render both shots and re-run this check",
+   "subject": "Presenter",
+   "frame": 1200,
+   "value": -0.317,
+   "expected": 0.12
+  },
+  {
+   "code": "hair.cut_jump",
+   "severity": "fail",
+   "message": "Presenter: hair changes across the cut S16 -> S17 at f1320: reach 0.829 -> 2.159 (+160.3%, line 12%); area 1.422 -> 5.520 (+288.2%, line 25%)",
+   "fix": "lock the grooms (film-ue op groom.lock labels=...; render with its render_cvars), then re-render both shots and re-run this check",
+   "subject": "Presenter",
+   "frame": 1320,
+   "value": 1.6026,
+   "expected": 0.12
+  },
+  {
+   "code": "hair.cut_jump",
+   "severity": "fail",
+   "message": "Presenter: hair changes across the cut S17 -> S18 at f1440: reach 2.973 -> 2.147 (-27.8%, line 12%); area 12.545 -> 4.684 (-62.7%, line 25%) (SHORTER)",
+   "fix": "lock the grooms (film-ue op groom.lock labels=...; render with its render_cvars), then re-render both shots and re-run this check",
+   "subject": "Presenter",
+   "frame": 1440,
+   "value": -0.2779,
+   "expected": 0.12
+  }
+ ],
+ "cuts": [
+  {
+   "from": "S15",
+   "to": "S16",
+   "frame": 1200,
+   "reach": [
+    1.3493,
+    0.9215,
+    -0.317
+   ],
+   "area": [
+    0.7475,
+    1.3863,
+    0.8547
+   ],
+   "fail": true
+  },
+  {
+   "from": "S16",
+   "to": "S17",
+   "frame": 1320,
+   "reach": [
+    0.8295,
+    2.1588,
+    1.6026
+   ],
+   "area": [
+    1.4219,
+    5.5195,
+    2.8817
+   ],
+   "fail": true
+  },
+  {
+   "from": "S17",
+   "to": "S18",
+   "frame": 1440,
+   "reach": [
+    2.9726,
+    2.1466,
+    -0.2779
+   ],
+   "area": [
+    12.5449,
+    4.6838,
+    -0.6266
+   ],
+   "fail": true
+  }
+ ],
+ "pops": [],
+ "frames": 24,
+ "thresholds": {
+  "cut_reach": 0.12,
+  "cut_area": 0.25,
+  "pop_reach": 0.08,
+  "pop_area": 0.15,
+  "k": 4,
+  "min_px": 40,
+  "cut_pop": 1.8
+ },
+ "cut_pops": [
+  {
+   "cut": 1440,
+   "d_cut": 0.936,
+   "d_before": 0.659,
+   "d_after": 0.718,
+   "ratio": 1.304,
+   "from": "S17",
+   "to": "S18"
+  }
+ ],
+ "gate": {
+  "hair.cut_reach_pct": 160.26,
+  "hair.pop_reach_pct": 0.0,
+  "hair.cut_pop_ratio": 1.304
+ },
+ "metrics": {
+  "frames_measured": 24,
+  "frames_found": 1572
+ }
+}

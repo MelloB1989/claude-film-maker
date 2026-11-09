@@ -1,0 +1,38 @@
+{
+ "desk_top": 71.0,
+ "desk_near": 12.0,
+ "desk_far": 67.0,
+ "desk_y": [
+  -55.0,
+  55.0
+ ],
+ "desk_under": 60.4,
+ "mic": [
+  21.0,
+  -14.0,
+  96.0
+ ],
+ "boom": [
+  [
+   64.6,
+   -30.28,
+   71.0
+  ],
+  [
+   53.91,
+   -25.99,
+   116.3
+  ],
+  [
+   29.2,
+   -16.01,
+   100.4
+  ],
+  [
+   21.0,
+   -14.0,
+   96.0
+  ]
+ ],
+ "frame": "actor (studio minus the chair mark (20,-20,0)), cm; written by setplan.set_for_perf"
+}

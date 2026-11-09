@@ -1,0 +1,287 @@
+{
+ "jobs": [
+  {
+   "job": "preview/shot01_CAM_MCU",
+   "frames": [
+    0,
+    104
+   ],
+   "box": "i-0d7684b44eacf7043",
+   "at": "2026-11-07 17:51:36",
+   "garment.leaders_ok": 1,
+   "leader_gap_cm": 0.0
+  },
+  {
+   "job": "preview/shot07_CAM_CU",
+   "frames": [
+    550,
+    662
+   ],
+   "box": "i-0d7684b44eacf7043",
+   "at": "2026-11-07 17:51:54",
+   "garment.leaders_ok": 1,
+   "leader_gap_cm": 0.0
+  },
+  {
+   "job": "preview/shot11_CAM_WIDE",
+   "frames": [
+    1034,
+    1168
+   ],
+   "box": "i-0d7684b44eacf7043",
+   "at": "2026-11-07 17:52:12",
+   "garment.leaders_ok": 1,
+   "leader_gap_cm": 0.0
+  },
+  {
+   "job": "final/shot01_CAM_MCU",
+   "frames": [
+    0,
+    104
+   ],
+   "box": "i-0d7684b44eacf7043",
+   "at": "2026-11-07 17:56:23",
+   "garment.leaders_ok": 1,
+   "leader_gap_cm": 0.0
+  },
+  {
+   "job": "final/shot01_CAM_MCU",
+   "frames": [
+    0,
+    104
+   ],
+   "box": "i-0d7684b44eacf7043",
+   "at": "2026-11-07 18:11:24",
+   "garment.leaders_ok": 1,
+   "strays": [],
+   "face_luma": 148.3,
+   "guard_ok": 1
+  },
+  {
+   "job": "final/shot04_CAM_MCU",
+   "frames": [
+    190,
+    311
+   ],
+   "box": "i-0d7684b44eacf7043",
+   "at": "2026-11-07 18:13:27",
+   "garment.leaders_ok": 1,
+   "strays": [],
+   "face_luma": 152.4,
+   "guard_ok": 1
+  },
+  {
+   "job": "final/shot13_CAM_MCU",
+   "frames": [
+    1272,
+    1358
+   ],
+   "box": "i-0d7684b44eacf7043",
+   "at": "2026-11-07 18:15:51",
+   "garment.leaders_ok": 1,
+   "strays": [],
+   "face_luma": 156.0,
+   "guard_ok": 1
+  },
+  {
+   "job": "final/shot02_CAM_CU",
+   "frames": [
+    92,
+    147
+   ],
+   "box": "i-0d7684b44eacf7043",
+   "at": "2026-11-07 18:17:50",
+   "garment.leaders_ok": 1,
+   "strays": [],
+   "face_luma": 156.0,
+   "guard_ok": 1
+  },
+  {
+   "job": "final/shot07_CAM_CU",
+   "frames": [
+    550,
+    662
+   ],
+   "box": "i-0d7684b44eacf7043",
+   "at": "2026-11-07 18:19:06",
+   "garment.leaders_ok": 1,
+   "strays": [],
+   "face_luma": 157.0,
+   "guard_ok": 1
+  },
+  {
+   "job": "final/shot14_CAM_CU",
+   "frames": [
+    1346,
+    1397
+   ],
+   "box": "i-0d7684b44eacf7043",
+   "at": "2026-11-07 18:21:34",
+   "garment.leaders_ok": 1,
+   "strays": [],
+   "face_luma": 157.2,
+   "guard_ok": 1
+  },
+  {
+   "job": "final/shot06_CAM_MCU_L",
+   "frames": [
+    400,
+    562
+   ],
+   "box": "i-0d7684b44eacf7043",
+   "at": "2026-11-07 18:23:00",
+   "garment.leaders_ok": 1,
+   "strays": [],
+   "face_luma": 153.8,
+   "guard_ok": 1
+  },
+  {
+   "job": "final/shot10_CAM_MCU_L",
+   "frames": [
+    948,
+    1046
+   ],
+   "box": "i-0d7684b44eacf7043",
+   "at": "2026-11-07 18:26:28",
+   "garment.leaders_ok": 1,
+   "strays": [],
+   "face_luma": 149.2,
+   "guard_ok": 1
+  },
+  {
+   "job": "final/shot11_CAM_WIDE",
+   "frames": [
+    1034,
+    1168
+   ],
+   "box": "i-0d7684b44eacf7043",
+   "at": "2026-11-07 18:28:47",
+   "garment.leaders_ok": 1,
+   "strays": [],
+   "face_luma": 118.9,
+   "guard_ok": 1
+  },
+  {
+   "job": "final/shot11_CAM_WIDE",
+   "frames": [
+    1034,
+    1168
+   ],
+   "box": "i-0d7684b44eacf7043",
+   "at": "2026-11-07 21:24:55",
+   "garment.leaders_ok": 1,
+   "strays": [],
+   "face_luma": 125.8,
+   "guard_ok": 1
+  },
+  {
+   "job": "final/shot02_CAM_CU",
+   "frames": [
+    92,
+    147
+   ],
+   "box": "i-0d7684b44eacf7043",
+   "at": "2026-11-07 22:21:09",
+   "garment.leaders_ok": 1,
+   "strays": [],
+   "face_luma": 150.8,
+   "guard_ok": 1
+  },
+  {
+   "job": "final/shot06_CAM_MCU_L",
+   "frames": [
+    400,
+    562
+   ],
+   "box": "i-0d7684b44eacf7043",
+   "at": "2026-11-07 22:22:20",
+   "garment.leaders_ok": 1,
+   "strays": [],
+   "face_luma": 149.5,
+   "guard_ok": 1
+  },
+  {
+   "job": "final/shot01_CAM_MCU",
+   "frames": [
+    0,
+    104
+   ],
+   "box": "i-0d7684b44eacf7043",
+   "at": "2026-11-07 22:25:53",
+   "garment.leaders_ok": 1,
+   "strays": [],
+   "face_luma": 145.8,
+   "guard_ok": 1
+  },
+  {
+   "job": "final/shot04_CAM_MCU",
+   "frames": [
+    190,
+    311
+   ],
+   "box": "i-0d7684b44eacf7043",
+   "at": "2026-11-07 22:27:53",
+   "garment.leaders_ok": 1,
+   "strays": [],
+   "face_luma": 149.2,
+   "guard_ok": 1
+  },
+  {
+   "job": "final/shot13_CAM_MCU",
+   "frames": [
+    1272,
+    1358
+   ],
+   "box": "i-0d7684b44eacf7043",
+   "at": "2026-11-07 22:30:13",
+   "garment.leaders_ok": 1,
+   "strays": [],
+   "face_luma": 151.1,
+   "guard_ok": 1
+  },
+  {
+   "job": "final/shot07_CAM_CU",
+   "frames": [
+    550,
+    662
+   ],
+   "box": "i-0d7684b44eacf7043",
+   "at": "2026-11-07 22:32:07",
+   "garment.leaders_ok": 1,
+   "strays": [],
+   "face_luma": 153.8,
+   "guard_ok": 1
+  },
+  {
+   "job": "final/shot14_CAM_CU",
+   "frames": [
+    1346,
+    1397
+   ],
+   "box": "i-0d7684b44eacf7043",
+   "at": "2026-11-07 22:34:29",
+   "garment.leaders_ok": 1,
+   "strays": [],
+   "face_luma": 153.6,
+   "guard_ok": 1
+  },
+  {
+   "job": "final/shot10_CAM_MCU_L",
+   "frames": [
+    948,
+    1046
+   ],
+   "box": "i-0d7684b44eacf7043",
+   "at": "2026-11-07 22:35:47",
+   "garment.leaders_ok": 1,
+   "strays": [],
+   "face_luma": 144.2,
+   "guard_ok": 1
+  }
+ ],
+ "garment.leaders_ok": 1,
+ "shot.streaming_settled": {
+  "value": 1,
+  "where": "warm-up in the spec (r.Streaming.FullyLoadUsedTextures 1, PoolSize 12000, 22 engine + 24 render warm-up frames) + the orchestrator's 1:1 first frames CU f130 / MCU_L f438 / MCU f38 PASS, and the full v2 frame-wise watch"
+ }
+}

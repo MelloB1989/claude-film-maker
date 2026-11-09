@@ -1,0 +1,1418 @@
+{
+ "_about": "Round 6 explainer gate spec for qa/gate.py (film-qa gate --spec films/host-studio/explainers/gate_spec.json NUMBERS...). One run per film (whatsapp = him, box A; netflix = her, box B). QA.md says who produces each number and how. complaints: no waiver on these areas. The karma reel's items that do not apply are INFO with the reason in their row; the cloth items are NOT ATTEMPTED (the orchestrator, 07 Nov: her overshirt stays skinned, his tee is Epic's default garment).",
+ "complaints": [
+  "lips",
+  "head",
+  "garment",
+  "hair",
+  "set",
+  "eye"
+ ],
+ "items": {
+  "lips.eye_onsets": {
+   "area": "lips",
+   "track": "orchestrator",
+   "op": "==",
+   "line": 1,
+   "unit": "bool",
+   "what": "the orchestrator's by-eye mouth onset vs audio onset on EVERY on-camera VO line (0-2 f lead, or occluded with what hides it)",
+   "where": "every on-camera line of the film",
+   "how": "the strip file signed by cc-64d05f6e -> ../reel/r6/eye_onsets.py STRIP --lines <the film's on-camera line ids>",
+   "why": "the karma ruling (07 Nov): the render lip measure is invalid, the eye is the judge, line by line"
+  },
+  "lips.render_lag_frames": {
+   "info": true,
+   "r4": [
+    null,
+    "INFO by the orchestrator's ruling (07 Nov): an invalid measure (round 5b: the round-4 control fails too, random sign). agent-01's landmark measure replaces it once validated"
+   ]
+  },
+  "head.buzz_rms_deg": {
+   "area": "head",
+   "track": "agent-04",
+   "op": "<=",
+   "line": 0.08,
+   "unit": "deg",
+   "what": "high-frequency head jitter (RMS of the head minus its smoothed path)",
+   "where": "the presenter's on-screen spans (edl/<film>.json)",
+   "how": "films/host-studio/explainers/head.py judge CUE --head head.json --eyes eyes.json --gate numbers/head_<film>.json (agent-04, fleet/agent-04/r6-head)",
+   "why": "the operator: 'it must look like it is almost an actual person speaking'; the brief: natural blinks, eyes alive (saccades), head micro-motion"
+  },
+  "head.drift_deg": {
+   "area": "head",
+   "track": "agent-04",
+   "op": "range",
+   "line": [
+    0.15,
+    1.5
+   ],
+   "unit": "deg",
+   "what": "median 2 s spread of the smoothed head: alive, not wandering",
+   "where": "the presenter's on-screen spans (edl/<film>.json)",
+   "how": "films/host-studio/explainers/head.py judge CUE --head head.json --eyes eyes.json --gate numbers/head_<film>.json (agent-04, fleet/agent-04/r6-head)",
+   "why": "the operator: 'it must look like it is almost an actual person speaking'; the brief: natural blinks, eyes alive (saccades), head micro-motion"
+  },
+  "head.frozen_s": {
+   "area": "head",
+   "track": "agent-04",
+   "op": "<=",
+   "line": 1.5,
+   "unit": "s",
+   "what": "longest hold under 0.25 deg/s on the smoothed head (a mannequin)",
+   "where": "the presenter's on-screen spans (edl/<film>.json)",
+   "how": "films/host-studio/explainers/head.py judge CUE --head head.json --eyes eyes.json --gate numbers/head_<film>.json (agent-04, fleet/agent-04/r6-head)",
+   "why": "the operator: 'it must look like it is almost an actual person speaking'; the brief: natural blinks, eyes alive (saccades), head micro-motion"
+  },
+  "head.nods_per_min": {
+   "area": "head",
+   "track": "agent-04",
+   "op": "range",
+   "line": [
+    3.0,
+    24.0
+   ],
+   "unit": "/min",
+   "what": "pitch dips >= 0.7 deg with the speech (emphasis), not on blinks",
+   "where": "the presenter's on-screen spans (edl/<film>.json)",
+   "how": "films/host-studio/explainers/head.py judge CUE --head head.json --eyes eyes.json --gate numbers/head_<film>.json (agent-04, fleet/agent-04/r6-head)",
+   "why": "the operator: 'it must look like it is almost an actual person speaking'; the brief: natural blinks, eyes alive (saccades), head micro-motion"
+  },
+  "eyes.on_lens_share": {
+   "area": "head",
+   "track": "agent-04",
+   "op": ">=",
+   "line": 0.75,
+   "unit": "share",
+   "what": "frames with the eyes within 3 deg of the lens (talking to the viewer)",
+   "where": "the presenter's on-screen spans (edl/<film>.json)",
+   "how": "films/host-studio/explainers/head.py judge CUE --head head.json --eyes eyes.json --gate numbers/head_<film>.json (agent-04, fleet/agent-04/r6-head)",
+   "why": "the operator: 'it must look like it is almost an actual person speaking'; the brief: natural blinks, eyes alive (saccades), head micro-motion"
+  },
+  "eyes.saccades_per_s": {
+   "area": "head",
+   "track": "agent-04",
+   "op": "range",
+   "line": [
+    0.4,
+    3.0
+   ],
+   "unit": "/s",
+   "what": "on-lens eye steps of 0.1-1.5 deg in a frame (eyes alive)",
+   "where": "the presenter's on-screen spans (edl/<film>.json)",
+   "how": "films/host-studio/explainers/head.py judge CUE --head head.json --eyes eyes.json --gate numbers/head_<film>.json (agent-04, fleet/agent-04/r6-head)",
+   "why": "the operator: 'it must look like it is almost an actual person speaking'; the brief: natural blinks, eyes alive (saccades), head micro-motion"
+  },
+  "eyes.glances_per_min": {
+   "area": "head",
+   "track": "agent-04",
+   "op": "range",
+   "line": [
+    2.0,
+    8.0
+   ],
+   "unit": "/min",
+   "what": "looks off the lens > 5 deg for 0.25-2.5 s and back (thinking)",
+   "where": "the presenter's on-screen spans (edl/<film>.json)",
+   "how": "films/host-studio/explainers/head.py judge CUE --head head.json --eyes eyes.json --gate numbers/head_<film>.json (agent-04, fleet/agent-04/r6-head)",
+   "why": "the operator: 'it must look like it is almost an actual person speaking'; the brief: natural blinks, eyes alive (saccades), head micro-motion"
+  },
+  "blinks.per_min": {
+   "area": "head",
+   "track": "agent-04",
+   "op": "range",
+   "line": [
+    10.0,
+    30.0
+   ],
+   "unit": "/min",
+   "what": "blink rate while talking",
+   "where": "the presenter's on-screen spans (edl/<film>.json)",
+   "how": "films/host-studio/explainers/head.py judge CUE --head head.json --eyes eyes.json --gate numbers/head_<film>.json (agent-04, fleet/agent-04/r6-head)",
+   "why": "the operator: 'it must look like it is almost an actual person speaking'; the brief: natural blinks, eyes alive (saccades), head micro-motion"
+  },
+  "body.breath_cycles_per_min": {
+   "area": "body",
+   "track": "agent-01",
+   "op": "range",
+   "line": [
+    8.0,
+    22.0
+   ],
+   "unit": "/min",
+   "what": "chest/shoulder rise cycles on the seated body (spine_05/clavicles), on screen",
+   "where": "every presenter shot",
+   "how": "agent-01's seated-body sampler (seq.sample on spine_05 + clavicle_l/r) -> the dominant 0.13-0.37 Hz cycle",
+   "why": "the brief: breathing; a seated talking head with a still chest reads as a mannequin"
+  },
+  "body.breath_amp_mm": {
+   "area": "body",
+   "track": "agent-01",
+   "op": ">=",
+   "line": 2.0,
+   "unit": "mm",
+   "what": "median peak-to-peak chest rise per breath cycle on screen",
+   "where": "every presenter shot",
+   "how": "the same sampler",
+   "why": "visible, not a heave: ~2-6 mm at the sternum when talking"
+  },
+  "garment.neck_px": {
+   "where": "the SEATED pose, every presenter camera of the film (qa.clip / qa.garment_look on the explainer sequence)"
+  },
+  "garment.collar_gap_cm": {
+   "where": "the SEATED pose, every presenter camera of the film (qa.clip / qa.garment_look on the explainer sequence)",
+   "info": true,
+   "r4": [
+    null,
+    "INFO for BOTH explainers by the orchestrator's ruling (cc-64d05f6e, 07 Nov), a scope change, not a waiver: the measure is unvalidated (the karma ruling) and her scoop top has no crew band. Evidence, HER: agent-02's scoop_fit m1 (the edge on skin, p50 +0.07/-0.16 cm, 9 frames), strip_id (no back faces or hidden mesh), the orchestrator's 3x crops before/after Top.cast_shadow off. HIM: agent-02's seated neck check plus the orchestrator's 1:1 crops before his finals"
+   ]
+  },
+  "garment.collar_roll": {
+   "where": "the SEATED pose, every presenter camera of the film (qa.clip / qa.garment_look on the explainer sequence)",
+   "info": true,
+   "r4": [
+    null,
+    "INFO for BOTH explainers by the orchestrator's ruling (cc-64d05f6e, 07 Nov), a scope change, not a waiver: the measure is unvalidated (the karma ruling) and her scoop top has no crew band. Evidence, HER: agent-02's scoop_fit m1 (the edge on skin, p50 +0.07/-0.16 cm, 9 frames), strip_id (no back faces or hidden mesh), the orchestrator's 3x crops before/after Top.cast_shadow off. HIM: agent-02's seated neck check plus the orchestrator's 1:1 crops before his finals"
+   ]
+  },
+  "garment.armor_index": {
+   "where": "the SEATED pose, every presenter camera of the film (qa.clip / qa.garment_look on the explainer sequence)"
+  },
+  "garment.wpo_cm": {
+   "where": "the SEATED pose, every presenter camera of the film (qa.clip / qa.garment_look on the explainer sequence)"
+  },
+  "garment.pair_fraction": {
+   "where": "the SEATED pose on the finals' own state, every presenter camera. NETFLIX V2 (no overshirt): the orchestrator ruled (07 Nov, box B r6b_v2_clip) Body>Top at MCU f1330 / MCU_L f1015 = her forearm/elbow IN FRONT of the top, and Trousers>Top at WIDE f1176 = her hands/forearms in front of the hem: OCCLUSIONS, not poke-through. r6b_v2_clip is V2's baseline: those pairs count only their excess over its worst (+0.01, qa.clip before=.../r6b_v2_clip/clip.json); every other pair counts raw",
+   "how": "film-ue op qa.clip ... (pairs without Overshirt) on the finals' state -> worst raw fraction, or the excess over a V2 baseline the orchestrator ruled -> numbers/<film>/clip.json"
+  },
+  "garment.hem_flare_ratio": {
+   "where": "the SEATED pose, every presenter camera of the film (qa.clip / qa.garment_look on the explainer sequence)"
+  },
+  "garment.open_edge_shrunk": {
+   "area": "garment",
+   "track": "K1",
+   "op": "==",
+   "line": 0,
+   "unit": "verts",
+   "guard": true,
+   "what": "face-mesh verts on its open lower edge the neck backstop shrinks (the 'cut' at his neck)",
+   "where": "his face mesh as built (box A); 0 by construction for her",
+   "how": "r5/neck_backstop.py mask report shrunk_on_open_edge, or 0 with the backstop off (agent-02's r6 root fix: MaxShrink 0)",
+   "must_fail": [
+    92,
+    "karma round 5b loop 2: 92/92, the operator's 'cut'"
+   ],
+   "why": "his explainer must carry the neck fix (only box A has it)",
+   "films": [
+    "whatsapp"
+   ]
+  },
+  "garment.silhouette_pct": {
+   "info": true,
+   "r4": [
+    null,
+    "INFO for the explainers: the karma reference (r4/clip/Host_after) is a standing pose; the seated pose has no accepted reference yet. armor_index, wpo_cm, neck_px and the orchestrator's eye cover a balloon"
+   ]
+  },
+  "set.clip_px": {
+   "area": "set",
+   "track": "agent-07",
+   "op": "==",
+   "line": 0,
+   "unit": "px",
+   "what": "worst frame's presenter-vs-set intersection pixels: Body/Trousers/tee/Overshirt into the Chair or the Desk and back (qa.clip props + pairs, the intersection-edge rule)",
+   "where": "every presenter camera, n 8 per shot + the sit/stand-up frames if any",
+   "how": "film-ue op qa.clip label=<presenter> sequence=<SEQ> 'props={\"Chair\":\"<chair>\",\"Desk\":\"<desk>\"}' 'pairs=[[\"Body\",\"Chair\"],[\"Trousers\",\"Chair\"],[\"Chair\",\"Trousers\"],[\"Body\",\"Desk\"],[\"Desk\",\"tee\"]]' (core 0ce1c3ae) -> the worst pair px",
+   "why": "the brief: no frame where the presenter intersects the chair or desk"
+  },
+  "set.mic_mouth_px": {
+   "area": "set",
+   "track": "agent-07",
+   "op": "==",
+   "line": 0,
+   "unit": "px",
+   "what": "worst frame's mouth pixels the studio mic covers (qa.clip mouth: a 2 cm disc round the lip bones, the mic nearer than the face)",
+   "where": "the camera ACTUALLY CUT at each frame per the film's EDL (edl/<film>.json: CAM_MCU / CAM_CU / CAM_MCU_L / CAM_WIDE at their spans); a hit in a camera not on screen at that frame is ignored (the orchestrator's ruling, 08 Nov). qa.clip reads the sequence's camera-cut track per frame (cut_camera), so the sequence's cut track must equal the EDL's when it runs (the driver checks it, or passes each EDL shot's frames)",
+   "how": "film-ue op qa.clip ... 'props={\"Mic\":\"<mic>\"}' 'mouth={\"blocker\":\"Mic\"}' (core 0ce1c3ae) -> metrics.worst.mouth.blocked_px",
+   "why": "the brief: the mic never covers the mouth in any camera"
+  },
+  "set.props_overlap": {
+   "how": "film-ue op qa.overlaps (axis-aligned boxes) flags candidates; EACH flagged pair is confirmed or cleared by a depth check: qa.clip props={both props} pairs=[[A,B],[B,A]] (the intersection-edge rule), the count = pairs whose qa.clip px > 0 -> numbers/<film>/set.json",
+   "area": "set",
+   "track": "agent-05 / box drivers",
+   "op": "==",
+   "line": 0,
+   "unit": "count",
+   "what": "prop pairs that interpenetrate (mic arm in the desk, chair in the desk), each axis-aligned candidate confirmed or cleared by depth",
+   "where": "the set",
+   "why": "clean set: the brief's no-intersection rule for the props"
+  },
+  "shot.render_matches_r4": {
+   "info": true,
+   "r4": [
+    null,
+    "INFO for the explainers: no round-4 reference exists (new set and cameras); shot.cameras_ok and the orchestrator's review cover a wrong view"
+   ]
+  },
+  "shot.exposure_jump_stops": {
+   "area": "shot",
+   "track": "agent-09",
+   "op": "<=",
+   "line": 0.05,
+   "unit": "stops",
+   "what": "worst frame-to-frame change of the SCENE exposure inside a shot, read on a fixed STATIC background patch (the plaster wall, or in a CU any static out-of-focus background region), median luma: auto-exposure pumping or a light popping moves it; her face turning against a fixed key does not",
+   "where": "every presenter shot (final frames, on the box)",
+   "how": "qa_av.py exposure FRAMES --shots shots.json --boxes <the static patch per shot> (on the box) -> numbers/<film>/exposure.json; the face-box numbers are kept as INFO in the file",
+   "why": "the brief: exposure stable; 0.05 stops is below what reads as a flicker",
+   "why_r6": "agent-09, 07 Nov: the face box measured her shading as she turns against the key (fixed box jump 0.17 / drift 0.27; tracked cheek band WORSE, 0.41 / 0.27), not exposure; the static-background control isolates exposure (netflix: wall worst jump 0.007, drift 0.019). Exposure is locked manual in the render spec"
+  },
+  "shot.exposure_drift_stops": {
+   "area": "shot",
+   "track": "agent-09",
+   "op": "<=",
+   "line": 0.15,
+   "unit": "stops",
+   "what": "worst drift of the 12-frame moving average of the SCENE exposure inside a shot, read on a fixed STATIC background patch (the plaster wall, or in a CU any static out-of-focus background region), median luma: auto-exposure pumping or a light popping moves it; her face turning against a fixed key does not",
+   "where": "every presenter shot",
+   "how": "qa_av.py exposure FRAMES --shots shots.json --boxes <the static patch per shot> (on the box) -> numbers/<film>/exposure.json; the face-box numbers are kept as INFO in the file",
+   "why": "a slow eye-adaptation drift reads as a dimmer on the face",
+   "why_r6": "agent-09, 07 Nov: the face box measured her shading as she turns against the key (fixed box jump 0.17 / drift 0.27; tracked cheek band WORSE, 0.41 / 0.27), not exposure; the static-background control isolates exposure (netflix: wall worst jump 0.007, drift 0.019). Exposure is locked manual in the render spec"
+  },
+  "audio.lufs_err_lu": {
+   "area": "audio",
+   "track": "agent-11",
+   "op": "<=",
+   "line": 0.5,
+   "unit": "LU",
+   "what": "|integrated loudness - (-14 LUFS)| of the delivered cut",
+   "where": "the cut",
+   "how": "qa_av.py loudness CUT.mp4 (ffmpeg ebur128)",
+   "why": "the brief: -14 LUFS"
+  },
+  "audio.true_peak_dbtp": {
+   "area": "audio",
+   "track": "agent-11",
+   "op": "<=",
+   "line": -1.0,
+   "unit": "dBTP",
+   "what": "true peak of the delivered cut",
+   "where": "the cut",
+   "how": "qa_av.py loudness CUT.mp4",
+   "why": "the brief: true peak <= -1 dBTP"
+  },
+  "captions.text_match": {
+   "area": "captions",
+   "track": "agent-11",
+   "op": "==",
+   "line": 1,
+   "unit": "bool",
+   "what": "the captions' words in order equal the VO lines' words (case, punctuation ignored)",
+   "where": "the cut's SRT vs audio/<film>/cues.json",
+   "how": "qa_av.py captions CUT.srt audio/<film>/cues.json (or qa_av.py all)",
+   "why": "the brief: captions match the VO; the orchestrator's ruling (07 Nov): EVERY line captioned, including over the graphics"
+  },
+  "captions.onset_ms": {
+   "area": "captions",
+   "track": "agent-11",
+   "op": "<=",
+   "line": 200,
+   "unit": "ms",
+   "what": "worst |first caption start - VO line start|",
+   "where": "every VO line",
+   "how": "qa_av.py captions (as above)",
+   "why": "a caption more than ~5 frames off its line reads as out of sync"
+  },
+  "facts.sourced": {
+   "area": "facts",
+   "track": "agent-11",
+   "op": "==",
+   "line": 1,
+   "unit": "bool",
+   "what": "every number the VO says is softened (over, about, nearly...) or has a sourced claim in facts.json",
+   "where": "every VO line",
+   "how": "qa_av.py facts audio/<film>/cues.json facts_<film>.json",
+   "why": "the brief: facts must be right; numbers softened unless a source pins them"
+  },
+  "deliver.format_ok": {
+   "area": "deliver",
+   "track": "agent-11",
+   "op": "==",
+   "line": 1,
+   "unit": "bool",
+   "what": "1920x1080 square pixels (16:9), 24/25/30 fps, one video + one 48 kHz audio stream",
+   "where": "the delivered cut",
+   "how": "qa_av.py format CUT.mp4",
+   "why": "the operator's standing rule: 16:9 only"
+  },
+  "deliver.qc_ok": {
+   "area": "deliver",
+   "track": "agent-11",
+   "op": "==",
+   "line": 1,
+   "unit": "bool",
+   "what": "film-post qc on the cut passes (no black or frozen runs, duration = EDL, captions in the safe area)",
+   "where": "the delivered cut",
+   "how": "film-post qc CUT.mp4 --edl X.edl --captions X.srt -o qc.json -> pass",
+   "why": "the karma cut's final_qa, for the explainers"
+  },
+  "deliver.duration_s": {
+   "area": "deliver",
+   "track": "agent-11",
+   "op": "range",
+   "line": [
+    50.0,
+    70.0
+   ],
+   "unit": "s",
+   "what": "the cut's length",
+   "where": "the cut",
+   "how": "qa_av.py format CUT.mp4",
+   "why": "the brief: ~60 s",
+   "info": true
+  },
+  "eye.real_person": {
+   "area": "eye",
+   "track": "orchestrator",
+   "op": "==",
+   "line": 1,
+   "unit": "bool",
+   "what": "reads as a real person speaking, at full speed and in the 2x crops (the operator's bar)",
+   "where": "the whole film, watched like the viewer",
+   "how": "the review strip signed by cc-64d05f6e: {\"by\": \"cc-64d05f6e\", \"gate\": {\"eye.real_person\": 1|0, ...}, \"notes\"}",
+   "why": "the brief: every review goes to the orchestrator before anything is called done"
+  },
+  "eye.light": {
+   "area": "eye",
+   "track": "orchestrator",
+   "op": "==",
+   "line": 1,
+   "unit": "bool",
+   "what": "soft studio key with a visible rim, catchlights in both eyes, shallow depth of field, background soft",
+   "where": "the whole film, watched like the viewer",
+   "how": "the review strip signed by cc-64d05f6e: {\"by\": \"cc-64d05f6e\", \"gate\": {\"eye.light\": 1|0, ...}, \"notes\"}",
+   "why": "the brief: every review goes to the orchestrator before anything is called done"
+  },
+  "eye.hair_garment": {
+   "area": "eye",
+   "track": "orchestrator",
+   "op": "==",
+   "line": 1,
+   "unit": "bool",
+   "what": "no popping hair, no garment armour, collar sits on the neck (his neck: no cut, no gap) in the seated pose",
+   "where": "the whole film, watched like the viewer",
+   "how": "the review strip signed by cc-64d05f6e: {\"by\": \"cc-64d05f6e\", \"gate\": {\"eye.hair_garment\": 1|0, ...}, \"notes\"}",
+   "why": "the brief: every review goes to the orchestrator before anything is called done"
+  },
+  "eye.graphics": {
+   "area": "eye",
+   "track": "orchestrator",
+   "op": "==",
+   "line": 1,
+   "unit": "bool",
+   "what": "the graphics are very high-end, correct, and in sync with the VO; no text error",
+   "where": "the whole film, watched like the viewer",
+   "how": "the review strip signed by cc-64d05f6e: {\"by\": \"cc-64d05f6e\", \"gate\": {\"eye.graphics\": 1|0, ...}, \"notes\"}",
+   "why": "the brief: every review goes to the orchestrator before anything is called done"
+  },
+  "body.desk_through": {
+   "area": "set",
+   "track": "agent-01",
+   "op": "==",
+   "line": 0,
+   "unit": "frames",
+   "what": "frames where a hand/forearm goes through the desk top (seatkit desk.through)",
+   "where": "every frame of the placed performance (editor, bones vs the set's boxes)",
+   "how": "films/host-studio/explainers/perform.py -> numbers/<film>/body.json (agent-01, fleet/agent-01/r6-perf)",
+   "why": "the brief: no frame where the presenter intersects the chair or desk; the bone check catches what qa.clip's sampled frames can miss"
+  },
+  "body.mic_touch": {
+   "area": "set",
+   "track": "agent-01",
+   "op": "==",
+   "line": 0,
+   "unit": "frames",
+   "what": "frames where the body or a hand touches or passes through the mic or its arm (seatkit mic.*)",
+   "where": "every frame of the placed performance (editor, bones vs the set's boxes)",
+   "how": "films/host-studio/explainers/perform.py -> numbers/<film>/body.json (agent-01, fleet/agent-01/r6-perf)",
+   "why": "the brief: no frame where the presenter intersects the chair or desk; the bone check catches what qa.clip's sampled frames can miss"
+  },
+  "body.knee_desk": {
+   "area": "set",
+   "track": "agent-01",
+   "op": "==",
+   "line": 0,
+   "unit": "frames",
+   "what": "frames where a knee passes through the desk (seatkit desk.knee)",
+   "where": "every frame of the placed performance (editor, bones vs the set's boxes)",
+   "how": "films/host-studio/explainers/perform.py -> numbers/<film>/body.json (agent-01, fleet/agent-01/r6-perf)",
+   "why": "the brief: no frame where the presenter intersects the chair or desk; the bone check catches what qa.clip's sampled frames can miss"
+  },
+  "lips.lead_in_cm": {
+   "where": "each on-camera line's SILENCE PROPER before its first word: frames [previous line's last word + 4 (its compose fade-out), first word - ceil(LEAD_FRAMES 2.5) - 1] (agent-01 5f941ade; the 2.5 f anticipation is the orchestrator's approval, r5/lipsync.md 'Round 6'). A line whose window is under 2 frames (the 0.34 s gaps: netflix N02, N07, N12, N16) is NOT judged by this row; its gap stays judged by lips.silence_open / silence_busy and its onset by lips.eye_onsets (every line, by eye). The first read 0.288 at N07 f504-507 sat on the anticipation + the previous line's fade-out (agent-01), re-run on the fixed window"
+  },
+  "gfx.caption_band_clear": {
+   "area": "captions",
+   "track": "agent-08/agent-12",
+   "op": "==",
+   "line": 1,
+   "unit": "bool",
+   "what": "no diagram text or key diagram content in the caption band (y > 0.85 of the frame) in any frame, full and panel layouts",
+   "where": "every graphics frame of the film",
+   "how": "the graphics film's own layout: every text/label element's screen box vs y 0.85 -> numbers/<film>/gfx.json (agent-08 whatsapp, agent-12 netflix)",
+   "why": "the orchestrator's ruling (07 Nov): every line is captioned, over the graphics too (people watch muted); captions sit in one band at the bottom"
+  },
+  "garment.leaders_ok": {
+   "area": "garment",
+   "track": "box drivers (agent-06 him, agent-07 her)",
+   "op": "==",
+   "line": 1,
+   "unit": "bool",
+   "guard": true,
+   "what": "every garment of the presenter follows Body (leader pose == Body), his body-hide mask on, read right before EVERY final job",
+   "where": "the explainer level, before each final job",
+   "how": "the driver's pre-render leaders read-back (dress + seq_dress) -> numbers/<film>/box.json",
+   "must_fail": [
+    0,
+    "karma r6n0 baseline (07 Nov): his tee stopped following his body, a dark band through the chest"
+   ],
+   "why": "the orchestrator, 07 Nov: a hard pre-render check on every box"
+  },
+  "garment.head_state_parity": {
+   "area": "garment",
+   "track": "agent-07 (box B) / agent-06 (box A)",
+   "op": "==",
+   "line": 1,
+   "unit": "bool",
+   "guard": true,
+   "what": "HIS head state on the box that renders his explainer equals box A's passed karma state: every file of agent-06's list (the built Host_Op face mesh, its WI/cull texture, the r5b skin textures/MIs, anything his look changed since 16:14) matches by checksum, AND cull_live on that box reads the same culled count and the same lowest z as box A",
+   "where": "box B's project after the pull of private/r6/him_state/ and the editor restart, before his first explainer still",
+   "how": "agent-06's manifest + sha256 under private/r6/him_state/ (KMS) vs box B's files after the pull (every entry equal), AND cull_live on box B = box A's: 912 verts gone, culled z 144.2-153.3 -> numbers/whatsapp/box.json (box B's driver: agent-11 until 21:00, then agent-07)",
+   "must_fail": [
+    0,
+    "his explainer on box B from the 16:14 clone: loop-2 neck (shrink 3.0, the 'cut'), not the passed cull"
+   ],
+   "why": "the orchestrator, 07 Nov: his explainer moves to box B; it must carry exactly the neck fix that passed on box A",
+   "films": [
+    "whatsapp"
+   ]
+  },
+  "shot.streaming_settled": {
+   "area": "shot",
+   "track": "box drivers",
+   "op": "==",
+   "line": 1,
+   "unit": "bool",
+   "what": "texture/virtual-texture streaming settled before every final job: the render spec carries the warm-up (engine warm-up frames + render warm-up, r.Streaming.FullyLoadUsedTextures 1 or an equivalent VT/pool warm-up), and the job's first frame shows no unresolved tile (a hard-edged rectangular block)",
+   "where": "every final job, its first frame in every camera; the netflix CU first",
+   "how": "the driver's render spec read-back + the first frame of each job to the orchestrator's eye -> numbers/<film>/box.json",
+   "must_fail": [
+    0,
+    "netflix V2 her_CAM_CU_f1300 (orchestrator, 07 Nov): two rectangular blocks at the bottom centre (x 1055-1250, y 1010-1080), a pale one and a wood mosaic: an unresolved VT/streaming tile or a near-camera object"
+   ],
+   "why": "the orchestrator: it must not exist in any final frame"
+  },
+  "shot.grain_sigma": {
+   "area": "shot",
+   "track": "agent-07 (box B) / agent-09",
+   "op": "<=",
+   "line": 1.0,
+   "unit": "8-bit levels",
+   "what": "CLOSE shots (MCU, CU, MCU_L): pixel noise in fixed flat patches by projection (the back-wall plaster, under her jaw at neck_01 + 6 cm forward): the worst patch's Immerkaer noise sigma",
+   "where": "the first AND last frame of each final job (a FAIL re-renders that job), the finals-spec MCU test f29 before the batch",
+   "how": "qa_av.py grain <full-res frames> --patches grain_patches.json (on box B: face data) -> numbers/<film>/grain.json",
+   "must_fail": [
+    3.104,
+    "netflix r6c WIDE f300 (neck 3.104, desk 3.069), the speckle the orchestrator saw; r6b_v2_clip MCU_1330 read 14.553 (wall)"
+   ],
+   "guard": true,
+   "why": "the orchestrator, 07 Nov: an ABSOLUTE line sigma <= 1.0 (8-bit, flat patches) until a karma reference exists; f300 (3.10) and MCU_1330 (14.55) fail it, the finals-spec MCU test f29 (0.69, passed by eye at 1:1) passes"
+  },
+  "shot.grain_wide_sigma": {
+   "area": "shot",
+   "track": "agent-07 (box B)",
+   "op": "<=",
+   "line": 0.8,
+   "unit": "8-bit levels",
+   "what": "WIDE shots: the same noise sigma on FLAT patches only (the back-wall plaster right of the shelves, the higher plaster further right; no neck, no desk)",
+   "where": "the first AND last frame of each WIDE final job (a FAIL re-renders that job)",
+   "how": "qa_av.py grain <frames> --patches grain_patches_wide.json (wall, wall2) -> numbers/<film>/grain.json",
+   "must_fail": [
+    1.002,
+    "netflix r6c WIDE f300's wall (wall2 0.606): the speckle"
+   ],
+   "guard": true,
+   "why": "the orchestrator's ruling (07 Nov), a measure scope change: at WIDE scale the neck and desk patches hold texture (jaw line, hair edge, walnut pores), so they are INFO; evidence = the orchestrator's 1:1 look at shot 11 f1100 (orch/wide_1100.png): the desk shadow smooth, the pores real, face, hair and wall clean. Netflix V2 shot 11 reads 0.552/0.543 (wall2 0.377/0.386): PASS"
+  },
+  "shot.grain_wide_texture": {
+   "area": "shot",
+   "track": "agent-07 (box B)",
+   "op": "<=",
+   "line": 1.0,
+   "unit": "8-bit levels",
+   "info": true,
+   "what": "WIDE shots' neck and desk patches (texture at that scale), reported beside the flat-patch row",
+   "where": "each WIDE final job",
+   "how": "qa_av.py grain (neck, desk patches)",
+   "r4": [
+    null,
+    "netflix V2 shot 11: desk 1.28/1.05, neck 1.80/1.79 (v1's WIDE read 1.58, passed by eye)"
+   ],
+   "why": "the orchestrator's ruling: INFO, texture not noise at WIDE scale"
+  },
+  "shot.face_luma_vs_karma": {
+   "area": "camera",
+   "track": "agent-07 (box B)",
+   "op": ">=",
+   "line": 0.6,
+   "unit": "ratio",
+   "guard": true,
+   "what": "WHATSAPP (him): his face-box median luma on a seated still over his karma r6 finals' (S15 f1128), per-image face boxes: a FLOOR that catches a broken face state (r6n0 read 0.119-0.24), not a lighting match (the explainer set is lit differently; the 0.9-1.1 band is reported as INFO in the where)",
+   "where": "his MCU and CU seated stills before his first finals job",
+   "how": "films/host-studio/reel/r6/face_luma.py-style per-image boxes (agent-06) on box B vs private/renders/r6/box_a karma frames -> numbers/whatsapp/box.json",
+   "must_fail": [
+    0.119,
+    "karma r6n0: the dark face (leaders/material state)"
+   ],
+   "why": "the orchestrator, 07 Nov: face-luma vs karma r6 among his guards on box B",
+   "films": [
+    "whatsapp"
+   ]
+  },
+  "lips.render_conclusive": {
+   "info": true,
+   "r4": [
+    null,
+    "INFO with lips.render_lag_frames (the orchestrator's ruling, 07 Nov): a property of the invalid render measure"
+   ]
+  },
+  "hair.cut_pop_ratio": {
+   "info_films": [
+    "netflix",
+    "whatsapp"
+   ],
+   "info_reason": "no held-camera cut in either explainer: no two consecutive shots share a camera (edl/<film>.json), and the panel shots render through CAM_MCU_L (agent-07: the same lens position as CAM_MCU, turned), so whatsapp 12 -> 13 is a camera change too. Every explainer job is pre-rolled from frame 0 of the one continuous take (render.py preroll=cut), so the hair state matches at every cut whatever the job split; hair.cut_reach_pct still judges every cut",
+   "where": "no held-camera cut in the explainers"
+  },
+  "face.expr_active_frac": {
+   "area": "performance",
+   "track": "round 7 (agent-09 measure; agent-04 face, agent-01 body, agent-02 garment)",
+   "op": ">=",
+   "line": 0.6,
+   "unit": "fraction",
+   "what": "speaking frames with a NON-MOUTH expression active (brows, cheek/eye squint, smile) above 0.15 over the shot's neutral",
+   "where": "every speaking + on-screen frame of the presenter (cue words x edl presenter spans)",
+   "how": "film-qa perf-face <final frames> --speaking spans.json --box <face box> (MediaPipe blendshapes, each channel vs the shot's own neutral; on the box) -> numbers/<film>/perf_face.json; pre-check offline: qa_perf.face_rows_curves on the face anim (agent-04)",
+   "must_fail": [
+    null,
+    "netflix v2b (the operator's REJECT, 07 Nov 23:45): measure on box B's v2b frames/curves and put the value here; the line must fail it"
+   ],
+   "guard": true,
+   "why": "the operator, 07 Nov: 'her expression is pale, no emotion at all ... hands stuck to her body ... boob covering the upper limb ... these presenters must look confident, happy, full of energy, not robotic' (R7_common.md). The numbers support the eye; the operator decides",
+   "info": true,
+   "r4": [
+    null,
+    "INFO by the orchestrator's ruling (07 Nov), a scope change, not a waiver: on our CG face MediaPipe reads talking into the brow/cheek channels (v2b, mouth-only solves: expr_active 0.535, brow flashes 61.96/min, neutral hold 1.42 s on the render), so the render reading doesn't discriminate; the face CURVES gate instead (face.curves_*), and the orchestrator's eye on the TEST judges what shows"
+   ]
+  },
+  "face.smile_events_per_min": {
+   "area": "performance",
+   "track": "round 7 (agent-09 measure; agent-04 face, agent-01 body, agent-02 garment)",
+   "op": ">=",
+   "line": 4,
+   "unit": "/min",
+   "what": "Duchenne smiles (mouthSmile up WITH cheek or eye squint, held >= 4 frames) per speaking minute",
+   "where": "every speaking + on-screen frame of the presenter (cue words x edl presenter spans)",
+   "how": "film-qa perf-face <final frames> --speaking spans.json --box <face box> (MediaPipe blendshapes, each channel vs the shot's own neutral; on the box) -> numbers/<film>/perf_face.json; pre-check offline: qa_perf.face_rows_curves on the face anim (agent-04)",
+   "must_fail": [
+    0.0,
+    "netflix v2b on the RENDER (agent-06, MediaPipe, 581 speaking frames): 0.0/min. Kept as a GATE by the orchestrator: it discriminates, and it proves the smiles SHOW on the rendered face, not just in the curves"
+   ],
+   "guard": true,
+   "why": "the operator, 07 Nov: 'her expression is pale, no emotion at all ... hands stuck to her body ... boob covering the upper limb ... these presenters must look confident, happy, full of energy, not robotic' (R7_common.md). The numbers support the eye; the operator decides"
+  },
+  "face.brow_flash_per_min": {
+   "area": "performance",
+   "track": "round 7 (agent-09 measure; agent-04 face, agent-01 body, agent-02 garment)",
+   "op": ">=",
+   "line": 6,
+   "unit": "/min",
+   "what": "brow flashes (inner or outer brows up 0.2 for 0.12-1.0 s) per speaking minute",
+   "where": "every speaking + on-screen frame of the presenter (cue words x edl presenter spans)",
+   "how": "film-qa perf-face <final frames> --speaking spans.json --box <face box> (MediaPipe blendshapes, each channel vs the shot's own neutral; on the box) -> numbers/<film>/perf_face.json; pre-check offline: qa_perf.face_rows_curves on the face anim (agent-04)",
+   "must_fail": [
+    null,
+    "netflix v2b (the operator's REJECT, 07 Nov 23:45): measure on box B's v2b frames/curves and put the value here; the line must fail it"
+   ],
+   "guard": true,
+   "why": "the operator, 07 Nov: 'her expression is pale, no emotion at all ... hands stuck to her body ... boob covering the upper limb ... these presenters must look confident, happy, full of energy, not robotic' (R7_common.md). The numbers support the eye; the operator decides",
+   "info": true,
+   "r4": [
+    null,
+    "INFO by the orchestrator's ruling (07 Nov), a scope change, not a waiver: on our CG face MediaPipe reads talking into the brow/cheek channels (v2b, mouth-only solves: expr_active 0.535, brow flashes 61.96/min, neutral hold 1.42 s on the render), so the render reading doesn't discriminate; the face CURVES gate instead (face.curves_*), and the orchestrator's eye on the TEST judges what shows"
+   ]
+  },
+  "face.neutral_hold_max_s": {
+   "area": "performance",
+   "track": "round 7 (agent-09 measure; agent-04 face, agent-01 body, agent-02 garment)",
+   "op": "<=",
+   "line": 1.5,
+   "unit": "s",
+   "what": "the longest run of speaking frames with nothing active",
+   "where": "every speaking + on-screen frame of the presenter (cue words x edl presenter spans)",
+   "how": "film-qa perf-face <final frames> --speaking spans.json --box <face box> (MediaPipe blendshapes, each channel vs the shot's own neutral; on the box) -> numbers/<film>/perf_face.json; pre-check offline: qa_perf.face_rows_curves on the face anim (agent-04)",
+   "must_fail": [
+    null,
+    "netflix v2b (the operator's REJECT, 07 Nov 23:45): measure on box B's v2b frames/curves and put the value here; the line must fail it"
+   ],
+   "guard": true,
+   "why": "the operator, 07 Nov: 'her expression is pale, no emotion at all ... hands stuck to her body ... boob covering the upper limb ... these presenters must look confident, happy, full of energy, not robotic' (R7_common.md). The numbers support the eye; the operator decides",
+   "info": true,
+   "r4": [
+    null,
+    "INFO by the orchestrator's ruling (07 Nov), a scope change, not a waiver: on our CG face MediaPipe reads talking into the brow/cheek channels (v2b, mouth-only solves: expr_active 0.535, brow flashes 61.96/min, neutral hold 1.42 s on the render), so the render reading doesn't discriminate; the face CURVES gate instead (face.curves_*), and the orchestrator's eye on the TEST judges what shows"
+   ]
+  },
+  "body.gesture_onsets_per_s": {
+   "area": "performance",
+   "track": "round 7 (agent-09 measure; agent-04 face, agent-01 body, agent-02 garment)",
+   "op": "range",
+   "line": [
+    0.5,
+    1.2
+   ],
+   "unit": "/s",
+   "what": "a hand going UP off the desk (wrist bone > desk top + 10 cm; her resting wrist sits ~6 cm up) plus each beat while it stays up (speed from < 10 past 40 cm/s, not moving down), >= 0.25 s apart, per speaking second",
+   "where": "every speaking + on-screen frame of the presenter (cue words x edl presenter spans)",
+   "how": "film-ue op seq.sample (hand_l, hand_r every frame of the speaking spans) -> film-qa perf-body SAMPLES.json --speaking spans.json --desk-z <the desk top z> -> numbers/<film>/perf_body.json",
+   "must_fail": [
+    0.347,
+    "netflix v2b (box B seq.sample, 691 speaking frames, agent-06): 0.347/s: about 8 right-hand lifts at shot starts, the left hand never up"
+   ],
+   "guard": true,
+   "why": "the operator, 07 Nov: 'her expression is pale, no emotion at all ... hands stuck to her body ... boob covering the upper limb ... these presenters must look confident, happy, full of energy, not robotic' (R7_common.md). The numbers support the eye; the operator decides"
+  },
+  "body.hands_above_desk_frac": {
+   "area": "performance",
+   "track": "round 7 (agent-09 measure; agent-04 face, agent-01 body, agent-02 garment)",
+   "op": ">=",
+   "line": 0.5,
+   "unit": "fraction",
+   "what": "speaking frames with either wrist bone more than 10 cm above the desk top",
+   "where": "every speaking + on-screen frame of the presenter (cue words x edl presenter spans)",
+   "how": "film-ue op seq.sample (hand_l, hand_r every frame of the speaking spans) -> film-qa perf-body SAMPLES.json --speaking spans.json --desk-z <the desk top z> -> numbers/<film>/perf_body.json",
+   "must_fail": [
+    0.356,
+    "netflix v2b: 0.356 (only the right hand, at shot starts)"
+   ],
+   "guard": true,
+   "why": "the operator, 07 Nov: 'her expression is pale, no emotion at all ... hands stuck to her body ... boob covering the upper limb ... these presenters must look confident, happy, full of energy, not robotic' (R7_common.md). The numbers support the eye; the operator decides"
+  },
+  "body.wrist_travel_cm_per_s": {
+   "area": "performance",
+   "track": "round 7 (agent-09 measure; agent-04 face, agent-01 body, agent-02 garment)",
+   "op": ">=",
+   "line": 0,
+   "unit": "cm/s",
+   "what": "mean hand speed while speaking: reported against v2b",
+   "where": "every speaking + on-screen frame of the presenter (cue words x edl presenter spans)",
+   "how": "film-ue op seq.sample (hand_l, hand_r every frame of the speaking spans) -> film-qa perf-body SAMPLES.json --speaking spans.json --desk-z <the desk top z> -> numbers/<film>/perf_body.json",
+   "must_fail": [
+    null,
+    "netflix v2b (the operator's REJECT, 07 Nov 23:45): measure on box B's v2b frames/curves and put the value here; the line must fail it"
+   ],
+   "guard": true,
+   "info": true,
+   "why": "the operator, 07 Nov: 'her expression is pale, no emotion at all ... hands stuck to her body ... boob covering the upper limb ... these presenters must look confident, happy, full of energy, not robotic' (R7_common.md). The numbers support the eye; the operator decides",
+   "r4": [
+    4.87,
+    "netflix v2b: 4.87 cm/s (pinned hands): the take to beat"
+   ]
+  },
+  "body.upperarm_torso_clear_cm": {
+   "area": "performance",
+   "track": "round 7 (agent-09 measure; agent-04 face, agent-01 body, agent-02 garment)",
+   "op": ">=",
+   "line": 3.0,
+   "unit": "cm",
+   "what": "min over frames and sides of the upper arm's distance to the torso (posed Body + upper garment), NEGATIVE = the arm inside the torso's volume (the breast covering it). The SIGN is solid (inside vs clear); the DEPTH of a negative reading is approximate (agent-02: the deepest torso point moves between frames), so the gate is the sign + the >= 3 cm line, never the magnitude of a fail",
+   "where": "min over on-screen frames (edl presenter + panel shots), both sides",
+   "how": "agent-02's films/host-studio/reel/r7/garment_measure.py (fleet/agent-02/r7-garment c42b3aac): per frame, min over both sides of the SIGNED distance from the upper-arm skin (Body verts nearest upperarm_<s> at the ref pose, from 30 % shoulder->elbow) to the nearest torso triangle (torso skin + the Top's torso part, sleeves excluded), sign from the triangle normal, < 0 = inside -> numbers/<film>/garment.json. Cross-check (INFO): agent-09's qa.limb_clearance (bone-segment split, radial sign)",
+   "must_fail": [
+    -8.19,
+    "netflix v2b (agent-02 garment_measure, valid: the ref-pose self-check passes on every frame; arms_v2b3, fleet/agent-06/r7-boxb): -8.19 at f1044, -8.19..-8.16 through 00:43.5-00:46: both upper arms inside the Top/breast, the operator's complaint. Controls: ref pose +5.19 (0 verts inside), R7 elbows-out +5.7..+7.0"
+   ],
+   "guard": true,
+   "why": "the operator, 07 Nov: 'her expression is pale, no emotion at all ... hands stuck to her body ... boob covering the upper limb ... these presenters must look confident, happy, full of energy, not robotic' (R7_common.md). The numbers support the eye; the operator decides",
+   "info_for": "TEST",
+   "r4": [
+    null,
+    "SUPERSEDED by the bust/side split (the orchestrator's ruling (A), 08 Nov); kept as INFO: the whole-torso reading"
+   ],
+   "info": true
+  },
+  "garment.waist_fit_cm": {
+   "area": "garment",
+   "track": "round 7 (agent-09 measure; agent-04 face, agent-01 body, agent-02 garment)",
+   "op": "<=",
+   "line": 0.75,
+   "unit": "cm",
+   "what": "the bottoms' waistband vs the body at the waist: max(front-half GAP, BARE SKIN) per frame, the front half = |angle| <= 90 deg from HER skeleton's facing (do not narrow it); the POKE is its own row (garment.waist_poke_cm)",
+   "where": "every frame with the presenter ON SCREEN (edl/<film>.json presenter + panel shots, speaking or not), as the clip rows: off-screen frames (graphics shots) don't count",
+   "how": "agent-02's garment_measure.py: per frame, the worst over the camera/front half of the waistband GAP (trousers inner radius minus the layer under it, 1 cm cells down a 4 cm band, 24 sectors), POKE (under-layer through the band) and BARE SKIN (Top hem above the trousers' edge) -> numbers/<film>/garment.json; line set with the eye on v2b",
+   "must_fail": [
+    1.04,
+    "netflix v2b (garment_measure 9db4bd18): 1.04 at her left side (front half, her facing); agent-05's refit R7W reads 0.0"
+   ],
+   "guard": true,
+   "why": "the operator: 'not fit to her'. FROZEN at 0.75: the orchestrator's eye on v2b WIDE f1100 at 3x (relayed by agent-02, 07 Nov) puts the defect at her LEFT side, the band flaring past the Top's side line between the hem and her left forearm; the front centre reads fine. That matches this row's worst at 90 deg (1.04). Split from the poke by agent-09 + agent-02"
+  },
+  "body.limb_clearance_xcheck_cm": {
+   "area": "performance",
+   "track": "agent-09",
+   "op": ">=",
+   "line": 3.0,
+   "unit": "cm",
+   "info": true,
+   "what": "cross-check of the arm clearance by bone-segment split and radial sign (qa.limb_clearance)",
+   "where": "the same frames",
+   "how": "film-ue op qa.limb_clearance (core fleet/agent-09/r7-perf-gate)",
+   "r4": [
+    null,
+    "INFO, and NOT VALID yet: on v2b it read -9.6..-10.0 on both sides in all 67 frames (agent-06, limbs_v2b.json), the same structural constancy as agent-02's first version. Its sign (an arm point nearer the spine axis than its nearest torso point) is meaningless when that nearest point is ~10 cm away (the chest front far out radially); it needs a surface-normal sign (agent-02's approach) before it reads anything"
+   ],
+   "why": "two independent readings of the operator's arm complaint"
+  },
+  "face.curves_expr_active_frac": {
+   "area": "performance",
+   "track": "agent-04 (face) / agent-09",
+   "op": ">=",
+   "line": 0.6,
+   "unit": "fraction",
+   "what": "speaking frames with browRaise, eyeCheekRaise/eyeSquintInner or mouthCornerPull above 0.15 (rig scale)",
+   "where": "every speaking + on-screen frame (spans_<film>.json)",
+   "how": "qa_perf.face_rows_curves on the face anim (anim.read_curves of the take's face anim, CTRL_expressions_*), over spans_<film>.json (agent-04's boxcheck) -> numbers/<film>/perf_curves.json",
+   "must_fail": [
+    0.22,
+    "netflix v2b's REAL face anim (/Game/Explainer/Perf/AS_exp_her_gaze = v2b, agent-06 boxcheck on box B, 691 speaking frames; fleet/agent-06/r7-boxb fe61136c face_curves_v2b.json): 0.22 (R7 plan 0.852)"
+   ],
+   "guard": true,
+   "why": "the operator: 'her expression is pale, no emotion at all'; the orchestrator's ruling (07 Nov), a scope change, not a waiver: on our CG face MediaPipe reads talking into the brow/cheek channels (v2b, mouth-only solves: expr_active 0.535, brow flashes 61.96/min, neutral hold 1.42 s on the render), so the render reading doesn't discriminate; the face CURVES gate instead (face.curves_*), and the orchestrator's eye on the TEST judges what shows"
+  },
+  "face.curves_smile_events_per_min": {
+   "area": "performance",
+   "track": "agent-04 (face) / agent-09",
+   "op": ">=",
+   "line": 4,
+   "unit": "/min",
+   "what": "smiles: mouthCornerPull >= 0.25 WITH eyeCheekRaise >= 0.2, hysteresis 80 %, held >= 4 frames",
+   "where": "every speaking + on-screen frame (spans_<film>.json)",
+   "how": "qa_perf.face_rows_curves on the face anim (anim.read_curves of the take's face anim, CTRL_expressions_*), over spans_<film>.json (agent-04's boxcheck) -> numbers/<film>/perf_curves.json",
+   "must_fail": [
+    0.0,
+    "netflix v2b's REAL face anim (/Game/Explainer/Perf/AS_exp_her_gaze = v2b, agent-06 boxcheck on box B, 691 speaking frames; fleet/agent-06/r7-boxb fe61136c face_curves_v2b.json): 0.0/min (R7 plan 27.1)"
+   ],
+   "guard": true,
+   "why": "the operator: 'her expression is pale, no emotion at all'; the orchestrator's ruling (07 Nov), a scope change, not a waiver: on our CG face MediaPipe reads talking into the brow/cheek channels (v2b, mouth-only solves: expr_active 0.535, brow flashes 61.96/min, neutral hold 1.42 s on the render), so the render reading doesn't discriminate; the face CURVES gate instead (face.curves_*), and the orchestrator's eye on the TEST judges what shows"
+  },
+  "face.curves_brow_flash_per_min": {
+   "area": "performance",
+   "track": "agent-04 (face) / agent-09",
+   "op": ">=",
+   "line": 6,
+   "unit": "/min",
+   "what": "brow flashes: browRaise >= 0.40 for 0.12-1.2 s, hysteresis 80 % (v2b's flashes peaked 0.22-0.27 and read pale)",
+   "where": "every speaking + on-screen frame (spans_<film>.json)",
+   "how": "qa_perf.face_rows_curves on the face anim (anim.read_curves of the take's face anim, CTRL_expressions_*), over spans_<film>.json (agent-04's boxcheck) -> numbers/<film>/perf_curves.json",
+   "must_fail": [
+    0.0,
+    "netflix v2b's REAL face anim (/Game/Explainer/Perf/AS_exp_her_gaze = v2b, agent-06 boxcheck on box B, 691 speaking frames; fleet/agent-06/r7-boxb fe61136c face_curves_v2b.json): 0.0/min at 0.40 (R7 plan 31.3)"
+   ],
+   "guard": true,
+   "why": "the operator: 'her expression is pale, no emotion at all'; the orchestrator's ruling (07 Nov), a scope change, not a waiver: on our CG face MediaPipe reads talking into the brow/cheek channels (v2b, mouth-only solves: expr_active 0.535, brow flashes 61.96/min, neutral hold 1.42 s on the render), so the render reading doesn't discriminate; the face CURVES gate instead (face.curves_*), and the orchestrator's eye on the TEST judges what shows"
+  },
+  "face.curves_neutral_hold_max_s": {
+   "area": "performance",
+   "track": "agent-04 (face) / agent-09",
+   "op": "<=",
+   "line": 1.5,
+   "unit": "s",
+   "what": "the longest speaking run with nothing active",
+   "where": "every speaking + on-screen frame (spans_<film>.json)",
+   "how": "qa_perf.face_rows_curves on the face anim (anim.read_curves of the take's face anim, CTRL_expressions_*), over spans_<film>.json (agent-04's boxcheck) -> numbers/<film>/perf_curves.json",
+   "must_fail": [
+    3.0,
+    "netflix v2b's REAL face anim (/Game/Explainer/Perf/AS_exp_her_gaze = v2b, agent-06 boxcheck on box B, 691 speaking frames; fleet/agent-06/r7-boxb fe61136c face_curves_v2b.json): 3.0 s (R7 plan 0.79)"
+   ],
+   "guard": true,
+   "why": "the operator: 'her expression is pale, no emotion at all'; the orchestrator's ruling (07 Nov), a scope change, not a waiver: on our CG face MediaPipe reads talking into the brow/cheek channels (v2b, mouth-only solves: expr_active 0.535, brow flashes 61.96/min, neutral hold 1.42 s on the render), so the render reading doesn't discriminate; the face CURVES gate instead (face.curves_*), and the orchestrator's eye on the TEST judges what shows"
+  },
+  "face.curves_frown_frac": {
+   "area": "performance",
+   "track": "agent-04 / agent-09",
+   "op": "<=",
+   "line": 0.1,
+   "unit": "fraction",
+   "info": true,
+   "what": "speaking frames with browDown/browLateral (the frown) above 0.25 on the face curves",
+   "where": "spans_<film>.json",
+   "how": "qa_perf.face_rows_curves (core r7-perf-gate)",
+   "r4": [
+    null,
+    "INFO: the full-face audio solve can read angry at a neutral/auto mood (the orchestrator, round 7, from the tutorial's tip); a mood override + a happy layer fix it"
+   ],
+   "why": "a confident, happy presenter, not a hard brow"
+  },
+  "garment.waist_poke_cm": {
+   "area": "garment",
+   "track": "agent-02",
+   "op": "<=",
+   "line": 0.1,
+   "unit": "cm",
+   "guard": true,
+   "what": "the worst SKIN (or under-layer) radius past the bottoms' OUTER face at the waistband, front half (her facing), per frame (> 0 = out through the band)",
+   "where": "every frame with the presenter ON SCREEN (edl/<film>.json presenter + panel shots, speaking or not), as the clip rows: off-screen frames (graphics shots) don't count",
+   "how": "agent-02's garment_measure.py waist POKE term -> numbers/<film>/garment.json; visibility cross-checked by qa.clip's Body>Trousers pair (garment.pair_fraction)",
+   "must_fail": [
+    0.49,
+    "agent-05's refit R7W (garment_measure 9db4bd18, agent-02): +0.49 cm, her SKIN out past the trousers' outer face at the front (0 to +-30 deg); VISIBLE: qa.clip Body>Trousers 2.55-2.60 % in the WIDE f1042/f1276, up to 1.5 cm at the front waist. v2b read -0.54 (a guard)"
+   ],
+   "why": "a refit that closes the gap must not push her skin out through the band; FROZEN at 0.1, with the orchestrator's eye backing it on R7W's belly (relayed by agent-02)"
+  },
+  "body.hands_in_frame_mcu_frac": {
+   "area": "performance",
+   "track": "agent-01 / agent-10 (body), agent-09 (measure)",
+   "op": ">=",
+   "line": 0.6,
+   "unit": "fraction",
+   "what": "speaking frames in MCU shots (incl. MCU_L) with >= 1 hand FULLY in the shot's frame (wrist + 4 fingertips projected through the cut camera)",
+   "where": "every speaking frame (or every 2nd) of the MCU shots",
+   "how": "film-ue op qa.hands_in_frame label=<presenter> sequence=<SEQ> 'frames=[every 2nd speaking frame of spans_<film>.json]' (core fleet/agent-09/r7-perf-gate 1169789c) -> metrics.kinds.<KIND>.frac -> numbers/<film>/hands.json",
+   "must_fail": [
+    0.0,
+    "netflix v2b 0.0 (n 39) and TEST side A 0.0 (box B qa.hands_in_frame, core 3a782e71, TEST frames; fleet/agent-06/r7-boxb 276be4a0 hands_A/hands_v2b.json)"
+   ],
+   "guard": true,
+   "why": "the orchestrator: the viewer sees elbows out and no hands = still stiff; the gesture space is chest-to-collarbone in front of the torso",
+   "line_by_film": {
+    "netflix": 0.5
+   },
+   "line_by_film_reason": "the orchestrator's ruling (08 Nov), her explainer: her rest pose goes LOWER (wrists ~80 cm, ~30 cm forward of the spine, clear of the bust and the desk), so in CAM_MCU the rest may sit at the frame's bottom edge; a natural rest beats visible hands in the pauses, and the gestures still rise into the frame. His film keeps 0.6"
+  },
+  "body.hands_in_frame_cu_frac": {
+   "area": "performance",
+   "track": "agent-01 / agent-10 (body), agent-09 (measure)",
+   "op": ">=",
+   "line": 0.3,
+   "unit": "fraction",
+   "what": "speaking frames in CU shots with >= 1 hand FULLY in the shot's frame (wrist + 4 fingertips projected through the cut camera)",
+   "where": "every speaking frame (or every 2nd) of the CU shots",
+   "how": "film-ue op qa.hands_in_frame label=<presenter> sequence=<SEQ> 'frames=[every 2nd speaking frame of spans_<film>.json]' (core fleet/agent-09/r7-perf-gate 1169789c) -> metrics.kinds.<KIND>.frac -> numbers/<film>/hands.json",
+   "must_fail": [
+    0.0,
+    "netflix v2b 0.0 (n 18) and TEST side A 0.0 (box B qa.hands_in_frame, core 3a782e71, TEST frames; fleet/agent-06/r7-boxb 276be4a0 hands_A/hands_v2b.json)"
+   ],
+   "guard": true,
+   "why": "the orchestrator: the viewer sees elbows out and no hands = still stiff; the gesture space is chest-to-collarbone in front of the torso"
+  },
+  "body.hands_in_frame_wide_frac": {
+   "area": "performance",
+   "track": "agent-01 / agent-10 (body), agent-09 (measure)",
+   "op": ">=",
+   "line": 0.95,
+   "unit": "fraction",
+   "what": "speaking frames in WIDE shots with >= 1 hand FULLY in the shot's frame (wrist + 4 fingertips projected through the cut camera)",
+   "where": "every speaking frame (or every 2nd) of the WIDE shots",
+   "how": "film-ue op qa.hands_in_frame label=<presenter> sequence=<SEQ> 'frames=[every 2nd speaking frame of spans_<film>.json]' (core fleet/agent-09/r7-perf-gate 1169789c) -> metrics.kinds.<KIND>.frac -> numbers/<film>/hands.json",
+   "must_fail": [
+    null,
+    "none: v2b and side A both read 1.0 in the WIDE (her hands are always in it) (box B qa.hands_in_frame, core 3a782e71, TEST frames; fleet/agent-06/r7-boxb 276be4a0 hands_A/hands_v2b.json); a GUARD against a new failure (gestures leaving the WIDE frame)"
+   ],
+   "guard": true,
+   "why": "the orchestrator: the viewer sees elbows out and no hands = still stiff; the gesture space is chest-to-collarbone in front of the torso"
+  },
+  "set.mic_face_px": {
+   "area": "set",
+   "track": "agent-06 (box B) / agent-07",
+   "op": "==",
+   "line": 0,
+   "unit": "px",
+   "what": "pixels of the FACE (3 cm discs round both eyes, the lips and the jaw) that the studio mic covers, from the shot's camera: the mic must not overlap the face box and the lips stay fully visible",
+   "where": "the camera ACTUALLY CUT at each frame per the film's EDL (edl/<film>.json: CAM_MCU / CAM_CU / CAM_MCU_L / CAM_WIDE at their spans); a hit in a camera not on screen at that frame is ignored (the orchestrator's ruling, 08 Nov). qa.clip reads the sequence's camera-cut track per frame (cut_camera), so the sequence's cut track must equal the EDL's when it runs (the driver checks it, or passes each EDL shot's frames)",
+   "how": "film-ue op qa.clip label=<presenter> sequence=<SEQ> 'props={\"Mic\":\"<mic>\"}' 'pairs=[]' 'mouth={\"blocker\":\"Mic\",\"radius_cm\":3.0,\"bones\":[\"FACIAL_L_Eye\",\"FACIAL_R_Eye\",\"FACIAL_C_LipUpper\",\"FACIAL_C_LipLower\",\"FACIAL_C_Jaw\"]}' -> metrics.worst.mouth.blocked_px (a missing bone errors: pass the rig's names)",
+   "must_fail": [
+    null,
+    "a mic placed over the face (a deliberate bad placement on a still, or the first mic-move attempt if it covers): measure one to prove the row bites"
+   ],
+   "guard": true,
+   "why": "the orchestrator, 07 Nov: move the mic to the mouth like a real studio mic; it must NOT cover the mouth or the face in any camera"
+  },
+  "set.mic_hand_clear_cm": {
+   "area": "set",
+   "track": "agent-01",
+   "op": ">=",
+   "line": 5.0,
+   "unit": "cm",
+   "info": true,
+   "what": "the closest a hand or forearm comes to the mic/boom in the picture (agent-01's body constraint after the mic move)",
+   "where": "every speaking frame",
+   "how": "agent-01's gesturekit design check (perform.py body.mic_touch counts contacts)",
+   "r4": [
+    null,
+    "INFO: agent-01's design-time number; body.mic_touch (== 0, hard) counts actual contact"
+   ],
+   "why": "the orchestrator: the mic clear by >= 5 cm in the picture"
+  },
+  "shot.farm_frames_ok": {
+   "area": "shot",
+   "track": "agent-07 (farm driver) / agent-09",
+   "op": "==",
+   "line": 1,
+   "unit": "bool",
+   "what": "every job's frames present exactly once in its output at the right size (filmtools.farm.verify)",
+   "where": "every farm job of the finals (one per shot, chunked with pre-roll)",
+   "how": "the farm driver's export (verify + continuity + every chunk's done.json guard per job) -> farm_rows.py farm_<film>.json -> numbers/<film>/farm.json",
+   "must_fail": [
+    0,
+    "a missing / duplicated frame, a flagged seam, or a chunk without leaders (farm_rows tests)"
+   ],
+   "guard": true,
+   "why": "the finals now render on N farm workers in chunks: none may be lost or doubled",
+   "info": true,
+   "r4": [
+    null,
+    "INFO under the orchestrator's COST POLICY (08 Nov): the finals render ON boxes T (his) and T2 (hers), not on farm workers, so there are no farm jobs, chunks or seams to judge; garment.leaders_ok and shot.streaming_settled come from the box's render.py box.json per job again. If the farm is used after all (the orchestrator's exception for an idle box), these rows go back to hard"
+   ]
+  },
+  "shot.chunk_seams_ok": {
+   "area": "shot",
+   "track": "agent-07 (farm driver) / agent-09",
+   "op": "==",
+   "line": 1,
+   "unit": "bool",
+   "what": "no flagged jump at a chunk boundary inside a shot (filmtools.farm.verify.continuity: a hair/cloth/temporal restart at a seam despite the pre-roll)",
+   "where": "every farm job of the finals (one per shot, chunked with pre-roll)",
+   "how": "the farm driver's export (verify + continuity + every chunk's done.json guard per job) -> farm_rows.py farm_<film>.json -> numbers/<film>/farm.json",
+   "must_fail": [
+    0,
+    "a missing / duplicated frame, a flagged seam, or a chunk without leaders (farm_rows tests)"
+   ],
+   "guard": true,
+   "why": "the karma S17+S18 lesson (a new render job pops the hair) on the farm's chunk seams",
+   "info": true,
+   "r4": [
+    null,
+    "INFO under the orchestrator's COST POLICY (08 Nov): the finals render ON boxes T (his) and T2 (hers), not on farm workers, so there are no farm jobs, chunks or seams to judge; garment.leaders_ok and shot.streaming_settled come from the box's render.py box.json per job again. If the farm is used after all (the orchestrator's exception for an idle box), these rows go back to hard"
+   ]
+  },
+  "set.strays_ok": {
+   "area": "shot",
+   "track": "agent-07 (farm driver) / agent-09",
+   "op": "==",
+   "line": 1,
+   "unit": "bool",
+   "what": "no Test_*/FMQA_* actor or a second presenter in any chunk's level (the farm guard)",
+   "where": "every farm job of the finals (one per shot, chunked with pre-roll)",
+   "how": "the farm driver's export (verify + continuity + every chunk's done.json guard per job) -> farm_rows.py farm_<film>.json -> numbers/<film>/farm.json",
+   "must_fail": [
+    0,
+    "a missing / duplicated frame, a flagged seam, or a chunk without leaders (farm_rows tests)"
+   ],
+   "guard": true,
+   "why": "agent-06's r6 guard, per chunk",
+   "info": true,
+   "r4": [
+    null,
+    "INFO under the orchestrator's COST POLICY (08 Nov): the finals render ON boxes T (his) and T2 (hers), not on farm workers, so there are no farm jobs, chunks or seams to judge; garment.leaders_ok and shot.streaming_settled come from the box's render.py box.json per job again. If the farm is used after all (the orchestrator's exception for an idle box), these rows go back to hard"
+   ]
+  },
+  "shot.farm_state_parity": {
+   "area": "shot",
+   "track": "agent-07 (farm) / agent-06 (box D)",
+   "op": "==",
+   "line": 1,
+   "unit": "bool",
+   "guard": true,
+   "what": "every farm chunk rendered EXACTLY the scene state the orchestrator passed on box D (the ue.sync manifest id / AMI box D pushed after the verify PASS == what each worker pulled)",
+   "where": "every chunk of every farm job",
+   "how": "farm_rows.py: expected_state at the top of farm_<film>.json + 'state' in each chunk's hook dict",
+   "must_fail": [
+    0,
+    "a worker on a stale sync (farm_rows test)"
+   ],
+   "why": "the operator: render in parallel 'once scene is ready with everything'; a worker on an older state would render the rejected rest pose or garments",
+   "info": true,
+   "r4": [
+    null,
+    "INFO under the orchestrator's COST POLICY (08 Nov): the finals render ON boxes T (his) and T2 (hers), not on farm workers, so there are no farm jobs, chunks or seams to judge; garment.leaders_ok and shot.streaming_settled come from the box's render.py box.json per job again. If the farm is used after all (the orchestrator's exception for an idle box), these rows go back to hard"
+   ]
+  },
+  "body.rest_hand_torso_cm": {
+   "area": "performance",
+   "track": "agent-01 / agent-10 (body), agent-09 (measure)",
+   "op": ">=",
+   "line": 8.0,
+   "unit": "cm",
+   "guard": true,
+   "what": "on the REST/bridge frames (both hands still >= 0.25 s), the min distance from either hand (wrist + knuckles + fingertips) to ANY torso surface (posed Body + Top along spine_01 -> neck_01: chest, bust, belly; the lap, arms and every finger excluded)",
+   "where": "every rest frame (film-qa perf-rest on seq.sample hand samples, every 2nd)",
+   "how": "film-qa perf-rest samples.json -> frames; film-ue op qa.hand_torso_clearance label=<presenter> sequence=<SEQ> 'frames=[...]' (core fleet/agent-09/r7-perf-gate b1d46e42+) -> metrics.worst_cm -> numbers/<film>/rest.json",
+   "must_fail": [
+    null,
+    "NOT re-measured on the fixed op: box D (with the r7F and 1e88aca8 bodies) is terminated under the cost policy, and a body swap on T2 only for this would cost box time. Evidence it catches the defect: the orchestrator's 3-4 cm reading of the 1e88aca8 rest against her belly (08 Nov), and the op's tests (hands 3 cm off the chest read < 5; the other hand's fingers and the lap no longer count). The first runs (0.48 / 0.38) were the measure's hand-to-hand bug"
+   ],
+   "why": "the orchestrator, 08 Nov: the presenter-at-desk rest = forearms resting on the desk, hands loosely together ~30-35 cm in front of the torso and >= 8 cm clear of the belly/torso surface; hands on the body are the 'stuck to the body' look the operator rejected",
+   "r4": [
+    null,
+    "her body 8a45d961 on T2 (rendered seat + life; perf-rest --track by time; agent-06): worst 16.15 cm, PASS (2x the line); 5 true rest frames (f6-10, f200, f1046), the earlier 9.0 cm frames were stroke holds and are filtered out"
+   ]
+  },
+  "move.fingers_frozen_frac": {
+   "area": "performance",
+   "track": "agent-13 (movement director) / agent-01, agent-10 (body)",
+   "op": "<=",
+   "line": 0.15,
+   "unit": "fraction",
+   "what": "GUARD: speaking time inside >= 0.5 s runs with the fingers under 2 deg/s, worse hand",
+   "where": "her speaking frames (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement b8dfbfdf; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
+   "must_fail": [
+    0.601,
+    "the r7F TEST body 52ab5ea2, whole take, measured from 0.1 mm joint dumps (agent-13 9f258309): 0.601 (404db805 0.567). The earlier 0.01 cm rounding added ~6 deg/s of jitter on 3 cm finger bones, so the row passed on noise; agent-01's efe01206 reads 0.521 (left): FAIL"
+   ],
+   "why": "a robotic tell: fingers dead still while she talks; a real row since the dumps carry 0.1 mm"
+  },
+  "move.forearm_elev_deg": {
+   "area": "performance",
+   "track": "agent-13 (movement director) / agent-01, agent-10 (body)",
+   "op": ">=",
+   "line": 15.0,
+   "unit": "deg",
+   "what": "median forearm elevation (elbow->wrist above horizontal) at the right hand's stroke apexes: horizontal = 'typing in the air'",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement b8dfbfdf; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
+   "must_fail": [
+    -2.8,
+    "agent-01's earlier R7 body 404db805, WHOLE take (agent-13 cf513b41): -2.8; agent-01's ee99f626 reads 44.9 ok"
+   ],
+   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md"
+  },
+  "move.humerus_elev_rest_deg": {
+   "area": "performance",
+   "track": "agent-13 (movement director) / agent-01, agent-10 (body)",
+   "op": "<=",
+   "line": 30.0,
+   "unit": "deg",
+   "what": "median upper-arm elevation while that hand is at rest (gesture_w < 0.1), worse hand: resting elbows hang (HANGING rests only since agent-13 993233e5; a forearm on the desk is move.humerus_elev_rest_desk_deg)",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement b8dfbfdf; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
+   "must_fail": [
+    73.1,
+    "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): 73.1; agent-01's ee99f626 reads 26.6 ok"
+   ],
+   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md"
+  },
+  "move.humerus_elev_stroke_deg": {
+   "area": "performance",
+   "track": "agent-13 (movement director) / agent-01, agent-10 (body)",
+   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement b8dfbfdf; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "op": "<=",
+   "line": 45.0,
+   "unit": "deg",
+   "what": "median upper-arm elevation off hanging (shoulder->elbow vs straight down) at the right hand's stroke apexes below upper_chest",
+   "must_fail": [
+    74.5,
+    "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): 74.5; agent-01's ee99f626 reads 51.4 F"
+   ],
+   "why": "the orchestrator's ruling (B), 08 Nov: 60 deg only for apexes at/above the upper chest, 45 below, and the lift mostly flexion (abduction <= 35)"
+  },
+  "move.lag_hand_ms": {
+   "area": "performance",
+   "track": "agent-13 (movement director) / agent-01, agent-10 (body)",
+   "op": ">=",
+   "line": 30.0,
+   "unit": "ms",
+   "what": "median onset of the hand's rotation after the upper arm's, per movement (right hand): proximal leads, distal follows",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement b8dfbfdf; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
+   "must_fail": [
+    -25.4,
+    "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): -25.4; agent-01's ee99f626 reads -4.7 F"
+   ],
+   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md"
+  },
+  "move.mirror_corr_p50": {
+   "area": "performance",
+   "track": "agent-13 (movement director) / agent-01, agent-10 (body)",
+   "op": "<=",
+   "line": 0.95,
+   "unit": "corr",
+   "what": "GUARD: two-hand strokes, median correlation of the left wrist velocity with the right's mirrored (1.0 = a mirror copy)",
+   "where": "her speaking frames (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement b8dfbfdf; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
+   "must_fail": [
+    null,
+    "a GUARD: no body has failed it yet (agent-13)"
+   ],
+   "guard": true,
+   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md"
+  },
+  "move.path_straight_frac": {
+   "area": "performance",
+   "track": "agent-13 (movement director) / agent-01, agent-10 (body)",
+   "op": "<=",
+   "line": 0.3,
+   "unit": "fraction",
+   "what": "wrist movements (>= 8 cm) whose path strays < 3 % of its chord: straight lines",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement b8dfbfdf; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
+   "must_fail": [
+    0.609,
+    "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): 0.609; agent-01's ee99f626 reads 0.0 ok"
+   ],
+   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md",
+   "na_ok": true,
+   "na_reason": "fewer than 5 wrist movements on both hands (agent-13 93d10277 MIN_MOVES): too few to judge a share"
+  },
+  "move.shape_claw_frac": {
+   "area": "performance",
+   "track": "agent-13 (movement director) / agent-01, agent-10 (body)",
+   "op": "<=",
+   "line": 0.02,
+   "unit": "fraction",
+   "what": "speaking frames with a claw hand (a finger bent back at a middle joint), worse hand",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement b8dfbfdf; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
+   "must_fail": [
+    0.099,
+    "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): 0.099; agent-01's ee99f626 reads 0 ok"
+   ],
+   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md"
+  },
+  "move.shape_wrong_strokes": {
+   "area": "performance",
+   "track": "agent-13 (movement director) / agent-01, agent-10 (body)",
+   "op": "==",
+   "line": 0,
+   "unit": "count",
+   "what": "stroke apexes whose hand is a claw, a pinch outside a 'pinch' gesture, or flat",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement b8dfbfdf; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
+   "must_fail": [
+    9,
+    "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): 9; agent-01's ee99f626 reads 0 ok"
+   ],
+   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md"
+  },
+  "move.two_hand_amp_ratio": {
+   "area": "performance",
+   "track": "agent-13 (movement director) / agent-01, agent-10 (body)",
+   "op": ">=",
+   "line": 0.5,
+   "unit": "ratio",
+   "what": "two-hand strokes: median wrist travel of the lesser hand over the greater's (a two-hand gesture with one hand parked reads as one hand and a prop)",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement b8dfbfdf; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
+   "must_fail": [
+    0.429,
+    "agent-01's earlier R7 body 404db805, WHOLE take (agent-13 cf513b41): 0.429; agent-01's ee99f626 reads 0.374 F"
+   ],
+   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md"
+  },
+  "move.vel_bell_frac": {
+   "area": "performance",
+   "track": "agent-13 (movement director) / agent-01, agent-10 (body)",
+   "op": ">=",
+   "line": 0.6,
+   "unit": "fraction",
+   "what": "wrist movements with a peak/mean speed of 1.6-2.3 (minimum jerk 1.875), worse hand",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement b8dfbfdf; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
+   "must_fail": [
+    0.533,
+    "the r7F TEST body 52ab5ea2, WHOLE take, after agent-13's measure fix 7e1bb40c (movement segments drop still frames < 2.5 cm/s at both ends: a dead-still hold had inflated peak/mean): 0.533, still under 0.60 (was 0.391 before the fix)"
+   ],
+   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md",
+   "na_ok": true,
+   "na_reason": "fewer than 5 wrist movements on both hands (agent-13 93d10277 MIN_MOVES): too few to judge a share"
+  },
+  "move.wrist_flexext_p90_deg": {
+   "area": "performance",
+   "track": "agent-13 (movement director) / agent-01, agent-10 (body)",
+   "op": "<=",
+   "line": 25.0,
+   "unit": "deg",
+   "what": "p90 over speaking frames of |wrist flexion/extension| (3rd metacarpal vs the forearm), worse hand",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement b8dfbfdf; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
+   "must_fail": [
+    38.9,
+    "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): 38.9; agent-01's ee99f626 reads 23.1 ok"
+   ],
+   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md"
+  },
+  "move.wrist_radial_p95_deg": {
+   "area": "performance",
+   "track": "agent-13 (movement director) / agent-01, agent-10 (body)",
+   "op": "<=",
+   "line": 15.0,
+   "unit": "deg",
+   "what": "p95 over speaking frames of radial deviation, worse hand",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement b8dfbfdf; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
+   "must_fail": [
+    23.7,
+    "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): 23.7; agent-01's ee99f626 reads 34.3 F"
+   ],
+   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md"
+  },
+  "move.wrist_ulnar_p95_deg": {
+   "area": "performance",
+   "track": "agent-13 (movement director) / agent-01, agent-10 (body)",
+   "op": "<=",
+   "line": 25.0,
+   "unit": "deg",
+   "what": "p95 over speaking frames of ulnar deviation, worse hand",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement b8dfbfdf; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
+   "must_fail": [
+    39.2,
+    "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): 39.2; agent-01's ee99f626 reads 24.8 ok"
+   ],
+   "why": "the operator, 08 Nov, on her hands: 'a little weird ... make sure final cut is perfect af ... natural human like'; research thresholds in r7/NATURALNESS.md"
+  },
+  "body.upperarm_bust_clear_cm": {
+   "area": "performance",
+   "track": "round 7 (agent-09 measure; agent-04 face, agent-01 body, agent-02 garment)",
+   "unit": "cm",
+   "how": "agent-02's films/host-studio/reel/r7/garment_measure.py (fleet/agent-02/r7-garment c42b3aac): per frame, min over both sides of the SIGNED distance from the upper-arm skin (Body verts nearest upperarm_<s> at the ref pose, from 30 % shoulder->elbow) to the nearest torso triangle (torso skin + the Top's torso part, sleeves excluded), sign from the triangle normal, < 0 = inside -> numbers/<film>/garment.json. Cross-check (INFO): agent-09's qa.limb_clearance (bone-segment split, radial sign)",
+   "guard": true,
+   "op": ">=",
+   "line": 3.0,
+   "what": "min over on-screen frames, both sides, of the upper arm's SIGNED distance to the BUST / front of the Top (agent-02's mesh measure, the bust/front zone): the arm swallowed by the breast from the camera's view",
+   "where": "min over on-screen frames (edl presenter + panel shots), both sides",
+   "must_fail": [
+    -8.19,
+    "netflix v2b (arms_v2b3): both upper arms inside the Top/breast through 00:43.5-00:46, the operator's complaint (re-read per zone when agent-02's split lands)"
+   ],
+   "why": "the orchestrator's ruling (A), 08 Nov: the 3 cm rule is for the operator's complaint (the arm swallowed by the BUST), not for a relaxed arm off the side of the ribcage"
+  },
+  "body.upperarm_side_clear_cm": {
+   "area": "performance",
+   "track": "round 7 (agent-09 measure; agent-04 face, agent-01 body, agent-02 garment)",
+   "op": ">=",
+   "line": 0.5,
+   "unit": "cm",
+   "guard": true,
+   "how": "agent-02's films/host-studio/reel/r7/garment_measure.py (fleet/agent-02/r7-garment c42b3aac): per frame, min over both sides of the SIGNED distance from the upper-arm skin (Body verts nearest upperarm_<s> at the ref pose, from 30 % shoulder->elbow) to the nearest torso triangle (torso skin + the Top's torso part, sleeves excluded), sign from the triangle normal, < 0 = inside -> numbers/<film>/garment.json. Cross-check (INFO): agent-09's qa.limb_clearance (bone-segment split, radial sign)",
+   "what": "min over on-screen frames, both sides, of the upper arm's SIGNED distance to the SIDE of the torso (agent-02's side zone): no penetration; light contact reads natural",
+   "where": "min over on-screen frames, both sides",
+   "must_fail": [
+    null,
+    "an arm into the ribcage side (agent-02 to show one); v2b's per-zone reading pending the split"
+   ],
+   "why": "the orchestrator's ruling (A): vs the side of the torso, no penetration (>= 0.5 cm)"
+  },
+  "move.humerus_elev_high_deg": {
+   "area": "performance",
+   "track": "agent-13 (movement director) / agent-01, agent-10 (body)",
+   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement b8dfbfdf; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "op": "<=",
+   "line": 60.0,
+   "unit": "deg",
+   "what": "the same at apexes at/above upper_chest (wrist >= 16 cm over the sternum point; the orchestrator's 60 deg, 08 Nov)",
+   "must_fail": [
+    84.7,
+    "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): 84.7; agent-01's ee99f626 reads 59.8 ok"
+   ],
+   "why": "the orchestrator's ruling (B), 08 Nov: 60 deg only for apexes at/above the upper chest, 45 below, and the lift mostly flexion (abduction <= 35)",
+   "na_ok": true,
+   "na_reason": "no stroke apex at/above the upper chest in the measured frames: nothing to judge (agent-13: pass=null)"
+  },
+  "move.upperarm_abduction_deg": {
+   "area": "performance",
+   "track": "agent-13 (movement director) / agent-01, agent-10 (body)",
+   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement b8dfbfdf; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "op": "<=",
+   "line": 35.0,
+   "unit": "deg",
+   "what": "median upper-arm abduction (out of the sagittal plane) at stroke apexes, worse hand: the elevation must be mostly flexion, toward the camera",
+   "must_fail": [
+    42.7,
+    "the r7F TEST body 52ab5ea2, WHOLE take (agent-13 cf513b41): 42.7; agent-01's ee99f626 reads 32.0 ok"
+   ],
+   "why": "the orchestrator's ruling (B), 08 Nov: 60 deg only for apexes at/above the upper chest, 45 below, and the lift mostly flexion (abduction <= 35)"
+  },
+  "move.hold_min_speed": {
+   "area": "performance",
+   "track": "agent-13 (movement director) / agent-01, agent-10 (body)",
+   "op": ">=",
+   "line": 0.3,
+   "unit": "cm/s",
+   "what": "p10 of the wrist speed while speaking OUTSIDE every movement (the holds), worse hand: a hold must keep a little life, never a frozen hand",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement b8dfbfdf; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
+   "must_fail": [
+    0.221,
+    "the r7F TEST body 52ab5ea2, whole take, from 0.1 mm dumps (agent-13 9f258309): 0.221 (0.212 at 0.01 cm)"
+   ],
+   "why": "the orchestrator, 08 Nov: no dead-still hands while she talks (a robotic tell)"
+  },
+  "qa.editor_offline_parity_cm": {
+   "area": "performance",
+   "track": "agent-06 (box) / agent-13 / agent-09",
+   "op": "<=",
+   "line": 1.0,
+   "unit": "cm",
+   "guard": true,
+   "what": "the max over frames (matched by number) of the largest wrist/finger joint distance (32 joint heads) between the EDITOR dump of the sequence and the solved offline track of the same body (hers: r7/arm_track.py; his: the box's kit/arm_track.json from body --perform), in the track's actor frame",
+   "where": "the speaking frames of the take (or every 2nd), both hands",
+   "how": "python3 r7/parity.py <the editor dump of what RENDERS: seat + life> <kit/arm_track.json> --span 0-196 --span 1040-1162 --shoulder (agent-13: each hand's joints measured from that side's shoulder, the upperarm head, so breathing on the spine/clavicles cancels and a different arm does not; matched by TIME) -> numbers/<film>/parity.json",
+   "must_fail": [
+    8.1,
+    "a DIFFERENT body sha with --shoulder: 8d17a4ed vs 906d80d3 reads 8.1 cm (agent-13); a synthetic 0.6 cm breath on the chain reads 0.0 with --shoulder (0.6 without). By design --shoulder does NOT judge the shoulders/torso themselves (the breath/torso/head life the orchestrator kept)"
+   ],
+   "why": "the orchestrator, 08 Nov: NO render until the naturalness rows PASS on the EDITOR DUMP itself; a stale layer must not slip through again (HIS chain on box T too)"
+  },
+  "move.humerus_elev_rest_desk_deg": {
+   "area": "performance",
+   "track": "agent-13 (movement director) / agent-01, agent-10 (body)",
+   "how": "films/host-studio/explainers/r7/naturalness.py on agent-01's arm_track dump (agent-13, fleet/agent-13/r7-movement b8dfbfdf; definitions + sources in r7/NATURALNESS.md): python3 r7/naturalness.py TRACK.json [--span A-B] --json -> numbers/<film>/naturalness.json (joint dumps at 0.1 mm)",
+   "where": "her speaking frames over the WHOLE take (speak_w > 0.5); worse hand where both apply; spans are 24 fps SEQUENCE frames, mapped to the 30 fps track by TIME (agent-13 9bf05e09); SCORED ON THE 30 fps TRACK (kit/arm_track.json of the body that renders), the shoulder-relative parity on the rendered dump proving the editor plays it; the editor-dump rows are an INFO cross-check (the orchestrator, 08 Nov: 'track + parity')",
+   "op": "<=",
+   "line": 40.0,
+   "unit": "deg",
+   "what": "median upper-arm elevation while the hand rests with the FOREARM ON THE DESK (the orchestrator's desk rest), worse hand",
+   "must_fail": [
+    null,
+    "none: an ALLOWANCE (supported elbows may sit higher than the hanging 30), not a defect catch; every body's desk frames read 36.5 (404db805, 52ab5ea2, 1e88aca8; agent-13). A GUARD: agent-13 promotes it if a desk-rest body reads over 40"
+   ],
+   "guard": true,
+   "na_ok": true,
+   "na_reason": "no desk-rest frames",
+   "why": "the orchestrator's desk rest (08 Nov): forearms on the desk, elbows relaxed; an upper arm lifted past 40 deg to reach the desk reads strained"
+  }
+ },
+ "not_attempted": {
+  "garment.cloth_alive": {
+   "reason": "Round 6 explainers: his tee is MetaHuman's default garment (closed shell) and her overshirt stays skinned, the same ruling as the karma reel (cc-64d05f6e, 07 Nov). armor_index, wpo_cm, neck_px and pair_fraction stay hard lines.",
+   "by": "cc-64d05f6e"
+  },
+  "garment.cloth_sound": {
+   "reason": "Round 6 explainers: his tee is MetaHuman's default garment (closed shell) and her overshirt stays skinned, the same ruling as the karma reel (cc-64d05f6e, 07 Nov). armor_index, wpo_cm, neck_px and pair_fraction stay hard lines.",
+   "by": "cc-64d05f6e"
+  },
+  "garment.cloth_detail_ratio": {
+   "reason": "Round 6 explainers: his tee is MetaHuman's default garment (closed shell) and her overshirt stays skinned, the same ruling as the karma reel (cc-64d05f6e, 07 Nov). armor_index, wpo_cm, neck_px and pair_fraction stay hard lines.",
+   "by": "cc-64d05f6e"
+  }
+ },
+ "aliases": {
+  "shot.grain_sigma_close": "shot.grain_sigma",
+  "shot.grain_sigma_wide": "shot.grain_wide_sigma",
+  "body.editor_offline_parity_cm": "qa.editor_offline_parity_cm"
+ },
+ "_films": "items with 'films' apply only to those films (gate_film.py --film filters them); 'aliases' maps a producer's key to the spec's id; 'info_films' makes an item INFO for those films with 'info_reason'; 'line_by_film' sets an item's line per film; 'na_ok' lets a row read n/a (null/NaN from its producer) as INFO with 'na_reason' instead of failing as not measured",
+ "_clock": "every row maps frames by TIME (t = frame / fps of that source): the sequence/editor/composite are 24 fps, agent-01's arm_track is 30 fps (the orchestrator's rule, 08 Nov)"
+}

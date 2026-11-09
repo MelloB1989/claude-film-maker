@@ -1,0 +1,92 @@
+{
+ "fps": 24,
+ "sr": 48000,
+ "frames": 1560,
+ "rebuilt": "vo.py cues (no takes)",
+ "lines": {
+  "L1": {
+   "who": "him",
+   "text": "Took you long enough.",
+   "take": "tarun-4",
+   "wav": "L1.wav",
+   "file_frame": 1018.8,
+   "voice_frame": 1020,
+   "end_frame": null,
+   "slot_end": 1065,
+   "mood": "CONFIDENCE",
+   "intensity": 0.7,
+   "words": [],
+   "words_lost": true
+  },
+  "L2": {
+   "who": "him",
+   "text": "Ask her what's next.",
+   "take": "tarun-2",
+   "wav": "L2.wav",
+   "file_frame": 1093.8,
+   "voice_frame": 1095,
+   "end_frame": null,
+   "slot_end": 1133,
+   "mood": "HAPPINESS",
+   "intensity": 0.6,
+   "words": [],
+   "words_lost": true
+  },
+  "L3a": {
+   "who": "her",
+   "text": "Nice try.",
+   "take": "tripti-1",
+   "wav": "L3a.wav",
+   "file_frame": 1156.8,
+   "voice_frame": 1158,
+   "end_frame": null,
+   "slot_end": 1185,
+   "mood": "HAPPINESS",
+   "intensity": 0.6,
+   "words": [],
+   "words_lost": true
+  },
+  "L3b": {
+   "who": "her",
+   "text": "Some things you have to see for yourself.",
+   "take": "tripti-3",
+   "wav": "L3b.wav",
+   "file_frame": 1213.8,
+   "voice_frame": 1215,
+   "end_frame": null,
+   "slot_end": 1290,
+   "mood": "CONFIDENCE",
+   "intensity": 0.8,
+   "words": [],
+   "words_lost": true
+  },
+  "L4a": {
+   "who": "him",
+   "text": "What goes around\u2026",
+   "take": "tarun-2",
+   "wav": "L4a.wav",
+   "file_frame": 1348.8,
+   "voice_frame": 1350,
+   "end_frame": null,
+   "slot_end": 1377,
+   "mood": "HAPPINESS",
+   "intensity": 0.6,
+   "words": [],
+   "words_lost": true
+  },
+  "L4b": {
+   "who": "her",
+   "text": "\u2026comes around. That's karma.",
+   "take": "tripti-2",
+   "wav": "L4b.wav",
+   "file_frame": 1384.8,
+   "voice_frame": 1386,
+   "end_frame": null,
+   "slot_end": 1433,
+   "mood": "HAPPINESS",
+   "intensity": 0.8,
+   "words": [],
+   "words_lost": true
+  }
+ }
+}

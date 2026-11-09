@@ -1,0 +1,32 @@
+{
+ "film": "netflix",
+ "seconds": 59.4583,
+ "samples": 2853998,
+ "lufs": -14.03,
+ "true_peak_dbtp": -1.68,
+ "master_gain_db": 1.22,
+ "voice_lufs": -15.0,
+ "music_lufs": -21.0,
+ "duck_median_db_per_line": {
+  "N01": -7.0,
+  "N02": -7.0,
+  "N03": -7.0,
+  "N04": -7.0,
+  "N05": -7.0,
+  "N06": -7.0,
+  "N07": -7.0,
+  "N08": -7.0,
+  "N09": -7.0,
+  "N10": -7.0,
+  "N11": -7.0,
+  "N12": -7.0,
+  "N13": -7.0,
+  "N14": -7.0,
+  "N15": -7.0,
+  "N16": -7.0
+ },
+ "bed": {
+  "take": "out/host-studio/explainers/music/netflix/seed1-e92e50f0ac9a.wav",
+  "seed": 1
+ }
+}

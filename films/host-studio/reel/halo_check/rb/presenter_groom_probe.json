@@ -1,0 +1,74 @@
+{
+ "before": [
+  "/Game/Host/Unpacked/Presenter/Grooms/MI_WI_Hair_L_Straight_Hair.MI_WI_Hair_L_Straight_Hair",
+  "/Game/Host/Unpacked/Presenter/Grooms/MI_WI_Hair_L_Straight_Hair_Cards.MI_WI_Hair_L_Straight_Hair_Cards",
+  "/Game/Host/Unpacked/Presenter/Grooms/MI_WI_Hair_L_Straight_Hair_Helmet.MI_WI_Hair_L_Straight_Hair_Helmet"
+ ],
+ "groom": "/Game/Host/Unpacked/Presenter/Grooms/Hair_L_Straight.Hair_L_Straight",
+ "comp.binding_asset": "/Game/Host/Unpacked/Presenter/Grooms/Hair_L_Straight_Binding.Hair_L_Straight_Binding",
+ "comp.override_materials": [
+  "/Game/Host/Unpacked/Presenter/Grooms/MI_WI_Hair_L_Straight_Hair.MI_WI_Hair_L_Straight_Hair",
+  "/Game/Host/Unpacked/Presenter/Grooms/MI_WI_Hair_L_Straight_Hair_Cards.MI_WI_Hair_L_Straight_Hair_Cards",
+  "/Game/Host/Unpacked/Presenter/Grooms/MI_WI_Hair_L_Straight_Hair_Helmet.MI_WI_Hair_L_Straight_Hair_Helmet"
+ ],
+ "comp.groom_group_index": "ERR GroomComponent: Failed to find property 'groom_group_index' for attribute 'groom_group_index' on 'GroomComponent'",
+ "comp.simulation_settings": "<Struct 'HairSimulationSettings' (0x00000247B78EE300) {override_settings: False, simulation_setup: {reset_simulation: False, debug_simulation: False, local_simulation: True, linear_velocity_scale: 0.500000, angular_velocity_scale: 0.500000, local_bone: \"head\", teleport_distance: 50.000000}, solver_settings: {enable_simulation: False}, external_forces: {gravity_vector: {x: 0.000000, y: 0.000000, z: -981.000000}, air_drag: 0.100000, air_velocity: {x: 0.000000, y: 0.000000, z: 0.000000}}, material_constraints: {bend_damping: 0.001000, bend_stiffness: 0.010000, stretch_damping: 0.001000, stretch_stiffness: 1.000000, static_friction: 0.100000, kinetic_friction: 0.100000, strands_viscosity: 1.000000, collision_radius: 0.001000}}>",
+ "binding.target_mesh": "/Game/Host/Unpacked/Presenter/Face/SKM_Presenter_F_FaceMesh.SKM_Presenter_F_FaceMesh",
+ "binding.source_mesh": "None",
+ "binding.groom": "/Game/Host/Unpacked/Presenter/Grooms/Hair_L_Straight.Hair_L_Straight",
+ "groom.hair_groups_materials": [
+  "<Struct 'HairGroupsMaterial' (0x0000024B7D660C40) {}>",
+  "<Struct 'HairGroupsMaterial' (0x0000024B7D6601E0) {}>",
+  "<Struct 'HairGroupsMaterial' (0x0000024B7D66B4A0) {}>"
+ ],
+ "groom.hair_groups_rendering": [
+  "<Struct 'HairGroupsRendering' (0x0000024B86990F00) {}>",
+  "<Struct 'HairGroupsRendering' (0x0000024B86992D00) {}>"
+ ],
+ "groom.hair_groups_info": [
+  "<Struct 'HairGroupInfoWithVisibility' (0x0000024B86997080) {}>",
+  "<Struct 'HairGroupInfoWithVisibility' (0x0000024B86990E10) {}>"
+ ],
+ "groom.hair_groups_cards": [
+  "<Struct 'HairGroupsCardsSourceDescription' (0x0000024B14AE2F40) {}>",
+  "<Struct 'HairGroupsCardsSourceDescription' (0x0000024B14AEC300) {}>",
+  "<Struct 'HairGroupsCardsSourceDescription' (0x0000024B14AEA080) {}>",
+  "<Struct 'HairGroupsCardsSourceDescription' (0x0000024B14AEB4C0) {}>",
+  "<Struct 'HairGroupsCardsSourceDescription' (0x0000024B14AE9300) {}>",
+  "<Struct 'HairGroupsCardsSourceDescription' (0x0000024B14AEF3C0) {}>",
+  "<Struct 'HairGroupsCardsSourceDescription' (0x0000024B14AE7140) {}>",
+  "<Struct 'HairGroupsCardsSourceDescription' (0x0000024B14AE2640) {}>",
+  "<Struct 'HairGroupsCardsSourceDescription' (0x0000024B14AE7140) {}>",
+  "<Struct 'HairGroupsCardsSourceDescription' (0x0000024B14AEF3C0) {}>"
+ ],
+ "groom.hair_groups_meshes": [
+  "<Struct 'HairGroupsMeshesSourceDescription' (0x0000024B8ED5A5A0) {}>",
+  "<Struct 'HairGroupsMeshesSourceDescription' (0x0000024B8ED5AE60) {}>",
+  "<Struct 'HairGroupsMeshesSourceDescription' (0x0000024B8ED5FDC0) {}>"
+ ],
+ "groom.hair_groups_lod": [
+  "<Struct 'HairGroupsLOD' (0x0000024B7D66B7E0) {}>",
+  "<Struct 'HairGroupsLOD' (0x0000024B7D66B8E0) {}>"
+ ],
+ "groom.hair_groups_interpolation": [
+  "<Struct 'HairGroupsInterpolation' (0x00000249A48119C0) {}>",
+  "<Struct 'HairGroupsInterpolation' (0x00000249A4811E00) {}>"
+ ],
+ "groom.enable_global_interpolation": "True",
+ "groom.hair_interpolation_type": "<GroomInterpolationType.SMOOTH_TRANSFORM: 8>",
+ "groom.lod_mode": "<GroomLODMode.DEFAULT: 0>",
+ "mat:/MetaHumanCharacter/Materials/M_hair_v4": {
+  "num_expressions": 134,
+  "expr_err": "MaterialInterfaceEditorOnlyData: Failed to find property 'expression_collection' for attribute 'expression_collection' on 'MaterialEditorOnlyData'",
+  "hair_nodes": {},
+  "node_classes": 0,
+  "functions": []
+ },
+ "mat:/MetaHumanCharacter/Materials/M_Facial_Hair": {
+  "num_expressions": 101,
+  "expr_err": "MaterialInterfaceEditorOnlyData: Failed to find property 'expression_collection' for attribute 'expression_collection' on 'MaterialEditorOnlyData'",
+  "hair_nodes": {},
+  "node_classes": 0,
+  "functions": []
+ }
+} 

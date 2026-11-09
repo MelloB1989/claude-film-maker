@@ -1,0 +1,41 @@
+{
+ "_about": "Round 5's gate spec for qa/gate.py (film-qa gate --spec). complaints: what the operator complained about in round 4: no waiver on these areas. Tracks add their items/lines here (T1 agent-01 lips, T2 agent-04 head, T3a agent-02 garment, T3b agent-08 cloth, T4 agent-09 hair).",
+ "complaints": [
+  "lips",
+  "head",
+  "garment",
+  "hair"
+ ],
+ "items": {
+  "shot.start_motion_ratio": {
+   "area": "head",
+   "track": "T4",
+   "op": "<=",
+   "line": 1.8,
+   "unit": "x",
+   "info": true,
+   "what": "head-box motion in a presenter shot's first 4 frame pairs over the median of the next 12 (r5/gate_numbers.py settle on the rendered frames): a head snapping into its pose or a hair sim settling at the cut",
+   "where": "S15 f1080-1084 (her head tilts in ~10 deg)",
+   "how": "r5/gate_numbers.py settle --frames <finals> --spec her_spec.json --shot S15",
+   "r4": [
+    13.81,
+    "round 4's S15 final_d, the same shape as round 5 (12.33): her head tilt-in is pre-existing"
+   ],
+   "why": "orchestrator, 06 Nov round 5b: her S15 start tilt is pre-existing (round 4 the same), NOT a blocker tonight, but REPORTED in the gate, not hidden; INFO until calibrated (shot starts move by design: S16 reads 2.8)"
+  }
+ },
+ "not_attempted": {
+  "garment.cloth_alive": {
+   "reason": "His tee is MetaHuman's own default garment (assembled to his body, WPO 0). It is a closed-shell mesh, and Chaos cloth on a closed shell collapses (round 5: her overshirt shredded), so no sim this round. The armour complaint is addressed by WPO 0 and the assembled fit (armor_index, wpo_cm and neck_px stay hard lines). Proxy-sim cloth (single-layer sim section + FMCloth mesh-to-mesh) is round 6.",
+   "by": "cc-64d05f6e"
+  },
+  "garment.cloth_sound": {
+   "reason": "His tee is MetaHuman's own default garment (assembled to his body, WPO 0). It is a closed-shell mesh, and Chaos cloth on a closed shell collapses (round 5: her overshirt shredded), so no sim this round. The armour complaint is addressed by WPO 0 and the assembled fit (armor_index, wpo_cm and neck_px stay hard lines). Proxy-sim cloth (single-layer sim section + FMCloth mesh-to-mesh) is round 6.",
+   "by": "cc-64d05f6e"
+  },
+  "garment.cloth_detail_ratio": {
+   "reason": "His tee is MetaHuman's own default garment (assembled to his body, WPO 0). It is a closed-shell mesh, and Chaos cloth on a closed shell collapses (round 5: her overshirt shredded), so no sim this round. The armour complaint is addressed by WPO 0 and the assembled fit (armor_index, wpo_cm and neck_px stay hard lines). Proxy-sim cloth (single-layer sim section + FMCloth mesh-to-mesh) is round 6.",
+   "by": "cc-64d05f6e"
+  }
+ }
+}

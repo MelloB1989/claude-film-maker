@@ -1,0 +1,16 @@
+{
+ "source": "separated",
+ "mix_sha256": "58e28385d8bfa80542efa157b997f29631aa2974bd213d0a1de008991912ec69",
+ "model": "htdemucs (two_stems=vocals)",
+ "vocals_sha256": "f13068366e1ebb726ce6117088373c5c80dc5a836cf2519bd5d2808e22eddaa1",
+ "lines_sha256": {
+  "L1.wav": "c89875c17fdd4c19778df65ca8b74ee69caa2fae63674fb0b50174adad4450de",
+  "L2.wav": "413bf5ab26cbdbf430cc1902d670d3d06cf18833f08e5c0ad316e322f058f125",
+  "L3a.wav": "827c0671598190ad2a5ce6325f841077bd116380de06fffda736655b1ae6e623",
+  "L3b.wav": "9181aeb079892c42917728d1f684b6803439228905cba47ecbe60cd9dbaae697",
+  "L4a.wav": "e52e418baee7e837039f5b169f8f4ed82dda9252fb183d81ed4db48c15578814",
+  "L4b.wav": "70730ec91ea103d05cc042f023b35a5a0ecdd2359f153562638067a710368b22"
+ },
+ "leak_db": -43.1,
+ "issues": []
+}

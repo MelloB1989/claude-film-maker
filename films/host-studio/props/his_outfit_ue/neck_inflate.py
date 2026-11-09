@@ -1,0 +1,187 @@
+"""Round 4 (agent-02): his tee's inflate master with a NECKLINE term, for the operator's MetaHuman, whose throat (the
+face mesh's lower neck) stood up to 2.5 cm out through the tee's front under the collar (reel/r4/neck_probe.py).
+
+World Position Offset += vertex normal x (FM_Inflate + FM_Neck x t x f), where t ramps 0..1 over the tee's
+pre-skinned (reference pose, mesh space, cm) height FM_NeckZ0..FM_NeckZ1 and f = saturate(y x FM_NeckFront +
+FM_NeckFrontBias) weights the front (mesh +Y or -Y, by the sign of FM_NeckFront). With FM_Neck 0 (the default) it is
+mh.cloth_inflate's plain inflate. Tuning is a plain parameter change on the worn instance (safe while it is drawn):
+    film-ue op mh.garment label=Host which=Shirt component=SkeletalMesh \
+        'scalars={"FM_Neck": 2.8, "FM_NeckZ0": 135, "FM_NeckZ1": 147, "FM_NeckFront": 0.1, "FM_NeckFrontBias": 0.5}'
+host_swap.py builds it (instead of the plain master) for HOST op, in its own folder /Game/FM/ClothOp, so no material
+already drawn is ever recompiled.
+"""
+import unreal
+
+FOLDER = "/Game/FM/ClothOp5"  # host_swap's: ClothOp dead (wpo_probe.py), 2 a crashed run, 3 neck_fix, 4 neck_patch
+MARK = "FM_AttrWPO"  # on a master whose offset goes in through its material attributes (scales it; default 1)
+# MetaHuman's fabric master (M_fabric_simpler) runs on Material Attributes: its plain WPO pin is ignored, so the
+# offset goes in through Break/Make Material Attributes on the attributes pin (every other attribute passed through)
+MA_PINS = ("BaseColor", "Metallic", "Specular", "Roughness", "Anisotropy", "EmissiveColor", "Opacity", "OpacityMask",
+           "Normal", "Tangent", "SubsurfaceColor", "ClearCoat", "ClearCoatRoughness", "AmbientOcclusion",
+           "Refraction", "PixelDepthOffset", "ShadingModel", "Displacement", "SurfaceThickness", "FrontMaterial",
+           *(f"CustomizedUV{i}" for i in range(8)))
+PARAMS = {"FM_Inflate": 0.0, "FM_Neck": 0.0, "FM_NeckZ0": 0.0, "FM_NeckZ1": 1.0, "FM_NeckFront": 0.0,
+          "FM_NeckFrontBias": 1.0}
+
+
+def add_neck_inflate(master):
+    """mh.cloth_inflate's _add_inflate, with the neckline term (on a fresh master copy only)."""
+    MEL = unreal.MaterialEditingLibrary
+    for n in ("MaterialExpressionScalarParameter", "MaterialExpressionSaturate", "MaterialExpressionComponentMask",
+              "MaterialExpressionDivide", "MaterialExpressionSubtract", "MaterialExpressionMultiply",
+              "MaterialExpressionAdd", "MaterialExpressionVertexNormalWS"):
+        if not hasattr(unreal, n):
+            raise RuntimeError(f"no {n} in this engine's Python")
+    X = lambda cls, x, y: MEL.create_material_expression(master, cls, x, y)  # noqa: E731
+    have = [str(n) for n in MEL.get_scalar_parameter_names(master)]
+    attrs = bool(master.get_editor_property("use_material_attributes"))
+    if attrs and MARK in have:
+        return  # built already
+    p = {}
+    # MetaHuman's garment master may carry FM_Inflate's offset already (M_fabric_simpler did on the box): on the WPO
+    # pin that term stays as it is and only the neckline term is added, so the plain inflate is never applied twice.
+    # On Material Attributes that old term was never drawn: the whole offset is built afresh, and a parameter that
+    # already exists on a copy gets a second node of the same name and default (one parameter to the instance).
+    had_inflate = "FM_Inflate" in have and not attrs
+    for i, (name, dv) in enumerate(PARAMS.items()):
+        if name == "FM_Inflate" and had_inflate:
+            continue
+        if name in have and not attrs:
+            raise RuntimeError(f"{master.get_name()} already has {name}: build from the plugin master, not a copy")
+        e = X(unreal.MaterialExpressionScalarParameter, -1700, 1400 + 90 * i)
+        e.set_editor_property("parameter_name", name)
+        e.set_editor_property("default_value", dv)
+        p[name] = e
+    if attrs:
+        e = X(unreal.MaterialExpressionScalarParameter, -1700, 1400 + 90 * len(PARAMS))
+        e.set_editor_property("parameter_name", MARK)
+        e.set_editor_property("default_value", 1.0)
+        p[MARK] = e
+
+    def op(cls, a, b, x, y):
+        e = X(cls, x, y)
+        MEL.connect_material_expressions(a, "", e, "A")
+        MEL.connect_material_expressions(b, "", e, "B")
+        return e
+
+    def sat(a, x, y):
+        e = X(unreal.MaterialExpressionSaturate, x, y)
+        MEL.connect_material_expressions(a, "", e, "")
+        return e
+
+    cls = next((getattr(unreal, n) for n in ("MaterialExpressionPreSkinnedPosition",
+                                             "MaterialExpressionPreSkinnedLocalPosition") if hasattr(unreal, n)), None)
+    if cls is None:
+        raise RuntimeError("no pre-skinned position material expression in this engine's Python")
+    psl = X(cls, -1700, 2000)
+    masks = {}
+    for ch, y in (("b", 2000), ("g", 2100)):
+        m = X(unreal.MaterialExpressionComponentMask, -1500, y)
+        for k in "rgba":
+            m.set_editor_property(k, k == ch)
+        MEL.connect_material_expressions(psl, "", m, "")
+        masks[ch] = m
+    t = sat(op(unreal.MaterialExpressionDivide,
+               op(unreal.MaterialExpressionSubtract, masks["b"], p["FM_NeckZ0"], -1300, 1950),
+               op(unreal.MaterialExpressionSubtract, p["FM_NeckZ1"], p["FM_NeckZ0"], -1300, 2050), -1100, 2000),
+            -950, 2000)
+    f = sat(op(unreal.MaterialExpressionAdd,
+               op(unreal.MaterialExpressionMultiply, masks["g"], p["FM_NeckFront"], -1300, 2150),
+               p["FM_NeckFrontBias"], -1100, 2150), -950, 2150)
+    neck = op(unreal.MaterialExpressionMultiply, p["FM_Neck"],
+              op(unreal.MaterialExpressionMultiply, t, f, -800, 2075), -650, 2000)
+    amt = neck if had_inflate else op(unreal.MaterialExpressionAdd, p["FM_Inflate"], neck, -500, 1900)
+    if attrs:
+        amt = op(unreal.MaterialExpressionMultiply, amt, p[MARK], -420, 1900)
+    n = X(unreal.MaterialExpressionVertexNormalWS, -500, 1800)
+    off = op(unreal.MaterialExpressionMultiply, n, amt, -350, 1850)
+    wpo = unreal.MaterialProperty.MP_WORLD_POSITION_OFFSET
+    if master.get_editor_property("use_material_attributes"):
+        _into_attributes(master, off, X)
+        master.set_editor_property("used_with_skeletal_mesh", True)
+        MEL.recompile_material(master)
+        add_patch(master)  # the local push (FM_Patch 0: none); the neckline term stays for FM_Neck > 0
+        return
+    prev = MEL.get_material_property_input_node(master, wpo)
+    if prev:
+        add = X(unreal.MaterialExpressionAdd, -200, 1850)
+        MEL.connect_material_expressions(prev, MEL.get_material_property_input_node_output_name(master, wpo), add, "A")
+        MEL.connect_material_expressions(off, "", add, "B")
+        MEL.connect_material_property(add, "", wpo)
+    else:
+        MEL.connect_material_property(off, "", wpo)
+    master.set_editor_property("used_with_skeletal_mesh", True)
+    MEL.recompile_material(master)
+
+
+def _into_attributes(master, off, X):
+    """The offset added to the WorldPositionOffset of the master's Material Attributes (Break -> Make, the rest
+    passed through as they were)."""
+    MEL = unreal.MaterialEditingLibrary
+    ma = unreal.MaterialProperty.MP_MATERIAL_ATTRIBUTES
+    src = MEL.get_material_property_input_node(master, ma)
+    if src is None:
+        raise RuntimeError(f"{master.get_name()} uses material attributes but nothing drives them")
+    src_out = MEL.get_material_property_input_node_output_name(master, ma)
+    br = X(unreal.MaterialExpressionBreakMaterialAttributes, -350, 2300)
+    if not MEL.connect_material_expressions(src, src_out, br, ""):
+        raise RuntimeError("could not break the master's material attributes")
+    mk = X(unreal.MaterialExpressionMakeMaterialAttributes, 0, 2300)
+    passed = [p for p in MA_PINS if MEL.connect_material_expressions(br, p, mk, p)]
+    for need in ("BaseColor", "Normal", "Roughness"):
+        if need not in passed:
+            raise RuntimeError(f"attribute {need} did not pass through Break/Make: {passed}")
+    add = X(unreal.MaterialExpressionAdd, -150, 2500)
+    MEL.connect_material_expressions(br, "WorldPositionOffset", add, "A")
+    MEL.connect_material_expressions(off, "", add, "B")
+    if not MEL.connect_material_expressions(add, "", mk, "WorldPositionOffset"):
+        raise RuntimeError("could not set WorldPositionOffset on Make Material Attributes")
+    MEL.connect_material_property(mk, "", ma)
+
+
+PATCH = {"FM_Patch": 0.0, "FM_PatchX": 0.0, "FM_PatchY": 0.0, "FM_PatchZ": 0.0, "FM_PatchR": 1.0, "FM_PatchF": 1.0}
+
+
+def add_patch(master):
+    """A LOCAL push on a Material Attributes master (round 4: the neckline term ballooned his collar and chest): WPO +=
+    normal x FM_Patch x saturate((FM_PatchR + FM_PatchF - |p - C|) / FM_PatchF), p his tee's pre-skinned (reference
+    pose, mesh space, cm) position, C = (FM_PatchX, FM_PatchY, FM_PatchZ): full inside FM_PatchR, fading to none over
+    FM_PatchF more. Only where his face mesh pierces the tee (reel/r4 neck_patch.py finds C and the radius)."""
+    MEL = unreal.MaterialEditingLibrary
+    if not master.get_editor_property("use_material_attributes"):
+        raise RuntimeError(f"{master.get_name()}: add_patch is for a Material Attributes master")
+    have = [str(n) for n in MEL.get_scalar_parameter_names(master)]
+    if "FM_Patch" in have:
+        return
+    X = lambda cls, x, y: MEL.create_material_expression(master, cls, x, y)  # noqa: E731
+    p = {}
+    for i, (name, dv) in enumerate(PATCH.items()):
+        e = X(unreal.MaterialExpressionScalarParameter, -1700, 2700 + 90 * i)
+        e.set_editor_property("parameter_name", name)
+        e.set_editor_property("default_value", dv)
+        p[name] = e
+
+    def two(cls, a, b, x, y):
+        e = X(cls, x, y)
+        MEL.connect_material_expressions(a, "", e, "A")
+        MEL.connect_material_expressions(b, "", e, "B")
+        return e
+
+    cls = next((getattr(unreal, n) for n in ("MaterialExpressionPreSkinnedPosition",
+                                             "MaterialExpressionPreSkinnedLocalPosition") if hasattr(unreal, n)), None)
+    psp = X(cls, -1700, 3300)
+    c = two(unreal.MaterialExpressionAppendVector,
+            two(unreal.MaterialExpressionAppendVector, p["FM_PatchX"], p["FM_PatchY"], -1500, 2800), p["FM_PatchZ"],
+            -1350, 2850)
+    d = two(unreal.MaterialExpressionDistance, psp, c, -1200, 3000)
+    rf = two(unreal.MaterialExpressionAdd, p["FM_PatchR"], p["FM_PatchF"], -1200, 3100)
+    w = X(unreal.MaterialExpressionSaturate, -900, 3050)
+    MEL.connect_material_expressions(two(unreal.MaterialExpressionDivide,
+                                         two(unreal.MaterialExpressionSubtract, rf, d, -1050, 3050), p["FM_PatchF"],
+                                         -950, 3100), "", w, "")
+    amt = two(unreal.MaterialExpressionMultiply, p["FM_Patch"], w, -750, 3050)
+    n = X(unreal.MaterialExpressionVertexNormalWS, -750, 2950)
+    off = two(unreal.MaterialExpressionMultiply, n, amt, -600, 3000)
+    _into_attributes(master, off, X)
+    master.set_editor_property("used_with_skeletal_mesh", True)
+    MEL.recompile_material(master)

@@ -1,0 +1,10 @@
+[
+ {"label": "S1 subtle: tip +0.3 fwd/-0.15, nose +0.2, chin -0.25", "fresh": true,
+  "sculpt": {"tip": [0.3, 0.15], "nose": 0.2, "chin": [0.25, 0.0]}},
+ {"label": "S2 middle: tip +0.6/-0.3, nose +0.4, chin -0.45/+0.15, jaw in 0.2", "fresh": true,
+  "sculpt": {"tip": [0.6, 0.3], "nose": 0.4, "chin": [0.45, 0.15], "jaw_in": 0.2}},
+ {"label": "S2 + hair length 0.85", "desc": {"Hair": {"length_scale": 0.85}}},
+ {"label": "S2 + hair length 0.75", "desc": {"Hair": {"length_scale": 0.75}}},
+ {"label": "S3 strong: tip +0.9/-0.45, nose +0.6, chin -0.65/+0.2, jaw in 0.3", "fresh": true,
+  "sculpt": {"tip": [0.9, 0.45], "nose": 0.6, "chin": [0.65, 0.2], "jaw_in": 0.3}}
+]

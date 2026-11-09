@@ -1,0 +1,118 @@
+"""Who plays him, without rebuilding the studio: run studio.py's "host swap" block (HOST=trey|op: the Blueprint on the
+'Host' mark, SEQ_Reel's Host binding re-pointed) and its "his outfit" block (his trousers under the body, the default
+shorts hidden, the leader pose on every garment), then his shirt colour and lighting channels as studio.py sets them,
+then his tee pushed out INFLATE_CM (default 0.4, as studio.py's finish() does; multi-tick) and the leader check.
+On HOST op the trousers are SKM_Host_Trousers_Op when it exists (his own fit: props/his_outfit_ue/r4_fit_op.sh).
+In the editor:
+
+    film-ue exec -c "HOST='op'; CHECKOUT='<checkout>'; exec(open(CHECKOUT + '/films/host-studio/unreal/host_swap.py').read())"
+
+Then the clipping checks (multi-tick, so as ops): film-ue op mh.clip_check label=Host garment=Trousers, and
+garment=SkeletalMesh (the tee).
+"""
+import os
+
+import unreal
+from fmbridge.ops import level as L, look as K, mh
+
+HERE = os.path.dirname(os.path.abspath(globals().get("__file__") or
+                                       os.path.join(globals().get("CHECKOUT", os.getcwd()),
+                                                    "films/host-studio/unreal/host_swap.py")))
+T, S, M = "/Game/Studio/Textures", "/Game/Studio/Surfaces", "/Game/Studio/Materials"
+HOST = globals().get("HOST", os.environ.get("HOST_BODY", "trey"))
+
+
+def tex(folder, name):
+    p = f"{folder}/{name}"
+    return p if unreal.EditorAssetLibrary.does_asset_exist(p) else ""
+
+
+def block(src: str, name: str) -> str:
+    a, b = src.index(f"# >>> {name}\n"), src.index(f"# <<< {name}\n")
+    return src[a:b]
+
+
+src = open(os.path.join(HERE, "studio.py")).read()
+exec(block(src, "host swap"))
+# lighting channels first: the host's lights are on channel 1 only, so a new Host on channel 0 alone renders as a black
+# silhouette (round 3: the swap crashed in the outfit block before this ran, and S17 showed him unlit)
+K.channels(["Host"], [0, 1])
+exec(block(src, "his outfit"))
+K.channels(["Host"], [0, 1])  # again for the components the outfit block added or re-created
+_g = his_garment()
+if _g is not None:
+    # his tee: Trey keeps studio.py's charcoal; the operator wears a mid grey (~0.12 linear, sRGB ~0.38), so the tee
+    # reads apart from his charcoal trousers (round 3: "charcoal trousers + grey tee")
+    tee = ({"diffuse_color_1": (0.12, 0.12, 0.125), "diffuse_color_2": (0.135, 0.135, 0.14)} if HOST == "op" else
+           {"diffuse_color_1": (0.032, 0.034, 0.038), "diffuse_color_2": (0.045, 0.047, 0.052)})
+    mh.garment("Host", "Shirt", component=_g.get_name(), vectors=tee)
+# round 5: no WPO inflate on his tee (it read as armor); the refit Tee has real ease (reel/r5/garment.md)
+INFLATE_CM = float(globals().get("INFLATE_CM", 0.0))
+NECK = globals().get("NECK") or {}  # e.g. {"FM_Neck": 2.8, "FM_NeckZ0": ..}: neck_inflate.py (HOST op only)
+# the neckline term's amount (cm): his tee's front pushed out this much more from 14 cm under neck_01 (none) to 5 cm
+# under it and up (all), the front only; its heights and front from his bones. 0 = off (the re-rig is the root fix)
+NECK_CM = float(globals().get("NECK_CM", 0.0))
+# round 4's shipped values on his tee (neck_patch.py's patch3, the orchestrator's pass at 09:06 UTC, 06 Nov): a plain
+# 0.15 cm, a weak neckline arc and a LOCAL push where his face mesh pierces the tee (mesh space, reference pose, cm).
+# They hold while his body and garment are those of the build they were measured on; after a body or garment change
+# re-measure with props/his_outfit_ue/neck_patch.py (FIND_ONLY=True reads them, without it sets them).
+TEE_KNOBS = globals().get("TEE_KNOBS") or {
+    "FM_Inflate": 0.15, "FM_Neck": 0.75, "FM_NeckZ0": 144.75, "FM_NeckZ1": 147.75, "FM_NeckFront": 0.1,
+    "FM_NeckFrontBias": 0.5, "FM_Patch": 1.76, "FM_PatchX": -0.71, "FM_PatchY": 5.7, "FM_PatchZ": 148.68,
+    "FM_PatchR": 3.95, "FM_PatchF": 3.0}
+NECK_Z0_CM = float(globals().get("NECK_Z0_CM", 18.0))  # the ramp starts this far under neck_01 (round 4: 14 missed S15)
+
+
+def finish():
+    """Multi-tick (film-ue exec runs a generator result): his tee pushed out INFLATE_CM along its normals, as
+    studio.py's finish() does on a full build. A swap alone never did it: Host_Op's tee in cast_op1-4 was the bare
+    MetaHuman instance (tee_slots: MI_WI_DefaultGarment...), tight on his skin (round 4, agent-02). The inflate swaps
+    the tee's material, so the leader pose is set again on every garment after it."""
+    g = his_garment()
+    inflated = {}
+    if g is not None and INFLATE_CM > 0:
+        kw = {}
+        if HOST == "op" and globals().get("NECK_MASTER", True):  # his own master, with a neckline term
+            # (props/his_outfit_ue/neck_inflate.py; FM_Neck 0 = off; NECK_MASTER=False: the plain inflate)
+            import importlib.util
+            import fmbridge.ops.mh.actor as _act
+            spec = importlib.util.spec_from_file_location(
+                "neck_inflate", os.path.join(HERE, "..", "props", "his_outfit_ue", "neck_inflate.py"))
+            ni = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(ni)
+            plain, _act._add_inflate = _act._add_inflate, ni.add_neck_inflate
+            kw["folder"] = ni.FOLDER
+        try:
+            inflated = yield from mh.cloth_inflate("Host", cm=INFLATE_CM, component=g.get_name(), which="Shirt", **kw)
+        finally:
+            if kw:
+                _act._add_inflate = plain
+        neck = dict(NECK) if (NECK or NECK_CM > 0) else dict(TEE_KNOBS)
+        if kw and NECK_CM > 0:  # the neckline term from his own bones (mesh space = component space, cm)
+            b = his_part("Body")
+            cs = unreal.RelativeTransformSpace.RTS_COMPONENT
+            nz = b.get_socket_transform("neck_01", cs).translation.z
+            fy = b.get_socket_transform("ball_l", cs).translation.y - b.get_socket_transform("foot_l", cs).translation.y
+            neck = {"FM_Neck": NECK_CM, "FM_NeckZ0": nz - NECK_Z0_CM, "FM_NeckZ1": nz - 5.0,
+                    "FM_NeckFront": 0.1 if fy > 0 else -0.1, "FM_NeckFrontBias": 0.5, **neck}
+        if neck and kw:  # the neckline term's knobs (only on HOST op's master)
+            mh.garment("Host", "Shirt", component=his_garment().get_name(), scalars=neck)
+            inflated["neck"] = neck
+        for c in L.actor("Host").get_components_by_class(unreal.SkeletalMeshComponent):
+            if c.get_name() not in ("Body", "Face"):
+                c.set_leader_pose_component(his_part("Body"))
+    g = his_garment()
+    lc = mh.leader_check(label="Host")
+    host = L.actor("Host")
+    out = {"host": HOST, "bp": host.get_class().get_path_name(), "tee": g.get_name() if g is not None else None,
+           "tee_slots": ({str(n_): (m_.get_name() if m_ else None) for n_, m_ in
+                          zip(g.get_material_slot_names(), g.get_materials())} if g is not None else {}),
+           "inflated": inflated,
+           "trousers": (lambda t: t.get_skeletal_mesh_asset().get_name() if t else None)(his_part("Trousers")),
+           "components": sorted(c.get_name() for c in host.get_components_by_class(unreal.SkeletalMeshComponent)),
+           "leader_pass": lc["pass"], "leader_gap_cm": lc["metric"], "why": lc.get("why", "")}
+    print(out)
+    return out
+
+
+result = finish()

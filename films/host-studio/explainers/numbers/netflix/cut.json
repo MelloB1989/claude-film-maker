@@ -1,0 +1,5 @@
+{"source":"agent-11, qa_av.py all on box B against netflix_r6_v2b.mp4/.srt (the delivered cut, caption plate); box /srv/ue/explain/netflix/qa/cut_v2b.json, S3 private/renders/r6/review/explain/netflix_r6_v2b_qa_cut.json",
+ "gate":{"audio.lufs_err_lu":{"value":0.0,"where":"v2b: -14.0 LUFS"},"audio.true_peak_dbtp":{"value":-1.7,"where":"v2b"},
+ "deliver.format_ok":{"value":1,"where":"v2b 1920x1080"},"deliver.duration_s":{"value":59.46,"where":"v2b"},
+ "captions.text_match":{"value":1,"where":"v2b: 144 words, 37 captions"},"captions.onset_ms":{"value":84,"where":"v2b"},
+ "facts.sourced":{"value":1,"where":"facts_netflix.json"},"deliver.qc_ok":{"value":1,"where":"v2b film-post qc (filmtools on the path)"}}}

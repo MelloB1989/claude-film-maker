@@ -1,0 +1,143 @@
+# Explainer gate log (round 6, agent-09)
+
+The spec is `gate_spec.json` and the method is `QA.md`. Every verdict goes here when it is run. The rulings below are
+the orchestrator's (cc-64d05f6e), 07 Nov 2026. Each is a scope change or a measure fix, never a waiver.
+
+## Rulings
+
+| ruling | what it changes |
+|---|---|
+| captions | Every VO line is captioned, over the graphics too, in one band at the bottom 15%. The graphics keep that band clear (`gfx.caption_band_clear`). |
+| facts | W06 ("two million") is kept and sourced (WhatsApp's 2012 engineering blog). W17 is softened to "over a hundred billion" (agent-11). |
+| INFO for the explainers | `garment.silhouette_pct` and `shot.render_matches_r4`: there is no seated or round-4 reference for these films. |
+| cloth NOT ATTEMPTED | His tee is Epic's default garment and her top stays skinned. |
+| lips | `lips.render_lag_frames` and `render_conclusive` are INFO: the render measure is invalid. `lips.eye_onsets` is the orchestrator's signed strip. `lead_in_cm` uses the silence-proper window (agent-01, the approved 2.5 f anticipation); the short-gap lines are covered by the silence rows and `eye_onsets`. |
+| netflix occlusions | clip_r7 was the overshirt run. V2 (no overshirt) uses `r6b_v2_clip` as its baseline: the forearm and hands sit in front of the top, so they count as occlusions, and later runs are judged against it + 0.01. |
+| leaders | `garment.leaders_ok` is a hard pre-render row on every final job (the r6n0 lesson). |
+| streaming | `shot.streaming_settled`: warm-up in the render spec and a clean first frame. This came from the CU f1300 tile blocks. |
+| grain, close shots | `shot.grain_sigma` ≤ 1.0 (Immerkaer sigma on wall + neck, by projection). f300 (3.10) and MCU_1330 (14.55) fail it; the finals-spec MCU test f29 (0.69) passes. |
+| grain, WIDE | `shot.grain_wide_sigma` ≤ 0.8 on flat patches only (wall + a second plaster patch). f300's wall (1.002) fails it; netflix V2 shot 11 (0.55) passes. The WIDE neck and desk patches are INFO (texture at that scale). Evidence: the orchestrator's 1:1 look at shot 11 f1100. |
+| his move to box B | `garment.head_state_parity`: agent-06's `him_state` manifest (sha256), and cull_live reading 912 culled verts at z 144.2-153.3, as on box A. |
+
+## Her neckline strip (netflix V2)
+
+The orchestrator ruled on 07 Nov, about 23:10 IST.
+
+- **The defect:** a dark grey strip, about 10 px wide, ran down the inside of her scoop neckline on her left (test30
+  MCU f29, x about 1040-1075, y about 600-830 at 1080p). It read as a strap.
+- **The cause:** the rim key light's shadow from her own Top onto her skin at the edge (agent-02's diagnosis, key-shadow
+  ON/OFF). It was not the texture and not the geometry. Edge1N did not help, so no asset change ships; her original Top
+  asset is restored.
+- **The fix:** `Top.cast_shadow` OFF, set through setplan + set.py so it is reproducible. Recorded in r5/garment.md:
+  rim key-shadow, so turn Top.cast_shadow off for tight tops.
+- **The strip measure:** 0.884 with p10 188 after the fix, against 0.717 with p10 77 as rendered.
+- **The evidence:** the orchestrator compared it against test30 at 1:1. The band becomes a soft light-grey inner edge
+  that reads as real fabric. The rest of the torso is identical: knit, under-bust shading, sleeve hems, chair.
+- **WIDE shot 11:** stays as rendered, because the band cannot be seen at WIDE scale. If it is ever re-rendered, check
+  her shadow on the chair and desk.
+
+## Verdicts
+
+### Netflix v2b: REJECTED BY THE OPERATOR (07 Nov, about 23:45 IST). The SIGN below is SUPERSEDED.
+
+The operator's words: "nah, this ain't good at all ... her expression is pale, no emotion at all, viewer will not get
+any curiosity ... why is her hands stuck to her body, looks very odd, also her right boob is cover the upper limb of her
+right hand ... these presenters must look confident, happy, full of energy, not robotic. also look close to her waist ->
+her skirt or whatever she is wearing below is not fit to her."
+
+The technical gate passed, and it still failed. **This gate did not measure acting.** Round 7 adds the PERFORMANCE
+rows (`gate_spec.json`):
+
+- face.expr_active_frac, smile_events_per_min, brow_flash_per_min and neutral_hold_max_s;
+- body.gesture_onsets_per_s, hands_above_desk_frac and upperarm_torso_clear_cm, with wrist_travel_cm_per_s as INFO;
+- garment.waist_fit_cm.
+
+Each row's must_fail is v2b, measured on box B. The numbers support the eye; the operator decides.
+
+**Her R7 TEST (netflix_r7F_TEST), the orchestrator's verdict, 08 Nov:** a big step up. The face is alive, the CU
+press-to-lens lands, the WIDE count gestures read and the arms are clear. The arm gate passes on the TEST state (min 5.30
+cm; agent-02, `fleet/agent-02/r7-garment` 055b89b0). Two must-fixes before the finals, both judged by the orchestrator's
+eye on CAM_MCU f0-100 (box C):
+
+1. **The high rest pose.** Her hands hover at the top of her chest with drooping wrists, which reads as fidgeting. The
+   rest becomes hands loosely together at the lower ribcage, 20-30 cm in front of the torso, with neutral wrists.
+2. **The lower third covers the gesture zone** in the MCU opening. It moves top-left, or shortens.
+
+**Rulings on agent-01's elbow geometry (the orchestrator, 08 Nov):**
+
+- **(A) Arm clearance is split.** The upper arm must be >= 3 cm from the BUST / front of the Top (the operator's
+  complaint). Against the SIDE of the torso it needs no penetration (>= 0.5 cm; light contact reads natural). The old
+  whole-torso row becomes INFO.
+- **(B) Stroke elevation.** The line is 60 deg ONLY for apexes at or above the upper chest, and 45 deg for the rest. A
+  new row, upperarm_abduction_deg <= 35 at strokes, keeps the lift mostly FLEXION (forward), not abduction. High apexes
+  are kept for the key beats (agent-11 lowers some if more than ~1/3 are high). The rest-elevation line stays 30 deg.
+  agent-13 updates the rows.
+
+**Parity (the orchestrator, 08 Nov):** agent-13's shoulder-relative parity (r7/parity.py --shoulder) is THE parity
+gate. It runs on the RENDERED dump (seat + life), with a 1.0 cm line, and supersedes the seat-only check and the 1.2
+sanity row. The naturalness rows are scored on the 30 fps TRACK; the parity proves the editor plays it, and the editor-dump
+rows are an INFO cross-check ('track + parity').
+
+**The clock (08 Nov):** the sequence, editor and composite are 24 fps; agent-01's arm_track is 30 fps. Every row maps
+frames by TIME (the orchestrator's rule). Matched frame-to-frame, the 'stale life layer' readings (44 / 47 cm) were a
+clock artefact and are VOID (agent-13): time-matched, the editor agrees with the track to ~0.35 cm. agent-09's tools:
+perf-rest and perf-parity paired frames by number (fixed e500c1d9). perf-face, perf-body, hands_in_frame,
+limb/hand_torso, qa_av and the spans all read 24 fps sequence frames only.
+
+**Cost policy (the operator via the orchestrator, 08 Nov):** at most two GPU boxes (T his, T2 hers). The finals
+render ON those boxes, not on farm workers, so the farm rows are INFO, and leaders and streaming come from each box's
+box.json per job. Every gate passes BEFORE a render: no re-renders, and the verify/test spans are kept to the minimum.
+
+**Round 7 rulings (the orchestrator, 07 Nov):**
+
+| ruling | what it changes |
+|---|---|
+| face rows | Gated on the face anim CURVES (face.curves_*), with brow line 0.40. v2b's real anim reads 0.22 / 0 / 0 / 3.0 s, so all four fail. The render smile row stays a gate (v2b 0.0/min). The render expr/brow/neutral rows are INFO: MediaPipe reads talking as expression on our face. |
+| body rows | Calibrated on v2b's samples. A gesture is the hand going up off the desk (wrist > desk + 10 cm) plus beats while it is up. v2b reads 0.347/s with hands up 0.356; both fail. |
+| waist | FROZEN. waist_fit_cm ≤ 0.75 (v2b 1.04 at her left side fails; the orchestrator's eye at 3x puts the defect there). waist_poke_cm ≤ 0.1 is a guard (agent-05's refit R7W +0.49, a visible belly poke, must fail). |
+| arm clearance | INFO for the TEST: no validated measure yet. The judge is the orchestrator's eye at 1x/2x, with agent-01's design clearance (3.8 cm) as supporting evidence. It must be a real gate before the full re-render. |
+| frown | face.curves_frown_frac is INFO: the full-face solve's angry-brow risk. |
+
+
+### Netflix v2b: SIGN (07 Nov, about 23:45 IST)
+
+- **Command:** `gate_film.py --film netflix numbers/netflix/*.json --out numbers/netflix/verdict.json`.
+- **Result:** 55 PASS, 9 INFO (each by a ruling, reason in the row), 3 NOT ATTEMPTED (cloth), 0 FAIL, 0 WAIVED.
+- **Sources:** box B (agent-07, `fleet/agent-07/r6-boxb`), head (agent-04 7266f001), cut v2b (agent-11), graphics band
+  (agent-12, film/explain-netflix), the orchestrator's eye strip and eye_onsets.
+- **Delivered:** the orchestrator delivered v2b to the operator at 23:29.
+
+| area | result |
+|---|---|
+| lips | lag 0.77 f, track 0.897, onset 77 ms, silences, cues fresh; eye_onsets 6/6 lines 1.1-1.9 f lead |
+| head | blink nod 0.048 / locked 0.103, buzz 0.031, drift 1.03, frozen 0.33 s, nods 8.8/min, blinks 19.3/min, on lens 0.915, saccades 1.41/s, glances 5.3/min |
+| body | breath 14.1/min, 2.71 mm; desk, mic and knee contact 0 |
+| garment | visible neck poke 0, wpo 0, armor 0.0, hem 0.955, excess over the V2 baseline 0, leaders 1 on every job |
+| set | chair/desk 0 px, the mic never on the mouth (0), props overlap 0 (depth-confirmed) |
+| shot | cameras 1, streaming 1, grain close 0.742 / WIDE 0.552 |
+| exposure | static background patch, all 9 shots: jump 0.007, drift 0.023 |
+| hair | lock 1, render cvars 1, cut reach 2.68 %, pop reach 0.0 % |
+| cut v2b | -14.0 LUFS / -1.7 dBTP, 1920x1080, 59.46 s, captions 144/144 with onset 84 ms, facts sourced, qc 1, caption band 1 |
+| eye | real_person, light, hair_garment and graphics all 1 |
+
+**Scope notes:**
+
+- **Exposure is read on a STATIC background patch (agent-09's change).** The face box measured her shading as she turns
+  against the key (fixed box 0.17 / 0.27, tracked worse). Exposure is locked manual in the render spec.
+- **The exposure value now covers all 9 shots.** The 3 CUs (02, 07, 14) are read on a static out-of-focus background
+  region: 0.005 / 0.023, 0.005 / 0.016 and 0.005 / 0.011. The worst over every shot is jump 0.007, drift 0.023. The
+  orchestrator accepted the scope.
+- **Spec bug fixed before the run:** an override had dropped `set.props_overlap`'s line. A test now catches any spec
+  item without a line.
+
+
+
+- *(history)* **Netflix v2** (box B, agent-07): all 9 shots rendered, the guard OK on every job.
+  - Cut rows: -14.0 LUFS / -1.7 dBTP, format 1, 59.46 s, captions 144/144 words, onset 84 ms, facts 1, qc 1.
+  - The orchestrator's frame-wise watch: picture, lips (~1.7 f lead), hair at the cuts, neckline, grain and mix all
+    PASS.
+  - ONE fix, composite only (agent-11): the captions over her white top are too faint. The fix is a black backing
+    plate at about 45 % alpha behind every caption, dimmed upcoming words at >= 70 % opacity, the same position and
+    size, and the 56.08 s audio cut fixed. That makes v2b. The cut rows are re-run on v2b.
+  - Still to come from box B: grain per job, clip vs r6b_v2_clip, exposure (tracked boxes), box.json.
+- **WhatsApp:** not started. The head-state pull to box B comes first.

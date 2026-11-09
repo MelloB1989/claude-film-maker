@@ -1,0 +1,134 @@
+{
+ "preset": "presenter_calm",
+ "solver_head": "replace",
+ "blink_head": "still",
+ "blink_mode": "replace",
+ "blink_state": "talk",
+ "beat_every": 2,
+ "emphasis": "auto",
+ "start_gaze": [
+  0.0,
+  0.0
+ ],
+ "lead": "eyes",
+ "gaze": [
+  {
+   "t": 0.0,
+   "yaw": 0.0,
+   "pitch": 0.0,
+   "scan": "lens",
+   "head": 1.0
+  },
+  {
+   "t": 17.517,
+   "yaw": 12.5,
+   "pitch": 4.1,
+   "scan": "still",
+   "head": 0.3
+  },
+  {
+   "t": 18.602,
+   "yaw": 0.0,
+   "pitch": 0.0,
+   "scan": "lens",
+   "head": 1.0
+  },
+  {
+   "t": 23.767,
+   "yaw": 8.9,
+   "pitch": -2.2,
+   "scan": "still",
+   "head": 0.3
+  },
+  {
+   "t": 24.447,
+   "yaw": 0.0,
+   "pitch": 0.0,
+   "scan": "lens",
+   "head": 1.0
+  },
+  {
+   "t": 43.933,
+   "yaw": 11.0,
+   "pitch": 3.5,
+   "scan": "still",
+   "head": 0.3
+  },
+  {
+   "t": 44.793,
+   "yaw": 0.0,
+   "pitch": 0.0,
+   "scan": "lens",
+   "head": 1.0
+  }
+ ],
+ "head": {
+  "micro_deg": 0.4,
+  "breath_deg": 0.2,
+  "breath_hz": 0.21,
+  "speech_gain": 0.8,
+  "gain": 0.9,
+  "rest_roll_deg": 0.0,
+  "lean": 0.0,
+  "seed": 62
+ },
+ "avoid_blinks": [
+  [
+   4.083,
+   4.333
+  ],
+  [
+   8.167,
+   8.417
+  ],
+  [
+   16.917,
+   17.167
+  ],
+  [
+   17.367,
+   17.967
+  ],
+  [
+   18.452,
+   19.052
+  ],
+  [
+   23.167,
+   23.417
+  ],
+  [
+   23.617,
+   24.217
+  ],
+  [
+   24.297,
+   24.897
+  ],
+  [
+   39.75,
+   40.0
+  ],
+  [
+   43.333,
+   43.583
+  ],
+  [
+   43.783,
+   44.383
+  ],
+  [
+   44.643,
+   45.243
+  ],
+  [
+   53.25,
+   53.5
+  ],
+  [
+   56.333,
+   56.583
+  ]
+ ],
+ "seed": 62
+}

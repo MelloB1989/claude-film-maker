@@ -1,0 +1,8 @@
+{
+ "gate": {
+  "shot.cameras_ok": {
+   "value": 1,
+   "where": "set.py --check on box B (her V2 finals state): ok  CAM_MCU: loc off 0.38 cm, focal off 0.00 mm, focus track offset z 125.5 (the seated eye ~120) | ok  CAM_CU: loc off 0.38 cm, focal off 0.00 mm, focus track offset z 125.5 (the seated eye ~120) | ok  CAM_WIDE: loc off 0.28 cm, focal off 0.00 mm, focus track offset z 125.5 (the seated eye ~120) | ok  CAM_MCU_L: loc off 0.22 cm, focal off 0.00 mm, focus track offset z 125.5 (the seated eye ~120) | ok  Presenter on the mark: off 0.00 cm | ok  leaders: all garments follow Body"
+  }
+ }
+}

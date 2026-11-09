@@ -1,0 +1,13 @@
+{
+ "source": "box A K2c (agent-06), editor bones on SEQ_Reel after place (perf.py e4c9c01f): perf.py head + settle; on-screen scope (shots' cast)",
+ "gate": {
+  "head.blink_nod_deg": {"value": 0.466, "where": "Presenter f1303-1307 (him 0.0)"},
+  "head.blink_locked_deg": {"value": 0.128, "where": "Presenter (him 0.084)"},
+  "shot.settle_step_deg": {"value": 0.253, "where": "Presenter f1559 (him f1559 0.244; section starts him f961 0.074, her f1081 0.088); INFO: frame-to-frame head turn beyond perfkit's plan, line 0.6"}
+ },
+ "info": {
+  "head.buzz_rms_deg": {"him": 0.043, "her": 0.041},
+  "out_of_scope": "Host f1290 nod 0.805 (his return turn inside her S16 single: off screen)",
+  "before_fix": "settle f1559 him 1.999, her 4.201 (the body's last key leaned to the idle; fixed e4c9c01f)"
+ }
+}
