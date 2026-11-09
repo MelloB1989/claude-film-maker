@@ -226,6 +226,12 @@ full 2.5 deg and the rest at 0.2, with beats off; offline drift 1.14 and ~7 coun
 interpolated at its time, is >= 0.1 is a gesture frame mislabelled by the 24 fps sampling: excluded and logged. Below
 0.1 it is a real rest and FAILS.
 
+**His finals build T11c (2144fc7e = agent-01 857aa5b4 + agent-04 5194d443), on-screen dump with tips (08:04):** parity
+0.506 / shoulder 0.386 / torso 0.177; tips p50 2.34, cos p10 0.98. rest_contact_rendered: 1 raw frame, t 2.75 = f66, left
+hand, heel 3.72 against 3.34, lowest tip 0.75. Its track gesture_w is 0.075 at the nearest 30 fps frame and 0.1415
+interpolated (neighbours 0.075 / 0.208), so it is the start of a lift: EXCLUDED by the boundary rule, logged.
+rest_contact_rendered = 0. No other on-camera rest frame hovers or tents.
+
 ## Verdicts
 
 ### Netflix v2b: REJECTED BY THE OPERATOR (07 Nov, about 23:45 IST). The SIGN below is SUPERSEDED.
