@@ -37,7 +37,7 @@ HEAD_STYLE = {"micro_deg": 0.4, "breath_deg": 0.2, "breath_hz": 0.21, "speech_ga
               # r6: no roll until a roll test on the archetype face (the shared signs file writes roll on HeadPitch,
               # and her K2c "yourself" tilt measured as a 5 deg chin dip): no rest tilt, no lean into the glances
               "rest_roll_deg": 0.0, "lean": 0.0}
-BEAT_EVERY = {"him": 0}  # his beat nods off: with his acting nods at half depth his offline drift 3.47 -> 1.57 (T-d 2.668)
+BEAT_EVERY = {"him": 0}  # his beat nods off (T-d 2.668 drift); his acting nods: face_acting NOD_SCALE / NOD_FULL
 ACTING = True    # round 7: face_acting.plan's expressions and nods over the head plan (False: round 6's face)
 ROLL_OK = False  # set once agent-01's roll test passes: a seeded rest tilt of up to 1.2 deg comes back
 GLANCE_EVERY_S = (9.0, 16.0)  # the gap between thinking glances (screen time)
