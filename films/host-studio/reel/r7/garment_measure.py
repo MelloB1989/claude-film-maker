@@ -630,6 +630,13 @@ def _min_check(results):
     return (w, sum(r[1] for r in rs), sum(r[2] for r in rs))
 
 
+def arm_spine_deg(ua, la, chain):
+    """Degrees between the upper arm (shoulder -> elbow) and the spine axis (chain[0] -> chain[3], pointing up)."""
+    u, v = sub(la, ua), sub(chain[3], chain[0])
+    c = dot(u, v) / math.sqrt(dot(u, u) * dot(v, v))
+    return math.degrees(math.acos(max(-1.0, min(1.0, c))))
+
+
 def arms_compute(D, G, E, cache=None):
     """body.upperarm_*_clear_cm for one frame from the posed + ref-pose meshes (D: what the editor read; E: PyEngine
     or garment_fast.NpEngine). cache: kept between the frames of one run (labels, the arm/torso split, the zones and
@@ -639,6 +646,12 @@ def arms_compute(D, G, E, cache=None):
     rest_bones, rest_chain, chain, B = D["rest_bones"], D["rest_chain"], D["chain"], D["bones"]
     out = {"frame_head": D["head"], "parts": {}, "sides": {}, "rest_cached": D.get("rest_cached", []),
            **D["facing_diag"]}
+    # the pose check (his 65d44896 gate read the ref pose's own clearance on all 40 frames: the Body was not posed):
+    # per side, the upper arm's angle off the spine axis, posed minus ref pose, in degrees (0 on every frame = the
+    # posed mesh is the A-pose, the readings are not a gate)
+    out["arm_vs_ref_deg"] = {sd: round(abs(arm_spine_deg(B[f"upperarm_{sd}"], B[f"lowerarm_{sd}"], chain)
+                                           - arm_spine_deg(*rest_bones["Body"][0][f"upperarm_{sd}"],
+                                                           rest_chain["Body"])), 1) for sd in ("l", "r")}
     labels = {}
     for n in parts:
         (Pp, Tp), (Pr, Tr) = posed[n], rest[n]
@@ -1118,6 +1131,7 @@ def main(argv=None) -> int:
                         "t_s": clock[f][1]}
         per[f] = res
         if a.cmd == "arms":
+            print(f"f{f}: arm vs ref pose {res.get('arm_vs_ref_deg')} deg", flush=True)
             print(f"f{f}: bust/front {res['upperarm_bust_clear_cm']} (>= 3), side {res['upperarm_side_clear_cm']} (>= 0.5) | "
                   + " | ".join(f"{sd} {z}: {zr.get('clear_cm')} cm (arm_t {zr.get('arm_t')}, {zr.get('torso_part')} at t "
                                f"{zr.get('torso_t_cm')} cm, {zr.get('torso_deg')} deg; <0 {zr['verts_lt0']}, <3 "
@@ -1155,6 +1169,12 @@ def main(argv=None) -> int:
     (out / f"{a.cmd}.json").write_text(json.dumps(per))
     keys = (["upperarm_bust_clear_cm", "upperarm_side_clear_cm", "upperarm_torso_clear_cm"] if a.cmd == "arms"
             else ["waist_fit_cm", "waist_poke_cm", "waist_skin_poke_cm", "waist_skin_poke_front_cm"])
+    if a.cmd == "arms":
+        mv = max((max(r["arm_vs_ref_deg"].values()) for r in per.values() if r.get("arm_vs_ref_deg")), default=None)
+        if mv is not None and mv < float(g.get("POSE_MIN_DEG", 3.0)):
+            print(json.dumps({"WARN": "the arms never left the ref pose (largest upper-arm angle vs the A-pose "
+                                      f"{mv} deg): the Body is not posed by --seq, the readings are the ref pose's "
+                                      "and NOT a gate", "arm_vs_ref_deg_max": mv}), flush=True)
     for key in keys:
         vals = {f: r[key] for f, r in per.items() if r.get(key) is not None}
         if vals:

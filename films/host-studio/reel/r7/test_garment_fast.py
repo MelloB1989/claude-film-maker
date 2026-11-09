@@ -295,6 +295,14 @@ def test_sleeves2_takes_back_flank_cloth_that_stays_with_the_spine():
     assert pa == pb, {k: (pa.get(k), pb.get(k)) for k in set(pa) | set(pb) if pa.get(k) != pb.get(k)}
 
 
+def test_arm_vs_ref_pose_angle():
+    # the ref pose itself reads 0 (an unposed Body: the gate must say so); the right elbow moved in reads > 0
+    a, b, diff, _ = compare({})
+    assert a["arm_vs_ref_deg"] == {"l": 0.0, "r": 0.0} and not diff, (a["arm_vs_ref_deg"], diff)
+    a, b, diff, _ = compare({"r": (6.0, 20.0, 38.0)})
+    assert a["arm_vs_ref_deg"]["r"] > 3.0 and a["arm_vs_ref_deg"]["l"] == 0.0 and not diff, (a["arm_vs_ref_deg"], diff)
+
+
 def test_box_process_matches():
     """The editor's --engine fast hand-off: the files + meta.json as the editor writes them, garment_fast.py run as a
     process (as on the box), its RESULT = PyEngine's numbers."""
