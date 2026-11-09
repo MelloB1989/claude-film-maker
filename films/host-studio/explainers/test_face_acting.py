@@ -59,6 +59,7 @@ def test_his_smile_mouth_share_divided_by_his_speech_gain():
 def test_his_head_is_calmer_hers_unchanged():
     import head as HP
     his, hers = FA.plan("him")["nods"], FA.plan("her")["nods"]
-    assert his and max(n["depth_deg"] for n in his) <= 1.5
+    full = [n for n in his if n["depth_deg"] >= 2.5]
+    assert len(full) == 4 and all(n["depth_deg"] <= 0.61 for n in his if n not in full)
     assert max(n["depth_deg"] for n in hers) == 3.0 and min(n["depth_deg"] for n in hers) == 2.5
     assert HP.BEAT_EVERY.get("him") == 0 and HP.BEAT_EVERY.get("her", 2) == 2
