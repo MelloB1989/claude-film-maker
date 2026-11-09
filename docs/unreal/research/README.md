@@ -18,6 +18,7 @@ before you change anything in its area.
 | [garment-fit.md](garment-fit.md) (T3a, agent-02) | "his chest still looks like he wore some heavy armor inside"; "clipping at the neck a little" | The neck clip was the FACE mesh, which runs ~10 cm below `neck_01`, not the body. We pushed the tee out with a material WPO, which is an even offset, not a fit: no varying ease, no folds, no motion. Our gates measured only clipping. | `film-ue garment-fit` (Blender regional-ease fit), `garment.hidden_face_maps`, `body.hide_under`, `garment.export`, `qa.clip`, `qa.garment_look` (armor index), `film-ue garment-gate` |
 | [cloth-physics.md](cloth-physics.md) (T3b, agent-08) | the same "armor": no cloth behaviour, no wrinkles | His tee never simulated: it was a skinned shell with no clothing data, and nothing measured whether it moved relative to the body. Live cloth also needs a warm-up before the first rendered frame, and its step is capped at 1/30 s. | `cloth.setup / presets / settings / preroll / render_check / cache / describe / remove`, `qa.cloth` (sim vs skinned two-pass judge), the FMCloth editor plugin |
 | [hair-lod.md](hair-lod.md) (T4, agent-09) | "at 01:00 her hair again becomes short!" | Round 4 pinned only the LODSync index. Auto LOD (`r.HairStrands.LODMode` 1, the default) still thins the curves on a wide shot even at LOD 0. A groom outside LODSync's `ComponentsToSync` list never gets the forced LOD, and the mode is read when the groom registers, so a cvar in the MRQ job is too late. | `groom.lock`, `groom.lock_check`, `qa.hair_continuity`, `film-qa hair`, and the review gate v2 `film-qa gate` (`qa/gate.py`) |
+| [presenter-r7.md](presenter-r7.md) (round 7, the explainers) | "zombie" hands (the claw) | Hand poses were offsets on the rig's reference curl, and the hand gate read the kit rather than the placed level. | named anatomical hand poses (gesturekit), LIST gestures in the acting sheets, REST_HOLD, the hand rows on the placed dump, the head gate |
 
 ## The rules (for Claude, every character shot)
 
@@ -85,6 +86,16 @@ add its check.
     source (the MetaHuman plugin included) and has an `API_NOTES` row in its area doc. *Enforced by*
     `tests/test_ue_dx_apinotes_gate.py`. What only a running engine can answer is listed as a GPU probe, not
     assumed.
+
+**Presenter hands and face (round 7, [presenter-r7.md](presenter-r7.md))**
+
+14. **Hands are named anatomical poses, never offsets on the rig's reference curl.** Knuckle-led curl, fingers
+    nearly together, rest palm down on the desk top, no palm to camera, no finger counting (LIST at the sternum), no
+    hand above the chin or within ~10 cm of the face. *Enforced by* the hand gate rows run on the PLACED editor
+    dump, and by the orchestrator's eye on stills.
+15. **Snaps count only on camera.** Map each flagged frame to the EDL; ease the rest (time-gated eases, REST_HOLD).
+16. **No GPU box without a 0-issue offline build.** The box is for the finals and the box-side Host_Op sweeps, not for
+    finding bugs.
 
 ## Where the probes are
 

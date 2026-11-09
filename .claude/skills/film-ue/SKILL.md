@@ -56,4 +56,17 @@ errors with "did you mean". Plan offline with `--state state.json`. Example of e
 No modal dialogs ever (free paths before creating). Multi-tick ops must be `yield from`-ed. A face played by
 Sequencer stops following the body (`anim.bake_follow`). Hair goes white indoors (`r.HairStrands.SkyLighting 0`).
 Cloth needs pre-roll from the shot start (`cloth.render_check` sizes the warm-up); a garment that should move needs clothing data (`cloth.setup`, check with `qa.cloth`: docs/unreal/cloth.md). Path tracing OOMs on a 24 GB L4. Never change a material while it is drawn.
+A static ffmpeg 7.0.2 or 9.0 cut a composite's picture to ~300 frames; use 6.0/6.1.
 Nothing film-specific outside `films/<id>/`. No secrets anywhere.
+
+## Presenters (read before any character shot)
+
+- The rules and their checks: `docs/unreal/research/README.md`; round 7's hands, face and garments:
+  `docs/unreal/research/presenter-r7.md`. In short: named anatomical hand poses, not offsets on the rig's curl; rest
+  palm down on the desk top; no palm to camera; LIST gestures, not finger counting; no hand above the chin or within
+  ~10 cm of the face; the hand rows run on the PLACED editor dump; snaps count only on camera; the eye judges what a
+  number can't.
+- No GPU box start without a 0-issue offline build. Spot only; render warm-up stills first on an AMI-booted box, then
+  per-shot finals pushed to S3 (docs/FARM.md §5-6).
+- The face rule: the face, every render with a presenter and his rig/skeleton numbers stay on the boxes and in
+  `s3://.../ue-linux/private/` (SSE-KMS). Never in git, logs, a laptop or a relay. Box-side tools print numbers only.
