@@ -33,6 +33,7 @@ def track_of(w: str, src: Path, every: int = 1) -> dict:
     sk = S.Skeleton.from_read(d)
     # as gesturekit.build builds it on the box (agent-01): his gated torso (the open rest, the outfit line), his close
     #   held alive, the mic cams, the fallback's rest ranges; without them his track was another performance
+    G.hand_profile(p.get("tune"))  # as gesturekit.build: his finals' hands, before the plan
     plan = G.plan_from_sheet(p["sheet"], p["cues"], p["tilts"], timing=p["timing"], on_cam=p["on_cam"],
                              close_alive=PF.length_s(w) if p.get("close_alive") else None,
                              mic_cams=p.get("mic_cams"), rest_only=p.get("rest_only"))

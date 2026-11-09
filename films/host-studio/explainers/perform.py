@@ -529,7 +529,7 @@ FALLBACK_CAMS = {"her": {"CAM_MCU": {"focal": 117.5, "pitch": -1.62}, "CAM_MCU_L
 #   his skeleton on box T (his rows can't be run off the box)
 TUNE_OF: dict = {"him": {"REST_WRIST_UNDER": 0.28, "EASE_AT": (11.9, (17.1, 0.3), 21.2, 34.95, 51.5, 55.4),
                          "EASE_LEAD": 0.1, "EASE_ROT": 1.0, "ROT_LAG_ADD": 0.02,
-                         "REST_HOLD": 0.2}}  # (T sweep on c32bc150: his
+                         "REST_HOLD": 0.2, "OPEN_HEEL_S": 1.0, "HAND_PROFILE": "r7I"}}  # (T sweep on c32bc150: his
 #   rest tented on its pads at 0.6 s with 0.2, none at 0.5; but 0.5 put the wrist in the desk box (seatkit's desk.wrist:
 #   forearm_clear - 0.3), so 0.28)
 #   EASE_AT: his whole-take snap arrivals on T (agent-08: l 11.9 17.1 34.7 35.2 51.5 55.4, r 21.2 35.2), all outside his

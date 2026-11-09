@@ -31,6 +31,7 @@ def main() -> None:
     p = PF.perform_params("her")
     sy = replace(PF.STYLE["her"], **PF.PERFORM_STYLE)
     sk = S.Skeleton.from_read(d)
+    G.hand_profile(None)  # her finals' hands (the default)
     plan = G.plan_from_sheet(p["sheet"], p["cues"], p["tilts"], timing=p["timing"], on_cam=p["on_cam"])
     st = PF.set_of("her")
     se, _ = S.autotune(sk, st, sy)

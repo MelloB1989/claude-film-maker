@@ -77,6 +77,10 @@ SHAPES = {
     "pinch": {"index": 46, "middle": 40, "ring": 46, "pinky": 52, "thumb": 20, "_opp": 60},
     "soft_fist": {"index": 66, "middle": 72, "ring": 76, "pinky": 80, "thumb": 80, "_opp": 0},
 }
+# the hand shapes his finals rendered with (r7-him 2144fc7e), before agent-08's softer 'present' and flatter rest (r7J,
+# ff93e054, her finals): gesture_style.use_profile("r7I") puts them back (perform.TUNE_OF["him"]["HAND_PROFILE"])
+SHAPES_R7I = {"rest": {"index": 13, "middle": 19, "ring": 13, "pinky": 7, "thumb": 10, "_opp": -10, "_spread": -1.5},
+              "open": {"index": 3, "middle": 4, "ring": 6, "pinky": 9, "thumb": 5, "_opp": -45}}
 KEYS = FINGERS4 + ("thumb", "_opp")
 
 

@@ -481,6 +481,15 @@ def clearance(A: dict, F: dict, s: str, tor: Torso, parts: bool = False):
 class Performer(S.Seater):
     """seatkit.Seater with the plan driving the arms, hands, fingers, torso lean/turn and head roll."""
 
+    @property
+    def HAND_PROFILE(self) -> str:
+        return getattr(STYLE_HOOK, "PROFILE", "r7J")
+
+    @HAND_PROFILE.setter
+    def HAND_PROFILE(self, name: str) -> None:  # perform.TUNE_OF: his finals' hands (gesture_style.use_profile)
+        if STYLE_HOOK is not None and hasattr(STYLE_HOOK, "use_profile"):
+            STYLE_HOOK.use_profile(name)
+
     def __init__(self, sk, st, sy, plan: Plan, torso: Torso | None = None, mic_side: str = "l"):
         self._ready = False  # seatkit's own setup (wrist extension, desk rest) runs on seatkit's pose
         self._wg = {}
@@ -1718,7 +1727,7 @@ class Performer(S.Seater):
     DESK_PULL_MAX = 6.0  # deg the contact pulls a resting hand DOWN onto the desk at most (its push out stays 16)
     DESK_LIVE = 0.15  # cm the pads' height breathes about DESK_TIP (0.21 Hz)
     DESK_TIP = 0.9  # cm a resting hand's lowest fingertip (its centre line) over the desk top: the pad on it
-    OPEN_HEEL_S = 1.0  # s: the take's opening rest, its heel held down through the first lift ...
+    OPEN_HEEL_S = 0.0  # (r7 integrate: 0 by default, her finals had none; his 1.0 in perform.TUNE_OF) s: the take's opening rest, its heel held down through the first lift ...
     OPEN_HEEL_GW = (0.12, 0.3)  # ... in full under the first gesture weight, handed back by the second (gate: < 0.1 = rest)
     REST_HOLD = False  # him (box T-d, rendered: tented at 2.8 / 7.6 s with gesture_w < 0.1, k_rest 0.9+ left the
     #   wrist a few mm up): a float g1 holds the heel at every rest's edge, the lift's share g * smoothstep(g / g1) (C1
@@ -2036,6 +2045,13 @@ def metrics(perf: Performer, t0: float, t1: float, fps: float = 30.0) -> dict:
             "issues": issues[:20], "n_issues": len(issues)}
 
 
+def hand_profile(tune: dict | None) -> None:
+    """The presenter's finals' hands (gesture_style.use_profile) from his tune's HAND_PROFILE, else the default (r7J),
+    set BEFORE the plan is made (its variations read the shapes)."""
+    if STYLE_HOOK is not None and hasattr(STYLE_HOOK, "use_profile"):
+        STYLE_HOOK.use_profile((tune or {}).get("HAND_PROFILE", "r7J"))
+
+
 def build(data: dict, st, sy, sheet: dict, cues: dict, tilts: list, length_s: float, fps: int = 30,
           check_every: int = 6, timing: list | None = None, on_cam: list | None = None,
           frame_want: dict | None = None, track_out: str | None = None, close_alive: bool = False,
@@ -2044,6 +2060,7 @@ def build(data: dict, st, sy, sheet: dict, cues: dict, tilts: list, length_s: fl
     """seatkit.build for the performance: the seated pose with the plan driving the upper body, as tracks (constant
     for the bones that never move, per key for spine, neck, head, clavicles, arms, hands and fingers). Returns (doc
     for perform.py's WRITE, summary with the checks and the body rows' numbers)."""
+    hand_profile(tune)  # before the plan: its variations read the hand shapes
     sk = S.Skeleton.from_read(data)
     plan = catalogue_plan() if catalogue else plan_from_sheet(
         sheet, cues, tilts, timing=timing, on_cam=on_cam, close_alive=length_s if close_alive else None, mic_cams=mic_cams,
