@@ -257,6 +257,52 @@ def test_own_pose_garment_gets_a_mapped_self_check_and_sleeves():
     assert pa == pb, {k: (pa.get(k), pb.get(k)) for k in set(pa) | set(pb) if pa.get(k) != pb.get(k)}
 
 
+def test_sleeves2_takes_back_flank_cloth_that_stays_with_the_spine():
+    """His LAYERS (round 7): flank cloth under the A/T-pose arm is nearest the upper arm on the ref, so SLEEVES=1
+    drops it and the seated arm lies on a gap. SLEEVES=2: cloth that does NOT move with the arm comes back as torso;
+    the sleeve (which does) stays out."""
+    pose = {"l": (2.0, -17.5, 30.0), "r": (2.0, 17.5, 30.0)}
+    for as_np, E in ((False, gm.PyEngine()), (True, gf.NpEngine())):
+        D = make_D_sleeved(pose, as_np)
+        # a flank patch on each side under the T-pose arm (nearest it on the ref), still in the seated frame, outside
+        # the hanging sleeve's tube (8 cm off its bone, sleeve r 7.5); and one INSIDE the tube (hidden: never torso)
+        for n0 in ("rest", "posed"):
+            P, T = D[n0]["Top"]
+            P, T = [tuple(map(float, p)) for p in P], [tuple(map(int, t)) for t in T]
+            for y, z in ((-24.0, 45.5), (24.0, 45.5), (-16.5, 41.0), (16.5, 41.0)):
+                o = len(P)
+                P += [(-1.5, y, z), (1.5, y, z), (1.5, y, z + 3), (-1.5, y, z + 3)]
+                T += [(o, o + 1, o + 2), (o, o + 2, o + 3)]
+            D[n0]["Top"] = (np.asarray(P, float), np.asarray(T, np.int64)) if as_np else (P, T)
+        a = gm.arms_compute(D, {"SLEEVES": "1"}, E)
+        b = gm.arms_compute(D, {"SLEEVES": "2"}, E)
+        for sd in ("l", "r"):
+            assert a["sides"][sd]["flank_moved_in"] == {}
+            mv = b["sides"][sd]["flank_moved_in"]["Top"]
+            assert mv["added"] == 4 and mv["inside_sleeve"] == 4 and abs(mv["sleeve_r"] - 7.5) < 0.2, mv
+            assert b["sides"][sd]["torso_tris"] == a["sides"][sd]["torso_tris"] + 2
+            assert b["sides"][sd]["rest_clear_cm"] == a["sides"][sd]["rest_clear_cm"]                # same self-check
+    pa = flat(gm.arms_compute(D, {"SLEEVES": "2"}, gf.NpEngine()))
+    D2 = make_D_sleeved(pose, False)
+    for n0 in ("rest", "posed"):
+        P, T = list(D2[n0]["Top"][0]), list(D2[n0]["Top"][1])
+        for y, z in ((-24.0, 45.5), (24.0, 45.5), (-16.5, 41.0), (16.5, 41.0)):
+            o = len(P)
+            P += [(-1.5, y, z), (1.5, y, z), (1.5, y, z + 3), (-1.5, y, z + 3)]
+            T += [(o, o + 1, o + 2), (o, o + 2, o + 3)]
+        D2[n0]["Top"] = (P, T)
+    pb = flat(gm.arms_compute(D2, {"SLEEVES": "2"}, gm.PyEngine()))
+    assert pa == pb, {k: (pa.get(k), pb.get(k)) for k in set(pa) | set(pb) if pa.get(k) != pb.get(k)}
+
+
+def test_arm_vs_ref_pose_angle():
+    # the ref pose itself reads 0 (an unposed Body: the gate must say so); the right elbow moved in reads > 0
+    a, b, diff, _ = compare({})
+    assert a["arm_vs_ref_deg"] == {"l": 0.0, "r": 0.0} and not diff, (a["arm_vs_ref_deg"], diff)
+    a, b, diff, _ = compare({"r": (6.0, 20.0, 38.0)})
+    assert a["arm_vs_ref_deg"]["r"] > 3.0 and a["arm_vs_ref_deg"]["l"] == 0.0 and not diff, (a["arm_vs_ref_deg"], diff)
+
+
 def test_box_process_matches():
     """The editor's --engine fast hand-off: the files + meta.json as the editor writes them, garment_fast.py run as a
     process (as on the box), its RESULT = PyEngine's numbers."""
