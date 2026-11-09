@@ -208,6 +208,15 @@ only on-camera snaps count against the 2.0 line. Mapped to edl/whatsapp.json (f 
 gfx, f506 in shot 7 gfx and f842 in shot 9 gfx. On-camera snaps = 0: PASS. Base is his variant for the TEST and the
 finals; ROT_LAG_ADD=0.03 is out (TEST lag 29.76).
 
+**His T-d run (base 73804954, 09 Nov ~06:3x): NO GO, 2 FAIL.** PASS: head_state 102/102, cull_live identical, on-screen
+dump with tips (8110 tips, p50 2.34 cm, cos p10 0.98), parity 0.501 / shoulder 0.381 / torso 0.177, hif MCU 0.609 / CU
+0.395 / WIDE 1.0, every head row except drift (on_lens 0.917). FAIL: rest_contact_rendered 2 (tented at f67 and f182;
+agent-01) and head.drift_deg 2.668. head_stages: seat 0.0, body (after sync, the face's head) 3.45, so the drift is
+agent-04's head plan, not the body's carry. Offline (perfkit.head.compose) the acting nods took it 0.6 -> 2.8 and the beat
+nods to 3.5. Fix c1e15f42 (him only): acting nods at half depth, beat nods off; offline 1.57, ~1.2 on the box at the
+measured 0.77 ratio. Re-run his face step onward, then the head gate. STOP-SHIP first: a black band round his torso in the
+binding stills (the orchestrator; not from the face tools).
+
 ## Verdicts
 
 ### Netflix v2b: REJECTED BY THE OPERATOR (07 Nov, about 23:45 IST). The SIGN below is SUPERSEDED.
