@@ -80,6 +80,171 @@ hands_in_frame 0.574).
 PASS. finger_snap 9.0/min FAIL (rendered by the orchestrator's call). Offline (agent-13): wrist_radial_p95 19.7 in
 the windows FAIL as well (the left wrist bends radially for the supination). Both open on agent-08's e1c07794 (snap
 9.41 whole / 9.0 windows, radial 18.6 / 19.7).
+NOT measured on r7I (cut for time): the rest gate, agent-02's arms (rest/gestures), breath, waist and
+rest_contact_rendered as its own row. The finals sha runs chain_H2's full list (agent-06). upperarm_torso 0.4 is INFO
+by ruling (A); bust 3.7 / side 0.5 PASS; hands_in_frame MCU 0.61 (netflix 0.5), CU 0.361, WIDE 1.0 PASS.
+
+**Gate owner (09 Nov, later):** agent-13 is rate-limited to Tue 11:30; agent-04 runs the gate on
+`fleet/agent-04/r7-gate` (off agent-13's 95374c60), with agent-13's tools as they stand (r7-movement ccc46755).
+
+**Her watch DROPPED (the operator, 09 Nov):** "the left hand with watch looks very bad, watch is clipping through
+hand, drop the watch" (r7I WIDE: the band and body cut into her wrist and hand as the wrist bends). agent-05 removes the
+watch from her level of record in the set/garment setup code, not with a visibility key, so every future dress keeps it
+off. agent-06 applies it at the start of the next T2 session, before her chain. The gate has no watch clearance row
+to drop. The evidence is a still in the keys (WIDE f1080, 2x crop of the left wrist), and the orchestrator checks it by
+eye. Him: unchanged; the orchestrator checks his wrist on his TEST, and the same rule applies if it clips.
+
+**Her offline GO, 0fa53868 (agent-04, 09 Nov):** agent-08 d1869ce7 + agent-01's palm-off turn as an eased forearm
+twist (zero-phase critically damped spring, 24 rad/s, + 55 ms). agent-04 re-ran it on kbuild (naturalness.py at
+r7-movement HEAD; whole take / verify windows seq 0-196 + 1040-1162): 0 FAIL. finger_snap 0.0 / 0.0 (was 8.4 / 9.0),
+wrist_radial_p95 2.7 / 3.0 (was 18.7 / 19.7), palm_to_camera 0, lag 49.6 / 53.0 ms; n/a by na_ok: humerus_elev_high /
+rest, cascade. Build 0 issues (agent-01). The orchestrator: GO for T2. **Fallback (the orchestrator):**
+move.lag_hand_ms keeps gating under HANDS_FALLBACK (it reads 24.95 there); agent-01 fixes it only if the fallback is
+switched on.
+
+**His NO-GO, 0fa53868 (agent-01's call, agent-04 agrees, 09 Nov):** his proxy body build (his plan on her skeleton) has
+3 issues (hands_out_of_frame MCU 38 %, MCU_L 49 %, CU 0 %: the proxy cannot judge framing; on 963942f4 the box read
+0.574 where the proxy read 0.255). The proxy rows fail on their own: finger_snap 9.6 (7.5 with the palm guard off: his
+gated rest/swivel, not the palm turn), lag_hand 12.7, shape_wrong 4, hold_over_collar 28, palm_to_camera 8,
+rest_abduction 25.05, rest_desk 42.6, humerus_elev_high 77.6. T stays stopped. **Tool fix:** r7/arm_track_who.py is
+taken from agent-01's head (c62de4a1+). agent-13's copy built his performer without his gated torso, close_alive and
+mic_cams, so the box rows would have scored a different motion from the anim the build writes. Hers is unaffected.
+
+**Her r7J verify (09 Nov, T2, 0fa53868 + c62de4a1 tool-only, watch dropped; agent-06's numbers): GATE PASS, 0 FAIL**
+(rest_hand_torso_cm 19.55, f198 left). Body build pass; bust 3.7 / side 0.5; agent-02 arms rest
+3.72 / 1.28, gestures 3.97 / 1.32; hands_in_frame MCU 0.676, CU 0.392, WIDE 1.0; parity plain 0.364, --shoulder 0.247,
+--torso 0.186; movement + hand rows (placed dump and track) 0 FAIL: finger_snap 0.0, claw 0, spread 2.85,
+rest_contact 0, palm_to_camera 0; breath 2.22 mm at 15.1/min; waist fit 0.02, poke -0.26; lips lag 0.68 f, track
+0.892, onset 77 ms; head gate rc 0. Next: the orchestrator's by-eye review of shots 1/2/11 and the left-wrist still.
+
+**5ea6ab94 offline (agent-04, 09 Nov):** HIM: his proxy (5ea6ab94's arm_track_who.py on her read), whole / TEST spans
+0-179 + 422-480: 0 FAIL (snap 0.0, lag 35.1, rest_abduction 18.4, rest_desk 32.6, collar 0, palm 0, shape_wrong 0,
+spread 3.98; hold_chest 6 is a report row). The 3 build issues are framing only: the orchestrator's exception (only
+the box judges framing; cam_sweep first on T). GO for T. HER: rows pass too (snap 0, radial 2.6, lag 46.3). Her finals
+stay on the box-gated 0fa53868 unless the orchestrator moves them (that would need a T2 re-gate).
+The orchestrator: her finals A stay on 0fa53868. Only an agent-08 polish candidate B, if it lands clean, may replace
+A, and only after a T2 re-gate. START T for him.
+
+**Her candidate B, ff93e054 (agent-08: 0fa53868 + 5ea6ab94 + a softer 'present' and a flatter rest), offline GO
+(agent-04, 09 Nov):** whole / windows 0 FAIL: snap 0.0, radial 2.39 / 1.94, spread 2.69 / 2.78, palm 0, near_face 0,
+claw 0, rest_contact 0, flexext 22.5 / 20.4, lag 37.7 / 44.1 (line 30). Build 0 issues (agent-08). Plan (the
+orchestrator): A composites now; B is built and fully gated on T2, and its finals render to netflix_finals_B only on 0
+FAIL; the orchestrator picks A or B by eye.
+
+**His first T job, 5ea6ab94 on his REAL skeleton (agent-06, 02:52): NO-GO, 3 FAIL, T stopped before any body.**
+lag_hand_ms -32.6 whole / -14.2 TEST (the proxy read +35.1: the hand turn leads the arm on his skeleton);
+finger_snap 4.27 / 0.0 (it blocks his finals, not the TEST); rest_contact_bad 9 / 5 (his REST_HEEL is still her 2.9
+default: agent-02 measures his). His track carries no fingertips, so finger_claw / dip_pip / thumb_stiff are n/a
+(na_ok). agent-01 adds tips to arm_track_who.py. Everything else passes (stroke 34.9, rest_abduction 1.95, radial 0.95,
+palm 0, near_face 0, spread 3.94).
+
+**His exact proxy (the orchestrator, 09 Nov):** the proxy on her skeleton mis-predicts him, so no more iterating
+through box boots. agent-06 exports his BODY skeleton numbers only (bone names, parents, ref-pose locals and lengths,
+and his seat/desk/mic placements; no mesh, face, textures or renders) and moves them ONLY by fleetctl cp to agent-01
+and agent-04: never committed, never in the public repo, deleted when the round ends. agent-04 runs his rows from
+/work (not the shared code, which every agent sees). agent-01 adds fingertips to arm_track_who.py. ONE box run once
+he passes on the exact proxy. MCU_L 0.615 accepted.
+
+**B's lag on the editor dump (agent-04, 09 Nov):** lag_hand_ms 23.6 on B's seat editor dump (24 fps) against 44.1 on
+the box kit track (30 fps). The row is scored on the track (the 08 Nov 'track + parity' ruling): PASS. The dump row is
+INFO, and a ~40 ms median is one 24 fps frame (r7J's dump read 94 against a ~53 track).
+
+**lag_hand onset fix (agent-04, 09 Nov; agent-01's find), naturalness.py on fleet/agent-04/r7-movement 077d0c7c:**
+each series' onset is searched from its own low after a0 (a decaying tail from the previous arrival is not an onset).
+Must-fails still fail (58f6e0aa -22.8, ee99f626 -28.1). Her A 83.5 / 62.0, B 75.4 / 74.9 (whole / windows), and the
+24 fps read now agrees with the track (A 80.6, B 53.2), so B's dump 'fail' was the measure. The line stays >= 30.
+**His export withdrawn (the orchestrator, 09 Nov):** the operator's rule keeps Host_Op data, his rig included, off
+pc2/kali/git; every copy was deleted (agent-04's at ~21:45, unopened). His rows come only from agent-01's box-side
+r7/him_sweep.py on T (rows and times only).
+
+**Her B placed (T2, ff93e054, rows on 077d0c7c): GATE PASS, 0 FAIL.** parity 0.357 / shoulder 0.214 / torso 0.186;
+rows (dump + kit) 0 FAIL, lag 53.3 dump / 74.9 kit; rest 19.55; arms rest 3.67 / 1.27, gestures 4.01 / 1.40; hif MCU
+0.676, CU 0.392, WIDE 1.0; breath 2.22 mm at 15.1/min; waist 0.02 / -0.26; place + lips rc 0. Finals B render to
+netflix_finals_B with the head gate first; the orchestrator picks A or B by eye.
+
+**Her final composite B (netflix_r6_r7B, finals_B; agent-11 and agent-06 on T2, numbers only): GATE PASS, 0 FAIL.**
+-14.0 LUFS (err 0.0), TP -1.7, 1920x1080, 59.46 s, captions 144/144 words with onset 84 ms, facts 1, qc 1.
+comp_check.py (13ac7c08, its first real run): black 0, presenter-shot dups 0, A/V offset 0.0 ms (corr 1.0), A/V length
+0.3 ms. Clearance vs her head (the head joint +-11 cm projected through the cut camera, conservative): the lower
+third's visible card (alpha > 32) ends at x 644 against the head's 685 (41 px; the drawn card at alpha > 128 ends at
+568). Only the faint gradient plate edge (alpha 8-32) comes within 16 px, with no overlap: the 20 px line is judged on
+the visible card. Panel cards start at x 963 / 965 against the head's 552 / 543. Stills f48 / f481 / f997 are with the
+orchestrator for the eye. A's composite is kept as the backup.
+
+**His aad624a9 on T (REST_WRIST_UNDER 0.5; his real skeleton, naturalness 077d0c7c; read and track deleted from the
+box):** TEST spans 0-179 + 422-480: every row passes (lag 33.2, a thin margin over 30; snaps 0.0; rest_contact 0 at
+3.34; claw 0, dip_pip 0.0, thumb_stiff 0: his track now carries fingertips; spread 3.44; radial 2.13), so his TEST is GO.
+Whole take: finger_snap 6.41/min FAIL (line 2; 4.27 on 5ea6ab94), every other row passes (lag 81.5), so his FINALS are NO-GO until
+agent-01's snap fix, which must leave the TEST spans' motion unchanged.
+
+**His 3c2adc79 on T (agent-06):** body build PASS (writes, issues []; hif MCU 0.681, CU 0.281, MCU_L 0.615, WIDE 1.0).
+TEST NO-GO in both sweep variants: lag_hand_ms 29.83 / 29.97 (the hand leads by 271 ms at t 6.3 s in span 0-179) and
+rest_contact_bad 1 (tips only, t 0.6 s). Whole-take snaps 5.34 (base) / 6.41 (finals only). T stopped; his read was
+deleted on the box. A TEST-only waiver is the orchestrator's to give, not the gate's.
+
+**His flank (the orchestrator by eye, 09 Nov ~05:2x):** his BEFORE stills (CAM_MCU f0/f84, WIDE f0/f84) show no
+arm-into-flank clipping, so the -8 cm side reading is a measure artefact (the A-pose sleeve/torso split, agent-02).
+agent-05's 4 cm push is HELD (the original outfit is re-dressed if it landed); agent-05 re-runs m1 with the weight
+split, and agent-02 changes the arms measure to a motion-based sleeve split. The gate accepts the new measure only with
+its must_fail kept (her v2b arm-into-bust still FAILS) and her r7J/B numbers consistent. A refit happens only if the
+true need is > 0.
+
+**His arms gate (the orchestrator, 09 Nov):** both outfit measures for him are artefacts: the sleeve-split side -8 cm
+and the every-vertex 14 cm at the shoulder joint. The orchestrator's eye on f0 / 6 / 12 / 84 shows no clip, and his
+original outfit stays. Until agent-02's motion-based sleeve split is validated (it must read ~0 on these frames and FAIL
+on a known clip), body.upperarm_side_clear_cm and body.upperarm_bust_clear_cm are INFO for HIM, and the gate for his
+arms is the orchestrator's by-eye review of his TEST and finals (MCU / MCU_L / WIDE). Hers are unchanged (gating).
+agent-02's measure is SLEEVES=2 (20b833dd, opt-in; her default path and numbers are unchanged). His arms_9fe8fee0
+(-7.87 side) is DROPPED as a must_fail: not a real clip (LAYERS: the arm lay on a gap in the torso set). SLEEVES=2 gates
+him only once it reads ~0 on his clean frames AND fails her v2b clip under SLEEVES=2 itself.
+**His arm lines (the orchestrator, 09 Nov):** HIM front clearance >= 0.5 cm (no penetration; he has no bust, so the 3 cm
+front line is hers only) and side >= 0.5 cm. HER bust/front stays >= 3 and side >= 0.5. His rows are still INFO
+tonight, with the orchestrator's eye as his arm gate.
+
+**His 73804954 on T, variant BASE (agent-06's sweep):** body PASS (writes, issues []). TEST spans: every row passes
+(rest_contact 0, palm 0, lag >= 30). Whole take: finger_snap 2.136 / min (l 11.8, 16.7; r 21.1, 35.1 s).
+**The orchestrator's on-camera rule (09 Nov):** a snap inside a graphics-only shot is invisible and does not count, so
+only on-camera snaps count against the 2.0 line. Mapped to edl/whatsapp.json (f = t x 24): f283 and f401 fall in shot 5
+gfx, f506 in shot 7 gfx and f842 in shot 9 gfx. On-camera snaps = 0: PASS. Base is his variant for the TEST and the
+finals; ROT_LAG_ADD=0.03 is out (TEST lag 29.76).
+
+**His T-d run (base 73804954, 09 Nov ~06:3x): NO GO, 2 FAIL.** PASS: head_state 102/102, cull_live identical, on-screen
+dump with tips (8110 tips, p50 2.34 cm, cos p10 0.98), parity 0.501 / shoulder 0.381 / torso 0.177, hif MCU 0.609 / CU
+0.395 / WIDE 1.0, every head row except drift (on_lens 0.917). FAIL: rest_contact_rendered 2 (tented at f67 and f182;
+agent-01) and head.drift_deg 2.668. head_stages: seat 0.0, body (after sync, the face's head) 3.45, so the drift is
+agent-04's head plan, not the body's carry. Offline (perfkit.head.compose) the acting nods took it 0.6 -> 2.8 and the beat
+nods to 3.5. Fix c1e15f42 (him only): acting nods at half depth, beat nods off; offline 1.57, ~1.2 on the box at the
+measured 0.77 ratio. Re-run his face step onward, then the head gate. STOP-SHIP first: a black band round his torso in the
+binding stills (the orchestrator; not from the face tools).
+
+**His convergence (the orchestrator, 07:40; agent-04's gate):** REST_HOLD=0.2 (agent-01 857aa5b4) is the pick: TEST [],
+heel max 2.74, 0 frames over 2.84. Its one new snap (r 39.5 s = f948, gfx shot 11) doesn't count under the on-camera rule
+(new snaps disqualify only in pres/panel shots). The head is fleet/agent-04/r7-face 5194d443: on c1e15f42 the box read
+drift 1.484 but nods 0.0/min (half-depth nods never reach the detector), so 4 payoff-line nods (W01, W03, W11, W17) are at
+full 2.5 deg and the rest at 0.2, with beats off; offline drift 1.14 and ~7 countable nods/min on camera.
+**rest_contact_rendered at a rest/gesture boundary (agent-04, in advance):** a flagged frame whose track gesture_w,
+interpolated at its time, is >= 0.1 is a gesture frame mislabelled by the 24 fps sampling: excluded and logged. Below
+0.1 it is a real rest and FAILS.
+
+**His finals build T11c (2144fc7e = agent-01 857aa5b4 + agent-04 5194d443), on-screen dump with tips (08:04):** parity
+0.506 / shoulder 0.386 / torso 0.177; tips p50 2.34, cos p10 0.98. rest_contact_rendered: 1 raw frame, t 2.75 = f66, left
+hand, heel 3.72 against 3.34, lowest tip 0.75. Its track gesture_w is 0.075 at the nearest 30 fps frame and 0.1415
+interpolated (neighbours 0.075 / 0.208), so it is the start of a lift: EXCLUDED by the boundary rule, logged.
+rest_contact_rendered = 0. No other on-camera rest frame hovers or tents.
+
+**His finals build T11c (2144fc7e): GATE GO FOR FINALS (08:12), 0 FAIL.** Head gate PASS: drift 1.158, nods 5.37/min,
+on_lens 0.917, blink_nod 0.06, buzz 0.067, frozen 0.33 s, blinks 26.8/min, saccades 1.69/s, glances 5.37/min. hif MCU
+0.609 / CU 0.395 / WIDE 1.0. Rows whole + TEST pass (0 on-camera snaps); parity 0.506 / 0.386 / torso 0.177;
+rest_contact_rendered 0; body issues []; in sync; leaders, signs and head_state pass. His arms are gated by the
+orchestrator's eye (rows INFO). head_stages' anim-asset read (body 2.40) is diagnostic; the gate is head.py judge on the
+placed sequence. **The orchestrator's eye on fin_T11c (MCU f0 / f84, WIDE f450): PASS**: a clean grey tee (no band), a
+soft open palm, arms off the torso, the WIDE rest hand flat, the face alive. His ARMS GATE (by eye): PASS. Finals render.
+
+**His final composite (whatsapp_r6_r7fin; agent-11 and agent-06 on T-d, numbers only): GATE PASS, 0 FAIL.** -14.1 LUFS
+(err 0.1), TP -1.7, 1920x1080, 56.33 s, captions 157/157 words with onset 84 ms, facts 1, qc 1. comp_check: black 0,
+presenter-shot dups 0, A/V offset 0.0 ms (corr 1.0), A/V length 0.3 ms. Clearance vs his head (+-11 cm, projected): lower
+third 93 px (alpha > 32; 77 at > 8); panel cards 358 / 402 / 400 px (shots 4 / 8 / 12). Stills f48 / f226 / f690 / f1060
+are with the orchestrator.
 
 ## Verdicts
 
