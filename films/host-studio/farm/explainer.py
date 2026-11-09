@@ -23,7 +23,7 @@ EXPLAINERS = HERE.parent / "explainers"
 LEVELS = {"her": "/Game/Explainer/ExplainerSet", "him": "/Game/Explainer/ExplainerSet_Him"}
 SEQ = {"her": "/Game/Explainer/SEQ_Explain_Her", "him": "/Game/Explainer/SEQ_Explain_Him"}
 ACTOR = {"her": "Presenter", "him": "Host"}
-OUT = "s3://BUCKET/ue-linux/private/renders/r7/farm/explain"
+OUT = "s3://rf-render-788655295054-apne1/ue-linux/private/renders/r7/farm/explain"  # private Tokyo bucket (cost ruling)
 # explainers/render.py's (round 6b, box B's V2 finals)
 CVARS = {"r.SSS.Quality": 1, "r.SSS.HalfRes": 0, "r.HairStrands.LODMode": 0, "r.HairStrands.AutoLOD.Bias": 1.0,
          "r.HairStrands.UseCardsInsteadOfStrands": 0, "r.HairStrands.SkyLighting": 0,
@@ -44,6 +44,13 @@ def state_of(job):
         p = os.path.join(s["local"], "STATE.json")
         if os.path.exists(p):
             return "sync:" + str(json.load(open(p)).get("id"))
+    try:  # a box restored from a packed state (pack_box.sh / setup_tokyo.sh): the project's own STATE.json
+        proj = [l.split("=", 1)[1].strip().strip('"') for l in open("/etc/default/ue-editor") if l.startswith("UE_PROJECT=")]
+        p = os.path.join(os.path.dirname(proj[0]), "STATE.json")
+        if os.path.exists(p):
+            return "pack:" + str(json.load(open(p)).get("id"))
+    except (OSError, IndexError, ValueError):
+        pass
     try:
         tok = urllib.request.urlopen(urllib.request.Request(
             "http://169.254.169.254/latest/api/token", method="PUT",
@@ -130,8 +137,8 @@ def main() -> int:
     ap.add_argument("--sync", action="append", default=[], metavar="S3=LOCAL",
                     help="a delta to sync onto each box first (repeat), e.g. "
                          "s3://B/ue-linux/private/project/HostStudio=/srv/ue/projects/HostStudio")
-    ap.add_argument("--state", default="", help="the passed scene state every chunk must render: sync:<STATE.json id> "
-                    "or ami:<id> (the hook refuses a chunk on any other)")
+    ap.add_argument("--state", default="", help="the passed scene state every chunk must render: sync:<STATE.json id>, "
+                    "pack:<pack_box.sh tag> or ami:<id> (the hook refuses a chunk on any other)")
     ap.add_argument("--out", required=True, help="folder for the job files")
     a = ap.parse_args()
     edl = json.loads(Path(a.edl).read_text())
