@@ -87,8 +87,9 @@ MOVE_MIN_S = 0.3  # s: a stroke's move at least (agent-13: 0.13-0.25 s strokes p
 #   at 2.4-3.6x their mean speed, vel_bell 8/15 at 24 fps; the apex stays on its word, the hold before gives the time)
 PARTIAL_S = 1.1     # a gap shorter than this falls only halfway to the rest
 LAG_S = {"pinky": 0.030, "ring": 0.045, "thumb": 0.050, "middle": 0.062, "index": 0.080}  # fingers behind the wrist
-SHAPE_SPREAD = {"rest": -1.5, "relaxed": 0.0, "open": 3.0, "point": 0.0, "count1": 0.0, "count2": 3.0, "count3": 3.0,
+SHAPE_SPREAD = {"rest": -1.5, "relaxed": 0.0, "open": 1.0, "point": 0.0, "count1": 0.0, "count2": 3.0, "count3": 3.0,
                 "pinch": 0.0, "soft_fist": 0.0, "list": 1.0, "raise": 0.0}  # deg opening handshape's together fan
+SPREAD_MAX = 1.5  # deg a drawn spread opens a fan at most (r7J: the present palm's fingers nearly together)
 SIM_FAIL = 0.95
 MIC_L = (14.0, 8.0)  # the left hand (mic side) on a gesture: out <= 14 cm, up <= 8 cm from the sternum point
 #   (r7F: 9 / -2 with the mic at her chest; with it at her mouth and the rest low, that box held her left hand still)
@@ -194,7 +195,12 @@ class Var:
         rest = getattr(GK, "POSE_ORIGIN", GK.HIGH_REST).off  # the amp's origin, not the (r7F, lower) rest
         off = tuple(rest[i] + (p.off[i] - rest[i]) * self.amp + (self.dz if i == 2 else 0.0) for i in range(3))
         sh = shape_dict(p.shape)
-        sh = {f: sh[f] + self.fingers.get(f, 0.0) for f in GK.FINGERS} | {"_spread": max(-2.0, sh["_spread"] + self.spread), "_opp": sh["_opp"]}
+        # (r7J: an open 'present' palm drawn wider and curled read as a tense ball-holding claw) a near-open hand takes
+        # little of the drawn curl, and no draw opens a together hand's fan past SPREAD_MAX (a
+        # counting V keeps its own)
+        sh = {f: sh[f] + self.fingers.get(f, 0.0) * min(1.0, max(0.3, sh[f] / 20.0)) for f in GK.FINGERS} | \
+            {"_spread": max(-2.0, sh["_spread"] + self.spread if sh["_spread"] >= SPREAD_MAX
+                             else min(SPREAD_MAX, sh["_spread"] + self.spread)), "_opp": sh["_opp"]}
         return GK.HandPose(off, p.pron + self.d_pron, p.ext + self.d_ext, sh)
 
 

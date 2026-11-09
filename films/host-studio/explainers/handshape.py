@@ -66,8 +66,8 @@ THUMB_IP = 62.0
 #   soft_fist  a loose fist, the thumb across the middle phalanges
 SHAPES = {
     "relaxed": {"index": 15, "middle": 19, "ring": 23, "pinky": 27, "thumb": 50, "_opp": 10},
-    "rest": {"index": 13, "middle": 19, "ring": 13, "pinky": 7, "thumb": 10, "_opp": -10, "_spread": -1.5},
-    "open": {"index": 3, "middle": 4, "ring": 6, "pinky": 9, "thumb": 5, "_opp": -45},
+    "rest": {"index": 11, "middle": 16, "ring": 11, "pinky": 6, "thumb": 10, "_opp": -10, "_spread": -1.5},
+    "open": {"index": 2, "middle": 4, "ring": 6, "pinky": 8, "thumb": 12, "_opp": -22},
     "list": {"index": 8, "middle": 10, "ring": 13, "pinky": 17, "thumb": 8, "_opp": -20},
     "point": {"index": 3, "middle": 80, "ring": 84, "pinky": 86, "thumb": 90, "_opp": 0},
     "raise": {"index": 4, "middle": 66, "ring": 76, "pinky": 84, "thumb": 80, "_opp": 10},
@@ -126,7 +126,7 @@ def thumb_angles(flex_pct: float, opp_pct: float) -> tuple:
 # own reference fans the left fingers -11 / +8 / +7 deg off the middle): ABSOLUTE targets too, deg off the middle
 # finger's proximal phalanx in the palm's plane, + toward the pinky. A relaxed hand's fingers lie nearly together
 # (adjacent <= ~3 deg, converging slightly); a shape's '_spread' (deg) opens the fan from there (x SPREAD_DIR), only an
-# open 'present' palm opens it visibly (adjacent ~5).
+# open 'present' palm opens it a little (adjacent ~3; r7J: wider read as a tense ball-holding claw).
 ABD_TOGETHER = {"index": -2.0, "middle": 0.0, "ring": 2.0, "pinky": 4.5}
 SPREAD_DIR = {"index": -1.0, "middle": 0.0, "ring": 0.7, "pinky": 1.4}
 
