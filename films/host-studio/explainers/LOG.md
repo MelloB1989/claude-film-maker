@@ -410,3 +410,10 @@ EXPL_ARMS=0 gives the slim originals (with the new hides) for comparisons only.
 - T11c on 2144fc7e passed every gate. Body issues []. Rows TEST []. On-screen parity 0.506 / shoulder 0.386 / torso 0.177. rest_contact_rendered 0: one frame, f66 l (heel 3.72), excluded under agent-04's ruling as a lift onset; the gate's nearest-frame gesture_w was 0.075, interpolated 0.1415. Head gate: drift 1.158, nods 5.37/min, on_lens 0.917. hif MCU 0.609, CU 0.395, WIDE 1.0. The orchestrator passed the stills and the arms by eye.
 - x/rc_frames.py lists rendered rest_contact frames with the track's gesture_w both nearest and interpolated. x/head_box_him.py gives his head screen boxes: shot01 MCU [732,329,1010,630]; panel shots 04/08/12 MCU_L about [261-266, 301-304, 581-585, 640-646].
 - Finals 08:15-09:04, after the warm-up stills: 9 shots, 907 frames with handles, all in S3 Tokyo private renders/r7/explain/whatsapp_finals_him/final/ with an mp4 each. The script's final check misread the counts (a trailing blank line from the box shell); fixed.
+- 09 Nov ~05:00-05:20 IST (agent-05, his flank, box T body 3c2adc79): CLOSED, NO REFIT. The orchestrator's eye on the
+  before stills (CAM_MCU/WIDE f0/f84): no arm-into-flank clipping. agent-02's side -8 cm and reel/r7/him_flank.py's
+  m1 (l 4.8 / r 3.9 cm) both came from an A-pose sleeve/torso split that hid the flank under the armpit; m1b (every
+  vertex) read 14 cm at arm t 0.13 with his own BODY 3.5-3.9 cm "inside" the arm tube: the tube model is too fat at
+  the shoulder, so it is an artefact too. His original outfit stays; /Game/Host/Fit/SKM_Host_Outfit_R7Flank (from m1)
+  sits unused. him_flank.py stays as a tool; do not trust its numbers near the shoulder (t < ~0.35) without a tighter
+  arm model.
