@@ -19,10 +19,12 @@ $FILM_FARM_BUCKET, else film-ue's settings (bucket).
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import sys
 import time
+from pathlib import Path
 
 from . import model, provision, verify
 from .queue import Queue
@@ -176,6 +178,8 @@ def main(argv=None) -> int:
     u.add_argument("--idle", default="10m", help="power off after this long with nothing to do")
     u.add_argument("--iam-profile", default="ue-workstation")
     u.add_argument("--volume-gb", type=int, default=0, help="root disk (default: the image's)")
+    u.add_argument("--setup", help="a bash script run once on each box before its worker starts (as root): a box made "
+                   "from a plain image restores UE and the project from S3 (films/host-studio/farm/setup_tokyo.sh)")
     u.add_argument("--first-index", type=int, default=0)
     u.add_argument("--big", action="store_true", help=f"allow more than {BIG} workers")
     u.add_argument("--dry-run", action="store_true")
@@ -238,11 +242,17 @@ def main(argv=None) -> int:
             print(json.dumps(provision.plan(a.n, quota=qt, usage=use, types=types, market=a.market), indent=1))
             return 0
         ttl_h = provision_hours(a.ttl)
+        extra = {}
+        if a.setup:  # to S3 beside the queue (a script, never data), fetched by each box's film-farm-setup
+            body = Path(a.setup).read_bytes()
+            key = f"farm/{a.farm}/setup/{hashlib.sha256(body).hexdigest()[:16]}.sh"
+            store.put(key, body)
+            extra["setup"] = f"s3://{cfg['bucket']}/{key}"
         rows = provision.launch(aws, farm=a.farm, n=a.n, ami=a.ami, bucket=cfg["bucket"], region=cfg["region"],
                                 ttl_h=ttl_h, idle_min=provision_hours(a.idle) * 60, types=types, market=a.market,
                                 iam_profile=a.iam_profile, volume_gb=a.volume_gb, first_index=a.first_index,
                                 prices=provision.pricer(aws, cfg["region"]),
-                                put_code=lambda url, b: store.put(model.split_s3(url)[1], b))
+                                put_code=lambda url, b: store.put(model.split_s3(url)[1], b), extra_conf=extra)
 
         def note(doc):
             doc.setdefault("launched", []).extend({**r, "at": int(time.time())} for r in rows)

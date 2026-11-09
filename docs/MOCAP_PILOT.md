@@ -1,0 +1,542 @@
+# Mocap pilot: Epic's MetaHuman Animator Markerless Motion Capture
+
+Task 20261108-pilot-epics-metahuman-animator-bc42 (agent-12, 08 Nov 2026). The goal: our own performances (the
+operator, a performer, or a generated test video filmed or made as a plain video) become body and hand animation on
+the MetaHuman skeleton, which then goes through our existing layers and gates. Canned motion libraries stay banned
+("we can't show same animations"); a take of our own is a performance, not a library.
+
+Confidence tags: **confirmed** (Epic's docs or the Fab listing), **reported** (forum, press or users; not ours),
+**ours, untested** (written here and not yet run against the plugin), **measured** (run in this pilot).
+
+## 0. Status and verdict
+
+**PARKED (08 Nov, the orchestrator):** the operator prefers a Linux route, and the Windows sign-in is deferred. A
+MediaPipe (Apache-2.0) pilot on a Linux CPU box is running on the same Kling clip, and its results decide the
+route. Nothing was launched for this pilot, and $0 was spent. Everything below stays ready: when the Epic route is
+resumed, start at item 4.
+
+**Prepared, not yet solved.** The research, the automation and the Linux-side rows are done and tested offline. The
+solve waits on the items below; two are settled:
+
+1. **The test clip:** received and prepped (Kling 4.0, 720p24, §5). A tighter native-1080p take and a no-desk
+   full-body variant have been asked of the operator.
+2. **The spot quota:** GO from the orchestrator (08 Nov). The T/T2 renders are in Tokyo, so Mumbai's 32 G/VT spot
+   vCPU are free.
+3. **AWS:** karmax runs §9 steps 1-3 on kali once the sign-in window is set. Agents hold no AWS credentials.
+4. **The operator's Epic sign-in** (about 10 minutes on the box). The plugin comes only from Fab. **Launch waits for
+   this window.**
+5. **The licence ruling for production.** The binding clauses are quoted in §2; the pilot itself is allowed.
+
+**Feasibility, from the research:**
+
+- **Likely yes for hands-in-front-of-chest presenter takes.** The plugin solves body and fingers from one video,
+  locally, onto the MetaHuman skeleton, and its export retargets onto an existing MetaHuman skeleton. The Linux side
+  needs nothing new: `assets.import` → Body track → `seq.sample` → our rows.
+- **The two real risks:**
+  - **Framing.** Epic's guidelines want the whole body in frame, with nothing in front of it, "including furniture".
+    A presenter behind a desk breaks that rule. §5 covers what we test and the fallback.
+  - **Maturity.** The plugin is experimental, with reported install and ingest failures, GPU resets and long solves.
+    Budget one retry per step.
+
+| Number | Value | Basis |
+|---|---|---|
+| Time per second of video | ~40 s of solve per second at 1080p (one RX 6750 XT report); "under a minute per second" (press) | reported. Measure it with `solve_s_per_video_s` in the result JSON. |
+| $ per minute of footage | **~$0.35** on g5.2xlarge Windows spot ($0.51/h, ap-south-1, 08 Nov), plus ~30 min of box setup per session | computed from the above |
+| Pilot spend | **~$1-2**: ~2 h of g5.2xlarge spot, plus a 300 GB gp3 volume for 2 h (~$0.08) | computed; the cap is $5 |
+| Fingers | captured; "not finished… usable" with a pose layer for cleanup (anim.works); "held up well at a distance and occluded" (CG Channel) | reported. Measure with `fingers.*` rows and the eye (§6). |
+
+## 1. What the plugin is
+
+- **Listing:** "MetaHuman Animator Markerless Motion Capture Plugin", by Epic Games. Free on Fab. **confirmed**
+- **What it does:** full-body animation including hands, from standard video (a phone or a studio camera), without
+  markers or suits. It runs locally, with no cloud. **confirmed**
+- **Status:** experimental, UE 5.8 or later, **Windows only**. **confirmed**
+- **Automation:** Python and Blueprint. **confirmed**
+- **Hardware:** for MetaHuman Animator in general, an RTX 3070-class GPU with 8 GB VRAM, 16 cores, 32 GB RAM and
+  DX12. **confirmed**
+- **Inference:** ONNX Runtime on DirectML (`DmlExecutionProvider` in user logs), so no CUDA is needed. **reported**
+- **VRAM:** one report went from 9 to 12 GB on a 10 s clip. A 12 GB RTX 5070 reset its GPU at stage 4. **reported**
+- **AWS choice:** a g5 (A10G, 24 GB) or g6 (L4, 24 GB) is the safe pick. g4dn (T4, 16 GB, below a 3070) is risky.
+  No AWS report was found.
+- **Pipeline:**
+  1. **Ingest.** Live Link Hub → Capture Manager → **Mono Video Ingest** makes a Footage Capture Data asset. It
+     takes .mp4 and .mov, with no calibration or lens setup.
+  2. **Solve.** A **MetaHuman Performance** asset (`InputType = MonoFootage`, **Body Tracking** on) runs **Process**.
+  3. **Export.** **Export Animation** with **Existing Skeleton** retargets automatically onto a MetaHuman.
+     **Performer Skeleton** instead builds a mesh with the performer's own proportions. **confirmed**
+- **Outputs:**
+  - An AnimSequence. Hands are part of the body solve; there is no separate switch. **confirmed / reported**
+  - **Root:** one reviewer had to rotate the root 90° after export. **reported**
+  - **Feet:** "some floating feet" were reported. They do not matter to us, because seatkit owns the seat and legs.
+  - **Output rate:** follows the capture data's rate. **reported**
+
+## 2. Fit with our rules
+
+- **No motion libraries:** satisfied. Every take is a new performance of our own script.
+- **No non-commercial model output anywhere** (agent-10's survey ruling, `explainers/r7/gesture_model.md`). The
+  listing as Fab's API returns it (`/i/listings/4095b8e0-…`, 08 Nov):
+  - `licenses`: the **Standard License**, tiers Personal and Professional, both free. This is not CC and not the
+    legacy UE Marketplace licence.
+  - `listingType`: `tool-and-plugin`; category Engine Tools; `isAiForbidden: true`, which is the listing's "Allows
+    usage with AI: No", i.e. Fab's **NoAI** tag.
+  - Licensor: Epic. No other licensor is named, so §1(b) makes Epic the licensor.
+  - **Choose Professional when adding it.** It is also free, and Personal is only for buyers under $100k of
+    digital-content revenue (§2(a)).
+
+  **The binding text.** fab.com/eula serves only a non-binding summary in English; the agreement itself is rendered
+  by script and could not be fetched. Epic publishes the binding agreement for Germany as a PDF ("Zuletzt
+  aktualisiert: 6. April 2025",
+  `https://cdn2.unrealengine.com/fab-eula-germany-00d314ccd30d.pdf`). The quotes below are from that PDF, with our
+  translations. Check them against the English agreement in the signed-in Fab page before production.
+
+  **(a) Commercial use of what we make with a tool listing.**
+  - **§4, distributing linear media.** "Vorbehaltlich geltender Einschränkungen in Abschnitt 6 … können Sie ein
+    Projekt, das ein gerendertes lineares Medienprodukt ist, frei vertreiben … i. gerenderte Videodateien (z. B.
+    übertragene oder gestreamte Videodateien, Cartoons, Filme oder Bilder)".
+    *"Subject to section 6, you may freely distribute a Project that is a rendered linear media product … rendered
+    video files (e.g. broadcast or streamed video files, cartoons, films or images)."* Our films are exactly that.
+  - **Ownership** (after §2(e)). "Sie [sind] Inhaber aller Rechte, außer der Rechte an den Inhalten, von allem, was
+    Sie im Rahmen dieser Vereinbarung mit den Inhalten entwickeln".
+    *"You own all rights, except the rights in the Content, in everything you develop with the Content under this
+    agreement."* So the solved animation is ours; the plugin stays Epic's.
+  - **§2(e), plugins.** "werden Ihnen auf einer Einzelplatzbasis angeboten und dürfen nur von der Anzahl von
+    Benutzern verwendet werden, für die Sie Lizenzen erworben haben".
+    *"Offered per seat; used only by as many users as you have licences for."* That is one seat for the operator's
+    account. Other people need their own free seats.
+  - **§5(b).** "Für Unreal Engine Plugins gilt außerdem, dass alle Projekte, in die Sie Plugins einbinden, nur als
+    Engine Tools gemäß der Unreal Engine-Vereinbarung vertrieben werden dürfen."
+    *"Projects that include a UE plugin may be distributed only as Engine Tools under the UE EULA."* So never commit
+    or share the plugin, or a UE project containing it. This public repo only holds scripts that call it, and the
+    Linux boxes never need it (the FBX carries the animation).
+  - **§6(a)** forbids combining Standard-licence content with GPL/LGPL/CC-BY-SA code. That is one more reason not to
+    use the GPL `fabcli`.
+
+  **(b) The NoAI flag** ("Allows usage with AI: No").
+  - **§6(b)(vii)** forbids using NoAI content "(i) in Datensätzen …, die von generativen KI-Programmen verwendet
+    werden; (ii) bei der Entwicklung von generativen KI-Programmen …; oder (iii) als Schulungs-Input für generative
+    KI-Programme".
+    *"(i) in datasets used by generative AI programs, (ii) in developing generative AI programs, (iii) as training
+    input to generative AI programs."*
+  - **§16(l)(i)** defines it: "Inhalte, die zum Zeitpunkt Ihrer Transaktion … mit „NoAI“ gekennzeichnet sind". The
+    clause is titled "Inhalte, die nicht als Trainings-Input für generative KI-Programme verwendet werden dürfen".
+    *"Content tagged NoAI at the time of your transaction"; "content that may not be used as training input for
+    generative AI programs."*
+  - **Our reading** (not legal advice):
+    - The flag restricts what we do *with the plugin*: no datasets, training or genAI development. It does not
+      restrict what video we feed it.
+    - Running it on a Kling-generated clip, and rendering films from the result, falls outside (i)-(iii).
+    - **Do not** use the plugin's solves as a training set for a gesture or motion model of our own. Even though
+      the output is ours under the ownership clause, that is the clause's evident target.
+    - Kling's own terms for its video are a separate question; the clip is for the pilot only.
+  - **Ruling:** the orchestrator allowed the pilot (08 Nov). Production use waits for the orchestrator's ruling on
+    these quotes.
+- **The face stays ours:**
+  - We solve **body only**: Face Tracking off, Head Movement Mode `DISABLED`.
+  - In 5.8.0, an Audio-to-Lip Sync animation placed on the **Body** track overrides the markerless body and hands
+    (forum 2733267). So our face anim stays on the Face track, and nothing audio-driven goes on Body.
+- **Face data:**
+  - An operator take shows their face. The raw video, its ingest (PNG frames) and any by-eye frames of it stay on the
+    box and in `s3://…/ue-linux/private/` (SSE-KMS). The face-data rule applies as for renders. **They never come
+    to kali or into this repo.**
+  - The solved AnimSequence/FBX holds no face (bones only), so it may travel.
+  - The contact sheet is rendered on a **stock** MetaHuman.
+  - The AI test clip shows no real person. Even so, it stays out of this public repo.
+
+## 3. The Windows box
+
+**Engine:**
+
+- Snapshot `snap-00f13e5427f61953a` (300 GB, the old HostStudio workstation's C:) holds an Epic **binary UE 5.8.4**
+  (CL 58902052) at `C:\Program Files\Epic Games\UE_5.8`, plus the Epic Launcher. **confirmed** (`docs/linux/inventory.md`)
+- It has **no Fab plugins** (`Engine/Plugins/Marketplace` is absent), so the Markerless plugin must be installed
+  either way.
+- **Do not register an AMI from that snapshot.** A Windows AMI made from a bare snapshot loses its Windows billing
+  code.
+- Instead:
+  1. Launch a **fresh Windows Server 2022 GPU spot box**.
+  2. **Attach a volume made from the snapshot as D:**.
+  3. Run the editor from `D:\Program Files\Epic Games\UE_5.8`. An installed build is relocatable.
+- This saves the ~40 GB engine download. The first reads from a fresh snapshot volume are slow (lazy load). The
+  editor's first start may take 10+ min.
+
+**Instance:**
+
+| Type | GPU / RAM | Windows spot, ap-south-1, 08 Nov | Note |
+|---|---|---|---|
+| **g5.2xlarge** (pilot) | A10G 24 GB / 32 GB, 8 vCPU | $0.514/h | Matches the 32 GB guideline. Only 4 physical cores (the guideline is 16): watch the ingest. |
+| g5.4xlarge | A10G 24 GB / 64 GB, 16 vCPU | $0.931/h | If 32 GB runs out on longer takes (one report: a 20k-frame clip committed ~340 GB) |
+| g6.2xlarge | L4 24 GB / 32 GB | $0.530/h | Equivalent; the L4 is slower than the A10G on raster |
+| g4dn.xlarge | T4 16 GB / 16 GB | $0.263/h | Too little RAM; not recommended |
+
+**Rules for the box:**
+
+- **Persistent** spot with `InstanceInterruptionBehavior=stop`. A one-time spot box cannot be stopped, so the reaper
+  could not stop it (`docs/FARM.md` §8).
+- Tags: `Project=ue-linux-poc`. Leave the kill switch on (no `KillSwitch=off`), so the reaper's idle and TTL stops
+  apply. Add `TTLHours=3`.
+- **The NVIDIA driver:** the AWS-hosted GRID/gaming driver for G5/G6. It is free for EC2 customers, downloaded on the
+  box from AWS's `ec2-windows-nvidia-drivers` bucket. DX12 needs it; the basic display adapter will not run the
+  solve.
+
+**Plugin install (the operator's step):**
+
+1. Prepare: an RDP session over an SSM port forward (no open port). The operator signs in with the Administrator
+   password, which the operator decrypts with the box's key.
+2. Open `D:\…\UE_5.8\Engine\Binaries\Win64\UnrealEditor.exe` on `C:\UEProjects\Mocap\Mocap.uproject`, which is
+   made by `win_setup.ps1 -Apply`.
+3. **Window → Fab**, sign in, find "MetaHuman Animator Markerless Motion Capture", then **Add / Install to engine**.
+4. If the install leaves the plugin in a project, copy its folder to `Engine\Plugins\Marketplace\` (a forum
+   workaround).
+5. `win_setup.ps1` (read-only by default) then reports the plugin, the GPU, the RAM and the RHI.
+
+**Install routes we rejected:**
+
+- **Signing in without the operator:** impossible.
+- **`fabcli`** (unofficial, GPL): a terms-of-service risk.
+- **`filmtools.unreal.fab_shim`:** it needs the editor's signed-in token, so it saves no sign-in.
+
+**After a successful pilot,** bake the readied box into an AMI (`create-image` from the running instance keeps the
+billing code). Later sessions then need no engine copy and no sign-in. The image is a ~300 GB snapshot at about
+$15/month: keep it only if production goes ahead.
+
+## 4. The solve, automated
+
+These are in `tools/filmtools/mocap/` (all **ours, untested** against the plugin; the names come from Epic's
+Blueprint page and our audio solve in `unreal/fmbridge/ops/speech.py`):
+
+- **`prep.py`:** turns a phone or generated take into the clip the ingest wants:
+  - a constant whole frame rate, the source's own (phones record VFR, and the 29.97/30 mismatch is a known ingest
+    failure; a 24 fps CFR source stays at 24);
+  - `--height 1080` for an upscale A/B;
+  - H.264 at CRF 18, 8-bit yuv420p, rotation baked in, no audio, an optional trim;
+  - `check` lists what the metadata breaks.
+- **`win_setup.ps1`:** checks the box (engine, GPU and driver, RAM, cores, the plugins' .uplugin files). With
+  `-Apply`, it makes `C:\UEProjects\Mocap` (the plugins enabled, DX12 the default RHI) and `C:\mocap\{in,out}`.
+- **`ue_solve.py`:** one job, run in the editor, which then quits. In order:
+  1. `CaptureManagerIngestBlueprintLibrary.ingest_mono_video_sync`
+  2. `MetaHumanPerformance` (`input_type` MONO_FOOTAGE, `footage_capture_data`, `body_tracking` on, `face_tracking`
+     off, `head_movement_mode` DISABLED), `set_blocking_processing(True)`, `start_pipeline(True)`
+  3. `MetaHumanPerformanceExportUtils.export_animation_sequence` onto the target skeleton, then an FBX via
+     `AnimSequenceExporterFBX`
+  4. It writes `<slate>.result.json` with `ok`, `anim`, `fbx`, `frames`, `seconds`, `solve_s`,
+     `solve_s_per_video_s` and any error.
+  - When a property name is wrong, the error lists what the object has.
+  - The plugin ships its own `Content/Python/process_monocular_performance.py`: compare against it on first run.
+
+```
+UnrealEditor.exe C:/UEProjects/Mocap/Mocap.uproject -ExecutePythonScript="C:/mocap/ue_solve.py C:/mocap/job.json"
+```
+
+- **Run it in a logged-in desktop session, not as SYSTEM over SSM.** The solve needs the GPU's DX12 device. The old
+  workstation did this with a scheduled task (Interactive, Highest), `\OpenHostStudio`; use the same pattern with the
+  command above.
+- **Target skeleton:** a MetaHuman body skeleton asset in the Mocap project. Migrate a **stock** MetaHuman's
+  `Common/Body`; no presenter's face assets are needed.
+
+## 5. Inputs, and the desk problem
+
+**What Epic's Video Capture Guidelines say** (confirmed):
+
+- HD or 4K at **60 fps**; H.264 at CRF 18 or better (~25 Mbps at HD).
+- A **tripod**, fixed for the whole take; straight on, at neutral height.
+- **The whole body, head to feet, with a margin**, unobstructed: "including from props, furniture".
+- One person; even, diffuse light; no backlight, harsh shadows or motion blur.
+- Form-fitting clothes that contrast with the background; no all-white room, no reflective surfaces.
+
+No guidance was found for seated or upper-body-only framing, or for a maximum length. Long clips run out of memory;
+chunk at ≤ 3,000 frames.
+
+**The test clip breaks the full-body rule.** It is seated, at a desk, upper body only. So the pilot measures exactly
+the case we care about:
+
+- **What we want from it:** shoulders, arms, wrists and fingers, plus some spine and neck. seatkit owns the pelvis,
+  legs and seat, and the desk rest is ours.
+- **Expected failures:**
+  - the legs and root (no feet in the picture);
+  - jitter when a hand passes in front of the torso (the mono-depth complaint);
+  - generated-video hand artifacts (extra or merged fingers) copied into the solve.
+- **If the arms and hands come out but the root and legs are garbage,** that is fine: we keep only the upper-body
+  chain (§7).
+- **If the solve fails or the arms are wrong,** the fallback is a take that follows the guidelines: the performer
+  seated on a desk-height chair with **no desk** in front of them, the whole body in frame. Our layers put the desk
+  back. §8's recording guide is written for that case.
+
+**The pilot clip as received** (Kling 4.0, AI-generated, no real person; kept outside this repo):
+
+- **Format:** 10.0 s, 1280x720, 24 fps CFR, H.264, with audio.
+- **Framing:** locked-off, a plain grey wall, an open-front light-wood desk, framed head to mid-thigh.
+- **Hands:** about 60-80 px at 720p, with some motion blur on the fast moves. She wears a watch on her left wrist.
+- **Contrast:** a white tee on a light-grey wall, which the guidelines advise against.
+- **prep:** kept 24 fps (re-timing to 60 would only duplicate frames) and dropped the audio. It made a 1080p lanczos
+  upscale as an A/B: more pixels, no more detail.
+
+**Finger honesty for the AI clip:** generated video often morphs fingers from frame to frame. If `fingers.*`
+jitter is high or the contact sheet shows impossible poses, check the source frames first: the solve may be faithful
+to bad input. Only a real take settles finger quality.
+
+## 6. Linux side: import, rows, the eye
+
+Everything here runs with tools we already have (`film-ue op …` on a Linux UE 5.8 box):
+
+1. **Import:**
+   `assets.import files=[<take>.fbx] dest=/Game/Mocap kind=skeletal animations=true skeleton=<the stock MetaHuman body skeleton>`.
+2. **Place it.** Put the AnimSequence on a stock MetaHuman's **Body** track in a Level Sequence, first deleting the
+   Control Rig tracks (Epic's apply step). The face stays as it is.
+3. **Sample it.** `seq.sample` the Body component for `filmtools.mocap.rows.ROWS_BONES`: the head, neck, spine, both
+   hands, both forearms and every finger joint.
+4. **Rows (`rows.py`):**
+
+   ```
+   uv run python -m filmtools.mocap.rows samples.json --desk-z 71 --fps 24 [--speaking spans.json] --forward 1,0,0
+   ```
+
+   - **The body rows we gate on today** (`qa_perf.body_rows`): `body.gesture_onsets_per_s`,
+     `body.hands_above_desk_frac`, `body.wrist_travel_cm_per_s`.
+   - **Fingers:** `fingers.curl_range_deg_p50`, `fingers.moving_frac` and `fingers.curl_jitter_deg_p95`, per finger
+     too. The curl is the bend at joints 01 and 02 from the bone positions.
+   - **Wrists:** `wrist.jitter_cm_p95` (mono depth noise), `wrist.speed_cm_s_p95`, and
+     `wrist.below_desk_top_frac`, which says how much the desk layer will have to lift.
+   - **Face:** `face.fingertip_clear_cm_min` against gesturekit's face shell, which says how much face-avoid will
+     move.
+   - A `verdict` of first-guess lines (`WANT`) points at frames. The eye decides.
+5. **The eye:** a contact sheet of the hands at 12 evenly spaced frames, MCU and a hands close-up, rendered on the
+   stock MetaHuman. Agents may view this sheet; it holds no presenter face.
+6. **Parity:** once the take runs through the layers (§7), `qa_perf.parity` compares the editor's sampled bones with
+   the layered offline track, as for the generated performances.
+
+## 7. Into our layers (the production design; follow-up work, not in this pilot)
+
+**gesturekit today *generates* the arms.** Its `Performer` plans gestures from the acting sheet and the prosody
+timing, then solves the arms under the constraints: desk rest, mic and boom, face shell, upper-arm/torso clearance
+≥ 3 cm, hands in frame. A mocap take would replace the *generator*, not the constraints:
+
+1. **Source.** The solved take is exported onto *her* skeleton (Existing Skeleton, so the export's retarget handles
+   proportions), then sampled to a per-frame arm, hand and finger track: `gesturekit.track_doc`'s format, with the
+   same bones as `arm_track.json`.
+2. **Time.** The take is recorded to the same VO, so it is on the script's clock. A small offset, fitted by
+   cross-correlating wrist speed against the prosody planner's stroke times, absorbs the recording's lead or lag.
+3. **Constraints as corrections.** A `MocapPerformer` (a gesturekit `Performer` whose `pose(t)` reads the track
+   instead of the plan) keeps every check. Where the take breaks a check, the existing corrections move the wrist:
+   - a wrist under the desk top → lifted to the desk rest;
+   - in front of the mic → the MIC_DIRS search;
+   - inside the face shell → pushed out;
+   - an upper arm into the torso → the elbow swivel.
+   Each correction is blended over ~0.2 s so it does not pop. The rows count the corrections. A take that needs many
+   of them is a bad take: re-shoot rather than repair.
+4. **Fingers.** The take's own fingers, smoothed (a one-euro filter) only where `fingers.curl_jitter` flags them.
+   agent-08's finger layer is the fallback per segment, not a blanket override.
+5. **Gates, unchanged:** the body rows, clearance, hands-in-frame, desk, mic and knee contact, and parity.
+
+## 7b. Route B, built: MediaPipe hybrid on Linux (`mp2mh`, 08 Nov)
+
+The operator prefers Linux, so the orchestrator ran MediaPipe on the Kling clip: the Apache-2.0 pose and hand
+models, CPU only, about 2.5 s per second of video, about $0.01. The finding: the pose gives stable arm DIRECTIONS
+(no scale); the hands give good 2D fits; the 3D finger angles are unusable raw (bone-length CV 0.3, 14-56 %
+hyperextension, spread p90 12-40 deg). `tools/filmtools/mocap/mp2mh.py` is the hybrid retarget. It runs offline, in
+pure Python, against an r7 checkout of `films/host-studio/explainers` (written against agent-08's r7-hands
+928407cb).
+
+**Arms**
+
+- Directions come from the PICTURE plus the limb's length. Lateral and vertical are the image's, over the limb's
+  longest projection, the larger side, since bodies are symmetric. Depth is what the unit length leaves, its sign
+  from MediaPipe's world landmarks.
+- MediaPipe's world z had the forearms 10-35 deg down where the picture shows them level, toward the lens.
+- The directions are laid from HER shoulders with HER limb lengths, giving per-frame wrist goals.
+- Pronation comes from the palm's knuckle line, in gesturekit's `hand_rot_p` convention. Extension is the hand's
+  line off the forearm, x0.4, capped at 25 deg, because MediaPipe's palm plane over-reads it.
+- The goals become per-frame gesturekit events, so gesturekit's own face fit and mic rule fit them.
+- The upper-arm elevation caps are off by default (`--caps` keeps them). They are style lines for generated strokes,
+  and pulled a real performer's open gestures in by up to 22 cm.
+- The corrections are spread in time (a dilation, then a Gaussian), so nothing jumps.
+- The desk is a floor under the wrist, plus a two-pass finger raise that keeps every finger joint and tip over the
+  desk top.
+- The stream then plays through a style hook, so her IK, the elbow swivel and clearance, the desk rest and the
+  left-hand mic limits all run as for her generated take.
+- The swivel's bust line follows the hand's height: the desk rest's line for hands just over the desk, the full
+  3.8 cm at the chest.
+
+**Hands**
+
+- Per finger, one robust closure: the palm direction against the MCP-to-tip chord. The joint angles are never used.
+- It is classified per frame into agent-08's named anatomical shapes (open, list, relaxed, point, pinch, soft_fist),
+  with a pinch test (thumb tip to index tip), a 9-frame dwell and a 5-frame blend, plus a +-8 % curl scalar.
+- The fingers trail the wrist in agent-08's cascade; agent-08's `finger_post` does the spread.
+
+**Torso:** the turn, the shoulders' lift and the lean come from the shoulder line and the trunk, relative to the
+clip's median, clamped to 8 / 5 / 6 deg.
+
+**Output:** gesturekit.build's own doc, which is perform.py's WRITE format, with its summary and the arm track for
+agent-13's rows. `bind.py` writes the doc on a box as `AS_exp_<who>_mocap_<name>` and can place it on a scratch
+sequence's Body track. `preview.py` draws a stick view (no face) beside the source.
+
+**On the Kling clip** (10.0 s, her skeleton, 24 fps; about 15 s to build):
+
+| What | Value |
+|---|---|
+| gesturekit's checks | desk 0, fingers in the desk 0, mic 0 (33 goals moved by the mic rule), face 0 (15 goals fitted under the chin line) |
+| `body.hands_out_of_frame` | CAM_MCU 15 % (line 60 %). The performer gestures just over the desk, under the MCU's bottom edge (her bust line). A property of this take: shoot the operator's takes with the hands up at the chest (§8). |
+| `body.arm_torso` | 0.2 cm, from the desk-rest bust line on the low hands (the arm beside the chest, as at the rest). agent-02's mesh measure judges it. |
+| Corrections | median 11 cm (L) / 5 cm (R), mostly the desk floor. Her desk sits higher on her than the performer's does. |
+
+**agent-13's naturalness rows** (r7-movement ffe06429, 30 fps track):
+
+- **Pass:** stroke elevation 32 deg, abduction 22 deg, wrist ulnar 8 / radial 12 deg, no claws, no folds,
+  DIP/PIP ok, thumb fine, nothing near the face or over the collar, holds alive (1.3 cm/s), fingers frozen 9 %,
+  finger snaps 0/min.
+- **Fail:**
+  - `forearm_elev` 6 deg (line >= 15): the take's level forearms.
+  - `wrist_flexext_p90` 30 deg (line 25).
+  - `lag_hand_ms` -64: MediaPipe's palm-plane noise sets the hand's onset.
+  - `finger_spread_p90` 102 deg: ONLY on soft_fist frames. In a fist the proximal phalanges run along the palm
+    normal (dot 0.90-0.99), so the row's projection into the palm plane is degenerate. Every other shape is p90
+    2.5-5.4 deg.
+  - `shape_wrong_strokes`: n/a for mocap (no acting-sheet kinds).
+
+## 8. The operator's recording guide
+
+For the production takes (the operator or a performer, phone on a tripod):
+
+**Camera:**
+
+- A phone on a tripod, **landscape**, **1080p60** (4K60 if the phone holds it without overheating), **SDR, not
+  HDR** (prep converts to 8-bit; HDR tone-maps badly).
+- Lock exposure and focus (tap and hold), and turn stabilisation off.
+- Place it **straight on, at chest height, 2.5-3 m away**, far enough that **head to feet is in frame with a hand's
+  width of margin** on every side.
+- **No desk in front:** sit on a chair whose seat matches our set (the desk top is 71 cm; the seat height is in
+  seatkit). If you want something to rest your hands on, use a small open stand or a taped mark in the air. Nothing
+  may hide the hands, forearms, legs or feet.
+
+**Light:**
+
+- Even and soft: a window to the front-side, or two lamps bounced off a wall.
+- No window behind you, no hard shadows on the hands.
+
+**Wardrobe:**
+
+- Fitted clothes that contrast with the wall: dark top on a light wall, or the reverse.
+- Bare forearms if possible, sleeves no further than the elbow.
+- No rings, watches or bracelets.
+- Hair off the shoulders.
+
+**Background:** plain and matte, nothing reflective, nobody else in the frame.
+
+**Performance:**
+
+- Read the actual script, with energy, as on camera: eyes to the lens, hands up in front of the chest on the stressed
+  words, resting low between thoughts.
+- Do **2-3 takes** of each line group.
+- Clap once in view at the start (a sync mark for the VO).
+- Keep each take under 2 minutes; the solve chunks long clips.
+- Your face is in the take, so it is face data: the files go only to the private bucket (§2).
+
+**Handing over:**
+
+- Send the original files (not a messaging-app copy, which recompresses and drops frames), named
+  `<script>_<lines>_t<N>.mov`.
+- prep does the rest.
+
+## 9. Pilot runbook
+
+**On kali,** by whoever holds the AWS CLI (profile nani, region ap-south-1), **only after the orchestrator's go**:
+
+```
+# 1. a volume from the snapshot, in the AZ the box will use
+aws ec2 create-volume --snapshot-id snap-00f13e5427f61953a --availability-zone ap-south-1a --volume-type gp3 \
+  --tag-specifications 'ResourceType=volume,Tags=[{Key=Project,Value=ue-linux-poc},{Key=Name,Value=mocap-pilot-d}]'
+# 2. a Windows Server 2022 g5.2xlarge, persistent spot that stops on interruption
+AMI=$(aws ssm get-parameter --name /aws/service/ami-windows-latest/Windows_Server-2022-English-Full-Base \
+  --query Parameter.Value --output text)
+aws ec2 run-instances --image-id $AMI --instance-type g5.2xlarge --subnet-id <a subnet in ap-south-1a> \
+  --iam-instance-profile Name=ue-workstation --key-name <the workstation key> \
+  --instance-market-options 'MarketType=spot,SpotOptions={SpotInstanceType=persistent,InstanceInterruptionBehavior=stop}' \
+  --block-device-mappings 'DeviceName=/dev/sda1,Ebs={VolumeSize=100,VolumeType=gp3}' \
+  --tag-specifications 'ResourceType=instance,Tags=[{Key=Project,Value=ue-linux-poc},{Key=Name,Value=mocap-pilot},{Key=TTLHours,Value=3}]'
+# 3. attach the snapshot volume as the second disk (Windows brings it online as D:)
+aws ec2 attach-volume --volume-id <vol> --instance-id <i> --device xvdf
+```
+
+**On the box** (`docs/linux/runps.py` over SSM, as SYSTEM):
+
+1. Install the NVIDIA driver from AWS's bucket (`ec2-windows-nvidia-drivers`, latest, the G5 GRID package), then
+   reboot.
+2. Bring D: online (`Get-Disk | Where IsOffline | Set-Disk -IsOffline $false`).
+3. Run `win_setup.ps1 -Engine 'D:\Program Files\Epic Games\UE_5.8'`, then again with `-Apply`.
+4. Copy `ue_solve.py` and the prepped clip into `C:\mocap\`.
+
+**The operator:** the RDP sign-in and the Fab install (§3). After that, `win_setup.ps1` must report the Markerless
+plugin.
+
+**The solve:**
+
+1. The scheduled task runs `ue_solve.py` with `job.json` in the desktop session.
+2. Read `C:\mocap\out\<slate>.result.json`.
+3. Copy the FBX to `s3://…/ue-linux/` (private, if the clip shows a real person).
+
+**Close down:**
+
+```
+aws ec2 cancel-spot-instance-requests --spot-instance-request-ids <sir>   # first, or the request relaunches it
+aws ec2 terminate-instances --instance-ids <i>
+aws ec2 delete-volume --volume-id <vol>          # after the instance is gone; the snapshot stays
+```
+
+Optionally bake an AMI before terminating (§3).
+
+**Linux:** §6 on the existing Linux UE box, when it is up for other work anyway (no extra box for a 15 s import).
+
+## 10. Recommended production pipeline
+
+1. **Record:** the operator or a performer, by §8: 2-3 takes per line group, read to the final script.
+2. **Prep:** `prep make` on kali. Operator takes stay in private storage.
+3. **Solve:** a Windows g5.2xlarge spot box from the baked AMI. Batch every take of a script in one session:
+   setup ~15 min, then ~40 min of box per minute of footage (to be measured). Export onto *her* skeleton. Terminate.
+4. **Pick:** the rows (§6) and a stick or stock-MetaHuman preview per take. The operator picks the take per line
+   group.
+5. **Layer:** a MocapPerformer (§7): constraints as corrections, fingers smoothed only where flagged, parity.
+6. **Gate and render** as today, on the Linux boxes.
+
+**Per finished minute,** the solve costs well under $1 of spot, plus a ~$0.15 setup share per session. The real
+costs are the operator's recording time and the first build of §7.
+
+## 11. Risks and open questions
+
+- **The licence for production use** (§2): the binding clauses are quoted there; the orchestrator rules. Never commit the plugin or a project containing it (§5(b)), and never use the solves as genAI training data (NoAI).
+- **A seated performer at a desk:** unsupported by the guidelines. The pilot measures it, and the fallback is the
+  no-desk take (§5, §8).
+- **The plugin is experimental.** Reported failures:
+  - ingest stuck at 75% (errors 5/7/8; workarounds: U8_Mono, ffmpeg encoder, unique names);
+  - "capture data frame rate is zero" (prep's constant whole rate is our guard);
+  - the Body Tracking option missing;
+  - Smart App Control blocking an unsigned DLL;
+  - GPU resets on 12 GB cards.
+- **Mono depth:** limbs look wrong from other angles. Our cameras sit near the phone's angle (front, MCU and CU), so
+  record from where the film's camera will be.
+- **The root rotated 90°** after export (one report): `anim.retarget` or a root fix-up on import.
+- **Speed is unmeasured.** It is the first number the pilot writes (`solve_s_per_video_s`).
+- **The operator ruled out a Windows *fallback for rendering*** (2026-11-04, `docs/linux/engine.md`). This box is a
+  capture tool only, and nothing renders on it. Raise it with the operator if that ruling is meant to cover this too.
+
+## Sources (read 08 Nov 2026)
+
+- Fab listing: https://www.fab.com/listings/4095b8e0-3eff-44f1-acb4-cb40b99228b9
+- Mono video capture: https://dev.epicgames.com/documentation/metahuman/metahuman-animation-from-mono-video-capture-in-unreal-engine
+- Video capture guidelines: https://dev.epicgames.com/documentation/metahuman/metahuman-animator-video-capture-guidelines-in-unreal-engine
+- Import footage: https://dev.epicgames.com/documentation/metahuman/metahuman-animator-01-import-your-footage-in-unreal-engine
+- Process and export: https://dev.epicgames.com/documentation/metahuman/metahuman-animator-02-process-and-export-your-animation-in-unreal-engine
+- Apply to a MetaHuman: https://dev.epicgames.com/documentation/metahuman/metahuman-animator-03-apply-your-animation-to-a-metahuman-in-unreal-engine
+- Ingest from Python: https://dev.epicgames.com/documentation/metahuman/download-and-ingest-metahuman-animator-takes-with-blueprints-and-python
+- Process with Blueprints: https://dev.epicgames.com/documentation/metahuman/process-and-export-metahuman-animation-with-blueprints-in-unreal-engine
+- Python scripting: https://dev.epicgames.com/documentation/metahuman/python-scripting-for-metahuman-animator
+- Hardware: https://dev.epicgames.com/documentation/metahuman/metahuman-hardware-requirements-in-unreal-engine
+- Fab licences: https://dev.epicgames.com/documentation/fab/licenses-and-pricing-in-fab
+- Forum thread (pages 1-3: speed, memory, DirectML): https://forums.unrealengine.com/t/epic-games-metahuman-animator-markerless-motion-capture-plugin/2729293
+- GPU reset: https://forums.unrealengine.com/t/ue-5-8-2-metahuman-markerless-motion-capture-stage-4-causes-gpu-reset-and-black-screens-on-rtx-5070/2749272
+- Lip sync on the Body track: https://forums.unrealengine.com/t/ue-5-8-0-metahuman-audio-to-lip-sync-on-the-body-track-overrides-markerless-body-hand-animation/2733267
+- Ingest failures: https://forums.unrealengine.com/t/live-link-hub-capture-manager-wont-accept-video/2729749
+- Body Tracking missing: https://forums.unrealengine.com/t/body-tracking-missing-from-metahuman-performance-for-markerless-mocap/2737745
+- CG Channel: https://www.cgchannel.com/2026/06/get-the-free-metahuman-animator-markerless-mocap-plugin/
+- anim.works review: https://anim.works/unreal-engine-5-8-markerless-motion-capture/
+- Digital Production: https://digitalproduction.com/2026/06/23/metahuman-gets-markerless-mocap/
+- Spot prices: https://website.spot.ec2.aws.a2z.com/spot.json (08 Nov 2026 snapshot)

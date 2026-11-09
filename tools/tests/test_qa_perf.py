@@ -226,3 +226,11 @@ def test_track_clock_30_vs_editor_24():
     track = {"fps": 30, "frames": [{"f": f, "gesture_w": {"l": 0, "r": 1.0 if 30 <= f < 50 else 0.0}} for f in range(60)]}
     rf = P.rest_frames(samples_, 24.0, every=1, track=track)
     assert not any(24 <= f < 40 for f in rf)  # track f30-49 = editor f24-39
+
+
+def test_cu_counts_a_partly_visible_hand():
+    L = _limbs()
+    rows = {f: {"camera": "CAM_CU", "in": False, "part": f % 4 == 0} for f in range(20)}
+    k = L.hands_fracs(rows)["CU"]
+    assert k["frac"] == 0.25 and k["line"] == 0.1 and k["rule"] == "partly visible"
+    assert L.hand_part([(-5, 10, 50), (10, 10, 50)], 100, 100) and not L.hand_part([(-5, 10, 50)], 100, 100)

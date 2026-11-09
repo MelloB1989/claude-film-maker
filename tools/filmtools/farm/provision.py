@@ -190,6 +190,8 @@ Wants=network-online.target
 [Service]
 Type=simple
 Environment=PYTHONPATH=/opt/film-farm PYTHONUNBUFFERED=1
+TimeoutStartSec=infinity
+ExecStartPre=/usr/local/bin/film-farm-setup
 ExecStartPre=/usr/local/bin/film-farm-fetch
 ExecStart=/usr/bin/python3 -m filmtools.farm.worker --conf /etc/film-farm/worker.json
 Restart=on-failure
@@ -212,11 +214,21 @@ def user_data(conf: dict, code_s3: str) -> str:
              "unzip -q -o awscliv2.zip && ./aws/install --update >/dev/null && hash -r\nfi\n"
              f"aws s3 cp --only-show-errors --region {conf['region']} {code_s3} /tmp/film-farm.tgz\n"
              "rm -rf /opt/film-farm/filmtools && tar xzf /tmp/film-farm.tgz -C /opt/film-farm\n")
+    # `up --setup`: a box made from a plain image (no UE inside) is set up once, before its first claim: the script
+    # restores the engine and the project from S3 (films/host-studio/farm/setup_tokyo.sh). A marker makes it once
+    # per box, so a spot box started again after a reclaim goes straight to its worker.
+    setup = "#!/bin/bash\nset -eu\n"
+    if conf.get("setup"):
+        setup += ("[ -f /var/lib/film-farm/setup.done ] && exit 0\nmkdir -p /var/lib/film-farm\n"
+                  f"aws s3 cp --only-show-errors --region {conf['region']} {conf['setup']} /var/lib/film-farm/setup.sh\n"
+                  "bash /var/lib/film-farm/setup.sh > /var/log/film-farm-setup.log 2>&1\n"
+                  "touch /var/lib/film-farm/setup.done\n")
     lines = ["#!/bin/bash", "# film-farm worker: settings, code fetcher, worker unit, TTL backstop", "set -eu",
              "install -d /etc/film-farm /opt/film-farm /srv/farm",
              f"cat > /etc/film-farm/worker.json <<'FMEOF'\n{json.dumps(conf, indent=1)}\nFMEOF",
              f"cat > /usr/local/bin/film-farm-fetch <<'FMEOF'\n{fetch}FMEOF",
-             "chmod 755 /usr/local/bin/film-farm-fetch",
+             f"cat > /usr/local/bin/film-farm-setup <<'FMEOF'\n{setup}FMEOF",
+             "chmod 755 /usr/local/bin/film-farm-fetch /usr/local/bin/film-farm-setup",
              f"cat > /etc/systemd/system/film-farm-worker.service <<'FMEOF'\n{UNIT}FMEOF",
              # the editor's idle watchdog from the UE image must not power a busy worker off between chunks
              "systemctl disable --now ue-watchdog.timer 2>/dev/null || true",
@@ -286,9 +298,7 @@ def launch(aws, *, farm: str, n: int, ami: str, bucket: str, region: str, ttl_h:
                     "idle_s": int(idle_min * 60), "private_root": "ue-linux/private/", "scratch": "/srv/farm",
                     "poweroff": True, "type": itype, "market": m, "price_h": price, **(extra_conf or {})}
             ud = user_data(conf, code_s3)
-            for z in ZONES:
-                if z not in nets:
-                    continue
+            for z in [z for z in ZONES if z in nets] + sorted(set(nets) - set(ZONES)):  # Tokyo: a, c, d
                 try:
                     inst = aws(*run_args(farm=farm, index=idx, itype=itype, market=m, zone_subnet=nets[z], ami=ami,
                                          ttl_h=ttl_h, user_data_text=ud, iam_profile=iam_profile, volume_gb=volume_gb,
@@ -335,7 +345,7 @@ def down(aws, farm: str, *, stop_only: bool = False, log=print) -> dict:
 
 
 # --- money ----------------------------------------------------------------------------------------------------------
-LOCATION = {"ap-south-1": "Asia Pacific (Mumbai)"}
+LOCATION = {"ap-south-1": "Asia Pacific (Mumbai)", "ap-northeast-1": "Asia Pacific (Tokyo)"}
 
 
 def ondemand_price(aws, itype: str, region: str) -> float | None:
