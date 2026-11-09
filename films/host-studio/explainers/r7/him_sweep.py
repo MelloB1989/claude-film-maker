@@ -28,17 +28,30 @@ from arm_track_who import track_of  # noqa: E402
 TEST_SPANS = [(0, 179), (422, 480)]
 
 
+def _top(var: str) -> list:
+    """NAME=VALUE pieces split at the top-level commas (a tuple value keeps its own: EASE_AT=(11.9,(17.1,0.3)))."""
+    out, depth, cur = [], 0, ""
+    for ch in var:
+        depth += ch in "([" and 1 or (-1 if ch in ")]" else 0)
+        if ch == "," and depth == 0:
+            out.append(cur)
+            cur = ""
+        else:
+            cur += ch
+    return out + [cur] if cur else out
+
+
 def apply(var: str) -> list:
     """set a variant's attributes; returns the old values to put back, [(target, name, value)]."""
     old = []
     if var == "base":
         return old
-    for kv in var.split(","):
-        k, v = kv.split("=")
+    for kv in _top(var):
+        k, v = kv.split("=", 1)
         tgt, name = (G, k[2:]) if k.startswith("G.") else (G.Performer, k)
         was = getattr(tgt, name)
         old.append((tgt, name, was))
-        setattr(tgt, name, type(was)(float(v)) if isinstance(was, (int, float)) else eval(v))
+        setattr(tgt, name, type(was)(float(v)) if isinstance(was, (int, float)) and not isinstance(was, bool) else eval(v))
         for tune in PF.TUNE_OF.values():  # a presenter's own constant (perform.TUNE_OF) would set it back per Performer
             if name in tune and tgt is G.Performer:
                 old.append((tune, name, tune[name]))
