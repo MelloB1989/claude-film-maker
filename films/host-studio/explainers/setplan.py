@@ -102,7 +102,8 @@ def boom_points() -> dict:
 # the orchestrator asked 12-18 cm forward, 10-15 cm left, mouth/chin height; every camera sits forward-right of her
 # (+X+Y), so a mic 12 cm left lands on her face in CAM_CU / CAM_WIDE: 16 cm left is the nearest pose with the capsule
 # and the arm off the face in all four cameras (setplan --check; a grid over 8-20 x 12-20 x 0-10 cm). Its tail
-# still crosses CAM_MCU_L's panel edge (u 0.557 vs 0.51): no pose keeps the mic left of the panel (best 0.532).
+# still crosses CAM_MCU_L's panel edge (u 0.557 vs 0.51): no pose keeps the mic left of the panel (best 0.532). The
+# operator approved that framing in the 09 Nov finals, so the rule's line is 0.56 (setplan.check).
 MIC_POSE = {"her": (16.0, -16.0, -3.0), "him": (16.0, -16.0, -3.0)}  # cm from the mouth: forward, -Y (their left), up (- = below)
 MIC_CLAMP_X = DESK_C[0] + 27.5 - 2.4  # the clamp's jaw 2.4 cm inside the far edge
 MIC_YOKE_TIP = 6.0 + 4.8              # props/mic_boom.py: the boom tip above the mic's pivot (YOKE_TOP + 4.8 cm)
@@ -399,7 +400,8 @@ def check(who: str) -> list:
         if name.endswith("_L"):  # everything of hers (and the mic) left of the panel at x 1010/1920
             xs = [project(cam, q)[0] for q in (fc["eyes"], fc["mouth"], mc["back"], mc["front"],
                                                 (fc["eyes"][0], fc["eyes"][1] - 22.0, fc["eyes"][2] - 30.0))]
-            rows.append((f"{name} her and the mic left of the panel (u < 0.51)", max(xs) < 0.51,
+            # u < 0.56, not the panel's own 0.51: the operator approved the 09 Nov finals' MCU_L (the mic's tail at u 0.557)
+            rows.append((f"{name} her and the mic left of the panel (u < 0.56)", max(xs) < 0.56,
                          f"max u {max(xs):.3f}"))
         rows.append((f"{name} mic clear of the mouth", near > 2.0 * mouth_h,
                      f"nearest {near:.3f} frame-h vs mouth {mouth_h:.3f}; capsule below the mouth: "

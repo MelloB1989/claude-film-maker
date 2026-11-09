@@ -6,6 +6,8 @@ the line's text and each gesture's label at its apex.
 """
 import argparse
 import json
+import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -21,7 +23,7 @@ sys.path.insert(0, str(HERE))
 import evaluate as E  # noqa: E402
 import seatkit as S  # noqa: E402
 
-FFMPEG = "/home/nikhil/code/film-making/bin/ffmpeg"
+FFMPEG = os.environ.get("FFMPEG") or shutil.which("ffmpeg") or "ffmpeg"
 W, H, DPI = 1280, 720, 100
 CHAINS = [["pelvis", "spine_01", "spine_02", "spine_03", "spine_04", "spine_05", "neck_01", "neck_02", "head"]] + \
     [["spine_05", f"clavicle_{s}", f"upperarm_{s}", f"lowerarm_{s}", f"hand_{s}"] for s in "lr"] + \

@@ -74,7 +74,7 @@ Branches:
    - Keep idle-guard's keepalive running during the syncs.
 
 **Kali:**
-- 8 QA images from the crashed 19:00 swap attempt are quarantined at `/home/nikhil/.karmax/quarantine/face-r3` (mode 700). They wait on the operator's decision.
+- 8 QA images from the crashed 19:00 swap attempt are quarantined at `~/.karmax/quarantine/face-r3` (mode 700). They wait on the operator's decision.
 - Nothing is deleted. Cleanup is the operator's, in the morning.
 
 The full list with owners is in "Tomorrow" below, items 1-17.
@@ -167,7 +167,7 @@ AWS egress. So **no bulk frame pulls to kali**. QA, contact sheets, crops, encod
 GPU box (ffmpeg/python there: 16 vCPU, 400+ GB free). What comes down: contact sheets, crops, gate numbers and the
 final MP4s for the operator (the orchestrator pulls those). kali `/tmp` is RAM-backed (tmpfs): keep it nearly empty.
 Before the box ends, the frames we keep go box -> S3 (same region, no egress), not to kali. agent-07 lists what is
-under `/home/nikhil/code/.worktrees/agent-07/out` and deletes it once the shoot is delivered.
+under `$CODE/.worktrees/agent-07/out` and deletes it once the shoot is delivered.
 
 ## Order of work (the box is never idle)
 

@@ -223,10 +223,10 @@ film-ue status                      # stopping/stopped; again after a minute unt
 ## 5. kali cleanup (after 22:10; kali only)
 
 ```bash
-ls -la /home/nikhil/code/.worktrees/agent-07/out          # list it first (ROUND3: agent-07 deletes it once the shoot is delivered)
-du -sh /home/nikhil/code/.worktrees/agent-07/out
+ls -la $CODE/.worktrees/agent-07/out          # list it first (ROUND3: agent-07 deletes it once the shoot is delivered)
+du -sh $CODE/.worktrees/agent-07/out
 # only after the keep step (3) and the project save (4) are reported:
-rm -rf /home/nikhil/code/.worktrees/agent-07/out
+rm -rf $CODE/.worktrees/agent-07/out
 ls -la /tmp; df -h /tmp                                    # tmpfs (RAM): remove only your own session's files
 ```
 
