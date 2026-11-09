@@ -528,7 +528,8 @@ FALLBACK_CAMS = {"her": {"CAM_MCU": {"focal": 117.5, "pitch": -1.62}, "CAM_MCU_L
 # a presenter's own gesturekit.Performer constants over the class's (hers): his picked from r7/him_sweep.py's table on
 #   his skeleton on box T (his rows can't be run off the box)
 TUNE_OF: dict = {"him": {"REST_WRIST_UNDER": 0.28, "EASE_AT": (11.9, (17.1, 0.3), 21.2, 34.95, 51.5, 55.4),
-                         "EASE_LEAD": 0.1, "EASE_ROT": 1.0, "ROT_LAG_ADD": 0.02}}  # (T sweep on c32bc150: his
+                         "EASE_LEAD": 0.1, "EASE_ROT": 1.0, "ROT_LAG_ADD": 0.02,
+                         "REST_HOLD": True}}  # (T sweep on c32bc150: his
 #   rest tented on its pads at 0.6 s with 0.2, none at 0.5; but 0.5 put the wrist in the desk box (seatkit's desk.wrist:
 #   forearm_clear - 0.3), so 0.28)
 #   EASE_AT: his whole-take snap arrivals on T (agent-08: l 11.9 17.1 34.7 35.2 51.5 55.4, r 21.2 35.2), all outside his
@@ -536,6 +537,9 @@ TUNE_OF: dict = {"him": {"REST_WRIST_UNDER": 0.28, "EASE_AT": (11.9, (17.1, 0.3)
 #   hand's turn by the wrist's stop there (his proxy: stopped turn worst 525 -> 272 deg/s, every row passes); ROT_LAG_ADD
 #   0.02: his turn a little further behind the arm elsewhere (lag_hand_ms on his TEST spans 29.8 on T, the 35 margin;
 #   his proxy TEST r 82 -> 103)
+#   REST_HOLD: his rest tented on its pads in the RENDER on T-d (f67 2.8 s, f182 7.6 s, gesture_w < 0.1: k_rest 0.9+
+#   left the wrist ~0.2 cm up, the rendered wrist a few mm over the track's) -> the heel held down in full at every rest
+#   (his proxy: 2.73 s heel 2.74 -> 2.52, the rest's; every row, lag and TEST unchanged)
 TORSO_OF = {"him": {"side_pad": 8.5, "gate": 0.5, "side_from": 9, "warn": True, "breast_r": 4.5, "breast_out": 4.0}}
 # side_from 9: agent-02's worst at arm_t 0.46. breast_r / breast_out: his chest, not her bust spheres (7.5 / 7.0): with
 #   hers his 3 cm front line lifted the elbows to 91 cm in his strokes (wings; his proxy: humerus_elev_high 77.6, 28
