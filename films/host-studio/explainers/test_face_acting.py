@@ -54,3 +54,11 @@ def test_his_smile_mouth_share_divided_by_his_speech_gain():
     him = [e for e in FA.plan("him")["expressions"] if e["name"] == "smile"][0]["preset"]
     assert abs(him["mouthCornerPull*"][0] * FA.MOUTH_GAIN["him"] - FA.RECIPES["duchenne"]["mouthCornerPull*"][0]) < 1e-9
     assert him["eyeCheekRaise*"] == FA.RECIPES["duchenne"]["eyeCheekRaise*"]
+
+
+def test_his_head_is_calmer_hers_unchanged():
+    import head as HP
+    his, hers = FA.plan("him")["nods"], FA.plan("her")["nods"]
+    assert his and max(n["depth_deg"] for n in his) <= 1.5
+    assert max(n["depth_deg"] for n in hers) == 3.0 and min(n["depth_deg"] for n in hers) == 2.5
+    assert HP.BEAT_EVERY.get("him") == 0 and HP.BEAT_EVERY.get("her", 2) == 2
