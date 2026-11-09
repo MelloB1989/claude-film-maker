@@ -232,6 +232,13 @@ hand, heel 3.72 against 3.34, lowest tip 0.75. Its track gesture_w is 0.075 at t
 interpolated (neighbours 0.075 / 0.208), so it is the start of a lift: EXCLUDED by the boundary rule, logged.
 rest_contact_rendered = 0. No other on-camera rest frame hovers or tents.
 
+**His finals build T11c (2144fc7e): GATE GO FOR FINALS (08:12), 0 FAIL.** Head gate PASS: drift 1.158, nods 5.37/min,
+on_lens 0.917, blink_nod 0.06, buzz 0.067, frozen 0.33 s, blinks 26.8/min, saccades 1.69/s, glances 5.37/min. hif MCU
+0.609 / CU 0.395 / WIDE 1.0. Rows whole + TEST pass (0 on-camera snaps); parity 0.506 / 0.386 / torso 0.177;
+rest_contact_rendered 0; body issues []; in sync; leaders, signs and head_state pass. His arms are gated by the
+orchestrator's eye (rows INFO). head_stages' anim-asset read (body 2.40) is diagnostic; the gate is head.py judge on the
+placed sequence.
+
 ## Verdicts
 
 ### Netflix v2b: REJECTED BY THE OPERATOR (07 Nov, about 23:45 IST). The SIGN below is SUPERSEDED.
