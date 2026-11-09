@@ -529,7 +529,7 @@ FALLBACK_CAMS = {"her": {"CAM_MCU": {"focal": 117.5, "pitch": -1.62}, "CAM_MCU_L
 #   his skeleton on box T (his rows can't be run off the box)
 TUNE_OF: dict = {"him": {"REST_WRIST_UNDER": 0.28, "EASE_AT": (11.9, (17.1, 0.3), 21.2, 34.95, 51.5, 55.4),
                          "EASE_LEAD": 0.1, "EASE_ROT": 1.0, "ROT_LAG_ADD": 0.02,
-                         "REST_HOLD": 0.3}}  # (T sweep on c32bc150: his
+                         "REST_HOLD": 0.2}}  # (T sweep on c32bc150: his
 #   rest tented on its pads at 0.6 s with 0.2, none at 0.5; but 0.5 put the wrist in the desk box (seatkit's desk.wrist:
 #   forearm_clear - 0.3), so 0.28)
 #   EASE_AT: his whole-take snap arrivals on T (agent-08: l 11.9 17.1 34.7 35.2 51.5 55.4, r 21.2 35.2), all outside his
@@ -542,6 +542,8 @@ TUNE_OF: dict = {"him": {"REST_WRIST_UNDER": 0.28, "EASE_AT": (11.9, (17.1, 0.3)
 #   3680e60b's full hold to gw 0.12 then smoothstep to 0.3 (True) let go too fast: new snaps on T-d (l 6.7 in shot 3's
 #   CU, 13.0; r 35.2, 39.5). 0.3: the lift's share g * smoothstep(g / 0.3), C1 into the plain g (proxy: rest heel max
 #   2.74 -> 2.55, the rest 2.52; every row, lag and TEST unchanged). r7/him_sweep.py's rest_heel row on the box decides
+#   (T-d sweep on his read, 84e46b3e: False heel 3.23, 6 frames over 2.84; True / 0.3 / 0.45 TEST snap fails; 0.2:
+#   TEST [], heel 2.74, 0 over, snaps base's + r 39.5 in gfx shot 11 (off camera): the orchestrator's pick, 07:40)
 TORSO_OF = {"him": {"side_pad": 8.5, "gate": 0.5, "side_from": 9, "warn": True, "breast_r": 4.5, "breast_out": 4.0}}
 # side_from 9: agent-02's worst at arm_t 0.46. breast_r / breast_out: his chest, not her bust spheres (7.5 / 7.0): with
 #   hers his 3 cm front line lifted the elbows to 91 cm in his strokes (wings; his proxy: humerus_elev_high 77.6, 28
