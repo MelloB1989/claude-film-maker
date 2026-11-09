@@ -119,6 +119,9 @@ def solve_mood(who: str, lid: str) -> tuple:
 
 # perform.py SPEECH_GAIN (his rig gives little mouth travel, r4): perf.face's speech_gain multiplies the mouth curves
 # (rig.MOUTH: mouth*, jaw*, ...) of the finished face, ours included, so a smile's mouth weights are divided by it
+# his head: the acting nods at half depth (09 Nov, T-d: head.drift_deg 2.668 against 1.5; head_stages put it on the
+# sync's face head; offline (perfkit.head.compose) the acting nods took his drift 0.6 -> 2.8 and the beat nods to 3.5)
+NOD_SCALE = {"him": 0.5}
 MOUTH_GAIN = {"him": 1.7}
 MID_SMILE = (0.4, 0.6)
 BASE_SMILE = (0.2, 0.4)
@@ -296,9 +299,9 @@ def plan(who: str, only: set | None = None) -> dict:
                     e["until"] = round(max(e["t"] + 0.3, min(e["until"], _next_word_t(cu, b["word"]["t1"]) + 0.6)), 3)
                 ev.append(e)
             elif k == "nod":
-                nods.append({"t": round(b["apex"] - 0.15, 3), "kind": "nod", "depth_deg": 2.5})
+                nods.append({"t": round(b["apex"] - 0.15, 3), "kind": "nod", "depth_deg": 2.5 * NOD_SCALE.get(who, 1.0)})
             elif k == "shake":
-                nods.append({"t": round(b["apex"] - 0.15, 3), "kind": "shake", "depth_deg": 3.0})
+                nods.append({"t": round(b["apex"] - 0.15, 3), "kind": "shake", "depth_deg": 3.0 * NOD_SCALE.get(who, 1.0)})
             elif k == "tilt":
                 deg = float(b["deg"] or 4.0) * (1.0 if (b["side"] or "R") == "R" else -1.0)
                 tilts.append({"t": round(b["apex"] - 0.25, 3), "until": round(b["apex"] + 0.95, 3), "roll_deg": deg,
