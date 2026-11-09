@@ -686,11 +686,15 @@ class Performer(S.Seater):
             l1, l2 = self.A[s]
             wrist, hp, pole, ws, _ = self.hand_targets(s, t, W)
             k_rest = max(1.0 - ws, 1.0 - self.gesture_w(s, t))  # at the pause rest or the speaking (desk) rest
-            if t < self.OPEN_HEEL_S or self.REST_HOLD:  # the opening lift (REST_HOLD: every rest's): the heel held fully down until the gesture is under way (his
+            if t < self.OPEN_HEEL_S or self.REST_HOLD is True:  # the opening lift: the heel held fully down until the gesture is under way (his
                 #   box T, 3c2adc79: at 0.6 s, gesture_w 0.09, 9 % of the lift was through: tented on the pads)
                 g0, g1 = self.OPEN_HEEL_GW
                 x = min(1.0, max(0.0, (self.gesture_w(s, t) - g0) / (g1 - g0)))
                 k_rest = max(k_rest, 1.0 - x * x * (3.0 - 2.0 * x))
+            elif self.REST_HOLD:  # every rest's edge: the lift's share g * smoothstep(g / REST_HOLD), C1 into the plain g
+                g = self.gesture_w(s, t)
+                x = min(1.0, g / self.REST_HOLD)
+                k_rest = max(k_rest, 1.0 - g * x * x * (3.0 - 2.0 * x))
             if k_rest > 0.0:  # (R7 hands) the heel of the palm down on the desk, not a hand tented on its pads
                 a_w = self.actor(wrist)
                 z_want = self.set.desk_top + self.sy.forearm_clear - self.REST_WRIST_UNDER
@@ -1717,7 +1721,8 @@ class Performer(S.Seater):
     OPEN_HEEL_S = 1.0  # s: the take's opening rest, its heel held down through the first lift ...
     OPEN_HEEL_GW = (0.12, 0.3)  # ... in full under the first gesture weight, handed back by the second (gate: < 0.1 = rest)
     REST_HOLD = False  # him (box T-d, rendered: tented at 2.8 / 7.6 s with gesture_w < 0.1, k_rest 0.9+ left the
-    #   wrist a few mm up): the heel held down in full at EVERY rest under OPEN_HEEL_GW's first weight, not only the opening
+    #   wrist a few mm up): a float g1 holds the heel at every rest's edge, the lift's share g * smoothstep(g / g1) (C1
+    #   into the plain g); True = the opening's hold at every rest (3680e60b: let go too fast, new snaps on T-d)
     REST_WRIST_UNDER = 0.2  # cm the resting wrist joint sits under the presenter's forearm_clear: the heel of the palm
     #   ON the desk (agent-02 on her mesh: heel down = the wrist joint 2.35 up; her forearm_clear 2.4 -> 2.2; his 2.8 ->
     #   2.6 until his mesh is measured). agent-13's tented line is the mesh's heel + 0.5 (2.9 for her)
