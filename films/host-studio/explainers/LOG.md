@@ -202,3 +202,4 @@ tested in `test_seatkit.py`), `gestures.json` (the emphasis gestures per line).
 | 18:45 | Orchestrator (via agent-07): her feet never seen, WIDE's empty right → SM_WalnutDesk_Panel, SM_FloorLamp (practical, SOCKET_Bulb), SM_FloorSnakePlant; all 7 FBX re-import at size; uploaded with all textures |
 | 2026-11-08 20:28 IST | agent-13 | r7 GATE OWNER (agent-09 rate-limited): branch fleet/agent-13/r7-gate off 178a28bf; agent-08 hand rows added (claw, DIP/PIP, fold_at_limit, cascade, thumb_flat/stiff, hold_over_collar; report hold_chest, claw_score); parity text time-matched; n/a-able move rows |
 | 2026-11-09 IST | agent-04 | gate owner (agent-13 rate-limited): fleet/agent-04/r7-gate off 95374c60; her r7I tabled: 1 FAIL (finger_snap 9.0), 5 rows not measured, torso parity 0.186 confirms the place-stage fix |
+| 2026-11-09 IST | agent-04 | gate: her composite B PASS (e180c10f); his T11c finals GO; his composite whatsapp_r6_r7fin PASS. Both films gated. |

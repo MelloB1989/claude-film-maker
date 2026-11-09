@@ -240,6 +240,12 @@ orchestrator's eye (rows INFO). head_stages' anim-asset read (body 2.40) is diag
 placed sequence. **The orchestrator's eye on fin_T11c (MCU f0 / f84, WIDE f450): PASS**: a clean grey tee (no band), a
 soft open palm, arms off the torso, the WIDE rest hand flat, the face alive. His ARMS GATE (by eye): PASS. Finals render.
 
+**His final composite (whatsapp_r6_r7fin; agent-11 and agent-06 on T-d, numbers only): GATE PASS, 0 FAIL.** -14.1 LUFS
+(err 0.1), TP -1.7, 1920x1080, 56.33 s, captions 157/157 words with onset 84 ms, facts 1, qc 1. comp_check: black 0,
+presenter-shot dups 0, A/V offset 0.0 ms (corr 1.0), A/V length 0.3 ms. Clearance vs his head (+-11 cm, projected): lower
+third 93 px (alpha > 32; 77 at > 8); panel cards 358 / 402 / 400 px (shots 4 / 8 / 12). Stills f48 / f226 / f690 / f1060
+are with the orchestrator.
+
 ## Verdicts
 
 ### Netflix v2b: REJECTED BY THE OPERATOR (07 Nov, about 23:45 IST). The SIGN below is SUPERSEDED.
