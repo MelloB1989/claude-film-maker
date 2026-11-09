@@ -8,7 +8,7 @@ ON THE BOX (it never leaves the box; this prints only the rows and the times the
 A variant is NAME=VALUE[,NAME=VALUE...] (Performer class attributes; G.NAME sets a gesturekit module constant), or
 'base'. Each prints: the FAIL rows (whole take, and the TEST spans with --spans), the right/left hand-minus-upper-arm
 lag (median ms) with the 4 segments that lead most (time, ms), the snaps' times per hand, the rest_contact frames'
-times (tips_only: tented on the pads, else hovering), palm_to_camera's times.
+times (tips_only: tented on the pads, else hovering), palm_to_camera's times, the resting wrist's highest point.
 """
 from __future__ import annotations
 
@@ -57,6 +57,26 @@ def apply(var: str) -> list:
                 old.append((tune, name, tune[name]))
                 tune[name] = getattr(tgt, name)
     return old
+
+
+def rest_heel(tk: "N.Take") -> str:
+    """the resting hands' (gesture_w < 0.1, on camera, over the desk) highest wrist head over the desk top (cm), its
+    time and hand, and how many such frames come within 0.5 cm of the presenter's REST_HEEL (the render sat a few mm
+    over the track on T-d: a track at the line - 0.5 is the margin)."""
+    line = N.REST_HEEL.get(tk.d.get("who", ""), N.REST_HEEL_CM)
+    best, near = (None, None, None), 0
+    for i, f in enumerate(tk.F):
+        if not tk._oncam(i):
+            continue
+        for s in "lr":
+            P = f["p"]
+            if f["gesture_w"][s] >= 0.1 or P["hand_" + s][0] < N.DESK_NEAR:
+                continue
+            h = P["hand_" + s][2] - N.DESK_TOP
+            near += h > line - 0.5
+            if best[0] is None or h > best[0]:
+                best = (round(h, 2), round(f["t"], 2), s)
+    return f"rest_heel max {best[0]} at {best[1]} {best[2]} (line {line}), {near} frames over line-0.5"
 
 
 def seg_lag(tk: "N.Take", s: str) -> list:
@@ -127,7 +147,7 @@ def main() -> None:
                 line += [f"lag r {lg['r']:.1f} l {lg['l']:.1f} r_lead {worst}",
                          f"snaps l {rep['snaps']['l']['t']} r {rep['snaps']['r']['t']}",
                          f"rest_contact {rc['frames']} (tips_only {rc['tips_only']}) {rc['t']}",
-                         f"palm_cam {rep['palm_cam']['t']}"]
+                         f"palm_cam {rep['palm_cam']['t']}", rest_heel(tk)]
         print(" | ".join(line), flush=True)
         if a.why:
             tk = N.Take(doc)
