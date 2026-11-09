@@ -237,7 +237,8 @@ on_lens 0.917, blink_nod 0.06, buzz 0.067, frozen 0.33 s, blinks 26.8/min, sacca
 0.609 / CU 0.395 / WIDE 1.0. Rows whole + TEST pass (0 on-camera snaps); parity 0.506 / 0.386 / torso 0.177;
 rest_contact_rendered 0; body issues []; in sync; leaders, signs and head_state pass. His arms are gated by the
 orchestrator's eye (rows INFO). head_stages' anim-asset read (body 2.40) is diagnostic; the gate is head.py judge on the
-placed sequence.
+placed sequence. **The orchestrator's eye on fin_T11c (MCU f0 / f84, WIDE f450): PASS**: a clean grey tee (no band), a
+soft open palm, arms off the torso, the WIDE rest hand flat, the face alive. His ARMS GATE (by eye): PASS. Finals render.
 
 ## Verdicts
 
